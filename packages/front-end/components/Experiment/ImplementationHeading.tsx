@@ -6,6 +6,7 @@ import Text, { TextProps } from "@/ui/Text";
 export default function ImplementationHeading({
   children,
   action,
+  subtext,
   inList = false,
   mt = "4",
   mb = "2",
@@ -13,19 +14,30 @@ export default function ImplementationHeading({
   children: ReactNode;
   // Right-aligned on the heading's line.
   action?: ReactNode;
+  // A muted line under the label.
+  subtext?: ReactNode;
   // In a list whose gap already spaces it: pulled up under that gap instead.
   inList?: boolean;
   mt?: TextProps["mt"];
   mb?: TextProps["mb"];
 }) {
-  const label = (
+  const heading = (
     <Text as="div" weight="medium" color="text-low" textTransform="uppercase">
       {children}
     </Text>
   );
+  const label = subtext ? (
+    <Flex direction="column" gap="1">
+      {heading}
+      {subtext}
+    </Flex>
+  ) : (
+    heading
+  );
   return (
     <Flex
-      align="center"
+      // With a subtext, the action sits on its line, at the bottom.
+      align={subtext ? "end" : "center"}
       justify="between"
       gap="3"
       mt={inList ? "2" : mt}

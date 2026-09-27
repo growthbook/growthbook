@@ -73,6 +73,7 @@ import {
 } from "back-end/src/services/audit";
 import {
   getAllFeatures,
+  getFeaturePreviousIds,
   hasNonDemoFeature,
 } from "back-end/src/models/FeatureModel";
 import {
@@ -368,10 +369,15 @@ export async function getHistory(
     context.permissions.throwPermissionError();
   }
 
+  // A renamed flag's history includes what was recorded under its old ids.
+  const previousIds =
+    type === "feature" ? await getFeaturePreviousIds(context, id) : [];
+  const ids = previousIds.length ? [id, ...previousIds] : id;
+
   // Get total count for display
   const [entityCount, parentCount] = await Promise.all([
-    countAuditByEntity(org.id, type, id),
-    countAuditByEntityParent(org.id, type, id),
+    countAuditByEntity(org.id, type, ids),
+    countAuditByEntityParent(org.id, type, ids),
   ]);
   const total = entityCount + parentCount;
 
@@ -383,7 +389,7 @@ export async function getHistory(
     findAuditByEntity(
       org.id,
       type,
-      id,
+      ids,
       {
         limit: fetchLimit,
         sort: { dateCreated: -1 },
@@ -393,7 +399,7 @@ export async function getHistory(
     findAuditByEntityParent(
       org.id,
       type,
-      id,
+      ids,
       {
         limit: fetchLimit,
         sort: { dateCreated: -1 },

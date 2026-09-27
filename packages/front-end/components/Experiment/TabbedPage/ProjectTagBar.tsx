@@ -3,7 +3,10 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  HoldoutInterfaceStringDates,
+  ImplementationType,
+} from "shared/validators";
 import { getImplementationType, isAnalysisOnly } from "shared/util";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Text from "@/ui/Text";
@@ -14,6 +17,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import {
+  ManagedFlagLink,
+  ManagedFlagRenameButton,
+} from "@/components/Experiment/ManagedFlagName";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
@@ -21,8 +28,10 @@ import { getHealthStateFromDetailedStatus } from "@/services/experiments";
 import ProjectBadges from "@/components/ProjectBadges";
 
 export interface Props {
-  /** The experiment owns a managed Feature Flag. */
-  isManaged?: boolean;
+  /** The managed Feature Flag the experiment owns, if any. */
+  managedFlagId?: string | null;
+  /** An implementation type staged for the page's Save, shown in place of the stored one. */
+  stagedImplementationType?: ImplementationType | null;
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
   /**
@@ -47,7 +56,8 @@ const empty = (label = "None") => (
 export default function ProjectTagBar({
   experiment,
   holdout,
-  isManaged,
+  managedFlagId = null,
+  stagedImplementationType = null,
   panel,
   fieldAction,
 }: Props) {
@@ -76,9 +86,11 @@ export default function ProjectTagBar({
     : statusIndicator.detailedStatus;
   const isHoldout = experiment.type === "holdout";
   // Experiments adopted before the type was stored only carry the flag's marker.
-  const implementationType = isManaged
-    ? "values"
-    : getImplementationType(experiment);
+  const implementationType = stagedImplementationType
+    ? stagedImplementationType
+    : managedFlagId
+      ? "values"
+      : getImplementationType(experiment);
 
   if (panel === "details") {
     return (
@@ -97,6 +109,16 @@ export default function ProjectTagBar({
             }
           />
         )}
+        {!isHoldout && implementationType === "values" && managedFlagId ? (
+          <Metadata
+            size="sm"
+            stacked
+            label="Managed flag"
+            actionPlacement="value"
+            action={<ManagedFlagRenameButton featureId={managedFlagId} />}
+            value={<ManagedFlagLink featureId={managedFlagId} />}
+          />
+        ) : null}
         {!isHoldout && useStickyBucketing && !isAnalysisOnly(experiment) ? (
           <Metadata
             size="sm"

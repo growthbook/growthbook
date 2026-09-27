@@ -135,9 +135,15 @@ import {
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import {
   BadRequestError,
+  ConflictError,
+  FeatureKeyTakenError,
   getErrorMessage,
   NotFoundError,
 } from "back-end/src/util/errors";
+import {
+  getCollection,
+  isDuplicateKeyError,
+} from "back-end/src/util/mongo.util";
 import { logger } from "back-end/src/util/logger";
 import {
   applyFeatureContextualBanditLinkage,
@@ -249,9 +255,23 @@ const featureSchema = new mongoose.Schema({
   // Mixed: the discriminator key is named `type`, which Mongoose would read as
   // a SchemaType declaration rather than a path.
   managedBy: {},
+  // Declared so toJSON keeps them; both are written only by a managed-flag
+  // rename (services/featureRename).
+  previousIds: { type: [String], default: undefined },
+  renaming: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
+// Resolves an old key after a rename; only renamed flags carry previousIds.
+featureSchema.index(
+  { organization: 1, previousIds: 1 },
+  { partialFilterExpression: { previousIds: { $exists: true } } },
+);
+// An id a rename is still moving away from stays reserved; see featureIdExists.
+featureSchema.index(
+  { organization: 1, "renaming.from": 1 },
+  { partialFilterExpression: { "renaming.from": { $exists: true } } },
+);
 featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
 // Partial: managed flags only.
@@ -764,16 +784,135 @@ export async function getFeature(
 }
 
 // Not permission-filtered: the unique index is org-wide, so a key held by an
-// unreadable feature is still taken.
+// unreadable feature is still taken. So is one a rename is still moving
+// references away from: a flag created under it would have them moved too.
 export async function featureIdExists(
   context: ReqContext | ApiReqContext,
   id: string,
 ): Promise<boolean> {
   const count = await FeatureModel.countDocuments({
     organization: context.org.id,
-    id,
+    $or: [{ id }, { "renaming.from": id }],
   });
   return count > 0;
+}
+
+// A flag renamed away from `id` stops reading history and code references
+// under it once another flag holds it.
+async function releasePreviousId(organization: string, id: string) {
+  await getCollection<{
+    organization: string;
+    id: string;
+    previousIds?: string[];
+  }>("features").updateMany(
+    { organization, previousIds: id, id: { $ne: id } },
+    { $pull: { previousIds: id } },
+  );
+}
+
+/** The ids a renamed feature used to have; empty for one never renamed. */
+export async function getFeaturePreviousIds(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<string[]> {
+  const doc = await FeatureModel.findOne(
+    { organization: context.org.id, id },
+    { previousIds: 1 },
+  ).lean();
+  return doc?.previousIds ?? [];
+}
+
+/** The current id of the flag that was renamed away from `previousId`. */
+export async function getFeatureIdByPreviousId(
+  context: ReqContext | ApiReqContext,
+  previousId: string,
+): Promise<string | null> {
+  const doc = await FeatureModel.findOne(
+    { organization: context.org.id, previousIds: previousId },
+    { id: 1 },
+  ).lean();
+  return doc?.id ?? null;
+}
+
+/**
+ * The decisive write of a rename: moves the feature to its new id and marks
+ * the references still naming the old one. The unique index refuses an id
+ * taken since it was checked.
+ */
+export async function claimFeatureRename(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  to: string,
+): Promise<NonNullable<FeatureInterface["renaming"]>> {
+  const stamp = advancedGuardStamp(feature.dateUpdated);
+  try {
+    const result = await FeatureModel.collection.updateOne(
+      {
+        organization: context.org.id,
+        id: feature.id,
+        "managedBy.type": "experiment",
+        dateUpdated: feature.dateUpdated,
+      },
+      {
+        $set: {
+          id: to,
+          renaming: { from: feature.id, to, claimedAt: stamp },
+          dateUpdated: stamp,
+        },
+        $addToSet: { previousIds: feature.id },
+      },
+    );
+    if (!result.matchedCount) {
+      throw new ConflictError(
+        "This Feature Flag changed while you were editing it. Reload and try again.",
+      );
+    }
+  } catch (e) {
+    if (!isDuplicateKeyError(e)) throw e;
+    throw new FeatureKeyTakenError(`Feature Flag "${to}" already exists.`, {
+      featureKey: to,
+      suggestedTrackingKey: null,
+      suggestedFeatureKey: null,
+    });
+  }
+  await releasePreviousId(context.org.id, to);
+  return { from: feature.id, to, claimedAt: stamp };
+}
+
+/** Records that the new id's leftovers are gone, so a resume won't clear again. */
+export async function markFeatureRenameCleaned(
+  context: ReqContext | ApiReqContext,
+  { from, to }: { from: string; to: string },
+): Promise<void> {
+  await FeatureModel.collection.updateOne(
+    {
+      organization: context.org.id,
+      id: to,
+      "renaming.from": from,
+      "renaming.to": to,
+    },
+    { $set: { "renaming.cleaned": true } },
+  );
+}
+
+/**
+ * Ends a rename once every reference names the new id. A flag renamed back to
+ * an old id no longer lists it as previous.
+ */
+export async function finishFeatureRename(
+  context: ReqContext | ApiReqContext,
+  { from, to }: { from: string; to: string },
+): Promise<void> {
+  await FeatureModel.collection.updateOne(
+    {
+      organization: context.org.id,
+      id: to,
+      "renaming.from": from,
+      "renaming.to": to,
+    },
+    { $unset: { renaming: "" }, $pull: { previousIds: to } },
+  );
+  await releasePreviousId(context.org.id, to);
 }
 
 export async function migrateDraft(
@@ -992,9 +1131,13 @@ export async function createFeature(
 
   const linkedExperiments = getLinkedExperiments(data);
 
+  // Only a rename sets these; a new flag never inherits them from a copy.
   const featureToCreate = normalizeFeatureJSONValues(
     { valueType: data.valueType },
-    buildFeatureUpdate({ ...data, linkedExperiments }),
+    buildFeatureUpdate({
+      ...omit(data, ["previousIds", "renaming"]),
+      linkedExperiments,
+    }),
   );
 
   await assertFeatureSavedGroupScope(context, data);
@@ -1034,7 +1177,19 @@ export async function createFeature(
     original: null,
   });
 
+  if (
+    await FeatureModel.exists({
+      organization: org.id,
+      "renaming.from": data.id,
+    })
+  ) {
+    throw new BadRequestError(
+      `Feature Flag key "${data.id}" isn't available right now. Try again in a moment.`,
+    );
+  }
+
   const feature = await FeatureModel.create(featureToCreate);
+  await releasePreviousId(org.id, feature.id);
 
   // Historically, we haven't properly removed revisions when deleting a feature
   // So, clean up any conflicting revisions first before creating a new one

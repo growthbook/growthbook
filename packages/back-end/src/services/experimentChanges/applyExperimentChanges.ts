@@ -41,6 +41,7 @@ import {
   requestReviewForManagedDraft,
   stageManagedFeatureFields,
   ensureManagedFlagForExperiment,
+  getManagedFeatureForExperiment,
 } from "back-end/src/services/managedFeatures";
 import {
   assertValidRuleWrite,
@@ -54,6 +55,10 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import {
+  assertManagedFlagRenamable,
+  renameManagedFlag,
+} from "back-end/src/services/featureRename/renameManagedFlag";
 import {
   ExperimentUpdatePlan,
   finishExperimentUpdate,
@@ -472,6 +477,20 @@ export async function applyExperimentChanges({
   const flagPlans = body.flagValues?.length
     ? await planFlagValues(context, experiment, experimentPlan, body.flagValues)
     : [];
+  if (body.renameManagedFlag) {
+    // Leaving Values deletes or releases the flag the rename would move.
+    if (experimentPlan?.releaseManagedFlagFor) {
+      throw new BadRequestError(
+        "Change the implementation type or rename the Feature Flag, not both in one save.",
+      );
+    }
+    await assertManagedFlagRenamableUpFront(
+      context,
+      experiment,
+      body,
+      body.renameManagedFlag.to,
+    );
+  }
 
   const compensations: Compensation[] = [];
   const flags: ExperimentChangesResult["flags"] = [];
@@ -519,6 +538,7 @@ export async function applyExperimentChanges({
       plan: experimentPlan,
       audit,
       guard: { dateUpdated: fresh.dateUpdated },
+      acknowledgeFlagRemoval: body.deleteManagedFlag === true,
     });
   } catch (e) {
     const failed = await compensate(context, compensations);
@@ -598,13 +618,50 @@ async function finishFlags({
     body.linkFeatures?.length || body.unlinkFeatures?.length
       ? ((await getExperimentById(context, experiment.id)) ?? experiment)
       : experiment;
-  return healManagedFlag({
+  const healed = await healManagedFlag({
     context,
     experiment: linked,
     values: body.managedFlag,
     eventAudit,
     audit,
   });
+  if (!body.renameManagedFlag) return healed;
+  const feature = await getManagedFeatureForExperiment(context, healed);
+  if (!feature) {
+    throw new BadRequestError(
+      "This experiment does not manage a Feature Flag.",
+    );
+  }
+  await renameManagedFlag({
+    context,
+    experiment: healed,
+    feature,
+    to: body.renameManagedFlag.to,
+    audit,
+  });
+  return (await getExperimentById(context, healed.id)) ?? healed;
+}
+
+// Refuses before anything is written; the rename itself checks again.
+async function assertManagedFlagRenamableUpFront(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  body: ExperimentChangesBody,
+  to: string,
+) {
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  if (!feature) {
+    throw new BadRequestError(
+      "This experiment does not manage a Feature Flag.",
+    );
+  }
+  if (to === feature.id) return;
+  if (body.unlinkFeatures?.includes(feature.id)) {
+    throw new BadRequestError(
+      "Unlink the Feature Flag or rename it, not both in one save.",
+    );
+  }
+  await assertManagedFlagRenamable(context, experiment, feature, to);
 }
 
 // A Values experiment missing its flag gets one on its next save, with the

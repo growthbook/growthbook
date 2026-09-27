@@ -61,6 +61,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
 import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
+import { ManagedFlagNote } from "@/components/Experiment/ManagedFlagName";
 import { ActionsOverlay } from "@/components/Features/CornerActions";
 import {
   blockedExperimentValueTypes,
@@ -181,7 +182,10 @@ export default function FlagValueRows({
     [pendingManagedFlag, experiment],
   );
 
-  if ((!linkedFeatures.length && !pendingInfo) || !variations.length) {
+  if (
+    (!linkedFeatures.length && !pendingInfo && !onAddFlag) ||
+    !variations.length
+  ) {
     return null;
   }
 
@@ -216,7 +220,7 @@ export default function FlagValueRows({
           flagEnvironments={flagEnvironments}
         />
       ))}
-      {linkedFlags.length ? (
+      {linkedFlags.length || onAddFlag ? (
         <ImplementationHeading inList>Feature Flags</ImplementationHeading>
       ) : null}
       {linkedFlags.map((info) => (
@@ -774,6 +778,8 @@ function FlagValueRow({
       {managed ? (
         <ImplementationHeading
           inList
+          // Not created until the page saves, so there's no key to show yet.
+          subtext={pending ? null : <ManagedFlagNote featureId={feature.id} />}
           action={
             <Flex align="center" gap="1">
               <Text size="sm" color="text-low">

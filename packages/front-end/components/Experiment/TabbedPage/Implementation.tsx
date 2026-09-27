@@ -12,6 +12,7 @@ import { FeatureInterface } from "shared/types/feature";
 import {
   experimentHasLiveLinkedChanges,
   getImplementationType,
+  isManagedByExperiment,
 } from "shared/util";
 import { getActivePhaseIndex } from "shared/experiments";
 import { Flex, Separator } from "@radix-ui/themes";
@@ -43,11 +44,14 @@ import HoldoutEnvironments from "./HoldoutEnvironments";
 import {
   experimentFieldChanges,
   FlagEnvironmentsDraft,
+  ImplementationTypeDraft,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  /** The page's staged implementation type; this section renders as if saved. */
+  implementationTypeDraft?: ImplementationTypeDraft;
   holdout?: HoldoutInterfaceStringDates;
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];
@@ -71,7 +75,8 @@ export interface Props {
 }
 
 export default function Implementation({
-  experiment,
+  experiment: storedExperiment,
+  implementationTypeDraft,
   holdout,
   holdoutExperiments,
   holdoutFeatures,
@@ -88,11 +93,45 @@ export default function Implementation({
   setFeatureModal,
   setVisualEditorModal,
   setUrlRedirectModal,
-  linkedFeatures,
+  linkedFeatures: storedLinkedFeatures,
   envs,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
 }: Props) {
+  const stagedType = implementationTypeDraft?.value?.type;
+  const managedId =
+    storedLinkedFeatures.find((f) =>
+      isManagedByExperiment(f.feature, storedExperiment.id),
+    )?.feature.id ?? null;
+  // A staged type that deletes the managed flag hides it until the save.
+  const hidesManagedFlag =
+    !!managedId &&
+    !!stagedType &&
+    stagedType !== "values" &&
+    stagedType !== "feature";
+  // Linkages decide a derived type, so the flag leaves them too.
+  const experiment = useMemo(
+    () =>
+      stagedType
+        ? {
+            ...storedExperiment,
+            implementationType: stagedType,
+            ...(hidesManagedFlag && {
+              linkedFeatures: (storedExperiment.linkedFeatures ?? []).filter(
+                (id) => id !== managedId,
+              ),
+            }),
+          }
+        : storedExperiment,
+    [storedExperiment, stagedType, hidesManagedFlag, managedId],
+  );
+  const linkedFeatures = useMemo(
+    () =>
+      hidesManagedFlag
+        ? storedLinkedFeatures.filter((f) => f.feature.id !== managedId)
+        : storedLinkedFeatures,
+    [storedLinkedFeatures, hidesManagedFlag, managedId],
+  );
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
   const [editMetadataIndex, setEditMetadataIndex] = useState<number | null>(
@@ -197,10 +236,11 @@ export default function Implementation({
 
   // The value rows above already show every flag, managed or linked, so the
   // box below is only for redirects, visual changes and choosing a type.
+  // A Feature Flag experiment with none yet offers adding one there too.
   const flagsShownAbove =
     isManaged ||
     implementationType === "values" ||
-    (linkedFeatures.length > 0 &&
+    ((linkedFeatures.length > 0 || implementationType === "feature") &&
       !experiment.hasVisualChangesets &&
       !experiment.hasURLRedirects);
 
@@ -294,10 +334,12 @@ export default function Implementation({
             // goes through review.
             canEditFlagValues={canEditExperiment}
             addFeatureFlag={
+              // The stored type: adding a flag writes at once, so it can't
+              // follow a type that is only staged.
               canAddLinkedChanges &&
               !isManaged &&
-              implementationType === "feature" &&
-              linkedFeatures.length > 0
+              !stagedType &&
+              getImplementationType(storedExperiment) === "feature"
                 ? () => setFeatureModal(true)
                 : null
             }
@@ -326,6 +368,11 @@ export default function Implementation({
             setVisualEditorModal={setVisualEditorModal}
             setFeatureModal={setFeatureModal}
             setUrlRedirectModal={setUrlRedirectModal}
+            implementationTypeDraft={implementationTypeDraft}
+            saved={{
+              experiment: storedExperiment,
+              linkedFeatures: storedLinkedFeatures,
+            }}
           />
         ) : null}
 

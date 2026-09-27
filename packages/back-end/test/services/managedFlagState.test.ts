@@ -100,7 +100,8 @@ describe("getManagedFlagState", () => {
       allEnvironments: false,
       pending: null,
       adoption: {
-        blocker: "Only a draft experiment can start managing a Feature Flag.",
+        blocker:
+          "Only a draft experiment can start managing a Feature Flag. Set the experiment's status back to Draft first.",
         derivedKey: "checkout-test",
         derivedKeyAvailable: true,
         suggestedTrackingKey: null,

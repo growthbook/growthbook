@@ -7,6 +7,7 @@ import {
   isManagedByExperiment,
   checkIfRevisionNeedsReview,
   featureKeyFormatError,
+  FEATURE_KEY_PATTERN,
   getImplementationType,
   managedFeatureKeyCandidate,
   mergeResultHasChanges,
@@ -90,6 +91,7 @@ import {
 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { logger } from "back-end/src/util/logger";
+import { resumeFeatureRename } from "back-end/src/services/featureRename/renameManagedFlag";
 import {
   assessRevisionApprovalForAutoPublish,
   ExperimentFeatureLinkResult,
@@ -191,8 +193,6 @@ type CreateManagedFeatureInput = {
   audit: (data: AuditInterfaceInput) => Promise<void>;
 };
 
-const FEATURE_KEY_PATTERN = /^[a-zA-Z0-9_.:|-]+$/;
-
 // Unfiltered: an unreadable feature is still linked.
 export async function staleLinkedFeatureIds(
   context: ReqContext | ApiReqContext,
@@ -218,7 +218,7 @@ export async function managedFlagAdoptionBlocker(
 ): Promise<string | null> {
   if (experiment.archived) return "This experiment is archived.";
   if (experiment.status !== "draft") {
-    return "Only a draft experiment can start managing a Feature Flag.";
+    return "Only a draft experiment can start managing a Feature Flag. Set the experiment's status back to Draft first.";
   }
   if (experiment.hasVisualChangesets) {
     return "This experiment already has Visual Editor changes.";
@@ -663,7 +663,10 @@ export function ownsManagedFlag(
   );
 }
 
-/** Creates the managed flag for a Values experiment that lacks one. */
+/**
+ * Creates the managed flag for a Values experiment that lacks one, and
+ * finishes a rename of it that stopped partway.
+ */
 export async function ensureManagedFlagForExperiment({
   context,
   experiment,
@@ -678,11 +681,21 @@ export async function ensureManagedFlagForExperiment({
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<ExperimentInterface> {
-  if (
-    !ownsManagedFlag(experiment) ||
-    (await getManagedFeatureForExperiment(context, experiment)) ||
-    (await managedFlagAdoptionBlocker(context, experiment))
-  ) {
+  if (!ownsManagedFlag(experiment)) return experiment;
+  const managed = await getManagedFeatureForExperiment(context, experiment);
+  if (managed?.renaming) {
+    // Retried on the next save; the save itself has already landed.
+    try {
+      await resumeFeatureRename(context, managed);
+    } catch (e) {
+      logger.error(
+        { err: e, featureId: managed.id },
+        "Could not finish renaming a managed Feature Flag",
+      );
+    }
+    return (await getExperimentById(context, experiment.id)) ?? experiment;
+  }
+  if (managed || (await managedFlagAdoptionBlocker(context, experiment))) {
     return experiment;
   }
   await createManagedFlagForNewExperiment({
@@ -1466,7 +1479,7 @@ export async function removeManagedFeatureForExperiment(
   }
   if (experiment.status !== "draft") {
     throw new BadRequestError(
-      "The managed Feature Flag can only be removed while the experiment is a draft.",
+      "The managed Feature Flag can only be removed while the experiment is a draft. Set its status back to Draft first.",
     );
   }
   if (

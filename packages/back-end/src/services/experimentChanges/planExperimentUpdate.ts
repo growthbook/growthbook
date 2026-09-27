@@ -668,12 +668,15 @@ export async function writeExperimentUpdatePlan({
   plan,
   audit,
   guard,
+  acknowledgeFlagRemoval = context.ignoreWarnings,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
   plan: ExperimentUpdatePlan;
   audit: (data: AuditInterfaceInput) => Promise<void>;
   guard?: Record<string, unknown>;
+  /** Consent to deleting the managed flag when leaving Values. */
+  acknowledgeFlagRemoval?: boolean;
 }): Promise<{ experiment: ExperimentInterface; updated: ExperimentInterface }> {
   const { changes, releaseManagedFlagFor, holdout } = plan;
 
@@ -684,7 +687,7 @@ export async function writeExperimentUpdatePlan({
       experiment,
       next: releaseManagedFlagFor,
       audit,
-      acknowledged: context.ignoreWarnings,
+      acknowledged: acknowledgeFlagRemoval,
     });
   }
   if (holdout.remove) {

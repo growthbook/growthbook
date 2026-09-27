@@ -34,7 +34,11 @@ import {
 import { featureManagedByValidator } from "./managed-by";
 
 import { namedSchema } from "./openapi-helpers";
-import { experimentAnalysisSettingsDraft, variation } from "./experiments";
+import {
+  experimentAnalysisSettingsDraft,
+  implementationType,
+  variation,
+} from "./experiments";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -832,6 +836,21 @@ export const featureInterface = z
     // exclusively from that experiment's page. Every direct write path refuses
     // while it's set; see `assertFeatureNotManaged`.
     managedBy: featureManagedByValidator.optional(),
+    // Keys this flag was known by before a rename, oldest first. Only managed
+    // flags can be renamed; history and code refs still find the old keys.
+    previousIds: z.array(z.string()).optional(),
+    // Present while a rename's cascade is still rewriting references to
+    // `from`; the next rename of this flag finishes it first.
+    // Set by a rename until every reference has moved; `cleaned` once the
+    // new id's leftovers from a deleted flag are gone.
+    renaming: z
+      .object({
+        from: z.string(),
+        to: z.string(),
+        claimedAt: z.date(),
+        cleaned: z.boolean().optional(),
+      })
+      .optional(),
   })
   .strict();
 
@@ -2199,6 +2218,8 @@ export const experimentChangesFields = experimentAnalysisSettingsDraft
     hypothesis: z.string(),
     variations: z.array(variation),
     variationWeights: z.array(z.number()),
+    // A managed flag is converted, deleted or created to match, as the save lands.
+    implementationType: z.enum(implementationType),
   })
   .partial()
   .strict();
@@ -2253,6 +2274,8 @@ export const experimentChangesBody = z
       .optional(),
     // Flags to unlink from the experiment.
     unlinkFeatures: z.array(z.string()).optional(),
+    // Consents to deleting the managed flag when the save leaves Values.
+    deleteManagedFlag: z.boolean().optional(),
     // Values for the experiment's own Feature Flag when it has none yet; the
     // save creates the flag with them.
     managedFlag: z
@@ -2263,6 +2286,8 @@ export const experimentChangesBody = z
       })
       .strict()
       .optional(),
+    // A new id for the experiment's own Feature Flag, applied last.
+    renameManagedFlag: z.object({ to: z.string() }).strict().optional(),
   })
   .strict();
 export type ExperimentChangesBody = z.infer<typeof experimentChangesBody>;

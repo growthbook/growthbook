@@ -9,6 +9,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getImplementationType, isManagedByExperiment } from "shared/util";
 import { Flex, type AvatarProps } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
+import { ImplementationTypeDraft } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import ChangeImplementationTypeModal, {
   implementationTypeLockedReason,
 } from "@/components/Experiment/ChangeImplementationTypeModal";
@@ -43,6 +44,8 @@ export default function LinkedChanges({
   setVisualEditorModal,
   setFeatureModal,
   setUrlRedirectModal,
+  implementationTypeDraft,
+  saved,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -57,6 +60,13 @@ export default function LinkedChanges({
   setVisualEditorModal?: (state: boolean) => void;
   setFeatureModal?: (state: boolean) => void;
   setUrlRedirectModal?: (state: boolean) => void;
+  /** The page's staged implementation type, which the type chooser edits. */
+  implementationTypeDraft?: ImplementationTypeDraft;
+  /** The experiment as stored, which the type chooser compares against. */
+  saved?: {
+    experiment: ExperimentInterfaceStringDates;
+    linkedFeatures: LinkedFeatureInfo[];
+  };
 }) {
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
@@ -109,12 +119,18 @@ export default function LinkedChanges({
           )}
         </Flex>
       </Flex>
-      {changingType && mutate && (
+      {changingType && implementationTypeDraft && (
         <ChangeImplementationTypeModal
-          experiment={experiment}
-          managedFeature={managedFeature}
+          experiment={saved?.experiment ?? experiment}
+          managedFeature={
+            saved
+              ? (saved.linkedFeatures.find((f) =>
+                  isManagedByExperiment(f.feature, experiment.id),
+                ) ?? null)
+              : managedFeature
+          }
+          draft={implementationTypeDraft}
           close={() => setChangingType(false)}
-          mutate={mutate}
         />
       )}
       {isPublic ? (

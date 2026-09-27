@@ -23,6 +23,10 @@ import {
 } from "back-end/src/services/managedFeatures";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
+  featureIdExists,
+  getFeatureIdByPreviousId,
+} from "back-end/src/models/FeatureModel";
+import {
   commitBulkPublish,
   planBulkPublish,
 } from "back-end/src/revisions/bulkPublish/bulkPublish";
@@ -147,6 +151,13 @@ export const postReleasePublishRevisions = createApiRequestHandler(
             req.organization.id,
             revisionId,
           ));
+        // A tuple id names the flag's id when it was minted; a renamed flag
+        // answers to it through its previous ids.
+        if (coords && !(await featureIdExists(req.context, coords.featureId))) {
+          coords.featureId =
+            (await getFeatureIdByPreviousId(req.context, coords.featureId)) ??
+            coords.featureId;
+        }
         if (coords) {
           callerId = coords.featureId;
           entityId = coords.featureId;

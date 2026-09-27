@@ -22,6 +22,24 @@ export type ManagedFlagKeyPlan = {
   regexError: string | null;
 };
 
+/** Why a managed flag can't be renamed to a key. */
+export type ManagedFlagRenameBlocker = {
+  reason: "taken" | "format" | "state";
+  message: string;
+};
+
+/** What the rename dialog shows before a key is saved. */
+export type ManagedFlagKeyCheck = {
+  /** The id the Experiment Key derives, which the flag would ideally carry. */
+  derivedId: string;
+  /** Why the flag can't carry `derivedId`; null when it can or already does. */
+  derivedIdBlocker: ManagedFlagRenameBlocker | null;
+  /** Why the flag can't take the key that was checked; null when it can. */
+  blocker: ManagedFlagRenameBlocker | null;
+  /** Why the flag can't be renamed to any key right now. */
+  stateBlocker: ManagedFlagRenameBlocker | null;
+};
+
 export function isManagedFeature(
   feature: Pick<FeatureInterface, "managedBy">,
 ): boolean {
@@ -140,11 +158,17 @@ export function managedFeatureKeyCandidate({
   return attempt === 0 ? base : `${base}-${attempt + 1}`;
 }
 
-/** Why the org's Feature Flag key format rejects `featureId`, or null when it passes. */
+/** The characters every Feature Flag key is limited to. */
+export const FEATURE_KEY_PATTERN = /^[a-zA-Z0-9_.:|-]+$/;
+
+/** Why `featureId` isn't a valid Feature Flag key for the org, or null when it is. */
 export function featureKeyFormatError(
   featureId: string,
   regexValidator: string | null | undefined,
 ): string | null {
+  if (!FEATURE_KEY_PATTERN.test(featureId)) {
+    return "Feature Flag keys can only include letters, numbers, and the characters _-.:|";
+  }
   if (!regexValidator || new RegExp(regexValidator).test(featureId)) {
     return null;
   }

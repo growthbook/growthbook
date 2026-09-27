@@ -9,6 +9,8 @@ import {
   getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
   isDefined,
+  managedFeatureKeyCandidate,
+  type ManagedFlagKeyCheck,
   type ManagedFlagKeyPlan,
   type ExperimentLinkageBlocker,
   type LinkedChangesResolution,
@@ -170,6 +172,10 @@ import {
   publishManagedDraft,
   removeManagedFeatureForExperiment,
 } from "back-end/src/services/managedFeatures";
+import {
+  canRenameManagedFlag,
+  managedFlagRenameBlocker,
+} from "back-end/src/services/featureRename/renameManagedFlag";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
@@ -3632,6 +3638,42 @@ export async function getExperimentManagedFlagKeyPlan(
     status: 200,
     blocker: await managedFlagAdoptionBlocker(context, experiment),
     keyPlan: await planManagedFlagKey({ context, experiment }),
+  });
+}
+
+export async function getExperimentManagedFlagKeyCheck(
+  req: AuthRequest<null, { id: string }, { key?: string }>,
+  res: Response<{ status: 200 } & ManagedFlagKeyCheck>,
+) {
+  const context = getContextFromReq(req);
+  const experiment = await getExperimentById(context, req.params.id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  if (!feature) {
+    throw new NotFoundError("This experiment does not manage a Feature Flag.");
+  }
+  const derivedId = managedFeatureKeyCandidate({
+    trackingKey: experiment.trackingKey,
+    experimentId: experiment.id,
+  });
+  // Answers whether any id is taken, readable or not, so only for someone
+  // who could rename the flag.
+  if (!canRenameManagedFlag(context, experiment, feature)) {
+    context.permissions.throwPermissionError();
+  }
+  const check = (key: string) =>
+    managedFlagRenameBlocker(context, experiment, feature, key);
+  const key = typeof req.query.key === "string" ? req.query.key : "";
+  const current = await check(feature.id);
+
+  res.status(200).json({
+    status: 200,
+    derivedId,
+    derivedIdBlocker: derivedId === feature.id ? null : await check(derivedId),
+    blocker: key ? await check(key) : null,
+    stateBlocker: current?.reason === "state" ? current : null,
   });
 }
 

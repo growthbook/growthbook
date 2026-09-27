@@ -113,10 +113,15 @@ export async function findAuditByOrganization(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
+// Several ids for an entity that was renamed; one id keeps the plain query.
+function matchIds(id: string | string[]) {
+  return Array.isArray(id) ? { $in: id } : id;
+}
+
 export async function findAuditByEntity(
   organization: string,
   type: EntityType,
-  id: string,
+  id: string | string[],
   options?: QueryOptions,
   customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
@@ -124,7 +129,7 @@ export async function findAuditByEntity(
     {
       organization,
       "entity.object": type,
-      "entity.id": id,
+      "entity.id": matchIds(id),
       ...customFilter,
     },
     null,
@@ -158,7 +163,7 @@ export async function findAuditByEntityList(
 export async function findAuditByEntityParent(
   organization: string,
   type: EntityType,
-  id: string,
+  id: string | string[],
   options?: QueryOptions,
   customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
@@ -166,7 +171,7 @@ export async function findAuditByEntityParent(
     {
       organization,
       "parent.object": type,
-      "parent.id": id,
+      "parent.id": matchIds(id),
       ...customFilter,
     },
     null,
@@ -214,24 +219,24 @@ export async function findAllAuditsByEntityTypeParent(
 export async function countAuditByEntity(
   organization: string,
   type: EntityType,
-  id: string,
+  id: string | string[],
 ): Promise<number> {
   return await AuditModel.countDocuments({
     organization,
     "entity.object": type,
-    "entity.id": id,
+    "entity.id": matchIds(id),
   });
 }
 
 export async function countAuditByEntityParent(
   organization: string,
   type: EntityType,
-  id: string,
+  id: string | string[],
 ): Promise<number> {
   return await AuditModel.countDocuments({
     organization,
     "parent.object": type,
-    "parent.id": id,
+    "parent.id": matchIds(id),
   });
 }
 

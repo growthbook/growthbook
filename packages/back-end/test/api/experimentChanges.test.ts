@@ -4,6 +4,7 @@ import type { OrganizationInterface } from "shared/types/organization";
 import type { ExperimentChangesBody } from "shared/validators";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { featureIdExists } from "back-end/src/models/FeatureModel";
 import { applyExperimentChanges } from "back-end/src/services/experimentChanges/applyExperimentChanges";
 import { setupApp } from "./api.setup";
 
@@ -461,5 +462,224 @@ describe("applyExperimentChanges", () => {
       draft?.rules?.find((r: { type: string }) => r.type === "experiment-ref")
         ?.variations,
     ).toEqual(arms("x", "y"));
+  });
+
+  describe("renaming the managed flag", () => {
+    const NEW = "flag_renamed";
+
+    async function seedManaged() {
+      await seed({ withDraft: true });
+      await collection("experiments").updateOne(
+        { id: EXP },
+        { $set: { implementationType: "values" } },
+      );
+      await collection("features").updateOne(
+        { id: FLAG },
+        { $set: { managedBy: { type: "experiment", experimentId: EXP } } },
+      );
+      // A legacy revision whose id is built from the flag's id.
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 1 },
+        { $set: { id: `frev_1_${FLAG}` } },
+      );
+      await collection("featurerevisionlog").insertOne({
+        id: "frl_1",
+        organization: ORG_ID,
+        featureId: FLAG,
+        version: 2,
+      });
+      await collection("features").insertOne({
+        id: "dependent",
+        organization: ORG_ID,
+        valueType: "boolean",
+        defaultValue: "false",
+        rules: [
+          {
+            id: "fr_dep",
+            type: "force",
+            prerequisites: [{ id: FLAG, condition: "{}" }],
+          },
+        ],
+        environmentSettings: {},
+        prerequisites: [{ id: FLAG, condition: "{}" }],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      });
+      await collection("watches").insertOne({
+        id: "w1",
+        organization: ORG_ID,
+        userId: "u1",
+        features: [FLAG, "other"],
+        experiments: [],
+      });
+      // Linked later, so stored after FLAG; an all-digit key reads back first.
+      await collection("holdouts").insertOne({
+        id: "ho_1",
+        organization: ORG_ID,
+        linkedFeatures: { [FLAG]: { id: FLAG, dateAdded: new Date() } },
+        environmentSettings: {},
+        dateUpdated: new Date(),
+      });
+      await collection("holdouts").updateOne(
+        { id: "ho_1" },
+        {
+          $set: {
+            "linkedFeatures.1234": { id: "1234", dateAdded: new Date() },
+          },
+        },
+      );
+      await collection("discussions").insertOne({
+        id: "d1",
+        organization: ORG_ID,
+        parentType: "feature",
+        parentId: FLAG,
+        comments: [],
+      });
+    }
+
+    it("moves the flag and every reference to it", async () => {
+      await seedManaged();
+      const seededDependentDate = (
+        await collection("features").findOne({ id: "dependent" })
+      )?.dateUpdated;
+      const result = await run({ renameManagedFlag: { to: NEW } });
+
+      expect(result.experiment.linkedFeatures).toEqual([NEW]);
+      const flag = await collection("features").findOne({ id: NEW });
+      expect(flag?.previousIds).toEqual([FLAG]);
+      expect(flag?.renaming).toBeUndefined();
+      expect(await collection("features").findOne({ id: FLAG })).toBeNull();
+
+      const revisions = await collection("featurerevisions")
+        .find({ organization: ORG_ID })
+        .sort({ version: 1 })
+        .toArray();
+      expect(revisions.map((r) => [r.id, r.featureId])).toEqual([
+        [`frev_1_${NEW}`, NEW],
+        ["frev_2", NEW],
+      ]);
+      expect(
+        (await collection("featurerevisionlog").findOne({ id: "frl_1" }))
+          ?.featureId,
+      ).toBe(NEW);
+
+      const dependent = await collection("features").findOne({
+        id: "dependent",
+      });
+      // Advanced, so a writer holding the old value can't put it back.
+      expect(dependent?.dateUpdated.getTime()).toBeGreaterThan(
+        seededDependentDate.getTime(),
+      );
+      expect(dependent?.prerequisites).toEqual([{ id: NEW, condition: "{}" }]);
+      expect(dependent?.rules[0].prerequisites).toEqual([
+        { id: NEW, condition: "{}" },
+      ]);
+      expect(
+        (await collection("watches").findOne({ id: "w1" }))?.features,
+      ).toEqual([NEW, "other"]);
+      expect(
+        (await collection("discussions").findOne({ id: "d1" }))?.parentId,
+      ).toBe(NEW);
+      expect(
+        Object.keys(
+          (await collection("holdouts").findOne({ id: "ho_1" }))
+            ?.linkedFeatures ?? {},
+        ).sort(),
+      ).toEqual(["1234", NEW]);
+    });
+
+    it("finishes a rename that stopped after the flag moved", async () => {
+      await seedManaged();
+      const claimedAt = new Date();
+      await collection("experiments").updateOne(
+        { id: EXP },
+        { $addToSet: { linkedFeatures: NEW } },
+      );
+      await collection("features").updateOne(
+        { id: FLAG },
+        {
+          $set: {
+            id: NEW,
+            renaming: { from: FLAG, to: NEW, claimedAt },
+          },
+          $addToSet: { previousIds: FLAG },
+        },
+      );
+
+      // One revision already moved before the stop, and one left by a
+      // deleted flag that held NEW: only the leftover is cleared.
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 2 },
+        { $set: { featureId: NEW, dateUpdated: new Date() } },
+      );
+      await collection("featurerevisions").insertOne({
+        id: "frev_leftover",
+        organization: ORG_ID,
+        featureId: NEW,
+        version: 7,
+        dateUpdated: new Date("2020-01-01"),
+      });
+
+      // Reserved while references still name it.
+      expect(await featureIdExists(context, FLAG)).toBe(true);
+
+      const result = await run({ experiment: hypothesisChange("old") });
+
+      expect(result.experiment.linkedFeatures).toEqual([NEW]);
+      expect(await featureIdExists(context, FLAG)).toBe(false);
+      expect(
+        (await collection("features").findOne({ id: NEW }))?.renaming,
+      ).toBeUndefined();
+      expect(
+        await collection("featurerevisions").countDocuments({
+          featureId: FLAG,
+        }),
+      ).toBe(0);
+      expect(
+        (
+          await collection("featurerevisions")
+            .find({ featureId: NEW })
+            .sort({ version: 1 })
+            .toArray()
+        ).map((r) => r.version),
+      ).toEqual([1, 2]);
+    });
+
+    it("refuses a taken key, a rename beside a type change or unlink, and a flag the experiment doesn't manage, before writing", async () => {
+      await seedManaged();
+      await expect(
+        run({
+          experiment: hypothesisChange("old"),
+          renameManagedFlag: { to: "dependent" },
+        }),
+      ).rejects.toThrow('Feature Flag "dependent" already exists.');
+      expect(
+        (await collection("experiments").findOne({ id: EXP }))?.hypothesis,
+      ).toBe("old");
+
+      await expect(
+        run({
+          experiment: {
+            changes: { implementationType: "none" },
+            base: { implementationType: "values" },
+          },
+          deleteManagedFlag: true,
+          renameManagedFlag: { to: NEW },
+        }),
+      ).rejects.toThrow("not both in one save");
+      await expect(
+        run({ unlinkFeatures: [FLAG], renameManagedFlag: { to: NEW } }),
+      ).rejects.toThrow("not both in one save");
+      expect(await collection("features").findOne({ id: FLAG })).not.toBeNull();
+
+      await collection("features").updateOne(
+        { id: FLAG },
+        { $unset: { managedBy: "" } },
+      );
+      await expect(run({ renameManagedFlag: { to: NEW } })).rejects.toThrow(
+        "This experiment does not manage a Feature Flag.",
+      );
+      expect(await collection("features").findOne({ id: NEW })).toBeNull();
+    });
   });
 });

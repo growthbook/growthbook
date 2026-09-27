@@ -12,8 +12,17 @@ import {
 } from "../src/util/managed-experiments";
 
 describe("featureKeyFormatError", () => {
-  it("passes any key when the org sets no format", () => {
-    expect(featureKeyFormatError("anything goes", undefined)).toBeNull();
+  it("passes any well-formed key when the org sets no format", () => {
+    expect(featureKeyFormatError("any.key:v2|ok_-", undefined)).toBeNull();
+  });
+
+  it("refuses characters no Feature Flag key may hold, whatever the format", () => {
+    expect(featureKeyFormatError("anything goes", undefined)).toBe(
+      "Feature Flag keys can only include letters, numbers, and the characters _-.:|",
+    );
+    expect(featureKeyFormatError("team_ bad", "^team_")).toMatch(
+      /can only include/,
+    );
   });
 
   it("names the format a key fails, and passes one that matches", () => {

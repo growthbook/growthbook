@@ -10,6 +10,7 @@ import {
 } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type {
+  ImplementationType,
   ExperimentChangesBody,
   ExperimentChangesFields,
   ExperimentRuleEnvironments,
@@ -70,6 +71,10 @@ function mergeChanges(parts: ExperimentChangesBody[]): ExperimentChangesBody {
       ];
     }
     if (part.managedFlag) body.managedFlag = part.managedFlag;
+    if (part.renameManagedFlag) {
+      body.renameManagedFlag = part.renameManagedFlag;
+    }
+    if (part.deleteManagedFlag) body.deleteManagedFlag = true;
   }
   return body;
 }
@@ -255,6 +260,15 @@ export const EDITS_BLOCKED_REASON =
 export function useEditsBlockedReason(): string | null {
   const ctx = useContext(ExperimentEditsContext);
   return ctx?.dirty ? EDITS_BLOCKED_REASON : null;
+}
+
+/**
+ * An implementation type staged for the page's Save. Leaving Values deletes the
+ * managed flag, which the save has to acknowledge.
+ */
+export interface ImplementationTypeDraft {
+  value: { type: ImplementationType; deletesManagedFlag: boolean } | null;
+  set: (value: ImplementationTypeDraft["value"]) => void;
 }
 
 /** Environment scopes staged per Feature Flag, saved with that flag's values. */

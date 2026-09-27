@@ -9,13 +9,13 @@ import {
   isManagedByExperiment,
   SELECTABLE_IMPLEMENTATION_TYPES,
 } from "shared/util";
+import { ImplementationTypeDraft } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RadioCards from "@/ui/RadioCards";
 import Avatar from "@/ui/Avatar";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
@@ -29,39 +29,53 @@ export function implementationTypeLockedReason(
   linkedFeatures: LinkedFeatureInfo[],
 ): string | null {
   if (experiment.status !== "draft") {
-    return "The type can't be changed after the experiment starts.";
+    return "Set the experiment's status back to Draft to change its type.";
   }
-  const managed = linkedFeatures.some((f) =>
-    isManagedByExperiment(f.feature, experiment.id),
-  );
-  const otherLinkages =
-    linkedFeatures.length -
-    (managed ? 1 : 0) +
-    (experiment.hasVisualChangesets ? 1 : 0) +
-    (experiment.hasURLRedirects ? 1 : 0);
-  return otherLinkages > 0
-    ? "Remove the linked Feature Flags, Visual Editor changes and URL Redirects first."
-    : null;
+  const flagIds = linkedFeatures
+    .filter((f) => !isManagedByExperiment(f.feature, experiment.id))
+    .map((f) => f.feature.id);
+  // Names what's in the way, so the fix is obvious.
+  const blockers = [
+    ...(flagIds.length === 1
+      ? [`the linked Feature Flag ${flagIds[0]}`]
+      : flagIds.length === 2
+        ? [`the linked Feature Flags ${flagIds[0]} and ${flagIds[1]}`]
+        : flagIds.length > 2
+          ? [`the ${flagIds.length} linked Feature Flags`]
+          : []),
+    ...(experiment.hasVisualChangesets ? ["the Visual Editor changes"] : []),
+    ...(experiment.hasURLRedirects ? ["the URL Redirects"] : []),
+  ];
+  if (!blockers.length) return null;
+  const list =
+    blockers.length === 1
+      ? blockers[0]
+      : `${blockers.slice(0, -1).join(", ")} and ${blockers[blockers.length - 1]}`;
+  return `Remove ${list} first.`;
 }
 
 export default function ChangeImplementationTypeModal({
   experiment,
   managedFeature,
+  lockedReason = null,
+  draft,
   close,
-  mutate,
 }: {
   experiment: ExperimentInterfaceStringDates;
   managedFeature: LinkedFeatureInfo | null;
+  /** Why the type can't change right now; shown in place of the choice. */
+  lockedReason?: string | null;
+  /** Staged for the page's Save, with whatever it does to the managed flag. */
+  draft: ImplementationTypeDraft;
   close: () => void;
-  mutate: () => void;
 }) {
-  const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   // Experiments adopted before the type was stored only carry the flag's marker.
   const current = managedFeature ? "values" : getImplementationType(experiment);
+  const shown = draft.value?.type ?? current;
   const [next, setNext] = useState<ImplementationType | "">(
-    current && SELECTABLE_IMPLEMENTATION_TYPES.includes(current) ? current : "",
+    shown && SELECTABLE_IMPLEMENTATION_TYPES.includes(shown) ? shown : "",
   );
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -91,30 +105,35 @@ export default function ChangeImplementationTypeModal({
       close={close}
       trackingEventModalType="change-implementation-type"
       header="Change Implementation Type"
-      cta="Change type"
+      cta="Apply"
       ctaEnabled={
-        changed && !blockedReason && (!removesManagedFlag || acknowledged)
+        !lockedReason &&
+        !!next &&
+        next !== shown &&
+        !blockedReason &&
+        (!removesManagedFlag || acknowledged)
       }
-      submit={async () => {
-        if (!next) return;
-        // The server converts or deletes the managed flag as part of the change.
-        // The checkbox above is the acknowledgement the server requires
-        // before it deletes the managed flag.
-        await apiCall(
-          `/experiment/${experiment.id}${removesManagedFlag ? "?ignoreWarnings=true" : ""}`,
-          {
-            method: "POST",
-            body: JSON.stringify({ implementationType: next }),
-          },
-        );
-        mutate();
-      }}
+      // The save converts or deletes the managed flag as part of the change;
+      // the checkbox is the acknowledgement it needs before deleting.
+      submit={() =>
+        draft.set(
+          changed && next
+            ? { type: next, deletesManagedFlag: removesManagedFlag }
+            : null,
+        )
+      }
     >
       <Text as="p" color="text-mid" mb="3">
         Choose how this experiment delivers its variations.
       </Text>
+      {lockedReason ? (
+        <Callout status="info" mb="3">
+          {lockedReason}
+        </Callout>
+      ) : null}
       <RadioCards
         width="100%"
+        disabled={!!lockedReason}
         value={next}
         setValue={(v) => {
           setNext(v as ImplementationType);
@@ -149,15 +168,21 @@ export default function ChangeImplementationTypeModal({
       )}
       {ejectsManagedFlag && !blockedReason && (
         <Callout status="info" mt="3">
-          <code>{managedKey}</code> becomes an unmanaged linked Feature Flag,
-          edited from its own page.
+          <span style={{ fontFamily: "var(--code-font-family)" }}>
+            {managedKey}
+          </span>{" "}
+          becomes an unmanaged linked Feature Flag, edited from its own page.
         </Callout>
       )}
       {removesManagedFlag && !blockedReason && (
         <Callout status="warning" mt="3">
           <Text as="p" mb="3">
-            This deletes the managed Feature Flag <code>{managedKey}</code> and
-            its pending values.
+            This deletes the managed Feature Flag{" "}
+            <span style={{ fontFamily: "var(--code-font-family)" }}>
+              {managedKey}
+            </span>{" "}
+            and its pending values. Unsaved edits to its values or key on this
+            page are discarded.
           </Text>
           <Checkbox
             label="Delete the Feature Flag"
