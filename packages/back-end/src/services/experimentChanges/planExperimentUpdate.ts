@@ -15,6 +15,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   applyVariationWeightsToLatestPhase,
   assertCanRunExperimentChanges,
+  assertExperimentKeyFormat,
   determineNextBanditSchedule,
   getExperimentAttributeScopeProjects,
   normalizeStatusUpdateScheduleChanges,
@@ -370,6 +371,17 @@ export async function planExperimentUpdate(
     }
   }
 
+  if (
+    data.trackingKey !== undefined &&
+    data.trackingKey !== experiment.trackingKey
+  ) {
+    await assertExperimentKeyFormat(
+      context,
+      data.trackingKey,
+      data.datasource ?? experiment.datasource,
+    );
+  }
+
   // Check if tracking key is being changed and validate uniqueness if required
   if (
     data.trackingKey &&
@@ -456,7 +468,11 @@ export async function planExperimentUpdate(
     }
   });
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes);
+  normalizeStatusUpdateScheduleChanges(
+    experiment,
+    changes,
+    context.userId || undefined,
+  );
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.

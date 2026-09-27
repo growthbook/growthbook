@@ -331,6 +331,38 @@ const sampleEvents = {
     object: "feature",
     data: { object: { ...sampleRamp(), targetStepIndex: 0 } },
   }),
+  "feature.rampSchedule.actions.errorPaused": () => ({
+    event: "feature.rampSchedule.actions.errorPaused",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRamp(),
+        status: "paused",
+        reason:
+          'Rule "fr_banner" on "checkout-banner" is a force rule with no hash attribute, so this ramp cannot control its coverage.',
+      },
+    },
+  }),
+  "feature.rampSchedule.actions.stepHeld": () => ({
+    event: "feature.rampSchedule.actions.stepHeld",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRamp(),
+        reason: "Experiment health: SRM check failed — holding step (p=0.0004)",
+      },
+    },
+  }),
+  "feature.rampSchedule.actions.paused": () => ({
+    event: "feature.rampSchedule.actions.paused",
+    object: "feature",
+    data: { object: { ...sampleRamp(), status: "paused" } },
+  }),
+  "feature.rampSchedule.actions.resumed": () => ({
+    event: "feature.rampSchedule.actions.resumed",
+    object: "feature",
+    data: { object: sampleRamp() },
+  }),
   "feature.rampSchedule.actions.step.approvalRequired": () => ({
     event: "feature.rampSchedule.actions.step.approvalRequired",
     object: "feature",

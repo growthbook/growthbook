@@ -401,12 +401,14 @@ export default function FeatureVariationsInput({
                   {showDragHandle && <span />}
                   {!hideVariationIds && (
                     <Text size="md" weight="semibold">
-                      {!valueAsId && editingIds ? "#" : "Id"}
+                      {!valueAsId && editingIds ? "#" : "Key"}
                     </Text>
                   )}
                   {editingIds && (
                     <Text size="md" weight="semibold">
-                      {hideVariationIds && !valueAsId ? "Value to Force" : "Id"}
+                      {hideVariationIds && !valueAsId
+                        ? "Value to Force"
+                        : "Key"}
                     </Text>
                   )}
                   <Text size="md" weight="semibold">

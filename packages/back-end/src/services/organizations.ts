@@ -363,8 +363,9 @@ export async function getAISettingsForOrg(
     orgDefaultAIModel ||
     (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : selfHostedDefaultAIModel);
 
-  // Cloud stays on Sonnet unless the Visual Editor's own setting overrides it:
-  // its structured-output + vision workload fails schema adherence on Haiku.
+  // Cloud gets the Visual Editor's own managed default (the Opus tier) unless
+  // the org's Visual Editor setting overrides it: its structured-output +
+  // vision workload is the most demanding one we run.
   const visualEditorAIModel: AIModel =
     getAllowedAIModel(
       "text",

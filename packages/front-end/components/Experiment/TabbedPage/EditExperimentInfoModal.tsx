@@ -6,6 +6,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsInput from "@/components/Tags/TagsInput";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -106,6 +107,11 @@ export default function EditExperimentInfoModal({
       ),
     },
   });
+  const trackingKey = form.watch("trackingKey");
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    trackingKey,
+    trackingKey === experiment.trackingKey,
+  );
 
   return (
     <ModalStandard
@@ -144,6 +150,7 @@ export default function EditExperimentInfoModal({
           label="Experiment Key"
           {...form.register("trackingKey")}
           required
+          {...trackingKeyFormatProps}
         />
       ) : null}
       {shows("owner") ? (

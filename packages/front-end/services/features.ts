@@ -24,6 +24,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  getDefaultHashAttribute,
   featureHasEnvironment,
   filterEnvironmentsByFeature,
   generateVariationId,
@@ -44,6 +45,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   HoldoutInterface,
   RevisionRampAction,
+  RampScheduleInterface,
   SafeRolloutRule,
   stripUnknownRuleFields,
 } from "shared/validators";
@@ -920,6 +922,7 @@ export function getRevisionPublishEnvs({
   environments,
   holdoutsMap,
   rampActions,
+  rampSchedules,
 }: {
   liveFeature: FeatureInterface;
   changes: MergeResultChanges;
@@ -927,6 +930,8 @@ export function getRevisionPublishEnvs({
   holdoutsMap: Map<string, HoldoutInterface>;
   /** Revision ramp actions, which are not part of the merge result. */
   rampActions?: RevisionRampAction[];
+  /** The feature's ramp schedules, so a detach is sized by what it removes. */
+  rampSchedules?: RampScheduleInterface[];
 }): string[] {
   const environmentIds = environments.map((e) => e.id);
   const holdout = holdoutEnvsForChange({
@@ -950,6 +955,7 @@ export function getRevisionPublishEnvs({
     rampActions,
     liveRules: liveFeature.rules ?? [],
     environmentIds,
+    schedules: rampSchedules,
   });
   return rampEnvs === "all"
     ? [...environmentIds]
@@ -1052,13 +1058,7 @@ export function getDefaultRuleValue({
   /** Safe default hash version for new rules — pass `hasSDKWithNoBucketingV2 ? 1 : 2` at the call site. Defaults to 1 (safest). */
   defaultHashVersion?: 1 | 2;
 }): FeatureRule | NewExperimentRefRule | safeRolloutFields {
-  const hashAttributes =
-    attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
-    [];
-
-  const hashAttribute = hashAttributes.includes("id")
-    ? "id"
-    : hashAttributes[0] || "id";
+  const hashAttribute = getDefaultHashAttribute(attributeSchema);
   let defaultDataSource = settings?.defaultDataSource;
   if (datasources && !defaultDataSource && datasources.length === 1) {
     defaultDataSource = datasources[0].id;

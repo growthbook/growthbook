@@ -41,9 +41,11 @@ import { createParser } from "nuqs";
 import {
   canInlineFilterColumn,
   getFactMetricPrimaryFactTableId,
+  getInlineFilterPromptColumns,
 } from "shared/experiments";
 import {
   encodeExplorationConfig,
+  decodeExplorationConfigJson,
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   mapDatabaseTypeToEnum,
@@ -254,7 +256,7 @@ export function getInitialInlineFilters(
 ): RowFilter[] {
   const rowFilters = [...existingRowFilters];
   const excluded = new Set(excludeColumns.filter(Boolean));
-  getAlwaysInlineFilterColumns(factTable).forEach((column) => {
+  getInlineFilterPromptColumns(factTable, rowFilters).forEach((column) => {
     if (excluded.has(column)) return;
     if (!rowFilters.some((rf) => rf.column === column)) {
       rowFilters.push({
@@ -1450,7 +1452,9 @@ export function hasUnsatisfiedInlineFilters(
     if (!ft) return false;
     const excluded = new Set(excludeColumns.filter(Boolean));
     const inlineColumns = new Set(
-      getAlwaysInlineFilterColumns(ft).filter((c) => !excluded.has(c)),
+      getInlineFilterPromptColumns(ft, rowFilters).filter(
+        (c) => !excluded.has(c),
+      ),
     );
     if (inlineColumns.size === 0) return false;
     return rowFilters.some(
@@ -1830,7 +1834,7 @@ export type DecodeConfigResult =
 
 export function decodeExplorationConfig(encoded: string): DecodeConfigResult {
   try {
-    const parsed = JSON.parse(decodeURIComponent(atob(encoded)));
+    const parsed = decodeExplorationConfigJson(encoded);
     const config = explorationConfigValidator.parse(parsed);
     return { config, error: null };
   } catch {

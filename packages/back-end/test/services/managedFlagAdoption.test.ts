@@ -19,8 +19,6 @@ import {
 } from "back-end/src/models/ExperimentModel";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
-  // Returns the archived document, as the real one does.
-  archiveFeature: jest.fn(async (_c: unknown, f: unknown) => f),
   featureIdExists: jest.fn(),
   getManagedFlagIdsUnfiltered: jest.fn(),
   createFeature: jest.fn(),
@@ -29,6 +27,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   publishRevision: jest.fn(),
   updateFeature: jest.fn(),
 }));
+jest.mock("back-end/src/models/FeatureRevisionModel");
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),
   getExperimentByTrackingKey: jest.fn(),
@@ -189,19 +188,33 @@ describe("createManagedFeatureForExperiment variation validation", () => {
 describe("clearManagedMarkersForExperiment", () => {
   it("releases every flag the experiment owns", async () => {
     mockManagedIds.mockResolvedValue(["flag-a", "flag-b"]);
+    const dateUpdated = new Date("2026-01-01");
     mockGetFeature.mockImplementation(async (_c, id: string) => ({
       id,
+      dateUpdated,
       managedBy: { type: "experiment" },
+    }));
+    // Returns the written document, as the real one does.
+    mockUpdateFeature.mockImplementation(async (_c, f, updates) => ({
+      ...f,
+      ...updates,
     }));
 
     await clearManagedMarkersForExperiment(context, "exp_1");
 
-    expect(mockUpdateFeature).toHaveBeenCalledTimes(2);
+    // Each flag is archived, then released.
+    expect(mockUpdateFeature).toHaveBeenCalledTimes(4);
     expect(mockUpdateFeature).toHaveBeenCalledWith(
       context,
       expect.objectContaining({ id: "flag-b" }),
+      { archived: true },
+      { casOnDateUpdated: dateUpdated },
+    );
+    expect(mockUpdateFeature).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({ id: "flag-b", archived: true }),
       {},
-      { unsetManagedBy: true },
+      { unsetManagedBy: true, casOnDateUpdated: dateUpdated },
     );
   });
 

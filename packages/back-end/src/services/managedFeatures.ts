@@ -34,7 +34,6 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { OpenApiRoute, runApiHandler } from "back-end/src/util/handler";
 import {
-  archiveFeature,
   createFeature,
   deleteFeature,
   featureIdExists,
@@ -46,6 +45,7 @@ import {
   updateFeature,
 } from "back-end/src/models/FeatureModel";
 import {
+  cancelScheduledPublishesForFeature,
   discardRevision,
   getActiveDraft,
   getRevision,
@@ -1336,7 +1336,7 @@ export async function clearManagedMarkersForExperiment(
   // Archive first: a still-managed archived flag can be ejected; an unmanaged live one has no owner surface.
   for (const feature of features) {
     const toRelease = archive
-      ? await archiveFeature(context, feature, true)
+      ? await archiveManagedFlag(context, feature)
       : feature;
     await clearManagedMarker(context, toRelease);
   }
@@ -1480,7 +1480,12 @@ export async function moveManagedFlagWithExperiment(
   const feature = await getManagedFeatureForExperiment(context, experiment);
   const project = experiment.project ?? "";
   if (!feature || (feature.project ?? "") === project) return;
-  await updateFeature(context, feature, { project });
+  await updateFeature(
+    context,
+    feature,
+    { project },
+    { casOnDateUpdated: feature.dateUpdated },
+  );
 }
 
 const enabledEnvIds = (
@@ -1499,7 +1504,27 @@ async function clearManagedMarker(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ): Promise<FeatureInterface> {
-  return updateFeature(context, feature, {}, { unsetManagedBy: true });
+  return updateFeature(
+    context,
+    feature,
+    {},
+    { unsetManagedBy: true, casOnDateUpdated: feature.dateUpdated },
+  );
+}
+
+// Cancels pending schedules too, so an archived flag can't auto-publish a draft.
+async function archiveManagedFlag(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureInterface> {
+  const updated = await updateFeature(
+    context,
+    feature,
+    { archived: true },
+    { casOnDateUpdated: feature.dateUpdated },
+  );
+  await cancelScheduledPublishesForFeature(context, context.org.id, feature.id);
+  return updated;
 }
 
 function isMutatingMethod(method: string): boolean {

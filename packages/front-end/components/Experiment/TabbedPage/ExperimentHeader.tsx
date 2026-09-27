@@ -920,6 +920,7 @@ export default function ExperimentHeader({
           experiment={experiment}
           close={() => setShowScheduleModal(false)}
           mutate={mutate}
+          envs={envs}
         />
       ) : null}
       {showTemplateForm && (

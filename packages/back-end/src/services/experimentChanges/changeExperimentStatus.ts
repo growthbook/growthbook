@@ -1,4 +1,8 @@
-import { getLatestPhaseVariations, getAllVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  getAllVariations,
+  withScheduledBy,
+} from "shared/experiments";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   ExperimentInterface,
@@ -11,7 +15,6 @@ import {
   ExperimentStartChecklistStatus,
 } from "shared/validators";
 import {
-  getAffectedEnvsForExperiment,
   experimentHasLiveLinkedChanges,
   getImplementationType,
   getManagedValueProblems,
@@ -29,11 +32,11 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  assertCanRunExperimentInAffectedEnvironments,
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
 } from "back-end/src/services/experiments";
@@ -445,22 +448,7 @@ async function loadAndValidateExperimentForStatusChange(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatures = await getFeaturesByIds(
-    context,
-    experiment.linkedFeatures || [],
-  );
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   return experiment;
 }
@@ -561,7 +549,13 @@ export async function executeExperimentStart(
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: { ...changes, nextScheduledStatusUpdate },
+    changes: {
+      ...changes,
+      nextScheduledStatusUpdate: withScheduledBy(
+        nextScheduledStatusUpdate,
+        context.userId || undefined,
+      ),
+    },
   });
 
   trackEventForContext(context, "Experiment Started", {
@@ -736,10 +730,10 @@ export async function approveScheduledExperimentStart({
   }
 
   const changes: Changeset = {
-    nextScheduledStatusUpdate: {
-      type: "start",
-      date: startAt,
-    },
+    nextScheduledStatusUpdate: withScheduledBy(
+      { type: "start" as const, date: startAt },
+      context.userId || undefined,
+    ),
   };
   await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({

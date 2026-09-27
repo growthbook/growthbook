@@ -25,6 +25,8 @@ import {
   lockdownConfigSchema,
   rampStep,
   rampStepAction,
+  rampStartAction,
+  rampStartPatch,
   rampMonitoringConfig,
   stepHoldConditions,
 } from "./ramp-schedule";
@@ -510,6 +512,9 @@ const revisionApiRampStepAction = z
     patch: featureRulePatch.partial({ ruleId: true }).strict(),
   })
   .strict();
+const revisionApiRampStartAction = revisionApiRampStepAction.extend({
+  patch: rampStartPatch.partial({ ruleId: true }).strict(),
+});
 
 const revisionApiRampStep = z
   .object({
@@ -528,7 +533,7 @@ export const revisionRampCreateAction = z.object({
   // @deprecated — target by ruleId only. Kept for pre-migration DB compat.
   environment: z.string().optional().nullable(),
   templateId: z.string().optional(),
-  startActions: z.array(rampStepAction).optional(),
+  startActions: z.array(rampStartAction).optional(),
   steps: z.array(rampStep),
   endActions: z.array(rampStepAction).optional(),
   startDate: z.string().optional().nullable(),
@@ -547,7 +552,7 @@ export const revisionRampCreateAction = z.object({
 // API input variant — normalize to RevisionRampCreateAction before storing.
 export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
   steps: z.array(revisionApiRampStep).optional(),
-  startActions: z.array(revisionApiRampStepAction).optional(),
+  startActions: z.array(revisionApiRampStartAction).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),
   startDate: z
     .string()
@@ -694,10 +699,16 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
       .nullable()
       .optional(),
     // Ramp schedule actions (create/detach) to execute atomically when this revision
-    // is published. This ensures ramp schedules are never orphaned by draft abandonment
-    // or revision reverts. Real-time state changes (pause, resume, rollback, etc.)
+    // is published. This ensures ramp schedules are never orphaned by draft
+    // abandonment. Real-time state changes (pause, resume, rollback, etc.)
     // are NOT stored here — they operate directly on live ramp schedule documents.
     rampActions: z.array(revisionRampAction).optional(),
+    // The ramp schedules controlling this feature's rules once this revision
+    // landed, recorded at publish. A revert to this revision detaches any ramp
+    // not listed. Absent on revisions published before it was recorded.
+    rampAttachments: z
+      .array(z.object({ rampScheduleId: z.string(), ruleId: z.string() }))
+      .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
     // User IDs who have made edits to this draft. Populated incrementally via
     // updateRevision's $addToSet; may be empty if no content edits have been made.

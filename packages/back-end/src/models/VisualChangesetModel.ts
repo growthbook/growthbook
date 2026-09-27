@@ -201,45 +201,49 @@ export async function findVisualChangesets(
 }
 
 export async function createVisualChange(
+  context: ReqContext | ApiReqContext,
   id: string,
-  organization: string,
   visualChange: VisualChange,
 ): Promise<{ nModified: number }> {
-  const visualChangeset = await VisualChangesetModel.findOne({
-    id,
-    organization,
-  });
+  const organization = context.org.id;
+  const visualChangeset = await findVisualChangesetById(id, organization);
 
   if (!visualChangeset) {
     throw new Error("Visual Changeset not found");
   }
 
+  const visualChanges = [...visualChangeset.visualChanges, visualChange];
   const res = await VisualChangesetModel.updateOne(
     {
       id,
       organization,
     },
     {
-      $set: {
-        visualChanges: [...visualChangeset.visualChanges, visualChange],
-      },
+      $set: { visualChanges },
     },
   );
+
+  await onVisualChangesetUpdate({
+    context,
+    oldVisualChangeset: visualChangeset,
+    newVisualChangeset: { ...visualChangeset, visualChanges },
+  });
 
   return { nModified: res.modifiedCount };
 }
 
 export async function updateVisualChange({
+  context,
   changesetId,
   visualChangeId,
-  organization,
   payload,
 }: {
+  context: ReqContext | ApiReqContext;
   changesetId: string;
   visualChangeId: string;
-  organization: string;
   payload: Partial<VisualChange>;
 }): Promise<{ nModified: number }> {
+  const organization = context.org.id;
   const visualChangeset = await findVisualChangesetById(
     changesetId,
     organization,
@@ -271,6 +275,12 @@ export async function updateVisualChange({
       $set: { visualChanges },
     },
   );
+
+  await onVisualChangesetUpdate({
+    context,
+    oldVisualChangeset: visualChangeset,
+    newVisualChangeset: { ...visualChangeset, visualChanges },
+  });
 
   return { nModified: res.modifiedCount };
 }

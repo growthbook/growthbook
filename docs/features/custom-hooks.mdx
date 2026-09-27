@@ -86,6 +86,20 @@ if (feature.tags.length === 0) {
 
 Because execution continues after `addWarning`, you can raise warnings and still `throw` later in the same hook.
 
+A warning or thrown error can include links in Markdown syntax, such as a link
+to your internal guidelines. In the app, only `http://` and `https://` links are
+shown as links, and they open in a new tab. A REST API client receives the raw
+text. Links are also rendered in any user-entered text your hook adds to the
+message, such as an experiment name.
+
+```js
+if (!feature.description) {
+  addWarning(
+    "Consider adding a description. See [our flag guidelines](https://wiki.example.com/flags)."
+  );
+}
+```
+
 ### Incremental Changes
 
 Each Custom Hook has an **Incremental Changes Only** option that affects behavior during update operations. When enabled, the hook is skipped if the same error was already present before the update.

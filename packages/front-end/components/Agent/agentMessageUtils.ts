@@ -47,6 +47,16 @@ export function assistantText(msg: AIChatMessage): string {
     .join("\n\n");
 }
 
+function assistantMessageCallsAskUser(msg: AIChatMessage): boolean {
+  return (
+    msg.role === "assistant" &&
+    Array.isArray(msg.content) &&
+    msg.content.some(
+      (part) => part.type === "tool-call" && part.toolName === "askUser",
+    )
+  );
+}
+
 /**
  * Split a turn into intermediate "pre-work" (collapsed behind a toggle) and
  * the user-visible final reply.
@@ -58,10 +68,14 @@ export function assistantText(msg: AIChatMessage): string {
  *      turn without saying anything visible; usually means it called
  *      `askUser` and the question UI handles display).
  */
-export function classifyTurn(rest: AIChatMessage[]): {
+export function classifyTurn(
+  rest: AIChatMessage[],
+  awaitingInteraction = false,
+): {
   preWork: AIChatMessage[];
   replyContent: string | null;
   replyMessageId: string | null;
+  replyIsError: boolean;
 } {
   let lastTextIdx = -1;
   for (let i = rest.length - 1; i >= 0; i--) {
@@ -70,8 +84,18 @@ export function classifyTurn(rest: AIChatMessage[]): {
       break;
     }
   }
-  if (lastTextIdx < 0) {
-    return { preWork: rest, replyContent: null, replyMessageId: null };
+  const endsWithAskUser =
+    lastTextIdx >= 0 &&
+    rest
+      .slice(lastTextIdx)
+      .some((message) => assistantMessageCallsAskUser(message));
+  if (lastTextIdx < 0 || awaitingInteraction || endsWithAskUser) {
+    return {
+      preWork: rest,
+      replyContent: null,
+      replyMessageId: null,
+      replyIsError: false,
+    };
   }
   const replyMsg = rest[lastTextIdx];
   const preWork = rest.filter((_, i) => i !== lastTextIdx);
@@ -79,6 +103,7 @@ export function classifyTurn(rest: AIChatMessage[]): {
     preWork,
     replyContent: assistantText(replyMsg),
     replyMessageId: replyMsg.id,
+    replyIsError: replyMsg.role === "assistant" && replyMsg.isError === true,
   };
 }
 

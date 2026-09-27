@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  version: 5.0.1
+  version: 5.1.0
   title: GrowthBook REST API
   description: >
     GrowthBook offers a full REST API for interacting with the application.
@@ -5675,6 +5675,33 @@ paths:
                                 anyOf:
                                   - type: boolean
                                   - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
+                                  - type: 'null'
                             additionalProperties: false
                         required:
                           - patch
@@ -6322,6 +6349,33 @@ paths:
                               enabled:
                                 anyOf:
                                   - type: boolean
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
                                   - type: 'null'
                             additionalProperties: false
                         required:
@@ -7018,6 +7072,32 @@ paths:
                             anyOf:
                               - type: boolean
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
+                              - type: 'null'
                         additionalProperties: false
                     required:
                       - patch
@@ -7366,6 +7446,13 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV1'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was
+                      interpreted.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - revision
                 additionalProperties: false
@@ -11428,6 +11515,33 @@ paths:
                                 anyOf:
                                   - type: boolean
                                   - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
+                                  - type: 'null'
                             additionalProperties: false
                         required:
                           - patch
@@ -12100,6 +12214,33 @@ paths:
                               enabled:
                                 anyOf:
                                   - type: boolean
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
                                   - type: 'null'
                             additionalProperties: false
                         required:
@@ -12806,6 +12947,32 @@ paths:
                             anyOf:
                               - type: boolean
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
+                              - type: 'null'
                         additionalProperties: false
                     required:
                       - patch
@@ -13133,11 +13300,13 @@ paths:
                     The rule state to roll back to (the rollback/jump-to-start
                     anchor). Merged onto the rule's current state, so `{
                     "coverage": 0 }` keeps existing targeting but rolls back to
-                    0%. This affects rollbacks only — it is NOT applied when the
-                    ramp starts. On create, omitting it infers the anchor from
-                    the rule's current coverage (and returns a warning if that
-                    isn't 0%); on update of a live schedule, omitting it leaves
-                    the existing anchor unchanged.
+                    0%. Steps accumulate on it, and it is the only place a plan
+                    sets `hashAttribute` (plus optional `seed` and
+                    `hashVersion`), which a partial-coverage step on a force
+                    rule requires unless the rule has one. On create, omitting
+                    it infers the anchor from the rule's current coverage (and
+                    returns a warning if that isn't 0%); on update of a live
+                    schedule, omitting it leaves the existing anchor unchanged.
                   type: object
                   properties:
                     coverage:
@@ -13215,6 +13384,32 @@ paths:
                     enabled:
                       anyOf:
                         - type: boolean
+                        - type: 'null'
+                    hashAttribute:
+                      description: >-
+                        Attribute the rule buckets on. Required (here or on the
+                        rule) when a step sets partial coverage on a force rule,
+                        which becomes a rollout.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    seed:
+                      description: >-
+                        Hash seed for a promoted force rule. Defaults to the
+                        rule id.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    hashVersion:
+                      description: >-
+                        Hash algorithm version for a promoted force rule.
+                        Defaults to 2.
+                      anyOf:
+                        - anyOf:
+                            - type: number
+                              const: 1
+                            - type: number
+                              const: 2
                         - type: 'null'
                   additionalProperties: false
                 revisionTitle:
@@ -14904,9 +15099,11 @@ paths:
                     effect when it is also enabled at the organization level.
                   type: boolean
                 bucketVersion:
-                  type: number
+                  type: integer
+                  minimum: 0
                 minBucketVersion:
-                  type: number
+                  type: integer
+                  minimum: 0
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -15632,9 +15829,11 @@ paths:
                 disableStickyBucketing:
                   type: boolean
                 bucketVersion:
-                  type: number
+                  type: integer
+                  minimum: 0
                 minBucketVersion:
-                  type: number
+                  type: integer
+                  minimum: 0
                 results:
                   description: >-
                     The result status of the experiment. Maps to
@@ -20819,6 +21018,15 @@ paths:
                   type: array
                   items:
                     type: string
+                customFields:
+                  description: >-
+                    Values for the organization's attribute custom fields, keyed
+                    by field id
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
               required:
                 - property
                 - datatype
@@ -20901,6 +21109,15 @@ paths:
                 tags:
                   type: array
                   items:
+                    type: string
+                customFields:
+                  description: >-
+                    Values for the organization's attribute custom fields, keyed
+                    by field id
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
                     type: string
               additionalProperties: false
       responses:
@@ -21045,7 +21262,14 @@ paths:
                 remoteEvalEnabled:
                   type: boolean
                 savedGroupReferencesEnabled:
+                  description: Deprecated. Use `savedGroupFormat`.
                   type: boolean
+                savedGroupFormat:
+                  type: string
+                  enum:
+                    - inline
+                    - referencesV1
+                    - referencesV2
                 includeReferencedPrerequisites:
                   description: >-
                     Carry prerequisite Feature Flags into this payload even when
@@ -21166,7 +21390,14 @@ paths:
                 remoteEvalEnabled:
                   type: boolean
                 savedGroupReferencesEnabled:
+                  description: Deprecated. Use `savedGroupFormat`.
                   type: boolean
+                savedGroupFormat:
+                  type: string
+                  enum:
+                    - inline
+                    - referencesV1
+                    - referencesV2
                 includeReferencedPrerequisites:
                   description: >-
                     Carry prerequisite Feature Flags into this payload even when
@@ -21824,6 +22055,14 @@ paths:
                       - type
                       - pattern
                     additionalProperties: {}
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 visualChanges:
                   type: array
                   items:
@@ -21918,6 +22157,14 @@ paths:
                   type: string
                 variation:
                   type: string
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 domMutations:
                   type: array
                   items:
@@ -21996,6 +22243,14 @@ paths:
                   type: string
                 variation:
                   type: string
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 domMutations:
                   type: array
                   items:
@@ -30876,7 +31131,9 @@ paths:
                     - steps
                   additionalProperties: false
                 cappingSettings:
-                  description: Controls how outliers are handled
+                  description: >-
+                    Upper cap. Omit on update to preserve it. Use type: none to
+                    disable it explicitly. Invalid values are rejected.
                   type: object
                   properties:
                     type:
@@ -30887,9 +31144,11 @@ paths:
                         - percentile
                     value:
                       description: >-
-                        When type is absolute, this is the absolute value. When
-                        type is percentile, this is the percentile value (from
-                        0.0 to 1.0).
+                        When type is absolute, this must be a finite number
+                        greater than zero. When type is percentile, this must be
+                        strictly between 0 and 1. Required when enabling capping
+                        or changing type; omitted values are preserved only for
+                        same-type updates.
                       type: number
                     ignoreZeros:
                       description: >-
@@ -30899,6 +31158,42 @@ paths:
                   required:
                     - type
                   additionalProperties: false
+                lowerCappingSettings:
+                  description: >-
+                    Independent lower cap. Omit on update to preserve it. Use
+                    null or type: none to disable it explicitly. Invalid values
+                    are rejected. For mixed cap types, the absolute bound takes
+                    precedence if thresholds cross.
+                  anyOf:
+                    - description: >-
+                        Independent lower-tail capping settings. Configured
+                        separately from the upper tail, so the type can differ.
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - none
+                            - absolute
+                            - percentile
+                        value:
+                          description: >-
+                            When type is absolute, this is a finite lower bound,
+                            including zero or negative values. When type is
+                            percentile, this must be strictly between 0 and 1.
+                            Required when enabling capping or changing type;
+                            omitted values are preserved only for same-type
+                            updates.
+                          type: number
+                        ignoreZeros:
+                          description: >-
+                            If true and capping is `percentile`, zeros will be
+                            ignored when calculating the percentile.
+                          type: boolean
+                      required:
+                        - type
+                      additionalProperties: false
+                    - type: 'null'
                 windowSettings:
                   description: Controls the conversion window for the metric
                   type: object
@@ -31562,7 +31857,9 @@ paths:
                     - steps
                   additionalProperties: false
                 cappingSettings:
-                  description: Controls how outliers are handled
+                  description: >-
+                    Upper cap. Omit on update to preserve it. Use type: none to
+                    disable it explicitly. Invalid values are rejected.
                   type: object
                   properties:
                     type:
@@ -31573,9 +31870,11 @@ paths:
                         - percentile
                     value:
                       description: >-
-                        When type is absolute, this is the absolute value. When
-                        type is percentile, this is the percentile value (from
-                        0.0 to 1.0).
+                        When type is absolute, this must be a finite number
+                        greater than zero. When type is percentile, this must be
+                        strictly between 0 and 1. Required when enabling capping
+                        or changing type; omitted values are preserved only for
+                        same-type updates.
                       type: number
                     ignoreZeros:
                       description: >-
@@ -31585,6 +31884,42 @@ paths:
                   required:
                     - type
                   additionalProperties: false
+                lowerCappingSettings:
+                  description: >-
+                    Independent lower cap. Omit on update to preserve it. Use
+                    null or type: none to disable it explicitly. Invalid values
+                    are rejected. For mixed cap types, the absolute bound takes
+                    precedence if thresholds cross.
+                  anyOf:
+                    - description: >-
+                        Independent lower-tail capping settings. Configured
+                        separately from the upper tail, so the type can differ.
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - none
+                            - absolute
+                            - percentile
+                        value:
+                          description: >-
+                            When type is absolute, this is a finite lower bound,
+                            including zero or negative values. When type is
+                            percentile, this must be strictly between 0 and 1.
+                            Required when enabling capping or changing type;
+                            omitted values are preserved only for same-type
+                            updates.
+                          type: number
+                        ignoreZeros:
+                          description: >-
+                            If true and capping is `percentile`, zeros will be
+                            ignored when calculating the percentile.
+                          type: boolean
+                      required:
+                        - type
+                      additionalProperties: false
+                    - type: 'null'
                 windowSettings:
                   description: Controls the conversion window for the metric
                   type: object
@@ -32577,7 +32912,10 @@ paths:
                               - steps
                             additionalProperties: false
                           cappingSettings:
-                            description: Controls how outliers are handled
+                            description: >-
+                              Upper cap. Omit on update to preserve it. Use
+                              type: none to disable it explicitly. Invalid
+                              values are rejected.
                             type: object
                             properties:
                               type:
@@ -32588,9 +32926,12 @@ paths:
                                   - percentile
                               value:
                                 description: >-
-                                  When type is absolute, this is the absolute
-                                  value. When type is percentile, this is the
-                                  percentile value (from 0.0 to 1.0).
+                                  When type is absolute, this must be a finite
+                                  number greater than zero. When type is
+                                  percentile, this must be strictly between 0
+                                  and 1. Required when enabling capping or
+                                  changing type; omitted values are preserved
+                                  only for same-type updates.
                                 type: number
                               ignoreZeros:
                                 description: >-
@@ -32601,6 +32942,46 @@ paths:
                             required:
                               - type
                             additionalProperties: false
+                          lowerCappingSettings:
+                            description: >-
+                              Independent lower cap. Omit on update to preserve
+                              it. Use null or type: none to disable it
+                              explicitly. Invalid values are rejected. For mixed
+                              cap types, the absolute bound takes precedence if
+                              thresholds cross.
+                            anyOf:
+                              - description: >-
+                                  Independent lower-tail capping settings.
+                                  Configured separately from the upper tail, so
+                                  the type can differ.
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    enum:
+                                      - none
+                                      - absolute
+                                      - percentile
+                                  value:
+                                    description: >-
+                                      When type is absolute, this is a finite
+                                      lower bound, including zero or negative
+                                      values. When type is percentile, this must
+                                      be strictly between 0 and 1. Required when
+                                      enabling capping or changing type; omitted
+                                      values are preserved only for same-type
+                                      updates.
+                                    type: number
+                                  ignoreZeros:
+                                    description: >-
+                                      If true and capping is `percentile`, zeros
+                                      will be ignored when calculating the
+                                      percentile.
+                                    type: boolean
+                                required:
+                                  - type
+                                additionalProperties: false
+                              - type: 'null'
                           windowSettings:
                             description: Controls the conversion window for the metric
                             type: object
@@ -33634,6 +34015,32 @@ paths:
                           enabled:
                             anyOf:
                               - type: boolean
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
                               - type: 'null'
                         additionalProperties: false
                     required:
@@ -34690,7 +35097,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -34705,7 +35114,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -35070,7 +35479,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -35085,7 +35496,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -35512,7 +35923,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -35527,7 +35940,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -35895,7 +36308,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -35910,7 +36325,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -48591,8 +49006,8 @@ paths:
                     type: string
                 updateVariations:
                   description: >-
-                    Metadata edits to existing active arms. Only `name` and
-                    `description` may be changed; key, values, weights,
+                    Metadata edits to existing active arms. `name`,
+                    `description`, and `key` may be changed; values, weights,
                     screenshots, and status are preserved.
                   type: array
                   items:
@@ -48603,6 +49018,14 @@ paths:
                       name:
                         type: string
                       description:
+                        type: string
+                      key:
+                        description: >-
+                          New key for the arm. Must be unique across the
+                          contextual bandit's arms, including removed ones. The
+                          key is what SDKs report in exposure events, so
+                          renaming an arm on a running bandit orphans exposures
+                          already recorded under the old key.
                         type: string
                     required:
                       - id
@@ -48964,13 +49387,14 @@ paths:
                 sections:
                   description: >-
                     What types of objects this custom field is applicable to
-                    (feature, experiment)
+                    (feature, experiment, attribute)
                   type: array
                   items:
                     type: string
                     enum:
                       - feature
                       - experiment
+                      - attribute
               required:
                 - id
                 - name
@@ -49156,13 +49580,14 @@ paths:
                 sections:
                   description: >-
                     What types of objects this custom field is applicable to
-                    (feature, experiment)
+                    (feature, experiment, attribute)
                   type: array
                   items:
                     type: string
                     enum:
                       - feature
                       - experiment
+                      - attribute
                 active:
                   type: boolean
               additionalProperties: false
@@ -56523,6 +56948,9 @@ paths:
                       targetId:
                         type: string
                       patch:
+                        description: >-
+                          The rule's pre-ramp state, and the only place a plan
+                          sets hashAttribute, seed or hashVersion.
                         type: object
                         properties:
                           ruleId:
@@ -56604,6 +57032,32 @@ paths:
                           enabled:
                             anyOf:
                               - type: boolean
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
                               - type: 'null'
                         required:
                           - ruleId
@@ -60130,6 +60584,32 @@ components:
                               anyOf:
                                 - type: boolean
                                 - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
+                                - type: 'null'
                           additionalProperties: false
                       required:
                         - patch
@@ -60560,6 +61040,32 @@ components:
                             enabled:
                               anyOf:
                                 - type: boolean
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                                 - type: 'null'
                           additionalProperties: false
                       required:
@@ -61605,6 +62111,32 @@ components:
                               anyOf:
                                 - type: boolean
                                 - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
+                                - type: 'null'
                           additionalProperties: false
                       required:
                         - patch
@@ -62035,6 +62567,32 @@ components:
                             enabled:
                               anyOf:
                                 - type: boolean
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                                 - type: 'null'
                           additionalProperties: false
                       required:
@@ -64985,6 +65543,12 @@ components:
           type: array
           items:
             type: string
+        customFields:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
       required:
         - property
         - datatype
@@ -65067,7 +65631,18 @@ components:
         remoteEvalEnabled:
           type: boolean
         savedGroupReferencesEnabled:
+          description: Deprecated. Use `savedGroupFormat`.
           type: boolean
+        savedGroupFormat:
+          description: >-
+            How Saved Groups are written into this connection's payload.
+            `referencesV2` needs an SDK version that supports it; the payload
+            steps down to `referencesV1` if not.
+          type: string
+          enum:
+            - inline
+            - referencesV1
+            - referencesV2
         includeReferencedPrerequisites:
           type: boolean
       required:
@@ -67272,6 +67847,16 @@ components:
             Whether this column should always be included as an inline filter in
             queries
           type: boolean
+        conditionalInlineFilters:
+          description: >-
+            Value -> additional column to prompt for when a metric filters this
+            column to that value, e.g. {"Page View": "path", "Modal Open":
+            "properties.modalType"}. Requires alwaysInlineFilter.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         deleted:
           default: false
           type: boolean
@@ -67397,6 +67982,16 @@ components:
             Whether this column should always be included as an inline filter in
             queries
           type: boolean
+        conditionalInlineFilters:
+          description: >-
+            Value -> additional column to prompt for when a metric filters this
+            column to that value, e.g. {"Page View": "path", "Modal Open":
+            "properties.modalType"}. Requires alwaysInlineFilter.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         deleted:
           default: false
           type: boolean
@@ -68164,6 +68759,33 @@ components:
           required:
             - type
           additionalProperties: false
+        lowerCappingSettings:
+          anyOf:
+            - description: >-
+                Independent lower-tail capping settings. Configured separately
+                from the upper tail, so the type can differ.
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - none
+                    - absolute
+                    - percentile
+                value:
+                  description: >-
+                    When type is absolute, this is the lower bound. When type is
+                    percentile, this is the lower percentile (from 0.0 to 1.0).
+                  type: number
+                ignoreZeros:
+                  description: >-
+                    If true and capping is `percentile`, zeros will be ignored
+                    when calculating the percentile.
+                  type: boolean
+              required:
+                - type
+              additionalProperties: false
+            - type: 'null'
         windowSettings:
           description: Controls the conversion window for the metric
           type: object
@@ -69006,7 +69628,9 @@ components:
         startActions:
           description: >-
             Actions that restore controlled rules to their pre-ramp state.
-            Applied when rolling back or jumping to start.
+            Applied when rolling back or jumping to start, and the base every
+            step accumulates on; the only place a plan can set hashAttribute,
+            seed or hashVersion.
           type: array
           items:
             type: object
@@ -69096,6 +69720,32 @@ components:
                   enabled:
                     anyOf:
                       - type: boolean
+                      - type: 'null'
+                  hashAttribute:
+                    description: >-
+                      Attribute the rule buckets on. Required (here or on the
+                      rule) when a step sets partial coverage on a force rule,
+                      which becomes a rollout.
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  seed:
+                    description: >-
+                      Hash seed for a promoted force rule. Defaults to the rule
+                      id.
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  hashVersion:
+                    description: >-
+                      Hash algorithm version for a promoted force rule. Defaults
+                      to 2.
+                    anyOf:
+                      - anyOf:
+                          - type: number
+                            const: 1
+                          - type: number
+                            const: 2
                       - type: 'null'
                 required:
                   - ruleId
@@ -74074,6 +74724,7 @@ components:
             enum:
               - feature
               - experiment
+              - attribute
         active:
           type: boolean
       required:
@@ -77869,6 +78520,17 @@ components:
       required:
         - overallResultsAsOf
       additionalProperties: false
+    ApiErrorInvalidTrackingKeyDetails:
+      type: object
+      properties:
+        pattern:
+          type: string
+        example:
+          type: string
+      required:
+        - pattern
+        - example
+      additionalProperties: false
     bypassedGates:
       type: object
       properties:
@@ -79887,6 +80549,28 @@ components:
               anyOf:
                 - type: boolean
                 - type: 'null'
+            hashAttribute:
+              description: >-
+                Attribute the rule buckets on. Required (here or on the rule)
+                when a step sets partial coverage on a force rule, which becomes
+                a rollout.
+              anyOf:
+                - type: string
+                - type: 'null'
+            seed:
+              description: Hash seed for a promoted force rule. Defaults to the rule id.
+              anyOf:
+                - type: string
+                - type: 'null'
+            hashVersion:
+              description: Hash algorithm version for a promoted force rule. Defaults to 2.
+              anyOf:
+                - anyOf:
+                    - type: number
+                      const: 1
+                    - type: number
+                      const: 2
+                - type: 'null'
           required:
             - ruleId
           additionalProperties: false
@@ -80031,6 +80715,102 @@ components:
       required:
         - interval
         - actions
+      additionalProperties: false
+    endActions:
+      type: object
+      properties:
+        targetType:
+          type: string
+          const: feature-rule
+        targetId:
+          type: string
+        patch:
+          type: object
+          properties:
+            ruleId:
+              type: string
+            coverage:
+              description: >-
+                Traffic fraction (0–1). For monitored steps the rollout rule is
+                promoted to an experiment: treatment = [0, coverage), control =
+                [0.5, 0.5+coverage). Both arms are equal-sized and non-adjacent,
+                so a step-up only adds new users to each arm — no existing user
+                changes group. The REST API enforces coverage ≤ 0.5 on monitored
+                steps so control end never exceeds 1.0. The SDK uses explicit
+                hash ranges on bucketingV2 clients to keep bucketing stable
+                across monitored/unmonitored transitions.
+              anyOf:
+                - type: number
+                  minimum: 0
+                  maximum: 1
+                - type: 'null'
+            condition:
+              anyOf:
+                - type: string
+                - type: 'null'
+            savedGroups:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                - type: 'null'
+            prerequisites:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                - type: 'null'
+            allEnvironments:
+              anyOf:
+                - type: boolean
+                - type: 'null'
+            environments:
+              anyOf:
+                - type: array
+                  items:
+                    type: string
+                - type: 'null'
+            force:
+              description: >-
+                Value to serve, in the string form rule values use ("false",
+                "10", '{"limit": 5}'). A non-string JSON value is accepted and
+                stored as its JSON text. Must be valid for the feature's value
+                type.
+            enabled:
+              anyOf:
+                - type: boolean
+                - type: 'null'
+          required:
+            - ruleId
+          additionalProperties: false
+      required:
+        - targetType
+        - targetId
+        - patch
       additionalProperties: false
     lockdownConfig:
       type: object

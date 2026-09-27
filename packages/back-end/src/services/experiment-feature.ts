@@ -1327,11 +1327,16 @@ async function resolveRulesForExperiment({
   // Append-only for history, but a deleted experiment has none to show.
   const unlink = async (current: FeatureInterface) => {
     if (!current.linkedExperiments?.includes(experiment.id)) return;
-    await updateFeature(context, current, {
-      linkedExperiments: current.linkedExperiments.filter(
-        (id) => id !== experiment.id,
-      ),
-    });
+    await updateFeature(
+      context,
+      current,
+      {
+        linkedExperiments: current.linkedExperiments.filter(
+          (id) => id !== experiment.id,
+        ),
+      },
+      { casOnDateUpdated: current.dateUpdated },
+    );
   };
   // Only a write race can fail after the authority pass; flags already landed
   // stay landed, and a retry skips them.

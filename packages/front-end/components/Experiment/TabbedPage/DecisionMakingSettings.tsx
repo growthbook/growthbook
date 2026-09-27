@@ -28,6 +28,8 @@ export interface Props {
   canEdit: boolean;
   ssrPolyfills?: SSRPolyfills;
   isPublic?: boolean;
+  // Environments the experiment reaches; the schedule modal gates on them.
+  envs?: string[];
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -49,6 +51,7 @@ export default function DecisionMakingSettings({
   canEdit,
   ssrPolyfills,
   isPublic,
+  envs,
 }: Props) {
   const { getExperimentMetricById, getMetricById, metricGroups } =
     useDefinitions();
@@ -185,6 +188,7 @@ export default function DecisionMakingSettings({
         <EditScheduleModal
           experiment={experiment}
           mutate={mutate}
+          envs={envs}
           close={() => setEditScheduleModal(false)}
         />
       ) : null}

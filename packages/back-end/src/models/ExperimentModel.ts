@@ -36,6 +36,7 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import { ReqContext } from "back-end/types/request";
 import {
+  assertValidBucketVersions,
   assertValidExperimentPhases,
   assertValidReleasedVariationId,
   determineNextDate,
@@ -236,6 +237,7 @@ const experimentSchema = new mongoose.Schema({
     type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
     date: Date,
     failedAttempts: Number,
+    scheduledBy: String,
   },
   results: String,
   analysis: String,
@@ -836,6 +838,7 @@ export async function createExperiment({
   validateMetricOverrides(data.metricOverrides);
   assertValidExperimentPhases(data.phases ?? []);
   assertValidReleasedVariationId(data);
+  assertValidBucketVersions(data);
 
   const experimentToCreate = {
     id: uniqid("exp_"),
@@ -954,6 +957,7 @@ export async function updateExperiment({
     assertValidExperimentPhases(allChanges.phases, experiment.phases);
   }
   assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
+  assertValidBucketVersions({ ...experiment, ...allChanges }, experiment);
 
   const remindersToReset = getExperimentReminderResets(experiment, {
     ...experiment,
