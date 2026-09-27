@@ -276,12 +276,7 @@ export type ExperimentTargetingData = Pick<
     reseed: boolean;
   };
 
-export type LinkedFeatureState =
-  | "locked"
-  | "live"
-  | "draft"
-  | "discarded"
-  | "archived";
+export type LinkedFeatureState = "live" | "draft" | "discarded" | "archived";
 
 /** The two settings that combine into a `LinkedFeatureEnvState`. */
 export type LinkedFeatureEnvInputs = {

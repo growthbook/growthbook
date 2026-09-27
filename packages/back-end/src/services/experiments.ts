@@ -5429,15 +5429,6 @@ export async function getRefLinkedFeatureInfo({
       const draftDiffersFromLive =
         !!matchedDraftRevision && draftChangesRef(matchedDraftRevision);
 
-      const lockedMatches =
-        revisions
-          .filter(
-            (r) => r.status === "published" && r.version !== feature.version,
-          )
-          .sort((a, b) => b.version - a.version)
-          .map((r) => getMatchingRules(feature, matchRule, environments, r))
-          .filter((matches) => matches.length > 0)[0] || [];
-
       let state: LinkedFeatureState = "discarded";
       let matches: MatchingRule[] = [];
       if (feature.archived) {
@@ -5452,9 +5443,6 @@ export async function getRefLinkedFeatureInfo({
       } else if (draftMatches.length > 0) {
         state = "draft";
         matches = draftMatches;
-      } else if (lockedMatches.length > 0) {
-        state = "locked";
-        matches = lockedMatches;
       }
 
       // Rare, so looked up only here: the newest discarded draft that still
