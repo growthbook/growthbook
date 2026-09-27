@@ -105,6 +105,7 @@ function MappingRow({
             {onRemove ? (
               <Flex align="center">
                 <IconButton
+                  type="button"
                   variant="ghost"
                   color="gray"
                   size="1"
@@ -300,7 +301,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   const hasFreshResults = detectedSql === factTableSql && !!detected?.length;
   const columnError =
     hasFreshResults && detected
-      ? getColumnMappingError(detected)
+      ? getColumnMappingError(detected, sqlMode === "table")
       : sqlMode === "table" && selectedTable && tableColumns
         ? getPickerTableError(selectedTable, tableColumns)
         : null;
@@ -385,7 +386,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       submit={submit}
       close={close}
       cta="Create Fact Table"
-      size={step === 0 ? "max" : "md"}
+      size={step === 0 && sqlMode === "sql" ? "max" : "md"}
       // Table mode waits for columns, since they can add the partition filter
       ctaEnabled={
         step > 0 ||
@@ -404,7 +405,10 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           await validateSql.current?.();
         }}
       >
-        <Box p="2" style={{ height: BODY_HEIGHT }}>
+        <Box
+          p="2"
+          style={sqlMode === "sql" ? { height: BODY_HEIGHT } : undefined}
+        >
           <NewFactTableSqlStep
             datasourceId={datasourceId}
             setDatasourceId={setDatasourceId}
@@ -419,7 +423,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
             columnError={columnError}
             selectedTable={selectedTable}
             onSelectTable={selectTable}
-            tableColumns={tableColumns}
             tableColumnsError={tableDataError?.message ?? null}
           />
         </Box>
@@ -433,12 +436,14 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
         >
           <Flex direction="column" gap="2">
             {sqlMode === "table" && selectedTable ? (
-              <TextField
-                label="Table"
-                value={`${selectedTable.schemaName}.${selectedTable.tableName}`}
-                readOnly
-                append={<Link onClick={() => setStep(0)}>Change</Link>}
-              />
+              <Box pb="2">
+                <TextField
+                  label="Table"
+                  value={`${selectedTable.schemaName}.${selectedTable.tableName}`}
+                  readOnly
+                  append={<Link onClick={() => setStep(0)}>Change</Link>}
+                />
+              </Box>
             ) : (
               <Code
                 language="sql"

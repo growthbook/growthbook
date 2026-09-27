@@ -157,7 +157,7 @@ describe("getPickerTableError", () => {
         col("user_id", "STRING"),
         col("amount", "NUMERIC"),
       ]),
-    ).toMatch(/date column/);
+    ).toBe("Selected table does not have a timestamp column.");
     expect(
       getPickerTableError(tracks, [
         col("user_id", "STRING"),

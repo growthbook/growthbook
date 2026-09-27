@@ -50,17 +50,24 @@ export const isIdentifierCandidate = (c: DetectedFactTableColumn) =>
 
 export function getColumnMappingError(
   columns: DetectedFactTableColumn[],
+  fromTable = false,
 ): string | null {
   if (!columns.some(isTimestampCandidate)) {
-    return "Your query must return a date column to use as the timestamp.";
+    return fromTable
+      ? "Selected table does not have a timestamp column."
+      : "Your query must return a date column to use as the timestamp.";
   }
   if (!columns.some(isIdentifierCandidate)) {
-    return "Your query must return a string or number column to use as an identifier.";
+    return fromTable
+      ? "Selected table does not have an identifier column."
+      : "Your query must return a string or number column to use as an identifier.";
   }
   // A single column can satisfy both checks when its type is unknown, but the
   // timestamp and the identifier have to be different columns.
   if (columns.length < 2) {
-    return "Your query must return separate timestamp and identifier columns.";
+    return fromTable
+      ? "Selected table must have separate timestamp and identifier columns."
+      : "Your query must return separate timestamp and identifier columns.";
   }
   return null;
 }
@@ -111,6 +118,7 @@ export function getPickerTableError(
       column: c.columnName,
       datatype: mapDatabaseTypeToEnum(c.dataType),
     })),
+    true,
   );
 }
 

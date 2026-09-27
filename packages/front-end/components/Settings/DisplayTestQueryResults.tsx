@@ -102,6 +102,7 @@ export function TestQueryResultsTable({
 
   const closeButton = onClose ? (
     <IconButton
+      type="button"
       variant="ghost"
       color="gray"
       size="1"
@@ -214,14 +215,14 @@ export function TestQueryResultsTable({
             <ManagedWarehouseNoEventsCallout />
           </div>
         ) : (
-          <Callout status="error" mr="auto">
+          <Callout status="error" size={compact ? "sm" : "md"} mr="auto">
             {error}
           </Callout>
         )
       ) : (
         showNoRowsWarning &&
         !results.length && (
-          <Callout status="warning" mr="auto">
+          <Callout status="warning" size={compact ? "sm" : "md"} mr="auto">
             No rows returned, could not verify result
           </Callout>
         )
@@ -258,7 +259,9 @@ export function TestQueryResultsTable({
           <div className="rounded p-2 bg-light">
             {downloadError ? (
               <div className="mb-2">
-                <Callout status="error">{downloadError}</Callout>
+                <Callout status="error" size={compact ? "sm" : "md"}>
+                  {downloadError}
+                </Callout>
               </div>
             ) : null}
             <Flex align="center" gap="4">

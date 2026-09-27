@@ -10,11 +10,13 @@ export default function RetryInformationSchemaCard({
   refreshOrCreateInfoSchema,
   canRunQueries,
   error,
+  size = "md",
 }: {
   informationSchema: InformationSchemaInterface;
   canRunQueries: boolean;
   refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
   error: string | null;
+  size?: "sm" | "md";
 }) {
   const combinedError = error || informationSchema?.error?.message || "";
 
@@ -23,11 +25,11 @@ export default function RetryInformationSchemaCard({
       {isManagedWarehouseNoEventsGuidanceMessage(combinedError) ? (
         <div className="d-flex flex-column">
           <div className="mb-2">
-            <ManagedWarehouseNoEventsCallout />
+            <ManagedWarehouseNoEventsCallout size={size} />
           </div>
           <div className="d-flex align-items-center">
             <Tooltip
-              body="You do not have permission to retry generating an information schema for this datasource."
+              body="You don't have permission to load tables for this Data Source."
               shouldDisplay={!canRunQueries}
             >
               <button
@@ -46,13 +48,15 @@ export default function RetryInformationSchemaCard({
       ) : (
         <Callout
           status="warning"
+          size={size}
           action={
             <Tooltip
-              body="You do not have permission to retry generating an information schema for this datasource."
+              body="You don't have permission to load tables for this Data Source."
               shouldDisplay={!canRunQueries}
             >
               <Button
                 color="inherit"
+                size={size}
                 disabled={!canRunQueries}
                 onClick={() => refreshOrCreateInfoSchema("PUT")}
               >
