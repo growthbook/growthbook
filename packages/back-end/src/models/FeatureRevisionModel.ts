@@ -3181,9 +3181,10 @@ export async function getFeatureRevisionsByFeatureIds(
       status: { $in: statuses },
       featureId: { $in: featureIds },
     })
-      .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
-      .sort({ version: -1 })
-      .limit(10);
+      // Uncapped: a shared cap starves some flags of the draft holding their
+      // rule. The log is the one field large enough to leave behind.
+      .select("-log")
+      .sort({ version: -1 });
     revisions.forEach((revision) => {
       const featureId = revision.featureId;
       revisionsByFeatureId[featureId] = revisionsByFeatureId[featureId] || [];
