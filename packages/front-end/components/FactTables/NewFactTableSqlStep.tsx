@@ -34,11 +34,7 @@ import {
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import {
-  getColumnMappingError,
-  isGA4EventsTable,
-  PickerColumnSelection,
-} from "@/services/factTables";
+import { getColumnMappingError, isGA4EventsTable } from "@/services/factTables";
 import {
   getSchemaBrowserTables,
   SchemaBrowserTable,
@@ -302,8 +298,8 @@ export default function NewFactTableSqlStep({
   columnSource,
   testRowFilters,
   rowFilterError,
-  columnSelection,
-  setColumnSelection,
+  selectedColumns,
+  setSelectedColumns,
 }: {
   datasourceId: string;
   setDatasourceId: (id: string) => void;
@@ -325,8 +321,9 @@ export default function NewFactTableSqlStep({
   columnSource: FilterColumnSource | null;
   testRowFilters: (rowFilters: RowFilter[]) => Promise<RowFilterTestResults>;
   rowFilterError: string | null;
-  columnSelection: PickerColumnSelection;
-  setColumnSelection: (selection: PickerColumnSelection) => void;
+  // Null selects every column
+  selectedColumns: string[] | null;
+  setSelectedColumns: (columns: string[] | null) => void;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById, datasources, project } = useDefinitions();
@@ -606,35 +603,22 @@ export default function NewFactTableSqlStep({
               <>
                 <Select
                   aria-label="Selected columns"
-                  value={columnSelection.mode}
-                  setValue={(mode) =>
-                    setColumnSelection({
-                      mode: mode as PickerColumnSelection["mode"],
-                      columns: [],
-                    })
-                  }
+                  value={selectedColumns ? "specific" : "all"}
+                  setValue={(v) => setSelectedColumns(v === "all" ? null : [])}
                   mb="0"
                 >
-                  <SelectItem value="all">All (SELECT *)</SelectItem>
-                  <SelectItem value="exclude">
-                    Exclude specific columns
+                  <SelectItem value="all">
+                    All {columnSource?.columns.length ?? ""} columns
                   </SelectItem>
-                  <SelectItem value="include">
-                    Include specific columns
-                  </SelectItem>
+                  <SelectItem value="specific">Specific columns</SelectItem>
                 </Select>
-                {columnSelection.mode !== "all" ? (
+                {selectedColumns ? (
                   <MultiSelectField
-                    value={columnSelection.columns}
-                    onChange={(columns) =>
-                      setColumnSelection({ ...columnSelection, columns })
-                    }
+                    value={selectedColumns}
+                    onChange={setSelectedColumns}
                     options={columnSource?.columns ?? []}
-                    placeholder={
-                      columnSelection.mode === "include"
-                        ? "Columns to include..."
-                        : "Columns to exclude..."
-                    }
+                    placeholder="Select columns..."
+                    size="md"
                     sort={false}
                     disabled={!columnSource}
                     autoFocus

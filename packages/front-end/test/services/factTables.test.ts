@@ -4,7 +4,6 @@ import {
   getColumnMappingError,
   getDefaultTimestampColumn,
   getPartitionFilterColumn,
-  getPickerColumns,
   getPickerTableError,
   getPickerTableName,
   getPickerTableSql,
@@ -174,26 +173,6 @@ describe("getPickerTableSql", () => {
     });
     expect(sql).toMatch(/^SELECT\n {2}TIMESTAMP_MICROS/);
     expect(sql).toMatch(/_TABLE_SUFFIX .*\n {2}AND \(x = 1\)$/);
-  });
-});
-
-describe("getPickerColumns", () => {
-  const all = ["a", "b", "c"];
-
-  it("selects everything unless a column is included or excluded", () => {
-    expect(getPickerColumns({ mode: "all", columns: [] }, all)).toBeNull();
-    expect(getPickerColumns({ mode: "exclude", columns: [] }, all)).toBeNull();
-    expect(getPickerColumns({ mode: "include", columns: [] }, all)).toEqual([]);
-  });
-
-  it("keeps included columns in picked order and the rest when excluding", () => {
-    expect(
-      getPickerColumns({ mode: "include", columns: ["c", "a"] }, all),
-    ).toEqual(["c", "a"]);
-    expect(getPickerColumns({ mode: "exclude", columns: ["b"] }, all)).toEqual([
-      "a",
-      "c",
-    ]);
   });
 });
 

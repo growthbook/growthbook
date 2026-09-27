@@ -34,13 +34,11 @@ import {
   getDefaultTimestampColumn,
   getNewFactTableProjects,
   getPartitionFilterColumn,
-  getPickerColumns,
   getPickerTableError,
   getPickerTableName,
   getPickerTableSql,
   isIdentifierCandidate,
   isTimestampCandidate,
-  PickerColumnSelection,
 } from "@/services/factTables";
 import { SchemaBrowserTable } from "@/services/schemaBrowserTables";
 import track from "@/services/track";
@@ -151,8 +149,6 @@ function MappingRow({
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
-const ALL_COLUMNS: PickerColumnSelection = { mode: "all", columns: [] };
-
 export default function NewFactTableModal({ close }: { close: () => void }) {
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -173,8 +169,8 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     null,
   );
   const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
-  const [columnSelection, setColumnSelection] =
-    useState<PickerColumnSelection>(ALL_COLUMNS);
+  // Null selects every column
+  const [selectedColumns, setSelectedColumns] = useState<string[] | null>(null);
 
   const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
     null,
@@ -202,7 +198,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     setSql(getInitialFactTableQuery(datasource).sql);
     setSelectedTable(null);
     setRowFilters([]);
-    setColumnSelection(ALL_COLUMNS);
+    setSelectedColumns(null);
   }, [datasourceId, getDatasourceById]);
 
   const datasource = getDatasourceById(datasourceId);
@@ -214,7 +210,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     const tableName = getPickerTableName(table);
     setSelectedTable(table);
     setRowFilters([]);
-    setColumnSelection(ALL_COLUMNS);
+    setSelectedColumns(null);
     // Otherwise handleColumnsDetected keeps the last table's mappings
     setDetected(null);
     setTimestampColumn("");
@@ -359,17 +355,13 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     }
   }
 
-  const pickerColumns = getPickerColumns(
-    columnSelection,
-    (tableColumns ?? []).map((c) => c.columnName),
-  );
   const buildTableSql = (where: string) =>
     selectedTable
       ? getPickerTableSql(selectedTable, {
           partitionColumn: getPartitionFilterColumn(tableColumns ?? []),
           datasourceType: datasource?.type,
           identifierQuote: dialect?.identifierQuote,
-          columns: pickerColumns,
+          columns: selectedColumns,
           rowFilterWhere: where,
         })
       : "";
@@ -399,7 +391,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     hasFreshResults && detected
       ? getColumnMappingError(detected, sqlMode === "table")
       : sqlMode === "table" && selectedTable && tableColumns
-        ? getPickerTableError(selectedTable, tableColumns, pickerColumns)
+        ? getPickerTableError(selectedTable, tableColumns, selectedColumns)
         : null;
 
   async function submit() {
@@ -492,7 +484,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
             (!!selectedTable &&
               !tableColumnsLoading &&
               rowFilterWhere !== null &&
-              pickerColumns?.length !== 0)))
+              selectedColumns?.length !== 0)))
       }
       overflowAuto={false}
       autoFocusSelector=""
@@ -530,8 +522,8 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
             columnSource={columnSource}
             testRowFilters={testRowFilters}
             rowFilterError={rowFilterError}
-            columnSelection={columnSelection}
-            setColumnSelection={setColumnSelection}
+            selectedColumns={selectedColumns}
+            setSelectedColumns={setSelectedColumns}
           />
         </Box>
       </Page>

@@ -112,7 +112,7 @@ export const isGA4EventsTable = (table: SchemaBrowserTable) =>
 export function getPickerTableError(
   table: SchemaBrowserTable,
   columns: Column[],
-  // From getPickerColumns
+  // Null selects every column
   selected: string[] | null = null,
 ): string | null {
   // GA4's query builds its own timestamp and identifier columns
@@ -129,26 +129,6 @@ export function getPickerTableError(
   )
     ? "Selected columns must include a timestamp column and a separate identifier column."
     : null;
-}
-
-export type PickerColumnSelection = {
-  mode: "all" | "include" | "exclude";
-  columns: string[];
-};
-
-// Null selects every column
-export function getPickerColumns(
-  selection: PickerColumnSelection,
-  tableColumns: string[],
-): string[] | null {
-  if (selection.mode === "include") return selection.columns;
-  if (selection.mode === "exclude" && selection.columns.length) {
-    // ponytail: SELECT * EXCEPT isn't portable, so this lists the rest and
-    // columns added to the table later are left out. Use the dialect's
-    // EXCEPT/EXCLUDE where it has one if that matters.
-    return tableColumns.filter((c) => !selection.columns.includes(c));
-  }
-  return null;
 }
 
 // String partitions (Hive-style `dt`) can be any format; only dates are safe
@@ -175,7 +155,7 @@ export function getPickerTableSql(
     partitionColumn?: string;
     datasourceType?: DataSourceType;
     identifierQuote?: SqlIdentifierQuote;
-    // From getPickerColumns
+    // Null selects every column
     columns?: string[] | null;
     // Compiled row filters, already joined with AND
     rowFilterWhere?: string;
