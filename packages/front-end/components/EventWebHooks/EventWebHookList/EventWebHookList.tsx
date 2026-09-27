@@ -1,4 +1,3 @@
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import React, { FC, useCallback, useState } from "react";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import useApi from "@/hooks/useApi";
@@ -31,9 +30,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
   createError,
 }) => {
   const permissionsUtils = usePermissionsUtil();
-  const workspaceUIEnabled = useFeatureIsOn("slack-workspace-ui");
-  const canManageSlack =
-    workspaceUIEnabled && permissionsUtils.canManageIntegrations();
+  const canManageSlack = permissionsUtils.canManageIntegrations();
 
   return (
     <div>

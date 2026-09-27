@@ -12,22 +12,23 @@ import {
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
 import {
+  rampPlanLacksHashAttribute,
+  getRuleAttributeScopeProjectIds,
   findStoredRuleCounterpart,
   stemRuleId,
   validateCondition,
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
-  assertFeatureValuesValid,
-  getSavedGroupMap,
-} from "back-end/src/services/features";
+import type { GroupMap } from "shared/types/saved-group";
+import { assertFeatureValuesValid } from "back-end/src/services/features";
 import {
   applyPatchToRule,
   normalizeRampPlanForceValues,
 } from "back-end/src/services/rampSchedule";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import { configCheckedRuleValues } from "back-end/src/services/configValidation";
 import {
   assertValidExperimentPrerequisites,
@@ -123,6 +124,36 @@ export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);
 }
 
+// The feature as a draft stages it: the revision's project, targeting and
+// rules over the live ones, so a write into the draft is judged in its scope.
+export function stagedFeatureOf(
+  feature: FeatureInterface,
+  revision: Pick<FeatureRevisionInterface, "metadata" | "rules">,
+): FeatureInterface {
+  return {
+    ...feature,
+    ...featureForSavedGroupValidation(feature, revision),
+    rules: revision.rules ?? feature.rules,
+  };
+}
+
+// Same, read without creating a draft, so a refusal cannot orphan one.
+export async function stagedFeature(
+  context: ApiReqContext,
+  feature: FeatureInterface,
+  version: number | "new",
+): Promise<FeatureInterface> {
+  if (version === "new") return feature;
+  const draft = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version,
+  });
+  return draft ? stagedFeatureOf(feature, draft) : feature;
+}
+
 // Resolves an existing revision, or creates a blank draft on `version: "new"`.
 // `created` is true when a draft was just created — pair with
 // `discardIfJustCreated` on downstream failure.
@@ -209,6 +240,8 @@ export function assertValidRuleEnvironments(
 // the step fires, so they get the same checks a rule write gets.
 export type RampPatchTargetingInput = {
   ruleId?: string | null;
+  coverage?: number | null;
+  hashAttribute?: string | null;
   condition?: string | null;
   savedGroups?: FeatureRule["savedGroups"] | null;
   prerequisites?: FeaturePrerequisite[] | null;
@@ -225,6 +258,45 @@ type RampPlanInput = {
   startState?: unknown;
   endPatch?: unknown;
 };
+
+// What a partial update leaves stored: omitted startActions, steps or
+// endActions keep the stored ones (a template's end patch applies only on
+// create); a `startState` replaces any start actions.
+export function mergedRampPlan<P extends RampPlanInput>(
+  update: P,
+  stored: RampPlanInput | null | undefined,
+): P {
+  return {
+    ...update,
+    startActions:
+      update.startState !== undefined
+        ? undefined
+        : (update.startActions ?? stored?.startActions),
+    steps: update.steps ?? stored?.steps,
+    endActions: update.endActions ?? stored?.endActions,
+    endPatch: stored ? undefined : update.endPatch,
+  };
+}
+
+// A plan built from a template gets its steps and end action at publish where
+// the body has none; judge the template's now so a refusal lands on the write.
+export async function withTemplatePlan<
+  P extends RampPlanInput & { templateId?: string | null },
+>(
+  context: ReqContext | ApiReqContext,
+  plan: P | undefined,
+): Promise<P | undefined> {
+  if (!plan?.templateId) return plan;
+  const template = await context.models.rampScheduleTemplates.getById(
+    plan.templateId,
+  );
+  if (!template) return plan;
+  return {
+    ...plan,
+    steps: plan.steps?.length ? plan.steps : template.steps,
+    endPatch: plan.endActions === undefined ? template.endPatch : undefined,
+  };
+}
 
 // Every action in a ramp plan body, stored schedule or revision ramp action
 // that carries a patch, in plan order.
@@ -254,14 +326,14 @@ export function collectRampPlanPatches(
 
 type RuleScope = Pick<
   RampPatchTargetingInput,
-  "allEnvironments" | "environments" | "prerequisites"
+  "allEnvironments" | "environments" | "prerequisites" | "hashAttribute"
 > &
   Partial<
     Pick<
       FeatureRule,
       "id" | "condition" | "savedGroups" | "allProjects" | "projects"
     >
-  >;
+  > & { type?: FeatureRule["type"] };
 
 // One patch and where it lands: the flag whose rule it targets, and that
 // rule's current environment scope when the caller could resolve it.
@@ -345,6 +417,7 @@ function changedRampPatchTargeting(
     );
   return {
     ruleId: patch.ruleId,
+    ...(echoed("hashAttribute") ? {} : { hashAttribute: patch.hashAttribute }),
     ...(echoed("condition") ? {} : { condition: patch.condition }),
     ...(echoed("savedGroups") ? {} : { savedGroups: patch.savedGroups }),
     ...(echoed("prerequisites") ? {} : { prerequisites: patch.prerequisites }),
@@ -359,6 +432,38 @@ function changedRampPatchTargeting(
 
 const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 
+// A partial-coverage step turns a force rule into a rollout, which needs a hash
+// attribute from the rule or the plan's anchor; none is guessed.
+function assertRampCoverageHashProvided(entries: RampPatchEntry[]): void {
+  // A new rule has no id yet: its entries all share one scope object.
+  const byRule = new Map<string | RuleScope, RampPatchEntry[]>();
+  for (const entry of entries) {
+    if (!entry.rule) continue;
+    const key = entry.rule.id
+      ? `${entry.feature?.id ?? ""}\0${entry.rule.id}`
+      : entry.rule;
+    byRule.set(key, [...(byRule.get(key) ?? []), entry]);
+  }
+  for (const group of byRule.values()) {
+    const rule = group[0].rule as RuleScope;
+    if (rule.type !== "force" || rule.hashAttribute) continue;
+    const ruleId = rule.id ?? "";
+    const plan = {
+      steps: [
+        { actions: group.map((e) => ({ patch: { ...e.patch, ruleId } })) },
+      ],
+    };
+    if (!rampPlanLacksHashAttribute(plan, ruleId)) continue;
+    const feature = group[0].feature;
+    const where = rule.id
+      ? `Rule "${rule.id}"${feature ? ` on "${feature.id}"` : ""}`
+      : "The rule";
+    throw new BadRequestError(
+      `${where} is a force rule with no hash attribute, so this ramp cannot control its coverage. Set hashAttribute on the rule, or in the ramp's start state (startState.hashAttribute / startActions).`,
+    );
+  }
+}
+
 // The rule endpoints' checks (`assertValidRuleEnvironments`,
 // `validateRulesReferences`, `assertValidPrerequisiteParents`) applied to ramp
 // patch targeting. `stored` are the plans this write replaces; as with
@@ -371,16 +476,45 @@ export async function validateRampPlanPatches(
   { stored = [] }: { stored?: unknown[] } = {},
 ): Promise<void> {
   const storedPatches = stored.flatMap((plan) => collectRampPlanPatches(plan));
-  const checked = entries
-    .filter(({ patch }) => hasRampPatchTargeting(patch))
-    .map((entry) => ({
-      ...entry,
-      changed: changedRampPatchTargeting(entry.patch, storedPatches),
-    }))
-    .filter(({ changed }) => hasRampPatchTargeting(changed));
-  if (!checked.length) return;
+  const withChanges = entries.map((entry) => ({
+    ...entry,
+    changed: changedRampPatchTargeting(entry.patch, storedPatches),
+  }));
+  const checked = withChanges.filter(({ changed }) =>
+    hasRampPatchTargeting(changed),
+  );
 
   try {
+    // Null is neither a list nor a wildcard, except beside `allEnvironments:
+    // true`, which is how anchors spell a rule with no list (and how a GET
+    // response replays them). An echo of a stored anchor is not a change.
+    if (
+      withChanges.some(
+        ({ changed }) =>
+          changed.environments === null && changed.allEnvironments !== true,
+      )
+    ) {
+      throw new BadRequestError(
+        "environments cannot be null; omit it to keep the rule's environments, or set allEnvironments",
+      );
+    }
+    assertRampCoverageHashProvided(entries);
+    // A hash attribute the anchor names gets the rule write's registration
+    // check: a typo would bucket nobody once the rule is a rollout.
+    for (const { changed, feature, rule } of withChanges) {
+      if (!changed.hashAttribute) continue;
+      assertRegisteredAttributes(
+        context,
+        { hashAttribute: changed.hashAttribute },
+        "ramp start state",
+        undefined,
+        (feature &&
+          getRuleAttributeScopeProjectIds(feature, undefined, rule ?? {})) ??
+          undefined,
+      );
+    }
+    if (!checked.length) return;
+
     assertValidRuleEnvironments(
       context,
       checked.map(({ changed }) => ({
@@ -407,11 +541,12 @@ export async function validateRampPlanPatches(
 
     for (const { patch, changed, feature, rule } of checked) {
       if (feature) {
+        // Only targeting is judged here, so the rule's type does not matter.
         const target: FeatureRule = {
-          type: "force",
           description: "",
           value: "",
           ...rule,
+          type: "force",
           id: rule?.id ?? patch.ruleId ?? "ramp-schedule-patch",
           allEnvironments: rule?.allEnvironments ?? false,
           environments: rule?.environments ?? undefined,
@@ -575,7 +710,13 @@ export const validateCustomFields = async (
   });
 };
 
-type SavedGroupMap = Awaited<ReturnType<typeof getSavedGroupMap>>;
+// Reference checks read ids and conditions, never the ID lists.
+async function getSavedGroupsForValidation(
+  context: ReqContext | ApiReqContext,
+): Promise<GroupMap> {
+  const groups = await context.models.savedGroups.getAllWithoutValues();
+  return new Map(groups.map((group) => [group.id, group]));
+}
 
 // Verify the saved-group references in a rule exist. Call on the final rule —
 // saved groups are loaded once. Prerequisite parents are checked separately
@@ -584,7 +725,10 @@ export async function validateRuleReferences(
   rule: Pick<FeatureRule, "condition" | "savedGroups">,
   context: ApiReqContext,
 ): Promise<void> {
-  validateRuleReferencesWithGroups(rule, await getSavedGroupMap(context));
+  validateRuleReferencesWithGroups(
+    rule,
+    await getSavedGroupsForValidation(context),
+  );
 }
 
 // Bulk form for endpoints that take a whole rules array (feature create /
@@ -594,7 +738,7 @@ export async function validateRulesReferences(
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
   if (!rules.length) return;
-  const groupMap = await getSavedGroupMap(context);
+  const groupMap = await getSavedGroupsForValidation(context);
   for (const rule of rules) {
     validatePrerequisiteConditions(rule.prerequisites ?? []);
     validateRuleReferencesWithGroups(rule, groupMap);
@@ -675,7 +819,7 @@ export async function validateChangedPhaseReferences(
 
 function validateRuleReferencesWithGroups(
   rule: Pick<FeatureRule, "condition" | "savedGroups">,
-  groupMap: SavedGroupMap,
+  groupMap: GroupMap,
 ): void {
   const savedGroupIds = new Set(groupMap.keys());
   for (const sg of rule.savedGroups ?? []) {
@@ -707,7 +851,7 @@ export async function validatePrerequisiteReferences(
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
   const savedGroupIds = new Set(
-    (await context.models.savedGroups.getAll()).map((sg) => sg.id),
+    (await getSavedGroupsForValidation(context)).keys(),
   );
   for (const prereq of prerequisites) {
     if (prereq.condition && prereq.condition !== "{}") {

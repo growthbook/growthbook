@@ -28,6 +28,7 @@ type EventForwarderRow = {
 const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
   bigquery: "BigQuery",
   snowflake: "Snowflake",
+  databricks: "Databricks",
 };
 
 const EditOrganization: FC<{

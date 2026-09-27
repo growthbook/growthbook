@@ -446,7 +446,7 @@ export async function revertFeatureRevision(
         ]
       : [];
 
-  await assertRevertLandingGuards(context, feature, changes);
+  await assertRevertLandingGuards(context, feature, changes, targetRevision);
   const { revision: publishedRevision, updatedFeature } =
     await createAndPublishRevision({
       context,

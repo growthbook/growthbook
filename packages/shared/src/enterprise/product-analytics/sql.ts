@@ -40,7 +40,6 @@ import {
   ProductAnalyticsResultRow,
   FunnelDataset,
 } from "../../validators/product-analytics";
-import { FunnelStep } from "../../validators/fact-table";
 import {
   getRowFilterSQL,
   getColumnExpression,
@@ -49,6 +48,7 @@ import {
   getFactTableTimestampColumn,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
+import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
 import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 
@@ -142,6 +142,8 @@ interface MetricData {
   unit: string | null;
   alias: string;
   percentileCapValueExpr: string | null;
+  /** Same column basis as `percentileCapValueExpr`; used for lower-tail percentile caps. */
+  percentileLowerCapValueExpr: string | null;
   eventValueExpr: string;
   unitAggregationExpr: string | null;
   rollupAggregationExpr: string;
@@ -543,6 +545,23 @@ export function generateRowFilterSQL(
     .filter((sql): sql is string => sql !== null);
 }
 
+/**
+ * Scan-level WHERE for several row-filter groups (metrics, funnel steps)
+ * reading the same fact table: the minimal OR of the groups. "" means no
+ * pushdown (some group is unfiltered, so every row is needed).
+ */
+export function generatePushdownFilterSQL(
+  rowFilterGroups: RowFilter[][],
+  factTable: MinimalFactTable,
+  helpers: SqlDialect,
+): string {
+  return buildMinimalOrCondition(
+    rowFilterGroups.map((filters) =>
+      generateRowFilterSQL(filters, factTable, helpers),
+    ),
+  );
+}
+
 // True if `column` resolves to a real underlying column on `factTable` —
 // either a top-level column, or (for a dotted path) a JSON field defined on
 // a JSON-typed top-level column. A ratio metric's denominator can live on a
@@ -627,11 +646,11 @@ function getCappingSettings(
 ): MetricCappingSettings | null {
   if (metric.metricType === "proportion") return null;
 
-  if (
-    metric.cappingSettings?.type === "percentile" ||
-    metric.cappingSettings?.type === "absolute"
-  ) {
-    return metric.cappingSettings;
+  const cs = metric.cappingSettings;
+  if (!cs) return null;
+
+  if (getCappingTailState(cs).anyCap) {
+    return cs;
   }
 
   return null;
@@ -961,14 +980,22 @@ function getMetricData(
   }
 
   const cappingSettings = getCappingSettings(metric);
+  const rawPercentileValueExpr = getEventValueExpr(
+    columnRef,
+    factTable,
+    helpers,
+    alias,
+    null,
+  );
 
   return {
     unit: selectedUnit,
     alias,
     percentileCapValueExpr:
       cappingSettings && cappingSettings.type === "percentile"
-        ? getEventValueExpr(columnRef, factTable, helpers, alias, null)
+        ? rawPercentileValueExpr
         : null,
+    percentileLowerCapValueExpr: null,
     eventValueExpr: getEventValueExpr(
       columnRef,
       factTable,
@@ -1086,16 +1113,19 @@ function generatePercentileCapsCTE(
   const selects: string[] = [];
   factTableGroup.metrics.forEach((m) => {
     const cappingSettings = getCappingSettings(m.metric);
-    if (!cappingSettings || cappingSettings.type !== "percentile") return;
+    if (!cappingSettings) return;
 
     const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+    const tails = getCappingTailState(cappingSettings);
 
-    selects.push(
-      `${helpers.percentileApprox(
-        metricData.percentileCapValueExpr || "NULL",
-        cappingSettings.value,
-      )} AS ${metricData.alias}_cap`,
-    );
+    if (tails.upperPercentileCapped) {
+      selects.push(
+        `${helpers.percentileApprox(
+          metricData.percentileCapValueExpr || "NULL",
+          cappingSettings.value!,
+        )} AS ${metricData.alias}_cap`,
+      );
+    }
   });
 
   if (!selects.length) return null;
@@ -1562,6 +1592,13 @@ export function buildFunnelSql(
     const ft = group.factTable;
     const timestampColumn = requireTimestampColumn(ft);
     const dateFilter = `${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`;
+    // Rows no step on this table can match are dropped at the scan, the same
+    // way multi-metric fact table explorations push their filters down.
+    const stepsFilter = generatePushdownFilterSQL(
+      group.stepIndexes.map((stepN) => steps[stepN - 1].rowFilters),
+      ft,
+      dialect,
+    );
     ctes.push({
       name: `__funnel_ft${group.index}_raw`,
       sql: `
@@ -1569,7 +1606,7 @@ export function buildFunnelSql(
           -- Raw fact table SQL
           ${ft.sql}
         ) t
-        WHERE ${dateFilter}
+        WHERE ${dateFilter}${stepsFilter ? `\n          AND ${stepsFilter}` : ""}
       `,
     });
   });

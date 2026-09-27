@@ -144,6 +144,7 @@ export type AdditionalQueryMetadata = ExperimentQueryMetadata;
 
 export type QueryDocMetadata = {
   queryType?: QueryType;
+  queryId?: string;
 };
 
 export type QueryMetadata = AdditionalQueryMetadata &

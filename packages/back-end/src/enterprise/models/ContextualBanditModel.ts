@@ -480,7 +480,9 @@ export class ContextualBanditModel extends BaseClass {
     const now = new Date();
     const set: Record<string, unknown> = { dateUpdated: now };
     if (changes.variations !== undefined) {
-      set.variations = changes.variations;
+      set.variations = contextualBanditValidator.shape.variations.parse(
+        changes.variations,
+      );
     }
     if (changes.variationWeights !== undefined) {
       set.variationWeights = changes.variationWeights;

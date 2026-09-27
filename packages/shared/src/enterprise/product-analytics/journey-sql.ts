@@ -396,13 +396,19 @@ export function buildJourneySql(
   const ctes: CTE[] = [];
 
   const dateFilter = `${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`;
+  // Dataset-level filters apply to every journey row, so they belong on the
+  // raw scan where the warehouse can prune on them.
+  const rawFilters = [
+    dateFilter,
+    ...generateRowFilterSQL(dataset.rowFilters, journeyFactTable, dialect),
+  ];
   const rawCte: CTE = {
     name: "__journey_raw",
     sql: `
       SELECT * FROM (
         ${factTable.sql}
       ) t
-      WHERE ${dateFilter}
+      WHERE ${rawFilters.join("\n        AND ")}
     `,
   };
   ctes.push(rawCte);
@@ -419,11 +425,7 @@ export function buildJourneySql(
     );
   }
 
-  const filterParts = generateRowFilterSQL(
-    dataset.rowFilters,
-    journeyFactTable,
-    dialect,
-  );
+  const filterParts: string[] = [];
   // Without this, every event missing the unit id collapses into one synthetic
   // unit-day journey and inflates whatever paths those events happen to form.
   filterParts.push(`${unitExpr} IS NOT NULL`);
