@@ -652,7 +652,18 @@ export function assertManagedFlagKeyFormat(
   }
 }
 
-/** A Values experiment owns its flag from the start; creates it for one that lacks it. */
+/** Every Values experiment owns a managed flag, except a holdout. */
+export function ownsManagedFlag(
+  experiment: Parameters<typeof getImplementationType>[0] &
+    Pick<ExperimentInterface, "type">,
+): boolean {
+  return (
+    experiment.type !== "holdout" &&
+    getImplementationType(experiment) === "values"
+  );
+}
+
+/** Creates the managed flag for a Values experiment that lacks one. */
 export async function ensureManagedFlagForExperiment({
   context,
   experiment,
@@ -668,8 +679,7 @@ export async function ensureManagedFlagForExperiment({
   audit: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<ExperimentInterface> {
   if (
-    experiment.type === "holdout" ||
-    getImplementationType(experiment) !== "values" ||
+    !ownsManagedFlag(experiment) ||
     (await getManagedFeatureForExperiment(context, experiment)) ||
     (await managedFlagAdoptionBlocker(context, experiment))
   ) {

@@ -379,6 +379,24 @@ describe("applyExperimentChanges", () => {
     });
   });
 
+  it("links a flag again with the values sent, and unlinks one", async () => {
+    await seed({ withDraft: false });
+    await run({
+      linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
+    });
+    const draft = await collection("featurerevisions").findOne({
+      featureId: FLAG,
+      status: "draft",
+    });
+    const added = draft?.rules?.filter(
+      (r: { type: string }) => r.type === "experiment-ref",
+    );
+    expect(added?.[added.length - 1]?.variations).toEqual(arms("p", "q"));
+
+    const result = await run({ unlinkFeatures: [FLAG] });
+    expect(result.experiment.linkedFeatures).toEqual([]);
+  });
+
   it("creates a Values experiment's missing flag with the values it was sent", async () => {
     const date = new Date("2026-01-01T00:00:00Z");
     await collection("experiments").insertOne({

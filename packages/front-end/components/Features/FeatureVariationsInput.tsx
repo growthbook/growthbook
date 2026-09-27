@@ -109,6 +109,8 @@ export default function FeatureVariationsInput({
   const idsMatchIndexes = variations?.every((v, i) => v.value === i + "");
 
   const [editingSplits, setEditingSplits] = useState(startEditingSplits);
+  // A feature rule forces values; everywhere else the column holds variation keys.
+  const valueIsKey = valueAsId || !hideVariationIds;
   const [editingIds, setEditingIds] = useState(
     startEditingIndexes || !idsMatchIndexes,
   );
@@ -406,9 +408,7 @@ export default function FeatureVariationsInput({
                   )}
                   {editingIds && (
                     <Text size="md" weight="semibold">
-                      {hideVariationIds && !valueAsId
-                        ? "Value to Force"
-                        : "Key"}
+                      {valueIsKey ? "Key" : "Value to Force"}
                     </Text>
                   )}
                   <Text size="md" weight="semibold">
@@ -531,6 +531,7 @@ export default function FeatureVariationsInput({
                         customSplit={editingSplits}
                         valueType={valueType}
                         valueAsId={valueAsId}
+                        valueIsKey={valueIsKey}
                         hideVariationIds={hideVariationIds}
                         hideValueField={!editingIds}
                         hideSplit={hideSplits}

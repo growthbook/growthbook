@@ -58,7 +58,7 @@ export interface Props {
   targetingDraft?: TargetingDraft;
   analysisSettingsOpen?: boolean;
   setAnalysisSettingsOpen?: (open: boolean) => void;
-  editTraffic?: ((variationId?: string) => void) | null;
+  editTraffic?: (() => void) | null;
   canAddVariation?: boolean;
   editNamespace?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
@@ -171,12 +171,11 @@ export default function Implementation({
     experiment,
     linkedFeatures,
   });
-  const managedMode = isManaged;
   const implementationType = getImplementationType(experiment);
 
   // Values experiments get their flag on create. One that lacks it still shows
   // its values, and saving them creates the flag.
-  const canAdoptManagedFlag =
+  const pendingManagedFlag =
     !isManaged &&
     implementationType === "values" &&
     linkedFeatures.length === 0 &&
@@ -196,8 +195,6 @@ export default function Implementation({
       ? linkedFeatures[0]
       : null;
 
-  // Nothing left for the panel to say: the values are in the rows under the
-  // variations, and managed mode hides the add affordances.
   // The value rows above already show every flag, managed or linked, so the
   // box below is only for redirects, visual changes and choosing a type.
   const flagsShownAbove =
@@ -284,7 +281,7 @@ export default function Implementation({
             targetingDraft={targetingDraft}
             editNamespace={pendingScheduledStart ? null : editNamespace}
             canAddVariation={!pendingScheduledStart && !!canAddVariation}
-            pendingManagedFlag={canAdoptManagedFlag && !pendingScheduledStart}
+            pendingManagedFlag={pendingManagedFlag && !pendingScheduledStart}
             setEditVariationIndex={setEditMetadataIndex}
             setEditKeyIndex={setEditKeyIndex}
             canEditExperiment={canEditExperiment}
@@ -329,8 +326,6 @@ export default function Implementation({
             setVisualEditorModal={setVisualEditorModal}
             setFeatureModal={setFeatureModal}
             setUrlRedirectModal={setUrlRedirectModal}
-            canEditExperiment={canEditExperiment}
-            managedMode={managedMode}
           />
         ) : null}
 

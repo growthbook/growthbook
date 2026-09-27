@@ -248,11 +248,11 @@ type QuickField =
   | "implementationType";
 
 const QUICK_FIELD_LABELS: Record<QuickField, string> = {
-  implementationType: "Edit implementation",
   project: "Edit project",
   trackingKey: "Edit experiment key",
   owner: "Edit owner",
   tags: "Edit tags",
+  implementationType: "Edit implementation",
 };
 
 /** A titled block of the panel, with the button that edits it. */

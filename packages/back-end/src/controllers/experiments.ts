@@ -95,7 +95,6 @@ import {
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
   updateExperiment,
-  unlinkFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
@@ -154,8 +153,6 @@ import {
 } from "back-end/src/util/errors";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
-  getFeature,
-  getManagedFlagIdsUnfiltered,
   getFeaturesByIds,
   getManagedFlagsByExperiment,
 } from "back-end/src/models/FeatureModel";
@@ -165,6 +162,7 @@ import {
   assertManagedFlagKeyFormat,
   createManagedFlagForNewExperiment,
   ensureManagedFlagForExperiment,
+  ownsManagedFlag,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
   managedFlagAdoptionBlocker,
@@ -199,6 +197,7 @@ import {
 import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
+import { unlinkFlagFromExperiment } from "back-end/src/services/experiment-feature";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -1433,13 +1432,8 @@ export async function postExperiments(
     }
 
     await assertExperimentKeyFormat(context, obj.trackingKey, obj.datasource);
-    // A Values experiment is created with its flag; an unnamed one takes its
-    // key from the name, which the create itself checks.
-    if (
-      obj.trackingKey &&
-      experimentType !== "holdout" &&
-      getImplementationType(obj) === "values"
-    ) {
+    // An unnamed experiment takes its key from the name; the create checks that one.
+    if (obj.trackingKey && ownsManagedFlag(obj)) {
       assertManagedFlagKeyFormat(context, {
         trackingKey: obj.trackingKey,
         id: "",
@@ -1572,7 +1566,7 @@ export async function postExperiments(
       type: "experiments",
     });
 
-    // A Values experiment gets its own flag; a duplicate's copies its source's.
+    // A duplicate copies its source's flag; any other Values experiment gets its own.
     const originalExperiment = req.query.originalId
       ? await getExperimentById(context, req.query.originalId)
       : null;
@@ -1580,28 +1574,31 @@ export async function postExperiments(
       ? await getManagedFeatureForExperiment(context, originalExperiment)
       : null;
 
-    if (
-      sourceManaged ||
-      (experiment.type !== "holdout" &&
-        getImplementationType(experiment) === "values")
-    ) {
-      try {
+    try {
+      if (sourceManaged) {
         await createManagedFlagForNewExperiment({
           context,
           experiment,
-          sourceExperiment: sourceManaged ? originalExperiment : null,
+          sourceExperiment: originalExperiment,
           eventAudit: res.locals.eventAudit,
           audit: req.audit,
         });
-      } catch (e) {
-        await clearManagedMarkersForExperiment(context, experiment.id).catch(
-          () => undefined,
-        );
-        await deleteExperimentByIdForOrganization(context, experiment);
-        throw new Error(
-          `Could not create the managed Feature Flag for this experiment: ${e.message}`,
-        );
+      } else {
+        await ensureManagedFlagForExperiment({
+          context,
+          experiment,
+          eventAudit: res.locals.eventAudit,
+          audit: req.audit,
+        });
       }
+    } catch (e) {
+      await clearManagedMarkersForExperiment(context, experiment.id).catch(
+        () => undefined,
+      );
+      await deleteExperimentByIdForOrganization(context, experiment);
+      throw new Error(
+        `Could not create the managed Feature Flag for this experiment: ${e.message}`,
+      );
     }
 
     res.status(200).json({
@@ -1653,15 +1650,16 @@ export async function postExperiment(
   }
 
   const plan = await planExperimentUpdate(context, experiment, req.body);
+  const applied = await applyExperimentUpdatePlan({
+    context,
+    experiment,
+    plan,
+    audit: req.audit,
+  });
   // Switching to Values creates the flag straight away.
   const updated = await ensureManagedFlagForExperiment({
     context,
-    experiment: await applyExperimentUpdatePlan({
-      context,
-      experiment,
-      plan,
-      audit: req.audit,
-    }),
+    experiment: applied,
     eventAudit: res.locals.eventAudit,
     audit: req.audit,
   });
@@ -3611,24 +3609,7 @@ export async function deleteExperimentLinkedFeature(
     context.permissions.throwPermissionError();
   }
 
-  // Also require feature-side edit rights — unlinking cancels a queued
-  // autopublish that the feature team may be managing. Edit-class, not publish:
-  // nothing reaches the payload. Same as the contextual-bandit twin, which
-  // performs the same $pull.
-  const feature = await getFeature(context, featureId);
-  if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Unfiltered: an unreadable flag is still managed.
-  const managedIds = await getManagedFlagIdsUnfiltered(context, id);
-  if (managedIds.includes(featureId)) {
-    throw new Error(
-      "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
-    );
-  }
-
-  await unlinkFeatureFromExperiment(context, id, featureId);
+  await unlinkFlagFromExperiment(context, id, featureId);
 
   res.status(200).json({ status: 200 });
 }

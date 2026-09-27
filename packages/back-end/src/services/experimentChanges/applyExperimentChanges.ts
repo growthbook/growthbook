@@ -11,7 +11,7 @@ import {
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
   deleteRevisionForFailedLanding,
   getActiveDraft,
@@ -33,6 +33,8 @@ import {
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
+  linkFeatureToExperiment,
+  unlinkFlagFromExperiment,
 } from "back-end/src/services/experiment-feature";
 import {
   discardManagedDraftIfNoop,
@@ -486,10 +488,10 @@ export async function applyExperimentChanges({
 
     if (!experimentPlan || !Object.keys(experimentPlan.changes).length) {
       return {
-        experiment: await healManagedFlag({
+        experiment: await finishFlags({
           context,
           experiment,
-          values: body.managedFlag,
+          body,
           eventAudit,
           audit,
         }),
@@ -535,15 +537,74 @@ export async function applyExperimentChanges({
     audit,
   });
   return {
-    experiment: await healManagedFlag({
+    experiment: await finishFlags({
       context,
       experiment: written.updated,
-      values: body.managedFlag,
+      body,
       eventAudit,
       audit,
     }),
     flags,
   };
+}
+
+// Once the values and experiment have landed: flags linked again or unlinked,
+// then the managed flag if one is missing.
+async function finishFlags({
+  context,
+  experiment,
+  body,
+  eventAudit,
+  audit,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  body: ExperimentChangesBody;
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+}): Promise<ExperimentInterface> {
+  for (const link of body.linkFeatures ?? []) {
+    const feature = await getFeature(context, link.featureId);
+    if (!feature) throw new NotFoundError(`Feature Flag ${link.featureId}`);
+    const scope = link.environments ?? {
+      allEnvironments: true,
+      environments: [],
+    };
+    await linkFeatureToExperiment({
+      context,
+      experiment,
+      feature,
+      rule: {
+        type: "experiment-ref",
+        id: "",
+        description: "",
+        enabled: true,
+        experimentId: experiment.id,
+        variations: link.variations,
+        ...(link.sparse && { sparse: true }),
+        ...(scope.allEnvironments
+          ? { allEnvironments: true }
+          : { allEnvironments: false, environments: scope.environments }),
+      },
+      eventAudit,
+      audit,
+      forceNewDraft: true,
+    });
+  }
+  for (const featureId of body.unlinkFeatures ?? []) {
+    await unlinkFlagFromExperiment(context, experiment.id, featureId);
+  }
+  const linked =
+    body.linkFeatures?.length || body.unlinkFeatures?.length
+      ? ((await getExperimentById(context, experiment.id)) ?? experiment)
+      : experiment;
+  return healManagedFlag({
+    context,
+    experiment: linked,
+    values: body.managedFlag,
+    eventAudit,
+    audit,
+  });
 }
 
 // A Values experiment missing its flag gets one on its next save, with the

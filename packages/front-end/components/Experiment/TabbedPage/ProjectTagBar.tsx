@@ -4,7 +4,7 @@ import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { getImplementationType } from "shared/util";
+import { getImplementationType, isAnalysisOnly } from "shared/util";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -97,7 +97,7 @@ export default function ProjectTagBar({
             }
           />
         )}
-        {!isHoldout && useStickyBucketing ? (
+        {!isHoldout && useStickyBucketing && !isAnalysisOnly(experiment) ? (
           <Metadata
             size="sm"
             stacked

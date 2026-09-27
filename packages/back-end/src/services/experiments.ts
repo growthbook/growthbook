@@ -5457,6 +5457,33 @@ export async function getRefLinkedFeatureInfo({
         matches = lockedMatches;
       }
 
+      // Rare, so looked up only here: the newest discarded draft that still
+      // holds this rule, to link the flag again as it was.
+      let relinkFrom: LinkedFeatureInfo["relinkFrom"];
+      if (state === "discarded") {
+        const discarded =
+          (
+            await getFeatureRevisionsByFeatureIds(
+              context,
+              context.org.id,
+              [feature.id],
+              { [feature.id]: feature },
+              ["discarded"],
+            )
+          )[feature.id] ?? [];
+        const rule = discarded
+          .map((r) => getMatchingRules(feature, matchRule, environments, r))
+          .find((m) => m.length > 0)?.[0]?.rule;
+        if (rule?.type === "experiment-ref") {
+          relinkFrom = {
+            values: rule.variations,
+            sparse: !!rule.sparse,
+            allEnvironments: rule.allEnvironments !== false,
+            environments: rule.environments ?? [],
+          };
+        }
+      }
+
       // `state` stays live-first for existing consumers.
       const hasPendingDraft =
         !!matchedDraftRevision &&
@@ -5702,6 +5729,7 @@ export async function getRefLinkedFeatureInfo({
         values: refRuleValues(matches[0]?.rule),
         sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
         valuesFrom: matches[0]?.environmentId || "",
+        ...(relinkFrom && { relinkFrom }),
         rulesAbove: matches.some((m) => m.i > 0),
         inconsistentValues: uniqueValues.size > 1,
         liveHasMatchingRule: liveMatches.length > 0,

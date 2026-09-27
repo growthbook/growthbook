@@ -59,6 +59,13 @@ export function getImplementationType(
   return derived;
 }
 
+// Nothing is served from its setup: marked "none", or an older experiment with
+// no type and nothing linked.
+export function isAnalysisOnly(exp: ImplementationLinkages): boolean {
+  const type = getImplementationType(exp);
+  return !type || type === "none";
+}
+
 // Locked while anything is linked, except to the label the linkages already imply.
 export function canChangeImplementationType(
   exp: ImplementationLinkages,

@@ -1,10 +1,12 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { isAnalysisOnly } from "shared/util";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 /**
  * Whether the experiment can be edited at all, and whether the setup surfaces
  * should edit in place. They edit in place while it is still a draft and go
- * read-only once it has started.
+ * read-only once it has started, unless it is analysis only: nothing is served
+ * from its setup, so that stays editable.
  */
 export default function useExperimentEditing(
   experiment: ExperimentInterfaceStringDates,
@@ -16,5 +18,11 @@ export default function useExperimentEditing(
     permissionsUtil.canViewExperimentModal(experiment.project) &&
     !disableEditing;
 
-  return { canEdit, editInline: canEdit && experiment.status === "draft" };
+  const analysisOnly = isAnalysisOnly(experiment);
+
+  return {
+    canEdit,
+    analysisOnly,
+    editInline: canEdit && (experiment.status === "draft" || analysisOnly),
+  };
 }

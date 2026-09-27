@@ -1,4 +1,4 @@
-import { FC, useRef, useState } from "react";
+import { FC, useRef } from "react";
 import { getAllVariations } from "shared/experiments";
 import {
   DecisionCriteriaData,
@@ -16,7 +16,7 @@ import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
@@ -41,7 +41,6 @@ const StopExperimentForm: FC<{
   mutate,
   source,
 }) => {
-  const [showModal, setShowModal] = useState(true);
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
@@ -216,7 +215,7 @@ const StopExperimentForm: FC<{
       }
       size="lg"
       close={close}
-      open={showModal}
+      open={true}
       submit={submit}
       cta={isStopped ? "Save" : "Stop"}
       ctaColor={isStopped ? "violet" : "red"}
@@ -389,21 +388,14 @@ const StopExperimentForm: FC<{
             <Text as="label" weight="semibold">
               Additional Analysis or Details
             </Text>
-            <MarkdownInput
-              value={form.watch("analysis")}
-              setValue={(val) => form.setValue("analysis", val)}
+            <AIRichTextField
+              value={form.watch("analysis") ?? ""}
+              onChange={(val) => form.setValue("analysis", val)}
               aiSuggestFunction={aiSuggestFunction}
               aiButtonText="Generate Analysis"
-              aiSuggestionHeader="Suggested Summary"
               trackingSource="stop-experiment"
               onAISuggestionReceived={(result) => {
                 aiSuggestionRef.current = result;
-              }}
-              onOptInModalClose={() => {
-                setShowModal(true);
-              }}
-              onOptInModalOpen={() => {
-                setShowModal(false);
               }}
             />
           </div>

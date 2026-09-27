@@ -99,6 +99,8 @@ export interface Props {
   fieldOverlay?: ReactNode;
   // Boolean, string and number: the field's border state, with no message.
   outlineStyle?: "default" | "error" | "warning";
+  /** Number fields fill their container rather than sitting at a fixed width. */
+  fullWidth?: boolean;
   // Renders the "Insert constant" picker as a compact square IconButton beside
   // the field (top-aligned) instead of on a label row above it, and hides the
   // copy button. Used by the inline config field editor.
@@ -158,6 +160,7 @@ export default function FeatureValueField({
   actionsOverlay,
   fieldOverlay,
   outlineStyle,
+  fullWidth = false,
   inlineConstantButton = false,
   inlineConstantButtonAlign = "center",
   inlineConstantButtonSize,
@@ -1000,7 +1003,7 @@ export default function FeatureValueField({
       style={
         valueType === undefined
           ? { width: 80 }
-          : valueType === "number"
+          : valueType === "number" && !fullWidth
             ? { width: 120 }
             : undefined
       }

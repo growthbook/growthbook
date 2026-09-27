@@ -332,6 +332,16 @@ export interface LinkedFeatureInfo {
    * experiment.
    */
   liveHasMatchingRule?: boolean;
+  /**
+   * Set while `state` is "discarded": the rule as the newest discarded draft
+   * left it, so linking the flag again can start from it.
+   */
+  relinkFrom?: {
+    values: ExperimentRefVariation[];
+    sparse: boolean;
+    allEnvironments: boolean;
+    environments: string[];
+  };
   /** Live rule's variation values — the "before" side of a pending edit. */
   liveValues?: ExperimentRefVariation[];
   /** Live rule's sparse flag, alongside `liveValues`. */

@@ -103,7 +103,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   /** Targeting confirmed in a modal but not yet written. */
   targetingDraft?: TargetingDraft;
-  editTraffic?: ((variationId?: string) => void) | null;
+  editTraffic?: (() => void) | null;
   canAddVariation?: boolean;
   editNamespace?: (() => void) | null;
   editMetrics?: (() => void) | null;

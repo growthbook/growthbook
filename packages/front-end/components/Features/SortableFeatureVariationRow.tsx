@@ -82,6 +82,8 @@ interface SortableProps {
   customSplit: boolean;
   hideSplit: boolean;
   valueAsId: boolean;
+  /** The value column holds the variation's key, not a value to force. */
+  valueIsKey?: boolean;
   feature?: FeatureInterface;
   showDescription?: boolean;
   showDragHandle?: boolean;
@@ -107,6 +109,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       variation,
       handle,
       valueAsId,
+      valueIsKey,
       setVariations,
       valueType,
       hideVariationIds,
@@ -197,29 +200,43 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
 
           {!hideValueField &&
             (setVariations && !onlySafeToEditVariationMetadata ? (
-              <div className={styles.tightValueCell}>
-                <FeatureValueField
+              valueIsKey ? (
+                <Field
                   size="md"
                   id={`value_${i}`}
                   value={variation.value}
                   placeholder={valueAsId ? i + "" : ""}
-                  setValue={(value) => {
+                  onChange={(e) => {
                     const newVariations = [...variations];
-                    newVariations[i] = {
-                      ...variation,
-                      value,
-                    };
+                    newVariations[i] = { ...variation, value: e.target.value };
                     setVariations(newVariations);
                   }}
-                  valueType={valueType}
-                  feature={feature}
-                  renderJSONInline={false}
-                  useCodeInput={true}
-                  showFullscreenButton={true}
-                  codeInputDefaultHeight={FIVE_LINES_HEIGHT}
-                  sparse={sparse}
                 />
-              </div>
+              ) : (
+                <div className={styles.tightValueCell}>
+                  <FeatureValueField
+                    size="md"
+                    id={`value_${i}`}
+                    value={variation.value}
+                    placeholder={valueAsId ? i + "" : ""}
+                    setValue={(value) => {
+                      const newVariations = [...variations];
+                      newVariations[i] = {
+                        ...variation,
+                        value,
+                      };
+                      setVariations(newVariations);
+                    }}
+                    valueType={valueType}
+                    feature={feature}
+                    renderJSONInline={false}
+                    useCodeInput={true}
+                    showFullscreenButton={true}
+                    codeInputDefaultHeight={FIVE_LINES_HEIGHT}
+                    sparse={sparse}
+                  />
+                </div>
+              )
             ) : (
               <>{variation.value}</>
             ))}

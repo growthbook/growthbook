@@ -39,6 +39,7 @@ import {
   editFeatureRules,
   featureIdExists,
   getFeature,
+  getManagedFlagIdsUnfiltered,
   prevalidatePublishRevision,
   publishRevision,
   updateFeature,
@@ -56,6 +57,7 @@ import {
   addLinkedFeatureToExperiment,
   addPendingFeatureDraftToExperiment,
   removePendingFeatureDraftFromExperiment,
+  unlinkFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -98,6 +100,30 @@ type ExperimentFeatureLinkOptions = {
   /** Start a new draft off live rather than reusing an open one. */
   forceNewDraft?: boolean;
 };
+
+/**
+ * Unlinks a flag from the experiment. Needs feature-side edit rights too:
+ * unlinking cancels a queued autopublish the feature team may be managing.
+ * Edit-class, not publish, since nothing reaches the payload.
+ */
+export async function unlinkFlagFromExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+): Promise<void> {
+  const feature = await getFeature(context, featureId);
+  if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  // Unfiltered: an unreadable flag is still managed.
+  const managedIds = await getManagedFlagIdsUnfiltered(context, experimentId);
+  if (managedIds.includes(featureId)) {
+    throw new BadRequestError(
+      "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
+    );
+  }
+  await unlinkFeatureFromExperiment(context, experimentId, featureId);
+}
 
 // Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
 export async function linkFeatureToExperiment({

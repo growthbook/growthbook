@@ -7,15 +7,13 @@ import {
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getImplementationType, isManagedByExperiment } from "shared/util";
-import { Flex, IconButton, type AvatarProps } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { Flex, type AvatarProps } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import ChangeImplementationTypeModal, {
   implementationTypeLockedReason,
 } from "@/components/Experiment/ChangeImplementationTypeModal";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Tooltip from "@/ui/Tooltip";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
 import Avatar from "@/ui/Avatar";
@@ -45,8 +43,6 @@ export default function LinkedChanges({
   setVisualEditorModal,
   setFeatureModal,
   setUrlRedirectModal,
-  canEditExperiment,
-  managedMode,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -61,9 +57,6 @@ export default function LinkedChanges({
   setVisualEditorModal?: (state: boolean) => void;
   setFeatureModal?: (state: boolean) => void;
   setUrlRedirectModal?: (state: boolean) => void;
-  canEditExperiment?: boolean;
-  /** Withholds the add-a-change surfaces. */
-  managedMode?: boolean;
 }) {
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
@@ -90,17 +83,6 @@ export default function LinkedChanges({
       : effectiveType && effectiveType !== "none"
         ? IMPLEMENTATION_TYPE_OPTIONS[effectiveType].header
         : "Implementation";
-  // The empty state below already offers the type chooser; the kebab is for
-  // once the box has content or the choice is locked.
-  const emptyStateOffersType =
-    numLinkedChanges === 0 &&
-    (!effectiveType || effectiveType === "none") &&
-    !changeTypeLockedReason;
-  const showTypeMenu =
-    !isPublic &&
-    canEditExperiment &&
-    !experiment.archived &&
-    !emptyStateOffersType;
 
   const publicLinkedChangeSummary: { id: LinkedChange; count: number }[] = [
     { id: "feature-flag", count: linkedFeatures.length },
@@ -124,34 +106,6 @@ export default function LinkedChanges({
                 <PiInfo />
               </Flex>
             </Tooltip>
-          )}
-        </Flex>
-        <Flex align="center" gap="2">
-          {showTypeMenu && (
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                  aria-label={`${boxTitle} actions`}
-                >
-                  <BsThreeDotsVertical size={16} />
-                </IconButton>
-              }
-              menuPlacement="end"
-              variant="soft"
-            >
-              <DropdownMenuItem
-                disabled={!!changeTypeLockedReason}
-                tooltip={changeTypeLockedReason ?? undefined}
-                onClick={() => setChangingType(true)}
-              >
-                Change implementation type
-              </DropdownMenuItem>
-            </DropdownMenu>
           )}
         </Flex>
       </Flex>
@@ -216,8 +170,7 @@ export default function LinkedChanges({
             environmentStates={visualChangesetEnvStates}
           />
           {/* The value rows offer adding another flag under the last one. */}
-          {!managedMode &&
-            effectiveType !== "feature" &&
+          {effectiveType !== "feature" &&
             experiment.status === "draft" &&
             !experiment.nextScheduledStatusUpdate &&
             !experiment.archived &&
@@ -243,24 +196,19 @@ export default function LinkedChanges({
                 />
               </Flex>
             )}
-          {!managedMode &&
-            setFeatureModal &&
-            setVisualEditorModal &&
-            setUrlRedirectModal && (
-              <AddLinkedChanges
-                experiment={experiment}
-                numLinkedChanges={numLinkedChanges}
-                hasLinkedFeatures={linkedFeatures.length > 0}
-                setFeatureModal={setFeatureModal}
-                setVisualEditorModal={setVisualEditorModal}
-                setUrlRedirectModal={setUrlRedirectModal}
-                onChooseType={
-                  changeTypeLockedReason
-                    ? undefined
-                    : () => setChangingType(true)
-                }
-              />
-            )}
+          {setFeatureModal && setVisualEditorModal && setUrlRedirectModal && (
+            <AddLinkedChanges
+              experiment={experiment}
+              numLinkedChanges={numLinkedChanges}
+              hasLinkedFeatures={linkedFeatures.length > 0}
+              setFeatureModal={setFeatureModal}
+              setVisualEditorModal={setVisualEditorModal}
+              setUrlRedirectModal={setUrlRedirectModal}
+              onChooseType={
+                changeTypeLockedReason ? undefined : () => setChangingType(true)
+              }
+            />
+          )}
         </>
       )}
     </Frame>

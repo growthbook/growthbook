@@ -14,6 +14,7 @@ import {
 } from "shared/experiments";
 import {
   filterEnvironmentsByExperiment,
+  filterEnvironmentsByFeature,
   generateVariationId,
   isManagedByExperiment,
 } from "shared/util";
@@ -46,6 +47,7 @@ import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperim
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsModal";
@@ -54,7 +56,6 @@ import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeC
 import {
   EnvironmentStateChips,
   getEnvironmentStates,
-  scopeFromStates,
   stageEnvironmentInputs,
   statesFromInputs,
 } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
@@ -129,6 +130,9 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+const REFERENCE_ONLY_NOTE =
+  "GrowthBook doesn't serve this experiment, so this records how your own system runs it. Changing it doesn't change who sees what.";
+
 function FunnelCard({
   title,
   inlineSummary,
@@ -136,6 +140,7 @@ function FunnelCard({
   children,
   disabled = false,
   editBlockedReason,
+  referenceOnly = false,
 }: {
   title: string;
   inlineSummary?: ReactNode;
@@ -144,6 +149,8 @@ function FunnelCard({
   disabled?: boolean;
   /** Why the pencil cannot open right now, which it wears rather than vanishing. */
   editBlockedReason?: string | null;
+  /** Normally changes what the SDK serves, but this experiment is served elsewhere. */
+  referenceOnly?: boolean;
 }) {
   return (
     <Box
@@ -163,6 +170,16 @@ function FunnelCard({
             <Text color="text-low" ml="1">
               {inlineSummary}
             </Text>
+          ) : null}
+          {referenceOnly ? (
+            <Tooltip content={REFERENCE_ONLY_NOTE}>
+              <Badge
+                label="Reference only"
+                color="gray"
+                variant="soft"
+                size="xs"
+              />
+            </Tooltip>
           ) : null}
         </Flex>
         {onEdit && !disabled ? (
@@ -274,7 +291,7 @@ export default function TrafficAllocationFunnel({
 }: Props) {
   const { namespaces } = useOrgSettings();
   const { apiCall } = useAuth();
-  const { editInline } = useExperimentEditing(experiment);
+  const { editInline, analysisOnly } = useExperimentEditing(experiment);
 
   const targetingDefaults = useTargetingDefaults(experiment);
   const staged = targetingDraft?.value ?? null;
@@ -306,7 +323,7 @@ export default function TrafficAllocationFunnel({
 
   const [editingSplit, setEditingSplit] = useState<number | null>(null);
 
-  // Staged like any other edit; either way the split is made even again.
+  // Staged like any other edit; the split evens out unless weights are given.
   const stageVariationList = (
     variations: Variation[],
     weights = getEqualWeights(variations.length, 4),
@@ -463,11 +480,11 @@ export default function TrafficAllocationFunnel({
     },
   );
 
-  // A subset of environments is a restriction even without attribute targeting.
-  const allowedEnvironments = filterEnvironmentsByExperiment(
-    allEnvironments,
-    experiment,
-  );
+  // A subset of environments is a restriction even without attribute
+  // targeting. The flag's project decides which it can run in.
+  const allowedEnvironments = servedValueFeature
+    ? filterEnvironmentsByFeature(allEnvironments, servedValueFeature.feature)
+    : filterEnvironmentsByExperiment(allEnvironments, experiment);
   const ruleEnvironments = new Set(
     environmentStates.filter((e) => e.state !== "missing").map((e) => e.env),
   );
@@ -476,6 +493,16 @@ export default function TrafficAllocationFunnel({
     allowedEnvironments.every((e) => ruleEnvironments.has(e.id));
   const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
+  // Analysis only serves nothing, so its variations stay editable throughout.
+  const variationsLocked = isRunning && !analysisOnly;
+  const canStageVariations =
+    canEditExperiment &&
+    !variationsLocked &&
+    !!stageVariations &&
+    !!targetingDraft;
+  // Bucketing follows the variation list, so its shape is fixed once it starts.
+  const canRestructure =
+    canStageVariations && (experiment.status === "draft" || analysisOnly);
   const canAddNamespace =
     !isHoldout &&
     !!editNamespace &&
@@ -512,17 +539,9 @@ export default function TrafficAllocationFunnel({
     <Frame style={{ backgroundColor: "var(--gray-a2)", border: "none" }}>
       {editEnvironments && servedValueFeature && flagEnvironments && (
         <EditExperimentEnvironmentsModal
-          experiment={experiment}
           info={servedValueFeature}
-          scope={
-            stagedScope ??
-            scopeFromStates(
-              Object.fromEntries(
-                environmentStates.map((e) => [e.env, e.state]),
-              ),
-              allowedEnvironments.map((e) => e.id),
-            )
-          }
+          stagedScope={stagedScope}
+          environmentStates={environmentStates}
           showFlag={!managedFeature}
           close={() => setEditEnvironments(false)}
           apply={(scope) => {
@@ -585,22 +604,6 @@ export default function TrafficAllocationFunnel({
 
       <Flex direction="column">
         <Flex align="center" direction="column">
-          {!isHoldout && hasNamespace && (
-            <>
-              <FunnelCard
-                title="Namespace"
-                onEdit={editNamespace}
-                inlineSummary={
-                  <Text size="lg" color="text-mid">
-                    {namespaceName}
-                  </Text>
-                }
-                disabled={!safeToEdit}
-              />
-              <FunnelConnector label={includedLabel} />
-            </>
-          )}
-
           {environmentStates.length > 0 ? (
             <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
               {(environmentsAreDraft || stagedScope) && (
@@ -632,10 +635,28 @@ export default function TrafficAllocationFunnel({
             </Flex>
           ) : null}
 
+          {!isHoldout && hasNamespace && (
+            <>
+              <FunnelCard
+                title="Namespace"
+                onEdit={editNamespace}
+                inlineSummary={
+                  <Text size="lg" color="text-mid">
+                    {namespaceName}
+                  </Text>
+                }
+                disabled={!safeToEdit}
+                referenceOnly={analysisOnly}
+              />
+              <FunnelConnector label={includedLabel} />
+            </>
+          )}
+
           <FunnelCard
             title="Targeting"
             onEdit={editTargeting}
             disabled={!safeToEdit}
+            referenceOnly={analysisOnly}
           >
             <SetupFieldRow label="Audience" content="text">
               {targetsEveryone ? (
@@ -663,6 +684,7 @@ export default function TrafficAllocationFunnel({
               hashAttribute={hashAttribute}
               fallbackAttribute={fallbackAttribute}
               editInline={editInline}
+              analysisOnly={analysisOnly}
               stagePatch={stagePatch}
             />
           </FunnelCard>
@@ -671,14 +693,18 @@ export default function TrafficAllocationFunnel({
 
           {/* No pencil: the percentage edits in place, the split has its own
               editor, and each variation carries its own. */}
-          <FunnelCard title="Traffic">
+          <FunnelCard title="Traffic" referenceOnly={analysisOnly}>
             {!isHoldout ? (
               <Box mb="1">
                 <SetupFieldRow
                   label="Included %"
                   content={editInline ? "control" : "text"}
                   labelAlign="center"
-                  tooltip="The share of everyone who matches the targeting above that this experiment runs on."
+                  tooltip={
+                    analysisOnly
+                      ? "The share of the targeted audience your own system included, for reference."
+                      : "The share of everyone who matches the targeting above that this experiment runs on."
+                  }
                 >
                   {editInline ? (
                     <PercentField
@@ -839,43 +865,23 @@ export default function TrafficAllocationFunnel({
               // A running experiment changes through "Make Changes" alone, so
               // its variations offer no edits of their own.
               onEditMetadata={
-                canEditExperiment && !isRunning && setEditVariationIndex
+                canEditExperiment && !variationsLocked && setEditVariationIndex
                   ? (index) => setEditVariationIndex(index)
                   : undefined
               }
               onEditKey={
-                canEditExperiment && !isRunning && setEditKeyIndex
+                canEditExperiment && !variationsLocked && setEditKeyIndex
                   ? setEditKeyIndex
                   : undefined
               }
               onRemoveVariation={
-                canEditExperiment &&
-                !isRunning &&
-                stageVariations &&
-                targetingDraft &&
-                experiment.status === "draft" &&
-                numVariations > 2
+                canRestructure && numVariations > 2
                   ? removeVariation
                   : undefined
               }
-              // Bucketing follows the order, so it is fixed once it starts.
-              onReorder={
-                canEditExperiment &&
-                !isRunning &&
-                stageVariations &&
-                targetingDraft &&
-                experiment.status === "draft"
-                  ? () => setReordering(true)
-                  : undefined
-              }
+              onReorder={canRestructure ? () => setReordering(true) : undefined}
               onAddVariation={
-                canEditExperiment &&
-                !isRunning &&
-                canAddVariation &&
-                stageVariations &&
-                targetingDraft
-                  ? addVariation
-                  : undefined
+                canStageVariations && canAddVariation ? addVariation : undefined
               }
             />
             <FlagValueRows
@@ -885,7 +891,6 @@ export default function TrafficAllocationFunnel({
               pendingManagedFlag={pendingManagedFlag}
               canEdit={canEditFlagValues}
               onAddFlag={addFeatureFlag}
-              mutate={() => mutate?.()}
               showLive={hasDraftChanges && !preferDraft}
             />
           </>
@@ -900,12 +905,15 @@ function AssignmentAttribute({
   hashAttribute,
   fallbackAttribute,
   editInline,
+  analysisOnly,
   stagePatch,
 }: {
   experiment: ExperimentInterfaceStringDates;
   hashAttribute: string;
   fallbackAttribute: string;
   editInline: boolean;
+  // GrowthBook assigns no one here, so the copy and link callout don't apply.
+  analysisOnly: boolean;
   stagePatch: (patch: Partial<ExperimentTargetingData>) => void;
 }) {
   // The picker is too narrow for a popover above it.
@@ -928,11 +936,15 @@ function AssignmentAttribute({
   return (
     <>
       <SetupFieldRow
-        label={`Assignment attribute${fallbackAttribute ? "s" : ""}`}
+        label="Assignment attribute"
         content={editInline ? "control" : "text"}
         labelAlign="center"
         fieldMaxWidth="100px"
-        tooltip="Hashed with the tracking key to decide which variation each user gets."
+        tooltip={
+          analysisOnly
+            ? "The attribute your own system assigns variations by, for reference."
+            : "Hashed with the tracking key to decide which variation each user gets."
+        }
       >
         {editInline ? (
           <SelectField
@@ -941,7 +953,13 @@ function AssignmentAttribute({
             options={attributeOptions}
             sort={false}
             formatOptionLabel={formatAttributeOption}
-            onChange={(v) => stagePatch({ hashAttribute: v })}
+            onChange={(v) =>
+              // A fallback matching the attribute it backs up is no fallback.
+              stagePatch({
+                hashAttribute: v,
+                ...(v === fallbackAttribute && { fallbackAttribute: "" }),
+              })
+            }
           />
         ) : (
           <Box>
@@ -954,7 +972,7 @@ function AssignmentAttribute({
           </Box>
         )}
       </SetupFieldRow>
-      {editInline ? (
+      {editInline && !analysisOnly ? (
         <LinkHashAttributeCallout
           experimentId={experiment.id}
           datasource={datasource}

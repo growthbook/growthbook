@@ -4,11 +4,10 @@ import { PiPlus } from "react-icons/pi";
 import { AISuggestionType } from "shared/ai";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Markdown from "@/components/Markdown/Markdown";
-import AISuggestButton from "@/components/Markdown/AISuggestButton";
-import RichTextEditor, { RichTextEditorHandle } from "@/ui/RichTextEditor";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
+import { RichTextEditorHandle } from "@/ui/RichTextEditor";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import Callout from "@/ui/Callout";
 import {
   experimentFieldChanges,
   useRegisterExperimentEdit,
@@ -62,9 +61,6 @@ export default function InlineMarkdownField({
   const savedValue = experiment[field] || "";
   const [value, setValue] = useState(savedValue);
   const editor = useRef<RichTextEditorHandle>(null);
-  // What the field held before a suggestion replaced it, so it can be undone.
-  const [beforeSuggestion, setBeforeSuggestion] = useState<string | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
 
   // State and editor together: the editor holds its own document, so setting
@@ -137,61 +133,20 @@ export default function InlineMarkdownField({
     }
   } else {
     body = (
-      <Box>
-        <RichTextEditor
-          ref={editor}
-          value={value}
-          onChange={setValue}
-          placeholder={placeholder}
-          autoFocus={revealed}
-          height={stacked ? "sm" : "md"}
-          autoGrow
-          footer={
-            aiSuggestFunction ? (
-              <Flex
-                align="center"
-                justify="end"
-                gap="2"
-                px="3"
-                pb="3"
-                wrap="wrap"
-              >
-                <AISuggestButton
-                  suggest={aiSuggestFunction}
-                  label={aiButtonText}
-                  trackingSource={trackingSource}
-                  onError={setAiError}
-                  onSuggestion={(suggestion) => {
-                    setAiError(null);
-                    onAISuggestionReceived?.(suggestion);
-                    setBeforeSuggestion(value);
-                    replaceValue(suggestion);
-                  }}
-                />
-                {beforeSuggestion !== null ? (
-                  <Link
-                    onClick={() => {
-                      replaceValue(beforeSuggestion);
-                      setBeforeSuggestion(null);
-                    }}
-                  >
-                    <Text weight="semibold">Undo suggestion</Text>
-                  </Link>
-                ) : null}
-              </Flex>
-            ) : null
-          }
-        />
-      </Box>
+      <AIRichTextField
+        ref={editor}
+        value={value}
+        onChange={setValue}
+        placeholder={placeholder}
+        autoFocus={revealed}
+        height={stacked ? "sm" : "md"}
+        aiSuggestFunction={aiSuggestFunction}
+        aiButtonText={aiButtonText}
+        onAISuggestionReceived={onAISuggestionReceived}
+        trackingSource={trackingSource}
+      />
     );
   }
-
-  const shownError = aiError;
-  const errorCallout = shownError ? (
-    <Callout status="error" size="sm" mt="2">
-      {shownError}
-    </Callout>
-  ) : null;
 
   if (stacked) {
     return (
@@ -201,12 +156,7 @@ export default function InlineMarkdownField({
         style={{ width: "100%" }}
         label={label}
         action={labelAction}
-        value={
-          <Box width="100%">
-            {body}
-            {errorCallout}
-          </Box>
-        }
+        value={<Box width="100%">{body}</Box>}
       />
     );
   }
@@ -214,7 +164,6 @@ export default function InlineMarkdownField({
   return (
     <SetupFieldRow label={label} labelSize="lg">
       {body}
-      {errorCallout}
     </SetupFieldRow>
   );
 }

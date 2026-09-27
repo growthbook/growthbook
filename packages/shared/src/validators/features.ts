@@ -2238,6 +2238,21 @@ export const experimentChangesBody = z
           .strict(),
       )
       .optional(),
+    // Flags to link again, each given the experiment's rule in a new draft.
+    linkFeatures: z
+      .array(
+        z
+          .object({
+            featureId: z.string(),
+            variations: z.array(experimentRefVariation),
+            sparse: z.boolean().optional(),
+            environments: experimentRuleEnvironments.optional(),
+          })
+          .strict(),
+      )
+      .optional(),
+    // Flags to unlink from the experiment.
+    unlinkFeatures: z.array(z.string()).optional(),
     // Values for the experiment's own Feature Flag when it has none yet; the
     // save creates the flag with them.
     managedFlag: z

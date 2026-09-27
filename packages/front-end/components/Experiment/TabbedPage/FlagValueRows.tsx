@@ -38,12 +38,10 @@ import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/
 import {
   EnvironmentInputsPopover,
   getEnvironmentStates,
-  scopeFromStates,
   stageEnvironmentInputs,
   statesFromInputs,
 } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
-import { useAuth } from "@/services/auth";
 import {
   VARIATION_GRID_COLUMNS,
   variationGridMaxWidth,
@@ -127,7 +125,6 @@ export interface Props {
   canEdit: boolean;
   /** Show what is live rather than the draft, read-only. */
   showLive?: boolean;
-  mutate: () => void;
   /** Links another Feature Flag, offered under the last one. */
   onAddFlag?: (() => void) | null;
   /** Environment scopes staged per flag. */
@@ -173,7 +170,6 @@ export default function FlagValueRows({
   linkedFeatures,
   canEdit,
   showLive = false,
-  mutate,
   onAddFlag,
   flagEnvironments,
   pendingManagedFlag = false,
@@ -217,7 +213,6 @@ export default function FlagValueRows({
           pending={info === pendingInfo}
           canEdit={canEdit}
           showLive={showLive}
-          mutate={mutate}
           flagEnvironments={flagEnvironments}
         />
       ))}
@@ -231,7 +226,6 @@ export default function FlagValueRows({
           info={info}
           canEdit={canEdit}
           showLive={showLive}
-          mutate={mutate}
           flagEnvironments={flagEnvironments}
         />
       ))}
@@ -251,7 +245,6 @@ function FlagValueRow({
   info,
   canEdit,
   showLive,
-  mutate,
   flagEnvironments,
   pending = false,
 }: {
@@ -261,11 +254,9 @@ function FlagValueRow({
   pending?: boolean;
   canEdit: boolean;
   showLive: boolean;
-  mutate: () => void;
   flagEnvironments?: FlagEnvironmentsDraft;
 }) {
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
   const [editEnvironments, setEditEnvironments] = useState(false);
   const { configs } = useDefinitions();
   const variations = getLatestPhaseVariations(experiment);
@@ -281,12 +272,26 @@ function FlagValueRow({
     pendingDraft ? "draft" : "new",
   );
   const fromDraft = !!pendingDraft && !showLive && target === "draft";
-  const values = fromDraft
-    ? pendingDraft.values
-    : (info.liveValues ?? info.values);
-  const storedSparse = fromDraft
-    ? pendingDraft.sparse
-    : (info.liveSparse ?? info.sparse ?? false);
+  // Its rule is gone, so nothing edits here until it's linked again.
+  const orphaned = info.state === "discarded";
+  // Staged for the page's Save: link the flag again, or take it off.
+  const [linkAction, setLinkAction] = useState<"relink" | "remove" | null>(
+    null,
+  );
+  const relinking = linkAction === "relink";
+  const removing = linkAction === "remove";
+  // Linking again starts from the rule the discarded draft left, when it can.
+  const values = relinking
+    ? (info.relinkFrom?.values ??
+      seedManagedVariationValues(variations, feature.valueType))
+    : fromDraft
+      ? pendingDraft.values
+      : (info.liveValues ?? info.values);
+  const storedSparse = relinking
+    ? !!info.relinkFrom?.sparse
+    : fromDraft
+      ? pendingDraft.sparse
+      : (info.liveSparse ?? info.sparse ?? false);
   const storedType = fromDraft ? pendingDraft.valueType : feature.valueType;
   const storedDefault = fromDraft
     ? pendingDraft.defaultValue
@@ -355,7 +360,8 @@ function FlagValueRow({
     !showLive &&
     !lockedBySchedule &&
     permissionsUtil.canEditFeatureDrafts(feature) &&
-    onFlag;
+    (onFlag || relinking) &&
+    !removing;
 
   const stage = (patch: Partial<Staged>) =>
     setStaged((prev) => ({
@@ -418,7 +424,7 @@ function FlagValueRow({
     return checked;
   };
 
-  useRegisterExperimentEdit(`flag:${feature.id}`, dirty, {
+  useRegisterExperimentEdit(`flag:${feature.id}`, dirty && !linkAction, {
     changes: () =>
       pending
         ? {
@@ -448,6 +454,33 @@ function FlagValueRow({
           },
     onSaved: clearStaged,
     discard: clearStaged,
+  });
+
+  const clearLinkAction = () => {
+    setLinkAction(null);
+    clearStaged();
+  };
+  useRegisterExperimentEdit(`link:${feature.id}`, !!linkAction, {
+    changes: () =>
+      removing
+        ? { unlinkFeatures: [feature.id] }
+        : {
+            linkFeatures: [
+              {
+                featureId: feature.id,
+                variations: checkedValues(),
+                ...(sparse && { sparse }),
+                ...(info.relinkFrom && {
+                  environments: {
+                    allEnvironments: info.relinkFrom.allEnvironments,
+                    environments: info.relinkFrom.environments,
+                  },
+                }),
+              },
+            ],
+          },
+    onSaved: clearLinkAction,
+    discard: clearLinkAction,
   });
 
   // Like the revision dropdown: a titled draft keeps its number in front.
@@ -540,12 +573,9 @@ function FlagValueRow({
   const canEditFlag = canEdit && permissionsUtil.canEditFeatureDrafts(feature);
   const launches = experiment.status === "draft";
   const canRemove = canEditFlag && launches;
-  const removeFromExperiment = async () => {
-    if (!confirm(`Remove ${feature.id} from this experiment?`)) return;
-    await apiCall(`/experiment/${experiment.id}/linked-feature/${feature.id}`, {
-      method: "DELETE",
-    });
-    mutate();
+  const removeFromExperiment = () => {
+    clearStaged();
+    setLinkAction("remove");
   };
 
   // Only a problem wears the warning; any other state is the revision's own.
@@ -587,13 +617,10 @@ function FlagValueRow({
       text: "This Feature Flag is archived. Unarchive it to make this experiment active.",
     });
   }
-  if (info.state === "discarded") {
+  if (orphaned && !linkAction) {
     notices.push({
       status: "warning",
       text: "The draft that linked this experiment was discarded, so its rule is no longer queued.",
-      action: canEditFlag ? (
-        <Link onClick={removeFromExperiment}>Remove from experiment</Link>
-      ) : undefined,
     });
   }
   // A managed flag's draft is reviewed and published through the
@@ -787,17 +814,9 @@ function FlagValueRow({
         ) : null}
         {editEnvironments ? (
           <EditExperimentEnvironmentsModal
-            experiment={experiment}
             info={info}
-            scope={
-              stagedScope ??
-              scopeFromStates(
-                Object.fromEntries(
-                  environmentStates.map((e) => [e.env, e.state]),
-                ),
-                environmentStates.map((e) => e.env),
-              )
-            }
+            stagedScope={stagedScope}
+            environmentStates={environmentStates}
             showFlag={false}
             close={() => setEditEnvironments(false)}
             apply={(scope) => {
@@ -855,38 +874,42 @@ function FlagValueRow({
               />
             )}
             <Flex align="center" gap="3" ml="auto">
-              <Flex align="center" gap="1">
-                {environmentStates.length ? (
-                  <EnvironmentInputsPopover
-                    environmentStates={environmentStates}
-                    environmentInputs={environmentInputs}
-                    changed={changedEnvironments}
-                    note={environmentsTiming}
+              {orphaned || removing ? null : (
+                <>
+                  <Flex align="center" gap="1">
+                    {environmentStates.length ? (
+                      <EnvironmentInputsPopover
+                        environmentStates={environmentStates}
+                        environmentInputs={environmentInputs}
+                        changed={changedEnvironments}
+                        note={environmentsTiming}
+                      />
+                    ) : null}
+                    {canEditFlag && environmentStates.length ? (
+                      <Tooltip content="Edit environments">
+                        <IconButton
+                          variant="ghost"
+                          color="violet"
+                          radius="medium"
+                          size="1"
+                          onClick={() => setEditEnvironments(true)}
+                          aria-label="Edit environments"
+                        >
+                          <PiPencilSimple size="14" />
+                        </IconButton>
+                      </Tooltip>
+                    ) : null}
+                  </Flex>
+                  <Box
+                    style={{
+                      width: 1,
+                      alignSelf: "stretch",
+                      background: "var(--gray-a5)",
+                    }}
                   />
-                ) : null}
-                {canEditFlag && environmentStates.length ? (
-                  <Tooltip content="Edit environments">
-                    <IconButton
-                      variant="ghost"
-                      color="violet"
-                      radius="medium"
-                      size="1"
-                      onClick={() => setEditEnvironments(true)}
-                      aria-label="Edit environments"
-                    >
-                      <PiPencilSimple size="14" />
-                    </IconButton>
-                  </Tooltip>
-                ) : null}
-              </Flex>
-              <Box
-                style={{
-                  width: 1,
-                  alignSelf: "stretch",
-                  background: "var(--gray-a5)",
-                }}
-              />
-              <Box mr="2">{targetControl}</Box>
+                  <Box mr="2">{targetControl}</Box>
+                </>
+              )}
               {pendingDraft || canRemove ? (
                 <DropdownMenu
                   trigger={
@@ -915,7 +938,7 @@ function FlagValueRow({
                       </Link>
                     </DropdownMenuItem>
                   ) : null}
-                  {canRemove ? (
+                  {canRemove && !removing ? (
                     <DropdownMenuItem
                       color="red"
                       onClick={removeFromExperiment}
@@ -940,132 +963,166 @@ function FlagValueRow({
             ))}
           </Flex>
         ) : null}
+        {linkAction ? (
+          <Flex align="center" justify="between" gap="2" px="3" mb="3">
+            <HelperText status="info" size="sm">
+              {relinking
+                ? "Linked to this experiment again when you save."
+                : "Removed from this experiment when you save."}
+            </HelperText>
+            <Button variant="outline" size="sm" onClick={clearLinkAction}>
+              Undo
+            </Button>
+          </Flex>
+        ) : orphaned && canEditFlag ? (
+          <Flex justify="end" gap="2" px="3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLinkAction("relink")}
+            >
+              Re-link flag
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              color="red"
+              onClick={removeFromExperiment}
+            >
+              Remove from experiment
+            </Button>
+          </Flex>
+        ) : null}
         {/* Top-aligned, so a tall JSON value doesn't push its neighbours down. */}
-        <Grid columns={VARIATION_GRID_COLUMNS} gap="4" align="start">
-          {variations.map((v) => {
-            const value = valueFor(v.id);
-            // On the value's corner, so it takes no room in the row.
-            const draftDot =
-              draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
-                <Box
-                  position="absolute"
-                  style={{ top: -3, right: -3, zIndex: 1, lineHeight: 0 }}
-                >
-                  <UnpublishedDot tooltip="Unpublished draft value" />
-                </Box>
-              ) : null;
-            // A linked string's constant picker sits beside it, so the field
-            // itself carries the dot.
-            const dotOnField = !managed && editable && valueType === "string";
-            const duplicate = duplicateIds.has(v.id);
-            // Managed values fill their card, framed like a field even when
-            // read-only; linked read-only scalars stay bare text.
-            const framed = isJson || managed;
-            return (
-              <Flex
-                key={v.id}
-                align="start"
-                gap="2"
-                px={managed ? "0" : "3"}
-                minWidth="0"
-              >
-                {managed ? null : (
-                  // On a one-line field's centre line.
-                  <Box flexShrink="0" mt="2">
-                    <VariationNumber number={v.index} />
+        {(orphaned && !relinking) || removing ? null : (
+          <Grid columns={VARIATION_GRID_COLUMNS} gap="4" align="start">
+            {variations.map((v) => {
+              const value = valueFor(v.id);
+              // On the value's corner, so it takes no room in the row.
+              const draftDot =
+                draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
+                  <Box
+                    position="absolute"
+                    style={{ top: -3, right: -3, zIndex: 1, lineHeight: 0 }}
+                  >
+                    <UnpublishedDot tooltip="Unpublished draft value" />
                   </Box>
-                )}
-                <Box
-                  flexGrow="1"
+                ) : null;
+              // A linked string's constant picker sits beside it, so the field
+              // itself carries the dot.
+              const dotOnField = !managed && editable && valueType === "string";
+              const duplicate = duplicateIds.has(v.id);
+              // Managed values fill their card, framed like a field even when
+              // read-only; linked read-only scalars stay bare text.
+              const framed = isJson || managed;
+              return (
+                <Flex
+                  key={v.id}
+                  // Bare read-only text is one line, so the number centres on it.
+                  align={editable || framed ? "start" : "center"}
+                  gap="2"
+                  px={managed ? "0" : "3"}
                   minWidth="0"
-                  position="relative"
-                  className={clsx(styles.valueCell, managed && styles.inset)}
                 >
-                  {managed ? (
-                    <>
-                      <Box
-                        className={clsx(
-                          styles.insetNumber,
-                          isJson || valueType === "string" || !editable
-                            ? styles.insetNumberLine
-                            : styles.insetNumberFill,
-                        )}
-                      >
-                        <VariationNumber number={v.index} />
-                      </Box>
-                      <Box className={styles.insetDivider} />
-                    </>
-                  ) : null}
-                  {editable && !isJson ? (
-                    <FeatureValueField
-                      id={`flag-${feature.id}-${v.id}`}
-                      value={value ?? ""}
-                      setValue={(next) => stage({ values: { [v.id]: next } })}
-                      valueType={valueType}
-                      feature={displayFeature}
-                      useDropdown
-                      inlineConstantButton={!managed}
-                      inlineConstantButtonSize="1"
-                      actionsOverlay={
-                        managed ? MANAGED_STRING_ACTIONS : STRING_ACTIONS
-                      }
-                      fieldOverlay={dotOnField ? draftDot : undefined}
-                      outlineStyle={duplicate ? "error" : undefined}
-                    />
-                  ) : (
-                    <Box
-                      className={
-                        framed
-                          ? clsx(
-                              styles.valueFrame,
-                              cornerStyles.hoverActions,
-                              (value === undefined || !isJson) &&
-                                styles.oneLine,
-                              duplicate && styles.outlineError,
-                            )
-                          : undefined
-                      }
-                    >
-                      {value === undefined ? (
-                        <HelperText status="warning">No value set</HelperText>
-                      ) : (
-                        <ForceSummary
-                          label={null}
-                          value={value}
-                          feature={displayFeature}
-                          // Control is the base itself, never a patch.
-                          sparse={sparse && !(managed && v.id === controlId)}
-                          fontSize="0.7rem"
-                          lineHeight={1.3}
-                          actionsOverlay={JSON_ACTIONS}
-                        />
-                      )}
-                      {editable && isJson ? (
-                        <Tooltip content="Edit values">
-                          <IconButton
-                            className={clsx(
-                              styles.editValue,
-                              cornerStyles.actions,
-                            )}
-                            variant="ghost"
-                            color="violet"
-                            radius="medium"
-                            size="1"
-                            onClick={() => setEditingValues(v.id)}
-                            aria-label={`Edit ${variationLabel(v)} value`}
-                          >
-                            <PiPencilSimple size="16" />
-                          </IconButton>
-                        </Tooltip>
-                      ) : null}
+                  {managed ? null : (
+                    // On a one-line field's centre line.
+                    <Box flexShrink="0" mt={editable || framed ? "2" : "0"}>
+                      <VariationNumber number={v.index} />
                     </Box>
                   )}
-                  {dotOnField ? null : draftDot}
-                </Box>
-              </Flex>
-            );
-          })}
-        </Grid>
+                  <Box
+                    flexGrow="1"
+                    minWidth="0"
+                    position="relative"
+                    className={clsx(styles.valueCell, managed && styles.inset)}
+                  >
+                    {managed ? (
+                      <>
+                        <Box
+                          className={clsx(
+                            styles.insetNumber,
+                            isJson || valueType === "string" || !editable
+                              ? styles.insetNumberLine
+                              : styles.insetNumberFill,
+                          )}
+                        >
+                          <VariationNumber number={v.index} />
+                        </Box>
+                        <Box className={styles.insetDivider} />
+                      </>
+                    ) : null}
+                    {editable && !isJson ? (
+                      <FeatureValueField
+                        id={`flag-${feature.id}-${v.id}`}
+                        value={value ?? ""}
+                        setValue={(next) => stage({ values: { [v.id]: next } })}
+                        valueType={valueType}
+                        feature={displayFeature}
+                        useDropdown
+                        inlineConstantButton={!managed}
+                        inlineConstantButtonSize="1"
+                        actionsOverlay={
+                          managed ? MANAGED_STRING_ACTIONS : STRING_ACTIONS
+                        }
+                        fieldOverlay={dotOnField ? draftDot : undefined}
+                        outlineStyle={duplicate ? "error" : undefined}
+                        fullWidth
+                      />
+                    ) : (
+                      <Box
+                        className={
+                          framed
+                            ? clsx(
+                                styles.valueFrame,
+                                cornerStyles.hoverActions,
+                                (value === undefined || !isJson) &&
+                                  styles.oneLine,
+                                duplicate && styles.outlineError,
+                              )
+                            : undefined
+                        }
+                      >
+                        {value === undefined ? (
+                          <HelperText status="warning">No value set</HelperText>
+                        ) : (
+                          <ForceSummary
+                            label={null}
+                            value={value}
+                            feature={displayFeature}
+                            // Control is the base itself, never a patch.
+                            sparse={sparse && !(managed && v.id === controlId)}
+                            fontSize="0.7rem"
+                            lineHeight={1.3}
+                            actionsOverlay={JSON_ACTIONS}
+                          />
+                        )}
+                        {editable && isJson ? (
+                          <Tooltip content="Edit values">
+                            <IconButton
+                              className={clsx(
+                                styles.editValue,
+                                cornerStyles.actions,
+                              )}
+                              variant="ghost"
+                              color="violet"
+                              radius="medium"
+                              size="1"
+                              onClick={() => setEditingValues(v.id)}
+                              aria-label={`Edit ${variationLabel(v)} value`}
+                            >
+                              <PiPencilSimple size="16" />
+                            </IconButton>
+                          </Tooltip>
+                        ) : null}
+                      </Box>
+                    )}
+                    {dotOnField ? null : draftDot}
+                  </Box>
+                </Flex>
+              );
+            })}
+          </Grid>
+        )}
       </Box>
     </>
   );

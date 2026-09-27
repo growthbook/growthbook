@@ -1,37 +1,47 @@
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import {
-  ExperimentInterfaceStringDates,
+  LinkedFeatureEnvState,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import type { ExperimentRuleEnvironments } from "shared/validators";
-import { filterEnvironmentsByExperiment } from "shared/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import { useEnvironments } from "@/services/features";
 import LinkedFeatureLabel from "@/components/Experiment/LinkedFeatureLabel";
+import { scopeFromStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 
-/** Picks where the experiment's rule applies; the page's Save stages it on the flag's draft. */
+/**
+ * Picks where the experiment's rule applies; the page's Save stages it on the
+ * flag's draft. The flag's project decides which environments it can run in.
+ */
 export default function EditExperimentEnvironmentsModal({
-  experiment,
   info,
-  scope,
+  stagedScope,
+  environmentStates,
   showFlag,
   close,
   apply,
 }: {
-  experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
-  // What the rule covers now, staged or stored.
-  scope: ExperimentRuleEnvironments;
+  stagedScope: ExperimentRuleEnvironments | null;
+  // Where the rule runs now, to start from when nothing is staged.
+  environmentStates: { env: string; state: LinkedFeatureEnvState }[];
   showFlag: boolean;
   close: () => void;
   apply: (scope: ExperimentRuleEnvironments) => void;
 }) {
-  const environments = filterEnvironmentsByExperiment(
+  const environments = filterEnvironmentsByFeature(
     useEnvironments(),
-    experiment,
+    info.feature,
   );
+  const scope =
+    stagedScope ??
+    scopeFromStates(
+      Object.fromEntries(environmentStates.map((e) => [e.env, e.state])),
+      environments.map((e) => e.id),
+    );
   const [allEnvironments, setAllEnvironments] = useState(scope.allEnvironments);
   const [selectedEnvironments, setSelectedEnvironments] = useState(
     scope.environments,

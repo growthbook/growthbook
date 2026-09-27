@@ -3171,13 +3171,14 @@ export async function getFeatureRevisionsByFeatureIds(
   // and v2 inheritance expansion per revision so a feature scoped to a
   // project that excludes some envs doesn't surface dead rules in those envs.
   featuresByFeatureId: Record<string, RevisionFeatureContext | undefined>,
+  statuses: readonly FeatureRevisionInterface["status"][] = ACTIVE_DRAFT_STATUSES,
 ): Promise<Record<string, FeatureRevisionInterface[]>> {
   const revisionsByFeatureId: Record<string, FeatureRevisionInterface[]> = {};
 
   if (featureIds.length) {
     const revisions = await FeatureRevisionModel.find({
       organization,
-      status: { $in: ACTIVE_DRAFT_STATUSES },
+      status: { $in: statuses },
       featureId: { $in: featureIds },
     })
       .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network

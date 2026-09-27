@@ -60,6 +60,16 @@ function mergeChanges(parts: ExperimentChangesBody[]): ExperimentChangesBody {
     if (part.flagValues) {
       body.flagValues = [...(body.flagValues ?? []), ...part.flagValues];
     }
+    if (part.linkFeatures) {
+      body.linkFeatures = [...(body.linkFeatures ?? []), ...part.linkFeatures];
+    }
+    if (part.unlinkFeatures) {
+      body.unlinkFeatures = [
+        ...(body.unlinkFeatures ?? []),
+        ...part.unlinkFeatures,
+      ];
+    }
+    if (part.managedFlag) body.managedFlag = part.managedFlag;
   }
   return body;
 }
