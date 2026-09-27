@@ -205,11 +205,12 @@ function TablePicker({
             <Flex justify="between" align="center" gap="3">
               <span>{label}</span>
               <Text size="sm" color="text-low">
-                {tablesById.get(value)?.numOfColumns} cols
+                {tablesById.get(value)?.numOfColumns} columns
               </Text>
             </Flex>
           )}
           placeholder="Search tables..."
+          size="small"
           autoFocus={!selectedTable}
         />
         {error ? (
@@ -532,6 +533,7 @@ export default function NewFactTableSqlStep({
             <Button
               size="sm"
               variant="ghost"
+              color="inherit"
               icon={<PiArrowRight />}
               iconPosition="right"
               onClick={() => setMode("sql")}
@@ -613,7 +615,6 @@ export default function NewFactTableSqlStep({
               <Flex direction="column" height="100%">
                 <SchemaBrowser
                   datasource={datasource}
-                  openFirstSchema
                   updateSqlInput={setSql}
                   sql={sql}
                 />

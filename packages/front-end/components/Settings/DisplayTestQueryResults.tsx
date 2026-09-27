@@ -212,7 +212,7 @@ export function TestQueryResultsTable({
       {error ? (
         isManagedWarehousePendingQueryError(error) ? (
           <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
-            <ManagedWarehouseNoEventsCallout />
+            <ManagedWarehouseNoEventsCallout size={compact ? "sm" : "md"} />
           </div>
         ) : (
           <Callout status="error" size={compact ? "sm" : "md"} mr="auto">

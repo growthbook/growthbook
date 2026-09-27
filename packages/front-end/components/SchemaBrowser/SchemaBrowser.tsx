@@ -10,14 +10,9 @@ import {
   useState,
 } from "react";
 import Collapsible from "react-collapsible";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { PiTable } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight, PiTable } from "react-icons/pi";
 import clsx from "clsx";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
-import {
-  getSchemaBrowserTables,
-  SchemaBrowserTable,
-} from "@/services/schemaBrowserTables";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -28,7 +23,6 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -48,21 +42,13 @@ type Props = {
   datasource: DataSourceInterfaceWithParams;
   sql?: string;
   updateSqlInput?: (sql: string) => void;
-  // Makes this a table picker: grouped shards, no column pane or actions
-  onTableClick?: (table: SchemaBrowserTable) => void;
-  selectedTableId?: string | null;
-  openFirstSchema?: boolean;
 };
 
 export default function SchemaBrowser({
   datasource,
   updateSqlInput,
   sql = "",
-  onTableClick,
-  selectedTableId = null,
-  openFirstSchema,
 }: Props) {
-  const picker = !!onTableClick;
   const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
 
   const {
@@ -129,17 +115,6 @@ export default function SchemaBrowser({
     },
     [],
   );
-
-  const firstDatabase = informationSchema?.databases[0];
-  const firstSchema = firstDatabase?.schemas[0];
-  const defaultOpenSchemaKey =
-    openFirstSchema && firstDatabase && firstSchema
-      ? getSchemaKey(
-          firstSchema.path,
-          firstDatabase.databaseName,
-          firstSchema.schemaName,
-        )
-      : null;
 
   const onSchemaOpening = useCallback(
     async (schemaKey: string) => {
@@ -273,8 +248,6 @@ export default function SchemaBrowser({
     );
   }
 
-  const showTableData = !!currentTable && !picker;
-
   if (!data) {
     return fetchError ? (
       <Callout status="error">{fetchError.message}</Callout>
@@ -289,7 +262,7 @@ export default function SchemaBrowser({
         <Panel
           id="schema-browser"
           order={1}
-          defaultSize={showTableData ? 50 : 100}
+          defaultSize={currentTable ? 50 : 100}
           minSize={11}
         >
           <SchemaBrowserWrapper
@@ -302,7 +275,6 @@ export default function SchemaBrowser({
             setError={setError}
             tableFilter={tableFilter}
             onTableFilterChange={setTableFilter}
-            autoFocusSearch={picker}
           >
             {!informationSchema?.error &&
             informationSchema?.status === "COMPLETE" ? (
@@ -332,8 +304,7 @@ export default function SchemaBrowser({
                                 open={
                                   isFiltering
                                     ? true
-                                    : (schemaOpenState[schemaKey] ??
-                                      schemaKey === defaultOpenSchemaKey)
+                                    : !!schemaOpenState[schemaKey]
                                 }
                                 onOpening={() => {
                                   void onSchemaOpening(schemaKey);
@@ -350,18 +321,18 @@ export default function SchemaBrowser({
                                     datasource.type,
                                   ) ? (
                                     <>
-                                      <FaAngleRight />
+                                      <PiCaretRight />
                                       {`${database.databaseName}.${schema.schemaName}`}
                                     </>
                                   ) : datasource.type ===
                                     "growthbook_clickhouse" ? (
                                     <>
-                                      <FaAngleRight />
+                                      <PiCaretRight />
                                       Tables
                                     </>
                                   ) : (
                                     <>
-                                      <FaAngleRight />
+                                      <PiCaretRight />
                                       {`${schema.schemaName}`}
                                     </>
                                   )
@@ -371,18 +342,18 @@ export default function SchemaBrowser({
                                     datasource.type,
                                   ) ? (
                                     <>
-                                      <FaAngleDown />
+                                      <PiCaretDown />
                                       {`${database.databaseName}.${schema.schemaName}`}
                                     </>
                                   ) : datasource.type ===
                                     "growthbook_clickhouse" ? (
                                     <>
-                                      <FaAngleRight />
+                                      <PiCaretDown />
                                       Tables
                                     </>
                                   ) : (
                                     <>
-                                      <FaAngleDown />
+                                      <PiCaretDown />
                                       {`${schema.schemaName}`}
                                     </>
                                   )
@@ -392,20 +363,10 @@ export default function SchemaBrowser({
                                 }}
                                 transitionTime={100}
                               >
-                                {getSchemaBrowserTables(
-                                  schema,
-                                  picker && datasource.type === "bigquery",
-                                ).map((table) => {
+                                {schema.tables.map((table) => {
                                   const tablePath = table.path;
                                   const selected =
-                                    table.id ===
-                                    (picker
-                                      ? selectedTableId
-                                      : currentTable?.id);
-                                  const pick = () => {
-                                    selectTable(table.id, tablePath);
-                                    onTableClick?.(table);
-                                  };
+                                    table.id === currentTable?.id;
                                   return (
                                     <div
                                       className={clsx(
@@ -417,14 +378,16 @@ export default function SchemaBrowser({
                                       style={{ userSelect: "none" }}
                                       tabIndex={0}
                                       key={table.id || table.tableName}
-                                      onClick={pick}
+                                      onClick={() =>
+                                        selectTable(table.id, tablePath)
+                                      }
                                       onKeyDown={(e) => {
                                         if (e.target !== e.currentTarget) {
                                           return;
                                         }
                                         if (isActivateKey(e.key)) {
                                           e.preventDefault();
-                                          pick();
+                                          selectTable(table.id, tablePath);
                                         }
                                       }}
                                     >
@@ -432,38 +395,28 @@ export default function SchemaBrowser({
                                       <span className={actionStyles.label}>
                                         {table.tableName}
                                       </span>
-                                      {table.shards ? (
-                                        <Text size="sm" color="text-low">
-                                          {table.shards} tables
-                                        </Text>
-                                      ) : null}
-                                      {!picker ? (
-                                        <span
-                                          className={clsx(
-                                            actionStyles.actions,
-                                            actionStyles.actionsEnd,
-                                          )}
-                                        >
-                                          <SchemaCopyButton
-                                            value={tablePath}
-                                            tooltip="Copy full table path"
+                                      <span
+                                        className={clsx(
+                                          actionStyles.actions,
+                                          actionStyles.actionsEnd,
+                                        )}
+                                      >
+                                        <SchemaCopyButton
+                                          value={tablePath}
+                                          tooltip="Copy full table path"
+                                        />
+                                        {updateSqlInput ? (
+                                          <SchemaSqlInsertButton
+                                            tooltip={`Insert SELECT * FROM ${tablePath} query into editor`}
+                                            onClick={() => {
+                                              selectTable(table.id, tablePath);
+                                              updateSqlInput(
+                                                `SELECT * FROM ${tablePath}`,
+                                              );
+                                            }}
                                           />
-                                          {updateSqlInput ? (
-                                            <SchemaSqlInsertButton
-                                              tooltip={`Insert SELECT * FROM ${tablePath} query into editor`}
-                                              onClick={() => {
-                                                selectTable(
-                                                  table.id,
-                                                  tablePath,
-                                                );
-                                                updateSqlInput(
-                                                  `SELECT * FROM ${tablePath}`,
-                                                );
-                                              }}
-                                            />
-                                          ) : null}
-                                        </span>
-                                      ) : null}
+                                        ) : null}
+                                      </span>
                                     </div>
                                   );
                                 })}
@@ -507,7 +460,7 @@ export default function SchemaBrowser({
           </SchemaBrowserWrapper>
         </Panel>
 
-        {currentTable && showTableData && (
+        {currentTable && (
           <>
             <PanelResizeHandle />
             <Panel id="table-data" order={2} defaultSize={50} minSize={5}>
