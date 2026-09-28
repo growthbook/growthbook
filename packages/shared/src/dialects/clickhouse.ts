@@ -1,7 +1,7 @@
 import { createLikeMatchFns } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
-import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
-import { eligibleTopValueExpr } from "back-end/src/integrations/sql/clauses/approx-top-values";
+import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
+import { eligibleTopValueExpr } from "./clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const clickHouseEscapeStringLiteral = (value: string) =>

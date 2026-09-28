@@ -1,4 +1,5 @@
 import { getAutoSliceMetrics, isSliceMetric } from "shared/experiments";
+import { bigQueryDialect } from "shared/dialects";
 import {
   buildAggregatedFactTableSchemaState,
   detectAggregatedFactTableSchemaDrift,
@@ -14,7 +15,6 @@ import {
   foldAggregatedFactTableCoverage,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import { getAggregatedFactTableMetrics } from "back-end/src/services/aggregatedFactTables";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
 
