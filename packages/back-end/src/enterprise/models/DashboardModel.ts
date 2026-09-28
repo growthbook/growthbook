@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import { UpdateProps } from "shared/types/base-model";
+import { Permissions } from "shared/permissions";
 import { isString, PermissionError } from "shared/util";
 import {
   ApiCreateDashboardBlockInterface,
@@ -41,6 +42,8 @@ import {
   ScopedFilterQuery,
 } from "back-end/src/models/BaseModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import {
   getCollection,
   removeMongooseFields,
@@ -339,7 +342,11 @@ export class DashboardModel extends BaseClass {
     });
   }
 
-  protected async customValidation(toSave: DashboardDocument) {
+  protected async customValidation(
+    toSave: DashboardDocument,
+    previousDoc?: DashboardDocument,
+  ) {
+    await this.assertOwnerCanManage(toSave, previousDoc);
     if (toSave.experimentId) {
       if (toSave.updateSchedule) {
         throw new Error(
@@ -353,6 +360,45 @@ export class DashboardModel extends BaseClass {
         );
       }
     }
+  }
+
+  // A private dashboard is readable only by its owner, so an owner who can't
+  // manage it leaves nobody able to edit, reassign or delete it.
+  private async assertOwnerCanManage(
+    dashboard: DashboardInterface,
+    previous?: DashboardInterface,
+  ) {
+    const { userId } = dashboard;
+    if (!userId || userId === this.context.userId) return;
+    if (previous && previous.userId === userId) return;
+    if (!(await this.ownerCanManage(dashboard))) {
+      throw new BadRequestError(
+        "The owner must be an organization member with permission to manage this dashboard.",
+      );
+    }
+  }
+
+  private async ownerCanManage(dashboard: DashboardInterface) {
+    const { org, teams } = this.context;
+    if (!org.members.some((m) => m.id === dashboard.userId)) return false;
+    const [[user], restrictedProjects] = await Promise.all([
+      this.context.getUsersByIds([dashboard.userId]),
+      ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+    ]);
+    const owner = new Permissions(
+      getUserPermissions(
+        { id: dashboard.userId, superAdmin: user?.superAdmin },
+        org,
+        teams,
+        restrictedProjects,
+      ),
+    );
+    if (!owner.canReadMultiProjectResource(dashboard.projects)) return false;
+    if (dashboard.experimentId) {
+      const { experiment } = this.getForeignRefs(dashboard, false);
+      return !!experiment && owner.canCreateReport(experiment);
+    }
+    return owner.canCreateGeneralDashboards(dashboard);
   }
 
   protected async afterCreate(doc: DashboardDocument) {
@@ -547,20 +593,20 @@ export class DashboardModel extends BaseClass {
     // create() enforces canCreate, but only after the block runs below have
     // already billed warehouse queries and written exploration records. Same
     // gate, moved ahead of the spend; the blocks play no part in it.
-    await this.assertApiWriteAllowed(
-      "create",
-      {
-        ...base,
-        organization: this.context.org.id,
-        blocks: [],
-        // Placeholders: canCreate reads experimentId, editLevel and projects,
-        // not the id or timestamps BaseModel assigns on the real write.
-        id: "",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-      },
-      (dashboard) => this.canCreate(dashboard),
+    const toCheck: DashboardInterface = {
+      ...base,
+      organization: this.context.org.id,
+      blocks: [],
+      // Placeholders: canCreate reads experimentId, editLevel and projects,
+      // not the id or timestamps BaseModel assigns on the real write.
+      id: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+    await this.assertApiWriteAllowed("create", toCheck, (dashboard) =>
+      this.canCreate(dashboard),
     );
+    await this.assertOwnerCanManage(toCheck);
     // A chart block can arrive as a config the caller never ran.
     const ranBlocks = await runNewApiExplorationBlocks(this.context, blocks, {
       globalControls,
@@ -623,6 +669,10 @@ export class DashboardModel extends BaseClass {
     };
     await this.assertApiWriteAllowed("update", dashboard, (existing) =>
       this.canUpdate(existing, nonBlockUpdates),
+    );
+    await this.assertOwnerCanManage(
+      { ...dashboard, ...nonBlockUpdates },
+      dashboard,
     );
 
     // After the permission check: this rejects an id the dashboard doesn't have,
