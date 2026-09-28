@@ -1,5 +1,5 @@
 import { FactMetricInterface } from "shared/types/fact-table";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
+import { bigQueryDialect } from "shared/dialects";
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
