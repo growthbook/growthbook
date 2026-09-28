@@ -438,6 +438,10 @@
     display: none;
   }
   .rt-SegmentedControlItemLabelActive {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: inherit;
     opacity: 1;
     font-weight: var(--font-weight-medium);
     letter-spacing: inherit;
@@ -459,9 +463,11 @@
   // Narrows down to its longest words and no further, so segments stay inside it.
   min-width: min-content;
   height: auto;
+  align-self: start;
 
   &.rt-r-size-1 {
     min-height: var(--space-5);
+    line-height: var(--line-height-1);
   }
   &.rt-r-size-2 {
     min-height: var(--space-6);
@@ -471,7 +477,7 @@
   }
 
   .rt-SegmentedControlItemLabel {
-    padding: var(--space-1) var(--space-3);
+    padding-block: var(--space-1);
   }
 
   &[data-indicator-placed] .rt-SegmentedControlIndicator {

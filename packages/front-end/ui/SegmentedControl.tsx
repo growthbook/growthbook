@@ -1,6 +1,6 @@
 import { SegmentedControl as RadixSegmentedControl } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { ReactNode, useLayoutEffect, useRef } from "react";
+import { ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
 
@@ -10,6 +10,41 @@ export type SegmentedControlOption<T extends string> = {
   /** Names an icon-only segment. */
   ariaLabel?: string;
 };
+
+const INDICATOR_X = "--gb-segmented-control-indicator-x";
+const INDICATOR_WIDTH = "--gb-segmented-control-indicator-width";
+
+// Wrapped segments can differ in width, which Radix's evenly spaced indicator
+// can't follow. Only a new selection slides; mounting and resizing snap.
+function placeIndicator(root: HTMLElement, animate: boolean) {
+  const on = root.querySelector<HTMLElement>(
+    '.rt-SegmentedControlItem[data-state="on"]',
+  );
+  const indicator = root.querySelector<HTMLElement>(
+    ".rt-SegmentedControlIndicator",
+  );
+  const rootRect = root.getBoundingClientRect();
+  // Hidden (e.g. an inactive tab): measure once it shows.
+  if (!on || !indicator || !rootRect.width) return;
+  const onRect = on.getBoundingClientRect();
+  const x = `${onRect.left - rootRect.left}px`;
+  const width = `${onRect.width}px`;
+  if (
+    root.style.getPropertyValue(INDICATOR_X) === x &&
+    root.style.getPropertyValue(INDICATOR_WIDTH) === width
+  ) {
+    return;
+  }
+  const snap = !animate || root.dataset.indicatorPlaced === undefined;
+  if (snap) indicator.style.transition = "none";
+  root.style.setProperty(INDICATOR_X, x);
+  root.style.setProperty(INDICATOR_WIDTH, width);
+  root.dataset.indicatorPlaced = "";
+  if (snap) {
+    void indicator.offsetWidth;
+    indicator.style.transition = "";
+  }
+}
 
 export default function SegmentedControl<T extends string>({
   value,
@@ -30,32 +65,17 @@ export default function SegmentedControl<T extends string>({
 } & MarginProps) {
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Wrapped segments can differ in width, which Radix's evenly spaced indicator can't follow.
   useLayoutEffect(() => {
+    if (wrap && rootRef.current) placeIndicator(rootRef.current, true);
+  }, [wrap, value]);
+
+  useEffect(() => {
     const root = rootRef.current;
     if (!wrap || !root) return;
-    const place = () => {
-      const on = root.querySelector<HTMLElement>(
-        '.rt-SegmentedControlItem[data-state="on"]',
-      );
-      if (!on) return;
-      const rootRect = root.getBoundingClientRect();
-      const onRect = on.getBoundingClientRect();
-      root.style.setProperty(
-        "--gb-segmented-control-indicator-x",
-        `${onRect.left - rootRect.left}px`,
-      );
-      root.style.setProperty(
-        "--gb-segmented-control-indicator-width",
-        `${onRect.width}px`,
-      );
-      root.dataset.indicatorPlaced = "";
-    };
-    place();
-    const observer = new ResizeObserver(place);
+    const observer = new ResizeObserver(() => placeIndicator(root, false));
     observer.observe(root);
     return () => observer.disconnect();
-  }, [wrap, value]);
+  }, [wrap]);
 
   return (
     <RadixSegmentedControl.Root
