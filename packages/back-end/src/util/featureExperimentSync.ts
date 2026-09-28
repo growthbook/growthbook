@@ -10,8 +10,9 @@ import {
   getExperimentById,
   removePendingFeatureDraftFromExperiment,
   setPendingFeatureUnlink,
-  unlinkFeatureFromExperiment,
+  unlinkLandedFeatureRemovals,
 } from "back-end/src/models/ExperimentModel";
+import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 
@@ -109,12 +110,28 @@ export async function syncFeatureExperimentLinkages(
     // Each experimentId is independent (no shared mutable state across
     // iterations), so bounded concurrency is safe — a feature can
     // reference thousands of distinct experiments.
+    // Read again before linking: a removal may have landed since this sync's
+    // own read, and linking it back would undo it.
+    let stillReferenced: Promise<Set<string>> | null = null;
+    const referencedNow = () =>
+      (stillReferenced ??= getLinkageSyncRevisionSummaries(
+        context.org.id,
+        featureId,
+      ).then(
+        ({ openDrafts: drafts, liveRevision: live }) =>
+          new Set([
+            ...getExperimentIdsFromRules(live?.rules),
+            ...drafts.flatMap((d) => getExperimentIdsFromRules(d.rules)),
+          ]),
+      ));
+
     await promiseAllChunks(
       Array.from(allExpIds).map((experimentId) => async () => {
         const experiment = await getExperimentById(context, experimentId);
         if (!experiment) return;
 
         if (!experiment.linkedFeatures?.includes(featureId)) {
+          if (!(await referencedNow()).has(experimentId)) return;
           await addLinkedFeatureToExperiment(
             context,
             experimentId,
@@ -208,22 +225,34 @@ export async function settlePendingFeatureUnlinks(
   liveRules: unknown,
 ): Promise<void> {
   try {
-    const referenced = new Set([
-      ...getExperimentIdsFromRules(liveRules),
-      ...openDrafts.flatMap((d) => getExperimentIdsFromRules(d.rules)),
+    await unlinkLandedFeatureRemovals(context, featureId, [
+      ...new Set([
+        ...getExperimentIdsFromRules(liveRules),
+        ...openDrafts.flatMap((d) => getExperimentIdsFromRules(d.rules)),
+      ]),
     ]);
-    const waiting = await ExperimentModel.find(
-      {
-        organization: context.org.id,
-        pendingFeatureUnlinks: featureId,
-        id: { $nin: [...referenced] },
-      },
-      { id: 1 },
-    );
-    for (const { id } of waiting) {
-      await unlinkFeatureFromExperiment(context, id, featureId);
-    }
   } catch (e) {
     logger.error(e, "settlePendingFeatureUnlinks failed");
+  }
+}
+
+/** After a publish commits: the rules now live, and the drafts still open. */
+export async function settleFeatureRemovalsAfterPublish(
+  context: ReqContext | ApiReqContext,
+  feature: { organization: string; id: string; rules?: unknown },
+): Promise<void> {
+  try {
+    const { openDrafts } = await getLinkageSyncRevisionSummaries(
+      feature.organization,
+      feature.id,
+    );
+    await settlePendingFeatureUnlinks(
+      context,
+      feature.id,
+      openDrafts,
+      feature.rules,
+    );
+  } catch (e) {
+    logger.error(e, "settleFeatureRemovalsAfterPublish failed");
   }
 }

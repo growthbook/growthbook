@@ -539,6 +539,7 @@ export default function TrafficAllocationFunnel({
   // Re-scoping environments stages a draft without re-bucketing.
   const canEditEnvironments =
     !!servedValueFeature &&
+    !servedValueFeature.pendingRemoval &&
     canEditExperiment &&
     permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
   const [editEnvironments, setEditEnvironments] = useState(false);

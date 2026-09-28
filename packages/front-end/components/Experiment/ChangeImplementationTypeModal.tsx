@@ -29,9 +29,18 @@ export function implementationTypeLockedReason(
   experiment: ExperimentInterfaceStringDates,
   linkedFeatures: LinkedFeatureInfo[],
 ): string | null {
-  const flagIds = linkedFeatures
-    .filter((f) => !isManagedByExperiment(f.feature, experiment.id))
+  const unmanaged = linkedFeatures.filter(
+    (f) => !isManagedByExperiment(f.feature, experiment.id),
+  );
+  // A flag whose removal is waiting on a draft leaves once that publishes.
+  const flagIds = unmanaged
+    .filter((f) => !f.pendingRemoval)
     .map((f) => f.feature.id);
+  const leaving = unmanaged.flatMap((f) =>
+    f.pendingRemoval
+      ? [`Revision ${f.pendingRemoval.version} of ${f.feature.id}`]
+      : [],
+  );
   // Names what's in the way, so the fix is obvious.
   const blockers = [
     ...(flagIds.length === 1
@@ -44,17 +53,30 @@ export function implementationTypeLockedReason(
     ...(experiment.hasVisualChangesets ? ["the Visual Editor changes"] : []),
     ...(experiment.hasURLRedirects ? ["the URL Redirects"] : []),
   ];
-  const list =
-    blockers.length <= 1
-      ? blockers[0]
-      : `${blockers.slice(0, -1).join(", ")} and ${blockers[blockers.length - 1]}`;
+  const actions = [
+    ...(blockers.length ? [`remove ${joinAnd(blockers)}`] : []),
+    ...(leaving.length
+      ? [
+          leaving.length > 2
+            ? `publish the drafts removing ${leaving.length} Feature Flags`
+            : `publish ${joinAnd(leaving)}`,
+        ]
+      : []),
+  ];
   // Both apply: an implementation outlives setting the status back.
   if (experiment.status !== "draft") {
-    return list
-      ? `Set the experiment's status back to Draft and remove ${list} to change its type.`
-      : "Set the experiment's status back to Draft to change its type.";
+    return `${joinAnd(["Set the experiment's status back to Draft", ...actions])} to change its type.`;
   }
-  return list ? `Remove ${list} first.` : null;
+  if (!actions.length) return null;
+  const sentence = joinAnd(actions);
+  return `${sentence[0].toUpperCase()}${sentence.slice(1)} first.`;
+}
+
+// "a", "a and b", "a, b and c".
+function joinAnd(parts: string[]): string {
+  return parts.length <= 1
+    ? (parts[0] ?? "")
+    : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
 
 /**

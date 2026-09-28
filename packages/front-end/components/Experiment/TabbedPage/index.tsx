@@ -271,7 +271,8 @@ function TabbedPageContents({
   const [showDashboardView, setShowDashboardView] = useState(
     experiment.defaultDashboardId ? true : false,
   );
-  const showDetailsPanel = tab === "overview" && !showDashboardView;
+  // Every tab keeps the details rail; the dashboard view is a page of its own.
+  const showDetailsPanel = !showDashboardView;
 
   // Too narrow for the page and the panel side by side, the panel starts
   // hidden and opens only when asked, over the content. The stored choice is

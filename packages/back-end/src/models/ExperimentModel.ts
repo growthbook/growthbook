@@ -427,6 +427,7 @@ const experimentSchema = new mongoose.Schema({
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
+experimentSchema.index({ organization: 1, pendingFeatureUnlinks: 1 });
 experimentSchema.index(
   { "nextScheduledStatusUpdate.date": 1 },
   { sparse: true },
@@ -1872,7 +1873,15 @@ export async function unlinkFeatureFromExperiment(
 ) {
   const experiment = await findExperiment({ experimentId, context });
   if (!experiment) return;
+  await unlinkFeatureFromExperimentDoc(context, experiment, featureId);
+}
 
+async function unlinkFeatureFromExperimentDoc(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  featureId: string,
+) {
+  const experimentId = experiment.id;
   const newExperiment = {
     ...experiment,
     linkedFeatures: (experiment.linkedFeatures || []).filter(
@@ -1909,6 +1918,28 @@ export async function unlinkFeatureFromExperiment(
   }).catch((e) => {
     logger.error(e, "Error refreshing SDK payload on experiment update");
   });
+}
+
+/**
+ * Unlinks the flag from the experiments waiting to drop it that nothing live
+ * or open references any more. Unfiltered: the waiting removal is the
+ * decision, whoever's write lands it.
+ */
+export async function unlinkLandedFeatureRemovals(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+  referencedExperimentIds: string[],
+) {
+  const docs = await getCollection(COLLECTION)
+    .find({
+      organization: context.org.id,
+      pendingFeatureUnlinks: featureId,
+      id: { $nin: referencedExperimentIds },
+    })
+    .toArray();
+  for (const doc of docs) {
+    await unlinkFeatureFromExperimentDoc(context, toInterface(doc), featureId);
+  }
 }
 
 // Clears pendingFeatureDrafts but leaves linkedFeatures intact (used for archive).

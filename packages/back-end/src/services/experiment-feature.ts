@@ -10,8 +10,8 @@ import {
   evaluatePublishGovernance,
   fillRevisionFromFeature,
   getEffectiveRevisionHoldout,
-  getExperimentIdsFromRules,
   getMatchingRules,
+  isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
   MatchingRule,
   mergeResultHasChanges,
@@ -1323,7 +1323,21 @@ const experimentRuleFor =
   (r: FeatureRule): r is ExperimentRefRule =>
     r.type === "experiment-ref" && r.experimentId === experimentId;
 
-// Rewrites the experiment's rules in every open draft of the flag holding one.
+const openDraftsOf = (
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+) =>
+  getFeatureRevisionsByStatus({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    status: DRAFT_REVISION_STATUSES,
+    skipPagination: true,
+  });
+
+// Rewrites the experiment's rules in every open draft of the flag holding one,
+// returning those drafts as they were.
 async function rewriteExperimentRulesInDrafts({
   context,
   feature,
@@ -1336,17 +1350,9 @@ async function rewriteExperimentRulesInDrafts({
   refersToExperiment: (r: FeatureRule) => boolean;
   rewrite: (rules: FeatureRule[]) => FeatureRule[];
   logEntry: (touched: FeatureRule[]) => Parameters<typeof updateRevision>[4];
-}): Promise<number> {
-  const drafts = await getFeatureRevisionsByStatus({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    status: DRAFT_REVISION_STATUSES,
-    skipPagination: true,
-  });
-  let rewritten = 0;
-  for (const draft of drafts) {
+}): Promise<FeatureRevisionInterface[]> {
+  const rewritten: FeatureRevisionInterface[] = [];
+  for (const draft of await openDraftsOf(context, feature)) {
     const touched = (draft.rules ?? []).filter(refersToExperiment);
     if (!touched.length) continue;
     await updateRevision(
@@ -1356,9 +1362,56 @@ async function rewriteExperimentRulesInDrafts({
       { rules: rewrite(draft.rules ?? []) },
       logEntry(touched),
     );
-    rewritten += 1;
+    rewritten.push(draft);
   }
   return rewritten;
+}
+
+// Whether the revision a draft was cut from had the experiment's rule, so a
+// draft without it takes it out. A base that can't be found counts.
+async function draftBaseHasRule(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+  refersToExperiment: (r: FeatureRule) => boolean,
+): Promise<boolean> {
+  if (draft.baseVersion === feature.version) {
+    return (feature.rules ?? []).some(refersToExperiment);
+  }
+  const base = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: draft.baseVersion,
+  });
+  return !base || (base.rules ?? []).some(refersToExperiment);
+}
+
+// The open drafts taking a live rule out, which keeping the flag restores.
+async function draftsTakingRuleOut(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  refersToExperiment: (r: FeatureRule) => boolean,
+): Promise<FeatureRevisionInterface[]> {
+  if (!(feature.rules ?? []).some(refersToExperiment)) return [];
+  const out: FeatureRevisionInterface[] = [];
+  for (const draft of await openDraftsOf(context, feature)) {
+    if ((draft.rules ?? []).some(refersToExperiment)) continue;
+    if (await draftBaseHasRule(context, feature, draft, refersToExperiment)) {
+      out.push(draft);
+    }
+  }
+  return out;
+}
+
+function assertDraftsEditable(drafts: FeatureRevisionInterface[]) {
+  const locked = drafts.find(isRevisionEditLockedBySchedule);
+  if (locked) {
+    throw new BadRequestError(
+      `Revision ${locked.version} of this Feature Flag is locked for a scheduled publish. Cancel its schedule first.`,
+    );
+  }
 }
 
 const removalLog =
@@ -1370,9 +1423,13 @@ const removalLog =
     value: JSON.stringify(touched),
   });
 
+const removalTitle = (experiment: ExperimentInterface) =>
+  `Remove from experiment "${experiment.name}"`;
+
 /**
  * Refuses taking a flag off the experiment: without draft rights, for the flag
- * the experiment manages, or while it runs with the rule anywhere on the flag.
+ * the experiment manages, over a draft locked for a scheduled publish, or while
+ * it runs and the flag serves the rule or a draft would add it.
  */
 export async function assertFlagRemovable(
   context: ReqContext | ApiReqContext,
@@ -1389,21 +1446,44 @@ export async function assertFlagRemovable(
       "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
     );
   }
+  const refersToExperiment = experimentRuleFor(experiment.id);
+  assertDraftsEditable(
+    (await openDraftsOf(context, feature)).filter((d) =>
+      (d.rules ?? []).some(refersToExperiment),
+    ),
+  );
   if (experiment.status !== "running") return;
-  const { openDrafts } = await getLinkageSyncRevisionSummaries(
+  // A draft only carrying an old copy adds nothing, so it doesn't hold it here.
+  const { openDrafts, liveRevision } = await getLinkageSyncRevisionSummaries(
     context.org.id,
     feature.id,
   );
   if (
-    getExperimentIdsFromRules(feature.rules).includes(experiment.id) ||
-    openDrafts.some((d) =>
-      getExperimentIdsFromRules(d.rules).includes(experiment.id),
-    )
+    (feature.rules ?? []).some(refersToExperiment) ||
+    getLaunchDraftVersion(experiment.id, openDrafts, liveRevision) !== null
   ) {
     throw new BadRequestError(
       "Set the experiment's status back to Draft to remove this Feature Flag.",
     );
   }
+}
+
+/** Refuses keeping a flag whose drafts the undo can't write. */
+export async function assertFlagKeepable(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  feature: FeatureInterface,
+): Promise<void> {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  assertDraftsEditable(
+    await draftsTakingRuleOut(
+      context,
+      feature,
+      experimentRuleFor(experiment.id),
+    ),
+  );
 }
 
 /**
@@ -1444,17 +1524,22 @@ export async function removeFlagFromExperiment({
     await unlinkFeatureFromExperiment(context, experiment.id, featureId);
     return;
   }
-  // Every open draft that had the rule now takes it out; else start one.
-  if (!rewritten) {
+  // A stripped draft takes the live rule out only if its base had it; a
+  // draft that added its own copy over a base without one doesn't.
+  let covered = false;
+  for (const draft of rewritten) {
+    if (await draftBaseHasRule(context, feature, draft, refersToExperiment)) {
+      covered = true;
+      break;
+    }
+  }
+  if (!covered) {
     const draft = await getDraftRevision(context, feature, feature.version);
     await updateRevision(
       context,
       feature,
       draft,
-      {
-        rules: drop(draft.rules ?? []),
-        title: `Remove from experiment "${experiment.name}"`,
-      },
+      { rules: drop(draft.rules ?? []), title: removalTitle(experiment) },
       logEntry(liveTouched),
     );
   }
@@ -1462,8 +1547,9 @@ export async function removeFlagFromExperiment({
 }
 
 /**
- * Undoes a pending removal: each open draft that took the live rule out of the
- * revision it was cut from gets it back where live has it.
+ * Undoes a pending removal: each open draft taking the live rule out gets it
+ * back beside the rules live has around it. A draft left with nothing to
+ * publish, as the one the removal started, goes.
  */
 export async function keepFlagInExperiment({
   context,
@@ -1477,53 +1563,69 @@ export async function keepFlagInExperiment({
   eventAudit: EventUser;
 }): Promise<void> {
   const feature = await getFeature(context, featureId);
-  if (!feature)
+  if (!feature) {
     throw new BadRequestError(`Feature Flag ${featureId} not found`);
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
   }
+  await assertFlagKeepable(context, experiment, feature);
   const refersToExperiment = experimentRuleFor(experiment.id);
   const live = feature.rules ?? [];
-  if (live.some(refersToExperiment)) {
-    const drafts = await getFeatureRevisionsByStatus({
-      context,
-      organization: context.org.id,
-      featureId: feature.id,
-      feature,
-      status: DRAFT_REVISION_STATUSES,
-      skipPagination: true,
+  const logEntry = removalLog(
+    experiment,
+    eventAudit,
+    "restore experiment rule",
+  );
+  for (const draft of await draftsTakingRuleOut(
+    context,
+    feature,
+    refersToExperiment,
+  )) {
+    const rules = [...(draft.rules ?? [])];
+    live.forEach((rule, i) => {
+      if (!refersToExperiment(rule) || rules.some((r) => r.id === rule.id)) {
+        return;
+      }
+      // After the nearest live rule before it that the draft still has, else
+      // before the nearest after it.
+      const ids = new Set(rules.map((r) => r.id));
+      const prev = live
+        .slice(0, i)
+        .reverse()
+        .find((r) => ids.has(r.id));
+      const next = live.slice(i + 1).find((r) => ids.has(r.id));
+      const at = prev
+        ? rules.findIndex((r) => r.id === prev.id) + 1
+        : next
+          ? rules.findIndex((r) => r.id === next.id)
+          : Math.min(i, rules.length);
+      rules.splice(at, 0, rule);
     });
-    const logEntry = removalLog(
-      experiment,
-      eventAudit,
-      "restore experiment rule",
-    );
-    for (const draft of drafts) {
-      if ((draft.rules ?? []).some(refersToExperiment)) continue;
-      const base =
-        draft.baseVersion === feature.version
-          ? null
-          : await getRevision({
-              context,
-              organization: context.org.id,
-              featureId: feature.id,
-              feature,
-              version: draft.baseVersion,
-            });
-      if (base && !(base.rules ?? []).some(refersToExperiment)) continue;
-      const rules = [...(draft.rules ?? [])];
-      live.forEach((rule, i) => {
-        if (refersToExperiment(rule)) {
-          rules.splice(Math.min(i, rules.length), 0, rule);
-        }
-      });
-      await updateRevision(
+    const restored =
+      (await updateRevision(
         context,
         feature,
         draft,
-        { rules },
+        {
+          rules,
+          ...(draft.title === removalTitle(experiment) && { title: "" }),
+        },
         logEntry(live.filter(refersToExperiment)),
-      );
+      )) ?? draft;
+    const { live: liveRevision, base } =
+      await getLiveAndBaseRevisionsForFeature({
+        context,
+        feature,
+        revision: restored,
+      });
+    const baselines = reconcileMergeBaselines(feature, liveRevision, base);
+    const merge = autoMerge(
+      baselines.live,
+      baselines.base,
+      restored,
+      context.environments,
+      {},
+    );
+    if (merge.success && !mergeResultHasChanges(merge)) {
+      await discardRevision(context, restored, eventAudit, feature.version);
     }
   }
   await setPendingFeatureUnlink(context, experiment.id, featureId, false);

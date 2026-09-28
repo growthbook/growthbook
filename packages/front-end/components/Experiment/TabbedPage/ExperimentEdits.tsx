@@ -78,6 +78,9 @@ function mergeChanges(parts: ExperimentChangesBody[]): ExperimentChangesBody {
         ...part.unlinkFeatures,
       ];
     }
+    if (part.keepFeatures) {
+      body.keepFeatures = [...(body.keepFeatures ?? []), ...part.keepFeatures];
+    }
     if (part.managedFlag) body.managedFlag = part.managedFlag;
     if (part.renameManagedFlag) {
       body.renameManagedFlag = part.renameManagedFlag;

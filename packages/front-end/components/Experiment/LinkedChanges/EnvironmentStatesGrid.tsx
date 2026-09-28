@@ -35,9 +35,15 @@ export type FeatureEnvironmentState = EnvironmentState & {
   state: LinkedFeatureEnvState;
 };
 
-// false: a running experiment's live states. "rule": the rule as it stands,
-// which only describes an experiment that isn't running.
-export type EnvironmentStateTense = false | "started" | "published" | "rule";
+// false: a running experiment's live states. "rule" and "rule-published":
+// the rule as it stands or will once published, for an experiment that
+// publishing alone won't make active.
+export type EnvironmentStateTense =
+  | false
+  | "started"
+  | "published"
+  | "rule"
+  | "rule-published";
 
 /** How a flag's environment states read, from what they show. */
 export function environmentStateTense({
@@ -53,8 +59,10 @@ export function environmentStateTense({
   launches: boolean;
   liveView: boolean;
 }): EnvironmentStateTense {
-  if (unpublished)
-    return status === "draft" && launches ? "started" : "published";
+  if (unpublished) {
+    if (status === "running") return "published";
+    return status === "draft" && launches ? "started" : "rule-published";
+  }
   if (status === "running") return false;
   // Unless a draft changes them, starting keeps live's.
   return status === "draft" && !liveView ? "started" : "rule";
@@ -65,28 +73,42 @@ function environmentStateTooltip(
   future: EnvironmentStateTense,
 ): string {
   const once = future === "started" ? " once started" : " once published";
-  const rule = future === "rule";
+  if (future === "rule" || future === "rule-published") {
+    const pending = future === "rule-published";
+    switch (state) {
+      case "active":
+        return pending
+          ? "The experiment's rule will be on in this environment once published"
+          : "The experiment's rule is on in this environment";
+      case "disabled-env":
+        return pending
+          ? "The Feature Flag will be disabled in this environment once published, so the experiment's rule won't apply"
+          : "The Feature Flag is disabled in this environment, so the experiment's rule doesn't apply";
+      case "disabled-rule":
+        return pending
+          ? "The experiment's rule will be off in this environment once published"
+          : "The experiment's rule is off in this environment";
+      case "missing":
+        return pending
+          ? "The experiment won't be in this environment once published"
+          : "The experiment isn't in this environment";
+    }
+  }
   switch (state) {
     case "active":
-      return rule
-        ? "The experiment's rule is on in this environment"
-        : future
-          ? `The experiment will be active in this environment${once}`
-          : "The experiment is active in this environment";
+      return future
+        ? `The experiment will be active in this environment${once}`
+        : "The experiment is active in this environment";
     case "disabled-env":
-      return rule
-        ? "The Feature Flag is disabled in this environment, so the experiment's rule doesn't apply"
-        : future
-          ? `The Feature Flag is disabled in this environment, so the experiment won't be active here${once}`
-          : "The Feature Flag is disabled in this environment, so the experiment isn't active here";
+      return future
+        ? `The Feature Flag is disabled in this environment, so the experiment won't be active here${once}`
+        : "The Feature Flag is disabled in this environment, so the experiment isn't active here";
     case "disabled-rule":
-      return rule
-        ? "The experiment's rule is off in this environment"
-        : future
-          ? `The experiment is disabled in this environment and won't be active${once}`
-          : "The experiment is disabled in this environment and isn't active";
+      return future
+        ? `The experiment is disabled in this environment and won't be active${once}`
+        : "The experiment is disabled in this environment and isn't active";
     case "missing":
-      return future && !rule
+      return future
         ? `The experiment won't be in this environment${once}`
         : "The experiment isn't in this environment";
     default: {

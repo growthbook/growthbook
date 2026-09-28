@@ -14,7 +14,10 @@ import {
   ExperimentRefRule,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  setPendingFeatureUnlink,
+} from "back-end/src/models/ExperimentModel";
 import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
   deleteRevisionForFailedLanding,
@@ -38,6 +41,7 @@ import {
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
   linkFeatureToExperiment,
+  assertFlagKeepable,
   assertFlagRemovable,
   keepFlagInExperiment,
   removeFlagFromExperiment,
@@ -523,10 +527,14 @@ export async function applyExperimentChanges({
       "Remove a Feature Flag or keep it, not both in one save.",
     );
   }
-  // Refuses before anything is written; the removal itself checks again.
+  // Refuses before anything is written; each one checks again as it goes.
   for (const featureId of body.unlinkFeatures ?? []) {
     const feature = await getFeature(context, featureId);
     if (feature) await assertFlagRemovable(context, experiment, feature);
+  }
+  for (const featureId of body.keepFeatures ?? []) {
+    const feature = await getFeature(context, featureId);
+    if (feature) await assertFlagKeepable(context, experiment, feature);
   }
 
   const compensations: Compensation[] = [];
@@ -647,6 +655,13 @@ async function finishFlags({
       audit,
       forceNewDraft: true,
     });
+    // Linked again, so a removal it was waiting on no longer applies.
+    await setPendingFeatureUnlink(
+      context,
+      experiment.id,
+      link.featureId,
+      false,
+    );
   }
   for (const featureId of body.unlinkFeatures ?? []) {
     await removeFlagFromExperiment({

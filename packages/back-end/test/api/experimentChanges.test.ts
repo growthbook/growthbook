@@ -491,15 +491,59 @@ describe("applyExperimentChanges", () => {
       expect(after?.pendingFeatureUnlinks).toEqual([]);
     });
 
-    it("puts the live rule back when the flag is kept", async () => {
+    it("starts its own removal draft when a stripped draft never took the live rule out", async () => {
+      await seed({ withDraft: true });
+      // Draft v2 was cut from v1, which lacked the rule; v3 made it live.
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 1 },
+        { $set: { rules: [] } },
+      );
+      await collection("featurerevisions").insertOne({
+        id: "frev_3",
+        organization: ORG_ID,
+        featureId: FLAG,
+        version: 3,
+        baseVersion: 2,
+        status: "published",
+        createdBy: { type: "api_key", apiKey: "key" },
+        comment: "",
+        defaultValue: "a",
+        rules: [expRule(arms("a", "b"))],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        datePublished: new Date(),
+      });
+      await collection("features").updateOne(
+        { id: FLAG },
+        { $set: { version: 3 } },
+      );
+
+      const result = await run({ unlinkFeatures: [FLAG] });
+      const [info] = await getLinkedFeatureInfo(context, result.experiment);
+      expect(info.pendingRemoval?.version).toBe(4);
+    });
+
+    it("puts the live rule back when the flag is kept, dropping the draft left empty", async () => {
       await seed({ withDraft: false });
+      // Every org environment has a setting, as the app keeps them.
+      await collection("features").updateOne(
+        { id: FLAG },
+        {
+          $set: {
+            environmentSettings: {
+              production: { enabled: true, rules: [] },
+              staging: { enabled: false, rules: [] },
+            },
+          },
+        },
+      );
       await run({ unlinkFeatures: [FLAG] });
 
       const result = await run({ keepFeatures: [FLAG] });
       expect(result.experiment.pendingFeatureUnlinks).toEqual([]);
       expect(
-        (await refRules("draft")).map((r: { id: string }) => r.id),
-      ).toEqual(["fr_exp"]);
+        (await collection("featurerevisions").findOne({ version: 2 }))?.status,
+      ).toBe("discarded");
     });
 
     it("refuses while the experiment runs", async () => {

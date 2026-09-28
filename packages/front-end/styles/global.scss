@@ -525,6 +525,14 @@ pre {
   }
 }
 
+// The page's surface reaches the bottom of the window however short a tab is;
+// the top nav's room is padding inside it, so this adds no scroll.
+.main.experiment,
+.main.bandit,
+.main.holdout {
+  min-height: 100vh;
+}
+
 .main.experiment,
 .main.bandit,
 .main.holdout,

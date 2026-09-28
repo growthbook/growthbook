@@ -180,7 +180,7 @@ import {
   runValidateFeatureHooks,
   runValidateFeatureRevisionHooks,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
-import { settlePendingFeatureUnlinks } from "back-end/src/util/featureExperimentSync";
+import { settleFeatureRemovalsAfterPublish } from "back-end/src/util/featureExperimentSync";
 import {
   createEvent,
   hasPreviousObject,
@@ -1746,29 +1746,6 @@ export async function updateFeature(
       }),
     );
   }
-  // A publish that takes an experiment's rule out may finish its removal.
-  // By the rules alone: the stored links outlive a removed rule on purpose.
-  const referencedAfter = getReferenceIdsInRules(
-    projected.rules,
-    "experiment-ref",
-  );
-  if (
-    getReferenceIdsInRules(feature.rules, "experiment-ref").some(
-      (exp) => !referencedAfter.includes(exp),
-    )
-  ) {
-    const { openDrafts } = await getLinkageSyncRevisionSummaries(
-      feature.organization,
-      feature.id,
-    );
-    await settlePendingFeatureUnlinks(
-      context,
-      feature.id,
-      openDrafts,
-      projected.rules,
-    );
-  }
-
   // Set-then-fetch: the persisted doc flows through the same JIT pipeline as
   // any other read, so audit/SDK/response all see identical state.
   const persisted = await FeatureModel.findOne({
@@ -4749,6 +4726,8 @@ async function publishRevisionInner({
       `Failed to clear pending feature drafts for feature ${feature.id} revision ${revision.version} after publish`,
     );
   }
+  // Committed: a removal waiting on this publish can finish.
+  await settleFeatureRemovalsAfterPublish(context, updatedFeature);
 
   // Best-effort: the feature is already committed.
   await finalizeRampActionsAfterPublish(

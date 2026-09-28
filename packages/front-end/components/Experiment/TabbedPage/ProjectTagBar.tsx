@@ -2,7 +2,13 @@ import { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
-import { PiWarning } from "react-icons/pi";
+import {
+  PiPencilSimple,
+  PiPlus,
+  PiWarning,
+  PiWarningFill,
+} from "react-icons/pi";
+import { format } from "date-fns-tz";
 import {
   HoldoutInterfaceStringDates,
   ImplementationType,
@@ -272,6 +278,17 @@ export default function ProjectTagBar({
       />
       <Flex direction="column" gap="1">
         <ExperimentDates experiment={experiment} />
+        {experiment.status === "draft" && experiment.type !== "holdout" ? (
+          <DraftSchedule
+            experiment={experiment}
+            // Once the start is confirmed, it changes from the header.
+            editSchedule={
+              experiment.nextScheduledStatusUpdate || experiment.archived
+                ? null
+                : editSchedule
+            }
+          />
+        ) : null}
         {editSchedule &&
         experiment.status === "running" &&
         experiment.type !== "holdout" &&
@@ -284,6 +301,66 @@ export default function ProjectTagBar({
         ) : null}
       </Flex>
     </Flex>
+  );
+}
+
+const scheduledTime = (value: string | Date) =>
+  format(new Date(value), "MMM d, yyyy 'at' h:mm a (z)");
+
+/** A draft's scheduled start and end, with the way to set them. */
+function DraftSchedule({
+  experiment,
+  editSchedule,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  editSchedule?: (() => void) | null;
+}) {
+  const schedule = experiment.statusUpdateSchedule;
+  const hasSchedule =
+    !!schedule && Object.values(schedule).some((value) => value !== null);
+  const startPassed =
+    !!schedule?.startAt && new Date(schedule.startAt) < new Date();
+  const end = schedule?.stopAt
+    ? scheduledTime(schedule.stopAt)
+    : schedule?.stopAfter
+      ? `${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
+      : null;
+  return (
+    <>
+      {schedule?.startAt ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Scheduled start"
+          value={
+            <Flex align="center" gap="1">
+              {startPassed ? (
+                <Tooltip body="This start time has passed. Edit the schedule to set a new one.">
+                  <PiWarningFill color="var(--warning)" />
+                </Tooltip>
+              ) : null}
+              <Text size="sm" color="text-high">
+                {scheduledTime(schedule.startAt)}
+              </Text>
+            </Flex>
+          }
+        />
+      ) : null}
+      {end ? (
+        <Metadata size="sm" stacked label="Scheduled end" value={end} />
+      ) : null}
+      {editSchedule ? (
+        <Link onClick={editSchedule}>
+          <Flex align="center" gap="1">
+            {!hasSchedule && <PiPlus size="12" />}
+            <Text size="sm">
+              {hasSchedule ? "Edit Schedule" : "Add Schedule"}
+            </Text>
+            {hasSchedule && <PiPencilSimple size="12" />}
+          </Flex>
+        </Link>
+      ) : null}
+    </>
   );
 }
 

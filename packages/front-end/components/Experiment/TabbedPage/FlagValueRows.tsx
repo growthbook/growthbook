@@ -730,7 +730,7 @@ function FlagValueRow({
       : shownDraft?.hasUnrelatedDraftChanges
         ? "Changes beyond this experiment"
         : info.state === "discarded"
-          ? "Draft discarded"
+          ? "Rule missing"
           : info.state === "archived"
             ? "Archived"
             : null;
@@ -783,11 +783,11 @@ function FlagValueRow({
           : { status: "info", text: "This Feature Flag is archived." },
     );
   }
-  // No live rule and no open draft with one: discarded, or published away.
+  // No live rule and no draft adding one: discarded, or published away.
   if (orphaned && !linkAction) {
     notices.push({
       status: "warning",
-      text: `This experiment isn't in the live revision or any open draft of this Feature Flag${
+      text: `This experiment isn't in the live revision of this Feature Flag, and no open draft adds it${
         experiment.status === "running"
           ? ", so the Feature Flag isn't serving it"
           : ""
@@ -846,8 +846,10 @@ function FlagValueRow({
       text: "Locked until its scheduled publish.",
     });
   }
-  // These describe the revision the server read, a draft unless live has it.
-  const describesShown = !showLive || info.state === "live";
+  // These describe the revision the server read: the newest draft, or live.
+  const describesShown = fromDraft
+    ? info.state === "draft" && pendingDraft.version === drafts[0]?.version
+    : info.state === "live";
   if (onFlag && describesShown && info.inconsistentValues) {
     notices.push({
       status: "warning",
@@ -936,7 +938,9 @@ function FlagValueRow({
   // The Live view of a flag whose live revision lacks the rule. When the
   // draft can publish is the Unpublished view's to say.
   const absentFromLiveNote = `This experiment isn't in the live revision of this Feature Flag${
-    experiment.status === "running" ? ", so the flag isn't serving it" : ""
+    experiment.status === "running"
+      ? ", so the Feature Flag isn't serving it"
+      : ""
   }.${pendingDraft ? ` ${draftMention} adds it.` : ""}`;
 
   // JSON is too big to edit in a cell, so it opens the values editor.
@@ -1132,7 +1136,11 @@ function FlagValueRow({
                   ) : null}
                 </>
               )}
-              {canEditFlagLinks && !linkAction && !pendingRemoval ? (
+              {/* A flag with no rule left offers its own remove below. */}
+              {canEditFlagLinks &&
+              !linkAction &&
+              !pendingRemoval &&
+              !orphaned ? (
                 <DropdownMenu
                   trigger={
                     <IconButton
