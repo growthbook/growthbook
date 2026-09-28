@@ -26,6 +26,13 @@ import {
   LINKED_CHANGE_CONTAINER_PROPERTIES,
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
+import StartModalSection from "@/components/Experiment/StartModalSection";
+import { ChecklistItems } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import type {
+  ChecklistAction,
+  CheckListItem,
+} from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
+import { summarizeChecklist } from "@/components/PreLaunchChecklist/checklistSummary";
 
 export interface Props {
   cb: ApiContextualBanditInterface;
@@ -34,56 +41,47 @@ export interface Props {
   close: () => void;
 }
 
-type BlockerItem = {
-  key: string;
-  display: ReactNode;
-  hardBlock: boolean;
-};
-
-function computeBlockers(
+function getChecklistItems(
   cb: ApiContextualBanditInterface,
   linkedFeatures: LinkedFeatureInfo[],
-): { hardBlockerItems: BlockerItem[]; softBlockerItems: BlockerItem[] } {
-  const hardBlockerItems: BlockerItem[] = [];
-  const softBlockerItems: BlockerItem[] = [];
-
-  const featureLink = (f: LinkedFeatureInfo) => (
-    <Link
-      href={`/features/${f.feature.id}${
-        f.draftRevisionVersion != null ? `?v=${f.draftRevisionVersion}` : ""
-      }`}
-      target="_blank"
-    >
-      {f.feature.id}
-      <PiArrowSquareOut className="ml-1" />
-    </Link>
-  );
+): CheckListItem[] {
+  const items: CheckListItem[] = [];
+  const featureLink = (
+    f: LinkedFeatureInfo,
+    draft = true,
+  ): ChecklistAction => ({
+    href: `/features/${f.feature.id}${draft && (f.draftRevisionVersion ?? null) !== null ? `?v=${f.draftRevisionVersion}` : ""}`,
+    external: true,
+  });
+  const blocker = (
+    item: Pick<CheckListItem, "key" | "display" | "action" | "description">,
+  ): CheckListItem => ({
+    ...item,
+    status: "incomplete",
+    type: "auto",
+    required: true,
+    hardBlock: true,
+  });
 
   if (linkedFeatures.length === 0) {
-    hardBlockerItems.push({
-      key: "no-linked-feature",
-      hardBlock: true,
-      display: (
-        <>
-          Link at least one Feature Flag before this Contextual Bandit can start
-        </>
-      ),
-    });
+    items.push(
+      blocker({
+        key: "no-linked-feature",
+        display: "Link at least one Feature Flag",
+      }),
+    );
   }
 
   linkedFeatures
     .filter((f) => f.state === "draft" && f.hasMergeConflict)
     .forEach((f) => {
-      hardBlockerItems.push({
-        key: `merge-${f.feature.id}`,
-        hardBlock: true,
-        display: (
-          <>
-            Resolve merge conflict in {featureLink(f)} before this contextual
-            bandit can start
-          </>
-        ),
-      });
+      items.push(
+        blocker({
+          key: `merge-${f.feature.id}`,
+          display: `Resolve the merge conflict in ${f.feature.id}`,
+          action: featureLink(f),
+        }),
+      );
     });
 
   linkedFeatures
@@ -94,23 +92,20 @@ function computeBlockers(
         f.draftRevisionStatus !== "approved",
     )
     .forEach((f) => {
-      hardBlockerItems.push({
-        key: `approve-${f.feature.id}`,
-        hardBlock: true,
-        display: (
-          <>
-            Approve the feature draft revision in {featureLink(f)}{" "}
-            {f.draftRevisionStatus && (
-              <Badge
-                label={revisionStatusLabel(f.draftRevisionStatus)}
-                color={revisionStatusColor(f.draftRevisionStatus)}
-                radius="full"
-                ml="1"
-              />
-            )}
-          </>
-        ),
-      });
+      items.push(
+        blocker({
+          key: `approve-${f.feature.id}`,
+          display: `Approve the Feature Flag draft for ${f.feature.id}`,
+          action: featureLink(f),
+          description: f.draftRevisionStatus ? (
+            <Badge
+              label={revisionStatusLabel(f.draftRevisionStatus)}
+              color={revisionStatusColor(f.draftRevisionStatus)}
+              radius="full"
+            />
+          ) : undefined,
+        }),
+      );
     });
 
   linkedFeatures
@@ -121,16 +116,13 @@ function computeBlockers(
         !f.hasMergeConflict,
     )
     .forEach((f) => {
-      hardBlockerItems.push({
-        key: `unrelated-${f.feature.id}`,
-        hardBlock: true,
-        display: (
-          <>
-            The feature draft revision in {featureLink(f)} contains additional
-            changes unrelated to this Contextual Bandit.
-          </>
-        ),
-      });
+      items.push(
+        blocker({
+          key: `unrelated-${f.feature.id}`,
+          display: `The ${f.feature.id} draft has changes unrelated to this Contextual Bandit`,
+          action: featureLink(f),
+        }),
+      );
     });
 
   linkedFeatures
@@ -143,23 +135,18 @@ function computeBlockers(
         (v) => !configuredVariationIds.has(v.id),
       );
       if (hasMissingValues) {
-        softBlockerItems.push({
+        items.push({
           key: `values-${f.feature.id}`,
-          hardBlock: false,
-          display: (
-            <>
-              Fill in missing variation values for{" "}
-              <Link href={`/features/${f.feature.id}`} target="_blank">
-                {f.feature.id}
-                <PiArrowSquareOut className="ml-1" />
-              </Link>
-            </>
-          ),
+          status: "incomplete",
+          type: "auto",
+          required: true,
+          display: `Fill in missing variation values for ${f.feature.id}`,
+          action: featureLink(f, false),
         });
       }
     });
 
-  return { hardBlockerItems, softBlockerItems };
+  return items;
 }
 
 function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
@@ -168,21 +155,6 @@ function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
     <Button type="submit" disabled={disabled} loading={loading}>
       {cta}
     </Button>
-  );
-}
-
-function BlockerList({ items }: { items: BlockerItem[] }) {
-  return (
-    <Flex direction="column" gap="2">
-      {items.map((item) => (
-        <Flex key={item.key} gap="2" align="baseline">
-          <Text color="text-mid">•</Text>
-          <Text as="div" weight="semibold" color="text-mid">
-            {item.display}
-          </Text>
-        </Flex>
-      ))}
-    </Flex>
   );
 }
 
@@ -252,12 +224,8 @@ export default function StartContextualBanditModal({
   const hasPrerequisites = !!cb.prerequisites?.length;
   const hasLinkedFeatures = linkedFeatures.length > 0;
 
-  const { hardBlockerItems, softBlockerItems } = computeBlockers(
-    cb,
-    linkedFeatures,
-  );
-  const hasHardBlockers = hardBlockerItems.length > 0;
-  const hasBlockers = hasHardBlockers || softBlockerItems.length > 0;
+  const summary = summarizeChecklist(getChecklistItems(cb, linkedFeatures));
+  const hasHardBlockers = summary.blocking > 0;
 
   return (
     <Modal.Root
@@ -279,10 +247,11 @@ export default function StartContextualBanditModal({
           <Modal.Title>Start Contextual Bandit</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {hasBlockers && (
-            <Box mb="3">
-              <Flex align="center" gap="1">
-                {hasHardBlockers ? (
+          {summary.remaining > 0 && (
+            <StartModalSection
+              title="To Do"
+              icon={
+                hasHardBlockers ? (
                   <PiWarningOctagonFill
                     color="var(--red-11)"
                     size={15}
@@ -294,94 +263,42 @@ export default function StartContextualBanditModal({
                     size={15}
                     aria-label="warning"
                   />
-                )}
-                <Text size="lg" weight="semibold" color="text-high">
-                  Tasks to Complete
-                </Text>
-              </Flex>
-              <Box
-                mt="3"
-                style={{
-                  backgroundColor: "var(--slate-2)",
-                  padding: "20px",
-                  borderRadius: "var(--radius-3)",
-                }}
-              >
-                {hasHardBlockers ? (
-                  <Flex direction="column" gap="4">
-                    <Box>
-                      <Text size="sm" weight="semibold" color="text-high">
-                        Must resolve before starting
-                      </Text>
-                      <Box mt="2">
-                        <BlockerList items={hardBlockerItems} />
-                      </Box>
-                    </Box>
-                    {softBlockerItems.length > 0 && (
-                      <Box>
-                        <Text size="sm" weight="semibold" color="text-high">
-                          Recommended
-                        </Text>
-                        <Box mt="2">
-                          <BlockerList items={softBlockerItems} />
-                        </Box>
-                      </Box>
-                    )}
-                  </Flex>
-                ) : (
-                  <BlockerList items={softBlockerItems} />
-                )}
-              </Box>
-            </Box>
+                )
+              }
+              mb="3"
+            >
+              <ChecklistItems summary={summary} size="md" />
+            </StartModalSection>
           )}
-          <Box>
-            <Flex align="center" gap="1">
-              <PiInfoFill color="var(--indigo-11)" size={15} />
-              <Text size="lg" weight="semibold" color="text-high">
-                Summary
-              </Text>
-            </Flex>
-            <Box
-              mt="3"
-              style={{
-                backgroundColor: "var(--slate-2)",
-                padding: "20px",
-                borderRadius: "var(--radius-3)",
-              }}
-            >
-              <Flex direction="column" gap="4">
-                <SummaryRow label="Traffic" inline>
-                  <Text>{coveragePct}% included</Text>
+          <StartModalSection
+            title="Summary"
+            icon={<PiInfoFill color="var(--indigo-11)" size={15} />}
+          >
+            <Flex direction="column" gap="4">
+              <SummaryRow label="Traffic" inline>
+                <Text>{coveragePct}% included</Text>
+              </SummaryRow>
+              {hasAttributeTargeting && (
+                <SummaryRow label="Attribute Targeting">
+                  <ConditionDisplay condition={cb.condition ?? "{}"} />
                 </SummaryRow>
-                {hasAttributeTargeting && (
-                  <SummaryRow label="Attribute Targeting">
-                    <ConditionDisplay condition={cb.condition ?? "{}"} />
-                  </SummaryRow>
-                )}
-                {hasSavedGroupTargeting && (
-                  <SummaryRow label="Saved Group Targeting">
-                    <SavedGroupTargetingDisplay
-                      savedGroups={cb.savedGroups ?? []}
-                    />
-                  </SummaryRow>
-                )}
-                {hasPrerequisites && (
-                  <SummaryRow label="Prerequisites">
-                    <ConditionDisplay prerequisites={cb.prerequisites} />
-                  </SummaryRow>
-                )}
-              </Flex>
-            </Box>
-          </Box>
+              )}
+              {hasSavedGroupTargeting && (
+                <SummaryRow label="Saved Group Targeting">
+                  <SavedGroupTargetingDisplay
+                    savedGroups={cb.savedGroups ?? []}
+                  />
+                </SummaryRow>
+              )}
+              {hasPrerequisites && (
+                <SummaryRow label="Prerequisites">
+                  <ConditionDisplay prerequisites={cb.prerequisites} />
+                </SummaryRow>
+              )}
+            </Flex>
+          </StartModalSection>
           {hasLinkedFeatures && (
-            <Box
-              mt="3"
-              style={{
-                backgroundColor: "var(--slate-2)",
-                padding: "20px",
-                borderRadius: "var(--radius-3)",
-              }}
-            >
+            <StartModalSection mt="3">
               <Text weight="semibold" color="text-high">
                 Linked changes will activate. Users will see bandit variations
                 immediately.
@@ -407,7 +324,7 @@ export default function StartContextualBanditModal({
                   </Flex>
                 </LinkedChangeSection>
               </Flex>
-            </Box>
+            </StartModalSection>
           )}
         </Modal.Body>
         <Modal.Footer justify="between">
