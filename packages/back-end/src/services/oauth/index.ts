@@ -465,12 +465,19 @@ export async function exchangeAuthorizationCode(params: {
     resource: authCode.resource,
   });
 
-  return issueTokenPair(context, {
+  const tokens = await issueTokenPair(context, {
     clientId: authCode.clientId,
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
   });
+
+  // startGrant re-arms a grant that app deletion revoked moments ago; re-check the client.
+  if (!(await getOAuthClientById(client.clientId))) {
+    await tearDownGrant(context, authCode.clientId, authCode.userId);
+    throw new OAuthError("invalid_client", "Unknown client_id");
+  }
+  return tokens;
 }
 
 export async function exchangeRefreshToken(params: {
