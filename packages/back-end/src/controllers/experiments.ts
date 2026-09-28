@@ -56,6 +56,7 @@ import {
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
   assertCanRunExperimentChanges,
+  assertExperimentKeyFormat,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
   determineNextBanditSchedule,
@@ -1375,6 +1376,8 @@ export async function postExperiments(
       });
     }
 
+    await assertExperimentKeyFormat(context, obj.trackingKey, obj.datasource);
+
     // Make sure tracking key is unique
     if (
       obj.trackingKey &&
@@ -1758,6 +1761,17 @@ export async function postExperiment(
       });
       return;
     }
+  }
+
+  if (
+    data.trackingKey !== undefined &&
+    data.trackingKey !== experiment.trackingKey
+  ) {
+    await assertExperimentKeyFormat(
+      context,
+      data.trackingKey,
+      data.datasource ?? experiment.datasource,
+    );
   }
 
   // Check if tracking key is being changed and validate uniqueness if required

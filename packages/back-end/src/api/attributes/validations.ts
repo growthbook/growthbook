@@ -1,5 +1,6 @@
 import { SDKAttributeType } from "shared/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { validateCustomFieldsForSectionAndProjects } from "back-end/src/util/custom-fields";
 
 export const validatePayload = async (
   context: ApiReqContext,
@@ -8,11 +9,13 @@ export const validatePayload = async (
     datatype,
     enum: enumValue,
     projects = [],
+    customFields,
   }: {
     property: string;
     datatype?: SDKAttributeType;
     enum?: string;
     projects?: string[];
+    customFields?: Record<string, string>;
   },
 ) => {
   if (property === "") throw Error("Attribute property cannot empty!");
@@ -27,6 +30,15 @@ export const validatePayload = async (
       throw new Error(
         `The following projects do not exist: ${nonexistentProjects.join(", ")}`,
       );
+  }
+
+  if (customFields !== undefined) {
+    await validateCustomFieldsForSectionAndProjects({
+      customFieldValues: customFields,
+      projects,
+      section: "attribute",
+      customFieldsModel: context.models.customFields,
+    });
   }
 
   // Allowed values ("enum") only apply to the enum datatype and array datatypes,

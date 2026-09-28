@@ -42,7 +42,7 @@ describe("Fact Metric API payload normalization", () => {
   });
 
   it.each(["cappingSettings", "lowerCappingSettings"] as const)(
-    "rejects an absolute %s on ratio create",
+    "preserves an absolute %s on ratio create",
     async (tail) => {
       const body = postFactMetricValidator.bodySchema.parse({
         name: "Revenue per order",
@@ -51,9 +51,16 @@ describe("Fact Metric API payload normalization", () => {
         denominator: numerator,
         [tail]: { type: "absolute", value: 100 },
       });
-      await expect(
-        getCreateMetricPropsFromBody(body, organization, getFactTable),
-      ).rejects.toThrow("Ratio metrics support only percentile capping.");
+      const result = await getCreateMetricPropsFromBody(
+        body,
+        organization,
+        getFactTable,
+      );
+      expect(result[tail]).toEqual({
+        type: "absolute",
+        value: 100,
+        ignoreZeros: false,
+      });
     },
   );
 
