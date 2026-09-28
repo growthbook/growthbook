@@ -1,5 +1,6 @@
 import {
   ColumnAggregation,
+  ColumnInterface,
   ColumnRef,
   FactMetricType,
   FactTableDefinition,
@@ -16,6 +17,7 @@ import {
 import { SqlDialect } from "shared/types/sql";
 import { getInitialInlineFilters } from "@/services/metrics";
 import { isMergeAggregationMetric } from "@/services/factMetrics";
+import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
 
 export const SHAPES = ["count", "sum", "max", "distinct", "days"] as const;
 export type Shape = (typeof SHAPES)[number];
@@ -92,9 +94,30 @@ export function columnsForShape(
           c.column === getFactTableIdColumn(factTable, idType),
       ),
   );
-  return columns
-    .filter((c) => c.datatype === SHAPE_SETTINGS[shape].datatype)
-    .map((c) => c.column);
+  const datatype = SHAPE_SETTINGS[shape].datatype;
+  // JSON sub-fields (e.g. `properties.amount`) are selectable too, matching
+  // the old modal's includeJSONFields.
+  // ponytail: skips the ClickHouse materialized-column de-dupe the old modal
+  // did, so those fields can show up twice; pass the datasource in if it matters.
+  const exposed = getAttributeFieldsExposedAsColumns(factTable);
+  const jsonFields = columns.flatMap((c) => {
+    // Only the full fact table (useFullFactTable) carries jsonFields.
+    const fields = (c as Partial<Pick<ColumnInterface, "jsonFields">>)
+      .jsonFields;
+    return c.datatype === "json" && fields
+      ? Object.entries(fields)
+          .filter(
+            ([field, data]) =>
+              data.datatype === datatype &&
+              !(c.column === "attributes" && exposed.has(field)),
+          )
+          .map(([field]) => `${c.column}.${field}`)
+      : [];
+  });
+  return [
+    ...columns.filter((c) => c.datatype === datatype).map((c) => c.column),
+    ...jsonFields,
+  ];
 }
 
 export function fitColumn(
@@ -188,13 +211,25 @@ export function onFactTableChange(
   dialect: Pick<SqlDialect, "hasCountDistinctHLL">,
 ): ColumnRef {
   const shape = shapeFromColumnRef(current) ?? "count";
+  // Keep a threshold on a table change - clearing it would silently turn a
+  // Threshold metric back into a plain Proportion. A summed basis column that
+  // the new table doesn't have falls back to a row count.
+  const basis = current.aggregateFilterColumn;
+  const aggregateFilterColumn =
+    basis &&
+    basis !== "$$count" &&
+    !columnsForShape("sum", factTable, dialect).includes(basis)
+      ? "$$count"
+      : basis;
   return {
     ...current,
     factTableId: factTable?.id ?? "",
     column: fitColumn(shape, factTable, current.column, dialect),
     rowFilters: initialFilters(factTable),
-    aggregateFilterColumn: undefined,
-    aggregateFilter: undefined,
+    aggregateFilterColumn,
+    aggregateFilter: aggregateFilterColumn
+      ? current.aggregateFilter
+      : undefined,
   };
 }
 
@@ -568,6 +603,7 @@ export type MetricTypeSwitchState = {
   quantileSettings?: MetricQuantileSettings | null;
   funnelSettings?: FunnelSettings | null;
   cappingSettings?: MetricCappingSettings;
+  lowerCappingSettings?: MetricCappingSettings | null;
   windowSettings?: MetricWindowSettings;
 };
 
@@ -611,6 +647,20 @@ function resetCappingForTypeSwitch(
     : { ...cappingSettings, type: "" };
 }
 
+// The lower tail is optional, so drop it (like the old modal) rather than
+// forcing a new choice: on uncappable types, and when absolute on a ratio.
+function resetLowerCappingForTypeSwitch(
+  lowerCappingSettings: MetricCappingSettings | null | undefined,
+  newFormType: FormMetricType,
+): MetricCappingSettings | null | undefined {
+  if (!lowerCappingSettings) return lowerCappingSettings;
+  if (!cappingOk(newFormType)) return null;
+  if (newFormType === "ratio" && lowerCappingSettings.type === "absolute") {
+    return null;
+  }
+  return lowerCappingSettings;
+}
+
 // Retention states its delay in the Window sentence itself; every other type
 // edits it via the separate Metric Delay field. Reset to a neutral value
 // leaving retention (so it doesn't inherit a "days after exposure" delay
@@ -628,7 +678,10 @@ function resetWindowForTypeSwitch(
       delayValue: 0,
       delayUnit: "hours",
       type: "",
-      windowValue: 0,
+      // Same default as a new metric - 0 would seed a zero-width window if
+      // the user then turns on a conversion window.
+      windowValue: 3,
+      windowUnit: "days",
     };
   }
   if (currentMetricType !== "retention" && newFormType === "retention") {
@@ -670,6 +723,10 @@ export function applyFormType<T extends MetricTypeSwitchState>(
     current.cappingSettings,
     newFormType,
   );
+  const lowerCappingSettings = resetLowerCappingForTypeSwitch(
+    current.lowerCappingSettings,
+    newFormType,
+  );
   const windowSettings = resetWindowForTypeSwitch(
     current.windowSettings,
     current.metricType,
@@ -694,15 +751,21 @@ export function applyFormType<T extends MetricTypeSwitchState>(
       quantileSettings: null,
       funnelSettings,
       ...(cappingSettings !== undefined && { cappingSettings }),
+      ...(lowerCappingSettings !== undefined && { lowerCappingSettings }),
       ...(windowSettings !== undefined && { windowSettings }),
     };
   }
 
-  const base: ColumnRef = current.numerator ?? {
-    factTableId: factTable?.id ?? "",
-    column: "",
-    rowFilters: initialFilters(factTable),
-  };
+  // A funnel's form numerator is an empty placeholder - start from the
+  // passed-in table (the funnel's first step) instead.
+  const base: ColumnRef = current.numerator?.factTableId
+    ? current.numerator
+    : {
+        ...current.numerator,
+        factTableId: factTable?.id ?? "",
+        column: current.numerator?.column ?? "",
+        rowFilters: initialFilters(factTable),
+      };
 
   const numerator: ColumnRef =
     spec.kind === "fixed"
@@ -748,6 +811,7 @@ export function applyFormType<T extends MetricTypeSwitchState>(
           })
         : null,
     ...(cappingSettings !== undefined && { cappingSettings }),
+    ...(lowerCappingSettings !== undefined && { lowerCappingSettings }),
     ...(windowSettings !== undefined && { windowSettings }),
     quantileSettings:
       newFormType === "quantile"
