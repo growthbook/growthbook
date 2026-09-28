@@ -140,15 +140,15 @@ export default function NewFactMetricPage() {
 
   // MetricEditor's MetricTypeSelect only disables a commercial-gated option
   // for a fresh choice - it doesn't stop a pre-seeded quantile/retention
-  // template from saving, so this stays a page-level gate.
+  // template or duplicate from saving, so this stays a page-level gate.
+  const seedMetricType = template?.metricType ?? duplicateSource?.metricType;
   const missingCommercialFeature:
     | "quantile-metrics"
     | "retention-metrics"
     | null =
-    template?.metricType === "quantile" &&
-    !hasCommercialFeature("quantile-metrics")
+    seedMetricType === "quantile" && !hasCommercialFeature("quantile-metrics")
       ? "quantile-metrics"
-      : template?.metricType === "retention" &&
+      : seedMetricType === "retention" &&
           !hasCommercialFeature("retention-metrics")
         ? "retention-metrics"
         : null;
@@ -234,7 +234,7 @@ export default function NewFactMetricPage() {
           }
           showUpgradeModal={() =>
             setUpgradeModal({
-              source: `metric-template-${missingCommercialFeature}`,
+              source: `${template ? "metric-template" : "metric-duplicate"}-${missingCommercialFeature}`,
               commercialFeature: missingCommercialFeature,
             })
           }
