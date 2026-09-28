@@ -1,5 +1,10 @@
 import { z } from "zod";
+import { isLoopbackHost } from "../util/oauth";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
+
+// "org-apps" allows only OAuth apps registered by this organization's admins.
+export const oauthAccessPolicyValidator = z.enum(["any", "org-apps", "none"]);
+export type OAuthAccessPolicy = z.infer<typeof oauthAccessPolicyValidator>;
 
 /**
  * OAuth clients. Two kinds share this collection:
@@ -37,8 +42,7 @@ const oauthAppRedirectUri = z
     // Plain http is only safe on loopback, where the code never leaves the machine.
     return (
       protocol === "https:" ||
-      (protocol === "http:" &&
-        ["localhost", "127.0.0.1", "[::1]"].includes(hostname))
+      (protocol === "http:" && isLoopbackHost(hostname))
     );
   }, "Redirect URIs must use https (http is allowed only for localhost)");
 

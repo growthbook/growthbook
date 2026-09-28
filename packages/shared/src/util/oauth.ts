@@ -10,7 +10,13 @@ export function isOrgOAuthAppClientId(clientId: string): boolean {
   return clientId.startsWith(ORG_OAUTH_APP_CLIENT_ID_PREFIX);
 }
 
-// Unset falls back to the PAT kill switch, which covered OAuth tokens before this setting existed.
+// URL.hostname keeps IPv6 brackets, so "[::1]" is the form to match.
+export function isLoopbackHost(hostname: string): boolean {
+  return ["localhost", "127.0.0.1", "[::1]"].includes(hostname);
+}
+
+// Unset falls back to the PAT kill switch, which covered OAuth tokens before this
+// setting existed; upgradeOrganizationDoc pins the result on the org doc.
 export function getOAuthAccessPolicy(
   settings: OrganizationSettings | undefined,
 ): OAuthAccessPolicy {

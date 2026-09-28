@@ -18,7 +18,6 @@ import {
 } from "back-end/src/models/OAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
-import { getUsersByIds } from "back-end/src/models/UserModel";
 import {
   getContextForAgendaJobByOrgObject,
   getContextForUserIdInOrg,
@@ -28,6 +27,7 @@ import {
   hashToken,
   OAUTH_ACCESS_TOKEN_PREFIX,
   OAUTH_REFRESH_TOKEN_PREFIX,
+  timingSafeEqualStrings,
   verifyPkceS256,
 } from "back-end/src/util/oauth-token.util";
 
@@ -60,12 +60,9 @@ function verifyClientSecret(
   clientSecret: string | undefined,
 ): void {
   if (!client.clientSecretHash) return;
-  const presented = Buffer.from(hashToken(clientSecret || ""));
-  const expected = Buffer.from(client.clientSecretHash);
   if (
     !clientSecret ||
-    presented.length !== expected.length ||
-    !crypto.timingSafeEqual(presented, expected)
+    !timingSafeEqualStrings(hashToken(clientSecret), client.clientSecretHash)
   ) {
     throw new OAuthError("invalid_client", "Client authentication failed", 401);
   }
@@ -223,7 +220,7 @@ export async function listOrgGrants(
   const clientIds = [...new Set(grants.map((g) => g.clientId))];
   const [clients, users] = await Promise.all([
     Promise.all(clientIds.map((id) => getOAuthClientById(id))),
-    getUsersByIds([...new Set(grants.map((g) => g.userId))]),
+    context.getUsersByIds([...new Set(grants.map((g) => g.userId))]),
   ]);
   const clientById = new Map(
     clients.flatMap((c) => (c ? [[c.clientId, c] as const] : [])),

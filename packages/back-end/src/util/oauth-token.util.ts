@@ -23,7 +23,7 @@ export function verifyPkceS256(verifier: string, challenge: string): boolean {
   return timingSafeEqualStrings(computed, challenge);
 }
 
-function timingSafeEqualStrings(a: string, b: string): boolean {
+export function timingSafeEqualStrings(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
   if (bufA.length !== bufB.length) return false;

@@ -13,7 +13,6 @@ import {
   revokeMemberGrant,
   revokeToken,
 } from "back-end/src/services/oauth";
-import { getUsersByIds } from "back-end/src/models/UserModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getOAuthClientById } from "back-end/src/models/OAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
@@ -47,10 +46,6 @@ jest.mock("back-end/src/models/OAuthClientModel", () => ({
   createOAuthClient: jest.fn(),
   getOAuthClientById: jest.fn(),
   touchOAuthClient: jest.fn(),
-}));
-
-jest.mock("back-end/src/models/UserModel", () => ({
-  getUsersByIds: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
@@ -101,6 +96,8 @@ function mockOrgContext(
     markRevoked?: jest.Mock;
     getActiveForUser?: jest.Mock;
     getActiveForOrg?: jest.Mock;
+    getUsersByIds?: jest.Mock;
+    orgSettings?: Record<string, unknown>;
   } = {},
 ) {
   const activeGrant = {
@@ -136,6 +133,7 @@ function mockOrgContext(
     throwNotFoundError: jest.fn(() => {
       throw new Error("not found");
     }),
+    getUsersByIds: overrides.getUsersByIds ?? jest.fn().mockResolvedValue([]),
     models: {
       oauthRefreshTokens: {
         deleteForGrant,
@@ -159,7 +157,10 @@ function mockOrgContext(
     },
   };
 
-  mockFindOrganizationById.mockResolvedValue({ id: "org-1" } as never);
+  mockFindOrganizationById.mockResolvedValue({
+    id: "org-1",
+    settings: overrides.orgSettings,
+  } as never);
   mockGetContextForUserIdInOrg.mockResolvedValue(context as never);
   mockGetContextForAgendaJobByOrgObject.mockReturnValue(context as never);
 
@@ -591,13 +592,6 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
     });
   }
 
-  function mockOrgSettings(settings: Record<string, unknown>) {
-    mockFindOrganizationById.mockResolvedValue({
-      id: "org-1",
-      settings,
-    } as never);
-  }
-
   function refresh(clientId: string, clientSecret?: string) {
     return exchangeRefreshToken({
       refreshToken: OAUTH_REFRESH_TOKEN_PREFIX + "secret",
@@ -627,10 +621,11 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
   it("issues tokens to an org app presenting its secret while PATs are disabled", async () => {
     mockOrgApp();
     mockRefreshToken(APP_ID);
-    const { createApiKey } = mockOrgContext();
-    mockOrgSettings({
-      disablePersonalAccessTokens: true,
-      oauthAccess: "org-apps",
+    const { createApiKey } = mockOrgContext({
+      orgSettings: {
+        disablePersonalAccessTokens: true,
+        oauthAccess: "org-apps",
+      },
     });
 
     await refresh(APP_ID, APP_SECRET);
@@ -663,8 +658,9 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
     async (_, settings) => {
       mockDcrClient();
       mockRefreshToken("gbc_dcr");
-      const { createApiKey, markRevoked } = mockOrgContext();
-      mockOrgSettings(settings);
+      const { createApiKey, markRevoked } = mockOrgContext({
+        orgSettings: settings,
+      });
 
       await expect(refresh("gbc_dcr")).rejects.toMatchObject({
         error: "invalid_grant",
@@ -678,8 +674,9 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
 
   it("refuses to mint an authorization code for a disallowed client", async () => {
     mockDcrClient();
-    const { context } = mockOrgContext();
-    mockOrgSettings({ oauthAccess: "org-apps" });
+    const { context } = mockOrgContext({
+      orgSettings: { oauthAccess: "org-apps" },
+    });
 
     await expect(
       mintAuthorizationCode({
@@ -711,10 +708,12 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
 });
 
 describe("admin view of member grants", () => {
-  const mockGetUsersByIds = jest.mocked(getUsersByIds);
-
   it("lists the org's grants with client and member details, newest activity first", async () => {
     const { context } = mockOrgContext({
+      getUsersByIds: jest.fn().mockResolvedValue([
+        { id: "user-1", name: "Ada", email: "ada@example.com" },
+        { id: "user-2", name: "", email: "bob@example.com" },
+      ]),
       getActiveForOrg: jest.fn().mockResolvedValue([
         {
           clientId: "gbc_gone",
@@ -735,10 +734,6 @@ describe("admin view of member grants", () => {
         ? ({ clientId: id, clientName: "Internal MCP" } as never)
         : null,
     );
-    mockGetUsersByIds.mockResolvedValue([
-      { id: "user-1", name: "Ada", email: "ada@example.com" },
-      { id: "user-2", name: "", email: "bob@example.com" },
-    ] as never);
 
     const grants = await listOrgGrants(context as never);
 
