@@ -89,7 +89,7 @@ export const postProductAnalyticsRun = async (
   }>,
 ) => {
   const context = getContextFromReq(req);
-  const cacheOpts = { cache: req.query.cache };
+  const cacheOpts = { cache: req.query.cache, allowDraftMetrics: true };
   const { config, previousTimeFrame, comparisonMode } = req.body;
 
   async function resolveQuery(

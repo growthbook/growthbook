@@ -26,11 +26,16 @@ export const draftExplorationMetricValidator = factMetricValidator.omit({
 const metricValueValidator = baseValueValidator.extend({
   type: z.literal("metric"),
   metricId: z.string(),
-  draftMetric: draftExplorationMetricValidator.optional(),
   unit: z.string().nullable(),
   denominatorUnit: z.string().nullable(),
 });
-export type MetricValue = z.infer<typeof metricValueValidator>;
+// Internal only (metric editor live preview): an unsaved metric definition to
+// run in place of a saved one. Kept out of the public validators so the REST
+// API, OpenAPI spec, and AI agent never accept or document user-authored drafts.
+const internalMetricValueValidator = metricValueValidator.extend({
+  draftMetric: draftExplorationMetricValidator.optional(),
+});
+export type MetricValue = z.infer<typeof internalMetricValueValidator>;
 
 export type DatasetType =
   | "metric"
@@ -46,6 +51,9 @@ const metricDatasetValidator = z
     values: z.array(metricValueValidator),
   })
   .strict();
+const internalMetricDatasetValidator = metricDatasetValidator.extend({
+  values: z.array(internalMetricValueValidator),
+});
 
 // Fact Tables
 const valueType = ["unit_count", "count", "sum"] as const;
@@ -239,7 +247,7 @@ export const explorationDatasetValidator = z.discriminatedUnion("type", [
 ]);
 
 const _valueValidator = z.discriminatedUnion("type", [
-  metricValueValidator,
+  internalMetricValueValidator,
   factTableValueValidator,
   dataSourceValueValidator,
   sqlValueValidator,
@@ -380,6 +388,11 @@ export const metricExplorationConfigValidator =
   baseExplorationConfigValidator.extend({
     type: z.literal("metric"),
     dataset: metricDatasetValidator,
+  });
+
+const internalMetricExplorationConfigValidator =
+  metricExplorationConfigValidator.extend({
+    dataset: internalMetricDatasetValidator,
   });
 
 export const factTableExplorationConfigValidator =
@@ -531,10 +544,28 @@ export const explorationConfigValidator = z.discriminatedUnion(
   configOptions,
   { error: mustBeOneOf(configOptions, "type") },
 );
-export type ExplorationConfig = z.infer<typeof explorationConfigValidator>;
+
+// Internal app endpoints only: also accepts `draftMetric` on metric values.
+const internalConfigOptions = [
+  internalMetricExplorationConfigValidator,
+  factTableExplorationConfigValidator,
+  dataSourceExplorationConfigValidator,
+  sqlExplorationConfigValidator,
+  funnelExplorationConfigValidator,
+  journeyExplorationConfigValidator,
+] as const;
+export const internalExplorationConfigValidator = z.discriminatedUnion(
+  "type",
+  internalConfigOptions,
+  { error: mustBeOneOf(internalConfigOptions, "type") },
+);
+// Superset of the public shape, so publicly parsed configs are assignable.
+export type ExplorationConfig = z.infer<
+  typeof internalExplorationConfigValidator
+>;
 
 export type MetricExplorationConfig = z.infer<
-  typeof metricExplorationConfigValidator
+  typeof internalMetricExplorationConfigValidator
 >;
 export type FactTableExplorationConfig = z.infer<
   typeof factTableExplorationConfigValidator
@@ -552,11 +583,12 @@ export type JourneyExplorationConfig = z.infer<
   typeof journeyExplorationConfigValidator
 >;
 
-export type MetricDataset = z.infer<typeof metricDatasetValidator>;
+export type MetricDataset = z.infer<typeof internalMetricDatasetValidator>;
 export type FactTableDataset = z.infer<typeof factTableDatasetValidator>;
 export type DataSourceDataset = z.infer<typeof dataSourceDatasetValidator>;
 export type SqlDataset = z.infer<typeof sqlDatasetValidator>;
-export type ExplorationDataset = z.infer<typeof explorationDatasetValidator>;
+// From the internal config so it matches MetricDataset (with `draftMetric`).
+export type ExplorationDataset = ExplorationConfig["dataset"];
 
 /** Datasets built from a list of values, as opposed to the ones that describe
  *  their own shape (funnels carry `steps`, journeys carry step columns). Prefer
@@ -622,7 +654,7 @@ export type ProductAnalyticsExploration = z.infer<
 
 export const productAnalyticsRunRequestBodyValidator = z
   .object({
-    config: explorationConfigValidator,
+    config: internalExplorationConfigValidator,
     previousTimeFrame: explorationDateRangeValidator.optional(),
     // The client sends the already-resolved window, so this is only used to pick
     // how the two periods' rows are paired.
