@@ -30,6 +30,8 @@ const BaseClass = MakeModelClass({
     updateEvent: "oauthGrant.update",
     deleteEvent: "oauthGrant.delete",
   },
+  // Every refresh bumps the TTL; only consent and revocation are worth an audit row.
+  skipAuditLogFields: ["expiresAt"],
   defaultValues: {
     revoked: false,
   },
