@@ -87,6 +87,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }
 
+    // Snapshot the audit pre-image NOW: the revision publish flow below
+    // (createAndPublishRevision → publishRevision → applyRevisionChanges)
+    // mutates feature rule objects in place — revisionChanges.rules shares
+    // references with feature.rules — so the live object is post-state by
+    // audit time and the diff would only show dateUpdated.
+    // See https://github.com/growthbook/growthbook/issues/6421
+    const featureBeforeUpdate = JSON.parse(
+      JSON.stringify(feature),
+    ) as FeatureInterface;
+
     const {
       owner: ownerInput,
       archived,
@@ -691,7 +701,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         object: "feature",
         id: feature.id,
       },
-      details: auditDetailsUpdate(feature, updatedFeature),
+      details: auditDetailsUpdate(featureBeforeUpdate, updatedFeature),
     });
 
     const experimentMap = await getExperimentMapForFeature(
