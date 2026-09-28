@@ -114,7 +114,14 @@ export type AuditLogConfig<Entity extends EntityType> = {
   autocreateEvent?: EventTypes<Entity>;
   detailsAllowlist?: readonly string[];
   omitDetails?: boolean;
+  // Field shown as the entity name in the audit log; defaults to `name`.
+  nameField?: string;
 };
+
+function getAuditEntityName(doc: object, nameField = "name"): string {
+  const value = (doc as Record<string, unknown>)[nameField];
+  return typeof value === "string" ? value : "";
+}
 
 function getAuditDetailsDoc(
   doc: object,
@@ -146,8 +153,7 @@ export function createModelAuditLogger<E extends EntityType>(
           entity: {
             object: config.entity,
             id: getIdFromDoc(doc),
-            name:
-              ("name" in doc && typeof doc.name === "string" && doc.name) || "",
+            name: getAuditEntityName(doc, config.nameField),
           },
           event: config.createEvent,
           details: config.omitDetails
@@ -176,11 +182,7 @@ export function createModelAuditLogger<E extends EntityType>(
           entity: {
             object: config.entity,
             id: getIdFromDoc(doc),
-            name:
-              ("name" in newDoc &&
-                typeof newDoc.name === "string" &&
-                newDoc.name) ||
-              "",
+            name: getAuditEntityName(newDoc, config.nameField),
           },
           event,
           details: config.omitDetails
@@ -201,8 +203,7 @@ export function createModelAuditLogger<E extends EntityType>(
           entity: {
             object: config.entity,
             id: getIdFromDoc(doc),
-            name:
-              ("name" in doc && typeof doc.name === "string" && doc.name) || "",
+            name: getAuditEntityName(doc, config.nameField),
           },
           event: config.deleteEvent,
           details: config.omitDetails
@@ -226,8 +227,7 @@ export function createModelAuditLogger<E extends EntityType>(
           entity: {
             object: config.entity,
             id: getIdFromDoc(doc),
-            name:
-              ("name" in doc && typeof doc.name === "string" && doc.name) || "",
+            name: getAuditEntityName(doc, config.nameField),
           },
           event: config.autocreateEvent,
           details: config.omitDetails

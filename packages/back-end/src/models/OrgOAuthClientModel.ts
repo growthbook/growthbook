@@ -28,6 +28,7 @@ const BaseClass = MakeModelClass({
     createEvent: "oauthApp.create",
     updateEvent: "oauthApp.update",
     deleteEvent: "oauthApp.delete",
+    nameField: "clientName",
     // Everything but the secret hash.
     detailsAllowlist: [
       "id",
