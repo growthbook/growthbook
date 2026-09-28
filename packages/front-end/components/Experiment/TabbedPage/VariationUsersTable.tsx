@@ -31,17 +31,16 @@ export default function VariationUsersTable({
     .map((v) => v.weight)
     .reduce((sum, n) => sum + n, 0);
 
+  // Columns size to their headers and scroll within this box when it's
+  // narrow, rather than squeezing into each other.
   return (
-    <>
-      <table
-        className="table mx-2 mt-0 mb-2"
-        style={{ tableLayout: "fixed", width: "100%" }}
-      >
+    <div className="px-2" style={{ overflowX: "auto" }}>
+      <table className="table mt-0 mb-2" style={{ width: "100%" }}>
         <thead>
           <tr>
             <th
               className="border-top-0"
-              style={{ whiteSpace: "nowrap", width: "30%" }}
+              style={{ whiteSpace: "nowrap", width: "30%", minWidth: 150 }}
             >
               Variation
             </th>
@@ -75,7 +74,8 @@ export default function VariationUsersTable({
           {variations.map((v, i) => {
             return (
               <tr key={v.id}>
-                <td className={"border-right"}>
+                {/* Held to its share of the width, so a long name truncates. */}
+                <td className="border-right" style={{ maxWidth: 0 }}>
                   {hideVariationIndex ? (
                     <Text color="text-mid" weight="medium">
                       {v.name}
@@ -84,22 +84,22 @@ export default function VariationUsersTable({
                     <VariationLabel number={v.index} name={v.name} />
                   )}
                 </td>
-                <td>
+                <td className="text-nowrap">
                   <b>{numberFormatter.format(users[i] || 0)}</b>
                 </td>
-                <td className="border-right">
+                <td className="border-right text-nowrap">
                   {numberFormatter.format(
                     totalUsers * (v.weight / totalWeight) || 0,
                   )}
                 </td>
-                <td>
+                <td className="text-nowrap">
                   <b>
                     {totalUsers > 0
                       ? percentFormatter.format(users[i] / totalUsers)
                       : "-"}
                   </b>
                 </td>
-                <td>
+                <td className="text-nowrap">
                   {totalWeight > 0
                     ? percentFormatter.format(v.weight / totalWeight)
                     : "-"}
@@ -117,6 +117,6 @@ export default function VariationUsersTable({
           )}
         </tbody>
       </table>
-    </>
+    </div>
   );
 }
