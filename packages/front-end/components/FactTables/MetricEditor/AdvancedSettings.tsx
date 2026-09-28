@@ -295,7 +295,6 @@ export default function AdvancedSettings({
                       <Field
                         label={
                           <>
-                            {" "}
                             <Text as="div" weight="semibold" mb="2">
                               Target MDE
                             </Text>
@@ -434,7 +433,6 @@ export default function AdvancedSettings({
                       <Field
                         label={
                           <>
-                            {" "}
                             <Text as="div" weight="semibold" mb="2">
                               {minSampleSizeLabel}
                             </Text>
@@ -462,7 +460,6 @@ export default function AdvancedSettings({
                       <Field
                         label={
                           <>
-                            {" "}
                             <Text as="div" weight="semibold" mb="2">
                               Max percent change
                             </Text>
@@ -494,7 +491,6 @@ export default function AdvancedSettings({
                       <Field
                         label={
                           <>
-                            {" "}
                             <Text as="div" weight="semibold" mb="2">
                               Min percent change
                             </Text>
