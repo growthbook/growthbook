@@ -100,6 +100,7 @@ describe("incremental refresh metric source scan end", () => {
   beforeEach(() => {
     // @ts-expect-error -- context not needed for this unit test
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: { queries: { exposure: [exposureQuery] } },
     });
   });
