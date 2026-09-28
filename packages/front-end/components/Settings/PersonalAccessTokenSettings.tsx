@@ -1,5 +1,4 @@
 import React, { FC, useState } from "react";
-import { getOAuthAccessPolicy } from "shared/util";
 import Heading from "@/ui/Heading";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig } from "@/services/env";
@@ -25,13 +24,9 @@ const PersonalAccessTokenSettings: FC = () => {
   const save = async (disablePersonalAccessTokens: boolean) => {
     setError(null);
     try {
-      // Pin the OAuth policy first so it stops following this toggle's legacy fallback.
-      const oauthAccess = getOAuthAccessPolicy(settings);
       await apiCall("/organization", {
         method: "PUT",
-        body: JSON.stringify({
-          settings: { disablePersonalAccessTokens, oauthAccess },
-        }),
+        body: JSON.stringify({ settings: { disablePersonalAccessTokens } }),
       });
       await refreshOrganization();
     } catch (e) {
