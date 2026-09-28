@@ -1183,9 +1183,7 @@ export async function updateManagedVariationValues({
     user: eventAudit,
   });
 
-  if (
-    await discardManagedDraftIfNoop({ context, feature, revision, eventAudit })
-  ) {
+  if (await discardDraftIfNoop({ context, feature, revision, eventAudit })) {
     return { feature, version: feature.version };
   }
 
@@ -1515,7 +1513,7 @@ export async function ejectManagedFeatureFromFlag(
 }
 
 // An edit back to what serves must not leave an empty review behind.
-export async function discardManagedDraftIfNoop({
+export async function discardDraftIfNoop({
   context,
   feature,
   revision,

@@ -150,7 +150,7 @@ export default function Implementation({
         : storedLinkedFeatures,
     [storedLinkedFeatures, hidesManagedFlag, managedId],
   );
-  // Filled by the traffic funnel's values toggle and menu.
+  // Filled by the traffic funnel's values toggle.
   const [headerActions, setHeaderActions] = useState<HTMLDivElement | null>(
     null,
   );
@@ -223,9 +223,9 @@ export default function Implementation({
     !!implementationTypeDraft &&
     canEditType &&
     storedExperiment.type !== "holdout";
+  const { hasCommercialFeature } = useUser();
   // Mirrors the server: a holdout changes only on a draft with nothing linked,
   // judged on what's stored rather than on a type change still staged.
-  const { hasCommercialFeature } = useUser();
   const holdoutEditable =
     storedExperiment.type !== "holdout" &&
     storedExperiment.status === "draft" &&
@@ -250,6 +250,10 @@ export default function Implementation({
         setChangingType(initialType ?? "current");
       }
     : null;
+  const typeLockedReason = implementationTypeLockedReason(
+    storedExperiment,
+    storedLinkedFeatures,
+  );
 
   const canEditExperiment =
     !experiment.archived &&
@@ -386,10 +390,7 @@ export default function Implementation({
               storedLinkedFeatures.find((f) => f.feature.id === managedId) ??
               null
             }
-            lockedReason={implementationTypeLockedReason(
-              storedExperiment,
-              storedLinkedFeatures,
-            )}
+            lockedReason={typeLockedReason}
             draft={implementationTypeDraft}
             close={() => setChangingType(null)}
           />
@@ -460,13 +461,7 @@ export default function Implementation({
             setFeatureModal={setFeatureModal}
             setUrlRedirectModal={setUrlRedirectModal}
             onChooseType={
-              chooseType &&
-              !implementationTypeLockedReason(
-                storedExperiment,
-                storedLinkedFeatures,
-              )
-                ? () => chooseType()
-                : undefined
+              chooseType && !typeLockedReason ? () => chooseType() : undefined
             }
           />
         ) : null}

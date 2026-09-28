@@ -148,6 +148,16 @@ async function revisionRules(version: number) {
   return doc?.rules?.[0]?.variations ?? null;
 }
 
+async function refRules(status: string) {
+  const doc = await collection("featurerevisions").findOne({
+    featureId: FLAG,
+    status,
+  });
+  return (doc?.rules ?? []).filter(
+    (r: { type: string }) => r.type === "experiment-ref",
+  );
+}
+
 describe("applyExperimentChanges", () => {
   const { isReady } = setupApp();
   let context: ReqContextClass;
@@ -399,27 +409,11 @@ describe("applyExperimentChanges", () => {
     await run({
       linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
     });
-    const draft = await collection("featurerevisions").findOne({
-      featureId: FLAG,
-      status: "draft",
-    });
-    const added = draft?.rules?.filter(
-      (r: { type: string }) => r.type === "experiment-ref",
-    );
-    expect(added?.[added.length - 1]?.variations).toEqual(arms("p", "q"));
+    const added = await refRules("draft");
+    expect(added[added.length - 1]?.variations).toEqual(arms("p", "q"));
   });
 
   describe("removing a flag", () => {
-    const refRules = async (status: string) =>
-      (
-        (
-          await collection("featurerevisions").findOne({
-            featureId: FLAG,
-            status,
-          })
-        )?.rules ?? []
-      ).filter((r: { type: string }) => r.type === "experiment-ref");
-
     const publishDraft = async () => {
       const feature = await getFeature(context, FLAG);
       const doc = await collection("featurerevisions").findOne({
@@ -445,7 +439,7 @@ describe("applyExperimentChanges", () => {
         liveRevisionFromFeature(baselines.live, feature),
         fillRevisionFromFeature(baselines.base, feature),
         revision,
-        ["production", "staging"],
+        context.environments,
         {},
       );
       if (!merge.success) throw new Error("did not merge");
@@ -542,7 +536,12 @@ describe("applyExperimentChanges", () => {
       const result = await run({ keepFeatures: [FLAG] });
       expect(result.experiment.pendingFeatureUnlinks).toEqual([]);
       expect(
-        (await collection("featurerevisions").findOne({ version: 2 }))?.status,
+        (
+          await collection("featurerevisions").findOne({
+            featureId: FLAG,
+            version: 2,
+          })
+        )?.status,
       ).toBe("discarded");
     });
 
@@ -555,7 +554,12 @@ describe("applyExperimentChanges", () => {
       await expect(run({ unlinkFeatures: [FLAG] })).rejects.toThrow(
         "Set the experiment's status back to Draft to remove this Feature Flag.",
       );
-      expect(await refRules("draft")).toEqual([]);
+      expect(
+        await collection("featurerevisions").countDocuments({
+          featureId: FLAG,
+          status: "draft",
+        }),
+      ).toBe(0);
       expect((await getExperimentById(context, EXP))?.linkedFeatures).toEqual([
         FLAG,
       ]);

@@ -359,18 +359,20 @@ function FlagValueRow({
   const removing = linkAction === "remove";
   // A draft is taking the live rule out; the flag leaves when it publishes.
   const pendingRemoval = info.pendingRemoval;
+  const liveValues = info.liveValues ?? info.values;
+  const liveSparse = info.liveSparse ?? info.sparse ?? false;
   // Linking again starts from the rule the discarded draft left, when it can.
   const values = relinking
     ? (info.relinkFrom?.values ??
       seedManagedVariationValues(variations, feature.valueType))
     : writesToDraft
       ? pendingDraft.values
-      : (info.liveValues ?? info.values);
+      : liveValues;
   const storedSparse = relinking
     ? !!info.relinkFrom?.sparse
     : writesToDraft
       ? pendingDraft.sparse
-      : (info.liveSparse ?? info.sparse ?? false);
+      : liveSparse;
   const storedType = writesToDraft ? pendingDraft.valueType : feature.valueType;
   const storedDefault = writesToDraft
     ? pendingDraft.defaultValue
@@ -381,11 +383,13 @@ function FlagValueRow({
     (Staged & { for: number | "new" }) | null
   >(null);
   const staged = stagedFor?.for === workingOn ? stagedFor : null;
-  const chooseTarget = (next: number | "new") => {
+  const pinTarget = (next: number | "new") =>
     draftPicks.set(feature.id, {
       newestVersion: drafts[0]?.version ?? null,
       target: next,
     });
+  const chooseTarget = (next: number | "new") => {
+    pinTarget(next);
     setStaged(null);
   };
   // Environments are staged above the row: the funnel's header edits them too.
@@ -403,15 +407,12 @@ function FlagValueRow({
   const valueType = staged?.valueType ?? storedType;
   const sparse = staged?.sparse ?? storedSparse;
   // The Live view shows what's published, leaving staged edits for Save.
-  const liveValues = info.liveValues ?? info.values;
   const shownValueFor = (variationId: string) =>
     showLive
       ? liveValues.find((v) => v.variationId === variationId)?.value
       : valueFor(variationId);
   const shownType = showLive ? feature.valueType : valueType;
-  const shownSparse = showLive
-    ? (info.liveSparse ?? info.sparse ?? false)
-    : sparse;
+  const shownSparse = showLive ? liveSparse : sparse;
 
   // A managed flag's default is its control value, so that is what the other
   // variations patch onto.
@@ -462,7 +463,7 @@ function FlagValueRow({
   const onFlag = info.state === "live" || info.state === "draft";
   const editable =
     canEdit &&
-    !info.pendingRemoval &&
+    !pendingRemoval &&
     !showLive &&
     !lockedBySchedule &&
     permissionsUtil.canEditFeatureDrafts(feature) &&
@@ -472,10 +473,7 @@ function FlagValueRow({
   const stage = (patch: Partial<Staged>) => {
     // Holds the row on this draft even if a newer one appears meanwhile.
     if (typeof workingOn === "number" && pick?.target !== workingOn) {
-      draftPicks.set(feature.id, {
-        newestVersion: drafts[0]?.version ?? null,
-        target: workingOn,
-      });
+      pinTarget(workingOn);
     }
     setStaged((prev) => {
       const kept = prev?.for === workingOn ? prev : null;
@@ -605,16 +603,17 @@ function FlagValueRow({
 
   // In a sentence a draft goes by its number; a title reads as more prose.
   const draftMention = pendingDraft ? `Revision ${pendingDraft.version}` : null;
-  const draftRevision = pendingDraft ? (
+  const labelFor = (d: (typeof drafts)[number]) => (
     <RevisionLabel
-      version={pendingDraft.version}
-      title={pendingDraft.title}
-      numbered={!!pendingDraft.title}
+      version={d.version}
+      title={d.title}
+      numbered={!!d.title}
       minWidth={0}
       numberSize="inherit"
       inheritNumberColor
     />
-  ) : null;
+  );
+  const draftRevision = pendingDraft ? labelFor(pendingDraft) : null;
   const draftName = draftRevision ? (
     <Box as="span" display="block" maxWidth="180px">
       <Text size="sm" truncate>
@@ -657,16 +656,6 @@ function FlagValueRow({
   // Several drafts change this rule: pick which one the row shows and saves to.
   const canChooseTarget =
     !showLive && !!pendingDraft && (drafts.length > 1 || canStartNew);
-  const labelFor = (d: (typeof drafts)[number]) => (
-    <RevisionLabel
-      version={d.version}
-      title={d.title}
-      numbered={!!d.title}
-      minWidth={0}
-      numberSize="inherit"
-      inheritNumberColor
-    />
-  );
 
   const targetControl = canChooseTarget ? (
     // Outside the menu: a tooltip hands its trigger's props to its content,
@@ -737,13 +726,15 @@ function FlagValueRow({
   const needsApproval =
     !!shownDraft?.pendingApproval &&
     !(shownDraft.approval?.satisfied ?? shownDraft.status === "approved");
+  const reviewHref = (version: number) =>
+    `/features/${feature.id}?v=${version}#review`;
   const draftHref = shownDraft
-    ? `/features/${feature.id}?v=${shownDraft.version}#review`
+    ? reviewHref(shownDraft.version)
     : `/features/${feature.id}`;
   // The badge opens that revision's review, in a new tab like the flag's link.
   const badgeLink = (revision: RevisionLike) => (
     <Link
-      href={`/features/${feature.id}?v=${revision.version}#review`}
+      href={reviewHref(revision.version)}
       external
       underline="none"
       // Led by the status it shows, so it's announced and can be spoken to.
@@ -756,8 +747,8 @@ function FlagValueRow({
   );
 
   // A new tab, so following it never costs the page's unsaved edits.
-  const draftLink = (label: string) => (
-    <Link href={draftHref} external underline="always">
+  const draftLink = (label: string, href = draftHref) => (
+    <Link href={href} external underline="always">
       {label}
       <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
     </Link>
@@ -1203,14 +1194,7 @@ function FlagValueRow({
                 {`Revision ${pendingRemoval.version} takes this experiment's rule out of the Feature Flag. Once it's published, the Feature Flag leaves this experiment.`}
               </HelperText>
               <Text size="sm">
-                <Link
-                  href={`/features/${feature.id}?v=${pendingRemoval.version}#review`}
-                  external
-                  underline="always"
-                >
-                  Review draft
-                  <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
-                </Link>
+                {draftLink("Review draft", reviewHref(pendingRemoval.version))}
               </Text>
             </Flex>
             {canEditFlagLinks ? (

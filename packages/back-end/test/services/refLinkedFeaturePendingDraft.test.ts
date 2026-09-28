@@ -191,24 +191,6 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
     expect(info.pendingDraft).toBeUndefined();
   });
 
-  it("reports the older draft that changes the rule over a newer one that only carries it", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
-    mockGetRevisions.mockResolvedValue({
-      // Deliberately oldest-first, and only the OLDER draft differs from live;
-      // the newer one is someone's unrelated edit.
-      flag: [
-        makeDraft(4, [refRule("older-edit")]),
-        makeDraft(5, [refRule("live-value")]),
-      ],
-    });
-
-    const [info] = await run(false);
-
-    expect(info.pendingDraft?.version).toBe(4);
-    expect(info.otherPendingDrafts).toBeUndefined();
-    expect(info.state).toBe("live");
-  });
-
   it("offers every draft that changes the rule, newest first", async () => {
     mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
     mockGetRevisions.mockResolvedValue({

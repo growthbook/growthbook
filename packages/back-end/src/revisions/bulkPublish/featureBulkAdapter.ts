@@ -911,9 +911,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         raw.rules,
       ),
     );
-    await bestEffort("pending removals", () =>
-      settleFeatureRemovalsAfterPublish(context, updated),
-    );
+    await settleFeatureRemovalsAfterPublish(context, updated);
 
     if (
       desired.mergeResult.metadata?.tags !== undefined &&

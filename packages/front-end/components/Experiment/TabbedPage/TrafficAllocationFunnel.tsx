@@ -110,7 +110,7 @@ export interface Props {
   stageVariations?: (variations: Variation[]) => void;
   /** Environment scopes staged per flag. */
   flagEnvironments?: FlagEnvironmentsDraft;
-  /** Where the values toggle and menu render, beside the section's heading. */
+  /** Where the values toggle renders, beside the section's heading. */
   headerActionsTarget?: HTMLElement | null;
   /** The page's staged holdout. */
   holdoutDraft?: HoldoutDraft;
@@ -483,25 +483,13 @@ export default function TrafficAllocationFunnel({
   const liveRule = servedValueFeature?.liveHasMatchingRule
     ? servedValueFeature
     : undefined;
-  const pendingDraft = servedValueFeature?.pendingDraft;
-  const draftValueIds = useMemo(() => {
-    if (!servedValueFeature || !pendingDraft) return null;
-    return new Set(
-      getVariationValueChanges(
-        servedValueFeature,
-        (pendingDraft.values ?? []).map((v) => v.variationId),
-      )
-        .filter((c) => c.unpublished)
-        .map((c) => c.variationId),
-    );
-  }, [servedValueFeature, pendingDraft]);
   const environmentsDiffer = servedValueFeature
     ? environmentStatesDiffer(servedValueFeature)
     : false;
 
-  // Any linked flag counts, not just the one the environments line follows:
-  // the value rows below show every flag's draft.
-  const anyFlagDraftChanges = useMemo(
+  // The toggle offers a draft only when something it shows actually moved:
+  // any linked flag counts, since the value rows show every flag's draft.
+  const hasDraftChanges = useMemo(
     () =>
       pickedFeatures.some(
         (info) =>
@@ -514,10 +502,6 @@ export default function TrafficAllocationFunnel({
       ),
     [pickedFeatures],
   );
-  // The toggle offers a draft only when something it shows actually moved.
-  const hasDraftChanges =
-    anyFlagDraftChanges ||
-    (!!draftValueIds && (draftValueIds.size > 0 || environmentsDiffer));
   const { live, setLive } = useLiveView();
   const preferDraft = hasDraftChanges && !live;
   // Live values are what's published, so nothing edits them in place.

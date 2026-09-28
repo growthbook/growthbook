@@ -233,6 +233,7 @@ import {
   getFeatureRevisionsByFeatureIds,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import { draftTakesRuleOut } from "back-end/src/util/featureExperimentSync";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
@@ -5405,8 +5406,9 @@ export async function getRefLinkedFeatureInfo({
       //      slice differs from live, and from the revision it was cut from.
       //      Used to flip state to "draft" even when live already has a
       //      matching rule.
-      //   2. (fallback) the first draft with any match, even one that only
-      //      carries the rule along.
+      //   2. (fallback) while live has the rule, the first draft with any
+      //      match, even one that only carries it along. Over an empty live,
+      //      a draft that only carries an old copy adds nothing.
       const activeDrafts = revisions
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
@@ -5423,7 +5425,7 @@ export async function getRefLinkedFeatureInfo({
       const changesRefFrom = (
         revision: (typeof revisions)[0],
         rules: FeatureRule[],
-        valueType: FeatureInterface["valueType"] | undefined,
+        valueType: FeatureInterface["valueType"],
       ) =>
         (isManagedFeature(feature) &&
           revision.metadata?.valueType !== undefined &&
@@ -5458,11 +5460,13 @@ export async function getRefLinkedFeatureInfo({
           : []
         ).map((base) => [base.version, base]),
       );
-      // Takes the rule out of what it was cut from; an unknown base counts.
-      const removalDraft = withoutRule.find((revision) => {
-        const base = basesByVersion.get(revision.baseVersion);
-        return !base || refRulesForEntity(base.rules).length > 0;
-      });
+      const removalDraft = withoutRule.find((revision) =>
+        draftTakesRuleOut(
+          (rules) => refRulesForEntity(rules).length > 0,
+          revision,
+          basesByVersion.get(revision.baseVersion),
+        ),
+      );
       const differingDrafts = differsFromLive.filter(({ revision }) => {
         const base = basesByVersion.get(revision.baseVersion);
         return (
@@ -5474,22 +5478,18 @@ export async function getRefLinkedFeatureInfo({
           )
         );
       });
-      // Newest that changes this experiment's rule, over a newer one that only
-      // carries it along with unrelated edits; else, while live has the rule,
-      // the newest that has it. Over an empty live every draft that adds it
-      // already differs, and one that only carries an old copy adds nothing.
       const chosenDraft =
         differingDrafts[0] ??
         (liveRefRules.length > 0 ? draftsWithMatches[0] : undefined);
       const matchedDraftRevision = chosenDraft?.revision;
       const draftMatches: MatchingRule[] = chosenDraft?.matches ?? [];
-      const draftDiffersFromLive = differingDrafts.length > 0;
+      const hasPendingDraft = differingDrafts.length > 0;
 
       let state: LinkedFeatureState = "discarded";
       let matches: MatchingRule[] = [];
       if (feature.archived) {
         state = "archived";
-      } else if (draftDiffersFromLive && refIsDraft) {
+      } else if (hasPendingDraft && refIsDraft) {
         // Render uses draft values so the user sees what publishing will produce.
         state = "draft";
         matches = draftMatches;
@@ -5527,9 +5527,6 @@ export async function getRefLinkedFeatureInfo({
           };
         }
       }
-
-      // `state` stays live-first for existing consumers.
-      const hasPendingDraft = !!matchedDraftRevision && draftDiffersFromLive;
 
       // Feature-scope approval check: requires review AND draft not yet approved.
       // Also when `state` is "draft": the two can disagree when a live rule is
@@ -5569,7 +5566,7 @@ export async function getRefLinkedFeatureInfo({
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
             context,
             feature,
-            revision: revision,
+            revision,
           });
           const filledLive = liveRevisionFromFeature(live, feature);
           const mergeResult = autoMerge(
@@ -5718,8 +5715,9 @@ export async function getRefLinkedFeatureInfo({
           : [];
       // The first staged draft is the chosen one, so its facts are in hand.
       if (stagedDrafts.length > 0 && facts) {
-        if (facts.hasMergeConflict) stagedDrafts[0].hasMergeConflict = true;
-        else if (facts.changesOutsideRef) {
+        if (facts.hasMergeConflict) {
+          stagedDrafts[0].hasMergeConflict = true;
+        } else if (facts.changesOutsideRef) {
           stagedDrafts[0].hasUnrelatedDraftChanges = true;
         }
       }
@@ -5793,7 +5791,6 @@ export async function getRefLinkedFeatureInfo({
         hasPendingDraft && matchedDraftRevision && facts
           ? pendingDraftFor(matchedDraftRevision, draftMatches, facts)
           : undefined;
-      // The other drafts that also change it, for choosing between them.
       const otherPendingDrafts: LinkedFeaturePendingDraft[] =
         includeOtherPendingDrafts && pendingDraft
           ? await Promise.all(

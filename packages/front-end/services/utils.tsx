@@ -255,6 +255,13 @@ export function appendQueryParamsToURL(
   return `${root}?${queryParams}${hash ? `#${hash}` : ""}`;
 }
 
+/** "a", "a and b", "a, b and c". */
+export function joinAnd(parts: string[]): string {
+  return parts.length <= 1
+    ? (parts[0] ?? "")
+    : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
 export function capitalizeFirstLetter(string): string {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }

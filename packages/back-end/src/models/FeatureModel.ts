@@ -1746,6 +1746,7 @@ export async function updateFeature(
       }),
     );
   }
+
   // Set-then-fetch: the persisted doc flows through the same JIT pipeline as
   // any other read, so audit/SDK/response all see identical state.
   const persisted = await FeatureModel.findOne({
@@ -4726,6 +4727,7 @@ async function publishRevisionInner({
       `Failed to clear pending feature drafts for feature ${feature.id} revision ${revision.version} after publish`,
     );
   }
+
   // Committed: a removal waiting on this publish can finish.
   await settleFeatureRemovalsAfterPublish(context, updatedFeature);
 

@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import {
   PiPencilSimple,
@@ -111,7 +111,6 @@ export default function ProjectTagBar({
             size="sm"
             stacked
             label="Implementation"
-            // Staged with the page's other edits, so it's changed on the left.
             value={
               implementationType
                 ? IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
@@ -276,9 +275,11 @@ export default function ProjectTagBar({
           </Text>
         }
       />
-      <Flex direction="column" gap="1">
+      {/* Spaced like the rail's other items; a schedule link sits close
+          under the date it edits. */}
+      <Flex direction="column" gap="3">
         <ExperimentDates experiment={experiment} />
-        {experiment.status === "draft" && experiment.type !== "holdout" ? (
+        {experiment.status === "draft" && !isHoldout ? (
           <DraftSchedule
             experiment={experiment}
             // Once the start is confirmed, it changes from the header.
@@ -291,13 +292,15 @@ export default function ProjectTagBar({
         ) : null}
         {editSchedule &&
         experiment.status === "running" &&
-        experiment.type !== "holdout" &&
+        !isHoldout &&
         experiment.type !== "multi-armed-bandit" &&
         !experiment.archived ? (
-          <RunningScheduleLink
-            experiment={experiment}
-            editSchedule={editSchedule}
-          />
+          <Box mt="-2">
+            <RunningScheduleLink
+              experiment={experiment}
+              editSchedule={editSchedule}
+            />
+          </Box>
         ) : null}
       </Flex>
     </Flex>
@@ -313,7 +316,7 @@ function DraftSchedule({
   editSchedule,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  editSchedule?: (() => void) | null;
+  editSchedule: (() => void) | null;
 }) {
   const schedule = experiment.statusUpdateSchedule;
   const hasSchedule =
@@ -350,7 +353,7 @@ function DraftSchedule({
         <Metadata size="sm" stacked label="Scheduled end" value={end} />
       ) : null}
       {editSchedule ? (
-        <Link onClick={editSchedule}>
+        <Link onClick={editSchedule} mt="-2">
           <Flex align="center" gap="1">
             {!hasSchedule && <PiPlus size="12" />}
             <Text size="sm">

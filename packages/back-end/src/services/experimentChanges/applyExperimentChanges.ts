@@ -47,7 +47,7 @@ import {
   removeFlagFromExperiment,
 } from "back-end/src/services/experiment-feature";
 import {
-  discardManagedDraftIfNoop,
+  discardDraftIfNoop,
   requestReviewForManagedDraft,
   stageManagedFeatureFields,
   ensureManagedFlagForExperiment,
@@ -403,7 +403,7 @@ async function writeFlagValues({
   let version = revision.version;
   if (managed) {
     if (
-      await discardManagedDraftIfNoop({
+      await discardDraftIfNoop({
         context,
         feature,
         revision,
@@ -460,8 +460,7 @@ async function compensate(
   return failed;
 }
 
-// A holdout staged on the page may have gone stale by Save: the experiment
-// started, or gained a linked change. Joining is checked like leaving here.
+// Joining a holdout is refused on the same terms the planner refuses leaving one.
 function assertHoldoutChangeAllowed(
   experiment: ExperimentInterface,
   holdoutId: string | undefined,

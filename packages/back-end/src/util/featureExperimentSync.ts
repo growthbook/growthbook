@@ -107,9 +107,6 @@ export async function syncFeatureExperimentLinkages(
     const liveExpIds = new Set(getExperimentIdsFromRules(liveRevision?.rules));
     const allExpIds = new Set([...liveExpIds, ...draftVersionsByExp.keys()]);
 
-    // Each experimentId is independent (no shared mutable state across
-    // iterations), so bounded concurrency is safe — a feature can
-    // reference thousands of distinct experiments.
     // Read again before linking: a removal may have landed since this sync's
     // own read, and linking it back would undo it.
     let stillReferenced: Promise<Set<string>> | null = null;
@@ -119,12 +116,12 @@ export async function syncFeatureExperimentLinkages(
         featureId,
       ).then(
         ({ openDrafts: drafts, liveRevision: live }) =>
-          new Set([
-            ...getExperimentIdsFromRules(live?.rules),
-            ...drafts.flatMap((d) => getExperimentIdsFromRules(d.rules)),
-          ]),
+          new Set(referencedExperimentIds(live?.rules, drafts)),
       ));
 
+    // Each experimentId is independent (no shared mutable state across
+    // iterations), so bounded concurrency is safe — a feature can
+    // reference thousands of distinct experiments.
     await promiseAllChunks(
       Array.from(allExpIds).map((experimentId) => async () => {
         const experiment = await getExperimentById(context, experimentId);
@@ -174,11 +171,13 @@ export async function syncFeatureExperimentLinkages(
         if (
           experiment.pendingFeatureUnlinks?.includes(featureId) &&
           liveExpIds.has(experimentId) &&
-          !openDrafts.some(
-            (d) =>
-              !getExperimentIdsFromRules(d.rules).includes(experimentId) &&
-              (!d.base ||
-                getExperimentIdsFromRules(d.base.rules).includes(experimentId)),
+          !openDrafts.some((d) =>
+            draftTakesRuleOut(
+              (rules) =>
+                getExperimentIdsFromRules(rules).includes(experimentId),
+              d,
+              d.base,
+            ),
           )
         ) {
           await setPendingFeatureUnlink(
@@ -218,19 +217,18 @@ export async function syncFeatureExperimentLinkages(
  * still has their rule. Runs after draft writes and after a publish takes a
  * rule out; never throws.
  */
-export async function settlePendingFeatureUnlinks(
+async function settlePendingFeatureUnlinks(
   context: ReqContext | ApiReqContext,
   featureId: string,
   openDrafts: Pick<LaunchCandidate, "rules">[],
   liveRules: unknown,
 ): Promise<void> {
   try {
-    await unlinkLandedFeatureRemovals(context, featureId, [
-      ...new Set([
-        ...getExperimentIdsFromRules(liveRules),
-        ...openDrafts.flatMap((d) => getExperimentIdsFromRules(d.rules)),
-      ]),
-    ]);
+    await unlinkLandedFeatureRemovals(
+      context,
+      featureId,
+      referencedExperimentIds(liveRules, openDrafts),
+    );
   } catch (e) {
     logger.error(e, "settlePendingFeatureUnlinks failed");
   }
@@ -255,4 +253,28 @@ export async function settleFeatureRemovalsAfterPublish(
   } catch (e) {
     logger.error(e, "settleFeatureRemovalsAfterPublish failed");
   }
+}
+
+function referencedExperimentIds(
+  liveRules: unknown,
+  openDrafts: Pick<LaunchCandidate, "rules">[],
+): string[] {
+  return [
+    ...new Set([
+      ...getExperimentIdsFromRules(liveRules),
+      ...openDrafts.flatMap((d) => getExperimentIdsFromRules(d.rules)),
+    ]),
+  ];
+}
+
+/**
+ * Whether a draft without the experiment's rule takes it out of the revision
+ * it was cut from. A base that can't be found counts.
+ */
+export function draftTakesRuleOut<R>(
+  hasRule: (rules: R | undefined) => boolean,
+  draft: { rules?: R },
+  base: { rules?: R } | null | undefined,
+): boolean {
+  return !hasRule(draft.rules) && (!base || hasRule(base.rules));
 }

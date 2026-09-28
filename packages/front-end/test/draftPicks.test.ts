@@ -50,8 +50,10 @@ describe("resolveDraftPick", () => {
     // Still lists the drafts to switch back to.
     expect(resolveDraftPick(info(7, 5), pick, "exp_1").draft?.version).toBe(7);
     expect(on(info(8, 7, 5), pick)).toBe(8);
-    const cleaned = info(7);
-    cleaned.pendingDraft!.hasUnrelatedDraftChanges = false;
+    const cleaned = {
+      ...info(7),
+      pendingDraft: { ...draft(7), hasUnrelatedDraftChanges: false },
+    };
     expect(on(cleaned, pick)).toBe(7);
   });
 });

@@ -52,7 +52,6 @@ export default function DecisionPlan({
     mutate();
   };
 
-  // The value read back, with its pencil once there is anything to edit.
   const row = (
     label: string,
     tooltip: string,
@@ -64,7 +63,7 @@ export default function DecisionPlan({
         <Box minWidth="0">{value}</Box>
         {editable ? (
           <QuickEditButton
-            label={`Edit ${label.toLowerCase()}`}
+            label={`Edit ${label[0].toLowerCase()}${label.slice(1)}`}
             onClick={() => setEditing(editor)}
             blockedReason={editsBlocked}
           />

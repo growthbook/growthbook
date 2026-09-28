@@ -6,13 +6,14 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import type { ExperimentRuleEnvironments } from "shared/validators";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, isManagedFeature } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HelperText from "@/ui/HelperText";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import { useEnvironments } from "@/services/features";
 import LinkedFeatureLabel from "@/components/Experiment/LinkedFeatureLabel";
 import { scopeFromStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import { joinAnd } from "@/services/utils";
 
 /**
  * Picks where the experiment's rule applies; the page's Save stages it on the
@@ -55,7 +56,7 @@ export default function EditExperimentEnvironmentsModal({
   const switchedOn = (
     allEnvironments ? environments.map((e) => e.id) : selectedEnvironments
   ).filter((id) => environmentInputs?.[id]?.flagEnabled === false);
-  const managed = info.feature.managedBy?.type === "experiment";
+  const managed = isManagedFeature(info.feature);
 
   return (
     <ModalStandard
@@ -88,10 +89,8 @@ export default function EditExperimentEnvironmentsModal({
       />
       {switchedOn.length ? (
         <HelperText status="warning" size="sm" mt="2">
-          {`${
-            switchedOn.length === 1
-              ? `${switchedOn[0]} is`
-              : `${switchedOn.slice(0, -1).join(", ")} and ${switchedOn[switchedOn.length - 1]} are`
+          {`${joinAnd(switchedOn)} ${
+            switchedOn.length === 1 ? "is" : "are"
           } off for this Feature Flag. Applying turns ${
             switchedOn.length === 1 ? "it on there" : "them on"
           }${managed ? "" : ", for all of its rules"}.`}
