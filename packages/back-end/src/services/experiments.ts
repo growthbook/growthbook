@@ -47,6 +47,7 @@ import {
   getExperimentVariationUnitsFromHealth,
 } from "shared/health";
 import {
+  needsPercentileCapSubquery,
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
@@ -73,6 +74,7 @@ import {
   getPhaseVariations,
   isVariationWeightsSumValid,
   scheduleWriteNeedsRunPermission,
+  withScheduledBy,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -187,6 +189,7 @@ import {
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
+import { getPastExperimentsModelByDatasource } from "back-end/src/models/PastExperimentsModel";
 import {
   APP_ORIGIN,
   DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -233,6 +236,7 @@ import {
   BadRequestError,
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  InvalidTrackingKeyError,
 } from "back-end/src/util/errors";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
@@ -1072,10 +1076,10 @@ export function resetExperimentBanditSettings({
     changes.goalMetrics = [];
   }
 
-  // No quantile metrics allowed (only need to check for endpoints that change metrics)
+  // Percentile caps on either tail are incompatible with Bandits.
   if (goalMetric && metricMap) {
     const metric = metricMap.get(goalMetric);
-    if (metric && metric?.cappingSettings?.type === "percentile") {
+    if (metric && needsPercentileCapSubquery(metric)) {
       changes.goalMetrics = [];
     }
   }
@@ -2557,9 +2561,79 @@ export function assertValidReleasedVariationId(
   }
 }
 
+type BucketVersionFields = Pick<
+  ExperimentInterface,
+  "bucketVersion" | "minBucketVersion"
+>;
+
+// A minBucketVersion above bucketVersion blocks every sticky-bucketed user after
+// their first exposure. Only a write that introduces a bad pair is rejected; a
+// pre-existing one is left alone.
+export function assertValidBucketVersions(
+  updated: Partial<BucketVersionFields>,
+  existing?: Partial<BucketVersionFields>,
+): void {
+  const bucketVersion = updated.bucketVersion ?? 0;
+  const minBucketVersion = updated.minBucketVersion ?? 0;
+  if (
+    existing &&
+    (existing.bucketVersion ?? 0) === bucketVersion &&
+    (existing.minBucketVersion ?? 0) === minBucketVersion
+  ) {
+    return;
+  }
+
+  for (const [field, value] of [
+    ["bucketVersion", bucketVersion],
+    ["minBucketVersion", minBucketVersion],
+  ] as const) {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new BadRequestError(
+        `invalid_bucket_version: ${field} must be a non-negative integer`,
+      );
+    }
+  }
+  if (minBucketVersion > bucketVersion) {
+    throw new BadRequestError(
+      "invalid_bucket_version: minBucketVersion cannot be greater than bucketVersion",
+    );
+  }
+}
+
+export async function assertExperimentKeyFormat(
+  context: ReqContext | ApiReqContext,
+  trackingKey: string | undefined,
+  datasourceId: string | undefined,
+) {
+  const { experimentKeyRegexValidator: pattern, experimentKeyExample } =
+    context.org.settings ?? {};
+  if (!pattern) return;
+  const example = experimentKeyExample ?? "";
+  if (!trackingKey) {
+    throw new InvalidTrackingKeyError(
+      "Your organization requires an experiment tracking key to be entered.",
+      pattern,
+      example,
+    );
+  }
+  if (new RegExp(pattern).test(trackingKey)) return;
+  // Keys discovered in the Data Source can't be renamed, so they're exempt
+  const pastExperiments = datasourceId
+    ? await getPastExperimentsModelByDatasource(context.org.id, datasourceId)
+    : null;
+  if (pastExperiments?.experiments?.some((e) => e.trackingKey === trackingKey))
+    return;
+  throw new InvalidTrackingKeyError(
+    `Experiment tracking key must match the regex validator. '${pattern}' Example: '${example}'`,
+    pattern,
+    example,
+  );
+}
+
 // Assigns missing ids and keys, then checks both are unique. On an update
 // (`existing`), an omitted id keeps the stored one by key, else by position,
 // so linked feature rules keep pointing at the same variations.
+
 export function validateVariationIds(
   variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
   existing?: Pick<Variation, "id" | "key">[],
@@ -4000,13 +4074,11 @@ export function postMetricApiPayloadToMetricInterface(
   // Assign all undefined behavior fields to the metric
   if (behavior) {
     if (typeof behavior.cappingSettings !== "undefined") {
+      const cs = behavior.cappingSettings;
       metric.cappingSettings = {
-        type:
-          behavior.cappingSettings.type === "none"
-            ? ""
-            : (behavior.cappingSettings.type ?? ""),
-        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
-        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+        type: cs.type === "none" ? "" : (cs.type ?? ""),
+        value: cs.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: cs.ignoreZeros,
       };
       // handle old post requests
     } else if (typeof behavior.capping !== "undefined") {
@@ -4154,14 +4226,11 @@ export function putMetricApiPayloadToMetricInterface(
     }
 
     if (typeof behavior.cappingSettings !== "undefined") {
+      const cs = behavior.cappingSettings;
       metric.cappingSettings = {
-        ...behavior.cappingSettings,
-        type:
-          behavior.cappingSettings.type === "none"
-            ? ""
-            : (behavior.cappingSettings.type ?? ""),
-        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
-        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+        type: cs.type === "none" ? "" : (cs.type ?? ""),
+        value: cs.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: cs.ignoreZeros,
       };
     } else if (typeof behavior.capping !== "undefined") {
       metric.cappingSettings = {
@@ -4916,6 +4985,7 @@ function resolveExperimentUpdateVariationsAndPhases(
 export function normalizeStatusUpdateScheduleChanges(
   experiment: ExperimentInterface,
   changes: Changeset,
+  scheduledBy?: string,
 ): void {
   if ("statusUpdateSchedule" in changes) {
     const incoming = changes.statusUpdateSchedule;
@@ -4960,7 +5030,10 @@ export function normalizeStatusUpdateScheduleChanges(
       // Re-stage the single pending action from the new schedule:
       //  - running experiment: (re)stage the stop from the resolved stopAt
       //  - otherwise (draft): clear any staged start; it must be re-approved
-      changes.nextScheduledStatusUpdate = stagedStop;
+      changes.nextScheduledStatusUpdate = withScheduledBy(
+        stagedStop,
+        scheduledBy,
+      );
     }
   } else if (
     changes.status &&
@@ -5712,7 +5785,7 @@ export async function getChangesToStartExperiment(
     if (!metric) {
       throw new Error("Invalid metric: " + experiment.goalMetrics[0]);
     }
-    if (metric.cappingSettings.type === "percentile") {
+    if (needsPercentileCapSubquery(metric)) {
       throw new Error("Goal metric must not use percentile capping");
     }
   }

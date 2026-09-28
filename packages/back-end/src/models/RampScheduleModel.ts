@@ -97,6 +97,8 @@ const BaseClass = MakeModelClass({
     // dangerouslyFindAllDueSchedules is a cross-tenant query.
     // sparse: true matches the existing index (most documents have nextProcessAt: null).
     { fields: { nextProcessAt: 1 }, sparse: true },
+    // Every feature publish reads the feature's schedules (getAllByFeatureId).
+    { fields: { organization: 1, entityId: 1 } },
   ],
   globallyUniquePrimaryKeys: true,
   defaultValues: {

@@ -48,6 +48,10 @@ import { collectFeatureMoveDependentsGate } from "back-end/src/services/moveDepe
 import { MergeConflictError } from "back-end/src/util/errors";
 import { pendingScheduleGate } from "back-end/src/revisions/pendingScheduleGuard";
 import {
+  resolveRevertRampStopsForRevision,
+  revertRampStopGate,
+} from "back-end/src/revisions/revertRampGuard";
+import {
   assertFeatureSavedGroupScope,
   collectSavedGroupScopeGate,
 } from "back-end/src/services/savedGroupProjectScope";
@@ -335,13 +339,20 @@ export async function planFeatureRevisionMerge({
       )
     ).length > 0;
 
+  // A revert whose only effect is removing ramps its target predates still
+  // changes something, like a draft that only activates a ramp.
+  const detachesRevertRamps =
+    (await resolveRevertRampStopsForRevision(context, feature, revision))
+      .detaches.length > 0;
+
   return {
     environmentIds,
     mergeResult: merged.result,
     filledLiveRules: filledLive.rules,
     hasChanges:
       draftDiffersFromLive(revision, live, feature, environmentIds) ||
-      hasLinkedPendingRamp,
+      hasLinkedPendingRamp ||
+      detachesRevertRamps,
     hasLinkedPendingRamp,
     requiresReview,
     uncoveredApprovers,
@@ -518,6 +529,8 @@ export async function collectFeaturePublishGates({
 
   const scheduleGate = pendingScheduleGate(revision);
   if (scheduleGate) gates.push(scheduleGate);
+  const rampStopGate = await revertRampStopGate(context, feature, revision);
+  if (rampStopGate) gates.push(rampStopGate);
 
   // Structural payload guard: a config-backed default carrying its own override
   // patch breaks the SDK payload (the override ships verbatim, the backing

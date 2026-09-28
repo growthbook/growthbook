@@ -1,5 +1,5 @@
 import { listFeaturesValidator } from "shared/validators";
-import { stringToBoolean } from "shared/util";
+import { isDefined, stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
@@ -10,7 +10,7 @@ import {
 } from "back-end/src/models/FeatureModel";
 import {
   getApiFeatureObj,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
@@ -32,6 +32,10 @@ export const emptyListResponse = (limit: number, offset: number) => ({
   hasMore: false,
   nextOffset: null,
 });
+
+type DefinitionLookups = Awaited<
+  ReturnType<typeof getFeatureDefinitionLookups>
+>;
 
 /**
  * Shared data-loading core for list-features. Builds the paginated feature
@@ -55,16 +59,12 @@ export async function loadFeaturesPage(
   | {
       empty: false;
       filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
-      groupMap: Awaited<ReturnType<typeof getSavedGroupMap>>;
+      groupMap: DefinitionLookups["groupMap"];
       experimentMap: Awaited<ReturnType<typeof getAllPayloadExperiments>>;
       revisions: Awaited<
         ReturnType<typeof getFeatureRevisionsByFeaturesCurrentVersion>
       >;
-      safeRolloutMap: Awaited<
-        ReturnType<
-          ApiReqContext["models"]["safeRollout"]["getAllPayloadSafeRollouts"]
-        >
-      >;
+      safeRolloutMap: DefinitionLookups["safeRolloutMap"];
       outLimit: number;
       outOffset: number;
       total: number;
@@ -110,7 +110,6 @@ export async function loadFeaturesPage(
   }
 
   const experimentScope = projectId ? [projectId] : (projectIds ?? undefined);
-  const groupMap = await getSavedGroupMap(context);
 
   let filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
   let total: number;
@@ -198,14 +197,24 @@ export async function loadFeaturesPage(
     context,
     filtered,
   );
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-
   // Loaded after the page resolves so the experiments it references come too.
+  const referencedExperimentIds = getReferenceIdsInFeatures(
+    filtered,
+    "experiment-ref",
+  );
   const experimentMap = await getAllPayloadExperiments(
     context,
     experimentScope,
-    getReferenceIdsInFeatures(filtered, "experiment-ref"),
+    referencedExperimentIds,
+  );
+  const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+    context,
+    {
+      features: filtered,
+      experiments: referencedExperimentIds
+        .map((id) => experimentMap.get(id))
+        .filter(isDefined),
+    },
   );
 
   const hasMore = skipPagination ? false : offset + limit < total;

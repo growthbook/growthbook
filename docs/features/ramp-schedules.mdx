@@ -160,8 +160,11 @@ While it is `paused` (or `ready`, before it starts), publishing an edit to the r
 
 - A field the plan sets in a step or its end state, usually the rollout percentage (`coverage`), is refused with the step named; change it in the plan instead.
 - Any other change to the rule's targeting or value is written into the base state, so it applies immediately, survives the remaining steps once you resume, and is what a rollback restores.
+- Some older schedules share one base state across a rule's per-environment copies (for example `fr_1__dev` and `fr_1__production`). A change that would leave those copies different is refused, since the shared base state would apply it to all of them. Remove the ramp from the rule, publish the change, then attach a new schedule.
 
 Removing a schedule needs no approval: `eject-target` and `DELETE` leave the rule as it is right now, so a ramp can always be cleaned up.
+
+Reverting the Feature Flag to a revision published before a schedule was attached removes that schedule from the rule, and deletes it once it controls no rules; you're warned first. A running schedule still needs pausing before the revert, like any other change to its rule. A scheduled or auto-published revert fails instead of removing a schedule attached after its draft was created, so publish that one manually to confirm.
 
 ## Templates
 

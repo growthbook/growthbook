@@ -1,4 +1,8 @@
-import { getLatestPhaseVariations, getAllVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  getAllVariations,
+  withScheduledBy,
+} from "shared/experiments";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   ExperimentInterface,
@@ -489,7 +493,13 @@ export async function executeExperimentStart(
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: { ...changes, nextScheduledStatusUpdate },
+    changes: {
+      ...changes,
+      nextScheduledStatusUpdate: withScheduledBy(
+        nextScheduledStatusUpdate,
+        context.userId || undefined,
+      ),
+    },
   });
 
   trackEventForContext(context, "Experiment Started", {
@@ -652,10 +662,10 @@ export async function approveScheduledExperimentStart({
   }
 
   const changes: Changeset = {
-    nextScheduledStatusUpdate: {
-      type: "start",
-      date: startAt,
-    },
+    nextScheduledStatusUpdate: withScheduledBy(
+      { type: "start" as const, date: startAt },
+      context.userId || undefined,
+    ),
   };
   await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({

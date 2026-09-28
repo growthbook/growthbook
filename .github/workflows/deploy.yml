@@ -72,8 +72,12 @@ jobs:
           printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
           echo "docker_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
+      # Registry round trips drop often enough to redden Deploy: one soft
+      # attempt, then a blocking retry.
       - name: Build, tag, and push image to Docker Hub and ECR
+        id: build
         uses: depot/build-push-action@v1
+        continue-on-error: true
         with:
           push: true
           context: .
@@ -84,6 +88,23 @@ jobs:
             DD_VERSION=${{ github.sha }}
           # No ECR :latest — the ECR repo is immutable, so we push only the
           # unique git-<sha> tag. Docker Hub :latest stays for self-host.
+          tags: |
+            growthbook/growthbook:latest
+            growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
+            ${{ steps.login-ecr.outputs.registry }}/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Retry build, tag, and push image to Docker Hub and ECR
+        if: steps.build.outcome == 'failure'
+        uses: depot/build-push-action@v1
+        with:
+          push: true
+          context: .
+          project: vmp2ssvj9r
+          build-args: |
+            DD_GIT_COMMIT_SHA=${{ github.sha }}
+            DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
+            DD_VERSION=${{ github.sha }}
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}

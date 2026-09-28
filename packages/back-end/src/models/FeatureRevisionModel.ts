@@ -155,6 +155,11 @@ const featureRevisionSchema = new mongoose.Schema({
   metadata: {},
   holdout: {},
   rampActions: [{}],
+  // No default: absent (legacy, unrecorded) must stay distinct from empty.
+  rampAttachments: {
+    type: [{ _id: false, rampScheduleId: String, ruleId: String }],
+    default: undefined,
+  },
   // Users who have made edits to this draft beyond the original author.
   contributors: [{}],
   // Active reviewer verdicts for the current review cycle. Maintained by the
@@ -2294,6 +2299,26 @@ export async function recordScheduledPublishFailure(
     { new: true },
   ).select("scheduledPublishAttempts");
   return doc?.scheduledPublishAttempts ?? 0;
+}
+
+// Raw write (no dateUpdated bump): the stamp is a CAS baseline other flows
+// guard on, and recording what landed is not an edit.
+export async function setRevisionRampAttachments(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+  rampAttachments: NonNullable<FeatureRevisionInterface["rampAttachments"]>,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+      status: "published",
+    },
+    { $set: { rampAttachments } },
+  );
 }
 
 // Delay the next poller retry of a failing scheduled publish (backoff). The

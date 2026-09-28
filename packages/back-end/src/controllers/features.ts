@@ -61,7 +61,9 @@ import {
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
+  withoutUnsupportedSavedGroupCapabilities,
   SDKCapability,
+  savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import {
   ACTIVE_DRAFT_STATUSES,
@@ -186,6 +188,7 @@ import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDepe
 import { assertPendingScheduleAcknowledged } from "back-end/src/revisions/pendingScheduleGuard";
 import {
   assertCanRevertArchived,
+  assertRevertHasChanges,
   assertRevertLandingGuards,
   assertRevertValuesReadable,
 } from "back-end/src/services/revertGuards";
@@ -526,7 +529,7 @@ export type SDKPayloadParams = Pick<
   | "includeRedirectExperiments"
   | "includeRuleIds"
   | "hashSecureAttributes"
-  | "savedGroupReferencesEnabled"
+  | "savedGroupFormat"
   | "remoteEvalEnabled"
   | "includeProjectIdInMetadata"
   | "includeCustomFieldsInMetadata"
@@ -578,7 +581,7 @@ export async function getPayloadParamsFromApiKey(
       includeTagsInMetadata: connection.includeTagsInMetadata,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
-      savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+      savedGroupFormat: savedGroupFormatFromConnection(connection),
       includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
       languages: connection.languages,
       sdkVersion: connection.sdkVersion,
@@ -659,14 +662,18 @@ export async function getFeatureDefinitionsWithCache({
 
   // Generate if cache disabled, cache miss, or corrupt cache
   if (!defs) {
-    // Derive capabilities from languages/sdkVersion (or hardcode for legacy API keys)
-    const capabilities =
+    // Derive capabilities from languages/sdkVersion (or hardcode for legacy API keys).
+    // Filtered the same way as the cache-refresh path, so a remote-eval
+    // connection gets the same payload whether or not the cache was warm.
+    const capabilities = withoutUnsupportedSavedGroupCapabilities(
       params.languages[0] === "legacy"
         ? ["bucketingV2" as SDKCapability] // hardcoded for legacy API keys
         : getConnectionSDKCapabilities({
             languages: params.languages as SDKLanguage[],
             sdkVersion: params.sdkVersion,
-          });
+          }),
+      params,
+    );
 
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === params.environment,
@@ -695,11 +702,9 @@ export async function getFeatureDefinitionsWithCache({
       allowedCustomFieldsInMetadata: params.allowedCustomFieldsInMetadata,
       includeTagsInMetadata: params.includeTagsInMetadata,
       hashSecureAttributes: params.hashSecureAttributes,
-      savedGroupReferencesEnabled:
-        params.savedGroupReferencesEnabled !== undefined
-          ? params.savedGroupReferencesEnabled &&
-            capabilities.includes("savedGroupReferences")
-          : undefined,
+      // resolveSavedGroupFormat steps this down when the SDK cannot read
+      // it, so filtering here too would only make the two disagree.
+      savedGroupFormat: params.savedGroupFormat,
       includeReferencedPrerequisites: params.includeReferencedPrerequisites,
     });
 
@@ -3041,12 +3046,8 @@ export async function postFeatureRevert(
     mergeChanges.holdout = targetHoldout;
   }
 
-  // No diff against live — refuse before creating an empty "Locked" revision.
-  if (Object.keys(mergeChanges).length === 0) {
-    throw new Error(
-      `Nothing to revert: the live feature already matches revision #${revision.version}.`,
-    );
-  }
+  // Before createRevision, so an empty revert leaves no "Locked" revision.
+  await assertRevertHasChanges(context, feature, mergeChanges, revision);
 
   // Before createRevision, so a blocked attempt leaves no orphaned draft.
   assertRevertValuesReadable(context, feature, mergeChanges);
@@ -3080,7 +3081,7 @@ export async function postFeatureRevert(
     context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
     !!org.settings?.revertsBypassApproval;
 
-  await assertRevertLandingGuards(context, feature, mergeChanges);
+  await assertRevertLandingGuards(context, feature, mergeChanges, revision);
   const newRevision = await createRevision({
     context,
     feature,

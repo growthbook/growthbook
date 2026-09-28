@@ -47,6 +47,7 @@ export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./ruleId";
+export * from "./revertRampDetach";
 export * from "./numbers";
 export * from "./types";
 export * from "./errors";
@@ -544,6 +545,7 @@ export function ruleFootprint(
 ): string[] {
   if (rule.allEnvironments) return applicableEnvs;
   if (rule.environments === undefined) return applicableEnvs;
+  if (!Array.isArray(rule.environments)) return [];
   const applicableSet = new Set(applicableEnvs);
   return rule.environments.filter((e) => applicableSet.has(e));
 }

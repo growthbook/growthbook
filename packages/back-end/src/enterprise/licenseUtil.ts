@@ -24,6 +24,7 @@ import {
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
+import { EventForwarderSinkType } from "shared/types/event-forwarder";
 import {
   OrganizationInterface,
   OrgMemberInfo,
@@ -1192,7 +1193,7 @@ export async function postProvisionEventForwarderToLicenseServer(
 export async function postTeardownEventForwarderToLicenseServer(params: {
   organizationId: string;
   datasourceId: string;
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderSinkType;
   topic?: string;
   connectorName?: string;
   connectorId?: string;
