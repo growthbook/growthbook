@@ -1,5 +1,9 @@
 import isEqual from "lodash/isEqual";
-import { isManagedByExperiment, validateFeatureValue } from "shared/util";
+import {
+  experimentHasLinkedChanges,
+  isManagedByExperiment,
+  validateFeatureValue,
+} from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
@@ -34,7 +38,9 @@ import {
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
   linkFeatureToExperiment,
-  unlinkFlagFromExperiment,
+  assertFlagRemovable,
+  keepFlagInExperiment,
+  removeFlagFromExperiment,
 } from "back-end/src/services/experiment-feature";
 import {
   discardManagedDraftIfNoop,
@@ -450,6 +456,25 @@ async function compensate(
   return failed;
 }
 
+// A holdout staged on the page may have gone stale by Save: the experiment
+// started, or gained a linked change. Joining is checked like leaving here.
+function assertHoldoutChangeAllowed(
+  experiment: ExperimentInterface,
+  holdoutId: string | undefined,
+) {
+  if (holdoutId === undefined) return;
+  if ((holdoutId || "") === (experiment.holdoutId || "")) return;
+  if (
+    experiment.status === "draft" &&
+    !experimentHasLinkedChanges(experiment)
+  ) {
+    return;
+  }
+  throw new BadRequestError(
+    "A holdout can only change while the experiment is a draft with nothing linked. Discard the holdout change, or set the status back to Draft and remove its linked changes.",
+  );
+}
+
 // Drafts land first and the experiment last; a failure anywhere before the
 // experiment write undoes the drafts in reverse.
 export async function applyExperimentChanges({
@@ -468,6 +493,7 @@ export async function applyExperimentChanges({
   let experimentPlan: ExperimentUpdatePlan | null = null;
   if (body.experiment) {
     assertExperimentBaseMatches(experiment, body.experiment);
+    assertHoldoutChangeAllowed(experiment, body.experiment.changes.holdoutId);
     experimentPlan = await planExperimentUpdate(
       context,
       experiment,
@@ -490,6 +516,17 @@ export async function applyExperimentChanges({
       body,
       body.renameManagedFlag.to,
     );
+  }
+
+  if (body.unlinkFeatures?.some((id) => body.keepFeatures?.includes(id))) {
+    throw new BadRequestError(
+      "Remove a Feature Flag or keep it, not both in one save.",
+    );
+  }
+  // Refuses before anything is written; the removal itself checks again.
+  for (const featureId of body.unlinkFeatures ?? []) {
+    const feature = await getFeature(context, featureId);
+    if (feature) await assertFlagRemovable(context, experiment, feature);
   }
 
   const compensations: Compensation[] = [];
@@ -612,10 +649,20 @@ async function finishFlags({
     });
   }
   for (const featureId of body.unlinkFeatures ?? []) {
-    await unlinkFlagFromExperiment(context, experiment.id, featureId);
+    await removeFlagFromExperiment({
+      context,
+      experiment,
+      featureId,
+      eventAudit,
+    });
+  }
+  for (const featureId of body.keepFeatures ?? []) {
+    await keepFlagInExperiment({ context, experiment, featureId, eventAudit });
   }
   const linked =
-    body.linkFeatures?.length || body.unlinkFeatures?.length
+    body.linkFeatures?.length ||
+    body.unlinkFeatures?.length ||
+    body.keepFeatures?.length
       ? ((await getExperimentById(context, experiment.id)) ?? experiment)
       : experiment;
   const healed = await healManagedFlag({

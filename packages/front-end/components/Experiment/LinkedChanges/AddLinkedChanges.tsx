@@ -159,10 +159,13 @@ export default function AddLinkedChanges({
   setVisualEditorModal,
   setUrlRedirectModal,
   onChooseType,
+  canAddChanges = true,
 }: {
   experiment: ExperimentInterfaceStringDates;
   numLinkedChanges: number;
   hasLinkedFeatures?: boolean;
+  /** Offers the add rows; without it only the type chooser shows. */
+  canAddChanges?: boolean;
   /** Opens the type chooser; absent when the type is locked. */
   onChooseType?: () => void;
   setVisualEditorModal: (state: boolean) => unknown;
@@ -221,7 +224,7 @@ export default function AddLinkedChanges({
 
   return (
     <Box className="appbox mb-0" p="4" mt="2" mb="0">
-      {possibleSections.map((s, i) => {
+      {(canAddChanges ? possibleSections : []).map((s, i) => {
         return (
           <Box key={s}>
             <AddLinkedChangeRow
@@ -233,6 +236,14 @@ export default function AddLinkedChanges({
           </Box>
         );
       })}
+      {/* With nothing added yet there's no heading to carry the type menu. */}
+      {onChooseType ? (
+        <Flex justify="end" mt={canAddChanges ? "3" : "0"}>
+          <Button variant="outline" onClick={onChooseType}>
+            Change implementation type
+          </Button>
+        </Flex>
+      ) : null}
     </Box>
   );
 }

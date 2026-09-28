@@ -1,4 +1,12 @@
-import { Dispatch, ReactNode, SetStateAction, useMemo, useState } from "react";
+import {
+  Dispatch,
+  ReactNode,
+  SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import {
   ExperimentInterfaceStringDates,
@@ -47,8 +55,10 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
+import Link from "@/ui/Link";
 import {
   EnvironmentStateChips,
+  environmentStateTense,
   getEnvironmentStates,
   stageEnvironmentInputs,
   statesFromInputs,
@@ -57,7 +67,6 @@ import {
   environmentStatesDiffer,
   getVariationValueChanges,
 } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
-import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -68,12 +77,23 @@ import { useTargetingDefaults } from "@/components/Experiment/useExperimentTarge
 import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
 import { attributeOptionLabelFormatter } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
-import styles from "./TrafficAllocationFunnel.module.scss";
+import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
 import FlagValueRows from "./FlagValueRows";
+import {
+  DraftPick,
+  FlagDraftPicks,
+  resolveDraftPick,
+  withPickedDraft,
+} from "./draftPicks";
+import styles from "./TrafficAllocationFunnel.module.scss";
 import SetupFieldRow from "./SetupFieldRow";
 import useExperimentEditing from "./useExperimentEditing";
 import {
   FlagEnvironmentsDraft,
+  HoldoutDraft,
+  useLiveView,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 
@@ -90,6 +110,14 @@ export interface Props {
   stageVariations?: (variations: Variation[]) => void;
   /** Environment scopes staged per flag. */
   flagEnvironments?: FlagEnvironmentsDraft;
+  /** Where the values toggle and menu render, beside the section's heading. */
+  headerActionsTarget?: HTMLElement | null;
+  /** The page's staged holdout. */
+  holdoutDraft?: HoldoutDraft;
+  /** Whether the experiment can leave its holdout here. */
+  canStageHoldout?: boolean;
+  /** Whether it can join or switch holdouts here, which needs the feature. */
+  canJoinHoldout?: boolean;
   setEditVariationIndex?: (index: number) => void;
   setEditKeyIndex?: (index: number) => void;
   /** The sole linked Feature Flag, whose environments and draft the header describes. */
@@ -135,6 +163,7 @@ function FunnelCard({
   disabled = false,
   editBlockedReason,
   referenceOnly = false,
+  menu,
 }: {
   title: string;
   inlineSummary?: ReactNode;
@@ -145,6 +174,8 @@ function FunnelCard({
   editBlockedReason?: string | null;
   /** Normally changes what the SDK serves, but this experiment is served elsewhere. */
   referenceOnly?: boolean;
+  /** Items for the menu right of the pencil; no menu without them. */
+  menu?: ReactNode;
 }) {
   return (
     <Box
@@ -176,21 +207,44 @@ function FunnelCard({
             </Tooltip>
           ) : null}
         </Flex>
-        {onEdit && !disabled ? (
-          <Tooltip content={editBlockedReason ?? `Edit ${title}`}>
-            <IconButton
-              variant="ghost"
-              color="violet"
-              radius="medium"
-              disabled={!!editBlockedReason}
-              onClick={() => onEdit()}
-              size="1"
-              aria-label={`Edit ${title}`}
+        <Flex align="center" gap="3">
+          {onEdit && !disabled ? (
+            <Tooltip content={editBlockedReason ?? `Edit ${title}`}>
+              <IconButton
+                variant="ghost"
+                color="violet"
+                radius="medium"
+                disabled={!!editBlockedReason}
+                onClick={() => onEdit()}
+                size="1"
+                aria-label={`Edit ${title}`}
+              >
+                <PiPencilSimple size="14" />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+          {menu ? (
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  style={{ margin: 0 }}
+                  aria-label={`${title} actions`}
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              menuPlacement="end"
+              variant="soft"
             >
-              <PiPencilSimple size="14" />
-            </IconButton>
-          </Tooltip>
-        ) : null}
+              {menu}
+            </DropdownMenu>
+          ) : null}
+        </Flex>
       </Flex>
       {children ? <Box mt="1">{children}</Box> : null}
     </Box>
@@ -272,20 +326,25 @@ export default function TrafficAllocationFunnel({
   pendingManagedFlag = false,
   stageVariations,
   flagEnvironments,
+  headerActionsTarget,
+  holdoutDraft,
+  canStageHoldout = false,
+  canJoinHoldout = false,
   setEditVariationIndex,
   setEditKeyIndex,
-  servedValueFeature,
+  servedValueFeature: storedServedValueFeature,
   linkedFeatures = [],
-  canEditFlagValues = false,
+  canEditFlagValues: canEditFlagValuesHere = false,
   addFeatureFlag,
-  canEditExperiment = false,
+  canEditExperiment: canEditExperimentHere = false,
   safeToEdit = false,
   mutate,
   targetingDraft,
 }: Props) {
   const { namespaces } = useOrgSettings();
   const { apiCall } = useAuth();
-  const { editInline, analysisOnly } = useExperimentEditing(experiment);
+  const { editInline: editInlineHere, analysisOnly } =
+    useExperimentEditing(experiment);
 
   const targetingDefaults = useTargetingDefaults(experiment);
   const staged = targetingDraft?.value ?? null;
@@ -389,6 +448,37 @@ export default function TrafficAllocationFunnel({
   const isBandit = experiment.type === "multi-armed-bandit";
   const permissionsUtil = usePermissionsUtil();
 
+  // Each flag's row picks the draft it shows; the readouts here follow it.
+  const [draftPickValue, setDraftPicks] = useState<Record<string, DraftPick>>(
+    {},
+  );
+  const draftPicks: FlagDraftPicks = useMemo(
+    () => ({
+      value: draftPickValue,
+      set: (featureId, pick) =>
+        setDraftPicks((prev) => ({ ...prev, [featureId]: pick })),
+    }),
+    [draftPickValue],
+  );
+  const pickedFeatures = useMemo(
+    () =>
+      linkedFeatures.map((info) =>
+        withPickedDraft(info, draftPickValue[info.feature.id], experiment.id),
+      ),
+    [linkedFeatures, draftPickValue, experiment.id],
+  );
+  const servedValueFeature = useMemo(
+    () =>
+      storedServedValueFeature
+        ? withPickedDraft(
+            storedServedValueFeature,
+            draftPickValue[storedServedValueFeature.feature.id],
+            experiment.id,
+          )
+        : null,
+    [storedServedValueFeature, draftPickValue, experiment.id],
+  );
+
   // Each readout asks about itself.
   const liveRule = servedValueFeature?.liveHasMatchingRule
     ? servedValueFeature
@@ -409,11 +499,36 @@ export default function TrafficAllocationFunnel({
     ? environmentStatesDiffer(servedValueFeature)
     : false;
 
+  // Any linked flag counts, not just the one the environments line follows:
+  // the value rows below show every flag's draft.
+  const anyFlagDraftChanges = useMemo(
+    () =>
+      pickedFeatures.some(
+        (info) =>
+          !!info.pendingDraft &&
+          (getVariationValueChanges(
+            info,
+            (info.pendingDraft.values ?? []).map((v) => v.variationId),
+          ).some((c) => c.unpublished) ||
+            environmentStatesDiffer(info)),
+      ),
+    [pickedFeatures],
+  );
   // The toggle offers a draft only when something it shows actually moved.
   const hasDraftChanges =
-    !!draftValueIds && (draftValueIds.size > 0 || environmentsDiffer);
-  const [showDraftValues, setShowDraftValues] = useState(true);
-  const preferDraft = hasDraftChanges && showDraftValues;
+    anyFlagDraftChanges ||
+    (!!draftValueIds && (draftValueIds.size > 0 || environmentsDiffer));
+  const { live, setLive } = useLiveView();
+  const preferDraft = hasDraftChanges && !live;
+  // Live values are what's published, so nothing edits them in place.
+  const viewingLive = hasDraftChanges && live;
+  const canEditExperiment = canEditExperimentHere && !viewingLive;
+  const canEditFlagValues = canEditFlagValuesHere && !viewingLive;
+  const editInline = editInlineHere && !viewingLive;
+  // With nothing unpublished the toggle goes, and the page edits again.
+  useEffect(() => {
+    if (!hasDraftChanges && live) setLive(false);
+  }, [hasDraftChanges, live, setLive]);
 
   // Mirror the server's publish authority on eject.
   const managedFeature =
@@ -438,38 +553,47 @@ export default function TrafficAllocationFunnel({
     if (!draft || managedFeature) return { name: undefined, note: undefined };
     const others = draft.otherDraftCount ?? 0;
     return {
-      name: revisionLabelText(draft.version, draft.title),
+      // In a sentence a draft goes by its number.
+      name: `Revision ${draft.version}`,
       note: others
-        ? `${others} other unpublished draft${others > 1 ? "s" : ""} on this Feature Flag`
+        ? `${others} other draft${others > 1 ? "s" : ""} of this Feature Flag also include this experiment`
         : undefined,
     };
   })();
   const stagedScope = servedValueFeature
     ? (flagEnvironments?.value[servedValueFeature.feature.id] ?? null)
     : null;
+  // Like the values, the Live view leaves the staged scope for Save.
+  const shownScope = viewingLive ? null : stagedScope;
+  // What a staged scope lands on.
+  const scopeBaseInputs =
+    (preferDraft
+      ? servedValueFeature?.pendingDraft?.environmentInputs
+      : servedValueFeature?.liveEnvironmentInputs) ??
+    servedValueFeature?.environmentInputs ??
+    {};
   const environmentStates = getEnvironmentStates(
-    stagedScope && servedValueFeature
+    shownScope && servedValueFeature
       ? {
           environmentStates: statesFromInputs(
-            stageEnvironmentInputs(
-              (preferDraft
-                ? servedValueFeature.pendingDraft?.environmentInputs
-                : servedValueFeature.liveEnvironmentInputs) ??
-                servedValueFeature.environmentInputs ??
-                {},
-              stagedScope,
-            ),
+            stageEnvironmentInputs(scopeBaseInputs, shownScope),
           ),
         }
       : envStateSource || { environmentStates: {} },
     {
-      // A draft experiment publishes its flag when it starts.
-      future:
-        experiment.status !== "running"
-          ? "started"
-          : environmentsAreDraft
-            ? "published"
-            : false,
+      future: environmentStateTense({
+        status: experiment.status,
+        unpublished: environmentsAreDraft || !!shownScope,
+        // The row's pick, which may not be the draft that launches.
+        launches:
+          !storedServedValueFeature ||
+          resolveDraftPick(
+            storedServedValueFeature,
+            draftPickValue[storedServedValueFeature.feature.id],
+            experiment.id,
+          ).launches,
+        liveView: viewingLive,
+      }),
     },
   );
 
@@ -486,12 +610,32 @@ export default function TrafficAllocationFunnel({
   const canRestructure =
     canStageVariations && (experiment.status === "draft" || analysisOnly);
   const canAddNamespace =
+    !viewingLive &&
     !isHoldout &&
     !!editNamespace &&
     safeToEdit &&
     !hasNamespace &&
     !!namespaces?.length;
-  const hasMenuActions = canAddNamespace;
+
+  // Staged over what's stored: "" means leaving the stored holdout.
+  const holdoutId = holdoutDraft?.value ?? experiment.holdoutId ?? "";
+  const { holdouts, holdoutsMap, experimentsMap } = useHoldouts(
+    undefined,
+    false,
+    { enabled: canStageHoldout || !!holdoutId },
+  );
+  const [choosingHoldout, setChoosingHoldout] = useState(false);
+  // Only when the picker would have something to offer.
+  const canAddHoldout =
+    canJoinHoldout &&
+    !isHoldout &&
+    !holdoutId &&
+    selectableHoldouts(holdouts, experimentsMap, experiment.project).length > 0;
+  // Leaving a holdout only just staged is undoing it.
+  const leaveHoldout = () =>
+    holdoutDraft?.set(experiment.holdoutId ? "" : null);
+  const stageHoldout = (id: string) =>
+    holdoutDraft?.set(id === (experiment.holdoutId ?? "") ? null : id);
 
   const hasConfiguredTargeting = hasTargetingConfigured(phase);
   // Environment scope has its own line above, so the audience is attributes alone.
@@ -518,13 +662,55 @@ export default function TrafficAllocationFunnel({
   const variationWeights =
     staged?.variationWeights ?? storedPhase?.variationWeights ?? [];
 
+  // Beside the section's heading when it offers a place, else atop the box.
+  const actions = (
+    <Flex align="center" gap="3">
+      {hasDraftChanges ? (
+        <SegmentedControl.Root
+          size="2"
+          value={preferDraft ? "draft" : "live"}
+          onValueChange={(v) => setLive(v === "live")}
+          aria-label="Values shown"
+        >
+          <SegmentedControl.Item value="draft">
+            <Flex align="center" gap="2">
+              <UnpublishedDot />
+              Unpublished
+            </Flex>
+          </SegmentedControl.Item>
+          <SegmentedControl.Item value="live">
+            Live values
+          </SegmentedControl.Item>
+        </SegmentedControl.Root>
+      ) : (
+        // Nothing unpublished to compare, so the one view the page shows.
+        <SegmentedControl.Root size="2" value="only" aria-label="Values shown">
+          <SegmentedControl.Item value="only">
+            {linkedFeatures.length > 0 || experiment.status !== "draft"
+              ? "Live values"
+              : "Unpublished"}
+          </SegmentedControl.Item>
+        </SegmentedControl.Root>
+      )}
+    </Flex>
+  );
+
   return (
     <Frame style={{ backgroundColor: "var(--gray-a2)", border: "none" }}>
+      {choosingHoldout ? (
+        <AddToHoldoutModal
+          experiment={experiment}
+          holdoutId={holdoutId}
+          stage={stageHoldout}
+          close={() => setChoosingHoldout(false)}
+        />
+      ) : null}
       {editEnvironments && servedValueFeature && flagEnvironments && (
         <EditExperimentEnvironmentsModal
           info={servedValueFeature}
           stagedScope={stagedScope}
           environmentStates={environmentStates}
+          environmentInputs={scopeBaseInputs}
           showFlag={!managedFeature}
           close={() => setEditEnvironments(false)}
           apply={(scope) => {
@@ -533,68 +719,31 @@ export default function TrafficAllocationFunnel({
           }}
         />
       )}
-      <Flex justify="end" align="center" mb="4">
-        <Flex align="center" gap="3">
-          {servedValueFeature && !hasDraftChanges ? (
-            <Text size="sm" color="text-mid">
-              Live values
-            </Text>
-          ) : servedValueFeature ? (
-            <SegmentedControl.Root
-              size="2"
-              value={preferDraft ? "draft" : "live"}
-              onValueChange={(v) => setShowDraftValues(v === "draft")}
-              aria-label="Values shown"
-            >
-              <SegmentedControl.Item value="draft">
-                <Flex align="center" gap="2">
-                  <UnpublishedDot />
-                  Unpublished
-                </Flex>
-              </SegmentedControl.Item>
-              <SegmentedControl.Item value="live">
-                Live values
-              </SegmentedControl.Item>
-            </SegmentedControl.Root>
-          ) : null}
-          {hasMenuActions && (
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                  style={{ margin: 0 }}
-                  aria-label="Traffic allocation actions"
-                >
-                  <BsThreeDotsVertical size={16} />
-                </IconButton>
-              }
-              menuPlacement="end"
-              variant="soft"
-            >
-              {canAddNamespace && (
-                <DropdownMenuItem onClick={() => editNamespace?.()}>
-                  Add namespace
-                </DropdownMenuItem>
-              )}
-            </DropdownMenu>
-          )}
+      {headerActionsTarget ? (
+        createPortal(actions, headerActionsTarget)
+      ) : (
+        <Flex justify="end" align="center" mb="4">
+          {actions}
         </Flex>
-      </Flex>
-
+      )}
       <Flex direction="column">
         <Flex align="center" direction="column">
-          {environmentStates.length > 0 ? (
+          {/* An archived Feature Flag serves nothing; its row says why. */}
+          {environmentStates.length > 0 &&
+          servedValueFeature?.state !== "archived" ? (
             <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
-              {(environmentsAreDraft || stagedScope) && (
+              {(environmentsAreDraft || shownScope) && (
                 <UnpublishedDot
                   tooltip={
-                    draftDetail.name
-                      ? `Unpublished targeting in ${draftDetail.name}`
-                      : "Unpublished draft targeting"
+                    shownScope
+                      ? managedFeature
+                        ? "Not saved yet."
+                        : draftDetail.name
+                          ? `Not saved yet. Saving adds it to ${draftDetail.name}.`
+                          : "Not saved yet. Saving starts a new draft."
+                      : draftDetail.name
+                        ? `${draftDetail.name} changes these environments.`
+                        : "Unpublished environment changes."
                   }
                   note={draftDetail.note}
                 />
@@ -618,11 +767,39 @@ export default function TrafficAllocationFunnel({
             </Flex>
           ) : null}
 
+          {!isHoldout && holdoutId ? (
+            <>
+              <FunnelCard
+                title="Holdout"
+                onEdit={canJoinHoldout ? () => setChoosingHoldout(true) : null}
+                referenceOnly={analysisOnly}
+                menu={
+                  canStageHoldout ? (
+                    <DropdownMenuItem color="red" onClick={leaveHoldout}>
+                      Remove from holdout
+                    </DropdownMenuItem>
+                  ) : null
+                }
+              >
+                <SetupFieldRow label="Name" content="text">
+                  {/* A new tab, so following it never costs the page's edits. */}
+                  <Link href={`/holdout/${holdoutId}`} external>
+                    {holdoutsMap.get(holdoutId)?.name ?? holdoutId}
+                  </Link>
+                </SetupFieldRow>
+                <SetupFieldRow label="ID" content="text">
+                  <Text color="text-mid">{holdoutId}</Text>
+                </SetupFieldRow>
+              </FunnelCard>
+              <FunnelConnector />
+            </>
+          ) : null}
+
           {!isHoldout && hasNamespace && (
             <>
               <FunnelCard
                 title="Namespace"
-                onEdit={editNamespace}
+                onEdit={viewingLive ? null : editNamespace}
                 inlineSummary={
                   <Text size="lg" color="text-mid">
                     {namespaceName}
@@ -637,9 +814,25 @@ export default function TrafficAllocationFunnel({
 
           <FunnelCard
             title="Targeting"
-            onEdit={editTargeting}
+            onEdit={viewingLive ? null : editTargeting}
             disabled={!safeToEdit}
             referenceOnly={analysisOnly}
+            menu={
+              canAddNamespace || canAddHoldout ? (
+                <>
+                  {canAddHoldout ? (
+                    <DropdownMenuItem onClick={() => setChoosingHoldout(true)}>
+                      Add to holdout
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canAddNamespace ? (
+                    <DropdownMenuItem onClick={() => editNamespace?.()}>
+                      Add namespace
+                    </DropdownMenuItem>
+                  ) : null}
+                </>
+              ) : null
+            }
           >
             <SetupFieldRow label="Audience" content="text">
               {targetsEveryone ? (
@@ -870,10 +1063,12 @@ export default function TrafficAllocationFunnel({
             <FlagValueRows
               experiment={experiment}
               flagEnvironments={flagEnvironments}
+              draftPicks={draftPicks}
               linkedFeatures={linkedFeatures}
               pendingManagedFlag={pendingManagedFlag}
               canEdit={canEditFlagValues}
-              onAddFlag={addFeatureFlag}
+              canEditLinks={canEditFlagValuesHere}
+              onAddFlag={viewingLive ? null : addFeatureFlag}
               showLive={hasDraftChanges && !preferDraft}
             />
           </>

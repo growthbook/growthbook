@@ -242,6 +242,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   hasURLRedirects: false,
   linkedFeatures: false,
   pendingFeatureDrafts: false,
+  pendingFeatureUnlinks: false,
   manualLaunchChecklist: false,
   banditStage: false,
   banditStageDateStarted: false,

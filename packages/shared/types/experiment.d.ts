@@ -300,6 +300,47 @@ export interface StagedRefDraft {
   hasUnrelatedDraftChanges?: boolean;
 }
 
+/** One open draft of an experiment's rule on a linked Feature Flag. */
+export type LinkedFeaturePendingDraft = {
+  version: number;
+  /** What a save names as the draft it loaded, so an edit since then is caught. */
+  dateUpdated: string | null;
+  /** Armed to publish on a schedule with edits frozen until then. */
+  lockedBySchedule: boolean;
+  status: RevisionStatus;
+  /** The revision's own title, for naming which draft a readout describes. */
+  title?: string;
+  /** Open drafts other than this one that also carry this experiment's rule. */
+  otherDraftCount: number;
+  /** Whether publishing would change anything, by the publish gate's own test. */
+  hasChanges: boolean;
+  values: ExperimentRefVariation[];
+  sparse: boolean;
+  allEnvironments?: boolean;
+  pendingApproval: boolean;
+  /** The type the draft would leave the flag as — it may re-type it. */
+  valueType: FeatureValueType;
+  /** The default value as of the draft, for expanding a sparse patch. */
+  defaultValue: string;
+  /** The publish gate's answer when review is required; "approved" can still be blocked. */
+  approval?: {
+    satisfied: boolean;
+    footprint: ReviewAuthorityFootprint;
+    /** One entry per rule; any team in an entry satisfies that rule. */
+    unmetTeams: { id: string; name: string }[][];
+    /** Approvals that stand but cannot sanction the publish, and why. */
+    insufficientApprovers: { id: string; reason: string }[];
+  };
+  hasMergeConflict: boolean;
+  hasUnrelatedDraftChanges: boolean;
+  /** Live moved past the draft (or its approval) and the flag's policy wants a fresh base. */
+  rebaseRequired: boolean;
+  staleApproval: boolean;
+  /** Where the draft would run once published, keyed the same as the live map. */
+  environmentStates: Record<string, LinkedFeatureEnvState>;
+  environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
+};
+
 export interface LinkedFeatureInfo {
   feature: FeatureInterface;
   state: LinkedFeatureState;
@@ -347,45 +388,14 @@ export interface LinkedFeatureInfo {
   liveEnvironmentStates?: Record<string, LinkedFeatureEnvState>;
   liveEnvironmentInputs?: Record<string, LinkedFeatureEnvInputs>;
   /** The unpublished draft of this experiment's rule, if any. Populated regardless of `state`, which stays live-first. */
-  pendingDraft?: {
-    version: number;
-    /** What a save names as the draft it loaded, so an edit since then is caught. */
-    dateUpdated: string | null;
-    /** Armed to publish on a schedule with edits frozen until then. */
-    lockedBySchedule: boolean;
-    status: RevisionStatus;
-    /** The revision's own title, for naming which draft a readout describes. */
-    title?: string;
-    /** Open drafts other than this one that also carry this experiment's rule. */
-    otherDraftCount: number;
-    /** Whether publishing would change anything, by the publish gate's own test. */
-    hasChanges: boolean;
-    values: ExperimentRefVariation[];
-    sparse: boolean;
-    allEnvironments?: boolean;
-    pendingApproval: boolean;
-    /** The type the draft would leave the flag as — it may re-type it. */
-    valueType: FeatureValueType;
-    /** The default value as of the draft, for expanding a sparse patch. */
-    defaultValue: string;
-    /** The publish gate's answer when review is required; "approved" can still be blocked. */
-    approval?: {
-      satisfied: boolean;
-      footprint: ReviewAuthorityFootprint;
-      /** One entry per rule; any team in an entry satisfies that rule. */
-      unmetTeams: { id: string; name: string }[][];
-      /** Approvals that stand but cannot sanction the publish, and why. */
-      insufficientApprovers: { id: string; reason: string }[];
-    };
-    hasMergeConflict: boolean;
-    hasUnrelatedDraftChanges: boolean;
-    /** Live moved past the draft (or its approval) and the flag's policy wants a fresh base. */
-    rebaseRequired: boolean;
-    staleApproval: boolean;
-    /** Where the draft would run once published, keyed the same as the live map. */
-    environmentStates: Record<string, LinkedFeatureEnvState>;
-    environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
-  };
+  pendingDraft?: LinkedFeaturePendingDraft;
+  /** Other open drafts that also change this experiment's rule, newest first. */
+  otherPendingDrafts?: LinkedFeaturePendingDraft[];
+  /**
+   * The newest open draft taking this experiment's rule out while it's still
+   * live, when the experiment is waiting on it to unlink the flag.
+   */
+  pendingRemoval?: { version: number; status: RevisionStatus };
   /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
   pendingApproval?: boolean;
   /** Version of the matching draft revision (present when state === "draft"). */

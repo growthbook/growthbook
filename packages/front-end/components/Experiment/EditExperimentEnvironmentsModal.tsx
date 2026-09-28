@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import {
+  LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import type { ExperimentRuleEnvironments } from "shared/validators";
 import { filterEnvironmentsByFeature } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import HelperText from "@/ui/HelperText";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import { useEnvironments } from "@/services/features";
 import LinkedFeatureLabel from "@/components/Experiment/LinkedFeatureLabel";
@@ -20,6 +22,7 @@ export default function EditExperimentEnvironmentsModal({
   info,
   stagedScope,
   environmentStates,
+  environmentInputs,
   showFlag,
   close,
   apply,
@@ -28,6 +31,8 @@ export default function EditExperimentEnvironmentsModal({
   stagedScope: ExperimentRuleEnvironments | null;
   // Where the rule runs now, to start from when nothing is staged.
   environmentStates: { env: string; state: LinkedFeatureEnvState }[];
+  // The settings the scope lands on, to say where it switches the flag on.
+  environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
   showFlag: boolean;
   close: () => void;
   apply: (scope: ExperimentRuleEnvironments) => void;
@@ -46,6 +51,11 @@ export default function EditExperimentEnvironmentsModal({
   const [selectedEnvironments, setSelectedEnvironments] = useState(
     scope.environments,
   );
+  // Entering an environment switches the flag on there, for all its rules.
+  const switchedOn = (
+    allEnvironments ? environments.map((e) => e.id) : selectedEnvironments
+  ).filter((id) => environmentInputs?.[id]?.flagEnabled === false);
+  const managed = info.feature.managedBy?.type === "experiment";
 
   return (
     <ModalStandard
@@ -76,6 +86,17 @@ export default function EditExperimentEnvironmentsModal({
         setSelectedEnvironments={setSelectedEnvironments}
         label="Environments"
       />
+      {switchedOn.length ? (
+        <HelperText status="warning" size="sm" mt="2">
+          {`${
+            switchedOn.length === 1
+              ? `${switchedOn[0]} is`
+              : `${switchedOn.slice(0, -1).join(", ")} and ${switchedOn[switchedOn.length - 1]} are`
+          } off for this Feature Flag. Applying turns ${
+            switchedOn.length === 1 ? "it on there" : "them on"
+          }${managed ? "" : ", for all of its rules"}.`}
+        </HelperText>
+      ) : null}
     </ModalStandard>
   );
 }

@@ -343,6 +343,7 @@ const experimentSchema = new mongoose.Schema({
       revisionVersion: Number,
     },
   ],
+  pendingFeatureUnlinks: [String],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
   statsEngine: String,
@@ -1880,6 +1881,9 @@ export async function unlinkFeatureFromExperiment(
     pendingFeatureDrafts: (experiment.pendingFeatureDrafts || []).filter(
       (d) => d.featureId !== featureId,
     ),
+    pendingFeatureUnlinks: (experiment.pendingFeatureUnlinks || []).filter(
+      (id) => id !== featureId,
+    ),
   };
   newExperiment.implementationType =
     implementationTypeAfterUnlink(newExperiment);
@@ -1887,7 +1891,11 @@ export async function unlinkFeatureFromExperiment(
   await ExperimentModel.updateOne(
     { id: experimentId, organization: context.org.id },
     {
-      $pull: { linkedFeatures: featureId, pendingFeatureDrafts: { featureId } },
+      $pull: {
+        linkedFeatures: featureId,
+        pendingFeatureDrafts: { featureId },
+        pendingFeatureUnlinks: featureId,
+      },
       ...(newExperiment.implementationType
         ? { $set: { implementationType: newExperiment.implementationType } }
         : {}),
@@ -1931,8 +1939,24 @@ export async function unlinkFeatureFromAllExperiments(
       $pull: {
         linkedFeatures: featureId,
         pendingFeatureDrafts: { featureId },
+        pendingFeatureUnlinks: featureId,
       },
     },
+  );
+}
+
+// Marks a Feature Flag to unlink once the experiment's rule is gone from it.
+export async function setPendingFeatureUnlink(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  pending: boolean,
+) {
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    pending
+      ? { $addToSet: { pendingFeatureUnlinks: featureId } }
+      : { $pull: { pendingFeatureUnlinks: featureId } },
   );
 }
 

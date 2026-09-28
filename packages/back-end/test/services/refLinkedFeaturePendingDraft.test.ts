@@ -2,7 +2,10 @@ import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
-import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getFeatureRevisionsByFeatureIds,
+  getRevisionsByVersions,
+} from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
@@ -10,6 +13,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 }));
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getFeatureRevisionsByFeatureIds: jest.fn(),
+  getRevisionsByVersions: jest.fn(),
   // Feeds attributeScopeProjects, which these cases do not exercise.
   getActiveDraftMetadataByFeatureIds: jest.fn(async () => ({})),
 }));
@@ -20,6 +24,7 @@ jest.mock("back-end/src/services/features", () => ({
 const mockGetFeatures = getFeaturesByIds as jest.Mock;
 const mockGetRevisions = getFeatureRevisionsByFeatureIds as jest.Mock;
 const mockLiveAndBase = getLiveAndBaseRevisionsForFeature as jest.Mock;
+const mockGetBases = getRevisionsByVersions as jest.Mock;
 
 const EXPERIMENT_ID = "exp_1";
 
@@ -60,13 +65,14 @@ const makeFeature = (liveRules: FeatureRule[]): FeatureInterface =>
 const makeDraft = (
   version: number,
   rules: FeatureRule[],
+  baseVersion = 3,
 ): FeatureRevisionInterface =>
   ({
     featureId: "flag",
     organization: "org_1",
     version,
     status: "pending-review",
-    baseVersion: 3,
+    baseVersion,
     rules,
     defaultValue: "control",
     environmentsEnabled: { production: true },
@@ -88,6 +94,7 @@ const run = (refIsDraft: boolean) =>
     refIsDraft,
     matchRule: (rule) =>
       rule.type === "experiment-ref" && rule.experimentId === EXPERIMENT_ID,
+    includeOtherPendingDrafts: true,
   });
 
 beforeEach(() => {
@@ -184,12 +191,11 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
     expect(info.pendingDraft).toBeUndefined();
   });
 
-  it("ignores an older draft's edit when the newest draft changes nothing", async () => {
+  it("reports the older draft that changes the rule over a newer one that only carries it", async () => {
     mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
     mockGetRevisions.mockResolvedValue({
-      // Deliberately oldest-first, and only the OLDER draft differs from live.
-      // Reporting version 4's edit here would describe a draft nobody is
-      // working on, under a readout the newest draft owns.
+      // Deliberately oldest-first, and only the OLDER draft differs from live;
+      // the newer one is someone's unrelated edit.
       flag: [
         makeDraft(4, [refRule("older-edit")]),
         makeDraft(5, [refRule("live-value")]),
@@ -198,8 +204,62 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
 
     const [info] = await run(false);
 
-    expect(info.pendingDraft).toBeUndefined();
+    expect(info.pendingDraft?.version).toBe(4);
+    expect(info.otherPendingDrafts).toBeUndefined();
     expect(info.state).toBe("live");
+  });
+
+  it("offers every draft that changes the rule, newest first", async () => {
+    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
+    mockGetRevisions.mockResolvedValue({
+      flag: [
+        makeDraft(4, [refRule("older-edit")]),
+        makeDraft(5, [refRule("newer-edit")]),
+        makeDraft(6, [refRule("live-value")]),
+      ],
+    });
+
+    const [info] = await run(false);
+
+    expect(info.pendingDraft?.version).toBe(5);
+    expect(info.otherPendingDrafts?.map((d) => d.version)).toEqual([4]);
+  });
+
+  it("passes over a draft that only holds the rule as it was when the draft was cut", async () => {
+    mockGetFeatures.mockResolvedValue([makeFeature([refRule("republished")])]);
+    mockGetBases.mockResolvedValue([
+      { ...makeDraft(2, [refRule("live-value")]), status: "published" },
+    ]);
+    mockGetRevisions.mockResolvedValue({
+      flag: [
+        makeDraft(4, [refRule("real-edit")], 2),
+        makeDraft(5, [refRule("live-value")], 2),
+        makeDraft(6, [refRule("republished")]),
+      ],
+    });
+
+    const [info] = await run(false);
+
+    expect(mockGetBases).toHaveBeenCalledWith(
+      expect.objectContaining({ versions: [2] }),
+    );
+    expect(info.pendingDraft?.version).toBe(4);
+    expect(info.otherPendingDrafts).toBeUndefined();
+  });
+
+  it("offers every draft that adds the rule when live has none", async () => {
+    mockGetFeatures.mockResolvedValue([makeFeature([])]);
+    mockGetRevisions.mockResolvedValue({
+      flag: [
+        makeDraft(4, [refRule("older-edit")]),
+        makeDraft(5, [refRule("newer-edit")]),
+      ],
+    });
+
+    const [info] = await run(true);
+
+    expect(info.pendingDraft?.version).toBe(5);
+    expect(info.otherPendingDrafts?.map((d) => d.version)).toEqual([4]);
   });
 
   it("keeps the newest draft when it is the one that differs from live", async () => {

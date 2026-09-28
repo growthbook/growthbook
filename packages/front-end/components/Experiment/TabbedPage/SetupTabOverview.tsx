@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { PiPencilSimple, PiPlus, PiWarningFill } from "react-icons/pi";
+import { PiPencilSimple, PiWarningFill } from "react-icons/pi";
 import { format } from "date-fns-tz";
 import { PreLaunchChecklistDrawer } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
@@ -85,31 +85,6 @@ export default function SetupTabOverview({
   }
   const scheduleSummary = scheduleSummaryParts.join(" · ");
 
-  // End-only summary for a running experiment (start is already in the past, and
-  // any relative stopAfter was resolved to a concrete stopAt at start). A
-  // passed end date means a notify-mode end already fired and deliberately kept
-  // the experiment running — say so instead of implying a future stop.
-  const scheduledEndPassed =
-    experiment.status === "running" &&
-    !!schedule?.stopAt &&
-    new Date(schedule.stopAt) <= new Date();
-  const scheduledEndSummary = schedule?.stopAt
-    ? scheduledEndPassed
-      ? `Ended ${format(new Date(schedule.stopAt), "MMM d, yyyy 'at' h:mm a (z)")} — kept running`
-      : `Ends ${format(new Date(schedule.stopAt), "MMM d, yyyy 'at' h:mm a (z)")}`
-    : schedule?.stopAfter
-      ? `Ends ${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
-      : null;
-
-  // Running experiments can add/edit an end date + end-of-experiment shipping
-  // automation mid-flight (start is already past).
-  const showEditRunningSchedule =
-    canEditSchedule &&
-    !isHoldout &&
-    !isBandit &&
-    experiment.status === "running" &&
-    !experiment.archived;
-
   const showDraftScheduleSummary =
     experiment.status === "draft" &&
     experiment.type !== "holdout" &&
@@ -120,7 +95,7 @@ export default function SetupTabOverview({
   return (
     <>
       <div>
-        {showDraftScheduleSummary || showEditRunningSchedule ? (
+        {showDraftScheduleSummary ? (
           <Flex justify="end" align="baseline" mb="3">
             <Flex align="center" gap="4">
               {showDraftScheduleSummary && editSchedule ? (
@@ -138,23 +113,6 @@ export default function SetupTabOverview({
                     </Flex>
                   </Link>
                 </Tooltip>
-              ) : null}
-              {showEditRunningSchedule ? (
-                <Link onClick={() => editSchedule()}>
-                  <Flex align="center" gap="1">
-                    {scheduledEndPassed && (
-                      <PiWarningFill color="var(--warning)" />
-                    )}
-                    {!experimentHasSchedule && <PiPlus size="15" />}
-                    <Text weight="semibold">
-                      {scheduledEndSummary ??
-                        (experimentHasSchedule
-                          ? "Edit Schedule"
-                          : "Add Schedule End")}
-                    </Text>
-                    {experimentHasSchedule && <PiPencilSimple />}
-                  </Flex>
-                </Link>
               ) : null}
             </Flex>
           </Flex>

@@ -554,6 +554,9 @@ export const experimentInterface = z
           .strict(),
       )
       .optional(),
+    // Feature Flags whose removal waits on a draft taking out the experiment's
+    // live rule; each unlinks once nothing live or open still has the rule.
+    pendingFeatureUnlinks: z.array(z.string()).optional(),
     manualLaunchChecklist: manualLaunchChecklistValidator.optional(),
     type: z.enum(experimentType).optional(),
     banditStage: z.enum(banditStageType).optional(),

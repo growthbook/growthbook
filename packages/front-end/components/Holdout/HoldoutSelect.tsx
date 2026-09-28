@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { HoldoutInterface } from "shared/validators";
 import { getHoldoutStage } from "shared/util";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
@@ -12,17 +13,39 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
 
+/** The holdouts an experiment in `project` can join: running, and open to that project. */
+export function selectableHoldouts<H extends HoldoutInterface>(
+  holdouts: H[],
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
+  project: string | undefined,
+): H[] {
+  return holdouts.filter((h) => {
+    if (!project && h.projects.length > 0) return false;
+    const experiment = experimentsMap.get(h.experimentId);
+    if (!experiment || getHoldoutStage(h, experiment) !== "running") {
+      return false;
+    }
+    return project
+      ? h.projects.length === 0 || h.projects.includes(project)
+      : true;
+  });
+}
+
 export const HoldoutSelect = ({
   selectedProject,
   setHoldout,
   selectedHoldoutId,
   formType,
   hideEmptyStatePromo,
+  keepSelection = false,
 }: {
   selectedProject?: string;
   setHoldout: (holdoutId: string) => void;
   selectedHoldoutId: string | undefined;
   formType: "experiment" | "feature";
+  // Keep what's selected rather than defaulting to the first holdout, for
+  // editing a choice that already exists.
+  keepSelection?: boolean;
   // When true, suppress the "Use Holdouts to ..." promo callouts that render
   // when the org has no holdouts yet. The actual selector still renders when
   // there are holdouts to pick from. Useful for onboarding contexts.
@@ -30,26 +53,16 @@ export const HoldoutSelect = ({
 }) => {
   const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
-  const { holdouts, experimentsMap } = useHoldouts();
+  const { holdouts, experimentsMap, loading } = useHoldouts();
 
   const hasHoldouts = hasCommercialFeature("holdouts");
 
   const holdoutsWithExperiment = useMemo(() => {
-    const filteredHoldouts = holdouts.filter((h) => {
-      if (!selectedProject && h.projects.length > 0) {
-        return false;
-      }
-
-      const experiment = experimentsMap.get(h.experimentId);
-
-      if (!experiment || getHoldoutStage(h, experiment) !== "running") {
-        return false;
-      }
-      // If the holdout is a part of the current project or all projects, show it
-      return selectedProject
-        ? h.projects.length === 0 || h.projects.includes(selectedProject)
-        : true;
-    });
+    const filteredHoldouts = selectableHoldouts(
+      holdouts,
+      experimentsMap,
+      selectedProject,
+    );
 
     return filteredHoldouts.map((holdout) => {
       const experiment = experimentsMap.get(holdout.experimentId);
@@ -80,6 +93,7 @@ export const HoldoutSelect = ({
     requiredSelectableHoldouts.length > 0 && selectedHoldoutId === "";
 
   useEffect(() => {
+    if (keepSelection || loading) return;
     // check to see if the holdout still exists and if not, set the holdout to the first valid holdout
     if (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)) {
       setHoldout(requiredSelectableHoldouts[0]?.id ?? "");

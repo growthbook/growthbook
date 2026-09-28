@@ -9,16 +9,24 @@ import {
   addPendingFeatureDraftToExperiment,
   getExperimentById,
   removePendingFeatureDraftFromExperiment,
+  setPendingFeatureUnlink,
+  unlinkFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 
-type LaunchCandidate = Pick<FeatureRevisionInterface, "version" | "rules"> & {
+type RevisionRules = Pick<FeatureRevisionInterface, "rules"> & {
   metadata?: Pick<
     NonNullable<FeatureRevisionInterface["metadata"]>,
     "valueType"
   >;
 };
+
+type LaunchCandidate = RevisionRules &
+  Pick<FeatureRevisionInterface, "version"> & {
+    // The revision it was cut from, when that isn't live.
+    base?: RevisionRules;
+  };
 
 // Plain JSON, so stored documents compare by value.
 function experimentRefRules(
@@ -36,26 +44,33 @@ function experimentRefRules(
 
 /**
  * The one draft an experiment launches for a flag: the newest open draft whose
- * rule for the experiment (or the flag's type) differs from live. A draft that
- * carries the rule unchanged is someone else's work and never launches with it.
+ * rule for the experiment (or the flag's type) differs from live and from the
+ * revision it was cut from. A draft that carries the rule unchanged, or an old
+ * copy of it, is someone else's work and never launches with it.
  */
 export function getLaunchDraftVersion(
   experimentId: string,
   openDrafts: LaunchCandidate[],
-  liveRevision: Omit<LaunchCandidate, "version"> | null,
+  liveRevision: RevisionRules | null,
 ): number | null {
-  const liveRules = experimentRefRules(liveRevision?.rules, experimentId);
-  const liveType = liveRevision?.metadata?.valueType;
-  let launch: number | null = null;
-  for (const draft of openDrafts) {
+  const changesFrom = (draft: RevisionRules, from: RevisionRules | null) => {
     const draftRules = experimentRefRules(draft.rules, experimentId);
     const draftType = draft.metadata?.valueType;
-    const changesExperiment =
-      (draftRules.length > 0 && !isEqual(draftRules, liveRules)) ||
+    const fromType = from?.metadata?.valueType;
+    return (
+      (draftRules.length > 0 &&
+        !isEqual(draftRules, experimentRefRules(from?.rules, experimentId))) ||
       (!!draftType &&
-        !!liveType &&
-        draftType !== liveType &&
-        getExperimentIdsFromRules(draft.rules).includes(experimentId));
+        !!fromType &&
+        draftType !== fromType &&
+        getExperimentIdsFromRules(draft.rules).includes(experimentId))
+    );
+  };
+  let launch: number | null = null;
+  for (const draft of openDrafts) {
+    const changesExperiment =
+      changesFrom(draft, liveRevision) &&
+      (!draft.base || changesFrom(draft, draft.base));
     if (changesExperiment && (launch === null || draft.version > launch)) {
       launch = draft.version;
     }
@@ -74,7 +89,7 @@ export async function syncFeatureExperimentLinkages(
   context: ReqContext | ApiReqContext,
   featureId: string,
   openDrafts: LaunchCandidate[],
-  liveRevision: Omit<LaunchCandidate, "version"> | null,
+  liveRevision: RevisionRules | null,
 ): Promise<void> {
   try {
     // Every experiment an open draft references stays linked, but each
@@ -136,8 +151,34 @@ export async function syncFeatureExperimentLinkages(
             );
           }
         }
+
+        // A removal nobody's pursuing any more: live has the rule and no open
+        // draft takes it out of the revision it was cut from.
+        if (
+          experiment.pendingFeatureUnlinks?.includes(featureId) &&
+          liveExpIds.has(experimentId) &&
+          !openDrafts.some(
+            (d) =>
+              !getExperimentIdsFromRules(d.rules).includes(experimentId) &&
+              (!d.base ||
+                getExperimentIdsFromRules(d.base.rules).includes(experimentId)),
+          )
+        ) {
+          await setPendingFeatureUnlink(
+            context,
+            experimentId,
+            featureId,
+            false,
+          );
+        }
       }),
       10,
+    );
+    await settlePendingFeatureUnlinks(
+      context,
+      featureId,
+      openDrafts,
+      liveRevision?.rules,
     );
 
     // Strip pendingFeatureDrafts on experiments no longer referenced by any
@@ -152,5 +193,37 @@ export async function syncFeatureExperimentLinkages(
     );
   } catch (e) {
     logger.error(e, "syncFeatureExperimentLinkages failed");
+  }
+}
+
+/**
+ * Unlinks the experiments waiting to drop this flag, once nothing live or open
+ * still has their rule. Runs after draft writes and after a publish takes a
+ * rule out; never throws.
+ */
+export async function settlePendingFeatureUnlinks(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+  openDrafts: Pick<LaunchCandidate, "rules">[],
+  liveRules: unknown,
+): Promise<void> {
+  try {
+    const referenced = new Set([
+      ...getExperimentIdsFromRules(liveRules),
+      ...openDrafts.flatMap((d) => getExperimentIdsFromRules(d.rules)),
+    ]);
+    const waiting = await ExperimentModel.find(
+      {
+        organization: context.org.id,
+        pendingFeatureUnlinks: featureId,
+        id: { $nin: [...referenced] },
+      },
+      { id: 1 },
+    );
+    for (const { id } of waiting) {
+      await unlinkFeatureFromExperiment(context, id, featureId);
+    }
+  } catch (e) {
+    logger.error(e, "settlePendingFeatureUnlinks failed");
   }
 }

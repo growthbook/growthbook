@@ -6,7 +6,9 @@ import {
   captureDiffRefSnapshot,
   diffRefId,
   formatDiffRef,
+  parseDiffRefHashSegment,
   parseDiffRefs,
+  reviewHashForDiffRef,
   splitDiffRefSegments,
   stripDiffRefs,
 } from "@/components/Reviews/diffCommentRefs";
@@ -84,6 +86,20 @@ describe("formatDiffRef / parseDiffRefs", () => {
     expect(diffRefId({ sectionKey: "rules", side: "L", line: 12 })).toBe(
       "rules:L12",
     );
+  });
+
+  it("carries a ref through the review tab's hash", () => {
+    for (const ref of [
+      { sectionKey: "rules", side: "R" as const, line: 12 },
+      { sectionKey: "environments:prod", side: "L" as const, line: 3 },
+    ]) {
+      const [tab, subTab, segment] = reviewHashForDiffRef(ref).split(",");
+      expect([tab, subTab]).toEqual(["review", "changes"]);
+      expect(parseDiffRefHashSegment(segment)).toEqual(ref);
+    }
+    // Hand-edited or cut off: ignored rather than thrown.
+    expect(parseDiffRefHashSegment("rules%E0R12")).toBeNull();
+    expect(parseDiffRefHashSegment("rules")).toBeNull();
   });
 });
 

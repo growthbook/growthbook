@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiCaretDownFill, PiSlidersHorizontal } from "react-icons/pi";
+import { PiCaretDownFill, PiPencilSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
 import { getMetricLink } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -376,7 +376,7 @@ export default function AnalysisPlan({
                 variant="ghost"
                 onClick={() => setAdvancedOpen(true)}
               >
-                <PiSlidersHorizontal /> Analysis settings
+                <PiPencilSimple /> Additional settings
               </Button>
             ) : null}
           </Flex>

@@ -690,6 +690,13 @@ export async function writeExperimentUpdatePlan({
       acknowledged: acknowledgeFlagRemoval,
     });
   }
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes,
+    guard,
+  });
+  // After the guarded write, so a refused one leaves both holdouts as they were.
   if (holdout.remove) {
     await context.models.holdout.removeExperimentFromHoldout(
       holdout.remove,
@@ -702,13 +709,6 @@ export async function writeExperimentUpdatePlan({
       experiment.id,
     );
   }
-
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes,
-    guard,
-  });
   return { experiment, updated };
 }
 

@@ -16,11 +16,9 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
+import RunningScheduleLink from "@/components/Experiment/TabbedPage/RunningScheduleLink";
 import Link from "@/ui/Link";
-import {
-  ManagedFlagLink,
-  ManagedFlagRenameButton,
-} from "@/components/Experiment/ManagedFlagName";
+import { ManagedFlagLink } from "@/components/Experiment/ManagedFlagName";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
@@ -32,6 +30,10 @@ export interface Props {
   managedFlagId?: string | null;
   /** An implementation type staged for the page's Save, shown in place of the stored one. */
   stagedImplementationType?: ImplementationType | null;
+  /** A staged holdout ("" to leave), shown in place of the stored one. */
+  stagedHoldoutId?: string | null;
+  /** Opens the schedule editor, where the schedule can change. */
+  editSchedule?: (() => void) | null;
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
   /**
@@ -41,7 +43,7 @@ export interface Props {
   panel: "about" | "details";
   /** The quick-edit button for one field's row, where that field is editable. */
   fieldAction?: (
-    field: "project" | "trackingKey" | "owner" | "tags" | "implementationType",
+    field: "project" | "trackingKey" | "owner" | "tags",
   ) => ReactNode;
 }
 
@@ -58,6 +60,8 @@ export default function ProjectTagBar({
   holdout,
   managedFlagId = null,
   stagedImplementationType = null,
+  stagedHoldoutId = null,
+  editSchedule = null,
   panel,
   fieldAction,
 }: Props) {
@@ -71,9 +75,10 @@ export default function ProjectTagBar({
   const projectName = getProjectById(experiment.project || "")?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
+  const holdoutId = stagedHoldoutId ?? experiment.holdoutId ?? "";
   // Only needed to name the holdout this experiment belongs to.
   const { holdoutsMap } = useHoldouts(undefined, false, {
-    enabled: !!experiment.holdoutId,
+    enabled: !!holdoutId,
   });
 
   const statusIndicator = useExperimentStatusIndicator()(experiment);
@@ -100,8 +105,7 @@ export default function ProjectTagBar({
             size="sm"
             stacked
             label="Implementation"
-            actionPlacement="value"
-            action={fieldAction?.("implementationType")}
+            // Staged with the page's other edits, so it's changed on the left.
             value={
               implementationType
                 ? IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
@@ -114,8 +118,6 @@ export default function ProjectTagBar({
             size="sm"
             stacked
             label="Managed flag"
-            actionPlacement="value"
-            action={<ManagedFlagRenameButton featureId={managedFlagId} />}
             value={<ManagedFlagLink featureId={managedFlagId} />}
           />
         ) : null}
@@ -137,14 +139,14 @@ export default function ProjectTagBar({
             value={experiment.trackingKey || empty()}
           />
         )}
-        {experiment.holdoutId && (
+        {holdoutId && (
           <Metadata
             size="sm"
             stacked
             label="Holdout"
             value={
-              <Link href={`/holdout/${experiment.holdoutId}`}>
-                {holdoutsMap.get(experiment.holdoutId)?.name}
+              <Link href={`/holdout/${holdoutId}`}>
+                {holdoutsMap.get(holdoutId)?.name}
               </Link>
             }
           />
@@ -268,7 +270,19 @@ export default function ProjectTagBar({
           </Text>
         }
       />
-      <ExperimentDates experiment={experiment} />
+      <Flex direction="column" gap="1">
+        <ExperimentDates experiment={experiment} />
+        {editSchedule &&
+        experiment.status === "running" &&
+        experiment.type !== "holdout" &&
+        experiment.type !== "multi-armed-bandit" &&
+        !experiment.archived ? (
+          <RunningScheduleLink
+            experiment={experiment}
+            editSchedule={editSchedule}
+          />
+        ) : null}
+      </Flex>
     </Flex>
   );
 }

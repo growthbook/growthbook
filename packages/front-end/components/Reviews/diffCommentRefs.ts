@@ -139,6 +139,30 @@ export function diffRefId(ref: DiffCommentRef): string {
   return `${ref.sectionKey}:${ref.side}${ref.line}`;
 }
 
+// A ref in a URL: the review tab's hash carries it as a third segment,
+// `#review,changes,<id>`, so a comment read elsewhere opens at its line.
+export function reviewHashForDiffRef(ref: DiffCommentRef): string {
+  return `review,changes,${encodeURIComponent(diffRefId(ref))}`;
+}
+
+export function parseDiffRefId(id: string): DiffCommentRef | null {
+  const m = /^(.+):([LR])(\d+)$/.exec(id);
+  return m
+    ? { sectionKey: m[1], side: m[2] as "L" | "R", line: parseInt(m[3], 10) }
+    : null;
+}
+
+/** The ref a review hash carries, or null for a hand-edited or cut-off one. */
+export function parseDiffRefHashSegment(
+  segment: string,
+): DiffCommentRef | null {
+  try {
+    return parseDiffRefId(decodeURIComponent(segment));
+  } catch {
+    return null;
+  }
+}
+
 const SNAPSHOT_LINE_RE = /^([-+ ])(!?) (.*)$/;
 
 function snapshotFromBlockBody(body: string): DiffRefSnapshot {
@@ -249,12 +273,22 @@ export function requestReviewSubTab(tab: "overview" | "changes"): void {
 // re-render. No-ops quietly when the target never appears (stale line
 // reference or a surface without the diff) — the snapshot in the comment is
 // the fallback context.
-export function scrollToDiffRef(ref: DiffCommentRef): void {
+export function scrollToDiffRef(
+  ref: DiffCommentRef,
+  // Arriving by link: wait longer for the diff, and keep the line centred
+  // while the rest of the page loads around it.
+  { arriving = false }: { arriving?: boolean } = {},
+): void {
   const refId = diffRefId(ref);
+  const attempts = arriving ? 50 : 20;
   const find = () =>
     document.querySelector(`[data-diff-ref="${CSS.escape(refId)}"]`);
   const scrollTo = (el: Element) => {
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.scrollIntoView({
+      behavior: arriving ? "auto" : "smooth",
+      block: "center",
+    });
+    if (arriving) keepCentred(el);
     const row = el.closest("tr");
     if (row) {
       row.classList.add("gb-diff-ref-flash");
@@ -280,10 +314,36 @@ export function scrollToDiffRef(ref: DiffCommentRef): void {
       scrollTo(el);
       return;
     }
-    if (attempt < 20) setTimeout(() => tryScroll(attempt + 1), 100);
+    if (attempt < attempts) setTimeout(() => tryScroll(attempt + 1), 100);
   };
   tryScroll(0);
 }
+
+// The page may still be too short to centre the line when it first renders,
+// and content loading above it moves it. Re-centres for a few seconds, and
+// stops the moment the reader scrolls for themselves.
+function keepCentred(el: Element): void {
+  let stopped = false;
+  const stop = () => {
+    stopped = true;
+    for (const type of USER_SCROLL_EVENTS) {
+      window.removeEventListener(type, stop);
+    }
+  };
+  for (const type of USER_SCROLL_EVENTS) {
+    window.addEventListener(type, stop, { passive: true });
+  }
+  let ticks = 0;
+  const tick = () => {
+    if (stopped || !el.isConnected || ++ticks > 30) return stop();
+    const rect = el.getBoundingClientRect();
+    const offCentre = rect.top + rect.height / 2 - window.innerHeight / 2;
+    if (Math.abs(offCentre) > 40) el.scrollIntoView({ block: "center" });
+    setTimeout(tick, 100);
+  };
+  setTimeout(tick, 100);
+}
+const USER_SCROLL_EVENTS = ["wheel", "touchmove", "keydown"] as const;
 
 // The reverse direction: a gutter marker jumps to its comment in the
 // revision timeline (cards carry data-revision-log-id). Same quiet no-op if

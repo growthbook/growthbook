@@ -846,7 +846,9 @@ export async function getExperiment(
     experiment.id,
   );
 
-  const linkedFeatureInfo = await getLinkedFeatureInfo(context, experiment);
+  const linkedFeatureInfo = await getLinkedFeatureInfo(context, experiment, {
+    includeOtherPendingDrafts: true,
+  });
 
   const envs = await getExperimentAffectedEnvs(context, experiment);
 

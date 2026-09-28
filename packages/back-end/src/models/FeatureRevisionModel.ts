@@ -485,30 +485,30 @@ export async function countDocuments(
   return FeatureRevisionModel.countDocuments(filter);
 }
 
+type LinkageRevisionSummary = Pick<
+  FeatureRevisionInterface,
+  "version" | "rules" | "metadata"
+>;
+
 /** Returns only the revisions that syncFeatureExperimentLinkages/
  * syncFeatureContextualBanditLinkages need — open drafts, plus the single
  * latest published revision — pre-split so callers don't have to re-derive
- * the distinction themselves. A feature's older superseded published
- * revisions are irrelevant to linkage syncing and deliberately excluded. */
+ * the distinction themselves. A draft cut from an older revision carries that
+ * base, to tell its own edits from what live changed since. Other superseded
+ * published revisions are irrelevant to linkage syncing. */
 export async function getLinkageSyncRevisionSummaries(
   organization: string,
   featureId: string,
 ): Promise<{
-  openDrafts: Pick<
-    FeatureRevisionInterface,
-    "version" | "rules" | "metadata"
-  >[];
-  liveRevision: Pick<
-    FeatureRevisionInterface,
-    "version" | "rules" | "metadata"
-  > | null;
+  openDrafts: (LinkageRevisionSummary & { base?: LinkageRevisionSummary })[];
+  liveRevision: LinkageRevisionSummary | null;
 }> {
   const [openDraftDocs, liveDoc] = await Promise.all([
     FeatureRevisionModel.find({
       organization,
       featureId,
       status: { $in: ACTIVE_DRAFT_STATUSES },
-    }).select("version rules metadata"),
+    }).select("version rules metadata baseVersion"),
     FeatureRevisionModel.findOne({
       organization,
       featureId,
@@ -517,12 +517,37 @@ export async function getLinkageSyncRevisionSummaries(
       .sort({ version: -1 })
       .select("version rules metadata"),
   ]);
+  const staleBaseVersions = [
+    ...new Set(
+      openDraftDocs
+        .map((d) => d.baseVersion)
+        .filter((v) => v !== liveDoc?.version),
+    ),
+  ];
+  const baseDocs = staleBaseVersions.length
+    ? await FeatureRevisionModel.find({
+        organization,
+        featureId,
+        version: { $in: staleBaseVersions },
+      }).select("version rules metadata")
+    : [];
+  const basesByVersion = new Map(baseDocs.map((d) => [d.version, d]));
   return {
-    openDrafts: openDraftDocs.map((d) => ({
-      version: d.version,
-      rules: d.rules,
-      metadata: d.metadata,
-    })),
+    openDrafts: openDraftDocs.map((d) => {
+      const base = basesByVersion.get(d.baseVersion);
+      return {
+        version: d.version,
+        rules: d.rules,
+        metadata: d.metadata,
+        ...(base && {
+          base: {
+            version: base.version,
+            rules: base.rules,
+            metadata: base.metadata,
+          },
+        }),
+      };
+    }),
     liveRevision: liveDoc
       ? {
           version: liveDoc.version,

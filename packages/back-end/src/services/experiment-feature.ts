@@ -10,6 +10,7 @@ import {
   evaluatePublishGovernance,
   fillRevisionFromFeature,
   getEffectiveRevisionHoldout,
+  getExperimentIdsFromRules,
   getMatchingRules,
   liveRevisionFromFeature,
   MatchingRule,
@@ -57,6 +58,7 @@ import {
   addLinkedFeatureToExperiment,
   addPendingFeatureDraftToExperiment,
   removePendingFeatureDraftFromExperiment,
+  setPendingFeatureUnlink,
   unlinkFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -1316,6 +1318,217 @@ export async function updateExperimentRuleEnvironments({
 }
 
 // Authority is checked for every flag before any write, and live lands before drafts.
+const experimentRuleFor =
+  (experimentId: string) =>
+  (r: FeatureRule): r is ExperimentRefRule =>
+    r.type === "experiment-ref" && r.experimentId === experimentId;
+
+// Rewrites the experiment's rules in every open draft of the flag holding one.
+async function rewriteExperimentRulesInDrafts({
+  context,
+  feature,
+  refersToExperiment,
+  rewrite,
+  logEntry,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  refersToExperiment: (r: FeatureRule) => boolean;
+  rewrite: (rules: FeatureRule[]) => FeatureRule[];
+  logEntry: (touched: FeatureRule[]) => Parameters<typeof updateRevision>[4];
+}): Promise<number> {
+  const drafts = await getFeatureRevisionsByStatus({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    status: DRAFT_REVISION_STATUSES,
+    skipPagination: true,
+  });
+  let rewritten = 0;
+  for (const draft of drafts) {
+    const touched = (draft.rules ?? []).filter(refersToExperiment);
+    if (!touched.length) continue;
+    await updateRevision(
+      context,
+      feature,
+      draft,
+      { rules: rewrite(draft.rules ?? []) },
+      logEntry(touched),
+    );
+    rewritten += 1;
+  }
+  return rewritten;
+}
+
+const removalLog =
+  (experiment: ExperimentInterface, eventAudit: EventUser, action: string) =>
+  (touched: FeatureRule[]) => ({
+    user: eventAudit,
+    action,
+    subject: `for experiment "${experiment.name}"`,
+    value: JSON.stringify(touched),
+  });
+
+/**
+ * Refuses taking a flag off the experiment: without draft rights, for the flag
+ * the experiment manages, or while it runs with the rule anywhere on the flag.
+ */
+export async function assertFlagRemovable(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  feature: FeatureInterface,
+): Promise<void> {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  // Unfiltered: an unreadable flag is still managed.
+  const managedIds = await getManagedFlagIdsUnfiltered(context, experiment.id);
+  if (managedIds.includes(feature.id)) {
+    throw new BadRequestError(
+      "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
+    );
+  }
+  if (experiment.status !== "running") return;
+  const { openDrafts } = await getLinkageSyncRevisionSummaries(
+    context.org.id,
+    feature.id,
+  );
+  if (
+    getExperimentIdsFromRules(feature.rules).includes(experiment.id) ||
+    openDrafts.some((d) =>
+      getExperimentIdsFromRules(d.rules).includes(experiment.id),
+    )
+  ) {
+    throw new BadRequestError(
+      "Set the experiment's status back to Draft to remove this Feature Flag.",
+    );
+  }
+}
+
+/**
+ * Takes a flag off the experiment along with its rule. Open drafts lose the
+ * rule now; a live rule leaves through a draft, and the flag unlinks once
+ * nothing live or open has it (settlePendingFeatureUnlinks).
+ */
+export async function removeFlagFromExperiment({
+  context,
+  experiment,
+  featureId,
+  eventAudit,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  featureId: string;
+  eventAudit: EventUser;
+}): Promise<void> {
+  const feature = await getFeature(context, featureId);
+  if (!feature) {
+    await unlinkFlagFromExperiment(context, experiment.id, featureId);
+    return;
+  }
+  await assertFlagRemovable(context, experiment, feature);
+  const refersToExperiment = experimentRuleFor(experiment.id);
+  const drop = (rules: FeatureRule[]) =>
+    rules.filter((r) => !refersToExperiment(r));
+  const logEntry = removalLog(experiment, eventAudit, "remove experiment rule");
+  const rewritten = await rewriteExperimentRulesInDrafts({
+    context,
+    feature,
+    refersToExperiment,
+    rewrite: drop,
+    logEntry,
+  });
+  const liveTouched = (feature.rules ?? []).filter(refersToExperiment);
+  if (!liveTouched.length) {
+    await unlinkFeatureFromExperiment(context, experiment.id, featureId);
+    return;
+  }
+  // Every open draft that had the rule now takes it out; else start one.
+  if (!rewritten) {
+    const draft = await getDraftRevision(context, feature, feature.version);
+    await updateRevision(
+      context,
+      feature,
+      draft,
+      {
+        rules: drop(draft.rules ?? []),
+        title: `Remove from experiment "${experiment.name}"`,
+      },
+      logEntry(liveTouched),
+    );
+  }
+  await setPendingFeatureUnlink(context, experiment.id, featureId, true);
+}
+
+/**
+ * Undoes a pending removal: each open draft that took the live rule out of the
+ * revision it was cut from gets it back where live has it.
+ */
+export async function keepFlagInExperiment({
+  context,
+  experiment,
+  featureId,
+  eventAudit,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  featureId: string;
+  eventAudit: EventUser;
+}): Promise<void> {
+  const feature = await getFeature(context, featureId);
+  if (!feature)
+    throw new BadRequestError(`Feature Flag ${featureId} not found`);
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  const refersToExperiment = experimentRuleFor(experiment.id);
+  const live = feature.rules ?? [];
+  if (live.some(refersToExperiment)) {
+    const drafts = await getFeatureRevisionsByStatus({
+      context,
+      organization: context.org.id,
+      featureId: feature.id,
+      feature,
+      status: DRAFT_REVISION_STATUSES,
+      skipPagination: true,
+    });
+    const logEntry = removalLog(
+      experiment,
+      eventAudit,
+      "restore experiment rule",
+    );
+    for (const draft of drafts) {
+      if ((draft.rules ?? []).some(refersToExperiment)) continue;
+      const base =
+        draft.baseVersion === feature.version
+          ? null
+          : await getRevision({
+              context,
+              organization: context.org.id,
+              featureId: feature.id,
+              feature,
+              version: draft.baseVersion,
+            });
+      if (base && !(base.rules ?? []).some(refersToExperiment)) continue;
+      const rules = [...(draft.rules ?? [])];
+      live.forEach((rule, i) => {
+        if (refersToExperiment(rule)) {
+          rules.splice(Math.min(i, rules.length), 0, rule);
+        }
+      });
+      await updateRevision(
+        context,
+        feature,
+        draft,
+        { rules },
+        logEntry(live.filter(refersToExperiment)),
+      );
+    }
+  }
+  await setPendingFeatureUnlink(context, experiment.id, featureId, false);
+}
+
 async function resolveRulesForExperiment({
   context,
   experiment,
@@ -1335,8 +1548,7 @@ async function resolveRulesForExperiment({
   action: string;
   comment: string;
 }): Promise<void> {
-  const refersToExperiment = (r: FeatureRule): r is ExperimentRefRule =>
-    r.type === "experiment-ref" && r.experimentId === experiment.id;
+  const refersToExperiment = experimentRuleFor(experiment.id);
   const rewrite = (rules: FeatureRule[]) =>
     rules.flatMap((r) => {
       if (!refersToExperiment(r)) return [r];
@@ -1455,25 +1667,13 @@ async function resolveRulesForExperiment({
       }
 
       // Drafts only after live has landed: a refusal above then changes nothing.
-      const drafts = await getFeatureRevisionsByStatus({
+      await rewriteExperimentRulesInDrafts({
         context,
-        organization: context.org.id,
-        featureId: feature.id,
         feature: current,
-        status: DRAFT_REVISION_STATUSES,
-        skipPagination: true,
+        refersToExperiment,
+        rewrite,
+        logEntry,
       });
-      for (const draft of drafts) {
-        const touched = (draft.rules ?? []).filter(refersToExperiment);
-        if (!touched.length) continue;
-        await updateRevision(
-          context,
-          current,
-          draft,
-          { rules: rewrite(draft.rules ?? []) },
-          logEntry(touched),
-        );
-      }
       await unlink(current);
       landed += 1;
     } catch (e) {

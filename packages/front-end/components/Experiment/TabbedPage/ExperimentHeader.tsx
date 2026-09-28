@@ -80,12 +80,9 @@ import StartExperimentModal, {
   PendingDraftFailure,
 } from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
-import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 import ExperimentActionButtons from "./ExperimentActionButtons";
@@ -308,9 +305,6 @@ export default function ExperimentHeader({
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [showAddToHoldoutModal, setShowAddToHoldoutModal] = useState(false);
-  const [showRemoveFromHoldoutModal, setShowRemoveFromHoldoutModal] =
-    useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -360,8 +354,6 @@ export default function ExperimentHeader({
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
-  const holdoutsEnabled = hasCommercialFeature("holdouts");
-  const { holdouts } = useHoldouts(experiment.project);
 
   const hasUpdatePermissions = !holdout
     ? permissionsUtil.canUpdateExperiment(experiment, {})
@@ -987,20 +979,6 @@ export default function ExperimentHeader({
           </div>
         </Modal>
       )}
-      {showAddToHoldoutModal ? (
-        <AddToHoldoutModal
-          experiment={experiment}
-          close={() => setShowAddToHoldoutModal(false)}
-          mutate={mutate}
-        />
-      ) : null}
-      {showRemoveFromHoldoutModal ? (
-        <RemoveFromHoldoutModal
-          experiment={experiment}
-          close={() => setShowRemoveFromHoldoutModal(false)}
-          mutate={mutate}
-        />
-      ) : null}
 
       {editingName ? (
         <EditExperimentInfoModal
@@ -1170,30 +1148,6 @@ export default function ExperimentHeader({
                     }}
                   >
                     Edit Schedule
-                  </DropdownMenuItem>
-                )}
-                {canEditExperiment &&
-                  !isHoldout &&
-                  holdoutsEnabled &&
-                  holdouts.length > 0 &&
-                  !experiment.holdoutId &&
-                  experiment.status === "draft" && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setShowAddToHoldoutModal(true);
-                      }}
-                    >
-                      Add to holdout
-                    </DropdownMenuItem>
-                  )}
-                {canEditExperiment && !isHoldout && experiment.holdoutId && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setShowRemoveFromHoldoutModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Remove from holdout
                   </DropdownMenuItem>
                 )}
               </DropdownMenuGroup>

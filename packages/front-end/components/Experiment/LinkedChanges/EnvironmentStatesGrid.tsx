@@ -3,7 +3,10 @@ import {
   LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
 } from "shared/types/experiment";
-import type { ExperimentRuleEnvironments } from "shared/validators";
+import type {
+  ExperimentRuleEnvironments,
+  ExperimentStatus,
+} from "shared/validators";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { Fragment, useState } from "react";
 import {
@@ -32,28 +35,60 @@ export type FeatureEnvironmentState = EnvironmentState & {
   state: LinkedFeatureEnvState;
 };
 
-export type EnvironmentStateTense = false | "started" | "published";
+// false: a running experiment's live states. "rule": the rule as it stands,
+// which only describes an experiment that isn't running.
+export type EnvironmentStateTense = false | "started" | "published" | "rule";
+
+/** How a flag's environment states read, from what they show. */
+export function environmentStateTense({
+  status,
+  unpublished,
+  launches,
+  liveView,
+}: {
+  status: ExperimentStatus;
+  // A draft's states, or an unsaved scope over them.
+  unpublished: boolean;
+  // Shows the draft a draft experiment publishes when it starts.
+  launches: boolean;
+  liveView: boolean;
+}): EnvironmentStateTense {
+  if (unpublished)
+    return status === "draft" && launches ? "started" : "published";
+  if (status === "running") return false;
+  // Unless a draft changes them, starting keeps live's.
+  return status === "draft" && !liveView ? "started" : "rule";
+}
 
 function environmentStateTooltip(
   state: LinkedFeatureEnvState,
   future: EnvironmentStateTense,
 ): string {
   const once = future === "started" ? " once started" : " once published";
+  const rule = future === "rule";
   switch (state) {
     case "active":
-      return future
-        ? `The experiment will be active in this environment${once}`
-        : "The experiment is active in this environment";
+      return rule
+        ? "The experiment's rule is on in this environment"
+        : future
+          ? `The experiment will be active in this environment${once}`
+          : "The experiment is active in this environment";
     case "disabled-env":
-      return future
-        ? `The environment is disabled for this feature, so the experiment will not be active${once}`
-        : "The environment is disabled for this feature, so the experiment is not active";
+      return rule
+        ? "The Feature Flag is disabled in this environment, so the experiment's rule doesn't apply"
+        : future
+          ? `The Feature Flag is disabled in this environment, so the experiment won't be active here${once}`
+          : "The Feature Flag is disabled in this environment, so the experiment isn't active here";
     case "disabled-rule":
-      return future
-        ? `The experiment is disabled in this environment and will not be active${once}`
-        : "The experiment is disabled in this environment and is not active";
+      return rule
+        ? "The experiment's rule is off in this environment"
+        : future
+          ? `The experiment is disabled in this environment and won't be active${once}`
+          : "The experiment is disabled in this environment and isn't active";
     case "missing":
-      return "The experiment is not present in this environment";
+      return future && !rule
+        ? `The experiment won't be in this environment${once}`
+        : "The experiment isn't in this environment";
     default: {
       const _exhaustiveCheck: never = state;
       return _exhaustiveCheck;
@@ -272,7 +307,7 @@ function EnvironmentSetting({
               marginLeft: 4,
             }}
           >
-            <UnpublishedDot tooltip="Changed in the draft" />
+            <UnpublishedDot tooltip="Changed from live" />
           </Box>
         ) : null}
       </Box>

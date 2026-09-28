@@ -136,6 +136,7 @@ import {
   LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
+  LinkedFeaturePendingDraft,
   LinkedFeatureState,
   StagedRefDraft,
   Variation,
@@ -227,6 +228,7 @@ import {
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   getRevision,
+  getRevisionsByVersions,
   getActiveDraftMetadataByFeatureIds,
   getFeatureRevisionsByFeatureIds,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -5349,12 +5351,18 @@ export async function getRefLinkedFeatureInfo({
   refIsDraft,
   matchRule,
   pendingFeatureDrafts,
+  pendingUnlinks = [],
+  includeOtherPendingDrafts = false,
 }: {
   context: ReqContext | ApiReqContext;
   linkedFeatureIds: string[];
   refIsDraft: boolean;
   matchRule: (rule: FeatureRule) => boolean;
   pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
+  // Flags the experiment is removing, waiting on a draft to take the rule out.
+  pendingUnlinks?: string[];
+  // Only the Setup page chooses between drafts; each one costs a merge.
+  includeOtherPendingDrafts?: boolean;
 }): Promise<LinkedFeatureInfo[]> {
   if (!linkedFeatureIds.length) return [];
 
@@ -5393,41 +5401,89 @@ export async function getRefLinkedFeatureInfo({
       const liveRefRules = refRulesForEntity(feature.rules);
 
       // Walk draft revisions newest-first and pick:
-      //   1. (preferred) a draft whose experiment-ref rule slice DIFFERS from
-      //      live — i.e. the draft is making changes to this experiment's
-      //      rule. Used to flip state to "draft" even when live already has
-      //      a matching rule.
-      //   2. (fallback) the first draft with any experiment-ref match for
-      //      this experiment, even if unchanged from live. Preserves the
-      //      legacy path where a draft is introducing the rule for the first
-      //      time (experiment not yet started).
+      //   1. (preferred) a draft that changes this experiment's rule: its
+      //      slice differs from live, and from the revision it was cut from.
+      //      Used to flip state to "draft" even when live already has a
+      //      matching rule.
+      //   2. (fallback) the first draft with any match, even one that only
+      //      carries the rule along.
       const activeDrafts = revisions
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
 
-      // Newest wins.
       const draftsWithMatches = activeDrafts
         .map((r) => ({
           revision: r,
           matches: getMatchingRules(feature, matchRule, environments, r),
         }))
         .filter(({ matches }) => matches.length > 0);
-      const matchedDraftRevision = draftsWithMatches[0]?.revision;
-      const draftMatches: MatchingRule[] = draftsWithMatches[0]?.matches ?? [];
       const otherDraftCount = Math.max(0, draftsWithMatches.length - 1);
 
-      // A re-type is a change even when values read the same; compared against live.
-      const draftChangesRef = (revision: (typeof revisions)[0]) =>
-        liveRefRules.length > 0 &&
-        ((isManagedFeature(feature) &&
+      // A re-type is a change even when values read the same.
+      const changesRefFrom = (
+        revision: (typeof revisions)[0],
+        rules: FeatureRule[],
+        valueType: FeatureInterface["valueType"] | undefined,
+      ) =>
+        (isManagedFeature(feature) &&
           revision.metadata?.valueType !== undefined &&
-          revision.metadata.valueType !== feature.valueType) ||
-          !isEqual(refRulesForEntity(revision.rules), liveRefRules));
-      const differingDrafts = draftsWithMatches.filter((d) =>
-        draftChangesRef(d.revision),
+          revision.metadata.valueType !== valueType) ||
+        !isEqual(refRulesForEntity(revision.rules), rules);
+      const differsFromLive = draftsWithMatches.filter(({ revision }) =>
+        changesRefFrom(revision, liveRefRules, feature.valueType),
       );
-      const draftDiffersFromLive =
-        !!matchedDraftRevision && draftChangesRef(matchedDraftRevision);
+      // Drafts without the rule while live has it, for a removal in progress.
+      const withoutRule =
+        pendingUnlinks.includes(feature.id) && liveRefRules.length > 0
+          ? activeDrafts.filter((r) => !refRulesForEntity(r.rules).length)
+          : [];
+      // A draft cut before live last changed the rule still holds the old
+      // copy; it only changes the rule if it also differs from its own base.
+      const staleBaseVersions = [
+        ...new Set(
+          [...differsFromLive.map(({ revision }) => revision), ...withoutRule]
+            .map((revision) => revision.baseVersion)
+            .filter((v) => v !== feature.version),
+        ),
+      ];
+      const basesByVersion = new Map(
+        (staleBaseVersions.length
+          ? await getRevisionsByVersions({
+              context,
+              organization: context.org.id,
+              featureId: feature.id,
+              feature,
+              versions: staleBaseVersions,
+            })
+          : []
+        ).map((base) => [base.version, base]),
+      );
+      // Takes the rule out of what it was cut from; an unknown base counts.
+      const removalDraft = withoutRule.find((revision) => {
+        const base = basesByVersion.get(revision.baseVersion);
+        return !base || refRulesForEntity(base.rules).length > 0;
+      });
+      const differingDrafts = differsFromLive.filter(({ revision }) => {
+        const base = basesByVersion.get(revision.baseVersion);
+        return (
+          !base ||
+          changesRefFrom(
+            revision,
+            refRulesForEntity(base.rules),
+            base.metadata?.valueType ?? feature.valueType,
+          )
+        );
+      });
+      // Newest that changes this experiment's rule, over a newer one that only
+      // carries it along with unrelated edits; else, while live has the rule,
+      // the newest that has it. Over an empty live every draft that adds it
+      // already differs, and one that only carries an old copy adds nothing.
+      const chosenDraft =
+        differingDrafts[0] ??
+        (liveRefRules.length > 0 ? draftsWithMatches[0] : undefined);
+      const matchedDraftRevision = chosenDraft?.revision;
+      const draftMatches: MatchingRule[] = chosenDraft?.matches ?? [];
+      const draftDiffersFromLive = differingDrafts.length > 0;
 
       let state: LinkedFeatureState = "discarded";
       let matches: MatchingRule[] = [];
@@ -5473,9 +5529,7 @@ export async function getRefLinkedFeatureInfo({
       }
 
       // `state` stays live-first for existing consumers.
-      const hasPendingDraft =
-        !!matchedDraftRevision &&
-        (draftDiffersFromLive || liveRefRules.length === 0);
+      const hasPendingDraft = !!matchedDraftRevision && draftDiffersFromLive;
 
       // Feature-scope approval check: requires review AND draft not yet approved.
       // Also when `state` is "draft": the two can disagree when a live rule is
@@ -5489,39 +5543,50 @@ export async function getRefLinkedFeatureInfo({
           ? true
           : undefined;
 
-      let draftHasMergeConflict = false;
-      let draftHasUnrelatedChanges = false;
-      // Not `revision.status`: an approved draft can still be short of a
-      // required team or an environment.
-      let draftApproval: RevisionApprovalState | undefined;
-      // The publish gate's own test.
-      let draftHasChanges = true;
-      let draftRebaseRequired = false;
-      let draftStaleApproval = false;
-      if (needsDraftFacts && matchedDraftRevision) {
+      type DraftFacts = {
+        hasChanges: boolean;
+        hasMergeConflict: boolean;
+        hasUnrelatedDraftChanges: boolean;
+        // Also on a managed flag, where it isn't "unrelated".
+        changesOutsideRef: boolean;
+        rebaseRequired: boolean;
+        staleApproval: boolean;
+        // Not `revision.status`: an approved draft can still be short of a
+        // required team or an environment.
+        approval?: RevisionApprovalState;
+      };
+      const draftFacts = async (
+        revision: (typeof revisions)[0],
+      ): Promise<DraftFacts> => {
+        // The publish gate's own test.
+        let draftHasChanges = true;
+        let draftHasMergeConflict = false;
+        let draftChangesOutsideRef = false;
+        let draftRebaseRequired = false;
+        let draftStaleApproval = false;
+        let draftApproval: RevisionApprovalState | undefined;
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
             context,
             feature,
-            revision: matchedDraftRevision,
+            revision: revision,
           });
           const filledLive = liveRevisionFromFeature(live, feature);
           const mergeResult = autoMerge(
             filledLive,
             fillRevisionFromFeature(base, feature),
-            matchedDraftRevision,
+            revision,
             environments,
             {},
           );
           draftHasChanges = mergeResultHasChanges(mergeResult);
           const governance = evaluatePublishGovernance({
-            revisionStatus: matchedDraftRevision.status,
-            baseVersion: matchedDraftRevision.baseVersion,
+            revisionStatus: revision.status,
+            baseVersion: revision.baseVersion,
             liveVersion: live.version,
             mergeSuccess: mergeResult.success,
             liveChanges: [],
-            approvedBaseVersion:
-              matchedDraftRevision.approvedBaseVersion ?? null,
+            approvedBaseVersion: revision.approvedBaseVersion ?? null,
             requireRebaseBeforePublish: requireFreshBaseForPublish({
               feature,
               reviewRequired,
@@ -5533,23 +5598,19 @@ export async function getRefLinkedFeatureInfo({
           draftStaleApproval = governance.staleApproval;
           if (!mergeResult.success) {
             draftHasMergeConflict = true;
-          } else if (
-            // Guards a shared flag: a managed flag has nothing that isn't the experiment's.
-            !isManagedFeature(feature) &&
-            draftHasChangesOutsideTargetRef(
-              matchedDraftRevision,
+          } else {
+            draftChangesOutsideRef = draftHasChangesOutsideTargetRef(
+              revision,
               filledLive,
               matchRule,
-            )
-          ) {
-            draftHasUnrelatedChanges = true;
+            );
           }
           // Last: a failure here must not cost the conflict flags above.
           if (reviewRequired) {
             draftApproval = await assessRevisionApprovalForAutoPublish(
               context,
               feature,
-              matchedDraftRevision,
+              revision,
               live,
               base,
               mergeResult,
@@ -5561,45 +5622,25 @@ export async function getRefLinkedFeatureInfo({
             "[getRefLinkedFeatureInfo] draft cleanliness check failed",
           );
         }
-      }
-
-      const checkDraftCleanliness = async (
-        revision: (typeof revisions)[0],
-      ): Promise<{
-        hasMergeConflict?: boolean;
-        hasUnrelatedDraftChanges?: boolean;
-      }> => {
-        try {
-          const { live, base } = await getLiveAndBaseRevisionsForFeature({
-            context,
-            feature,
-            revision,
-          });
-          const filledLive = liveRevisionFromFeature(live, feature);
-          const mergeResult = autoMerge(
-            filledLive,
-            fillRevisionFromFeature(base, feature),
-            revision,
-            environments,
-            {},
-          );
-          if (!mergeResult.success) {
-            return { hasMergeConflict: true };
-          }
-          if (
-            draftHasChangesOutsideTargetRef(revision, filledLive, matchRule)
-          ) {
-            return { hasUnrelatedDraftChanges: true };
-          }
-          return {};
-        } catch (e) {
-          logger.warn(
-            { featureId: feature.id, err: e },
-            "[getRefLinkedFeatureInfo] draft cleanliness check failed",
-          );
-          return {};
-        }
+        return {
+          hasChanges: draftHasChanges,
+          hasMergeConflict: draftHasMergeConflict,
+          // Guards a shared flag: a managed flag has nothing that isn't the experiment's.
+          hasUnrelatedDraftChanges:
+            !isManagedFeature(feature) && draftChangesOutsideRef,
+          changesOutsideRef: draftChangesOutsideRef,
+          rebaseRequired: draftRebaseRequired,
+          staleApproval: draftStaleApproval,
+          approval: draftApproval,
+        };
       };
+      const facts: DraftFacts | null =
+        needsDraftFacts && matchedDraftRevision
+          ? await draftFacts(matchedDraftRevision)
+          : null;
+      const draftHasMergeConflict = !!facts?.hasMergeConflict;
+      const draftHasUnrelatedChanges = !!facts?.hasUnrelatedDraftChanges;
+      const draftApproval = facts?.approval;
 
       const refRuleValues = (rule: FeatureRule | undefined) =>
         (rule as ExperimentRefRule | ContextualBanditRefRule | undefined)
@@ -5675,11 +5716,12 @@ export async function getRefLinkedFeatureInfo({
               values: refRuleValues(d.matches[0]?.rule),
             }))
           : [];
-      if (stagedDrafts.length > 0) {
-        Object.assign(
-          stagedDrafts[0],
-          await checkDraftCleanliness(differingDrafts[0].revision),
-        );
+      // The first staged draft is the chosen one, so its facts are in hand.
+      if (stagedDrafts.length > 0 && facts) {
+        if (facts.hasMergeConflict) stagedDrafts[0].hasMergeConflict = true;
+        else if (facts.changesOutsideRef) {
+          stagedDrafts[0].hasUnrelatedDraftChanges = true;
+        }
       }
 
       // Envs the pending draft will turn on when it's auto-published on start.
@@ -5708,6 +5750,65 @@ export async function getRefLinkedFeatureInfo({
         draftMetadataByFeatureId[feature.id] || [],
       );
 
+      // What the page shows and saves against for one open draft of the rule.
+      const pendingDraftFor = (
+        revision: (typeof revisions)[0],
+        revisionMatches: MatchingRule[],
+        draftFactsOf: DraftFacts,
+      ): LinkedFeaturePendingDraft => ({
+        version: revision.version,
+        dateUpdated: revision.dateUpdated
+          ? new Date(revision.dateUpdated).toISOString()
+          : null,
+        lockedBySchedule: isRevisionEditLockedBySchedule(revision),
+        status: revision.status,
+        values: refRuleValues(revisionMatches[0]?.rule),
+        sparse: !!(revisionMatches[0]?.rule as ExperimentRefRule)?.sparse,
+        allEnvironments: !!(revisionMatches[0]?.rule as ExperimentRefRule)
+          ?.allEnvironments,
+        title: revision.title,
+        otherDraftCount,
+        pendingApproval: reviewRequired,
+        // A re-typed draft restates the default.
+        valueType: revision.metadata?.valueType ?? feature.valueType,
+        defaultValue: revision.defaultValue,
+        ...(draftFactsOf.approval && {
+          approval: {
+            satisfied: draftFactsOf.approval.satisfied,
+            footprint: draftFactsOf.approval.footprint,
+            unmetTeams: draftFactsOf.approval.requiredApproverTeams.unmet,
+            insufficientApprovers: draftFactsOf.approval.insufficientApprovers,
+          },
+        }),
+        hasChanges: draftFactsOf.hasChanges,
+        hasMergeConflict: draftFactsOf.hasMergeConflict,
+        hasUnrelatedDraftChanges: draftFactsOf.hasUnrelatedDraftChanges,
+        rebaseRequired: draftFactsOf.rebaseRequired,
+        staleApproval: draftFactsOf.staleApproval,
+        // From the draft's matches: where the unpublished edit would run.
+        environmentStates: buildEnvironmentStates(revisionMatches, revision),
+        environmentInputs: buildEnvironmentInputs(revisionMatches, revision),
+      });
+      const pendingDraft =
+        hasPendingDraft && matchedDraftRevision && facts
+          ? pendingDraftFor(matchedDraftRevision, draftMatches, facts)
+          : undefined;
+      // The other drafts that also change it, for choosing between them.
+      const otherPendingDrafts: LinkedFeaturePendingDraft[] =
+        includeOtherPendingDrafts && pendingDraft
+          ? await Promise.all(
+              differingDrafts
+                .filter((d) => d.revision !== matchedDraftRevision)
+                .map(async (d) =>
+                  pendingDraftFor(
+                    d.revision,
+                    d.matches,
+                    await draftFacts(d.revision),
+                  ),
+                ),
+            )
+          : [];
+
       const info: LinkedFeatureInfo = {
         feature,
         state,
@@ -5729,51 +5830,14 @@ export async function getRefLinkedFeatureInfo({
           liveEnvironmentStates: buildEnvironmentStates(liveMatches),
           liveEnvironmentInputs: buildEnvironmentInputs(liveMatches),
         }),
-        ...(hasPendingDraft &&
-          matchedDraftRevision && {
-            pendingDraft: {
-              version: matchedDraftRevision.version,
-              dateUpdated: matchedDraftRevision.dateUpdated
-                ? new Date(matchedDraftRevision.dateUpdated).toISOString()
-                : null,
-              lockedBySchedule:
-                isRevisionEditLockedBySchedule(matchedDraftRevision),
-              status: matchedDraftRevision.status,
-              values: refRuleValues(draftMatches[0]?.rule),
-              sparse: !!(draftMatches[0]?.rule as ExperimentRefRule)?.sparse,
-              allEnvironments: !!(draftMatches[0]?.rule as ExperimentRefRule)
-                ?.allEnvironments,
-              title: matchedDraftRevision.title,
-              otherDraftCount,
-              pendingApproval: reviewRequired,
-              // A re-typed draft restates the default.
-              valueType:
-                matchedDraftRevision.metadata?.valueType ?? feature.valueType,
-              defaultValue: matchedDraftRevision.defaultValue,
-              ...(draftApproval && {
-                approval: {
-                  satisfied: draftApproval.satisfied,
-                  footprint: draftApproval.footprint,
-                  unmetTeams: draftApproval.requiredApproverTeams.unmet,
-                  insufficientApprovers: draftApproval.insufficientApprovers,
-                },
-              }),
-              hasChanges: draftHasChanges,
-              hasMergeConflict: draftHasMergeConflict,
-              hasUnrelatedDraftChanges: draftHasUnrelatedChanges,
-              rebaseRequired: draftRebaseRequired,
-              staleApproval: draftStaleApproval,
-              // From the draft's matches: where the unpublished edit would run.
-              environmentStates: buildEnvironmentStates(
-                draftMatches,
-                matchedDraftRevision,
-              ),
-              environmentInputs: buildEnvironmentInputs(
-                draftMatches,
-                matchedDraftRevision,
-              ),
-            },
-          }),
+        ...(pendingDraft && { pendingDraft }),
+        ...(otherPendingDrafts.length > 0 && { otherPendingDrafts }),
+        ...(removalDraft && {
+          pendingRemoval: {
+            version: removalDraft.version,
+            status: removalDraft.status,
+          },
+        }),
         ...(pendingApproval !== undefined && { pendingApproval }),
         ...(matchedDraftRevision &&
           state === "draft" && {
@@ -5801,6 +5865,7 @@ export async function getRefLinkedFeatureInfo({
 export async function getLinkedFeatureInfo(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
+  { includeOtherPendingDrafts = false } = {},
 ) {
   return getRefLinkedFeatureInfo({
     context,
@@ -5809,6 +5874,8 @@ export async function getLinkedFeatureInfo(
     matchRule: (rule) =>
       rule.type === "experiment-ref" && rule.experimentId === experiment.id,
     pendingFeatureDrafts: experiment.pendingFeatureDrafts,
+    pendingUnlinks: experiment.pendingFeatureUnlinks,
+    includeOtherPendingDrafts,
   });
 }
 

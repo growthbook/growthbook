@@ -69,6 +69,7 @@ import ExperimentDetailsPanel from "./ExperimentDetailsPanel";
 import {
   ExperimentEditsProvider,
   experimentFieldChanges,
+  HoldoutDraft,
   ImplementationTypeDraft,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
@@ -209,6 +210,21 @@ function TabbedPageContents({
   const implementationTypeDraft: ImplementationTypeDraft = {
     value: stagedType,
     set: setStagedType,
+  };
+  // Joining, changing or leaving a holdout waits for the page's Save too.
+  const [stagedHoldout, setStagedHoldout] =
+    useState<HoldoutDraft["value"]>(null);
+  useRegisterExperimentEdit("holdout", stagedHoldout !== null, {
+    changes: () =>
+      stagedHoldout !== null
+        ? experimentFieldChanges(experiment, { holdoutId: stagedHoldout })
+        : {},
+    onSaved: () => setStagedHoldout(null),
+    discard: () => setStagedHoldout(null),
+  });
+  const holdoutDraft: HoldoutDraft = {
+    value: stagedHoldout,
+    set: setStagedHoldout,
   };
 
   // Page-level, not buried in the implementation card.
@@ -703,7 +719,9 @@ function TabbedPageContents({
                   mutate={mutate}
                   disableEditing={viewingOldPhase}
                   linkedFeatures={linkedFeatures}
-                  implementationTypeDraft={implementationTypeDraft}
+                  stagedImplementationType={stagedType?.type ?? null}
+                  stagedHoldoutId={stagedHoldout}
+                  editSchedule={editSchedule}
                 />
               ) : null
             }
@@ -825,6 +843,8 @@ function TabbedPageContents({
                 <Implementation
                   experiment={experiment}
                   implementationTypeDraft={implementationTypeDraft}
+                  holdoutDraft={holdoutDraft}
+                  disableEditing={viewingOldPhase}
                   holdout={holdout}
                   holdoutFeatures={holdoutFeatures}
                   holdoutExperiments={holdoutExperiments}

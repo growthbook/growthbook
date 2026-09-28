@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -10,6 +10,7 @@ import {
   SELECTABLE_IMPLEMENTATION_TYPES,
 } from "shared/util";
 import { ImplementationTypeDraft } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import { useManagedFlagRename } from "@/components/Experiment/ManagedFlagRename";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RadioCards from "@/ui/RadioCards";
 import Avatar from "@/ui/Avatar";
@@ -28,9 +29,6 @@ export function implementationTypeLockedReason(
   experiment: ExperimentInterfaceStringDates,
   linkedFeatures: LinkedFeatureInfo[],
 ): string | null {
-  if (experiment.status !== "draft") {
-    return "Set the experiment's status back to Draft to change its type.";
-  }
   const flagIds = linkedFeatures
     .filter((f) => !isManagedByExperiment(f.feature, experiment.id))
     .map((f) => f.feature.id);
@@ -46,18 +44,36 @@ export function implementationTypeLockedReason(
     ...(experiment.hasVisualChangesets ? ["the Visual Editor changes"] : []),
     ...(experiment.hasURLRedirects ? ["the URL Redirects"] : []),
   ];
-  if (!blockers.length) return null;
   const list =
-    blockers.length === 1
+    blockers.length <= 1
       ? blockers[0]
       : `${blockers.slice(0, -1).join(", ")} and ${blockers[blockers.length - 1]}`;
-  return `Remove ${list} first.`;
+  // Both apply: an implementation outlives setting the status back.
+  if (experiment.status !== "draft") {
+    return list
+      ? `Set the experiment's status back to Draft and remove ${list} to change its type.`
+      : "Set the experiment's status back to Draft to change its type.";
+  }
+  return list ? `Remove ${list} first.` : null;
+}
+
+/**
+ * Opens the page's implementation type chooser, optionally on a given type;
+ * null where the type can't be changed from here.
+ */
+export const ImplementationTypeChooserContext = createContext<
+  ((initialType?: ImplementationType) => void) | null
+>(null);
+
+export function useImplementationTypeChooser() {
+  return useContext(ImplementationTypeChooserContext);
 }
 
 export default function ChangeImplementationTypeModal({
   experiment,
   managedFeature,
   lockedReason = null,
+  initialType,
   draft,
   close,
 }: {
@@ -65,6 +81,8 @@ export default function ChangeImplementationTypeModal({
   managedFeature: LinkedFeatureInfo | null;
   /** Why the type can't change right now; shown in place of the choice. */
   lockedReason?: string | null;
+  /** Preselected, for an action that names the change, such as converting the managed flag. */
+  initialType?: ImplementationType;
   /** Staged for the page's Save, with whatever it does to the managed flag. */
   draft: ImplementationTypeDraft;
   close: () => void;
@@ -73,9 +91,23 @@ export default function ChangeImplementationTypeModal({
   const allEnvironments = useEnvironments();
   // Experiments adopted before the type was stored only carry the flag's marker.
   const current = managedFeature ? "values" : getImplementationType(experiment);
+  // Every kind it has, so a mix reads as several rather than none.
+  const kinds: ImplementationType[] = [
+    ...(managedFeature ? (["values"] as const) : []),
+    ...((experiment.linkedFeatures ?? []).some(
+      (id) => id !== managedFeature?.feature.id,
+    )
+      ? (["feature"] as const)
+      : []),
+    ...(experiment.hasVisualChangesets ? (["visual"] as const) : []),
+    ...(experiment.hasURLRedirects ? (["urlredirect"] as const) : []),
+  ];
+  const currentKinds = new Set(kinds.length ? kinds : current ? [current] : []);
   const shown = draft.value?.type ?? current;
   const [next, setNext] = useState<ImplementationType | "">(
-    shown && SELECTABLE_IMPLEMENTATION_TYPES.includes(shown) ? shown : "",
+    // A locked type opens on what it is, not on a change it can't make.
+    (lockedReason ? undefined : initialType) ??
+      (shown && SELECTABLE_IMPLEMENTATION_TYPES.includes(shown) ? shown : ""),
   );
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -84,6 +116,10 @@ export default function ChangeImplementationTypeModal({
   const removesManagedFlag =
     !!managedFeature && changed && next !== "feature" && next !== "values";
   const managedKey = managedFeature?.feature.id;
+  // Converting ends the rename's flag as a managed one, so a staged rename goes.
+  const { featureId: stagedKey, staged: renameStaged } = useManagedFlagRename(
+    managedKey ?? "",
+  );
   const managedEnvs = managedFeature
     ? getEnabledEnvironments(managedFeature.feature, allEnvironments)
     : [];
@@ -157,7 +193,7 @@ export default function ChangeImplementationTypeModal({
                 {option.icon}
               </Avatar>
             ),
-            badge: type === current ? "Current" : undefined,
+            badge: currentKinds.has(type) ? "Current" : undefined,
           };
         })}
       />
@@ -171,7 +207,9 @@ export default function ChangeImplementationTypeModal({
           <span style={{ fontFamily: "var(--code-font-family)" }}>
             {managedKey}
           </span>{" "}
-          becomes an unmanaged linked Feature Flag, edited from its own page.
+          stays linked to this experiment as a regular Feature Flag. You can
+          still set its values here and edit the rest from the Feature Flag.
+          {renameStaged ? ` The staged rename to ${stagedKey} is dropped.` : ""}
         </Callout>
       )}
       {removesManagedFlag && !blockedReason && (

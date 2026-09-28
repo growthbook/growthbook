@@ -5,7 +5,10 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { isManagedByExperiment } from "shared/util";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  HoldoutInterfaceStringDates,
+  type ImplementationType,
+} from "shared/validators";
 import DiscussionThread from "@/components/DiscussionThread";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ProjectTagBar from "@/components/Experiment/TabbedPage/ProjectTagBar";
@@ -21,13 +24,7 @@ import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldout
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionField";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
-import {
-  useEditsBlockedReason,
-  ImplementationTypeDraft,
-} from "@/components/Experiment/TabbedPage/ExperimentEdits";
-import ChangeImplementationTypeModal, {
-  implementationTypeLockedReason,
-} from "@/components/Experiment/ChangeImplementationTypeModal";
+import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import ExpandableBlock from "./ExpandableBlock";
 import ExperimentHealthBadges from "./ExperimentHealthBadges";
@@ -36,8 +33,12 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
-  /** The page's staged implementation type, which the type modal edits. */
-  implementationTypeDraft: ImplementationTypeDraft;
+  /** The page's staged implementation type, shown in place of the stored one. */
+  stagedImplementationType: ImplementationType | null;
+  /** A staged holdout ("" to leave), shown in place of the stored one. */
+  stagedHoldoutId?: string | null;
+  /** Opens the schedule editor. */
+  editSchedule?: (() => void) | null;
   mutate: () => void;
   disableEditing?: boolean;
 }
@@ -47,12 +48,13 @@ export default function ExperimentDetailsPanel({
   experiment,
   holdout,
   linkedFeatures,
-  implementationTypeDraft,
+  stagedImplementationType,
+  stagedHoldoutId = null,
+  editSchedule = null,
   mutate,
   disableEditing,
 }: Props) {
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
-  const [changingType, setChangingType] = useState(false);
   const managedFeature =
     linkedFeatures.find((f) =>
       isManagedByExperiment(f.feature, experiment.id),
@@ -96,16 +98,6 @@ export default function ExperimentDetailsPanel({
   // changes while nothing is serving it.
   const fieldAction = (field: QuickField) => {
     if (field === "trackingKey" && experiment.status !== "draft") return null;
-    // Always offered, even with other edits pending: the choice is staged like
-    // them, and the modal says why when the type can't change.
-    if (field === "implementationType") {
-      return canEdit ? (
-        <QuickEditButton
-          label={QUICK_FIELD_LABELS[field]}
-          onClick={() => setChangingType(true)}
-        />
-      ) : null;
-    }
     return pencil(QUICK_FIELD_LABELS[field], () => editSection(field));
   };
   const isHoldout = experiment.type === "holdout";
@@ -118,7 +110,9 @@ export default function ExperimentDetailsPanel({
       experiment={experiment}
       holdout={holdout}
       managedFlagId={managedFeature?.feature.id ?? null}
-      stagedImplementationType={implementationTypeDraft.value?.type ?? null}
+      stagedImplementationType={stagedImplementationType}
+      stagedHoldoutId={stagedHoldoutId}
+      editSchedule={canEdit ? editSchedule : null}
     />
   );
   const { canEdit } = useExperimentEditing(experiment, disableEditing);
@@ -140,18 +134,6 @@ export default function ExperimentDetailsPanel({
 
   return (
     <>
-      {changingType ? (
-        <ChangeImplementationTypeModal
-          experiment={experiment}
-          managedFeature={managedFeature}
-          lockedReason={implementationTypeLockedReason(
-            experiment,
-            linkedFeatures,
-          )}
-          draft={implementationTypeDraft}
-          close={() => setChangingType(false)}
-        />
-      ) : null}
       {showEditInfoModal && !isHoldout ? (
         <EditExperimentInfoModal
           experiment={experiment}
@@ -254,19 +236,13 @@ export default function ExperimentDetailsPanel({
   );
 }
 
-type QuickField =
-  | "project"
-  | "trackingKey"
-  | "owner"
-  | "tags"
-  | "implementationType";
+type QuickField = "project" | "trackingKey" | "owner" | "tags";
 
 const QUICK_FIELD_LABELS: Record<QuickField, string> = {
   project: "Edit project",
   trackingKey: "Edit experiment key",
   owner: "Edit owner",
   tags: "Edit tags",
-  implementationType: "Edit implementation",
 };
 
 /** A titled block of the panel, with the button that edits it. */

@@ -5,9 +5,6 @@ import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { ICON_PROPERTIES } from "@/components/Experiment/LinkedChanges/constants";
 import { useManagedFlagRename } from "@/components/Experiment/ManagedFlagRename";
-import QuickEditButton, {
-  revealsQuickEdit,
-} from "@/components/Experiment/TabbedPage/QuickEditButton";
 
 // The shared Linked Change icon, so a Feature Flag looks the same everywhere.
 const { component: FlagIcon, radixColor: FLAG_COLOR } =
@@ -56,25 +53,5 @@ export function ManagedFlagLink({ featureId }: { featureId: string }) {
     >
       {featureId}
     </Link>
-  );
-}
-
-/** Renames the managed flag, where the page allows it. */
-export function ManagedFlagRenameButton({ featureId }: { featureId: string }) {
-  const { edit } = useManagedFlagRename(featureId);
-  return edit ? (
-    <QuickEditButton label="Rename Feature Flag" onClick={edit} />
-  ) : null;
-}
-
-/** "Managed flag: <id>", muted, for wherever the experiment's own flag is named in passing. */
-export function ManagedFlagNote({ featureId }: { featureId: string }) {
-  return (
-    <Flex align="center" gap="1" className={revealsQuickEdit}>
-      <Text as="div" size="sm" color="text-low">
-        Managed flag: <ManagedFlagLink featureId={featureId} />
-      </Text>
-      <ManagedFlagRenameButton featureId={featureId} />
-    </Flex>
   );
 }

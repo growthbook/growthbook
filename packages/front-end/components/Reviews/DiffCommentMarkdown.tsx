@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { createContext, useContext, useMemo } from "react";
 import { PiGitDiff, PiArrowBendUpRight } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
@@ -14,6 +14,14 @@ import {
 // diff snapshot captured when the comment was written (removed lines red,
 // added lines green, anchored line highlighted), plus a click-through that
 // scrolls back to the referenced line in the live diff.
+/**
+ * Where a ref's diff lives when it isn't on this page, such as a comment read
+ * in a popover. The widget then opens it there, in a new tab.
+ */
+export const DiffRefHrefContext = createContext<
+  ((ref: DiffCommentRef) => string) | null
+>(null);
+
 function DiffRefWidget({
   refObj,
   snapshot,
@@ -21,17 +29,10 @@ function DiffRefWidget({
   refObj: DiffCommentRef;
   snapshot: DiffRefSnapshot;
 }) {
+  const hrefFor = useContext(DiffRefHrefContext);
   const sideLabel = refObj.side === "L" ? "before" : "after";
-  return (
-    <button
-      type="button"
-      className="gb-diff-ref-widget"
-      title="View in diff"
-      onClick={(e) => {
-        e.preventDefault();
-        scrollToDiffRef(refObj);
-      }}
-    >
+  const content = (
+    <>
       <Flex align="center" gap="2" className="gb-diff-ref-widget-header">
         <PiGitDiff />
         <Text size="sm" weight="semibold">
@@ -69,6 +70,29 @@ function DiffRefWidget({
           })}
         </Box>
       )}
+    </>
+  );
+  return hrefFor ? (
+    <a
+      className="gb-diff-ref-widget"
+      title="View in diff"
+      href={hrefFor(refObj)}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {content}
+    </a>
+  ) : (
+    <button
+      type="button"
+      className="gb-diff-ref-widget"
+      title="View in diff"
+      onClick={(e) => {
+        e.preventDefault();
+        scrollToDiffRef(refObj);
+      }}
+    >
+      {content}
     </button>
   );
 }

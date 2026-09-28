@@ -124,7 +124,9 @@ import {
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import {
   buildAnchoredCommentMap,
+  parseDiffRefHashSegment,
   REVIEW_SUBTAB_EVENT,
+  scrollToDiffRef,
   scrollToLatestRevisionLogEntry,
 } from "@/components/Reviews/diffCommentRefs";
 import useURLHash from "@/hooks/useURLHash";
@@ -631,6 +633,17 @@ export default function ReviewAndPublish({
     window.addEventListener(REVIEW_SUBTAB_EVENT, handler);
     return () => window.removeEventListener(REVIEW_SUBTAB_EVENT, handler);
   }, [setSubTab]);
+
+  // Arriving from a comment elsewhere (`#review,changes,<ref>`): open at its
+  // line once the diff renders, then drop the ref so it doesn't jump again.
+  const diffRefHash = urlHash?.split(",")[2];
+  const revisionVersion = revision?.version;
+  useEffect(() => {
+    if (!diffRefHash || revisionVersion === undefined) return;
+    const ref = parseDiffRefHashSegment(diffRefHash);
+    if (ref) scrollToDiffRef(ref, { arriving: true });
+    setUrlHash("review,changes");
+  }, [diffRefHash, revisionVersion, setUrlHash]);
 
   // ── Diff comment anchors ──
   // Comments whose markdown carries a visible ref token (`diff:rules:R12`)

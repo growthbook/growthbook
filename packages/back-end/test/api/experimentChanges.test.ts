@@ -2,9 +2,22 @@ import mongoose from "mongoose";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { ExperimentChangesBody } from "shared/validators";
+import {
+  autoMerge,
+  fillRevisionFromFeature,
+  liveRevisionFromFeature,
+  reconcileMergeBaselines,
+} from "shared/util";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { featureIdExists } from "back-end/src/models/FeatureModel";
+import {
+  featureIdExists,
+  getFeature,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
 import { applyExperimentChanges } from "back-end/src/services/experimentChanges/applyExperimentChanges";
 import { setupApp } from "./api.setup";
 
@@ -100,6 +113,7 @@ async function seed({ withDraft }: { withDraft: boolean }) {
     archived: false,
     tags: [],
     rules: [expRule(arms("a", "b"))],
+    linkedExperiments: [EXP],
     environmentSettings: { production: { enabled: true, rules: [] } },
     prerequisites: [],
     dateCreated: date,
@@ -380,7 +394,7 @@ describe("applyExperimentChanges", () => {
     });
   });
 
-  it("links a flag again with the values sent, and unlinks one", async () => {
+  it("links a flag again with the values sent", async () => {
     await seed({ withDraft: false });
     await run({
       linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
@@ -393,9 +407,115 @@ describe("applyExperimentChanges", () => {
       (r: { type: string }) => r.type === "experiment-ref",
     );
     expect(added?.[added.length - 1]?.variations).toEqual(arms("p", "q"));
+  });
 
-    const result = await run({ unlinkFeatures: [FLAG] });
-    expect(result.experiment.linkedFeatures).toEqual([]);
+  describe("removing a flag", () => {
+    const refRules = async (status: string) =>
+      (
+        (
+          await collection("featurerevisions").findOne({
+            featureId: FLAG,
+            status,
+          })
+        )?.rules ?? []
+      ).filter((r: { type: string }) => r.type === "experiment-ref");
+
+    const publishDraft = async () => {
+      const feature = await getFeature(context, FLAG);
+      const doc = await collection("featurerevisions").findOne({
+        featureId: FLAG,
+        status: "draft",
+      });
+      if (!feature || !doc) throw new Error("missing draft");
+      const revision = await getRevision({
+        context,
+        organization: ORG_ID,
+        featureId: FLAG,
+        feature,
+        version: doc.version,
+      });
+      if (!revision) throw new Error("missing revision");
+      const { live, base } = await getLiveAndBaseRevisionsForFeature({
+        context,
+        feature,
+        revision,
+      });
+      const baselines = reconcileMergeBaselines(feature, live, base);
+      const merge = autoMerge(
+        liveRevisionFromFeature(baselines.live, feature),
+        fillRevisionFromFeature(baselines.base, feature),
+        revision,
+        ["production", "staging"],
+        {},
+      );
+      if (!merge.success) throw new Error("did not merge");
+      await publishRevision({
+        context,
+        feature,
+        revision,
+        result: merge.result,
+        bypassLockdown: true,
+        skipPrevalidateValidation: true,
+      });
+    };
+
+    it("takes a rule only drafts hold out of them and unlinks at once", async () => {
+      await seed({ withDraft: true });
+      await collection("features").updateOne(
+        { id: FLAG },
+        { $set: { rules: [] } },
+      );
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 1 },
+        { $set: { rules: [] } },
+      );
+
+      const result = await run({ unlinkFeatures: [FLAG] });
+      expect(result.experiment.linkedFeatures).toEqual([]);
+      expect(await refRules("draft")).toEqual([]);
+    });
+
+    it("takes a live rule out through a draft and unlinks once it publishes", async () => {
+      await seed({ withDraft: false });
+
+      const result = await run({ unlinkFeatures: [FLAG] });
+      expect(result.experiment.linkedFeatures).toEqual([FLAG]);
+      expect(result.experiment.pendingFeatureUnlinks).toEqual([FLAG]);
+      expect(await refRules("draft")).toEqual([]);
+      const [info] = await getLinkedFeatureInfo(context, result.experiment);
+      expect(info.pendingRemoval?.version).toBe(2);
+
+      await publishDraft();
+      const after = await getExperimentById(context, EXP);
+      expect(after?.linkedFeatures).toEqual([]);
+      expect(after?.pendingFeatureUnlinks).toEqual([]);
+    });
+
+    it("puts the live rule back when the flag is kept", async () => {
+      await seed({ withDraft: false });
+      await run({ unlinkFeatures: [FLAG] });
+
+      const result = await run({ keepFeatures: [FLAG] });
+      expect(result.experiment.pendingFeatureUnlinks).toEqual([]);
+      expect(
+        (await refRules("draft")).map((r: { id: string }) => r.id),
+      ).toEqual(["fr_exp"]);
+    });
+
+    it("refuses while the experiment runs", async () => {
+      await seed({ withDraft: false });
+      await collection("experiments").updateOne(
+        { id: EXP },
+        { $set: { status: "running" } },
+      );
+      await expect(run({ unlinkFeatures: [FLAG] })).rejects.toThrow(
+        "Set the experiment's status back to Draft to remove this Feature Flag.",
+      );
+      expect(await refRules("draft")).toEqual([]);
+      expect((await getExperimentById(context, EXP))?.linkedFeatures).toEqual([
+        FLAG,
+      ]);
+    });
   });
 
   it("creates a Values experiment's missing flag with the values it was sent", async () => {
@@ -462,6 +582,23 @@ describe("applyExperimentChanges", () => {
       draft?.rules?.find((r: { type: string }) => r.type === "experiment-ref")
         ?.variations,
     ).toEqual(arms("x", "y"));
+  });
+
+  it("refuses a holdout change once the experiment has something linked", async () => {
+    await seed({ withDraft: false });
+    await expect(
+      run({
+        experiment: {
+          changes: { holdoutId: "hld_staged" },
+          base: { holdoutId: null },
+        },
+      }),
+    ).rejects.toThrow(
+      "A holdout can only change while the experiment is a draft",
+    );
+    expect(
+      (await collection("experiments").findOne({ id: EXP }))?.holdoutId,
+    ).toBeUndefined();
   });
 
   describe("renaming the managed flag", () => {

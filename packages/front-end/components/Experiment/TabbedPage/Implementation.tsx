@@ -6,11 +6,15 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { useMemo, useState } from "react";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { useEffect, useMemo, useState } from "react";
+import {
+  HoldoutInterfaceStringDates,
+  type ImplementationType,
+} from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import {
   canEditDeliveryInPlace,
+  experimentHasLinkedChanges,
   getImplementationType,
   isManagedByExperiment,
 } from "shared/util";
@@ -19,6 +23,7 @@ import { Flex, Separator } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import EditVariationKeyModal from "@/components/Experiment/EditVariationKeyModal";
@@ -40,11 +45,18 @@ import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
+import ChangeImplementationTypeModal, {
+  ImplementationTypeChooserContext,
+  implementationTypeLockedReason,
+} from "@/components/Experiment/ChangeImplementationTypeModal";
+import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 import {
   experimentFieldChanges,
   FlagEnvironmentsDraft,
+  HoldoutDraft,
   ImplementationTypeDraft,
+  useLiveView,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 
@@ -52,6 +64,10 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   /** The page's staged implementation type; this section renders as if saved. */
   implementationTypeDraft?: ImplementationTypeDraft;
+  /** Viewing an old phase: nothing staged here can change. */
+  disableEditing?: boolean;
+  /** The page's staged holdout, which the traffic funnel edits. */
+  holdoutDraft?: HoldoutDraft;
   holdout?: HoldoutInterfaceStringDates;
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];
@@ -77,6 +93,8 @@ export interface Props {
 export default function Implementation({
   experiment: storedExperiment,
   implementationTypeDraft,
+  disableEditing,
+  holdoutDraft,
   holdout,
   holdoutExperiments,
   holdoutFeatures,
@@ -132,6 +150,10 @@ export default function Implementation({
         : storedLinkedFeatures,
     [storedLinkedFeatures, hidesManagedFlag, managedId],
   );
+  // Filled by the traffic funnel's values toggle and menu.
+  const [headerActions, setHeaderActions] = useState<HTMLDivElement | null>(
+    null,
+  );
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
   const [editMetadataIndex, setEditMetadataIndex] = useState<number | null>(
@@ -186,6 +208,48 @@ export default function Implementation({
     experiment.nextScheduledStatusUpdate?.type === "start";
 
   const permissionsUtil = usePermissionsUtil();
+
+  // Staged like the page's other edits; the modal says why when it's locked.
+  // "current" opens on the stored type; a type opens preselected on it.
+  const [changingType, setChangingType] = useState<
+    ImplementationType | "current" | null
+  >(null);
+  const { live: viewingLive, setLive } = useLiveView();
+  const { canEdit: canEditType } = useExperimentEditing(
+    storedExperiment,
+    disableEditing,
+  );
+  const canChangeType =
+    !!implementationTypeDraft &&
+    canEditType &&
+    storedExperiment.type !== "holdout";
+  // Mirrors the server: a holdout changes only on a draft with nothing linked,
+  // judged on what's stored rather than on a type change still staged.
+  const { hasCommercialFeature } = useUser();
+  const holdoutEditable =
+    storedExperiment.type !== "holdout" &&
+    storedExperiment.status === "draft" &&
+    !storedExperiment.nextScheduledStatusUpdate &&
+    !experimentHasLinkedChanges(storedExperiment);
+  // Leaving needs nothing more; joining or switching needs the feature.
+  const canStageHoldout =
+    !!holdoutDraft && !viewingLive && canEditType && holdoutEditable;
+  const canJoinHoldout = canStageHoldout && hasCommercialFeature("holdouts");
+  // A staged holdout the experiment has since outgrown (started, or gained a
+  // linked change) couldn't save, so it goes rather than blocking the rest.
+  const stagedHoldout = holdoutDraft?.value ?? null;
+  const setStagedHoldout = holdoutDraft?.set;
+  useEffect(() => {
+    if (!holdoutEditable && stagedHoldout !== null) setStagedHoldout?.(null);
+  }, [holdoutEditable, stagedHoldout, setStagedHoldout]);
+  // Opened from the implementation headers' menus, which the Live view keeps;
+  // the change shows in the view it's staged in.
+  const chooseType = canChangeType
+    ? (initialType?: ImplementationType) => {
+        setLive(false);
+        setChangingType(initialType ?? "current");
+      }
+    : null;
 
   const canEditExperiment =
     !experiment.archived &&
@@ -278,7 +342,7 @@ export default function Implementation({
   }
 
   return (
-    <>
+    <ImplementationTypeChooserContext.Provider value={chooseType}>
       {showEditEnvironmentsModal && holdout && (
         <EditEnvironmentsModal
           holdout={holdout}
@@ -305,13 +369,37 @@ export default function Implementation({
           stage={setVariationsDraft}
         />
       )}
-      <Separator size="4" my="2" />
+      {/* Divides it from the hypothesis, which bandits don't have. */}
+      {!isBandit ? <Separator size="4" my="2" /> : null}
       <div className="my-4">
-        <Heading as="h4" size="sm" color="text-high" mb="2">
-          Implementation
-        </Heading>
+        <Flex justify="between" align="center" gap="3" mb="2">
+          <Heading as="h4" size="sm" color="text-high" mb="0">
+            Implementation
+          </Heading>
+          <div ref={setHeaderActions} />
+        </Flex>
+        {changingType && implementationTypeDraft ? (
+          <ChangeImplementationTypeModal
+            initialType={changingType === "current" ? undefined : changingType}
+            experiment={storedExperiment}
+            managedFeature={
+              storedLinkedFeatures.find((f) => f.feature.id === managedId) ??
+              null
+            }
+            lockedReason={implementationTypeLockedReason(
+              storedExperiment,
+              storedLinkedFeatures,
+            )}
+            draft={implementationTypeDraft}
+            close={() => setChangingType(null)}
+          />
+        ) : null}
         {showTrafficFunnel ? (
           <TrafficAllocationFunnel
+            headerActionsTarget={headerActions}
+            holdoutDraft={holdoutDraft}
+            canStageHoldout={canStageHoldout}
+            canJoinHoldout={canJoinHoldout}
             experiment={stagedExperiment}
             stageVariations={setVariationsDraft}
             flagEnvironments={flagEnvironments}
@@ -352,7 +440,12 @@ export default function Implementation({
         )}
         {!isHoldout &&
         !flagsShownAbove &&
-        (hasLinkedChanges || canAddLinkedChanges) ? (
+        (hasLinkedChanges ||
+          canAddLinkedChanges ||
+          // Its type chooser needs less than adding changes does.
+          (!!chooseType &&
+            experiment.status === "draft" &&
+            !experiment.nextScheduledStatusUpdate)) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -366,11 +459,15 @@ export default function Implementation({
             setVisualEditorModal={setVisualEditorModal}
             setFeatureModal={setFeatureModal}
             setUrlRedirectModal={setUrlRedirectModal}
-            implementationTypeDraft={implementationTypeDraft}
-            saved={{
-              experiment: storedExperiment,
-              linkedFeatures: storedLinkedFeatures,
-            }}
+            onChooseType={
+              chooseType &&
+              !implementationTypeLockedReason(
+                storedExperiment,
+                storedLinkedFeatures,
+              )
+                ? () => chooseType()
+                : undefined
+            }
           />
         ) : null}
 
@@ -500,7 +597,7 @@ export default function Implementation({
           envs={envs}
         />
       </div>
-    </>
+    </ImplementationTypeChooserContext.Provider>
   );
 }
 

@@ -2220,6 +2220,8 @@ export const experimentChangesFields = experimentAnalysisSettingsDraft
     variationWeights: z.array(z.number()),
     // A managed flag is converted, deleted or created to match, as the save lands.
     implementationType: z.enum(implementationType),
+    // "" leaves the current holdout.
+    holdoutId: z.string(),
   })
   .partial()
   .strict();
@@ -2272,8 +2274,11 @@ export const experimentChangesBody = z
           .strict(),
       )
       .optional(),
-    // Flags to unlink from the experiment.
+    // Flags to take off the experiment, along with its rule on each: out of
+    // open drafts now, and out of live through a draft, unlinking on publish.
     unlinkFeatures: z.array(z.string()).optional(),
+    // Flags whose pending removal to undo: the rule goes back into the drafts.
+    keepFeatures: z.array(z.string()).optional(),
     // Consents to deleting the managed flag when the save leaves Values.
     deleteManagedFlag: z.boolean().optional(),
     // Values for the experiment's own Feature Flag when it has none yet; the

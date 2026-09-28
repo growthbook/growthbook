@@ -77,7 +77,8 @@ export default function SetupFieldRow({
           <Text
             as="label"
             size={labelSize}
-            weight="medium"
+            // A section's title reads like the page's other section headings.
+            weight={labelSize === "lg" ? "semibold" : "medium"}
             color="text-high"
             mb="0"
           >

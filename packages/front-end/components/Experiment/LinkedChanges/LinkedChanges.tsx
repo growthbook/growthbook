@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
@@ -9,10 +8,6 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getImplementationType, isManagedByExperiment } from "shared/util";
 import { Flex, type AvatarProps } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
-import { ImplementationTypeDraft } from "@/components/Experiment/TabbedPage/ExperimentEdits";
-import ChangeImplementationTypeModal, {
-  implementationTypeLockedReason,
-} from "@/components/Experiment/ChangeImplementationTypeModal";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Tooltip from "@/ui/Tooltip";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
@@ -44,8 +39,7 @@ export default function LinkedChanges({
   setVisualEditorModal,
   setFeatureModal,
   setUrlRedirectModal,
-  implementationTypeDraft,
-  saved,
+  onChooseType,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -60,26 +54,16 @@ export default function LinkedChanges({
   setVisualEditorModal?: (state: boolean) => void;
   setFeatureModal?: (state: boolean) => void;
   setUrlRedirectModal?: (state: boolean) => void;
-  /** The page's staged implementation type, which the type chooser edits. */
-  implementationTypeDraft?: ImplementationTypeDraft;
-  /** The experiment as stored, which the type chooser compares against. */
-  saved?: {
-    experiment: ExperimentInterfaceStringDates;
-    linkedFeatures: LinkedFeatureInfo[];
-  };
+  /** Opens the page's implementation type chooser; absent when it's locked. */
+  onChooseType?: () => void;
 }) {
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
 
-  const [changingType, setChangingType] = useState(false);
   const managedFeature =
     linkedFeatures.find((f) =>
       isManagedByExperiment(f.feature, experiment.id),
     ) ?? null;
-  const changeTypeLockedReason = implementationTypeLockedReason(
-    experiment,
-    linkedFeatures,
-  );
 
   const effectiveType = managedFeature
     ? "values"
@@ -109,7 +93,7 @@ export default function LinkedChanges({
           </Heading>
           {valuesMode && (
             <Tooltip
-              content="This experiment owns the Feature Flag: it serves the variation values above and is edited from here rather than from its own page."
+              content="This experiment owns this Feature Flag and serves its variation values through it."
               side="top"
             >
               <Flex align="center" style={{ color: "var(--color-text-low)" }}>
@@ -119,20 +103,6 @@ export default function LinkedChanges({
           )}
         </Flex>
       </Flex>
-      {changingType && implementationTypeDraft && (
-        <ChangeImplementationTypeModal
-          experiment={saved?.experiment ?? experiment}
-          managedFeature={
-            saved
-              ? (saved.linkedFeatures.find((f) =>
-                  isManagedByExperiment(f.feature, experiment.id),
-                ) ?? null)
-              : managedFeature
-          }
-          draft={implementationTypeDraft}
-          close={() => setChangingType(false)}
-        />
-      )}
       {isPublic ? (
         <Flex direction="column" gap="3" mx="1" mb="2" mt="4">
           {publicLinkedChangeSummary
@@ -220,9 +190,8 @@ export default function LinkedChanges({
               setFeatureModal={setFeatureModal}
               setVisualEditorModal={setVisualEditorModal}
               setUrlRedirectModal={setUrlRedirectModal}
-              onChooseType={
-                changeTypeLockedReason ? undefined : () => setChangingType(true)
-              }
+              onChooseType={onChooseType}
+              canAddChanges={canAddChanges}
             />
           )}
         </>

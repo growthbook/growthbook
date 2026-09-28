@@ -16,6 +16,7 @@ import {
   castFeatureValue,
   getConfigSubtree,
   getFeatureBaseConfigKey,
+  getImplementationType,
   isManagedByExperiment,
   managedFeatureKeyCandidate,
   parsePlainJSONObject,
@@ -37,6 +38,7 @@ import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import {
   EnvironmentInputsPopover,
+  environmentStateTense,
   getEnvironmentStates,
   stageEnvironmentInputs,
   statesFromInputs,
@@ -46,14 +48,19 @@ import {
   VARIATION_GRID_COLUMNS,
   variationGridMaxWidth,
 } from "@/components/Experiment/VariationsTable";
-import RevisionLabel, {
-  revisionLabelText,
-} from "@/components/Reviews/RevisionLabel";
-import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
+import RevisionLabel from "@/components/Reviews/RevisionLabel";
+import RevisionStatusBadge, {
+  revisionStatusLabel,
+  type RevisionLike,
+} from "@/components/Reviews/RevisionStatusBadge";
 import ReviewFeedbackPopover from "@/components/Reviews/ReviewFeedbackPopover";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -61,7 +68,11 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
 import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
-import { ManagedFlagNote } from "@/components/Experiment/ManagedFlagName";
+import { useManagedFlagRename } from "@/components/Experiment/ManagedFlagRename";
+import {
+  implementationTypeLockedReason,
+  useImplementationTypeChooser,
+} from "@/components/Experiment/ChangeImplementationTypeModal";
 import { ActionsOverlay } from "@/components/Features/CornerActions";
 import {
   blockedExperimentValueTypes,
@@ -71,8 +82,14 @@ import {
 import cornerStyles from "@/components/Features/CornerActions.module.scss";
 import {
   FlagEnvironmentsDraft,
+  useLiveView,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
+import {
+  canStartSeparateDraft,
+  FlagDraftPicks,
+  resolveDraftPick,
+} from "./draftPicks";
 import FlagValuesModal from "./FlagValuesModal";
 import {
   getDuplicateVariationIds,
@@ -100,13 +117,13 @@ const MANAGED_STRING_ACTIONS: ActionsOverlay = {
 // tooltip hands its trigger handlers and a ref, so they land on the span.
 const CaretTrigger = forwardRef<
   HTMLSpanElement,
-  HTMLAttributes<HTMLSpanElement> & { color?: "dark" }
->(function CaretTrigger({ children, color, ...props }, ref) {
+  HTMLAttributes<HTMLSpanElement> & { color?: "dark"; size?: "sm" | "md" }
+>(function CaretTrigger({ children, color, size = "sm", ...props }, ref) {
   return (
     <span ref={ref} {...props}>
       <Link color={color} underline="none" className={styles.caretTrigger}>
         <Flex align="center" gap="1">
-          <Text size="sm">{children}</Text>
+          <Text size={size}>{children}</Text>
           <PiCaretDownFill size={10} />
         </Flex>
       </Link>
@@ -124,12 +141,15 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   canEdit: boolean;
+  /** Whether flags can be removed or kept, which the Live view doesn't stop. */
+  canEditLinks?: boolean;
   /** Show what is live rather than the draft, read-only. */
   showLive?: boolean;
   /** Links another Feature Flag, offered under the last one. */
   onAddFlag?: (() => void) | null;
   /** Environment scopes staged per flag. */
   flagEnvironments?: FlagEnvironmentsDraft;
+  draftPicks: FlagDraftPicks;
   /** A Values experiment without its flag: the values edit as usual and create it on save. */
   pendingManagedFlag?: boolean;
 }
@@ -170,25 +190,43 @@ export default function FlagValueRows({
   experiment,
   linkedFeatures,
   canEdit,
+  canEditLinks = false,
   showLive = false,
   onAddFlag,
   flagEnvironments,
+  draftPicks,
   pendingManagedFlag = false,
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
   const cols = Math.min(variations.length, 3);
+  const chooseType = useImplementationTypeChooser();
   const pendingInfo = useMemo(
     () => (pendingManagedFlag ? pendingManagedFlagInfo(experiment) : null),
     [pendingManagedFlag, experiment],
   );
 
+  // With nothing linked yet, the heading alone still carries the type menu.
+  const implementationType = getImplementationType(experiment);
+  const headingOnly =
+    !!chooseType &&
+    experiment.status === "draft" &&
+    !linkedFeatures.length &&
+    !pendingInfo &&
+    !onAddFlag &&
+    (implementationType === "feature" || implementationType === "values");
+
   if (
-    (!linkedFeatures.length && !pendingInfo && !onAddFlag) ||
+    (!linkedFeatures.length && !pendingInfo && !onAddFlag && !headingOnly) ||
     !variations.length
   ) {
     return null;
   }
 
+  // The type chooser opens locked here; converting would only show the lock.
+  const typeLocked = !!implementationTypeLockedReason(
+    experiment,
+    linkedFeatures,
+  );
   const managedFlags = pendingInfo
     ? [pendingInfo]
     : linkedFeatures.filter((info) =>
@@ -215,12 +253,20 @@ export default function FlagValueRows({
           experiment={experiment}
           info={info}
           pending={info === pendingInfo}
+          typeLocked={typeLocked}
           canEdit={canEdit}
+          canEditLinks={canEditLinks}
           showLive={showLive}
           flagEnvironments={flagEnvironments}
+          draftPicks={draftPicks}
         />
       ))}
-      {linkedFlags.length || onAddFlag ? (
+      {headingOnly && implementationType === "values" ? (
+        <ImplementationHeading inList>Values</ImplementationHeading>
+      ) : null}
+      {linkedFlags.length ||
+      onAddFlag ||
+      (headingOnly && implementationType === "feature") ? (
         <ImplementationHeading inList>Feature Flags</ImplementationHeading>
       ) : null}
       {linkedFlags.map((info) => (
@@ -229,8 +275,10 @@ export default function FlagValueRows({
           experiment={experiment}
           info={info}
           canEdit={canEdit}
+          canEditLinks={canEditLinks}
           showLive={showLive}
           flagEnvironments={flagEnvironments}
+          draftPicks={draftPicks}
         />
       ))}
       {onAddFlag ? (
@@ -248,70 +296,98 @@ function FlagValueRow({
   experiment,
   info,
   canEdit,
+  canEditLinks,
   showLive,
   flagEnvironments,
+  draftPicks,
   pending = false,
+  typeLocked = false,
 }: {
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
   /** Not created yet: saving the values creates it. */
   pending?: boolean;
+  /** The implementation type can't change right now. */
+  typeLocked?: boolean;
   canEdit: boolean;
+  canEditLinks: boolean;
   showLive: boolean;
   flagEnvironments?: FlagEnvironmentsDraft;
+  draftPicks: FlagDraftPicks;
 }) {
   const permissionsUtil = usePermissionsUtil();
+  const { setLive } = useLiveView();
   const [editEnvironments, setEditEnvironments] = useState(false);
   const { configs } = useDefinitions();
   const variations = getLatestPhaseVariations(experiment);
-  const { feature, pendingDraft } = info;
+  const { feature } = info;
+  // Every open draft that changes this experiment's rule, newest first.
+  const pick = draftPicks.value[feature.id];
+  const {
+    drafts,
+    draft: pendingDraft,
+    target,
+    launches: isLaunchDraft,
+  } = useMemo(
+    () => resolveDraftPick(info, pick, experiment.id),
+    [info, pick, experiment.id],
+  );
 
   const managed = isManagedByExperiment(feature, experiment.id);
-  // A second draft is only worth starting when the open one also holds
-  // changes that can't publish with the experiment; otherwise start would
-  // stack both. A managed flag keeps one draft.
-  const canStartSeparateDraft =
-    !managed && !!pendingDraft?.hasUnrelatedDraftChanges;
-  // Follows the open draft, which can appear after the row mounts (a re-link
-  // lands one), until someone picks a target themselves.
-  const [chosenTarget, setTarget] = useState<{
-    draftVersion: number | null;
-    target: "draft" | "new";
-  } | null>(null);
-  const target =
-    chosenTarget &&
-    chosenTarget.draftVersion === (pendingDraft?.version ?? null)
-      ? chosenTarget.target
-      : pendingDraft
-        ? "draft"
-        : "new";
-  const fromDraft = !!pendingDraft && !showLive && target === "draft";
+  const chooseType = useImplementationTypeChooser();
+  const { edit: renameFlag } = useManagedFlagRename(feature.id);
+  // Not once the conversion is itself what's staged.
+  const convertible =
+    !!chooseType &&
+    managed &&
+    experiment.implementationType !== "feature" &&
+    !typeLocked;
+  // Where Save writes, whichever view is showing.
+  const writesToDraft = !!pendingDraft && target === "draft";
+  const workingOn = writesToDraft ? pendingDraft.version : "new";
+  // What the row shows: the Live view shows what's published.
+  const fromDraft = writesToDraft && !showLive;
   // Its rule is gone, so nothing edits here until it's linked again.
   const orphaned = info.state === "discarded";
+  // Live has no rule for this experiment; only a draft links it.
+  const absentFromLive = showLive && !info.liveHasMatchingRule;
   // Staged for the page's Save: link the flag again, or take it off.
-  const [linkAction, setLinkAction] = useState<"relink" | "remove" | null>(
-    null,
-  );
+  const [linkAction, setLinkAction] = useState<
+    "relink" | "remove" | "keep" | null
+  >(null);
   const relinking = linkAction === "relink";
   const removing = linkAction === "remove";
+  // A draft is taking the live rule out; the flag leaves when it publishes.
+  const pendingRemoval = info.pendingRemoval;
   // Linking again starts from the rule the discarded draft left, when it can.
   const values = relinking
     ? (info.relinkFrom?.values ??
       seedManagedVariationValues(variations, feature.valueType))
-    : fromDraft
+    : writesToDraft
       ? pendingDraft.values
       : (info.liveValues ?? info.values);
   const storedSparse = relinking
     ? !!info.relinkFrom?.sparse
-    : fromDraft
+    : writesToDraft
       ? pendingDraft.sparse
       : (info.liveSparse ?? info.sparse ?? false);
-  const storedType = fromDraft ? pendingDraft.valueType : feature.valueType;
-  const storedDefault = fromDraft
+  const storedType = writesToDraft ? pendingDraft.valueType : feature.valueType;
+  const storedDefault = writesToDraft
     ? pendingDraft.defaultValue
     : feature.defaultValue;
 
-  const [staged, setStaged] = useState<Staged | null>(null);
+  // Edits belong to the draft they were made in; if it goes, so do they.
+  const [stagedFor, setStaged] = useState<
+    (Staged & { for: number | "new" }) | null
+  >(null);
+  const staged = stagedFor?.for === workingOn ? stagedFor : null;
+  const chooseTarget = (next: number | "new") => {
+    draftPicks.set(feature.id, {
+      newestVersion: drafts[0]?.version ?? null,
+      target: next,
+    });
+    setStaged(null);
+  };
   // Environments are staged above the row: the funnel's header edits them too.
   const stagedScope = flagEnvironments?.value[feature.id] ?? null;
   const clearStaged = () => {
@@ -326,6 +402,16 @@ function FlagValueRow({
     staged?.values[variationId] ?? storedValue(variationId);
   const valueType = staged?.valueType ?? storedType;
   const sparse = staged?.sparse ?? storedSparse;
+  // The Live view shows what's published, leaving staged edits for Save.
+  const liveValues = info.liveValues ?? info.values;
+  const shownValueFor = (variationId: string) =>
+    showLive
+      ? liveValues.find((v) => v.variationId === variationId)?.value
+      : valueFor(variationId);
+  const shownType = showLive ? feature.valueType : valueType;
+  const shownSparse = showLive
+    ? (info.liveSparse ?? info.sparse ?? false)
+    : sparse;
 
   // A managed flag's default is its control value, so that is what the other
   // variations patch onto.
@@ -334,6 +420,11 @@ function FlagValueRow({
     (managed && controlId ? valueFor(controlId) : undefined) ??
     storedDefault ??
     "";
+  const shownSparseBase = showLive
+    ? ((managed && controlId ? shownValueFor(controlId) : undefined) ??
+      feature.defaultValue ??
+      "")
+    : sparseBase;
   const configKey = getFeatureBaseConfigKey(feature);
   const configBackingOptionKeys = useMemo(
     () => (configKey ? getConfigSubtree(configKey, configs) : undefined),
@@ -349,40 +440,53 @@ function FlagValueRow({
 
   // Against the type and default the values will land under.
   const displayFeature = useMemo(
-    () => ({ ...feature, valueType, defaultValue: sparseBase }),
-    [feature, valueType, sparseBase],
+    () => ({ ...feature, valueType: shownType, defaultValue: shownSparseBase }),
+    [feature, shownType, shownSparseBase],
   );
   const draftIds = useMemo(
     () =>
       new Set(
         fromDraft
           ? getVariationValueChanges(
-              info,
+              { ...info, pendingDraft },
               variations.map((v) => v.id),
             )
               .filter((c) => c.unpublished)
               .map((c) => c.variationId)
           : [],
       ),
-    [info, variations, fromDraft],
+    [info, pendingDraft, variations, fromDraft],
   );
 
   const lockedBySchedule = fromDraft && pendingDraft.lockedBySchedule;
   const onFlag = info.state === "live" || info.state === "draft";
   const editable =
     canEdit &&
+    !info.pendingRemoval &&
     !showLive &&
     !lockedBySchedule &&
     permissionsUtil.canEditFeatureDrafts(feature) &&
     (onFlag || relinking) &&
     !removing;
 
-  const stage = (patch: Partial<Staged>) =>
-    setStaged((prev) => ({
-      values: { ...prev?.values, ...patch.values },
-      valueType: patch.valueType ?? prev?.valueType,
-      sparse: patch.sparse ?? prev?.sparse,
-    }));
+  const stage = (patch: Partial<Staged>) => {
+    // Holds the row on this draft even if a newer one appears meanwhile.
+    if (typeof workingOn === "number" && pick?.target !== workingOn) {
+      draftPicks.set(feature.id, {
+        newestVersion: drafts[0]?.version ?? null,
+        target: workingOn,
+      });
+    }
+    setStaged((prev) => {
+      const kept = prev?.for === workingOn ? prev : null;
+      return {
+        for: workingOn,
+        values: { ...kept?.values, ...patch.values },
+        valueType: patch.valueType ?? kept?.valueType,
+        sparse: patch.sparse ?? kept?.sparse,
+      };
+    });
+  };
 
   // Re-express what is already there rather than clearing it.
   const changeType = (next: FeatureValueType) => {
@@ -405,10 +509,10 @@ function FlagValueRow({
 
   // Two variations serving the same thing is almost always a mistake.
   const duplicateIds = getDuplicateVariationIds(
-    variations.map((v) => ({ variationId: v.id, value: valueFor(v.id) })),
-    valueType,
-    sparse,
-    sparseBase,
+    variations.map((v) => ({ variationId: v.id, value: shownValueFor(v.id) })),
+    shownType,
+    shownSparse,
+    shownSparseBase,
   );
 
   const dirty =
@@ -457,7 +561,7 @@ function FlagValueRow({
                 ...(sparse !== storedSparse && { sparse }),
                 ...(stagedScope && { environments: stagedScope }),
                 // Writes into the draft the values came from; off live, starts one.
-                revision: fromDraft
+                revision: writesToDraft
                   ? {
                       version: pendingDraft.version,
                       dateUpdated: pendingDraft.dateUpdated,
@@ -478,33 +582,29 @@ function FlagValueRow({
     changes: () =>
       removing
         ? { unlinkFeatures: [feature.id] }
-        : {
-            linkFeatures: [
-              {
-                featureId: feature.id,
-                variations: checkedValues(),
-                ...(sparse && { sparse }),
-                ...(info.relinkFrom && {
-                  environments: {
-                    allEnvironments: info.relinkFrom.allEnvironments,
-                    environments: info.relinkFrom.environments,
-                  },
-                }),
-              },
-            ],
-          },
+        : linkAction === "keep"
+          ? { keepFeatures: [feature.id] }
+          : {
+              linkFeatures: [
+                {
+                  featureId: feature.id,
+                  variations: checkedValues(),
+                  ...(sparse && { sparse }),
+                  ...(info.relinkFrom && {
+                    environments: {
+                      allEnvironments: info.relinkFrom.allEnvironments,
+                      environments: info.relinkFrom.environments,
+                    },
+                  }),
+                },
+              ],
+            },
     onSaved: clearLinkAction,
     discard: clearLinkAction,
   });
 
-  // Like the revision dropdown: a titled draft keeps its number in front.
-  const draftLabel = pendingDraft
-    ? revisionLabelText(
-        pendingDraft.version,
-        pendingDraft.title,
-        !!pendingDraft.title,
-      )
-    : null;
+  // In a sentence a draft goes by its number; a title reads as more prose.
+  const draftMention = pendingDraft ? `Revision ${pendingDraft.version}` : null;
   const draftRevision = pendingDraft ? (
     <RevisionLabel
       version={pendingDraft.version}
@@ -522,10 +622,21 @@ function FlagValueRow({
       </Text>
     </Box>
   ) : null;
-  const targetLabel = showLive ? "Live" : fromDraft ? draftName : "New draft";
+  // Nothing to name where nobody can save: the badge already says what's live.
+  const targetLabel = showLive
+    ? "Live"
+    : fromDraft
+      ? draftName
+      : editable
+        ? "New draft"
+        : null;
   const targetTooltip = fromDraft ? (
     <Box>
-      <Text size="sm">Changes here belong to feature revision:</Text>
+      <Text size="sm">
+        {editable
+          ? "Saving writes to this draft of the Feature Flag:"
+          : "Showing this draft of the Feature Flag:"}
+      </Text>
       <Box>
         <Text size="sm" weight="semibold">
           {draftRevision}
@@ -540,64 +651,74 @@ function FlagValueRow({
       ) : null}
     </Box>
   ) : !showLive ? (
-    "Changes here start a new feature revision."
+    "Saving starts a new draft of this Feature Flag."
   ) : null;
-  const canChooseTarget = canStartSeparateDraft && !showLive && canEdit;
+  const canStartNew = canStartSeparateDraft(info, experiment.id) && canEdit;
+  // Several drafts change this rule: pick which one the row shows and saves to.
+  const canChooseTarget =
+    !showLive && !!pendingDraft && (drafts.length > 1 || canStartNew);
+  const labelFor = (d: (typeof drafts)[number]) => (
+    <RevisionLabel
+      version={d.version}
+      title={d.title}
+      numbered={!!d.title}
+      minWidth={0}
+      numberSize="inherit"
+      inheritNumberColor
+    />
+  );
 
-  const targetControl =
-    canChooseTarget && pendingDraft ? (
-      <DropdownMenu
-        trigger={
-          <Tooltip content={targetTooltip} enabled={!!targetTooltip}>
-            <CaretTrigger>{targetLabel}</CaretTrigger>
-          </Tooltip>
-        }
-        menuPlacement="end"
-        variant="soft"
-      >
-        <DropdownMenuItem
-          onClick={() => {
-            setTarget({
-              draftVersion: pendingDraft?.version ?? null,
-              target: "draft",
-            });
-            setStaged(null);
-          }}
+  const targetControl = canChooseTarget ? (
+    // Outside the menu: a tooltip hands its trigger's props to its content,
+    // so inside it would swallow the menu's click.
+    <Tooltip content={targetTooltip} enabled={!!targetTooltip}>
+      <span style={{ display: "inline-flex" }}>
+        <DropdownMenu
+          trigger={<CaretTrigger>{targetLabel}</CaretTrigger>}
+          menuPlacement="end"
+          variant="soft"
         >
-          {draftName}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            setTarget({
-              draftVersion: pendingDraft?.version ?? null,
-              target: "new",
-            });
-            setStaged(null);
-          }}
-        >
-          New draft
-        </DropdownMenuItem>
-      </DropdownMenu>
-    ) : (
-      <Tooltip content={targetTooltip} enabled={!!targetTooltip}>
-        {/* The trigger takes the hover handlers, so it must be a plain element. */}
-        <span
-          style={{ display: "inline-flex" }}
-          className={styles.revisionLabel}
-        >
-          <Text size="sm" color="text-low">
-            {targetLabel}
-          </Text>
-        </span>
-      </Tooltip>
-    );
+          {drafts.map((d) => (
+            <DropdownMenuItem
+              key={d.version}
+              onClick={() => chooseTarget(d.version)}
+            >
+              {labelFor(d)}
+            </DropdownMenuItem>
+          ))}
+          {canStartNew ? (
+            <DropdownMenuItem onClick={() => chooseTarget("new")}>
+              New draft
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenu>
+      </span>
+    </Tooltip>
+  ) : (
+    <Tooltip content={targetTooltip} enabled={!!targetTooltip}>
+      {/* The trigger takes the hover handlers, so it must be a plain element. */}
+      <span style={{ display: "inline-flex" }} className={styles.revisionLabel}>
+        <Text size="sm" color="text-low">
+          {targetLabel}
+        </Text>
+      </span>
+    </Tooltip>
+  );
 
-  const canEditFlag = canEdit && permissionsUtil.canEditFeatureDrafts(feature);
+  const canEditFlag =
+    canEdit && !pendingRemoval && permissionsUtil.canEditFeatureDrafts(feature);
+  // Removing and keeping stage from either view, so Live leaves for them.
+  const canEditFlagLinks =
+    canEditLinks && permissionsUtil.canEditFeatureDrafts(feature);
   const launches = experiment.status === "draft";
-  const canRemove = canEditFlag && launches;
-  const removeFromExperiment = () => {
+  // A running experiment keeps its flags until it's back in Draft.
+  const removeBlocked = experiment.status === "running";
+  const launchDraft = drafts[0];
+  const draftLaunches = launches && isLaunchDraft;
+  const stageLinkAction = (action: "relink" | "remove" | "keep") => {
+    setLive(false);
     clearStaged();
-    setLinkAction("remove");
+    setLinkAction(action);
   };
 
   // Only a problem wears the warning; any other state is the revision's own.
@@ -617,8 +738,22 @@ function FlagValueRow({
     !!shownDraft?.pendingApproval &&
     !(shownDraft.approval?.satisfied ?? shownDraft.status === "approved");
   const draftHref = shownDraft
-    ? `/features/${feature.id}?v=${shownDraft.version}`
+    ? `/features/${feature.id}?v=${shownDraft.version}#review`
     : `/features/${feature.id}`;
+  // The badge opens that revision's review, in a new tab like the flag's link.
+  const badgeLink = (revision: RevisionLike) => (
+    <Link
+      href={`/features/${feature.id}?v=${revision.version}#review`}
+      external
+      underline="none"
+      // Led by the status it shows, so it's announced and can be spoken to.
+      aria-label={`${revisionStatusLabel(
+        revision.version === feature.version ? "live" : revision.status,
+      )}: open the review of ${feature.id}`}
+    >
+      <RevisionStatusBadge revision={revision} liveVersion={feature.version} />
+    </Link>
+  );
 
   // A new tab, so following it never costs the page's unsaved edits.
   const draftLink = (label: string) => (
@@ -634,15 +769,29 @@ function FlagValueRow({
     action?: ReactNode;
   }[] = [];
   if (info.state === "archived") {
-    notices.push({
-      status: "warning",
-      text: "This Feature Flag is archived. Unarchive it to make this experiment active.",
-    });
+    notices.push(
+      experiment.status === "running"
+        ? {
+            status: "warning",
+            text: "This Feature Flag is archived, so it isn't serving this experiment. Unarchive it to serve it again.",
+          }
+        : launches
+          ? {
+              status: "warning",
+              text: "This Feature Flag is archived, so it won't serve this experiment when it starts. Unarchive it first.",
+            }
+          : { status: "info", text: "This Feature Flag is archived." },
+    );
   }
+  // No live rule and no open draft with one: discarded, or published away.
   if (orphaned && !linkAction) {
     notices.push({
       status: "warning",
-      text: "The draft that linked this experiment was discarded, so its rule is no longer queued.",
+      text: `This experiment isn't in the live revision or any open draft of this Feature Flag${
+        experiment.status === "running"
+          ? ", so the Feature Flag isn't serving it"
+          : ""
+      }.`,
     });
   }
   // A managed flag's draft is reviewed and published through the
@@ -651,7 +800,9 @@ function FlagValueRow({
     if (shownDraft?.hasMergeConflict) {
       notices.push({
         status: "error",
-        text: "This draft conflicts with live and can't publish until that's resolved.",
+        text: draftLaunches
+          ? "This draft conflicts with live, so the experiment can't start until that's resolved."
+          : "This draft conflicts with live and can't publish until that's resolved.",
         action: draftLink("Fix conflicts"),
       });
     } else if (shownDraft?.rebaseRequired) {
@@ -663,21 +814,26 @@ function FlagValueRow({
     } else if (shownDraft?.hasUnrelatedDraftChanges) {
       notices.push({
         status: "error",
-        text: launches
-          ? "This draft also changes things outside this experiment, so it won't publish when the experiment starts. Remove those edits, or publish the draft from the Feature Flag."
+        text: draftLaunches
+          ? "This draft also changes things outside this experiment, so the experiment can't start. Remove those edits, or publish the draft from the Feature Flag."
           : "This draft also changes things outside this experiment. Publish it from the Feature Flag.",
         action: draftLink("Review draft"),
       });
     } else if (shownDraft && !lockedBySchedule) {
       notices.push({
         status: "info",
-        text: needsApproval
-          ? launches
-            ? "Needs approval. Once approved, it publishes when the experiment starts."
-            : "Needs approval before it can publish."
-          : launches
-            ? "Publishes when the experiment starts, or publish it from the Feature Flag."
-            : "Publish it from the Feature Flag to change what this experiment serves.",
+        text:
+          launches && !isLaunchDraft && launchDraft
+            ? `Only Revision ${launchDraft.version} publishes when the experiment starts. Publish this draft from the Feature Flag.`
+            : needsApproval
+              ? launches
+                ? "Needs approval. Once approved, it publishes when the experiment starts."
+                : "Needs approval before it can publish."
+              : launches
+                ? "Publishes when the experiment starts, or publish it from the Feature Flag."
+                : experiment.status === "running"
+                  ? "Publish it from the Feature Flag to change what this experiment serves."
+                  : "Publish it from the Feature Flag.",
         action: draftLink(
           needsApproval ? "Review and approve" : "Review draft",
         ),
@@ -690,26 +846,30 @@ function FlagValueRow({
       text: "Locked until its scheduled publish.",
     });
   }
-  if (onFlag && info.inconsistentValues) {
+  // These describe the revision the server read, a draft unless live has it.
+  const describesShown = !showLive || info.state === "live";
+  if (onFlag && describesShown && info.inconsistentValues) {
     notices.push({
       status: "warning",
-      text: `This experiment is on the flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
+      text: `This experiment is on the Feature Flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
     });
   }
-  if (onFlag && info.rulesAbove) {
+  if (onFlag && describesShown && info.rulesAbove) {
     notices.push({
       status: "info",
-      text: "Rules above this experiment on the flag may catch some users first.",
+      text: "Rules above this experiment on the Feature Flag may catch some users first.",
     });
   }
 
+  // Like the values, the Live view leaves the staged scope for Save.
+  const shownScope = showLive ? null : stagedScope;
   const storedInputs = fromDraft
     ? pendingDraft.environmentInputs
     : (info.liveEnvironmentInputs ?? info.environmentInputs);
   const environmentInputs =
-    storedInputs && stageEnvironmentInputs(storedInputs, stagedScope);
+    storedInputs && stageEnvironmentInputs(storedInputs, shownScope);
   const environmentStates = getEnvironmentStates(
-    stagedScope && environmentInputs
+    shownScope && environmentInputs
       ? { environmentStates: statesFromInputs(environmentInputs) }
       : fromDraft
         ? pendingDraft
@@ -718,12 +878,12 @@ function FlagValueRow({
               info.liveEnvironmentStates ?? info.environmentStates,
           },
     {
-      future:
-        experiment.status !== "running"
-          ? "started"
-          : fromDraft
-            ? "published"
-            : false,
+      future: environmentStateTense({
+        status: experiment.status,
+        unpublished: fromDraft || !!shownScope,
+        launches: isLaunchDraft,
+        liveView: showLive,
+      }),
     },
   );
   // What the draft moves, against live; before live has the rule, against the
@@ -735,7 +895,7 @@ function FlagValueRow({
     };
   const changedInputs = (env: string) => {
     const input = environmentInputs?.[env];
-    if ((!fromDraft && !stagedScope) || !input) {
+    if ((!fromDraft && !shownScope) || !input) {
       return { flag: false, rule: false };
     }
     const live = liveInput(env);
@@ -753,20 +913,42 @@ function FlagValueRow({
   // Only a change the draft makes needs saying when it lands.
   const environmentsTiming = !environmentsChanged
     ? null
-    : `${fromDraft ? `From ${draftLabel}. ` : ""}${
-        launches
+    : `${fromDraft ? `From ${draftMention}. ` : ""}${
+        draftLaunches
           ? "Takes effect when it's published, or when the experiment starts."
           : "Takes effect when it's published."
       }`;
 
+  // What Save does with the staged link action.
+  const linkActionNote =
+    linkAction === "keep"
+      ? `Kept in this experiment when you save. The rule goes back into Revision ${pendingRemoval?.version}.`
+      : relinking
+        ? experiment.status === "running"
+          ? "Saving adds this experiment to a new draft of this Feature Flag. Publish it from the Feature Flag to serve it."
+          : launches
+            ? "Saving adds this experiment to a new draft of this Feature Flag, which publishes when the experiment starts."
+            : "Saving adds this experiment to a new draft of this Feature Flag."
+        : info.liveHasMatchingRule
+          ? "When you save, a draft takes this experiment's rule out of the Feature Flag. Once it's published, the Feature Flag leaves this experiment."
+          : "Removed from this experiment when you save, along with its rule in any open draft.";
+
+  // The Live view of a flag whose live revision lacks the rule. When the
+  // draft can publish is the Unpublished view's to say.
+  const absentFromLiveNote = `This experiment isn't in the live revision of this Feature Flag${
+    experiment.status === "running" ? ", so the flag isn't serving it" : ""
+  }.${pendingDraft ? ` ${draftMention} adds it.` : ""}`;
+
   // JSON is too big to edit in a cell, so it opens the values editor.
-  const isJson = valueType === "json";
+  const isJson = shownType === "json";
 
   const typeBlocked = blockedExperimentValueTypes(variations.length);
   const valueTypeControl = editable ? (
     <DropdownMenu
       trigger={
-        <CaretTrigger color="dark">{VALUE_TYPE_LABELS[valueType]}</CaretTrigger>
+        <CaretTrigger color="dark" size="md">
+          {VALUE_TYPE_LABELS[valueType]}
+        </CaretTrigger>
       }
       menuPlacement="end"
       variant="soft"
@@ -788,7 +970,7 @@ function FlagValueRow({
       ))}
     </DropdownMenu>
   ) : (
-    <Text size="sm">{VALUE_TYPE_LABELS[valueType]}</Text>
+    <Text>{VALUE_TYPE_LABELS[shownType]}</Text>
   );
 
   return (
@@ -796,15 +978,30 @@ function FlagValueRow({
       {managed ? (
         <ImplementationHeading
           inList
-          // Not created until the page saves, so there's no key to show yet.
-          subtext={pending ? null : <ManagedFlagNote featureId={feature.id} />}
           action={
-            <Flex align="center" gap="1">
-              <Text size="sm" color="text-low">
-                Type:
-              </Text>
+            // Baseline, so the trigger's hover border doesn't lift its text.
+            <Flex align="baseline" gap="1">
+              <Text color="text-low">Type:</Text>
               {valueTypeControl}
             </Flex>
+          }
+          menu={
+            // The heading adds "Change implementation type" below these.
+            !pending && (renameFlag || convertible) ? (
+              <>
+                {renameFlag ? (
+                  <DropdownMenuItem onClick={renameFlag}>
+                    Rename flag ID
+                  </DropdownMenuItem>
+                ) : null}
+                {renameFlag && chooseType ? <DropdownMenuSeparator /> : null}
+                {convertible ? (
+                  <DropdownMenuItem onClick={() => chooseType?.("feature")}>
+                    Convert to unmanaged flag
+                  </DropdownMenuItem>
+                ) : null}
+              </>
+            ) : null
           }
         >
           Values
@@ -841,6 +1038,7 @@ function FlagValueRow({
             info={info}
             stagedScope={stagedScope}
             environmentStates={environmentStates}
+            environmentInputs={storedInputs}
             showFlag={false}
             close={() => setEditEnvironments(false)}
             apply={(scope) => {
@@ -879,28 +1077,22 @@ function FlagValueRow({
               <ReviewFeedbackPopover
                 featureId={feature.id}
                 version={shownDraft.version}
-                reviewHref={draftHref}
               >
-                <RevisionStatusBadge
-                  revision={shownDraft}
-                  liveVersion={feature.version}
-                />
+                {badgeLink(shownDraft)}
               </ReviewFeedbackPopover>
-            ) : (
-              <RevisionStatusBadge
-                // Live only when live holds the rule; otherwise the draft
-                // that links it is the state that matters.
-                revision={
-                  shownDraft ??
-                  (info.state !== "live" && pendingDraft
+            ) : showLive ? null : (
+              // The Live view has no revision selected, so nothing to badge.
+              // Live only when live holds the rule; otherwise the draft that
+              // links it is the state that matters.
+              badgeLink(
+                shownDraft ??
+                  (!info.liveHasMatchingRule && pendingDraft
                     ? pendingDraft
-                    : { version: feature.version, status: "published" })
-                }
-                liveVersion={feature.version}
-              />
+                    : { version: feature.version, status: "published" }),
+              )
             )}
             <Flex align="center" gap="3" ml="auto">
-              {orphaned || removing ? null : (
+              {orphaned || removing || absentFromLive ? null : (
                 <>
                   <Flex align="center" gap="1">
                     {environmentStates.length ? (
@@ -926,17 +1118,21 @@ function FlagValueRow({
                       </Tooltip>
                     ) : null}
                   </Flex>
-                  <Box
-                    style={{
-                      width: 1,
-                      alignSelf: "stretch",
-                      background: "var(--gray-a5)",
-                    }}
-                  />
-                  <Box mr="2">{targetControl}</Box>
+                  {targetLabel || canChooseTarget ? (
+                    <>
+                      <Box
+                        style={{
+                          width: 1,
+                          alignSelf: "stretch",
+                          background: "var(--gray-a5)",
+                        }}
+                      />
+                      <Box mr="2">{targetControl}</Box>
+                    </>
+                  ) : null}
                 </>
               )}
-              {pendingDraft || canRemove ? (
+              {canEditFlagLinks && !linkAction && !pendingRemoval ? (
                 <DropdownMenu
                   trigger={
                     <IconButton
@@ -953,25 +1149,19 @@ function FlagValueRow({
                   menuPlacement="end"
                   variant="soft"
                 >
-                  {pendingDraft ? (
-                    <DropdownMenuItem>
-                      <Link
-                        href={`/features/${feature.id}?v=${pendingDraft.version}`}
-                        external
-                        color="dark"
-                      >
-                        Review {draftLabel}
-                      </Link>
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canRemove && !removing ? (
-                    <DropdownMenuItem
-                      color="red"
-                      onClick={removeFromExperiment}
+                  <DropdownMenuItem
+                    color="red"
+                    disabled={removeBlocked}
+                    onClick={() => stageLinkAction("remove")}
+                  >
+                    <Tooltip
+                      content="Set the experiment's status back to Draft to remove this Feature Flag."
+                      side="left"
+                      enabled={removeBlocked}
                     >
-                      Remove from experiment
-                    </DropdownMenuItem>
-                  ) : null}
+                      <span>Remove from experiment</span>
+                    </Tooltip>
+                  </DropdownMenuItem>
                 </DropdownMenu>
               ) : null}
             </Flex>
@@ -992,38 +1182,70 @@ function FlagValueRow({
         {linkAction ? (
           <Flex align="center" justify="between" gap="2" px="3" mb="3">
             <HelperText status="info" size="sm">
-              {relinking
-                ? "Linked to this experiment again when you save."
-                : "Removed from this experiment when you save."}
+              {linkActionNote}
             </HelperText>
             <Button variant="outline" size="sm" onClick={clearLinkAction}>
               Undo
             </Button>
           </Flex>
-        ) : orphaned && canEditFlag ? (
+        ) : pendingRemoval ? (
+          <Flex align="center" justify="between" gap="2" px="3" mb="3">
+            <Flex align="baseline" gap="2" wrap="wrap">
+              <HelperText status="warning" size="sm">
+                {`Revision ${pendingRemoval.version} takes this experiment's rule out of the Feature Flag. Once it's published, the Feature Flag leaves this experiment.`}
+              </HelperText>
+              <Text size="sm">
+                <Link
+                  href={`/features/${feature.id}?v=${pendingRemoval.version}#review`}
+                  external
+                  underline="always"
+                >
+                  Review draft
+                  <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
+                </Link>
+              </Text>
+            </Flex>
+            {canEditFlagLinks ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => stageLinkAction("keep")}
+              >
+                Keep in experiment
+              </Button>
+            ) : null}
+          </Flex>
+        ) : orphaned && canEditFlagLinks ? (
           <Flex justify="end" gap="2" px="3">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setLinkAction("relink")}
+              onClick={() => stageLinkAction("relink")}
             >
-              Re-link flag
+              Re-link Feature Flag
             </Button>
             <Button
               variant="outline"
               size="sm"
               color="red"
-              onClick={removeFromExperiment}
+              onClick={() => stageLinkAction("remove")}
             >
               Remove from experiment
             </Button>
           </Flex>
         ) : null}
+        {absentFromLive && !orphaned ? (
+          <Box px="3" pb="3">
+            <HelperText status="info" size="sm">
+              {absentFromLiveNote}
+            </HelperText>
+          </Box>
+        ) : null}
         {/* Top-aligned, so a tall JSON value doesn't push its neighbours down. */}
-        {(orphaned && !relinking) || removing ? null : (
+        {(orphaned && !relinking) || removing || absentFromLive ? null : (
           <Grid columns={VARIATION_GRID_COLUMNS} gap="4" align="start">
             {variations.map((v) => {
-              const value = valueFor(v.id);
+              const value = shownValueFor(v.id);
               // On the value's corner, so it takes no room in the row.
               const draftDot =
                 draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
@@ -1036,7 +1258,7 @@ function FlagValueRow({
                 ) : null;
               // A linked string's constant picker sits beside it, so the field
               // itself carries the dot.
-              const dotOnField = !managed && editable && valueType === "string";
+              const dotOnField = !managed && editable && shownType === "string";
               const duplicate = duplicateIds.has(v.id);
               // Managed values fill their card, framed like a field even when
               // read-only; linked read-only scalars stay bare text.
@@ -1067,7 +1289,7 @@ function FlagValueRow({
                         <Box
                           className={clsx(
                             styles.insetNumber,
-                            isJson || valueType === "string" || !editable
+                            isJson || shownType === "string" || !editable
                               ? styles.insetNumberLine
                               : styles.insetNumberFill,
                           )}
@@ -1082,7 +1304,7 @@ function FlagValueRow({
                         id={`flag-${feature.id}-${v.id}`}
                         value={value ?? ""}
                         setValue={(next) => stage({ values: { [v.id]: next } })}
-                        valueType={valueType}
+                        valueType={shownType}
                         feature={displayFeature}
                         useDropdown
                         inlineConstantButton={!managed}
@@ -1116,7 +1338,9 @@ function FlagValueRow({
                             value={value}
                             feature={displayFeature}
                             // Control is the base itself, never a patch.
-                            sparse={sparse && !(managed && v.id === controlId)}
+                            sparse={
+                              shownSparse && !(managed && v.id === controlId)
+                            }
                             fontSize="0.7rem"
                             lineHeight={1.3}
                             actionsOverlay={JSON_ACTIONS}

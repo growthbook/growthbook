@@ -180,6 +180,7 @@ import {
   runValidateFeatureHooks,
   runValidateFeatureRevisionHooks,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { settlePendingFeatureUnlinks } from "back-end/src/util/featureExperimentSync";
 import {
   createEvent,
   hasPreviousObject,
@@ -1743,6 +1744,28 @@ export async function updateFeature(
       [...experimentsAdded].map(async (exp) => {
         await addLinkedFeatureToExperiment(context, exp, feature.id);
       }),
+    );
+  }
+  // A publish that takes an experiment's rule out may finish its removal.
+  // By the rules alone: the stored links outlive a removed rule on purpose.
+  const referencedAfter = getReferenceIdsInRules(
+    projected.rules,
+    "experiment-ref",
+  );
+  if (
+    getReferenceIdsInRules(feature.rules, "experiment-ref").some(
+      (exp) => !referencedAfter.includes(exp),
+    )
+  ) {
+    const { openDrafts } = await getLinkageSyncRevisionSummaries(
+      feature.organization,
+      feature.id,
+    );
+    await settlePendingFeatureUnlinks(
+      context,
+      feature.id,
+      openDrafts,
+      projected.rules,
     );
   }
 
