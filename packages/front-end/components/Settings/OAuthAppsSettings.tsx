@@ -62,7 +62,7 @@ const POLICY_OPTIONS: {
     description:
       "Members can authorize only the apps registered below. Tokens held by other applications stop working.",
     confirm:
-      "Tokens held by applications not registered below stop working immediately, including MCP clients and the GrowthBook CLI.",
+      "Tokens held by applications not registered below stop working immediately, including MCP clients and the GrowthBook CLI. Switching back to Any application restores them.",
   },
   {
     value: "none",
@@ -70,7 +70,7 @@ const POLICY_OPTIONS: {
     description:
       "Every OAuth token stops working and members can't authorize new applications.",
     confirm:
-      "Every OAuth token stops working immediately, including MCP clients and the GrowthBook CLI. Members won't be able to authorize new applications.",
+      "Every OAuth token stops working immediately, including MCP clients and the GrowthBook CLI. Members won't be able to authorize new applications. Switching the setting back restores the tokens.",
   },
 ];
 
@@ -84,6 +84,9 @@ const OAuthAppsSettings: FC = () => {
   const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
   // Downgraded orgs keep using their apps but can't create or change them.
   const hasFeature = hasCommercialFeature("oauth-apps");
+  const planTooltip = hasFeature
+    ? undefined
+    : "OAuth apps require an Enterprise plan.";
   const policyDisabledReason = hasFileConfig()
     ? "Organization settings are managed by your config.yml file"
     : canManageOrgSettings
@@ -201,7 +204,7 @@ const OAuthAppsSettings: FC = () => {
                 </TableCell>
                 <TableCell>
                   {app.redirectUris.map((uri) => (
-                    <Text as="div" size="sm" key={uri}>
+                    <Text as="div" size="sm" overflowWrap="anywhere" key={uri}>
                       {uri}
                     </Text>
                   ))}
@@ -228,12 +231,14 @@ const OAuthAppsSettings: FC = () => {
                     <DropdownMenuGroup>
                       <DropdownMenuItem
                         disabled={!hasFeature}
+                        tooltip={planTooltip}
                         onClick={() => setEditing(app)}
                       >
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         disabled={!hasFeature}
+                        tooltip={planTooltip}
                         confirmation={{
                           submit: async () => {
                             const res = await apiCall<{

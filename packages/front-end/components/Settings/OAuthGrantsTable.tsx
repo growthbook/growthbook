@@ -53,7 +53,7 @@ const OAuthGrantsTable: FC<{
               <TableColumnHeader>Member</TableColumnHeader>
               <TableColumnHeader>Application</TableColumnHeader>
               <TableColumnHeader>First authorized</TableColumnHeader>
-              <TableColumnHeader>Last used</TableColumnHeader>
+              <TableColumnHeader>Last token issued</TableColumnHeader>
               <TableColumnHeader />
             </TableRow>
           </TableHeader>

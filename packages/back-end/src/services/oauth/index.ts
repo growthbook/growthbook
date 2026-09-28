@@ -14,6 +14,7 @@ import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import {
   createOAuthClient,
   getOAuthClientById,
+  getOAuthClientsByIds,
   touchOAuthClient,
 } from "back-end/src/models/OAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
@@ -217,14 +218,11 @@ export async function listOrgGrants(
   context: ApiReqContext,
 ): Promise<OrgOAuthGrant[]> {
   const grants = await context.models.oauthGrants.getActiveForOrg();
-  const clientIds = [...new Set(grants.map((g) => g.clientId))];
   const [clients, users] = await Promise.all([
-    Promise.all(clientIds.map((id) => getOAuthClientById(id))),
+    getOAuthClientsByIds([...new Set(grants.map((g) => g.clientId))]),
     context.getUsersByIds([...new Set(grants.map((g) => g.userId))]),
   ]);
-  const clientById = new Map(
-    clients.flatMap((c) => (c ? [[c.clientId, c] as const] : [])),
-  );
+  const clientById = new Map(clients.map((c) => [c.clientId, c]));
   const userById = new Map(users.map((u) => [u.id, u]));
 
   return grants
