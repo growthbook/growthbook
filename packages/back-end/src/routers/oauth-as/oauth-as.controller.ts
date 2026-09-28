@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { oauthDcrRequestValidator } from "shared/validators";
+import { isOAuthClientAllowed } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -187,14 +188,25 @@ export async function getAuthorizeInfoHandler(
     const info = await getAuthorizeInfo({ clientId, redirectUri });
     const memberOrgs = await findOrganizationsByMemberId(req.userId);
     // An org app can only be authorized into the org that registered it.
-    const orgs = info.organization
+    const eligibleOrgs = info.organization
       ? memberOrgs.filter((o) => o.id === info.organization)
       : memberOrgs;
-    if (info.organization && !orgs.length) {
+    if (info.organization && !eligibleOrgs.length) {
       return res.status(403).json({
         status: 403,
         message:
           "This application is registered to an organization you are not a member of",
+      });
+    }
+    // Refuse before consent, not after: the token endpoint would reject it anyway.
+    const orgs = eligibleOrgs.filter((o) =>
+      isOAuthClientAllowed(o.settings, info.clientId),
+    );
+    if (eligibleOrgs.length && !orgs.length) {
+      return res.status(403).json({
+        status: 403,
+        message:
+          "This application is not allowed by your organization's OAuth access setting",
       });
     }
 
