@@ -61,9 +61,16 @@ const OAuthGrantsTable: FC<{
             {grants.map((grant) => (
               <TableRow key={`${grant.clientId}:${grant.userId}`}>
                 <TableCell>
-                  <Text as="div">{grant.userName || grant.userEmail}</Text>
+                  <Text as="div" overflowWrap="anywhere">
+                    {grant.userName || grant.userEmail}
+                  </Text>
                   {grant.userName && (
-                    <Text as="div" size="sm" color="text-low">
+                    <Text
+                      as="div"
+                      size="sm"
+                      color="text-low"
+                      overflowWrap="anywhere"
+                    >
                       {grant.userEmail}
                     </Text>
                   )}
