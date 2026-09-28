@@ -1,6 +1,10 @@
 import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
-import { SqlIdentifierQuote, TemplateVariables } from "shared/types/sql";
+import {
+  SqlDialect,
+  SqlIdentifierQuote,
+  TemplateVariables,
+} from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
@@ -15,7 +19,10 @@ import {
   ExposureQuery,
   FeatureUsageQuery,
 } from "shared/types/datasource";
-import { FactTableColumnType } from "shared/types/fact-table";
+import {
+  DetectedFactTableColumn,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import { FeatureInterface } from "shared/types/feature";
 import { QueryStatistics, QueryType } from "shared/types/query";
 import {
@@ -25,6 +32,7 @@ import {
   redactSecretParams,
 } from "shared/util";
 import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
+import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -166,9 +174,23 @@ export function getSourceIntegrationObject(
 export function getIntegrationIdentifierQuote(
   integration: SourceIntegrationInterface,
 ): SqlIdentifierQuote {
+  return getIntegrationSqlDialect(integration)?.identifierQuote ?? '"';
+}
+
+// The SQL dialect backing an integration, or null for non-SQL sources
+// (e.g. Mixpanel), which have no dialect to generate SQL with.
+export function getIntegrationSqlDialect(
+  integration: SourceIntegrationInterface,
+): SqlDialect | null {
   return integration instanceof SqlIntegration
-    ? integration.getSqlDialect().identifierQuote
-    : '"';
+    ? integration.getSqlDialect()
+    : null;
+}
+
+// Wraps a SQL identifier (column, alias) in the dialect's quote character,
+// escaping any embedded quotes by doubling them (ANSI SQL convention).
+export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
+  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
 }
 
 export async function testDataSourceConnection(
@@ -348,11 +370,14 @@ export async function testQuery(
   templateVariables?: TemplateVariables,
   limit?: number,
   timestampColumn?: string,
+  // Return detected output columns along with sampled rows.
+  detectColumns?: boolean,
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
   error?: string;
   sql?: string;
+  columns?: DetectedFactTableColumn[];
 }> {
   if (!context.permissions.canRunTestQueries(datasource)) {
     throw new Error("Permission denied");
@@ -365,6 +390,8 @@ export async function testQuery(
     throw new Error("Unable to test query.");
   }
 
+  const timestampCols = timestampColumn ? [timestampColumn] : ["timestamp"];
+
   const sql = integration.getTestQuery({
     query,
     templateVariables,
@@ -373,15 +400,19 @@ export async function testQuery(
     timestampColumn,
   });
   try {
-    const { results, duration } = await integration.runTestQuery(
+    const result = await integration.runTestQuery(
       sql,
-      timestampColumn ? [timestampColumn] : ["timestamp"],
+      timestampCols,
       "testQuery",
     );
+
     return {
-      results,
-      duration,
+      results: result.results,
+      duration: result.duration,
       sql,
+      ...(detectColumns
+        ? { columns: detectColumnsFromQueryResult(result) }
+        : {}),
     };
   } catch (e) {
     return {

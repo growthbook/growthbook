@@ -8,7 +8,7 @@ import {
   VisualChangesetUpdates,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
+import { requireVisualChangeWrite } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { requireCbEditable } from "back-end/src/api/visual-editor-ai/requireCbEditable";
 
 export const putVisualChangeset = createApiRequestHandler(
@@ -23,7 +23,7 @@ export const putVisualChangeset = createApiRequestHandler(
   }
 
   const updates: VisualChangesetUpdates = {
-    ...omit(req.body, ["urlPatterns"]),
+    ...omit(req.body, ["urlPatterns", "allowRunningExperiment"]),
     ...(req.body.urlPatterns !== undefined
       ? {
           urlPatterns: req.body.urlPatterns.map((p) => ({
@@ -79,7 +79,11 @@ export const putVisualChangeset = createApiRequestHandler(
   if (!req.context.permissions.canUpdateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }
-  requireDraftExperiment(req.context, experiment);
+  // Re-checked on every save so a stale editor can't clobber a test started since it loaded.
+  const auditLiveEdit = requireVisualChangeWrite(req, experiment, {
+    allowRunning: !!req.body.allowRunningExperiment,
+    visualChangesetId: visualChangeset.id,
+  });
 
   const res = await updateVisualChangeset({
     visualChangeset,
@@ -87,6 +91,7 @@ export const putVisualChangeset = createApiRequestHandler(
     context: req.context,
     updates,
   });
+  await auditLiveEdit();
 
   const updatedVisualChangeset = await findVisualChangesetById(
     req.params.id,

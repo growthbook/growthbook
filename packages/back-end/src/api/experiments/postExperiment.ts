@@ -29,6 +29,11 @@ import {
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
+import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
+import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
 } from "./validations";
@@ -333,6 +338,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         incoming: payload.statusUpdateSchedule,
       });
     }
+
+    await validateChangedPhaseReferences(newExperiment.phases, [], req.context);
+    await assertValidExperimentPrerequisites(
+      req.context,
+      phasePrerequisites(newExperiment.phases),
+    );
 
     const experiment = await createExperiment({
       data: newExperiment,

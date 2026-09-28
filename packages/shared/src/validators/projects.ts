@@ -21,6 +21,8 @@ export const projectValidator = baseSchema
     publicId: z.string().optional(),
     settings: projectSettingsValidator.optional(),
     managedBy: managedByValidator.optional(),
+    restrictAccess: z.boolean().optional(),
+    allowTargeting: z.boolean().optional(),
   })
   .strict();
 
@@ -44,6 +46,18 @@ export const apiProjectValidator = namedSchema(
         .string()
         .describe(
           "URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided.",
+        )
+        .optional(),
+      restrictAccess: z
+        .boolean()
+        .describe(
+          "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access.",
+        )
+        .optional(),
+      allowTargeting: z
+        .boolean()
+        .describe(
+          "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
         )
         .optional(),
       settings: z
@@ -88,6 +102,18 @@ const postProjectBody = z
         "Project stats settings that, when set, override the organization settings.",
       )
       .optional(),
+    restrictAccess: z
+      .boolean()
+      .describe(
+        "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
+      )
+      .optional(),
+    allowTargeting: z
+      .boolean()
+      .describe(
+        "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -120,6 +146,18 @@ const putProjectBody = z
       })
       .describe(
         "Project stats settings that, when set, override the organization settings.",
+      )
+      .optional(),
+    restrictAccess: z
+      .boolean()
+      .describe(
+        "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
+      )
+      .optional(),
+    allowTargeting: z
+      .boolean()
+      .describe(
+        "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
       )
       .optional(),
   })

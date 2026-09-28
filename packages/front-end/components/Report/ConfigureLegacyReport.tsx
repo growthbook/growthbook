@@ -184,7 +184,6 @@ export default function ConfigureLegacyReport({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       inline={true}
       header=""
@@ -388,6 +387,7 @@ export default function ConfigureLegacyReport({
         labelClassName="font-weight-bold"
         showHelp={true}
         newUi={false}
+        enableCustomDimensions={false}
       />
       <SelectField
         size="legacy"

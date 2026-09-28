@@ -22,6 +22,7 @@ type SelectProps = {
   size?: SelectSize;
   placeholder?: string;
   variant?: "classic" | "surface" | "soft" | "ghost";
+  autoFocus?: boolean;
   style?: React.CSSProperties;
   triggerClassName?: string;
   align?: "start" | "center" | "end";
@@ -44,6 +45,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     size = "md",
     placeholder,
     variant = "surface",
+    autoFocus,
     triggerClassName,
     align = "start",
     container,
@@ -73,6 +75,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         onValueChange={setValue}
       >
         <RadixSelect.Trigger
+          autoFocus={autoFocus}
           placeholder={placeholder}
           className={clsx(triggerClassName, { error: error })}
           disabled={disabled}

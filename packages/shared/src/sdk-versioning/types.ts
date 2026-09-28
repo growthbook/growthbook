@@ -17,7 +17,8 @@ export type SDKCapability =
   | "namespacesV2"
   | "contextualBandits"
   | "contextualBanditsAuto"
-  | "trackingPlugin";
+  | "trackingPlugin"
+  | "savedGroupReferencesV2";
 
 export type CapabilityStrategy =
   | "min-ver-intersection" // intersection of capabilities using default SDK versions

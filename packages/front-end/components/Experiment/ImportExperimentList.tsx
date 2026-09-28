@@ -255,7 +255,6 @@ const ImportExperimentList: FC<{
                 }}
               >
                 <RunQueriesButton
-                  useRadixButton={false}
                   cta={
                     data.experiments.latestData ? "Get New Data" : "Run Query"
                   }

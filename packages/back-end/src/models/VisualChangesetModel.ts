@@ -175,6 +175,13 @@ export async function findVisualChangesetsByExperiment(
   return visualChangesets.map(toInterface);
 }
 
+export async function countVisualChangesetsByExperiment(
+  experiment: string,
+  organization: string,
+): Promise<number> {
+  return VisualChangesetModel.countDocuments({ experiment, organization });
+}
+
 export async function findVisualChangesetsByExperimentIds(
   experimentIds: string[],
   organization: string,
@@ -255,45 +262,49 @@ function isDefinedString(v: string | undefined | null): v is string {
 }
 
 export async function createVisualChange(
+  context: ReqContext | ApiReqContext,
   id: string,
-  organization: string,
   visualChange: VisualChange,
 ): Promise<{ nModified: number }> {
-  const visualChangeset = await VisualChangesetModel.findOne({
-    id,
-    organization,
-  });
+  const organization = context.org.id;
+  const visualChangeset = await findVisualChangesetById(id, organization);
 
   if (!visualChangeset) {
     throw new Error("Visual Changeset not found");
   }
 
+  const visualChanges = [...visualChangeset.visualChanges, visualChange];
   const res = await VisualChangesetModel.updateOne(
     {
       id,
       organization,
     },
     {
-      $set: {
-        visualChanges: [...visualChangeset.visualChanges, visualChange],
-      },
+      $set: { visualChanges },
     },
   );
+
+  await onVisualChangesetUpdate({
+    context,
+    oldVisualChangeset: visualChangeset,
+    newVisualChangeset: { ...visualChangeset, visualChanges },
+  });
 
   return { nModified: res.modifiedCount };
 }
 
 export async function updateVisualChange({
+  context,
   changesetId,
   visualChangeId,
-  organization,
   payload,
 }: {
+  context: ReqContext | ApiReqContext;
   changesetId: string;
   visualChangeId: string;
-  organization: string;
   payload: Partial<VisualChange>;
 }): Promise<{ nModified: number }> {
+  const organization = context.org.id;
   const visualChangeset = await findVisualChangesetById(
     changesetId,
     organization,
@@ -325,6 +336,12 @@ export async function updateVisualChange({
       $set: { visualChanges },
     },
   );
+
+  await onVisualChangesetUpdate({
+    context,
+    oldVisualChangeset: visualChangeset,
+    newVisualChangeset: { ...visualChangeset, visualChanges },
+  });
 
   return { nModified: res.modifiedCount };
 }
@@ -416,9 +433,12 @@ export const createVisualChangesetForCb = async ({
 
   let updatedCb = contextualBandit;
   if (!contextualBandit.hasVisualChangesets) {
-    updatedCb = await context.models.contextualBandits.update(contextualBandit, {
-      hasVisualChangesets: true,
-    });
+    updatedCb = await context.models.contextualBandits.update(
+      contextualBandit,
+      {
+        hasVisualChangesets: true,
+      },
+    );
   }
 
   await refreshLinkedFeaturePayloads(
@@ -585,11 +605,7 @@ const onVisualChangesetUpdate = async ({
       newVisualChangeset.contextualBandit,
     );
     if (!cb) return;
-    await refreshLinkedFeaturePayloads(
-      context,
-      cb,
-      "contextualBandit.refresh",
-    );
+    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
     return;
   }
 
@@ -628,11 +644,7 @@ const onVisualChangesetDelete = async ({
       visualChangeset.contextualBandit,
     );
     if (!cb) return;
-    await refreshLinkedFeaturePayloads(
-      context,
-      cb,
-      "contextualBandit.refresh",
-    );
+    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
     return;
   }
 

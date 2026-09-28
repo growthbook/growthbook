@@ -40,6 +40,8 @@ export interface TextProps {
   whiteSpace?: TextWhiteSpace;
   fontStyle?: TextFontStyle;
   textTransform?: "uppercase" | "lowercase" | "capitalize";
+  /** Identifiers, keys, and other machine-facing strings. */
+  mono?: boolean;
 
   // Margin props
   m?: RadixTextProps["m"];
@@ -69,6 +71,7 @@ export default forwardRef<
     fontStyle = "normal",
     truncate = false,
     textTransform,
+    mono = false,
     m,
     mx,
     my,
@@ -87,6 +90,7 @@ export default forwardRef<
     ...(truncate ? {} : { whiteSpace }),
   };
   if (textTransform) style.textTransform = textTransform;
+  if (mono) style.fontFamily = "var(--font-mono, monospace)";
 
   if (color === "text-high") {
     style.color = "var(--color-text-high)";

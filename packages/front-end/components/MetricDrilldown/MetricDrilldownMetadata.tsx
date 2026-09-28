@@ -1,9 +1,17 @@
 import { Flex, Tooltip } from "@radix-ui/themes";
 import { MdSwapCalls } from "react-icons/md";
-import { quantileMetricType, isFactMetric } from "shared/experiments";
+import {
+  getLowerCappingSettings,
+  isAbsoluteCappedMetric,
+  isFactMetric,
+  isLowerAbsoluteCappedMetric,
+  isLowerPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
+  quantileMetricType,
+} from "shared/experiments";
+import { LookbackOverride } from "shared/validators";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { StatsEngine } from "shared/types/stats";
-import { LookbackOverride } from "shared/validators";
 import { date } from "shared/dates";
 import Metadata from "@/ui/Metadata";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
@@ -13,6 +21,14 @@ import {
   isNullUndefinedOrEmpty,
 } from "@/services/utils";
 import { ExperimentTableRow } from "@/services/experiments";
+
+/** Percentile value shown as a percentage, with an optional zero-handling note. */
+function formatPercentileCap(
+  value: number | undefined,
+  ignoreZeros: boolean | null | undefined,
+) {
+  return `${100 * (value as number)}%${ignoreZeros ? " (ignore zeros)" : ""}`;
+}
 
 export function MetricDrilldownMetadata({
   statsEngine,
@@ -24,6 +40,9 @@ export function MetricDrilldownMetadata({
   row: ExperimentTableRow;
 }) {
   const { metric, metricOverrideFields, metricSnapshotSettings } = row;
+
+  const cappingSettings = metric.cappingSettings;
+  const lowerCappingSettings = getLowerCappingSettings(metric);
 
   return (
     <Flex gap="4">
@@ -76,15 +95,35 @@ export function MetricDrilldownMetadata({
         </>
       ) : null}
 
-      {!isNullUndefinedOrEmpty(metric.cappingSettings.type) &&
-      (metric.cappingSettings.value ?? 0) !== 0 ? (
+      {isUpperPercentileCappedMetric(metric) ? (
         <Metadata
-          label={`Capping (${metric.cappingSettings.type})`}
-          value={metric.cappingSettings.value}
+          label="Percentile (ceiling)"
+          value={formatPercentileCap(
+            cappingSettings.value,
+            cappingSettings.ignoreZeros,
+          )}
         />
-      ) : (
-        <Metadata label="Capping" value="Disabled" />
-      )}
+      ) : isAbsoluteCappedMetric(metric) ? (
+        <Metadata
+          label="Maximum user value"
+          value={`${cappingSettings.value}`}
+        />
+      ) : null}
+
+      {isLowerPercentileCappedMetric(metric) ? (
+        <Metadata
+          label="Percentile (floor)"
+          value={formatPercentileCap(
+            lowerCappingSettings?.value,
+            lowerCappingSettings?.ignoreZeros,
+          )}
+        />
+      ) : isLowerAbsoluteCappedMetric(metric) ? (
+        <Metadata
+          label="Minimum user value"
+          value={`${lowerCappingSettings?.value}`}
+        />
+      ) : null}
 
       {/* Brute force show override from latest experiment settings, but we could instead show computed window from 
       metricForSnapshot, but would require potentially reconstructing more settings*/}

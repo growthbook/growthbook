@@ -24,7 +24,7 @@ export default function AgentLauncher() {
         onToggleExpanded={toggleExpanded}
       />
       {/* Keep the live chat widget from overlapping the panel while it's open. */}
-      <PylonChatVisibility />
+      <PylonChatVisibility hidden={open} />
     </>
   );
 }

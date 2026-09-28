@@ -29,6 +29,10 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { DataSourceInterface } from "shared/types/datasource";
+import {
+  notifyHoldoutCreated,
+  notifyHoldoutStatusChanged,
+} from "back-end/src/services/holdoutNotifications";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -501,6 +505,8 @@ export async function createHoldoutWithExperiment(
     linkedExperiments: {},
   });
 
+  await notifyHoldoutCreated({ context, holdout });
+
   return { holdout, experiment, datasource, metricIds };
 }
 
@@ -942,8 +948,12 @@ export async function setHoldoutStage(
       experiment,
       changes,
     });
+    let updatedHoldout: HoldoutInterface;
     try {
-      await context.models.holdout.update(holdout, holdoutChanges);
+      updatedHoldout = await context.models.holdout.update(
+        holdout,
+        holdoutChanges,
+      );
     } catch (e) {
       const reverted = await rollbackExperimentAfterHoldoutFailure(
         context,
@@ -959,6 +969,12 @@ export async function setHoldoutStage(
       );
       throw e;
     }
+    await notifyHoldoutStatusChanged({
+      context,
+      holdout: updatedHoldout,
+      previousStatus: currentStage,
+      currentStatus: getHoldoutStage(updatedHoldout, updatedExperiment),
+    });
     refreshPayload(event);
   };
 

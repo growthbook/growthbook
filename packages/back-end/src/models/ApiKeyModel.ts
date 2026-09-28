@@ -147,7 +147,7 @@ export class ApiKeyModel extends BaseClass {
         doc.role !== "admin" &&
         !this.context.limits.orgSupportsRoles()
       ) {
-        this.context.throwBadRequestError(
+        this.context.throwPaymentRequiredError(
           "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
         );
       }

@@ -70,7 +70,7 @@ function computeBlockers(
       display: (
         <>
           Link at least one Feature Flag or Visual Editor change before this
-          contextual bandit can start
+          Contextual Bandit can start
         </>
       ),
     });
@@ -132,7 +132,7 @@ function computeBlockers(
         display: (
           <>
             The feature draft revision in {featureLink(f)} contains additional
-            changes unrelated to this contextual bandit.
+            changes unrelated to this Contextual Bandit.
           </>
         ),
       });

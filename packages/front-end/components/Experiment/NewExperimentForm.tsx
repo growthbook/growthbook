@@ -306,7 +306,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       hashAttribute: initialHashAttribute,
       hashVersion:
         initialValue?.hashVersion || (initialHasSDKWithNoBucketingV2 ? 1 : 2),
-      disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
+      disableStickyBucketing:
+        initialValue?.disableStickyBucketing ??
+        !settings.stickyBucketingOnByDefault,
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??
@@ -849,7 +851,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
-        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}

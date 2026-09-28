@@ -5,6 +5,8 @@ sidebarTitle: SDK Webhooks
 slug: /app/webhooks/sdk-webhooks
 ---
 
+import CloudEgressIP from '/snippets/partials/_cloud-egress-ip.mdx';
+
 GrowthBook has SDK-based webhooks that trigger a script on your server whenever something changes within GrowthBook which will affect that SDK.
 
 ## Adding a Webhook
@@ -15,11 +17,11 @@ Under the SDK Webhooks section you can add a webhook.
 
 There are built-in webhook types for syncing to **Cloudflare KV**, **Fastly KV**, and **Vercel Edge Config**. For everything else, you can configure a generic **HTTP Endpoint** to be hit.
 
-Once a SDK webhook is created you will be able to view the status and fire a test event.
+Once an SDK webhook is created you will be able to view the status and fire a test event.
 
 ### VPCs and Firewalls
 
-If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
+<CloudEgressIP />
 
 ## Verify Signatures
 
@@ -133,7 +135,7 @@ For all methods other than `GET`, you may send a payload body. By default, webho
 
 ### Standard
 
-Follows the **Standard Webhooks** specification. Inludes a JSON-encoded SDK Payload in the `data.payload` field.
+Follows the **Standard Webhooks** specification. Includes a JSON-encoded SDK Payload in the `data.payload` field.
 
 Example payload:
 

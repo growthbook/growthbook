@@ -62,6 +62,7 @@ interface CreateSdkConnectionRequestBody
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeReferencedPrerequisites?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }

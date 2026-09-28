@@ -132,6 +132,8 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       result.health = {
         traffic: trafficHealth,
       };
+      result.multipleExposures =
+        trafficHealth.multipleExposures ?? result.multipleExposures;
     }
     // TODO: Add functionality to dynamically update coverage here
     return result;

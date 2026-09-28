@@ -788,6 +788,57 @@ describe("BaseModel", () => {
     );
   });
 
+  it("checks update access even when the update is a no-op", async () => {
+    const model = new TestModel(defaultContext);
+    model.canUpdateMock.mockReturnValue(false);
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    await expect(model.update(existing, { name: "foo" })).rejects.toEqual(
+      new Error("You do not have access to update this resource"),
+    );
+    expect(updateOneMock).not.toHaveBeenCalled();
+  });
+
+  it("gates a no-op update on the payload as submitted, not on {}", async () => {
+    const model = new TestModel(defaultContext);
+    // Key-aware canUpdate, like ApiKeyModel's `disabled`-only allowlist.
+    model.canUpdateMock.mockImplementation(
+      (_existing, updates) =>
+        Object.keys(updates).length === 1 && "name" in updates,
+    );
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    await expect(model.update(existing, { name: "foo" })).resolves.toEqual(
+      existing,
+    );
+    expect(model.canUpdateMock).toHaveBeenCalledWith(
+      existing,
+      { name: "foo" },
+      expect.objectContaining({ name: "foo" }),
+    );
+    expect(updateOneMock).not.toHaveBeenCalled();
+  });
+
   it("raises an error when attempting to update a read-only field", () => {
     const model = new TestModel(defaultContext);
     model.canUpdateMock.mockReturnValue(true);

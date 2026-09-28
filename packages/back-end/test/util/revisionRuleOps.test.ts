@@ -1,5 +1,6 @@
 import { FeatureRule } from "shared/types/feature";
 import {
+  insertRuleBefore,
   moveRuleInEnv,
   projectRulesForEnv,
   removeRuleAtEnvIndex,
@@ -165,5 +166,29 @@ describe("stampRuleForEnvs", () => {
     const stamped = stampRuleForEnvs(r, ["dev"]);
     expect(stamped.allEnvironments).toBe(false);
     expect(stamped.environments).toEqual(["dev"]);
+  });
+});
+
+describe("insertRuleBefore", () => {
+  it("inserts directly above the anchor rule", () => {
+    const rules = [allEnvRule("a"), allEnvRule("b"), allEnvRule("c")];
+    const next = insertRuleBefore(rules, allEnvRule("new"), "b");
+    expect(next.map((r) => r.id)).toEqual(["a", "new", "b", "c"]);
+    expect(rules.map((r) => r.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("appends when the anchor id is missing", () => {
+    const rules = [allEnvRule("a")];
+    const next = insertRuleBefore(rules, allEnvRule("new"), "gone");
+    expect(next.map((r) => r.id)).toEqual(["a", "new"]);
+  });
+
+  it("appends when no anchor is given", () => {
+    const next = insertRuleBefore(
+      [allEnvRule("a")],
+      allEnvRule("new"),
+      undefined,
+    );
+    expect(next.map((r) => r.id)).toEqual(["a", "new"]);
   });
 });

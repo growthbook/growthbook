@@ -307,7 +307,7 @@ Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook inst
 
 #### Synchronous Init
 
-There is a alternate synchronous version of init named `initSync`, which can be especially useful in SSR to prevent hydration mismatches. There are some restrictions/differences:
+There is an alternate synchronous version of init named `initSync`, which can be especially useful in SSR to prevent hydration mismatches. There are some restrictions/differences:
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
@@ -499,7 +499,7 @@ This same tracking callback is used for both feature flag experiments and Visual
 
 ### Feature Flag Experiments
 
-There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+Evaluating the feature is what enrolls a user and fires `trackingCallback`. See [Feature Flag Experiments](/features/feature-flag-experiments).
 
 ```js
 // If this has an active experiment and the user is included,
@@ -569,7 +569,7 @@ Sticky bucketing ensures that users see the same experiment variant, even when u
 - `LocalStorageStickyBucketService` —
   For simple bucket persistence using the browser's LocalStorage (can be polyfilled for other environments).
 
-- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `expires: {days}` into the constructor's `cookieAttributes`.
+- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `expires: {days}` into the constructor's `cookieAttributes`. If your site sits behind a Web Application Firewall, see [Sticky Bucket Cookies and WAF False Positives](/kb/sdks/sticky-bucket-cookie-encoding).
 
 - Build your own — Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations (ex: read/write to both cookies and Redis).
 
@@ -1137,7 +1137,7 @@ const isDarkModeOn = useFeatureIsOn("dark_mode");
 
 - [Next.js <ExternalLink />](https://github.com/growthbook/examples/tree/main/next-js)
 - [React Native <ExternalLink />](https://github.com/growthbook/examples/tree/main/react-native-cli)
-- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+- [TypeScript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
 
 ## Supported Features
 

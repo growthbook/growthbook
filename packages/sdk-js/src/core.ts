@@ -245,6 +245,7 @@ export function evalFeature<V = unknown>(
           const evaled = evalCondition(
             evalObj,
             parentCondition.condition || {},
+            ctx.global.savedGroups || {},
           );
           if (!evaled) {
             // blocking prerequisite eval failed: feature evaluation fails
@@ -614,7 +615,13 @@ export function runExperiment<T>(
         }
 
         const evalObj = { value: parentResult.value };
-        if (!evalCondition(evalObj, parentCondition.condition || {})) {
+        if (
+          !evalCondition(
+            evalObj,
+            parentCondition.condition || {},
+            ctx.global.savedGroups || {},
+          )
+        ) {
           process.env.NODE_ENV !== "production" &&
             ctx.global.log("Skip because prerequisite evaluation fails", {
               id: key,

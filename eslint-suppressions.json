@@ -1,4 +1,9 @@
 {
+  "packages/back-end/src/enterprise/models/ContextualBanditModel.ts": {
+    "import/order": {
+      "count": 1
+    }
+  },
   "packages/back-end/src/events/handlers/legacy.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
@@ -1197,11 +1202,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Metrics/MetricForm/MetricCappingSettingsForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Metrics/MetricForm/MetricDelaySettings.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -1284,11 +1284,6 @@
     },
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Projects/ProjectModal.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
     }
   },
   "packages/front-end/components/Queries/AsyncQueriesModal.tsx": {
@@ -1445,9 +1440,6 @@
   "packages/front-end/components/SchemaBrowser/SqlExplorerModal.tsx": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Search/SearchFilters.tsx": {
@@ -1654,11 +1646,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Settings/SharedConnectionSettings.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Settings/SubscriptionInfo.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -1755,11 +1742,6 @@
     },
     "no-restricted-syntax": {
       "count": 5
-    }
-  },
-  "packages/front-end/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/components/SqlExplorer/BigValueChart.tsx": {

@@ -3,6 +3,25 @@ import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
+/**
+ * The three ways Saved Groups can be written into an SDK payload.
+ *
+ * - `inline`: put each group's values straight into the conditions, using
+ *   `$in` and `$nin`. The payload has no `savedGroups` field. For SDKs that
+ *   cannot look up a reference at all.
+ * - `referencesV1`: ID list groups become `$inGroup` or `$notInGroup`, looked
+ *   up in a map of plain value arrays. Condition groups have no reference form
+ *   here, so their conditions still go inline.
+ * - `referencesV2`: every group becomes a `$savedGroup` reference, looked up in
+ *   a map of typed entries.
+ */
+export const savedGroupFormatValidator = z.enum([
+  "inline",
+  "referencesV1",
+  "referencesV2",
+]);
+export type SavedGroupFormat = z.infer<typeof savedGroupFormatValidator>;
+
 // Corresponds to schemas/SdkConnection.yaml
 export const apiSdkConnectionValidator = namedSchema(
   "SdkConnection",
@@ -47,7 +66,16 @@ export const apiSdkConnectionValidator = namedSchema(
       sseEnabled: z.boolean().optional(),
       hashSecureAttributes: z.boolean().optional(),
       remoteEvalEnabled: z.boolean().optional(),
-      savedGroupReferencesEnabled: z.boolean().optional(),
+      savedGroupReferencesEnabled: z
+        .boolean()
+        .optional()
+        .describe("Deprecated. Use `savedGroupFormat`."),
+      savedGroupFormat: savedGroupFormatValidator
+        .optional()
+        .describe(
+          "How Saved Groups are written into this connection's payload. `referencesV2` needs an SDK version that supports it; the payload steps down to `referencesV1` if not.",
+        ),
+      includeReferencedPrerequisites: z.boolean().optional(),
     })
     .strict(),
 );
@@ -83,7 +111,17 @@ const postSdkConnectionBody = z
     proxyHost: z.string().optional(),
     hashSecureAttributes: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
-    savedGroupReferencesEnabled: z.boolean().optional(),
+    savedGroupReferencesEnabled: z
+      .boolean()
+      .optional()
+      .describe("Deprecated. Use `savedGroupFormat`."),
+    savedGroupFormat: savedGroupFormatValidator.optional(),
+    includeReferencedPrerequisites: z
+      .boolean()
+      .optional()
+      .describe(
+        "Carry prerequisite Feature Flags into this payload even when they target other Projects. Defaults to true for new connections.",
+      ),
   })
   .strict();
 

@@ -1,7 +1,7 @@
 import uniqid from "uniqid";
 import { postVisualChangeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
+import { requireVisualChangeWrite } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { requireCbEditable } from "back-end/src/api/visual-editor-ai/requireCbEditable";
 import {
   createVisualChange,
@@ -20,6 +20,9 @@ export const postVisualChange = createApiRequestHandler(
     throw new Error("Visual Changeset not found");
   }
 
+  // The opt-in flag gates the write; it is not part of the visual change.
+  const { allowRunningExperiment, ...body } = req.body;
+
   if (visualChangeset.contextualBandit) {
     const cb = await req.context.models.contextualBandits.getById(
       visualChangeset.contextualBandit,
@@ -32,13 +35,13 @@ export const postVisualChange = createApiRequestHandler(
     }
     requireCbEditable(req.context, cb);
 
-    const visualChangeId = req.body.id ?? uniqid("vc_");
-    const res = await createVisualChange(req.params.id, req.organization.id, {
-      ...req.body,
+    const visualChangeId = body.id ?? uniqid("vc_");
+    const res = await createVisualChange(req.context, req.params.id, {
+      ...body,
       id: visualChangeId,
-      description: req.body.description ?? "",
-      css: req.body.css ?? "",
-      domMutations: req.body.domMutations ?? [],
+      description: body.description ?? "",
+      css: body.css ?? "",
+      domMutations: body.domMutations ?? [],
     });
     return { ...res, visualChangeId };
   }
@@ -55,17 +58,21 @@ export const postVisualChange = createApiRequestHandler(
   if (!req.context.permissions.canCreateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }
-  requireDraftExperiment(req.context, experiment);
-
-  const visualChangeId = req.body.id ?? uniqid("vc_");
-
-  const res = await createVisualChange(req.params.id, req.organization.id, {
-    ...req.body,
-    id: visualChangeId,
-    description: req.body.description ?? "",
-    css: req.body.css ?? "",
-    domMutations: req.body.domMutations ?? [],
+  const auditLiveEdit = requireVisualChangeWrite(req, experiment, {
+    allowRunning: !!allowRunningExperiment,
+    visualChangesetId: req.params.id,
   });
+
+  const visualChangeId = body.id ?? uniqid("vc_");
+
+  const res = await createVisualChange(req.context, req.params.id, {
+    ...body,
+    id: visualChangeId,
+    description: body.description ?? "",
+    css: body.css ?? "",
+    domMutations: body.domMutations ?? [],
+  });
+  await auditLiveEdit();
 
   return { ...res, visualChangeId };
 });

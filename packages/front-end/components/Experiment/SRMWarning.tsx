@@ -94,7 +94,6 @@ const SRMWarning: FC<{
     <>
       {type === "with_modal" && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType="srm-warning"
           close={() => setOpen(false)}
           open={open}

@@ -1,7 +1,12 @@
 import { addDays, differenceInHours, differenceInMinutes } from "date-fns";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getLatestPhaseVariations,
+} from "shared/experiments";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   DecisionCriteriaAction,
+  DecisionCriteriaCondition,
   DecisionCriteriaData,
   DecisionCriteriaRule,
   DecisionFrameworkExperimentRecommendationStatus,
@@ -36,8 +41,44 @@ import {
   PRESET_DECISION_CRITERIAS,
 } from "./constants";
 
-// Evaluate a single rule on a variation result
-// Returns the action if the rule is met, otherwise undefined
+export type MatchResult = "matched" | "not-matched" | "indeterminate";
+
+// Errored metrics make a condition indeterminate unless known metrics decide it.
+function evaluateConditionMatch({
+  values,
+  desiredStatus,
+  match,
+}: {
+  values: (string | undefined)[];
+  desiredStatus: string;
+  match: DecisionCriteriaCondition["match"];
+}): MatchResult {
+  const known = values.filter((v) => v !== "errored");
+  const anyErrored = values.some((v) => v === "errored");
+
+  switch (match) {
+    case "all":
+      if (known.some((v) => v !== desiredStatus)) {
+        return "not-matched";
+      }
+      return anyErrored ? "indeterminate" : "matched";
+
+    case "any":
+      if (known.some((v) => v === desiredStatus)) {
+        return "matched";
+      }
+      return anyErrored ? "indeterminate" : "not-matched";
+
+    case "none":
+      if (known.some((v) => v === desiredStatus)) {
+        return "not-matched";
+      }
+      return anyErrored ? "indeterminate" : "matched";
+  }
+}
+
+// A rule matches when every condition holds. A definite non-match wins over
+// an unresolved condition elsewhere in the rule.
 export function evaluateDecisionRuleOnVariation({
   rule,
   variationStatus,
@@ -50,62 +91,136 @@ export function evaluateDecisionRuleOnVariation({
   goalMetrics: string[];
   guardrailMetrics: string[];
   requireSuperStatSig: boolean;
-}): DecisionCriteriaAction | undefined {
-  const { conditions, action } = rule;
+}): MatchResult {
+  const { conditions } = rule;
 
-  const allConditionsMet = conditions.every((condition) => {
+  let hasIndeterminateCondition = false;
+  for (const condition of conditions) {
     const desiredStatus =
       condition.direction === "statsigWinner"
         ? "won"
         : condition.direction === "statsigLoser"
           ? "lost"
           : "neutral";
-    if (condition.metrics === "goals") {
-      const metrics = goalMetrics;
-      const metricResults = variationStatus.goalMetrics;
 
-      const fieldToCheck = requireSuperStatSig
-        ? "superStatSigStatus"
-        : "status";
-
-      if (condition.match === "all") {
-        return metrics.every(
-          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus,
+    let values: (string | undefined)[];
+    switch (condition.metrics) {
+      case "goals": {
+        const fieldToCheck = requireSuperStatSig
+          ? "superStatSigStatus"
+          : "status";
+        values = goalMetrics.map(
+          (m) => variationStatus.goalMetrics?.[m]?.[fieldToCheck],
         );
-      } else if (condition.match === "any") {
-        return metrics.some(
-          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus,
-        );
-      } else if (condition.match === "none") {
-        return metrics.every(
-          (m) => metricResults?.[m]?.[fieldToCheck] !== desiredStatus,
-        );
+        break;
       }
-    } else if (condition.metrics === "guardrails") {
-      const metrics = guardrailMetrics;
-      const metricResults = variationStatus.guardrailMetrics;
 
-      if (condition.match === "all") {
-        return metrics.every(
-          (m) => metricResults?.[m]?.status === desiredStatus,
+      case "guardrails":
+        values = guardrailMetrics.map(
+          (m) => variationStatus.guardrailMetrics?.[m]?.status,
         );
-      } else if (condition.match === "any") {
-        return metrics.some(
-          (m) => metricResults?.[m]?.status === desiredStatus,
-        );
-      } else if (condition.match === "none") {
-        return metrics.every(
-          (m) => metricResults?.[m]?.status !== desiredStatus,
-        );
-      }
+        break;
     }
-  });
 
-  if (allConditionsMet) {
-    return action;
+    const result = evaluateConditionMatch({
+      values,
+      desiredStatus,
+      match: condition.match,
+    });
+
+    switch (result) {
+      case "matched":
+        continue;
+
+      case "not-matched":
+        return "not-matched";
+
+      case "indeterminate":
+        hasIndeterminateCondition = true;
+        continue;
+    }
   }
 
-  return undefined;
+  return hasIndeterminateCondition ? "indeterminate" : "matched";
+}
+
+type UndecidedVariation = DecisionFrameworkVariation & { decidingRule: null };
+
+export type VariationDecision =
+  | {
+      status: "decided";
+      variation: DecisionFrameworkVariation;
+      decisionCriteriaAction: DecisionCriteriaAction;
+    }
+  | { status: "pending"; variation: UndecidedVariation }
+  | { status: "indeterminate"; variation: UndecidedVariation };
+
+// Rollback takes priority; an unresolved higher rule blocks ship and review.
+function decideVariation({
+  variation,
+  rules,
+  goalMetrics,
+  guardrailMetrics,
+  requireSuperStatSig,
+  fallbackAction,
+}: {
+  variation: ExperimentAnalysisSummaryVariationStatus;
+  rules: DecisionCriteriaRule[];
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+  requireSuperStatSig: boolean;
+  fallbackAction: DecisionCriteriaAction | null;
+}): VariationDecision {
+  let hasIndeterminateRule = false;
+  const undecided: UndecidedVariation = {
+    variationId: variation.variationId,
+    decidingRule: null,
+  };
+
+  for (const rule of rules) {
+    const outcome = evaluateDecisionRuleOnVariation({
+      rule,
+      variationStatus: variation,
+      goalMetrics,
+      guardrailMetrics,
+      requireSuperStatSig,
+    });
+
+    switch (outcome) {
+      case "not-matched":
+        continue;
+
+      case "indeterminate":
+        hasIndeterminateRule = true;
+        continue;
+
+      case "matched":
+        if (rule.action === "rollback" || !hasIndeterminateRule) {
+          return {
+            status: "decided",
+            variation: {
+              variationId: variation.variationId,
+              decidingRule: rule,
+            },
+            decisionCriteriaAction: rule.action,
+          };
+        }
+        return { status: "indeterminate", variation: undecided };
+    }
+  }
+
+  if (hasIndeterminateRule) {
+    return { status: "indeterminate", variation: undecided };
+  }
+
+  if (fallbackAction !== null) {
+    return {
+      status: "decided",
+      variation: undecided,
+      decisionCriteriaAction: fallbackAction,
+    };
+  }
+  return { status: "pending", variation: undecided };
 }
 
 // Get the decision for each variation based on the decision criteria
@@ -121,68 +236,22 @@ export function getVariationDecisions({
   powerReached: boolean;
   goalMetrics: string[];
   guardrailMetrics: string[];
-}): {
-  variation: DecisionFrameworkVariation;
-  decisionCriteriaAction: DecisionCriteriaAction | null;
-}[] {
-  const results: {
-    variation: DecisionFrameworkVariation;
-    decisionCriteriaAction: DecisionCriteriaAction | null;
-  }[] = [];
-
-  const { rules } = decisionCriteria;
-
-  resultsStatus.variations.forEach((variation) => {
-    let decisionReached = false;
-    for (const rule of rules) {
-      const action = evaluateDecisionRuleOnVariation({
-        rule,
-        variationStatus: variation,
-        goalMetrics,
-        guardrailMetrics,
-        requireSuperStatSig: false,
-      });
-      if (action) {
-        results.push({
-          variation: {
-            variationId: variation.variationId,
-            decidingRule: rule,
-          },
-          decisionCriteriaAction: action,
-        });
-        decisionReached = true;
-        break;
-      }
-    }
-    if (!decisionReached) {
-      // if no decision was reached and power was reached, return the default action
-      if (powerReached) {
-        results.push({
-          variation: {
-            variationId: variation.variationId,
-            decidingRule: null,
-          },
-          decisionCriteriaAction: decisionCriteria.defaultAction,
-        });
-      } else {
-        // if no decision was reached and power was not reached (sequential testing), return null
-        results.push({
-          variation: {
-            variationId: variation.variationId,
-            decidingRule: null,
-          },
-          decisionCriteriaAction: null,
-        });
-      }
-    }
-  });
-
-  return results;
+}): VariationDecision[] {
+  return resultsStatus.variations.map((variation) =>
+    decideVariation({
+      variation,
+      rules: decisionCriteria.rules,
+      goalMetrics,
+      guardrailMetrics,
+      requireSuperStatSig: false,
+      // Without power (sequential testing) an unmatched variation stays pending.
+      fallbackAction: powerReached ? decisionCriteria.defaultAction : null,
+    }),
+  );
 }
 
-// Early stopping decision criteria requires "super stat sig" status
-// and does not use the fallback action, instead preferring to render
-// no result
+// Early stopping requires "super stat sig" status and never falls back to the
+// default action: only stop early on an explicitly met rule.
 export function getEarlyStoppingVariationDecisions({
   resultsStatus,
   decisionCriteria,
@@ -193,55 +262,17 @@ export function getEarlyStoppingVariationDecisions({
   decisionCriteria: DecisionCriteriaData;
   goalMetrics: string[];
   guardrailMetrics: string[];
-}): {
-  variation: DecisionFrameworkVariation;
-  decisionCriteriaAction: DecisionCriteriaAction | null;
-}[] {
-  const results: {
-    variation: DecisionFrameworkVariation;
-    decisionCriteriaAction: DecisionCriteriaAction | null;
-  }[] = [];
-
-  const { rules } = decisionCriteria;
-
-  resultsStatus.variations.forEach((variation) => {
-    let decisionReached = false;
-    for (const rule of rules) {
-      const action = evaluateDecisionRuleOnVariation({
-        rule,
-        variationStatus: variation,
-        goalMetrics,
-        guardrailMetrics,
-        requireSuperStatSig: true,
-      });
-      if (action) {
-        results.push({
-          variation: {
-            variationId: variation.variationId,
-            decidingRule: rule,
-          },
-          decisionCriteriaAction: action,
-        });
-        decisionReached = true;
-        break;
-      }
-    }
-    // If no decision was reached, return null, ignoring the fallback
-    // action since we only want to prematurely stop if the experiment has
-    // met one of the explicitly stated criteria with a clear level of
-    // evidence
-    if (!decisionReached) {
-      results.push({
-        variation: {
-          variationId: variation.variationId,
-          decidingRule: null,
-        },
-        decisionCriteriaAction: null,
-      });
-    }
-  });
-
-  return results;
+}): VariationDecision[] {
+  return resultsStatus.variations.map((variation) =>
+    decideVariation({
+      variation,
+      rules: decisionCriteria.rules,
+      goalMetrics,
+      guardrailMetrics,
+      requireSuperStatSig: true,
+      fallbackAction: null,
+    }),
+  );
 }
 export function getHealthSettings(
   settings?: OrganizationSettings,
@@ -261,6 +292,33 @@ export function getHealthSettings(
   };
 }
 
+function getErroredMetricIds({
+  resultsStatus,
+  goalMetrics,
+  guardrailMetrics,
+}: {
+  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+}): string[] {
+  const errored = new Set<string>();
+  for (const variation of resultsStatus.variations) {
+    for (const m of goalMetrics) {
+      const goal = variation.goalMetrics?.[m];
+      if (
+        goal?.status === "errored" ||
+        goal?.superStatSigStatus === "errored"
+      ) {
+        errored.add(m);
+      }
+    }
+    for (const m of guardrailMetrics) {
+      if (variation.guardrailMetrics?.[m]?.status === "errored") errored.add(m);
+    }
+  }
+  return [...errored];
+}
+
 export function getDecisionFrameworkStatus({
   resultsStatus,
   decisionCriteria,
@@ -271,6 +329,8 @@ export function getDecisionFrameworkStatus({
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
   decisionCriteria: DecisionCriteriaData;
+  // Member metric ids with any metric groups already expanded; resultsStatus
+  // is keyed by them.
   goalMetrics: string[];
   guardrailMetrics: string[];
   daysNeeded?: number;
@@ -305,6 +365,15 @@ export function getDecisionFrameworkStatus({
       : ""
   }`;
 
+  const dataIncomplete = (): ExperimentResultStatusData => ({
+    status: "data-incomplete",
+    erroredMetrics: getErroredMetricIds({
+      resultsStatus,
+      goalMetrics,
+      guardrailMetrics,
+    }),
+  });
+
   if (decisionReady) {
     const variationDecisions = getVariationDecisions({
       resultsStatus,
@@ -316,7 +385,10 @@ export function getDecisionFrameworkStatus({
 
     const allRollbackNow =
       variationDecisions.length > 0 &&
-      variationDecisions.every((d) => d.decisionCriteriaAction === "rollback");
+      variationDecisions.every(
+        (d) =>
+          d.status === "decided" && d.decisionCriteriaAction === "rollback",
+      );
     if (allRollbackNow) {
       return {
         status: "rollback-now",
@@ -328,8 +400,12 @@ export function getDecisionFrameworkStatus({
       };
     }
 
+    if (variationDecisions.some((d) => d.status === "indeterminate")) {
+      return dataIncomplete();
+    }
+
     const shipVariations = variationDecisions.filter(
-      (d) => d.decisionCriteriaAction === "ship",
+      (d) => d.status === "decided" && d.decisionCriteriaAction === "ship",
     );
     if (shipVariations.length > 0) {
       return {
@@ -346,7 +422,7 @@ export function getDecisionFrameworkStatus({
     // sequential results
     if (powerReached || scheduledEndPassed) {
       const reviewVariations = variationDecisions.filter(
-        (d) => d.decisionCriteriaAction === "review",
+        (d) => d.status === "decided" && d.decisionCriteriaAction === "review",
       );
       if (reviewVariations.length > 0) {
         return {
@@ -374,7 +450,8 @@ export function getDecisionFrameworkStatus({
     const allRollbackNow =
       superStatSigVariationDecisions.length > 0 &&
       superStatSigVariationDecisions.every(
-        (d) => d.decisionCriteriaAction === "rollback",
+        (d) =>
+          d.status === "decided" && d.decisionCriteriaAction === "rollback",
       );
     if (allRollbackNow) {
       return {
@@ -389,6 +466,12 @@ export function getDecisionFrameworkStatus({
       };
     }
 
+    if (
+      superStatSigVariationDecisions.some((d) => d.status === "indeterminate")
+    ) {
+      return dataIncomplete();
+    }
+
     // Early stopping should only say ship if one variation is a clear winner
     // and all other variations are clearly not winners
     // So only early stop if you have met shipping criteria with stat sig
@@ -399,11 +482,11 @@ export function getDecisionFrameworkStatus({
     // if you have many arms, where it requires more logic to determine if you have
     // a clear winner
     const shipVariations = superStatSigVariationDecisions.filter(
-      (d) => d.decisionCriteriaAction === "ship",
+      (d) => d.status === "decided" && d.decisionCriteriaAction === "ship",
     );
     const onlyOneShip = shipVariations.length === 1;
     const numberOfRollbackVariations = superStatSigVariationDecisions.filter(
-      (d) => d.decisionCriteriaAction === "rollback",
+      (d) => d.status === "decided" && d.decisionCriteriaAction === "rollback",
     ).length;
 
     const restRollback =
@@ -441,10 +524,14 @@ export function getExperimentResultStatus({
   experimentData,
   healthSettings,
   decisionCriteria,
+  metricGroups,
 }: {
   experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
   healthSettings: ExperimentHealthSettings;
   decisionCriteria: DecisionCriteriaData;
+  // Goal/guardrail lists may hold metric-group ids; resultsStatus is keyed by
+  // member id.
+  metricGroups: MetricGroupInterface[];
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = experimentData.analysisSummary?.health;
@@ -493,15 +580,23 @@ export function getExperimentResultStatus({
         )
       : null;
 
+  const expandedGoalMetrics = expandMetricGroups(
+    experimentData.goalMetrics,
+    metricGroups,
+  );
+
   // Fully skip decision framework if there are no goal metrics
   // TODO @dmf-experiment: Add front-end information about this
   let decisionStatus: ExperimentResultStatusData | undefined = undefined;
-  if (experimentData.goalMetrics.length && resultsStatus) {
+  if (expandedGoalMetrics.length && resultsStatus) {
     decisionStatus = getDecisionFrameworkStatus({
       resultsStatus,
       decisionCriteria,
-      goalMetrics: experimentData.goalMetrics,
-      guardrailMetrics: experimentData.guardrailMetrics,
+      goalMetrics: expandedGoalMetrics,
+      guardrailMetrics: expandMetricGroups(
+        experimentData.guardrailMetrics,
+        metricGroups,
+      ),
       daysNeeded,
       scheduledEndPassed,
     });
@@ -622,7 +717,7 @@ export function getExperimentResultStatus({
   // 5. The scheduled end has passed but there is no recommendation. Explain why
   // and prompt a manual review. Not gated on the Decision Framework.
   if (scheduledEndPassed) {
-    const reason = !experimentData.goalMetrics.length
+    const reason = !expandedGoalMetrics.length
       ? "No goal metrics are configured, so no recommendation can be made."
       : !resultsStatus
         ? "Results are not available yet."
@@ -751,6 +846,7 @@ export function getSafeRolloutResultStatus({
         resultsStatus,
         decisionCriteria: ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA,
         goalMetrics: [],
+        // Safe rollouts do not expand metric-group guardrails yet.
         guardrailMetrics: safeRollout.guardrailMetricIds,
         daysNeeded: Infinity, // sequential relied upon solely for safe rollouts
       })
@@ -773,6 +869,10 @@ export function getSafeRolloutResultStatus({
       powerReached: false,
       scheduledEndPassed: false,
     };
+  }
+
+  if (decisionStatus?.status === "data-incomplete") {
+    return decisionStatus;
   }
 
   // If no decision status, return days left status

@@ -920,7 +920,10 @@ export function computeExplorationComparisonPayload(
 
   // Funnels have no metric values but still need comparison.exploration
   // passed through so the funnel table can render previous-period data.
-  if (submittedConfig.dataset?.type === "funnel") {
+  if (
+    submittedConfig.dataset?.type === "funnel" ||
+    submittedConfig.dataset?.type === "journey"
+  ) {
     return {
       exploration: comparison,
       previousPeriod,

@@ -8,7 +8,7 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import FactTableModal from "@/components/FactTables/FactTableModal";
+import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   filterSearchTerm,
@@ -214,7 +214,7 @@ export default function FactTablesPage() {
   return (
     <Box className="pagecontents container-fluid">
       {createFactOpen && (
-        <FactTableModal close={() => setCreateFactOpen(false)} />
+        <NewFactTableModal close={() => setCreateFactOpen(false)} />
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
       <Flex align="center" justify="between" gap="3" mb="4">

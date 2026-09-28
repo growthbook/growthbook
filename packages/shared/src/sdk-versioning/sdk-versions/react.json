@@ -2,7 +2,8 @@
   "versions": [
     {
       "version": "1.8.0",
-      "capabilities": ["contextualBanditsAuto"]
+      "prerelease": true,
+      "capabilities": ["contextualBanditsAuto", "savedGroupReferencesV2"]
     },
     {
       "version": "1.7.0",

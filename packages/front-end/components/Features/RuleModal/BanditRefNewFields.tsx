@@ -41,7 +41,7 @@ import {
   formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
-import Switch from "@/ui/Switch";
+import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
@@ -57,6 +57,7 @@ export default function BanditRefNewFields({
   feature,
   project,
   attributeProjects,
+  savedGroupProjects,
   attributeSelectIndicator,
   environments,
   prerequisiteValue,
@@ -87,6 +88,7 @@ export default function BanditRefNewFields({
   feature?: FeatureInterface;
   project?: string;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   prerequisiteValue: FeaturePrerequisite[];
@@ -210,11 +212,6 @@ export default function BanditRefNewFields({
               }}
               formatOptionLabel={formatAttributeOptionLabel}
             />
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
-              extraIndicator={attributeSelectIndicator}
-            />
 
             {hasSDKWithNoBucketingV2 && (
               <HashVersionSelector
@@ -261,6 +258,7 @@ export default function BanditRefNewFields({
           <TargetingFieldsGroup
             project={project || ""}
             attributeProjects={attributeProjects}
+            savedGroupProjects={savedGroupProjects}
             attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}
@@ -369,15 +367,22 @@ export default function BanditRefNewFields({
           </Box>
 
           {settings?.useStickyBucketing && (
-            <Switch
-              label="Disable Sticky Bucketing"
-              description="Permit users in low-performing variations to switch variations in future update periods."
-              value={!!form.watch("disableStickyBucketing")}
-              onChange={(v) => {
-                form.setValue("disableStickyBucketing", v);
-              }}
+            <StickyBucketingToggle
               mb="5"
               mt="5"
+              disableStickyBucketing={!!form.watch("disableStickyBucketing")}
+              setDisableStickyBucketing={(v) =>
+                form.setValue("disableStickyBucketing", v)
+              }
+              description="Keep users in their assigned variation across future Bandit update periods."
+            />
+          )}
+
+          {!form.watch("disableStickyBucketing") && (
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+              extraIndicator={attributeSelectIndicator}
             />
           )}
 

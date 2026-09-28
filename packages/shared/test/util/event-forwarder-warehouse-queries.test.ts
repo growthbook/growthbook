@@ -39,6 +39,17 @@ describe("event-forwarder-warehouse-queries experiment_viewed table reference", 
       }),
     ).toBe("MY_DB.PUBLIC.GB_EXPERIMENT_VIEWED");
   });
+
+  it("builds Databricks experiment_viewed table reference with backticks", () => {
+    expect(
+      buildEventForwarderExperimentViewedTableReference({
+        sinkType: "databricks",
+        catalog: "main",
+        schema: "analytics",
+        tablePrefix: "GB",
+      }),
+    ).toBe("`main`.`analytics`.`gb_experiment_viewed`");
+  });
 });
 
 describe("buildEventForwarderAttributeValueSql", () => {
@@ -67,6 +78,31 @@ describe("buildEventForwarderAttributeValueSql", () => {
         userIdType: "user-id",
       }),
     ).toBe('ATTRIBUTES:"user_id"::STRING');
+  });
+
+  it("reads Databricks VARIANT attributes with variant_get and per-type casts", () => {
+    expect(
+      buildEventForwarderAttributeValueSql({
+        sinkType: "databricks",
+        userIdType: "user_id",
+      }),
+    ).toBe("variant_get(attributes, '$.user_id', 'STRING')");
+    expect(
+      buildEventForwarderAttributeValueSql({
+        sinkType: "databricks",
+        userIdType: "age",
+        attributeDatatype: "number",
+      }),
+    ).toBe("variant_get(attributes, '$.age', 'DOUBLE')");
+    expect(
+      buildEventForwarderAttributeValueSql({
+        sinkType: "databricks",
+        userIdType: "browser",
+        attributeDatatype: "string",
+      }),
+    ).toBe(
+      "COALESCE(variant_get(attributes, '$.ua_browser', 'STRING'), variant_get(attributes, '$.browser', 'STRING'))",
+    );
   });
 
   it("uses typed casts when attributeDatatype is provided", () => {
@@ -455,6 +491,19 @@ describe("event-forwarder-warehouse-queries feature_usage table reference", () =
 });
 
 describe("buildEventForwarderFeatureUsageQuerySql", () => {
+  it("bounds Databricks by received_at and reads properties via variant_get", () => {
+    const sql = buildEventForwarderFeatureUsageQuerySql({
+      sinkType: "databricks",
+      tableRef: "`cat`.`sch`.`gb_feature_usage`",
+    });
+    expect(sql).toContain("FROM `cat`.`sch`.`gb_feature_usage`");
+    expect(sql).toContain(
+      "WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'",
+    );
+    expect(sql).toContain("variant_get(properties");
+    expect(sql).not.toContain("FEATURE_KEY");
+  });
+
   const tableRef = "`proj`.`ds`.`feature_usage`";
 
   it("includes received_at partition filter and property columns for BigQuery", () => {
@@ -498,7 +547,34 @@ describe("buildEventForwarderFeatureUsageQuerySql", () => {
   });
 });
 
+describe("buildEventForwarderExposureQuerySql for Databricks", () => {
+  it("uses lowercase columns and the received_at filter", () => {
+    expect(
+      buildEventForwarderExposureQuerySql({
+        sinkType: "databricks",
+        tableRef: "`main`.`analytics`.`gb_experiment_viewed`",
+        userIdType: "user_id",
+      }),
+    ).toBe(`SELECT
+  variant_get(attributes, '$.user_id', 'STRING') AS \`user_id\`,
+  timestamp AS timestamp,
+  experiment_id AS experiment_id,
+  variation_id AS variation_id
+FROM \`main\`.\`analytics\`.\`gb_experiment_viewed\`
+WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`);
+  });
+});
+
 describe("buildEventForwarderPropertyValueSql", () => {
+  it("extracts a property from the Databricks VARIANT column", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "databricks",
+        propertyKey: "ruleId",
+      }),
+    ).toBe("variant_get(properties, '$.ruleId', 'STRING')");
+  });
+
   it("extracts a property from the BigQuery JSON column", () => {
     expect(
       buildEventForwarderPropertyValueSql({

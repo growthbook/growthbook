@@ -6,7 +6,6 @@ import addMonths from "date-fns/addMonths";
 import addDays from "date-fns/addDays";
 import addHours from "date-fns/addHours";
 import formatRelative from "date-fns/formatRelative";
-import previousMonday from "date-fns/previousMonday";
 import { formatInTimeZone } from "date-fns-tz";
 
 export function dateNoYear(date: string | Date): string {
@@ -82,7 +81,12 @@ export function hoursBetween(start: string | Date, end: string | Date): number {
 // gets the previous monday as a string date (for "weeks").
 // if date is a monday, returns itself
 export function lastMondayString(dateString: string): string {
-  const lastMonday = previousMonday(getValidDate(dateString));
+  // Date-only strings parse as UTC midnight, so bucket in UTC to avoid
+  // shifting the calendar day by the local timezone offset.
+  const d = getValidDate(dateString);
+  const daysSinceMonday = (d.getUTCDay() + 6) % 7;
+  const lastMonday = new Date(d);
+  lastMonday.setUTCDate(lastMonday.getUTCDate() - daysSinceMonday);
   return lastMonday.toISOString().substring(0, 10);
 }
 

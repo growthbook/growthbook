@@ -8,7 +8,7 @@ import {
   NoObjectGeneratedError,
   NoOutputGeneratedError,
 } from "ai";
-import type { ToolSet, ModelMessage } from "ai";
+import type { ToolSet, ModelMessage, LanguageModelUsage } from "ai";
 import {
   createOpenAI,
   type OpenAIResponsesProviderOptions,
@@ -26,14 +26,22 @@ import {
   AIModel,
   AIPromptType,
   AIProvider,
+  anthropicStructuredOutputMode,
+  DEFAULT_MAX_OUTPUT_TOKENS,
+  getMaxOutputTokens,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   getProviderForAIModel,
+  resolveMaxOutputTokens,
   supportsTemperature,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
+import {
+  lookupTerms,
+  prepareToolStep,
+} from "back-end/src/enterprise/services/aiStepPolicy";
 import { ReqContext } from "back-end/types/request";
 import {
   getTokensUsedByOrganization,
@@ -133,18 +141,98 @@ export const getAIProviderClass = async (
   }
 };
 
-function getOpenAIProviderOptions(model: AIModel) {
-  if (getProviderFromModel(model) !== "openai") return {};
-
-  return {
-    providerOptions: {
-      openai: {
-        store: false,
-        include: ["reasoning.encrypted_content"],
-      } satisfies OpenAIResponsesProviderOptions,
-    },
-  };
+// Per-provider request options. For Claude this pins how schema-shaped output
+// is produced: the AI SDK's provider only uses native structured output for
+// the handful of models it recognises and falls back to a forced call of a
+// synthetic json tool for the rest — which the newest models (Opus 5.5)
+// reject with a 400, and which also forbids parallel tool calls.
+function getProviderOptions(model: AIModel): {
+  providerOptions?: Parameters<typeof generateText>[0]["providerOptions"];
+} {
+  if (getProviderFromModel(model) === "openai") {
+    return {
+      providerOptions: {
+        openai: {
+          store: false,
+          include: ["reasoning.encrypted_content"],
+        } satisfies OpenAIResponsesProviderOptions,
+      },
+    };
+  }
+  const structuredOutputMode = anthropicStructuredOutputMode(model);
+  if (structuredOutputMode) {
+    return { providerOptions: { anthropic: { structuredOutputMode } } };
+  }
+  return {};
 }
+
+function splitAnthropicOptions(message: ModelMessage) {
+  const providerOptions = message.providerOptions ?? {};
+  const anthropic = providerOptions.anthropic;
+  const anthropicWithoutCache =
+    anthropic && typeof anthropic === "object" && !Array.isArray(anthropic)
+      ? Object.fromEntries(
+          Object.entries(anthropic).filter(([key]) => key !== "cacheControl"),
+        )
+      : {};
+  const otherProviders = Object.fromEntries(
+    Object.entries(providerOptions).filter(
+      ([provider]) => provider !== "anthropic",
+    ),
+  );
+  return { anthropicWithoutCache, otherProviders };
+}
+
+// Drops providerOptions entirely when nothing is left on it.
+function withProviderOptions(
+  message: ModelMessage,
+  providerOptions: Record<string, unknown>,
+): ModelMessage {
+  return {
+    ...message,
+    providerOptions:
+      Object.keys(providerOptions).length > 0 ? providerOptions : undefined,
+  } as ModelMessage;
+}
+
+function withAnthropicCacheControl(message: ModelMessage): ModelMessage {
+  const { anthropicWithoutCache, otherProviders } =
+    splitAnthropicOptions(message);
+  return withProviderOptions(message, {
+    ...otherProviders,
+    anthropic: {
+      ...anthropicWithoutCache,
+      cacheControl: { type: "ephemeral" as const },
+    },
+  });
+}
+
+function withoutAnthropicCacheControl(message: ModelMessage): ModelMessage {
+  const { anthropicWithoutCache, otherProviders } =
+    splitAnthropicOptions(message);
+  return withProviderOptions(message, {
+    ...otherProviders,
+    ...(Object.keys(anthropicWithoutCache).length > 0
+      ? { anthropic: anthropicWithoutCache }
+      : {}),
+  });
+}
+
+// One rolling breakpoint on the latest message; the system message keeps its own.
+function withAnthropicCacheBreakpoint(
+  messages: ModelMessage[],
+): ModelMessage[] {
+  const lastMessageIndex = messages.length - 1;
+
+  return messages.map((message, index) => {
+    if (message.role === "system") return message;
+    return index === lastMessageIndex
+      ? withAnthropicCacheControl(message)
+      : withoutAnthropicCacheControl(message);
+  });
+}
+
+export const _withAnthropicCacheBreakpoint = withAnthropicCacheBreakpoint;
 
 /**
  * The docs say OpenAI might not always return token usage info in rare edge cases.
@@ -241,6 +329,31 @@ export const secondsUntilAICanBeUsedAgainForEmbeddings = async (
   return secondsUntilAICanBeUsedAgainForProvider(context, provider);
 };
 
+export const secondsUntilAICanBeUsedAgainForSTT = async (
+  context: ReqContext | ApiReqContext,
+): Promise<number> => {
+  if (!IS_CLOUD) return 0;
+  const { sttModel } = await getAISettingsForOrg(context);
+  const provider = getProviderForAIModel("stt", sttModel ?? "") ?? undefined;
+  return secondsUntilAICanBeUsedAgainForProvider(context, provider);
+};
+
+export const recordSTTUsage = async (
+  context: ReqContext | ApiReqContext,
+  audioBytes: number,
+  provider: AIProvider,
+): Promise<void> => {
+  if (!IS_CLOUD) return;
+  const { keySource } = await getAISettingsForOrg(context);
+  // The org pays its own provider directly, so nothing to meter.
+  if (keySource[provider] === "organization") return;
+  // ponytail: audio has no tokens, so charge a KB apiece. Add a minutes counter if dictation spend needs real attribution.
+  await updateTokenUsage({
+    numTokensUsed: Math.ceil(audioBytes / 1024),
+    organization: context.org,
+  });
+};
+
 const constructMessages = (
   prompt: string,
   instructions?: string,
@@ -326,7 +439,7 @@ export const simpleCompletion = async ({
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
-    ...getOpenAIProviderOptions(model),
+    ...getProviderOptions(model),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
@@ -487,15 +600,44 @@ export const streamingChatCompletion = async ({
   let terminalUsage: TerminalUsage | undefined;
   let streamErrored = false;
 
+  // Stable prefix of every turn, so it gets a breakpoint of its own.
+  const baseSystemMessage: ModelMessage = { role: "system", content: system };
+  const systemMessage =
+    getProviderFromModel(model) === "anthropic"
+      ? withAnthropicCacheControl(baseSystemMessage)
+      : baseSystemMessage;
+
   const result = streamText({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
-    system,
-    messages,
-    ...getOpenAIProviderOptions(model),
+    messages: [systemMessage, ...messages],
+    ...getProviderOptions(model),
+    maxOutputTokens: getMaxOutputTokens(model),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
-    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+    ...(tools
+      ? {
+          tools,
+          stopWhen: stepCountIs(maxSteps),
+          // Same end-the-loop policy as parsePrompt; the cache breakpoint goes on the last message.
+          prepareStep: ({ stepNumber, messages: stepMessages }) => {
+            const policy = prepareToolStep({
+              model,
+              stepNumber,
+              remainingSteps: maxSteps,
+              messages: stepMessages,
+            });
+            return getProviderFromModel(model) === "anthropic"
+              ? {
+                  ...policy,
+                  messages: withAnthropicCacheBreakpoint(
+                    policy.messages ?? stepMessages,
+                  ),
+                }
+              : policy;
+          },
+        }
+      : {}),
     ...(abortSignal ? { abortSignal } : {}),
     onFinish: ({ totalUsage }) => {
       // onFinish's `usage` is only the last step; totalUsage covers the run.
@@ -549,6 +691,20 @@ export const streamingChatCompletion = async ({
 
 export { aiTool };
 
+// Stateless tool loop: the run stopped on tool calls the server can't execute.
+export interface DeferredToolCalls {
+  transcript: ModelMessage[];
+  pending: Array<{ toolCallId: string; toolName: string; input: unknown }>;
+  stepsUsed: number;
+}
+
+export class DeferredToolCallsError extends Error {
+  constructor(public readonly deferred: DeferredToolCalls) {
+    super("Tool calls deferred to the client");
+    this.name = "DeferredToolCallsError";
+  }
+}
+
 export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   context,
   instructions,
@@ -564,8 +720,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   cacheSystemPrompt = false,
   onStepFinish,
   retryOnNoObject = true,
-  maxOutputTokens = 8000,
+  maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS,
+  extendedMaxOutputTokens,
   logContext,
+  priorMessages,
+  stepsAlreadyUsed = 0,
+  deferToolCalls = false,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -592,6 +752,13 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // valid response"). 8000 stays under every current provider's ceiling;
   // callers that emit large artifacts (Figma → Variant) can raise it.
   maxOutputTokens?: number;
+  // Used only on models with a documented ceiling, since over-asking is a 400.
+  extendedMaxOutputTokens?: number;
+  // Stateless tool loop: earlier rounds' messages and the steps they spent.
+  priorMessages?: ModelMessage[];
+  stepsAlreadyUsed?: number;
+  // Throw DeferredToolCallsError when the run stops on a tool without execute().
+  deferToolCalls?: boolean;
   // Extra fields merged into the NoObjectGeneratedError diagnostic logs so
   // callers can attach request-specific context (e.g. the visual editor's
   // picked-element selectors) for correlating which inputs trip the
@@ -633,6 +800,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }
 
   const messages = constructMessages(prompt, instructions, images);
+  if (priorMessages && priorMessages.length > 0) {
+    messages.push(...priorMessages);
+  }
 
   // Attach a provider-specific cache breakpoint to the system message
   // when requested. Anthropic charges ~10% of input cost for cached
@@ -647,6 +817,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         anthropic: { cacheControl: { type: "ephemeral" } },
       };
     }
+    // Every stateless round re-sends the user message byte for byte.
+    if (priorMessages && priorMessages.length > 0) {
+      const user = messages.find((m) => m.role === "user");
+      if (user) {
+        user.providerOptions = {
+          anthropic: { cacheControl: { type: "ephemeral" } },
+        };
+      }
+    }
   }
 
   // Some models reject `temperature` outright (400) and others silently drop
@@ -655,36 +834,106 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? temperature
     : undefined;
 
-  const generateOnce = async () => {
+  const effectiveMaxOutputTokens = resolveMaxOutputTokens(
+    model,
+    maxOutputTokens,
+    extendedMaxOutputTokens,
+  );
+
+  // Per-attempt step telemetry. Without it a no-output failure is
+  // indistinguishable from a model that answered in prose on step one —
+  // only the first is helped by a bigger maxSteps.
+  let stepsUsed = 0;
+  let toolsCalled: string[] = [];
+  const outcomeOf = (v: unknown): string => {
+    if (!v || typeof v !== "object") return typeof v;
+    const { ok, count, error, note } = v as Record<string, unknown>;
+    return brief({ ok, count, error, note }, 320);
+  };
+  // Outcome fields only: a result's payload can be another experiment's content.
+  let toolTrace: Array<{ tool: string; input: string; out: string }> = [];
+  let lastFinishReason: string | undefined;
+  const remainingSteps = Math.max(1, maxSteps - stepsAlreadyUsed);
+  const brief = (v: unknown, n: number) => {
+    try {
+      return (JSON.stringify(v) ?? "").slice(0, n);
+    } catch {
+      return "";
+    }
+  };
+
+  const generateOnce = async (): Promise<{
+    output?: unknown;
+    usage: LanguageModelUsage;
+    deferred?: DeferredToolCalls;
+  }> => {
+    stepsUsed = 0;
+    toolsCalled = [];
+    toolTrace = [];
+    lastFinishReason = undefined;
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
-      ...getOpenAIProviderOptions(model),
+      ...getProviderOptions(model),
       output: Output.object({
         schema: zodObjectSchema,
       }),
-      maxOutputTokens,
+      maxOutputTokens: effectiveMaxOutputTokens,
       ...(effectiveTemperature != null
         ? { temperature: effectiveTemperature }
         : {}),
       ...(tools
         ? {
             tools,
-            stopWhen: stepCountIs(maxSteps),
-            // Force a final answer on the last allowed step. Otherwise a model
-            // that keeps calling tools until it exhausts maxSteps ends ON a
-            // tool call (finishReason !== "stop"), so no output object is
-            // produced and the run fails with NoOutputGeneratedError (observed
-            // with claude-haiku-4-5 on visual-editor moves). Forbidding tools
-            // on the final step makes it commit to the structured output using
-            // whatever it has gathered. Only fires on a runaway loop — a model
-            // that answers within budget never reaches this step.
-            prepareStep: ({ stepNumber }: { stepNumber: number }) =>
-              stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
+            stopWhen: stepCountIs(remainingSteps),
+            // Force a final answer on the last allowed step, or the run ends on a tool call with no output.
+            prepareStep: ({ stepNumber, messages: stepMessages }) =>
+              prepareToolStep({
+                model,
+                stepNumber,
+                remainingSteps,
+                messages: stepMessages,
+              }),
           }
         : {}),
-      ...(onStepFinish ? { onStepFinish } : {}),
+      onStepFinish: (step) => {
+        stepsUsed++;
+        lastFinishReason = step.finishReason;
+        for (const call of step.toolCalls ?? [])
+          toolsCalled.push(call.toolName);
+        for (const r of step.toolResults ?? [])
+          toolTrace.push({
+            tool: r.toolName,
+            input: brief(r.input, 160),
+            out: outcomeOf(r.output),
+          });
+        onStepFinish?.(step);
+      },
     });
+    // Hand deferred calls back rather than reading `output`, which would throw.
+    if (deferToolCalls && result.finishReason === "tool-calls") {
+      const last = result.steps[result.steps.length - 1];
+      const answered = new Set(
+        (last?.toolResults ?? []).map((r) => r.toolCallId),
+      );
+      const pending = (last?.toolCalls ?? []).filter(
+        (c) => !answered.has(c.toolCallId),
+      );
+      if (pending.length > 0) {
+        return {
+          usage: result.totalUsage,
+          deferred: {
+            transcript: result.response.messages,
+            pending: pending.map((c) => ({
+              toolCallId: c.toolCallId,
+              toolName: c.toolName,
+              input: c.input,
+            })),
+            stepsUsed,
+          },
+        };
+      }
+    }
     // Read the lazy `output` getter HERE, inside this awaited function, so the
     // try/catch below catches BOTH generation failures. generateText only
     // parses the object (and throws NoObjectGeneratedError) when the run ends
@@ -692,7 +941,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     // output, and the getter throws NoOutputGeneratedError only on access.
     // Touching it here routes that lazy throw through the same retry path
     // instead of letting it escape at the call site as an opaque error.
-    return { output: result.output, usage: result.usage };
+    return { output: result.output, usage: result.totalUsage };
   };
 
   // Output.object steers the model toward the schema but doesn't
@@ -719,9 +968,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     NoOutputGeneratedError.isInstance(e);
 
   // Pull whatever diagnostics the error carries so prod logs show WHY it
-  // failed. Only NoObjectGeneratedError has finishReason ("length" =
-  // truncated mid-JSON vs "stop" = invalid/prose) and the raw text sample;
-  // NoOutputGeneratedError carries just a cause, so guard those reads.
+  // failed. NoOutputGeneratedError has no finishReason, so it comes from the last step.
   const noOutputDiag = (e: NoObjectGeneratedError | NoOutputGeneratedError) => {
     const objErr = NoObjectGeneratedError.isInstance(e) ? e : undefined;
     return {
@@ -730,8 +977,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       ...(logContext ?? {}),
       orgId: context.org.id,
       userId: context.userId,
+      stepsUsed,
+      maxSteps,
+      toolsCalled,
+      toolTrace,
       errorType: objErr ? "no-object" : "no-output",
-      finishReason: objErr?.finishReason,
+      finishReason: objErr?.finishReason ?? lastFinishReason,
       cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
       textSample: (objErr?.text ?? "").slice(0, 2000),
     };
@@ -774,8 +1025,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       await recordFailedAttempts();
       throw err;
     }
+    const firstDiag = noOutputDiag(err);
     logger.warn(
-      { type, model, ...noOutputDiag(err) },
+      { type, model, ...firstDiag },
       "parsePrompt: model returned no usable output; retrying once",
     );
     try {
@@ -786,27 +1038,26 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         throw retryErr;
       }
       retriedTokens += failureTokens(retryErr);
+      const retryDiag = noOutputDiag(retryErr);
       logger.warn(
-        { type, model, ...noOutputDiag(retryErr) },
+        { type, model, ...retryDiag },
         "parsePrompt: model returned no usable output after retry; giving up",
       );
       await recordFailedAttempts();
-      // If either attempt stopped on the output-token ceiling, the JSON was
-      // cut off mid-stream — a generic "try again" won't help an inherently
-      // too-large response, so point the user at narrowing the request.
+      // Cut off at the output-token ceiling: only a narrower request helps.
       const truncated =
-        (NoObjectGeneratedError.isInstance(err) &&
-          err.finishReason === "length") ||
-        (NoObjectGeneratedError.isInstance(retryErr) &&
-          retryErr.finishReason === "length");
-      // No output at all (burned its steps on tools, or answered in prose) —
-      // rephrasing won't help, narrowing the request will.
-      const ranOutOfSteps = NoOutputGeneratedError.isInstance(retryErr);
+        firstDiag.finishReason === "length" ||
+        retryDiag.finishReason === "length";
+      // Out of steps; what it was hunting for is the element the user should click.
+      const ranOutOfSteps = retryDiag.finishReason === "tool-calls";
+      const lookedFor = lookupTerms(retryDiag.toolTrace);
       throw new Error(
         truncated
           ? "Your request produced a response too large to return in one piece. Try a more focused request — for example, edit one section or a few elements at a time, then layer on more."
           : ranOutOfSteps
-            ? "The AI didn't finish this request — it spent its time gathering page details instead of returning a change. Try pointing it at a specific element, or splitting this into smaller changes."
+            ? `The AI ran out of lookups before it could make a change.${
+                lookedFor ? ` It was searching the page for ${lookedFor}.` : ""
+              } Click the element you want changed so its selector is captured, then ask again — or ask for one part at a time.`
             : "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
       );
     }
@@ -844,6 +1095,11 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
           numTokensFromMessages(messages, model)) + retriedTokens;
       await updateTokenUsage({ numTokensUsed, organization: context.org });
     }
+  }
+
+  // After the accounting: a deferred round's tokens are real spend.
+  if (response.deferred) {
+    throw new DeferredToolCallsError(response.deferred);
   }
 
   if (!response.output) {

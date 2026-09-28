@@ -5,6 +5,7 @@ import {
   LockdownConfig,
   RampMonitoringConfig,
   RampStep,
+  RampStartAction,
   RampStepAction,
 } from "shared/validators";
 import { DraftConflict } from "shared/types/draft-conflict";
@@ -18,7 +19,7 @@ export type InlineRampScheduleCreate = {
   environment?: string | null;
   steps: RampStep[];
   // Actions applied when the ramp starts, before the first step fires.
-  startActions?: RampStepAction[];
+  startActions?: RampStartAction[];
   // Actions applied when the ramp completes (merged on top of accumulated step patches).
   endActions?: RampStepAction[];
   // ISO datetime string; if set, rule stays disabled until this date, then Step 1 fires.
@@ -55,7 +56,7 @@ export type InlineRampScheduleUpdate = {
   name?: string;
   steps: RampStep[];
   // Actions applied when the ramp starts, before the first step fires.
-  startActions?: RampStepAction[];
+  startActions?: RampStartAction[];
   // Actions applied when the ramp completes (merged on top of accumulated step patches).
   endActions?: RampStepAction[];
   // ISO datetime string; null clears startDate (immediate start).
@@ -75,6 +76,9 @@ export type PostFeatureRuleBody = {
   environments: string[];
   safeRolloutFields?: CreateSafeRolloutInterface;
   rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleDetach;
+  // Insert the new rule directly above this rule; appends when the id is
+  // missing from the revision.
+  insertBeforeRuleId?: string;
 };
 
 export type PutFeatureRuleConflict = DraftConflict<FeatureRule>;
