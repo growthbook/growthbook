@@ -109,23 +109,31 @@ export const isGA4EventsTable = (table: SchemaBrowserTable) =>
   table.tableName === "events_*" &&
   table.schemaName.startsWith("analytics_");
 
-export function getPickerTableError(
-  table: SchemaBrowserTable,
-  columns: Column[],
-  // Null selects every column
-  selected: string[] | null = null,
-): string | null {
-  // GA4's query builds its own timestamp and identifier columns
-  if (isGA4EventsTable(table)) return null;
-  const detected = columns.map((c) => ({
+const toDetectedColumns = (columns: Column[]) =>
+  columns.map((c) => ({
     column: c.columnName,
     datatype: mapDatabaseTypeToEnum(c.dataType),
   }));
-  const tableError = getColumnMappingError(detected, true);
-  // An empty selection is unfinished, not wrong
-  if (tableError || !selected?.length) return tableError;
+
+export function getPickerTableError(
+  table: SchemaBrowserTable,
+  columns: Column[],
+): string | null {
+  // GA4's query builds its own timestamp and identifier columns
+  if (isGA4EventsTable(table)) return null;
+  return getColumnMappingError(toDetectedColumns(columns), true);
+}
+
+// Null when every column is selected, or when the table itself is unusable,
+// which getPickerTableError reports instead
+export function getPickerSelectionError(
+  table: SchemaBrowserTable,
+  columns: Column[],
+  selected: string[],
+): string | null {
+  if (!selected.length || getPickerTableError(table, columns)) return null;
   return getColumnMappingError(
-    detected.filter((c) => selected.includes(c.column)),
+    toDetectedColumns(columns).filter((c) => selected.includes(c.column)),
   )
     ? "Selected columns must include a timestamp column and a separate identifier column."
     : null;
@@ -149,14 +157,14 @@ export function getPickerTableSql(
     partitionColumn = "",
     datasourceType,
     identifierQuote = '"',
-    columns = null,
+    columns = [],
     rowFilterWhere = "",
   }: {
     partitionColumn?: string;
     datasourceType?: DataSourceType;
     identifierQuote?: SqlIdentifierQuote;
-    // Null selects every column
-    columns?: string[] | null;
+    // Empty selects every column
+    columns?: string[];
     // Compiled row filters, already joined with AND
     rowFilterWhere?: string;
   } = {},
@@ -179,7 +187,7 @@ export function getPickerTableSql(
     where.push(`${quote(partitionColumn)} >= ${literal}`);
   }
   if (rowFilterWhere) where.push(rowFilterWhere);
-  const select = columns?.length
+  const select = columns.length
     ? `SELECT\n  ${columns.map(quote).join(",\n  ")}\nFROM ${table.path}`
     : `SELECT * FROM ${table.path}`;
   return where.length

@@ -34,6 +34,7 @@ import {
   getDefaultTimestampColumn,
   getNewFactTableProjects,
   getPartitionFilterColumn,
+  getPickerSelectionError,
   getPickerTableError,
   getPickerTableName,
   getPickerTableSql,
@@ -169,8 +170,8 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     null,
   );
   const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
-  // Null selects every column
-  const [selectedColumns, setSelectedColumns] = useState<string[] | null>(null);
+  // Empty selects every column
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
 
   const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
     null,
@@ -198,7 +199,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     setSql(getInitialFactTableQuery(datasource).sql);
     setSelectedTable(null);
     setRowFilters([]);
-    setSelectedColumns(null);
+    setSelectedColumns([]);
   }, [datasourceId, getDatasourceById]);
 
   const datasource = getDatasourceById(datasourceId);
@@ -210,7 +211,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     const tableName = getPickerTableName(table);
     setSelectedTable(table);
     setRowFilters([]);
-    setSelectedColumns(null);
+    setSelectedColumns([]);
     // Otherwise handleColumnsDetected keeps the last table's mappings
     setDetected(null);
     setTimestampColumn("");
@@ -404,8 +405,13 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     hasFreshResults && detected
       ? getColumnMappingError(detected, sqlMode === "table")
       : sqlMode === "table" && selectedTable && tableColumns
-        ? getPickerTableError(selectedTable, tableColumns, selectedColumns)
+        ? getPickerTableError(selectedTable, tableColumns)
         : null;
+  // Shown under the column selector rather than with the table's errors
+  const selectionError =
+    sqlMode === "table" && selectedTable && tableColumns
+      ? getPickerSelectionError(selectedTable, tableColumns, selectedColumns)
+      : null;
 
   async function submit() {
     if (!detected) throw new Error("Test your SQL first");
@@ -489,15 +495,15 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       cta="Create Fact Table"
       size={step === 0 && sqlMode === "sql" ? "max" : "md"}
       // Table mode waits for columns, since they can add the partition filter,
-      // and for complete row filters and a non-empty column selection
+      // and for complete row filters
       ctaEnabled={
         step > 0 ||
         (!columnError &&
+          !selectionError &&
           (sqlMode === "sql" ||
             (!!selectedTable &&
               !tableColumnsLoading &&
-              rowFilterWhere !== null &&
-              selectedColumns?.length !== 0)))
+              rowFilterWhere !== null)))
       }
       overflowAuto={false}
       autoFocusSelector=""
@@ -527,6 +533,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
             mode={sqlMode}
             setMode={changeMode}
             columnError={columnError}
+            selectionError={selectionError}
             selectedTable={selectedTable}
             onSelectTable={selectTable}
             tableColumnsError={tableDataError?.message ?? null}

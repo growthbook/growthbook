@@ -4,6 +4,7 @@ import {
   getColumnMappingError,
   getDefaultTimestampColumn,
   getPartitionFilterColumn,
+  getPickerSelectionError,
   getPickerTableError,
   getPickerTableName,
   getPickerTableSql,
@@ -216,11 +217,17 @@ describe("getPickerTableError", () => {
 
   it("checks the selected columns once the table itself is usable", () => {
     const columns = [col("user_id", "STRING"), col("ts", "TIMESTAMP")];
-    expect(getPickerTableError(tracks, columns, ["user_id"])).toMatch(
+    expect(getPickerSelectionError(tracks, columns, ["user_id"])).toMatch(
       /^Selected columns must include/,
     );
-    expect(getPickerTableError(tracks, columns, ["ts", "user_id"])).toBeNull();
-    expect(getPickerTableError(tracks, columns, [])).toBeNull();
+    expect(
+      getPickerSelectionError(tracks, columns, ["ts", "user_id"]),
+    ).toBeNull();
+    expect(getPickerSelectionError(tracks, columns, [])).toBeNull();
+    // An unusable table reports its own error instead
+    expect(
+      getPickerSelectionError(tracks, [col("user_id", "STRING")], ["user_id"]),
+    ).toBeNull();
   });
 
   it("skips the check for GA4, whose query builds its own columns", () => {

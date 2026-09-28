@@ -295,6 +295,7 @@ export default function NewFactTableSqlStep({
   onSelectTable,
   tableColumnsError,
   columnError,
+  selectionError,
   rowFilters,
   setRowFilters,
   columnSource,
@@ -318,6 +319,7 @@ export default function NewFactTableSqlStep({
   onSelectTable: (table: SchemaBrowserTable) => void;
   tableColumnsError: string | null;
   columnError: string | null;
+  selectionError: string | null;
   rowFilters: RowFilter[];
   setRowFilters: (rowFilters: RowFilter[]) => void;
   // Null until the selected table's columns load
@@ -326,9 +328,9 @@ export default function NewFactTableSqlStep({
   columnNames: string[] | null;
   testRowFilters: (rowFilters: RowFilter[]) => Promise<RowFilterTestResults>;
   rowFilterError: string | null;
-  // Null selects every column
-  selectedColumns: string[] | null;
-  setSelectedColumns: (columns: string[] | null) => void;
+  // Empty selects every column
+  selectedColumns: string[];
+  setSelectedColumns: (columns: string[]) => void;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById, datasources, project } = useDefinitions();
@@ -607,37 +609,32 @@ export default function NewFactTableSqlStep({
               </Callout>
             ) : (
               <>
-                <Select
-                  aria-label="Selected columns"
-                  value={selectedColumns ? "specific" : "all"}
-                  setValue={(v) => setSelectedColumns(v === "all" ? null : [])}
-                  mb="0"
-                >
-                  <SelectItem value="all">
-                    All {columnNames?.length ?? ""} columns
-                  </SelectItem>
-                  <SelectItem value="specific">Specific columns</SelectItem>
-                </Select>
-                {!selectedColumns && columnCount > MANY_COLUMNS ? (
+                <MultiSelectField
+                  value={selectedColumns}
+                  onChange={setSelectedColumns}
+                  options={(columnNames ?? []).map((c) => ({
+                    label: c,
+                    value: c,
+                  }))}
+                  placeholder={
+                    columnNames
+                      ? `All ${columnNames.length} columns`
+                      : "All columns"
+                  }
+                  size="md"
+                  sort={false}
+                  disabled={!columnNames}
+                />
+                {selectionError ? (
+                  <Callout status="error" size="sm">
+                    {selectionError}
+                  </Callout>
+                ) : null}
+                {!selectedColumns.length && columnCount > MANY_COLUMNS ? (
                   <Callout status="info" size="sm">
                     For the best experience, only select the specific columns
                     that you need.
                   </Callout>
-                ) : null}
-                {selectedColumns ? (
-                  <MultiSelectField
-                    value={selectedColumns}
-                    onChange={setSelectedColumns}
-                    options={(columnNames ?? []).map((c) => ({
-                      label: c,
-                      value: c,
-                    }))}
-                    placeholder="Select columns..."
-                    size="md"
-                    sort={false}
-                    disabled={!columnNames}
-                    autoFocus
-                  />
                 ) : null}
               </>
             )}
