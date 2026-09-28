@@ -2218,6 +2218,7 @@ export const experimentChangesFields = experimentAnalysisSettingsDraft
     hypothesis: z.string(),
     variations: z.array(variation),
     variationWeights: z.array(z.number()),
+    coverage: z.number().min(0).max(1),
     // A managed flag is converted, deleted or created to match, as the save lands.
     implementationType: z.enum(implementationType),
     // "" leaves the current holdout.

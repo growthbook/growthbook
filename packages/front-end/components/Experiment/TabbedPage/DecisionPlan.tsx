@@ -57,11 +57,12 @@ export default function DecisionPlan({
     tooltip: string,
     editor: Editor,
     value: ReactNode,
+    hasValue = true,
   ) => (
     <SetupFieldRow label={label} tooltip={tooltip} content="text">
       <Flex align="start" gap="2" className={revealsQuickEdit}>
         <Box minWidth="0">{value}</Box>
-        {editable ? (
+        {editable && hasValue ? (
           <QuickEditButton
             label={`Edit ${label[0].toLowerCase()}${label.slice(1)}`}
             onClick={() => setEditing(editor)}
@@ -130,6 +131,7 @@ export default function DecisionPlan({
               <em>No goal metrics</em>
             </Text>
           ),
+          goalsWithTargetMDE.length > 0,
         )}
         {row(
           "Decision criteria",

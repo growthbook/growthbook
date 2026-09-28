@@ -694,6 +694,34 @@ describe("applyExperimentChanges", () => {
     ]);
   });
 
+  it("changes a running bandit's coverage without restarting it, and refuses coverage that moved", async () => {
+    await seed({ withDraft: false });
+    await collection("experiments").updateOne(
+      { id: EXP },
+      {
+        $set: {
+          type: "multi-armed-bandit",
+          status: "running",
+          linkedFeatures: [],
+          banditStage: "exploit",
+        },
+      },
+    );
+
+    await run({
+      experiment: { changes: { coverage: 0.4 }, base: { coverage: 1 } },
+    });
+    const updated = await getExperimentById(context, EXP);
+    expect(updated?.phases[0].coverage).toBe(0.4);
+    expect(updated?.banditStage).toBe("exploit");
+
+    await expect(
+      run({
+        experiment: { changes: { coverage: 0.5 }, base: { coverage: 1 } },
+      }),
+    ).rejects.toThrow("changed since you loaded it");
+  });
+
   it("converts a Values experiment's flag to unmanaged alongside another edit", async () => {
     await seed({ withDraft: false });
     await collection("experiments").updateOne(

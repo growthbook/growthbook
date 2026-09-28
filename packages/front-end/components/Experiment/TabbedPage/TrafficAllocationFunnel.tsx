@@ -87,11 +87,13 @@ import styles from "./TrafficAllocationFunnel.module.scss";
 import SetupFieldRow from "./SetupFieldRow";
 import useExperimentEditing from "./useExperimentEditing";
 import {
+  experimentFieldChanges,
   FlagEnvironmentsDraft,
   HoldoutDraft,
   useLiveView,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
+import { onlyTrafficChanged } from "./targetingDraft";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -376,16 +378,32 @@ export default function TrafficAllocationFunnel({
       ...patch,
     }));
 
-  useRegisterExperimentEdit("targeting", !!staged, {
-    save: async () => {
-      await apiCall(`/experiment/${experiment.id}/targeting`, {
-        method: "POST",
-        body: JSON.stringify(staged),
-      });
-    },
+  const clearStaged = {
     onSaved: () => targetingDraft?.set(null),
     discard: () => targetingDraft?.set(null),
-  });
+  };
+  useRegisterExperimentEdit(
+    "targeting",
+    !!staged,
+    staged && onlyTrafficChanged(staged, targetingDefaults)
+      ? {
+          ...clearStaged,
+          changes: () =>
+            experimentFieldChanges(experiment, {
+              coverage: staged.coverage,
+              variationWeights: staged.variationWeights,
+            }),
+        }
+      : {
+          ...clearStaged,
+          save: async () => {
+            await apiCall(`/experiment/${experiment.id}/targeting`, {
+              method: "POST",
+              body: JSON.stringify(staged),
+            });
+          },
+        },
+  );
 
   // The experiment-level half of the targeting, staged the same way.
   const hashAttribute =
@@ -667,45 +685,39 @@ export default function TrafficAllocationFunnel({
     staged?.variationWeights ?? storedPhase?.variationWeights ?? [];
 
   // Beside the section's heading when it offers a place, else atop the box.
-  const actions = (
-    <Flex align="center" gap="3">
-      {hasDraftChanges ? (
-        <SegmentedControl
-          aria-label="Values shown"
-          value={preferDraft ? "draft" : "live"}
-          setValue={(v) => setLive(v === "live")}
-          options={[
-            {
-              value: "draft",
-              label: (
-                <Flex align="center" gap="2">
-                  <UnpublishedDot />
-                  Unpublished
-                </Flex>
-              ),
-            },
-            { value: "live", label: "Live values" },
-          ]}
-        />
-      ) : (
-        // Nothing unpublished to compare, so the one view the page shows.
-        <SegmentedControl
-          aria-label="Values shown"
-          value="only"
-          setValue={() => undefined}
-          options={[
-            {
-              value: "only",
-              label:
-                linkedFeatures.length > 0 || experiment.status !== "draft"
-                  ? "Live values"
-                  : "Unpublished",
-            },
-          ]}
-        />
-      )}
-    </Flex>
-  );
+  // Only flag values have an unpublished version to show.
+  const actions = hasDraftChanges ? (
+    <SegmentedControl
+      aria-label="Values shown"
+      value={preferDraft ? "draft" : "live"}
+      setValue={(v) => setLive(v === "live")}
+      options={[
+        {
+          value: "draft",
+          label: (
+            <Flex align="center" gap="2">
+              <UnpublishedDot />
+              Unpublished
+            </Flex>
+          ),
+        },
+        { value: "live", label: "Live values" },
+      ]}
+    />
+  ) : linkedFeatures.length > 0 || pendingManagedFlag ? (
+    // Nothing unpublished to compare, so the one view the page shows.
+    <SegmentedControl
+      aria-label="Values shown"
+      value="only"
+      setValue={() => undefined}
+      options={[
+        {
+          value: "only",
+          label: linkedFeatures.length > 0 ? "Live values" : "Unpublished",
+        },
+      ]}
+    />
+  ) : null;
 
   return (
     <Frame style={{ backgroundColor: "var(--gray-a2)", border: "none" }}>
@@ -731,13 +743,13 @@ export default function TrafficAllocationFunnel({
           }}
         />
       )}
-      {headerActionsTarget ? (
+      {actions && headerActionsTarget ? (
         createPortal(actions, headerActionsTarget)
-      ) : (
+      ) : actions ? (
         <Flex justify="end" align="center" mb="4">
           {actions}
         </Flex>
-      )}
+      ) : null}
       <Flex direction="column">
         <Flex align="center" direction="column">
           {/* An archived Feature Flag serves nothing; its row says why. */}
@@ -1055,10 +1067,10 @@ export default function TrafficAllocationFunnel({
               noMargin
               centered
               showSplit={false}
-              // A running experiment changes through "Make Changes" alone, so
-              // its variations offer no edits of their own.
+              // Names, descriptions and screenshots aren't served, so they
+              // stay editable while it runs.
               onEditMetadata={
-                canEditExperiment && !variationsLocked && setEditVariationIndex
+                canEditExperiment && setEditVariationIndex
                   ? (index) => setEditVariationIndex(index)
                   : undefined
               }

@@ -131,8 +131,8 @@ function assertExperimentBaseMatches(
       throw new BadRequestError(`base is missing the loaded value of ${key}`);
     }
     const current =
-      key === "variationWeights"
-        ? latestWeights(experiment)
+      key === "variationWeights" || key === "coverage"
+        ? experiment.phases[experiment.phases.length - 1]?.[key]
         : experiment[key as keyof ExperimentInterface];
     if (!isEqual(asJson(current), asJson(base[key]))) {
       throw changedSinceLoaded("The experiment");

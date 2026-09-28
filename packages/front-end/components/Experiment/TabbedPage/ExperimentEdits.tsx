@@ -101,9 +101,8 @@ export function experimentFieldChanges(
   const base: Record<string, unknown> = {};
   for (const key of Object.keys(changes)) {
     base[key] =
-      key === "variationWeights"
-        ? (experiment.phases[experiment.phases.length - 1]?.variationWeights ??
-          null)
+      key === "variationWeights" || key === "coverage"
+        ? (experiment.phases[experiment.phases.length - 1]?.[key] ?? null)
         : (experiment[key as keyof ExperimentInterfaceStringDates] ?? null);
   }
   return { experiment: { changes, base } };
