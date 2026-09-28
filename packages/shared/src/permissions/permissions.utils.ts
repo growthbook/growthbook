@@ -107,6 +107,13 @@ export function areProjectRolesValid(
   return projectRoles.every((p) => isRoleValid(p.role, org));
 }
 
+export function areAdditionalRolesValid(
+  additionalRoles: MemberRoleInfo["additionalRoles"],
+  org: Partial<OrganizationInterface>,
+) {
+  return (additionalRoles ?? []).every((r) => isRoleValid(r.role, org));
+}
+
 // The role-bearing fields of a team, as the model and the REST bodies carry them.
 export type TeamAuthority = {
   role: string;

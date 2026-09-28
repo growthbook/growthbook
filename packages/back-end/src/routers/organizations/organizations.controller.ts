@@ -2312,27 +2312,26 @@ export async function postImportConfig(
   }
 
   const importSettings = config.organization?.settings;
-  if (
-    typeof importSettings === "object" &&
-    importSettings !== null &&
-    (importSettings.defaultRole ?? null) !== null
-  ) {
-    // Exported settings can carry keys from old unvalidated writes; drop them
-    // like getDefaultRole does instead of failing the whole import
-    const parsed = putDefaultRoleValidator.shape.defaultRole.safeParse(
-      pick(importSettings.defaultRole, DEFAULT_ROLE_FIELDS),
-    );
-    if (!parsed.success) {
-      throw new Error(
-        `Invalid defaultRole: ${errorStringFromZodResult(parsed)}`,
+  if (typeof importSettings === "object" && importSettings !== null) {
+    if ((importSettings.defaultRole ?? null) === null) {
+      // A null would be saved and silently fall back to collaborator
+      delete importSettings.defaultRole;
+    } else {
+      // Exported settings can carry keys from old unvalidated writes; drop them
+      // like getDefaultRole does instead of failing the whole import
+      const parsed = putDefaultRoleValidator.shape.defaultRole.safeParse(
+        pick(importSettings.defaultRole, DEFAULT_ROLE_FIELDS),
       );
+      if (!parsed.success) {
+        throw new Error(
+          `Invalid defaultRole: ${errorStringFromZodResult(parsed)}`,
+        );
+      }
+      if (!isEqual(parsed.data, getDefaultRole(context.org))) {
+        assertCanUpdateDefaultRole(context, parsed.data);
+      }
+      importSettings.defaultRole = parsed.data;
     }
-    if (!isEqual(parsed.data, getDefaultRole(context.org))) {
-      assertCanUpdateDefaultRole(context, parsed.data, {
-        requireCommercialLicense: false,
-      });
-    }
-    importSettings.defaultRole = parsed.data;
   }
 
   await importConfig(context, config);
@@ -2600,14 +2599,10 @@ export async function putLicenseKey(
 function assertCanUpdateDefaultRole(
   context: ReqContext,
   defaultRole: MemberRoleWithProjects,
-  // config.yml on disk applies defaultRole without a license, so import matches
-  {
-    requireCommercialLicense = true,
-  }: { requireCommercialLicense?: boolean } = {},
 ) {
   const { org } = context;
 
-  if (requireCommercialLicense && !context.hasPremiumFeature("sso")) {
+  if (!context.hasPremiumFeature("sso")) {
     throw new Error(
       "Must have a commercial License Key to update the organization's default role.",
     );
@@ -2640,17 +2635,22 @@ export async function putDefaultRole(
     },
   });
 
-  await req.audit({
-    event: "organization.update",
-    entity: {
-      object: "organization",
-      id: org.id,
-    },
-    details: auditDetailsUpdate(
-      { settings: { defaultRole: org.settings?.defaultRole } },
-      { settings: { defaultRole } },
-    ),
-  });
+  try {
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(
+        { settings: { defaultRole: org.settings?.defaultRole } },
+        { settings: { defaultRole } },
+      ),
+    });
+  } catch (e) {
+    // The role is already saved; don't report the update as failed
+    req.log.error(e, "Failed to audit default role update");
+  }
 
   res.status(200).json({
     status: 200,
