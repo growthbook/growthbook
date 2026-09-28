@@ -1117,23 +1117,26 @@ export function resetExperimentBanditSettings({
     changes.banditStage = "explore";
     changes.banditStageDateStarted = new Date();
 
-    // Set equal weights
+    // Set equal weights, over the variations this change leaves
     const weights = getEqualWeights(
-      getLatestPhaseVariations(experiment).length ?? 0,
+      getLatestPhaseVariations({ ...experiment, ...changes }).length ?? 0,
     );
-    changes.phases[phase].variationWeights = weights;
-
-    // Log first weight change event
-    changes.phases[phase].banditEvents = [
-      {
-        date: new Date(),
-        banditResult: {
-          currentWeights: weights,
-          updatedWeights: weights,
-          bestArmProbabilities: weights,
+    // A copy: the phases array is shallow, so its entries are the caller's.
+    changes.phases[phase] = {
+      ...changes.phases[phase],
+      variationWeights: weights,
+      // Log first weight change event
+      banditEvents: [
+        {
+          date: new Date(),
+          banditResult: {
+            currentWeights: weights,
+            updatedWeights: weights,
+            bestArmProbabilities: weights,
+          },
         },
-      },
-    ];
+      ],
+    };
   } else {
     // Even when preserving existing events, ensure banditEvents exists and has at least one event
     const changesBanditEvents = changes.phases[phase]?.banditEvents;
@@ -1150,19 +1153,22 @@ export function resetExperimentBanditSettings({
         changes.phases[phase].variationWeights ||
         experiment.phases[phase]?.variationWeights ||
         getEqualWeights(getLatestPhaseVariations(experiment).length ?? 0);
-      changes.phases[phase].banditEvents = [
-        {
-          date:
-            changes.phases[phase].dateStarted ||
-            experiment.phases[phase]?.dateStarted ||
-            new Date(),
-          banditResult: {
-            currentWeights: weights,
-            updatedWeights: weights,
-            bestArmProbabilities: weights,
+      changes.phases[phase] = {
+        ...changes.phases[phase],
+        banditEvents: [
+          {
+            date:
+              changes.phases[phase].dateStarted ||
+              experiment.phases[phase]?.dateStarted ||
+              new Date(),
+            banditResult: {
+              currentWeights: weights,
+              updatedWeights: weights,
+              bestArmProbabilities: weights,
+            },
           },
-        },
-      ];
+        ],
+      };
     }
   }
 
@@ -5776,6 +5782,7 @@ export async function getRefLinkedFeatureInfo({
             footprint: draftFactsOf.approval.footprint,
             unmetTeams: draftFactsOf.approval.requiredApproverTeams.unmet,
             insufficientApprovers: draftFactsOf.approval.insufficientApprovers,
+            hasCoveringApproval: draftFactsOf.approval.hasCoveringApproval,
           },
         }),
         hasChanges: draftFactsOf.hasChanges,

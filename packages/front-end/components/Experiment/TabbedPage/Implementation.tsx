@@ -6,7 +6,7 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HoldoutInterfaceStringDates,
   type ImplementationType,
@@ -231,10 +231,18 @@ export default function Implementation({
     storedExperiment.status === "draft" &&
     !storedExperiment.nextScheduledStatusUpdate &&
     !experimentHasLinkedChanges(storedExperiment);
+  const holdoutInReach = !!holdoutDraft && !viewingLive && canEditType;
   // Leaving needs nothing more; joining or switching needs the feature.
-  const canStageHoldout =
-    !!holdoutDraft && !viewingLive && canEditType && holdoutEditable;
+  const canStageHoldout = holdoutInReach && holdoutEditable;
   const canJoinHoldout = canStageHoldout && hasCommercialFeature("holdouts");
+  // Said rather than hidden: a Values experiment's own flag counts as linked.
+  const holdoutLockedReason =
+    holdoutInReach &&
+    storedExperiment.type !== "holdout" &&
+    storedExperiment.status === "draft" &&
+    experimentHasLinkedChanges(storedExperiment)
+      ? "A holdout can only change while nothing is linked to this experiment."
+      : null;
   // A staged holdout the experiment has since outgrown (started, or gained a
   // linked change) couldn't save, so it goes rather than blocking the rest.
   const stagedHoldout = holdoutDraft?.value ?? null;
@@ -242,6 +250,17 @@ export default function Implementation({
   useEffect(() => {
     if (!holdoutEditable && stagedHoldout !== null) setStagedHoldout?.(null);
   }, [holdoutEditable, stagedHoldout, setStagedHoldout]);
+  // Draft-era targeting and variations can't land on an experiment that has
+  // since started; they would rewrite its running phase in place.
+  const startedFrom = useRef(storedExperiment.status);
+  const setTargetingDraft = targetingDraft?.set;
+  useEffect(() => {
+    const was = startedFrom.current;
+    startedFrom.current = storedExperiment.status;
+    if (was !== "draft" || storedExperiment.status === "draft") return;
+    setVariationsDraft(null);
+    setTargetingDraft?.(null);
+  }, [storedExperiment.status, setTargetingDraft]);
   // Opened from the implementation headers' menus, which the Live view keeps;
   // the change shows in the view it's staged in.
   const chooseType = canChangeType
@@ -361,6 +380,7 @@ export default function Implementation({
           variationIndex={editMetadataIndex}
           close={() => setEditMetadataIndex(null)}
           stage={setVariationsDraft}
+          mutate={mutate}
           source="implementation-tab"
         />
       )}
@@ -401,6 +421,7 @@ export default function Implementation({
             holdoutDraft={holdoutDraft}
             canStageHoldout={canStageHoldout}
             canJoinHoldout={canJoinHoldout}
+            holdoutLockedReason={holdoutLockedReason}
             experiment={stagedExperiment}
             stageVariations={setVariationsDraft}
             flagEnvironments={flagEnvironments}

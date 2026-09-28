@@ -241,8 +241,11 @@ export async function assessRevisionApproval({
   const insufficientApprovers = [
     ...uncoveredApprovers.map((id) => ({
       id,
-      reason:
-        "their approval does not cover every environment this draft changes",
+      reason: !approvers.find((a) => a.id === id)?.roleInfo
+        ? "the reviewer is no longer a member of this organization"
+        : reviewFootprint.scope !== "environments"
+          ? "the reviewer needs review access with no environment limit"
+          : "their approval does not cover every environment this draft changes",
     })),
     ...nonContributing
       .filter((id) => !uncoveredApprovers.includes(id))

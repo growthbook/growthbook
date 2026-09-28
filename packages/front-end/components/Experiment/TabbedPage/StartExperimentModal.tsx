@@ -275,8 +275,13 @@ export default function StartExperimentModal({
       !f.hasUnrelatedDraftChanges &&
       !(f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved"),
   );
+  // A scheduled start is approved ahead and fires later, so it can't bypass.
+  // The server waives the checklist on the experiment's project and publishes
+  // on each flag's.
   const adminBypassAvailable =
+    !useScheduledFlow &&
     approvalBlockedFeatures.length > 0 &&
+    permissionsUtil.canBypassFlagApprovalChecks(experiment, "feature") &&
     approvalBlockedFeatures.every((f) =>
       permissionsUtil.canBypassFlagApprovalChecks(f.feature, "feature"),
     );

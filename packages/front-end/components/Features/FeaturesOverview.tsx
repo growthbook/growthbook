@@ -536,13 +536,15 @@ export default function FeaturesOverview({
   // and a caller passing a bare `{project}` literal would skip the check.
   const isManagedFlag = isManagedFeature(baseFeature);
   const managedExperimentId = managedByExperimentId(baseFeature) ?? "";
-  // Same authority the experiment-side eject asks for.
+  // Same authority the eject asks for: publish on the flag, and edit on the
+  // experiment, whose project the managed flag shares.
   const canEjectManaged =
     isManagedFlag &&
     permissionsUtil.canPublishFeature(
       baseFeature,
       getEnabledEnvironments(baseFeature, allEnvironments),
-    );
+    ) &&
+    permissionsUtil.canUpdateExperiment({ project: baseFeature.project }, {});
   const ejectManaged = async () => {
     await apiCall(`/feature/${feature.id}/eject-managed`, { method: "POST" });
     setEjectConfirm(false);
@@ -680,7 +682,7 @@ export default function FeaturesOverview({
                 Convert to unmanaged Feature Flag
               </Link>
             ) : (
-              "Convert it to an unmanaged Feature Flag from the experiment to edit it directly."
+              "To edit it directly, someone who can edit the experiment and publish this Feature Flag can convert it to an unmanaged one."
             )}
           </Callout>
         )}

@@ -3,13 +3,26 @@ import {
   getExperimentLinkageBlocker,
 } from "../src/util/experiment-cleanup";
 
-const live = [{ state: "live" as const }];
-const draft = [{ state: "draft" as const }];
+const live = [
+  {
+    state: "live" as const,
+    environmentStates: { dev: "disabled-rule", prod: "active" } as const,
+  },
+];
+const draft = [{ state: "draft" as const, environmentStates: {} }];
 
 describe("getExperimentLinkageBlocker", () => {
   it("is null when nothing is serving", () => {
     expect(
       getExperimentLinkageBlocker({ status: "running" }, draft),
+    ).toBeNull();
+    expect(
+      getExperimentLinkageBlocker({ status: "running" }, [
+        {
+          state: "live",
+          environmentStates: { dev: "disabled-rule", prod: "disabled-env" },
+        },
+      ]),
     ).toBeNull();
     expect(getExperimentLinkageBlocker({ status: "draft" }, live)).toBeNull();
   });

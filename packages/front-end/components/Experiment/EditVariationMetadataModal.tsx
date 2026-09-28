@@ -20,6 +20,7 @@ interface Props {
   close: () => void;
   // Hands the edited variations to the page, which saves them with the rest.
   stage: (variations: Variation[]) => void;
+  mutate: () => void;
   source?: string;
 }
 
@@ -28,6 +29,7 @@ const EditVariationMetadataModal: FC<Props> = ({
   variationIndex,
   close,
   stage,
+  mutate,
   source,
 }) => {
   const variations = getLatestPhaseVariations(experiment).map((v) => ({
@@ -96,6 +98,7 @@ const EditVariationMetadataModal: FC<Props> = ({
             variationIndex={variationIndex}
             screenshots={screenshots}
             setScreenshots={setScreenshots}
+            mutate={mutate}
           />
         </Flex>
         {/* Mirrors the badge's gutter so the fields sit centred in the modal

@@ -500,6 +500,7 @@ export const updateExperiment = createApiRequestHandler(
           experiment,
           "feature",
         ),
+      restApiBypassesReviews: canUseRestApiBypassSetting(req),
     });
     experimentForUpdate = updated;
     // All non-status changes were already persisted above; startExperiment

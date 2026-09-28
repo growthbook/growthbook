@@ -1098,7 +1098,7 @@
   },
   "packages/front-end/components/License/OptInModal.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/License/ShowLicenseInfo.tsx": {

@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
+  ExperimentTargetingData,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
@@ -40,6 +41,8 @@ const BanditExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  const [targetingDraft, setTargetingDraft] =
+    useState<ExperimentTargetingData | null>(null);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -225,6 +228,8 @@ const BanditExperimentPage = (): ReactElement => {
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
+          stageChanges={setTargetingDraft}
+          draft={targetingDraft}
           // source="bid"
         />
       )}
@@ -254,6 +259,7 @@ const BanditExperimentPage = (): ReactElement => {
           editPhase={editPhase}
           envs={data.envs}
           editTargeting={editTargeting}
+          targetingDraft={{ value: targetingDraft, set: setTargetingDraft }}
           canAddVariation={canRunExperiment}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}

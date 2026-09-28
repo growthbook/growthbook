@@ -462,6 +462,7 @@ export async function executeExperimentStart(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   bypassLockdown = false,
+  restApiBypassesReviews = false,
 ): Promise<{
   updated: ExperimentInterface;
   publishResult: PendingDraftPublishResult;
@@ -470,6 +471,7 @@ export async function executeExperimentStart(
     context,
     experiment,
     bypassLockdown,
+    restApiBypassesReviews,
   );
   if (publishResult.failed.length > 0) {
     throw new PendingDraftPublishFailedError(
@@ -608,10 +610,13 @@ export async function startExperiment({
   experimentId,
   skipChecklist = false,
   bypassLockdown = false,
+  restApiBypassesReviews = false,
 }: {
   context: ReqContext;
   experimentId: string;
   skipChecklist?: boolean;
+  /** A REST call in an org that lets the REST API skip approval. */
+  restApiBypassesReviews?: boolean;
   /**
    * When true, skip ramp-schedule lockdown enforcement on linked features and
    * forward the bypass through to pending feature-draft publishing, which
@@ -624,7 +629,7 @@ export async function startExperiment({
     context,
     experimentId,
   );
-  const { checklistItems, status } = await getExperimentStartChecklist({
+  const { checklistItems } = await getExperimentStartChecklist({
     context,
     experiment: loadedExperiment,
   });
@@ -639,18 +644,17 @@ export async function startExperiment({
   }
 
   // Safe to waive here: the publish path re-checks bypass authority per feature.
-  assertNoIncompleteHardBlockers(
-    bypassLockdown
-      ? checklistItems.filter(
-          (item) => !item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
-        )
-      : checklistItems,
-  );
+  const remainingItems = bypassLockdown
+    ? checklistItems.filter(
+        (item) => !item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
+      )
+    : checklistItems;
+  assertNoIncompleteHardBlockers(remainingItems);
 
-  if (status === "notReady" && !skipChecklist) {
-    const incompleteRequiredItems = checklistItems.filter(
-      (item) => item.required && item.status === "incomplete",
-    );
+  const incompleteRequiredItems = remainingItems.filter(
+    (item) => item.required && item.status === "incomplete",
+  );
+  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
     throw new ChecklistIncompleteError(
       "Experiment cannot be started: required checklist items are incomplete",
       incompleteRequiredItems,
@@ -667,6 +671,7 @@ export async function startExperiment({
     context,
     experiment,
     bypassLockdown,
+    restApiBypassesReviews,
   );
 
   return { experiment, updated, checklistItems };

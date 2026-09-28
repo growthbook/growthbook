@@ -47,6 +47,7 @@ import {
   getManagedFlagState,
   publishManagedDraft,
   requestReviewForManagedDraft,
+  pendingValueType,
   updateManagedVariationValues,
 } from "back-end/src/services/managedFeatures";
 import { updateExperimentRuleEnvironments } from "back-end/src/services/experiment-feature";
@@ -142,7 +143,8 @@ export const putExperimentVariationValues = createApiRequestHandler(
 
   if (req.body.values) {
     assertStorableValues(
-      req.body.valueType ?? feature.valueType,
+      req.body.valueType ??
+        pendingValueType(feature, await getActiveDraft(req.context, feature)),
       req.body.values,
     );
     await updateManagedVariationValues({

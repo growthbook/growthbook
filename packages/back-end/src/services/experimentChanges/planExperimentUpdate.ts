@@ -198,6 +198,12 @@ export async function planExperimentUpdate(
       if (managed) releaseManagedFlagFor = data.implementationType;
       // Switching to Values creates the flag once the update lands.
       if (data.implementationType === "values" && !managed) {
+        // Its flag is created on a draft only; otherwise the label would stand alone.
+        if (experiment.status !== "draft" || experiment.archived) {
+          throw new BadRequestError(
+            "Only a draft experiment can switch to Values. Set the experiment's status back to Draft first.",
+          );
+        }
         assertManagedFlagKeyFormat(context, {
           trackingKey: data.trackingKey ?? experiment.trackingKey,
           id: experiment.id,
@@ -682,13 +688,18 @@ export async function writeExperimentUpdatePlan({
 
   // First: it can still refuse (unacknowledged 422) before anything is written.
   if (releaseManagedFlagFor) {
-    experiment = await releaseManagedFlagForImplementationChange({
+    const released = await releaseManagedFlagForImplementationChange({
       context,
       experiment,
       next: releaseManagedFlagFor,
       audit,
       acknowledged: acknowledgeFlagRemoval,
     });
+    // The release wrote the experiment itself, so its read is the baseline now.
+    if (guard?.dateUpdated !== undefined && released !== experiment) {
+      guard = { ...guard, dateUpdated: released.dateUpdated };
+    }
+    experiment = released;
   }
   const updated = await updateExperiment({
     context,

@@ -1065,15 +1065,20 @@ export default function ExperimentHeader({
                   </Button>
                 ) : experiment.status === "draft" ? (
                   <Tooltip
-                    shouldDisplay={!banditImplementationReady}
-                    body={banditBlockedReason}
+                    // Starting publishes what's stored, not what's staged.
+                    shouldDisplay={!banditImplementationReady || !!editsBlocked}
+                    body={editsBlocked ?? banditBlockedReason}
                   >
                     <Button
                       variant={checklistReady ? "solid" : "soft"}
                       onClick={() => {
                         setShowStartExperiment(true);
                       }}
-                      disabled={!canRunExperiment || !banditImplementationReady}
+                      disabled={
+                        !canRunExperiment ||
+                        !banditImplementationReady ||
+                        !!editsBlocked
+                      }
                       icon={
                         hasExperimentSchedule ? undefined : <MdRocketLaunch />
                       }
@@ -1312,8 +1317,16 @@ export default function ExperimentHeader({
                     });
                     await router.push(`/report/${res.report.id}`);
                   }}
+                  // It leaves the page, which would drop what's staged.
+                  disabled={!!editsBlocked}
                 >
-                  Create shareable report
+                  <UITooltip
+                    content={editsBlocked}
+                    side="left"
+                    enabled={!!editsBlocked}
+                  >
+                    <span>Create shareable report</span>
+                  </UITooltip>
                 </DropdownMenuItem>
               )}
               {showConvertButton && !isHoldout && (
@@ -1344,8 +1357,15 @@ export default function ExperimentHeader({
                       setDropdownOpen(false);
                       duplicate();
                     }}
+                    disabled={!!editsBlocked}
                   >
-                    Duplicate
+                    <UITooltip
+                      content={editsBlocked}
+                      side="left"
+                      enabled={!!editsBlocked}
+                    >
+                      <span>Duplicate</span>
+                    </UITooltip>
                   </DropdownMenuItem>
                 )}
                 {canRunExperiment && (

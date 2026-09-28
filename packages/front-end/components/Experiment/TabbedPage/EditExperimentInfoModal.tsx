@@ -126,9 +126,16 @@ export default function EditExperimentInfoModal({
           : SECTION_HEADERS[section]
       }
       submit={form.handleSubmit(async (data) => {
+        // Only what this section shows: custom fields are rewritten whole, so
+        // an unrelated save would drop values outside the project's scope.
+        const shown = (Object.keys(data) as (keyof typeof data)[]).filter(
+          (part) => shows(part),
+        );
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(data),
+          body: JSON.stringify(
+            Object.fromEntries(shown.map((part) => [part, data[part]])),
+          ),
         });
         mutate();
       })}

@@ -118,6 +118,8 @@ export interface Props {
   canStageHoldout?: boolean;
   /** Whether it can join or switch holdouts here, which needs the feature. */
   canJoinHoldout?: boolean;
+  /** Why the holdout is fixed, shown on its disabled pencil. */
+  holdoutLockedReason?: string | null;
   setEditVariationIndex?: (index: number) => void;
   setEditKeyIndex?: (index: number) => void;
   /** The sole linked Feature Flag, whose environments and draft the header describes. */
@@ -330,6 +332,7 @@ export default function TrafficAllocationFunnel({
   holdoutDraft,
   canStageHoldout = false,
   canJoinHoldout = false,
+  holdoutLockedReason = null,
   setEditVariationIndex,
   setEditKeyIndex,
   servedValueFeature: storedServedValueFeature,
@@ -756,7 +759,12 @@ export default function TrafficAllocationFunnel({
             <>
               <FunnelCard
                 title="Holdout"
-                onEdit={canJoinHoldout ? () => setChoosingHoldout(true) : null}
+                onEdit={
+                  canJoinHoldout || holdoutLockedReason
+                    ? () => setChoosingHoldout(true)
+                    : null
+                }
+                editBlockedReason={holdoutLockedReason}
                 referenceOnly={analysisOnly}
                 menu={
                   canStageHoldout ? (

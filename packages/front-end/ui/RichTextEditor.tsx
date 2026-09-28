@@ -21,6 +21,7 @@ import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
+import { AutoLinkPlugin } from "@lexical/react/LexicalAutoLinkPlugin";
 import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
@@ -28,7 +29,7 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
+import { AutoLinkNode, LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
 import {
   $createParagraphNode,
   $getRoot,
@@ -54,6 +55,7 @@ import {
   IMAGE_TRANSFORMER,
 } from "./RichTextEditorImageNode";
 import RichTextEditorToolbar from "./RichTextEditorToolbar";
+import { AUTO_LINK_TRANSFORMER, URL_MATCHERS } from "./RichTextEditorAutoLink";
 import { hasMarkdownFormatting } from "./richTextFormatting";
 import styles from "./RichTextEditor.module.scss";
 
@@ -121,13 +123,18 @@ const NODES = [
   ListNode,
   ListItemNode,
   LinkNode,
+  AutoLinkNode,
   CodeNode,
   CodeHighlightNode,
   ImageNode,
 ];
 
 /** Images first: their `![...]` would otherwise match as a link. */
-const MARKDOWN_TRANSFORMERS = [IMAGE_TRANSFORMER, ...TRANSFORMERS];
+const MARKDOWN_TRANSFORMERS = [
+  IMAGE_TRANSFORMER,
+  AUTO_LINK_TRANSFORMER,
+  ...TRANSFORMERS,
+];
 
 const IMAGE_TYPES = "image/png, image/jpeg, image/gif";
 
@@ -531,6 +538,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         <HistoryPlugin />
         <ListPlugin />
         <LinkPlugin />
+        <AutoLinkPlugin matchers={URL_MATCHERS} />
         <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
         <OnChangePlugin ignoreSelectionChange onChange={handleChange} />
         <ImageUploads

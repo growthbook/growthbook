@@ -79,7 +79,10 @@ import {
   getEnvironments,
 } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
+import {
+  assertExperimentKeyFormat,
+  getLinkedFeatureInfo,
+} from "back-end/src/services/experiments";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -460,6 +463,13 @@ export async function createManagedFeatureForExperiment({
     await unlinkFeatureFromExperiment(context, experiment.id, created.id);
     throw e;
   }
+  // As a flag created on its own page: the holdout lists what it holds out.
+  if (experiment.holdoutId) {
+    await context.models.holdout.addFeatureToHoldout(
+      experiment.holdoutId,
+      created.id,
+    );
+  }
 
   return { feature: created, version: linked.version };
 }
@@ -751,7 +761,7 @@ export async function getManagedFlagState(
   const pendingDraft = info?.pendingDraft ?? null;
 
   let reviews: ManagedFlagReview[] = [];
-  let pendingValueType = feature.valueType;
+  let pendingType = feature.valueType;
   if (pendingDraft) {
     const revision = await getRevision({
       context,
@@ -760,7 +770,7 @@ export async function getManagedFlagState(
       feature,
       version: pendingDraft.version,
     });
-    pendingValueType = revision?.metadata?.valueType ?? feature.valueType;
+    pendingType = pendingValueType(feature, revision);
     // Comments live in the revision log, not on the verdict.
     reviews = (revision?.reviews ?? []).map((r) => ({
       userId: r.userId,
@@ -804,7 +814,7 @@ export async function getManagedFlagState(
       ? {
           version: pendingDraft.version,
           values: pendingDraft.values,
-          valueType: pendingValueType,
+          valueType: pendingType,
           sparse: pendingDraft.sparse,
           environments: activeEnvs(pendingDraft.environmentStates),
           allEnvironments: !!pendingDraft.allEnvironments,
@@ -908,6 +918,11 @@ export async function adoptManagedFlagForExperiment({
 
   // Rename first: the key is derived at creation and a feature can't be renamed later.
   if (trackingKey && trackingKey !== experiment.trackingKey) {
+    await assertExperimentKeyFormat(
+      context,
+      trackingKey,
+      experiment.datasource,
+    );
     if (context.org.settings?.requireUniqueExperimentTrackingKeys) {
       const keyOwner = await getExperimentByTrackingKey(context, trackingKey);
       if (keyOwner && keyOwner.id !== experiment.id) {
@@ -1043,6 +1058,14 @@ export async function stageManagedFeatureFields({
   return updated;
 }
 
+// An open draft may already have re-typed the flag; values measure against it.
+export function pendingValueType(
+  feature: FeatureInterface,
+  openDraft: FeatureRevisionInterface | null,
+): FeatureValueType {
+  return openDraft?.metadata?.valueType ?? feature.valueType;
+}
+
 export async function updateManagedVariationValues({
   context,
   experiment,
@@ -1070,9 +1093,8 @@ export async function updateManagedVariationValues({
     context.permissions.throwPermissionError();
   }
 
-  // An open draft may already have re-typed the flag; measure against it, not live.
   const openDraft = await getActiveDraft(context, feature);
-  const baseType = openDraft?.metadata?.valueType ?? feature.valueType;
+  const baseType = pendingValueType(feature, openDraft);
   const targetType = valueType ?? baseType;
   const typeChanged = targetType !== baseType;
 
@@ -1218,6 +1240,15 @@ export async function publishManagedDraft({
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) {
     throw new NotFoundError("This experiment does not manage a Feature Flag.");
+  }
+  // Publish-class: it changes what a running experiment serves.
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      enabledEnvIds(context, feature),
+    )
+  ) {
+    context.permissions.throwPermissionError();
   }
   if (experiment.status === "draft") {
     throw new BadRequestError(
@@ -1487,6 +1518,12 @@ export async function removeManagedFeatureForExperiment(
     )
   ) {
     context.permissions.throwPermissionError();
+  }
+  if (feature.holdout?.id) {
+    await context.models.holdout.removeFeatureFromHoldout(
+      feature.holdout.id,
+      feature.id,
+    );
   }
   await deleteFeature(context, feature);
   await unlinkFeatureFromExperiment(context, experiment.id, feature.id);

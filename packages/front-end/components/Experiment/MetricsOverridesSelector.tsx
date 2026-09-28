@@ -226,7 +226,13 @@ function OverrideCard({
 
   // Window: the metric's own unless one is chosen here.
   const metricWindowType = metricDefinition?.windowSettings?.type || "none";
-  const windowType: string | undefined = mo?.windowType;
+  // Delay or window hours alone, as older overrides and REST store them,
+  // override the metric's own window too.
+  const windowType: string | undefined =
+    mo?.windowType ??
+    (mo?.delayHours !== undefined || mo?.windowHours !== undefined
+      ? metricWindowType
+      : undefined);
   const windowOverridden = windowType !== undefined;
   const windowChoice = windowType || "none";
   const defaultDelay = metricDefinition?.windowSettings
@@ -426,9 +432,8 @@ function OverrideCard({
                         {
                           unit: "hours",
                           min: minWindow,
-                          rules: {
-                            required: metricWindowType !== windowChoice,
-                          },
+                          // Native, so the browser stops the submit and says why.
+                          required: metricWindowType !== windowChoice,
                         },
                       )
                     : null}

@@ -11,6 +11,7 @@ import {
   fillRevisionFromFeature,
   getEffectiveRevisionHoldout,
   getMatchingRules,
+  isManagedByExperiment,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
   MatchingRule,
@@ -58,7 +59,10 @@ import {
   getLaunchDraftVersion,
 } from "back-end/src/util/featureExperimentSync";
 // Called, not read at load: managedFeatures imports this module too.
-import { discardDraftIfNoop } from "back-end/src/services/managedFeatures";
+import {
+  assertLoadedFeatureNotManaged,
+  discardDraftIfNoop,
+} from "back-end/src/services/managedFeatures";
 import {
   addLinkedFeatureToExperiment,
   addPendingFeatureDraftToExperiment,
@@ -119,6 +123,10 @@ export async function unlinkFlagFromExperiment(
   featureId: string,
 ): Promise<void> {
   const feature = await getFeature(context, featureId);
+  // Only a flag that's gone is pruned unseen; one the caller can't read isn't.
+  if (!feature && (await featureIdExists(context, featureId))) {
+    context.permissions.throwPermissionError();
+  }
   await assertFlagUnlinkable(context, experimentId, featureId, feature);
   await unlinkFeatureFromExperiment(context, experimentId, featureId);
 }
@@ -139,6 +147,15 @@ async function assertFlagUnlinkable(
       "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
     );
   }
+}
+
+// Another experiment's managed flag serves only that experiment.
+export function assertNotManagedElsewhere(
+  feature: FeatureInterface,
+  experimentId: string,
+): void {
+  if (isManagedByExperiment(feature, experimentId)) return;
+  assertLoadedFeatureNotManaged(feature);
 }
 
 // Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
@@ -163,6 +180,8 @@ export async function linkFeatureToExperiment({
   ) {
     throw new Error("Invalid experiment rule");
   }
+
+  assertNotManagedElsewhere(feature, experiment.id);
 
   if (!environments.length) {
     throw new Error(
@@ -816,6 +835,8 @@ export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   bypassLockdown = false,
+  // The org lets REST calls skip approval, as the publish endpoints do.
+  restApiBypassesReviews = false,
 ): Promise<PendingDraftPublishResult> {
   const queued = experiment.pendingFeatureDrafts ?? [];
   if (!queued.length) return { published: [], failed: [] };
@@ -903,8 +924,9 @@ export async function publishPendingFeatureDraftsForExperiment(
     );
     // Re-derived per feature: the caller's opt-in is not authority on its own.
     const bypassApproval =
-      bypassLockdown &&
-      context.permissions.canBypassFlagApprovalChecks(feature, "feature");
+      restApiBypassesReviews ||
+      (bypassLockdown &&
+        context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
     // The same question the publish button and the REST endpoint ask, so an
     // autostart can never land a draft either of those would refuse.
     const approval = await assessRevisionApprovalForAutoPublish(
@@ -1429,9 +1451,20 @@ function assertDraftsEditable(drafts: FeatureRevisionInterface[]) {
   const locked = drafts.find(isRevisionEditLockedBySchedule);
   if (locked) {
     throw new BadRequestError(
-      `Revision ${locked.version} of this Feature Flag is locked for a scheduled publish. Cancel its schedule first.`,
+      `Revision ${locked.version} of Feature Flag "${locked.featureId}" is locked for a scheduled publish. Cancel its schedule first.`,
     );
   }
+}
+
+async function assertDraftsWithRuleEditable(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  refersToExperiment: (r: FeatureRule) => boolean,
+): Promise<void> {
+  const hasRule = holdsRule(refersToExperiment);
+  assertDraftsEditable(
+    (await openDraftsOf(context, feature)).filter((d) => hasRule(d.rules)),
+  );
 }
 
 const removalLog =
@@ -1458,11 +1491,7 @@ export async function assertFlagRemovable(
 ): Promise<void> {
   await assertFlagUnlinkable(context, experiment.id, feature.id, feature);
   const refersToExperiment = experimentRuleFor(experiment.id);
-  assertDraftsEditable(
-    (await openDraftsOf(context, feature)).filter((d) =>
-      (d.rules ?? []).some(refersToExperiment),
-    ),
-  );
+  await assertDraftsWithRuleEditable(context, feature, refersToExperiment);
   if (experiment.status !== "running") return;
   // A draft only carrying an old copy adds nothing, so it doesn't hold it here.
   const { openDrafts, liveRevision } = await getLinkageSyncRevisionSummaries(
@@ -1566,8 +1595,8 @@ export async function removeFlagFromExperiment({
 
 /**
  * Undoes a pending removal: each open draft taking the live rule out gets it
- * back beside the rules live has around it. A draft left with nothing to
- * publish, as the one the removal started, goes.
+ * back beside the rules live has around it. The draft the removal started
+ * goes once it has nothing left to publish; a teammate's stays.
  */
 export async function keepFlagInExperiment({
   context,
@@ -1617,25 +1646,38 @@ export async function keepFlagInExperiment({
           : Math.min(i, rules.length);
       rules.splice(at, 0, rule);
     });
+    const startedByRemoval = draft.title === removalTitle(experiment);
     const restored = await updateRevision(
       context,
       feature,
       draft,
       {
         rules,
-        ...(draft.title === removalTitle(experiment) && { title: "" }),
+        ...(startedByRemoval && { title: "" }),
       },
       logEntry(live.filter(refersToExperiment)),
     );
-    await discardDraftIfNoop({
-      context,
-      feature,
-      revision: restored,
-      eventAudit,
-    });
+    if (startedByRemoval) {
+      await discardDraftIfNoop({
+        context,
+        feature,
+        revision: restored,
+        eventAudit,
+      });
+    }
   }
   await setPendingFeatureUnlink(context, experiment.id, featureId, false);
 }
+
+type CleanupArgs = {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  features: FeatureInterface[];
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+  /** A REST call in an org that lets the REST API skip approval. */
+  restApiBypassesReviews?: boolean;
+};
 
 // Authority is checked for every flag before any write, and live lands before drafts.
 async function resolveRulesForExperiment({
@@ -1647,12 +1689,8 @@ async function resolveRulesForExperiment({
   replacement,
   action,
   comment,
-}: {
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-  features: FeatureInterface[];
-  eventAudit: EventUser;
-  audit: (data: AuditInterfaceInput) => Promise<void>;
+  restApiBypassesReviews = false,
+}: CleanupArgs & {
   replacement: (rule: ExperimentRefRule) => FeatureRule | null;
   action: string;
   comment: string;
@@ -1699,14 +1737,15 @@ async function resolveRulesForExperiment({
 
   const bypassFor = new Map<string, boolean>();
   for (const feature of features) {
+    // A locked draft would refuse its rewrite after live has landed.
+    await assertDraftsWithRuleEditable(context, feature, refersToExperiment);
     if (!(feature.rules ?? []).some(refersToExperiment)) continue;
     const envs = Array.from(
       getEnabledEnvironments(feature, context.environments),
     );
-    const bypass = context.permissions.canBypassFlagApprovalChecks(
-      feature,
-      "feature",
-    );
+    const bypass =
+      restApiBypassesReviews ||
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature");
     if (
       !context.permissions.canPublishFeature(feature, envs) ||
       (!bypass && featureReviewRequired(context, feature))
@@ -1806,19 +1845,15 @@ export async function removeRulesForDeletedExperiment({
   features,
   eventAudit,
   audit,
-}: {
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-  features: FeatureInterface[];
-  eventAudit: EventUser;
-  audit: (data: AuditInterfaceInput) => Promise<void>;
-}): Promise<void> {
+  restApiBypassesReviews,
+}: CleanupArgs): Promise<void> {
   await resolveRulesForExperiment({
     context,
     experiment,
     features,
     eventAudit,
     audit,
+    restApiBypassesReviews,
     replacement: () => null,
     action: "remove experiment rule",
     comment: `Remove rule for deleted experiment "${experiment.name}"`,
@@ -1832,13 +1867,8 @@ export async function materializeExperimentRules({
   features,
   eventAudit,
   audit,
-}: {
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-  features: FeatureInterface[];
-  eventAudit: EventUser;
-  audit: (data: AuditInterfaceInput) => Promise<void>;
-}): Promise<void> {
+  restApiBypassesReviews,
+}: CleanupArgs): Promise<void> {
   const releasedId = experiment.releasedVariationId;
   if (!releasedId) {
     throw new Error("The experiment has no released variation to keep.");
@@ -1861,6 +1891,7 @@ export async function materializeExperimentRules({
     features,
     eventAudit,
     audit,
+    restApiBypassesReviews,
     action: "replace experiment rule with a permanent rule",
     comment: `Keep the released variation of "${experiment.name}"`,
     replacement: (rule) => {
@@ -1871,10 +1902,10 @@ export async function materializeExperimentRules({
       // it changes nothing.
       if (value === undefined) return null;
       const kept = {
-        ...omit(rule, ["type", "experimentId", "variations", "sparse"]),
+        // A sparse arm stays a patch over the default, as it was served.
+        ...omit(rule, ["type", "experimentId", "variations"]),
         value,
         description,
-        enabled: true,
         ...(phase?.condition && phase.condition !== "{}"
           ? { condition: phase.condition }
           : {}),
@@ -1885,13 +1916,18 @@ export async function materializeExperimentRules({
           ? { prerequisites: phase.prerequisites }
           : {}),
       };
-      // The payload applies the phase's coverage to the released value too.
+      // The payload applies the phase's coverage to the released value too,
+      // hashed the same way, so the same users keep it.
       return coverage < 1
         ? {
             ...kept,
             type: "rollout" as const,
             coverage,
             hashAttribute: experiment.hashAttribute,
+            ...(phase?.seed ? { seed: phase.seed } : {}),
+            ...(experiment.hashVersion
+              ? { hashVersion: experiment.hashVersion }
+              : {}),
           }
         : { ...kept, type: "force" as const };
     },

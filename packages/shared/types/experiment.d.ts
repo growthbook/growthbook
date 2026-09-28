@@ -330,6 +330,7 @@ export type LinkedFeaturePendingDraft = {
     unmetTeams: { id: string; name: string }[][];
     /** Approvals that stand but cannot sanction the publish, and why. */
     insufficientApprovers: { id: string; reason: string }[];
+    hasCoveringApproval: boolean;
   };
   hasMergeConflict: boolean;
   hasUnrelatedDraftChanges: boolean;

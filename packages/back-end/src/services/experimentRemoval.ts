@@ -73,11 +73,20 @@ type Args = {
   linkedChanges?: LinkedChangesResolution;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
+  /** A REST call in an org that lets the REST API skip approval. */
+  restApiBypassesReviews?: boolean;
 };
 
 // Returns true when the rules were frozen in place.
 async function resolveLinkedChanges(
-  { context, experiment, linkedChanges, eventAudit, audit }: Args,
+  {
+    context,
+    experiment,
+    linkedChanges,
+    eventAudit,
+    audit,
+    restApiBypassesReviews,
+  }: Args,
   verb: string,
 ): Promise<boolean> {
   // The blocker and the cleanup only see readable flags.
@@ -99,6 +108,7 @@ async function resolveLinkedChanges(
     features: await getFeaturesByIds(context, experiment.linkedFeatures ?? []),
     eventAudit,
     audit,
+    restApiBypassesReviews,
   });
   // The managed flag now serves the value on its own; hand it back rather
   // than archiving it.
@@ -109,7 +119,8 @@ async function resolveLinkedChanges(
 }
 
 export async function deleteExperimentWithCleanup(args: Args): Promise<void> {
-  const { context, experiment, eventAudit, audit } = args;
+  const { context, experiment, eventAudit, audit, restApiBypassesReviews } =
+    args;
   const materialized = await resolveLinkedChanges(args, "delete");
   if (!materialized) {
     const linkedFeatures = await getFeaturesByIds(
@@ -126,6 +137,7 @@ export async function deleteExperimentWithCleanup(args: Args): Promise<void> {
       ),
       eventAudit,
       audit,
+      restApiBypassesReviews,
     });
     // Release first, or the flag survives pointing at a deleted experiment.
     await clearManagedMarkersForExperiment(context, experiment.id);
@@ -152,10 +164,22 @@ export async function archiveExperimentWithCleanup(
   args: Args,
 ): Promise<ExperimentInterface> {
   const { context, experiment } = args;
-  const changes = { archived: true };
-  await validateExperimentChange({ context, experiment, changes });
-  await resolveLinkedChanges(args, "archive");
-  return updateExperiment({ context, experiment, changes });
+  await validateExperimentChange({
+    context,
+    experiment,
+    changes: { archived: true },
+  });
+  const materialized = await resolveLinkedChanges(args, "archive");
+  // The released flag is an ordinary linked flag now, as after an eject.
+  const released = materialized && experiment.implementationType === "values";
+  return updateExperiment({
+    context,
+    experiment,
+    changes: {
+      archived: true,
+      ...(released && { implementationType: "feature" as const }),
+    },
+  });
 }
 
 export async function unarchiveExperimentWithCleanup({

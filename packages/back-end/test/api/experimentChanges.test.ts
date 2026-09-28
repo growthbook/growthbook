@@ -413,6 +413,20 @@ describe("applyExperimentChanges", () => {
     expect(added[added.length - 1]?.variations).toEqual(arms("p", "q"));
   });
 
+  it("refuses to link a flag another experiment manages", async () => {
+    await seed({ withDraft: false });
+    await collection("features").updateOne(
+      { id: FLAG },
+      {
+        $set: { managedBy: { type: "experiment", experimentId: "exp_other" } },
+      },
+    );
+    await expect(
+      run({ linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }] }),
+    ).rejects.toThrow(/managed/i);
+    expect(await refRules("draft")).toEqual([]);
+  });
+
   describe("removing a flag", () => {
     const publishDraft = async () => {
       const feature = await getFeature(context, FLAG);
@@ -646,6 +660,61 @@ describe("applyExperimentChanges", () => {
     );
     expect(
       (await collection("experiments").findOne({ id: EXP }))?.holdoutId,
+    ).toBeUndefined();
+  });
+
+  it("adds a variation and its flag value in one save", async () => {
+    await seed({ withDraft: false });
+    const stored = await getExperimentById(context, EXP);
+    if (!stored) throw new Error("missing experiment");
+    const variations = [
+      ...stored.variations,
+      { id: "v2", key: "2", name: "v2", description: "", screenshots: [] },
+    ];
+
+    await run({
+      experiment: {
+        changes: { variations, variationWeights: [0.34, 0.33, 0.33] },
+        base: { variations: stored.variations, variationWeights: [0.5, 0.5] },
+      },
+      flagValues: [
+        {
+          featureId: FLAG,
+          variations: [...arms("a", "b"), { variationId: "v2", value: "c" }],
+          revision: { version: 1, dateUpdated: LOADED },
+        },
+      ],
+    });
+    expect(
+      (await getExperimentById(context, EXP))?.variations.map((v) => v.id),
+    ).toEqual(["v0", "v1", "v2"]);
+    expect(await revisionRules(2)).toEqual([
+      ...arms("a", "b"),
+      { variationId: "v2", value: "c" },
+    ]);
+  });
+
+  it("converts a Values experiment's flag to unmanaged alongside another edit", async () => {
+    await seed({ withDraft: false });
+    await collection("experiments").updateOne(
+      { id: EXP },
+      { $set: { implementationType: "values" } },
+    );
+    await collection("features").updateOne(
+      { id: FLAG },
+      { $set: { managedBy: { type: "experiment", experimentId: EXP } } },
+    );
+
+    const result = await run({
+      experiment: {
+        changes: { implementationType: "feature", hypothesis: "new" },
+        base: { implementationType: "values", hypothesis: "old" },
+      },
+    });
+    expect(result.experiment.hypothesis).toBe("new");
+    expect(result.experiment.implementationType).toBe("feature");
+    expect(
+      (await collection("features").findOne({ id: FLAG }))?.managedBy,
     ).toBeUndefined();
   });
 

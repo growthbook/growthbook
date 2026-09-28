@@ -20,11 +20,15 @@ type BlockerExperiment = {
 // must first say what happens to anything still serving through it.
 export function getExperimentLinkageBlocker(
   experiment: BlockerExperiment,
-  linkedFeatures: Pick<LinkedFeatureInfo, "state">[],
+  linkedFeatures: Pick<LinkedFeatureInfo, "state" | "environmentStates">[],
 ): ExperimentLinkageBlocker | null {
   if (experiment.archived) return null;
   const serving =
-    linkedFeatures.some((f) => f.state === "live") ||
+    linkedFeatures.some(
+      (f) =>
+        f.state === "live" &&
+        Object.values(f.environmentStates).includes("active"),
+    ) ||
     !!experiment.hasVisualChangesets ||
     !!experiment.hasURLRedirects;
   if (!serving) return null;

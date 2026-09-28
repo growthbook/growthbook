@@ -32,6 +32,7 @@ export const postExperimentArchive = createApiRequestHandler(
     linkedChanges: req.body.linkedChanges,
     eventAudit: req.eventAudit,
     audit: req.audit,
+    restApiBypassesReviews: canUseRestApiBypassSetting(req),
   });
   await req.audit({
     event: "experiment.archive",
@@ -91,6 +92,7 @@ export const deleteExperiment = createApiRequestHandler(
     linkedChanges: req.query.linkedChanges,
     eventAudit: req.eventAudit,
     audit: req.audit,
+    restApiBypassesReviews: canUseRestApiBypassSetting(req),
   });
   await req.audit({
     event: "experiment.delete",

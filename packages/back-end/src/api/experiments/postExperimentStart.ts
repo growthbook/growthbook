@@ -103,6 +103,7 @@ export const postExperimentStart = createApiRequestHandler(
     bypassLockdown:
       canUseRestApiBypassSetting(req) ||
       context.permissions.canBypassFlagApprovalChecks(existing, "feature"),
+    restApiBypassesReviews: canUseRestApiBypassSetting(req),
   });
 
   await req.audit({

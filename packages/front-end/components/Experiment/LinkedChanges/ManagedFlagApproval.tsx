@@ -19,7 +19,10 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { findPublishLockingScheduledRevision } from "shared/enterprise";
+import {
+  findPublishLockingScheduledRevision,
+  isInReviewCycle,
+} from "shared/enterprise";
 import { RampScheduleInterface } from "shared/validators";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownFill } from "react-icons/pi";
@@ -287,7 +290,7 @@ export default function ManagedFlagApproval({
       info.feature,
       ANY_REVIEW_FOOTPRINT,
     ) &&
-    status === "pending-review" &&
+    isInReviewCycle(status) &&
     !!revision &&
     revision.createdBy?.id !== userId;
 
@@ -603,7 +606,8 @@ export default function ManagedFlagApproval({
   const coverageBlockMessage =
     approval &&
     !approval.unmetTeams.length &&
-    approval.insufficientApprovers.length
+    approval.insufficientApprovers.length &&
+    !approval.hasCoveringApproval
       ? "None of this draft's approvals cover everything it changes."
       : null;
 

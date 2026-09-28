@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiCaretDownFill, PiPencilSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
@@ -37,6 +37,9 @@ import {
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
+
+type MetricField = "goalMetrics" | "secondaryMetrics" | "guardrailMetrics";
+type PlanField = "datasource" | "exposureQueryId" | MetricField;
 
 const ASSIGNMENT_QUERY_HELP =
   "Defines who is in the experiment and how they are identified.";
@@ -134,41 +137,88 @@ export default function AnalysisPlan({
   const [guardrailMetrics, setGuardrailMetrics] = useState(
     experiment.guardrailMetrics || [],
   );
-  // A suggested datasource is not a change until someone touches the form,
-  // or every page load would raise the save bar on its own.
-  const [touched, setTouched] = useState(false);
+  // Only what someone changed here is sent, so a write from elsewhere on the
+  // page isn't reverted by the copy this section holds. A suggested datasource
+  // isn't a change until touched, or every load would raise the save bar.
+  const [touched, setTouched] = useState<ReadonlySet<PlanField>>(new Set());
+  const touch = (...fields: PlanField[]) =>
+    setTouched((prev) => new Set([...prev, ...fields]));
+  const current = {
+    datasource,
+    exposureQueryId,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+  };
+  const stored = (field: PlanField) =>
+    experiment[field] ??
+    (field === "datasource" || field === "exposureQueryId" ? "" : []);
+  const edited = [...touched].filter(
+    (field) => !isEqual(current[field], stored(field)),
+  );
+  const dirty = advanced !== null || edited.length > 0;
+  // What the page filled in where the experiment has nothing goes with any
+  // edit, since it shows as chosen.
+  const sent = dirty
+    ? [
+        ...new Set([
+          ...edited,
+          ...(["datasource", "exposureQueryId"] as const).filter(
+            (field) => !experiment[field] && !!current[field],
+          ),
+        ]),
+      ]
+    : [];
 
-  const dirty =
-    touched &&
-    (advanced !== null ||
-      datasource !== (experiment.datasource || "") ||
-      exposureQueryId !== (experiment.exposureQueryId || "") ||
-      !isEqual(goalMetrics, experiment.goalMetrics || []) ||
-      !isEqual(secondaryMetrics, experiment.secondaryMetrics || []) ||
-      !isEqual(guardrailMetrics, experiment.guardrailMetrics || []));
+  // Fields left alone follow the experiment as other surfaces write it.
+  const touchedRef = useRef(touched);
+  touchedRef.current = touched;
+  const resync = useCallback(
+    (except: ReadonlySet<PlanField>, keepFilled = true) => {
+      if (!except.has("datasource")) {
+        setDatasource(experiment.datasource || suggestedDatasource);
+      }
+      // A query the page filled in where the experiment has none stays.
+      if (!except.has("exposureQueryId")) {
+        setExposureQueryId(
+          (prev) => experiment.exposureQueryId || (keepFilled ? prev : ""),
+        );
+      }
+      if (!except.has("goalMetrics")) {
+        setGoalMetrics(experiment.goalMetrics || []);
+      }
+      if (!except.has("secondaryMetrics")) {
+        setSecondaryMetrics(experiment.secondaryMetrics || []);
+      }
+      if (!except.has("guardrailMetrics")) {
+        setGuardrailMetrics(experiment.guardrailMetrics || []);
+      }
+    },
+    [
+      experiment.datasource,
+      experiment.exposureQueryId,
+      experiment.goalMetrics,
+      experiment.secondaryMetrics,
+      experiment.guardrailMetrics,
+      suggestedDatasource,
+    ],
+  );
+  useEffect(() => resync(touchedRef.current), [resync]);
 
   useRegisterExperimentEdit("analysis-plan", dirty, {
     changes: () =>
       experimentFieldChanges(experiment, {
         ...advanced,
-        datasource,
-        exposureQueryId,
-        goalMetrics,
-        secondaryMetrics,
-        guardrailMetrics,
+        ...Object.fromEntries(sent.map((field) => [field, current[field]])),
       }),
     onSaved: () => {
-      setTouched(false);
+      setTouched(new Set());
       setAdvanced(null);
     },
     discard: () => {
       setAdvanced(null);
-      setDatasource(experiment.datasource || suggestedDatasource);
-      setExposureQueryId(experiment.exposureQueryId || "");
-      setGoalMetrics(experiment.goalMetrics || []);
-      setSecondaryMetrics(experiment.secondaryMetrics || []);
-      setGuardrailMetrics(experiment.guardrailMetrics || []);
-      setTouched(false);
+      setTouched(new Set());
+      resync(new Set(), false);
     },
   });
 
@@ -210,7 +260,7 @@ export default function AnalysisPlan({
     setExposureQueryId(suggestion);
     // An empty field filling itself in is a default; replacing a saved query
     // is a change, and the save bar has to say so.
-    if (experiment.exposureQueryId) setTouched(true);
+    if (experiment.exposureQueryId) touch("exposureQueryId");
   }, [
     canEdit,
     selectedDatasource,
@@ -231,6 +281,7 @@ export default function AnalysisPlan({
   const metricRow = (
     label: string,
     tooltip: string,
+    field: MetricField,
     selected: string[],
     onChange: (ids: string[]) => void,
   ) => (
@@ -238,7 +289,7 @@ export default function AnalysisPlan({
       <MetricsSelector
         selected={selected}
         onChange={(ids) => {
-          setTouched(true);
+          touch(field);
           onChange(ids);
         }}
         datasource={datasource}
@@ -281,7 +332,6 @@ export default function AnalysisPlan({
             // well-formed overrides reach the draft.
             const { metricOverrides: parsed } =
               experimentAnalysisSettingsDraft.parse({ metricOverrides: next });
-            setTouched(true);
             setAdvanced((prev) => ({
               ...(prev ?? {}),
               metricOverrides: parsed,
@@ -293,7 +343,8 @@ export default function AnalysisPlan({
       {advancedOpen ? (
         <AnalysisForm
           cancel={() => setAdvancedOpen(false)}
-          experiment={experiment}
+          // Opens on the page's draft, so confirming hands back what it shows.
+          experiment={{ ...settingsScope.experiment, ...current }}
           mutate={mutate}
           phase={experiment.phases.length - 1}
           // Dates are a phase edit, not an analysis setting: they have no place
@@ -312,13 +363,26 @@ export default function AnalysisPlan({
               guardrailMetrics: nextGuardrailMetrics,
               ...rest
             } = changes;
-            setTouched(true);
-            if (nextDatasource !== undefined) setDatasource(nextDatasource);
-            if (nextExposureQueryId !== undefined)
+            if (nextDatasource !== undefined) {
+              touch("datasource");
+              setDatasource(nextDatasource);
+            }
+            if (nextExposureQueryId !== undefined) {
+              touch("exposureQueryId");
               setExposureQueryId(nextExposureQueryId);
-            if (nextGoalMetrics) setGoalMetrics(nextGoalMetrics);
-            if (nextSecondaryMetrics) setSecondaryMetrics(nextSecondaryMetrics);
-            if (nextGuardrailMetrics) setGuardrailMetrics(nextGuardrailMetrics);
+            }
+            if (nextGoalMetrics) {
+              touch("goalMetrics");
+              setGoalMetrics(nextGoalMetrics);
+            }
+            if (nextSecondaryMetrics) {
+              touch("secondaryMetrics");
+              setSecondaryMetrics(nextSecondaryMetrics);
+            }
+            if (nextGuardrailMetrics) {
+              touch("guardrailMetrics");
+              setGuardrailMetrics(nextGuardrailMetrics);
+            }
             setAdvanced((prev) => ({ ...(prev ?? {}), ...rest }));
             setAdvancedOpen(false);
           }}
@@ -358,7 +422,7 @@ export default function AnalysisPlan({
                       key={d.id || "none"}
                       onClick={() => {
                         if (d.id === datasource) return;
-                        setTouched(true);
+                        touch("datasource", "exposureQueryId");
                         setDatasource(d.id);
                         // The old query belongs to the old source.
                         setExposureQueryId("");
@@ -386,7 +450,7 @@ export default function AnalysisPlan({
           <SelectField
             value={exposureQueryId}
             onChange={(value) => {
-              setTouched(true);
+              touch("exposureQueryId");
               setExposureQueryId(value);
             }}
             required
@@ -485,18 +549,21 @@ export default function AnalysisPlan({
         {metricRow(
           "Goal metrics",
           "What this experiment is trying to improve.",
+          "goalMetrics",
           goalMetrics,
           setGoalMetrics,
         )}
         {metricRow(
           "Secondary metrics",
           "Extra metrics to learn from, but not the objective.",
+          "secondaryMetrics",
           secondaryMetrics,
           setSecondaryMetrics,
         )}
         {metricRow(
           "Guardrail metrics",
           "Metrics to watch for harm, not to improve.",
+          "guardrailMetrics",
           guardrailMetrics,
           setGuardrailMetrics,
         )}

@@ -43,6 +43,7 @@ import {
   linkFeatureToExperiment,
   assertFlagKeepable,
   assertFlagRemovable,
+  assertNotManagedElsewhere,
   keepFlagInExperiment,
   removeFlagFromExperiment,
 } from "back-end/src/services/experiment-feature";
@@ -220,10 +221,11 @@ async function planFlagValues(
   if (!nextWeights) {
     throw new BadRequestError("Experiment must have at least one phase");
   }
+  // Against the variations this save leaves, which the plan already vetted.
   validateExperimentFeatureVariations({
     variations: nextExperiment.variations,
     variationWeights: nextWeights,
-    experiment,
+    experiment: nextExperiment,
     features: updates,
   });
 
@@ -289,6 +291,7 @@ async function planFlagValues(
         judgedFeature,
         { ...rule, ...ruleUpdate } as ExperimentRefRule,
         rule,
+        [nextExperiment],
       );
     }
     // Off live, the values land on a new draft cut from it.
@@ -493,6 +496,10 @@ export async function applyExperimentChanges({
   audit: (data: AuditInterfaceInput) => Promise<void>;
   eventAudit: EventUser;
 }): Promise<ExperimentChangesResult> {
+  // The page's edits are the experiment's, whatever each also asks of a flag.
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
   let experimentPlan: ExperimentUpdatePlan | null = null;
   if (body.experiment) {
     assertExperimentBaseMatches(experiment, body.experiment);
@@ -534,6 +541,10 @@ export async function applyExperimentChanges({
   for (const featureId of body.keepFeatures ?? []) {
     const feature = await getFeature(context, featureId);
     if (feature) await assertFlagKeepable(context, experiment, feature);
+  }
+  for (const { featureId } of body.linkFeatures ?? []) {
+    const feature = await getFeature(context, featureId);
+    if (feature) assertNotManagedElsewhere(feature, experiment.id);
   }
 
   const compensations: Compensation[] = [];

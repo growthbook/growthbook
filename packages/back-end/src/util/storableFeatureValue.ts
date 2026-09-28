@@ -13,7 +13,7 @@ export function assertStorableFeatureValue(
   const repaired = validateFeatureValue(feature, value, label);
   if (repaired !== value) {
     throw new BadRequestError(
-      `${label}: invalid JSON. Did you mean ${repaired.replace(/\s+/g, " ")}?`,
+      `${label}: invalid JSON. Did you mean ${JSON.stringify(JSON.parse(repaired))}?`,
     );
   }
   return value;

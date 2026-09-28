@@ -1,5 +1,4 @@
 import { SchemaField } from "shared/types/feature";
-import { sortObjectKeys } from "../sortObjectKeys";
 
 // The internal model + the JSON-Schema-shaped helpers every converter depends
 // on. Pure (no React/DOM/network): the same logic runs in the browser editor
@@ -34,9 +33,18 @@ export const JSON_SCHEMA_PRESETS = {
 } as const;
 export type PresetKey = keyof typeof JSON_SCHEMA_PRESETS;
 
-// Sorted-key stringify so preset detection ignores key order.
+// Sorted-key stringify so preset detection ignores key order. Not
+// sortObjectKeys: its code-unit order would move the REST schema fingerprint.
 function canonicalJSON(v: unknown): string {
-  return JSON.stringify(sortObjectKeys(v));
+  return JSON.stringify(v, (_k, val) =>
+    val && typeof val === "object" && !Array.isArray(val)
+      ? Object.fromEntries(
+          Object.entries(val as Record<string, unknown>).sort(([a], [b]) =>
+            a.localeCompare(b),
+          ),
+        )
+      : val,
+  );
 }
 
 export function presetKeyFromField(f: SchemaField | null): PresetKey | null {

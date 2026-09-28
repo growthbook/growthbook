@@ -110,11 +110,14 @@ export default function VariationScreenshotManager({
   variationIndex,
   screenshots,
   setScreenshots,
+  mutate,
 }: {
   experiment: ExperimentInterfaceStringDates;
   variationIndex: number;
   screenshots: Screenshot[];
   setScreenshots: (screenshots: Screenshot[]) => void;
+  // The upload is already saved; the page's copy has to catch up before its save.
+  mutate: () => void;
 }) {
   // The tile is its own drag handle, so a click needs movement to become a drag.
   const sensors = useSensors(
@@ -164,9 +167,10 @@ export default function VariationScreenshotManager({
               className={styles.gridUpload}
               messageClassName={styles.gridUploadMessage}
               message="Drop image here"
-              onSuccess={(_, screenshot) =>
-                setScreenshots([...screenshots, screenshot])
-              }
+              onSuccess={(_, screenshot) => {
+                setScreenshots([...screenshots, screenshot]);
+                mutate();
+              }}
             >
               <Flex
                 align="center"
