@@ -43,6 +43,41 @@ export const savedGroupTargeting = z
   .strict();
 export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;
 
+// For strict write schemas: a key that only appears on GET responses. Accepted
+// (and ignored) so a response can be sent back unchanged.
+export const readOnlyEcho = z
+  .unknown()
+  .optional()
+  .describe(
+    "Read-only; ignored on write. Accepted so a GET response can be posted back unchanged.",
+  );
+
+// Keys a stored schema declares that a write schema does not, each accepted
+// and ignored. For write schemas whose GET spreads the stored document, so an
+// uncurated type can still be strict and still round-trip.
+export function storedOnlyEcho<
+  S extends Record<string, z.ZodType>,
+  W extends Record<string, unknown>,
+>(
+  stored: S,
+  write: W,
+): Record<
+  Exclude<keyof S, keyof W | "allEnvironments" | "environments">,
+  typeof readOnlyEcho
+> {
+  const echo: Record<string, typeof readOnlyEcho> = {};
+  for (const key of Object.keys(stored)) {
+    if (key in write || key === "allEnvironments" || key === "environments") {
+      continue;
+    }
+    echo[key] = readOnlyEcho;
+  }
+  return echo as Record<
+    Exclude<keyof S, keyof W | "allEnvironments" | "environments">,
+    typeof readOnlyEcho
+  >;
+}
+
 // Rule/phase targeting arrives in the storage shape or the response spelling.
 // Storage wins; undefined when neither is supplied.
 export function resolveSavedGroupsInput(input: {

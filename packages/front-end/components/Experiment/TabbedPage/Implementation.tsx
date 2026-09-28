@@ -318,6 +318,7 @@ export default function Implementation({
           experiment={experiment}
           mutate={mutate}
           canEdit={!!editTargeting && !pendingScheduledStart}
+          envs={envs}
         />
       </div>
     </>

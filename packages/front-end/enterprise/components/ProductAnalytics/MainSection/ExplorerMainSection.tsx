@@ -13,10 +13,10 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
+  explorerMainPresentation,
   hasSubmittablePayload,
   isTableChartType,
   isTimelessSqlExploration,
-  shouldChartSectionShow,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -46,6 +46,19 @@ function getSqlQueryPanelPercent(sql: string, groupHeightPx: number): number {
     Math.max(SQL_QUERY_PANEL_MIN_PERCENT, percent),
   );
 }
+function useSlowJourneyLoading() {
+  const { loading, draftExploreState } = useExplorerContext();
+  const active = loading && draftExploreState.type === "journey";
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    setSlow(false);
+    if (!active) return;
+    const timer = setTimeout(() => setSlow(true), 10000);
+    return () => clearTimeout(timer);
+  }, [active]);
+  return active && slow;
+}
+
 function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
   const {
     exploration,
@@ -66,10 +79,16 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
     submittedComparisonMode,
   } = useExplorerContext();
 
-  const showChartSection = shouldChartSectionShow({
+  const slowJourneyLoading = useSlowJourneyLoading();
+  const { showChart, showTable } = explorerMainPresentation({
+    draftType: draftExploreState.type,
+    chartType: draftExploreState.chartType,
+    submitted: submittedExploreState,
+    hasChartData: (exploration?.result?.rows?.length ?? 0) > 0,
     loading,
     error,
-    submittedExploreState,
+    isStale,
+    isSubmittable,
   });
 
   // SQL empty states carry their own submit button (Load table / Render
@@ -111,12 +130,12 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
       >
         {hasSubmittablePayload(submittedExploreState) ? (
           <PanelGroup direction="vertical" id="visualization-group">
-            {showChartSection && (
+            {showChart && (
               <>
                 <Panel
                   id="chart"
                   order={1}
-                  defaultSize={60}
+                  defaultSize={showTable ? 60 : 100}
                   minSize={20}
                   style={{
                     display: "flex",
@@ -138,56 +157,60 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
                     }
                   />
                 </Panel>
-                <PanelResizeHandle
-                  style={{
-                    height: "20px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Box
-                    flexGrow="1"
-                    mx="3"
+                {showTable && (
+                  <PanelResizeHandle
                     style={{
-                      backgroundColor: "var(--gray-a3)",
-                      height: "1px",
+                      height: "20px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
-                  ></Box>
-                  <PiDotsSix size={16} />
-                  <Box
-                    flexGrow="1"
-                    mx="3"
-                    style={{
-                      backgroundColor: "var(--gray-a3)",
-                      height: "1px",
-                    }}
-                  ></Box>
-                </PanelResizeHandle>
+                  >
+                    <Box
+                      flexGrow="1"
+                      mx="3"
+                      style={{
+                        backgroundColor: "var(--gray-a3)",
+                        height: "1px",
+                      }}
+                    ></Box>
+                    <PiDotsSix size={16} />
+                    <Box
+                      flexGrow="1"
+                      mx="3"
+                      style={{
+                        backgroundColor: "var(--gray-a3)",
+                        height: "1px",
+                      }}
+                    ></Box>
+                  </PanelResizeHandle>
+                )}
               </>
             )}
-            <Panel
-              id="table"
-              order={2}
-              defaultSize={showChartSection ? 40 : 100}
-              minSize={20}
-            >
-              <ExplorerDataTable
-                exploration={exploration}
-                error={error}
-                submittedExploreState={submittedExploreState}
-                loading={loading}
-                hasChart={showChartSection}
-                isStale={isStale}
-                query={query}
-                compareEnabled={compareEnabled}
-                comparisonExploration={comparisonExploration}
-                comparisonMode={submittedComparisonMode}
-                serverTableTrendsByRow={
-                  comparisonComputed?.tableTrendsByRow ?? null
-                }
-              />
-            </Panel>
+            {showTable && (
+              <Panel
+                id="table"
+                order={2}
+                defaultSize={showChart ? 40 : 100}
+                minSize={20}
+              >
+                <ExplorerDataTable
+                  exploration={exploration}
+                  error={error}
+                  submittedExploreState={submittedExploreState}
+                  loading={loading}
+                  hasChart={showChart}
+                  isStale={isStale}
+                  query={query}
+                  compareEnabled={compareEnabled}
+                  comparisonExploration={comparisonExploration}
+                  comparisonMode={submittedComparisonMode}
+                  serverTableTrendsByRow={
+                    comparisonComputed?.tableTrendsByRow ?? null
+                  }
+                />
+              </Panel>
+            )}
           </PanelGroup>
         ) : (
           emptyState
@@ -198,7 +221,7 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
             style={{
               position: "absolute",
               zIndex: 1000,
-              top: 15,
+              top: draftExploreState.type === "journey" && showChart ? 100 : 15,
               right: 15,
               width: "auto",
               backgroundColor: "var(--color-panel-solid)",
@@ -234,7 +257,11 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
               }
             >
               {loading ? (
-                "Loading..."
+                slowJourneyLoading ? (
+                  "Taking longer than expected…"
+                ) : (
+                  "Loading..."
+                )
               ) : (
                 <Text title="Some configuration changes require running a new SQL query against your data source">
                   Latest changes not applied
@@ -262,7 +289,9 @@ export default function ExplorerMainSection({
     collapseFunnelStepsForAnalyze,
   } = useExplorerContext();
 
+  const slowJourneyLoading = useSlowJourneyLoading();
   const isSql = draftExploreState.type === "sql";
+  const isJourney = draftExploreState.type === "journey";
   const isRawTable = isSql && draftExploreState.chartType === "rawTable";
   const sqlConfigIsReady =
     draftExploreState.type === "sql" &&
@@ -327,6 +356,8 @@ export default function ExplorerMainSection({
     draftExploreState.type === "funnel" &&
     draftExploreState.dataset?.type === "funnel" &&
     !hasSubmittablePayload(submittedExploreState);
+  const journeyMainEmpty =
+    isJourney && !hasSubmittablePayload(submittedExploreState);
 
   const sqlEmptyButtonLabel = isTableChartType(draftExploreState.chartType)
     ? "Load table"
@@ -379,6 +410,22 @@ export default function ExplorerMainSection({
               Analyze Funnel
             </Flex>
           </Button>
+        </>
+      ) : journeyMainEmpty && (loading || isSubmittable) ? (
+        <>
+          <LoadingSpinner />
+          <Text size="lg" weight="medium">
+            {slowJourneyLoading
+              ? "Taking longer than expected…"
+              : "Loading journey…"}
+          </Text>
+        </>
+      ) : journeyMainEmpty ? (
+        <>
+          <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
+          <Text size="lg" weight="medium">
+            Configure this journey to visualize data
+          </Text>
         </>
       ) : (
         <>

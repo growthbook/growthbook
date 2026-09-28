@@ -1,5 +1,6 @@
 import { teamSchema, ApiDeleteTeamReturn } from "shared/validators";
 import { ApiTeamInterface, TeamInterface } from "shared/types/team";
+import { UpdateProps } from "shared/types/base-model";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
 import { stringToBoolean } from "shared/util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -10,6 +11,8 @@ import {
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   addMembersToTeam,
+  assertCanChangeTeamMembership,
+  assertProjectRulesReferenceProjects,
   getMembersOfTeam,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
@@ -42,10 +45,9 @@ const BaseClass = MakeModelClass({
       defineCustomApiHandler({
         ...addTeamMembersEndpoint,
         reqHandler: async (req) => {
-          if (!req.context.permissions.canManageTeam())
-            req.context.permissions.throwPermissionError();
           const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
+          assertCanChangeTeamMembership(req.context, team, req.body.members);
           await addMembersToTeam({
             organization: req.context.org,
             userIds: req.body.members,
@@ -59,10 +61,9 @@ const BaseClass = MakeModelClass({
       defineCustomApiHandler({
         ...removeTeamMemberEndpoint,
         reqHandler: async (req) => {
-          if (!req.context.permissions.canManageTeam())
-            req.context.permissions.throwPermissionError();
           const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
+          assertCanChangeTeamMembership(req.context, team, req.body.members);
           await removeMembersFromTeam({
             organization: req.context.org,
             userIds: req.body.members,
@@ -76,10 +77,10 @@ const BaseClass = MakeModelClass({
       defineCustomApiHandler({
         ...deleteTeamEndpoint,
         reqHandler: async (req): Promise<ApiDeleteTeamReturn> => {
-          if (!req.context.permissions.canManageTeam())
-            req.context.permissions.throwPermissionError();
           const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
+          if (!req.context.permissions.canDeleteTeam(team))
+            req.context.permissions.throwPermissionError();
           if (stringToBoolean(req.query.deleteMembers)) {
             await removeMembersFromTeam({
               organization: req.context.org,
@@ -98,26 +99,49 @@ const BaseClass = MakeModelClass({
 });
 
 export class TeamModel extends BaseClass {
-  protected canCreate(): boolean {
-    return this.context.permissions.canManageTeam();
+  protected canCreate(doc: TeamInterface): boolean {
+    return this.context.permissions.canCreateTeam(doc);
   }
   protected canRead(): boolean {
     // Teams aren't project-scoped and they're used to build a user's permissions, so the `readData` check doesn't work
     return true;
   }
-  protected canUpdate(): boolean {
-    return this.context.permissions.canManageTeam();
+  protected canUpdate(
+    existing: TeamInterface,
+    updates: UpdateProps<TeamInterface>,
+  ): boolean {
+    return this.context.permissions.canUpdateTeam(existing, updates);
   }
-  protected canDelete(): boolean {
-    return this.context.permissions.canManageTeam();
+  protected canDelete(doc: TeamInterface): boolean {
+    return this.context.permissions.canDeleteTeam(doc);
   }
 
-  protected async customValidation(doc: TeamInterface) {
+  protected async beforeCreate() {
+    if (!this.context.hasPremiumFeature("teams")) {
+      this.context.throwPlanDoesNotAllowError(
+        "Must have a commercial License Key to create a team.",
+      );
+    }
+  }
+
+  protected async customValidation(
+    doc: TeamInterface,
+    previousDoc?: TeamInterface,
+  ) {
     if (
       !isRoleValid(doc.role, this.context.org) ||
       !areProjectRolesValid(doc.projectRoles, this.context.org)
     ) {
       return this.context.throwBadRequestError("Invalid role");
+    }
+    try {
+      await assertProjectRulesReferenceProjects(
+        this.context,
+        previousDoc?.projectRoles,
+        doc.projectRoles,
+      );
+    } catch (e) {
+      return this.context.throwBadRequestError(e.message);
     }
   }
 

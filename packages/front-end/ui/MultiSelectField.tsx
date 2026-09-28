@@ -78,11 +78,12 @@ const SortableMultiValueLabel = (
   const { title: showTitle, ...style } = useContext(
     MultiValueLabelStyleContext,
   );
-  const title = props.data?.tooltip || props.data?.label || "";
-  const innerProps = showTitle
-    ? { ...props.innerProps, title }
-    : props.innerProps;
-  return (
+  const tooltip = props.data?.tooltip;
+  const innerProps =
+    showTitle && !tooltip
+      ? { ...props.innerProps, title: props.data?.label || "" }
+      : props.innerProps;
+  const label = (
     <span
       style={{
         display: "flex",
@@ -94,13 +95,23 @@ const SortableMultiValueLabel = (
       <components.MultiValueLabel {...props} innerProps={innerProps} />
     </span>
   );
+  return tooltip ? <Tooltip content={tooltip}>{label}</Tooltip> : label;
 };
 
-const OptionWithTitle = (
+const OptionWithTooltip = (
   props: OptionProps<SingleValue, true, GroupBase<SingleValue>>,
 ) => {
-  const option = <components.Option {...props} />;
-  return <div title={props.data?.tooltip}>{option}</div>;
+  const tooltip = props.data?.tooltip;
+  if (!tooltip) return <components.Option {...props} />;
+  // Anchored to the label, not the full-width row, so the tooltip sits beside
+  // the text and stays out of the way while moving down the list.
+  return (
+    <components.Option {...props}>
+      <Tooltip content={tooltip} side="right">
+        <span style={{ display: "inline-block" }}>{props.children}</span>
+      </Tooltip>
+    </components.Option>
+  );
 };
 
 const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<
@@ -534,7 +545,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     MultiValue: SortableMultiValue,
                     MultiValueLabel: SortableMultiValueLabel,
                     MultiValueRemove: CustomMultiValueRemove,
-                    Option: OptionWithTitle,
+                    Option: OptionWithTooltip,
                     Input,
                     ClearIndicator: CustomClearIndicator,
                     GroupHeading,

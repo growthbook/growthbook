@@ -1,5 +1,9 @@
 import isEqual from "lodash/isEqual";
-import { getAttributeScopeProjectIds, ruleAppliesToEnv } from "shared/util";
+import {
+  getRuleAttributeScopeProjectIds,
+  ruleAppliesToEnv,
+  isScheduledRule,
+} from "shared/util";
 import {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
@@ -33,10 +37,21 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
-  validateRuleConditions,
+  assertValidRevisionRulePrerequisites,
+  validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  stagedFeature,
+  validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
+import {
+  assertCanUseRuleScheduling,
+  assertValidExperimentRefRule,
+  experimentRefChanged,
+} from "./v2Shared";
 
 export function applyPatch(
   existing: FeatureRule,
@@ -200,6 +215,22 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
   const patch = req.body.rule;
+  const staged = await stagedFeature(req.context, feature, req.params.version);
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      staged,
+      {
+        ...(staged.rules ?? []).find((r) => r.id === req.params.ruleId),
+        ...patch,
+        id: req.params.ruleId,
+        environments: [environment],
+      },
+    ),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -285,7 +316,22 @@ export const putFeatureRevisionRule = createApiRequestHandler(
           environment,
         );
     }
+    // Only newly introduced scheduling is plan-gated; an already-scheduled
+    // rule can be edited or cleared on any plan.
+    if (!isScheduledRule(oldRule) && liveSchedulesForRule.length === 0) {
+      assertCanUseRuleScheduling(req.context, {
+        schedule,
+        scheduleRules: patch.scheduleRules,
+        rampSchedule: inlineRampSchedule,
+      });
+    }
     const updatedRule = applyPatch(oldRule, patch);
+    if (
+      updatedRule.type === "experiment-ref" &&
+      experimentRefChanged(updatedRule, oldRule)
+    ) {
+      await assertValidExperimentRefRule(req.context, updatedRule);
+    }
 
     // A coverage patch can convert a force rule to a rollout, which arrives
     // seedless. Existing rollouts already carry a seed and are left untouched.
@@ -293,18 +339,18 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, {
-      rules: [updatedRule as FeatureRule],
-    });
+    assertFeatureValuesValid(
+      req.context,
+      feature,
+      { rules: [updatedRule as FeatureRule] },
+      { rules: [oldRule] },
+    );
 
     // Only validate fields in the patch, so edits don't break on stale refs
     // elsewhere in the rule (e.g. since-deleted saved groups).
-    validateRuleConditions({
-      condition:
-        patch.condition !== undefined ? updatedRule.condition : undefined,
-      prerequisites:
-        patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
-    });
+    if (patch.prerequisites !== undefined) {
+      validatePrerequisiteConditions(updatedRule.prerequisites ?? []);
+    }
     // Attribute registration check: only validate the fields the caller
     // actually patched. patch is the Zod-typed RulePatchInput, so condition
     // and hashAttribute are already string | undefined. fallbackAttribute
@@ -323,22 +369,20 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       validateRuleAttributes(
         changedAttributes,
         req.context,
-        getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+        getRuleAttributeScopeProjectIds(
+          feature,
+          revision.metadata,
+          updatedRule,
+        ) ?? undefined,
       );
     }
-    if (
-      patch.condition !== undefined ||
-      patch.savedGroups !== undefined ||
-      patch.prerequisites !== undefined
-    ) {
+    if (patch.condition !== undefined || patch.savedGroups !== undefined) {
       await validateRuleReferences(
         {
           condition:
             patch.condition !== undefined ? updatedRule.condition : undefined,
           savedGroups:
             patch.savedGroups !== undefined ? updatedRule.savedGroups : [],
-          prerequisites:
-            patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
         },
         req.context,
       );
@@ -353,10 +397,14 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     );
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: flatRules,
+      after: newRules,
+    });
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
+      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id, feature)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       const hasLegacySchedule =

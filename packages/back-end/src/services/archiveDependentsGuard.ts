@@ -14,13 +14,15 @@ import {
   loadConstantReferences,
   totalConstantReferences,
 } from "back-end/src/services/constants";
-import { getFeaturesDependingOnAsPrerequisite } from "back-end/src/services/features";
+import {
+  getExperimentsDependingOnAsPrerequisite,
+  getFeaturesDependingOnAsPrerequisite,
+} from "back-end/src/services/features";
 import {
   loadSavedGroupReferences,
   totalSavedGroupReferences,
 } from "back-end/src/services/savedGroups";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
-import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
   SoftWarningError,
@@ -79,18 +81,10 @@ export async function collectFeatureArchiveDependents(
   const scanContext =
     context.scanContextOverride ??
     getContextForAgendaJobByOrgObject(context.org);
-  const [dependentFeatureIds, allExperiments] = await Promise.all([
+  const [dependentFeatureIds, dependentExperimentIds] = await Promise.all([
     getFeaturesDependingOnAsPrerequisite(scanContext, featureId),
-    // Projected loader (id/status/phases.prerequisites only) — avoids
-    // materializing every experiment's analysis blob just to read prerequisites.
-    getAllExperimentsForStaleGraph(scanContext),
+    getExperimentsDependingOnAsPrerequisite(scanContext, featureId),
   ]);
-  const dependentExperimentIds = allExperiments
-    .filter((e) => {
-      const phase = e.phases.slice(-1)?.[0] ?? null;
-      return !!phase?.prerequisites?.some((p) => p.id === featureId);
-    })
-    .map((e) => e.id);
 
   const ids = [
     ...dependentFeatureIds.map((id) => `feature:${id}`),

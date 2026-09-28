@@ -9,12 +9,15 @@ import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getDefaultHashAttribute,
   filterEnvironmentsByFeature,
   generateVariationId,
   isProjectListValidForProject,
   getReviewSetting,
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getTargetingProjectIds,
+  getRuleTargetingProjectIds,
+  rampTargetMatchesRule,
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
@@ -26,12 +29,13 @@ import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import {
+  ACTIVE_DRAFT_STATUSES,
   CreateSafeRolloutInterface,
-  SafeRolloutInterface,
-  SafeRolloutRule,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
+  SafeRolloutInterface,
+  SafeRolloutRule,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
@@ -42,6 +46,7 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import { withStagedTargeting } from "shared/permissions";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import {
@@ -56,6 +61,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useAuth } from "@/services/auth";
 import { useLocalAttributeScopePicker } from "@/components/Experiment/useAttributeScopePicker";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -113,7 +119,6 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
@@ -336,6 +341,12 @@ const RULE_FIELD_LABELS: Record<string, string> = {
   experimentId: "Experiment",
 };
 
+// null (all projects) absorbs every other set.
+const unionProjectIds = (...sets: (string[] | null)[]): string[] | null =>
+  sets.some((s) => s === null)
+    ? null
+    : Array.from(new Set(sets.flat() as string[]));
+
 export default function RuleModal({
   close,
   feature,
@@ -359,11 +370,34 @@ export default function RuleModal({
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
+  const flatRules = feature.rules ?? [];
+  const rule: FeatureRule | undefined = ruleId
+    ? flatRules.find((r) => r.id === ruleId)
+    : undefined;
+
+  // Rule-level project scope. Absent `allProjects`/`projects` (legacy/default)
+  // means "all projects"; `allProjects === false` with a `projects` list scopes
+  // the rule. On duplicate/edit, seed from the existing rule.
+  const existingRuleAllProjects =
+    rule === undefined || rule.allProjects !== false;
+  const [scopeAllProjects, setScopeAllProjects] = useState<boolean>(
+    () => existingRuleAllProjects,
+  );
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
+    Array.isArray(rule?.projects) ? (rule?.projects ?? []) : [],
+  );
+
   // `feature` is the merged view where staged targeting REPLACES current, so
-  // union the published `baseFeature` with the draft's staged metadata.
+  // union the published `baseFeature` with the draft's staged metadata, then
+  // narrow to the projects this rule itself targets — the scope the server
+  // validates against.
   const attributeScopeProjects = useMemo(
-    () => getAttributeScopeProjectIds(baseFeature, draftRevision?.metadata),
-    [baseFeature, draftRevision],
+    () =>
+      getRuleAttributeScopeProjectIds(baseFeature, draftRevision?.metadata, {
+        allProjects: scopeAllProjects,
+        projects: selectedProjects,
+      }),
+    [baseFeature, draftRevision, scopeAllProjects, selectedProjects],
   );
   const { effectiveAttributeProjects, attributeScopeToggle } =
     useLocalAttributeScopePicker(baseFeature.project, attributeScopeProjects);
@@ -372,11 +406,6 @@ export default function RuleModal({
   // truly-unknown attributes and attributes that exist but aren't scoped to
   // this project, so the client-side error wording matches the server.
   const allAttributesSchema = useAttributeSchema(false);
-
-  const flatRules = feature.rules ?? [];
-  const rule: FeatureRule | undefined = ruleId
-    ? flatRules.find((r) => r.id === ruleId)
-    : undefined;
   // Published version of the rule being edited. Never set for duplicates —
   // they create a new rule even though `ruleId` points at a published one.
   const liveRule =
@@ -434,9 +463,7 @@ export default function RuleModal({
   // still resolve to the same schedule as their bare stem (fr_abc).
   const ruleRampSchedule = rule?.id
     ? rampSchedules.find((rs) =>
-        rs.targets.some(
-          (t) => t.ruleId && stemRuleId(t.ruleId) === stemRuleId(rule.id),
-        ),
+        rs.targets.some((t) => rampTargetMatchesRule(t, rule.id)),
       )
     : undefined;
 
@@ -569,6 +596,19 @@ export default function RuleModal({
   // feature's holdout when the target revision isn't in context (e.g. a new
   // draft branched from the viewed version carries that holdout forward).
   const revisionsCtx = useFeatureRevisionsContext();
+  // The draft the rule is written into (it may differ from the viewed one) and
+  // the revision that draft was created from. Only an active draft counts: a
+  // discarded or published revision's envelope is not what the save lands in.
+  const isActiveDraft = (r: FeatureRevisionInterface | null | undefined) =>
+    !!r && (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
+  const targetDraft = [
+    revisionsCtx?.revisions.find((r) => r.version === targetVersion),
+    draftRevision,
+  ].find(isActiveDraft);
+  const targetDraftBase = revisionsCtx?.revisions.find(
+    (r) => r.version === targetDraft?.baseVersion,
+  );
+  const baseRule = targetDraftBase?.rules.find((r) => r.id === ruleId);
   const targetHoldoutId = useMemo(() => {
     const targetRev = revisionsCtx?.revisions.find(
       (r) => r.version === targetVersion,
@@ -776,18 +816,6 @@ export default function RuleModal({
       // New rules: pre-select the active env tab (or empty if "All" fallback).
       return environment ? [environment] : [];
     },
-  );
-
-  // Rule-level project scope. Absent `allProjects`/`projects` (legacy/default)
-  // means "all projects"; `allProjects === false` with a `projects` list scopes
-  // the rule. On duplicate/edit, seed from the existing rule.
-  const existingRuleAllProjects =
-    rule === undefined || rule.allProjects !== false;
-  const [scopeAllProjects, setScopeAllProjects] = useState<boolean>(
-    () => existingRuleAllProjects,
-  );
-  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
-    Array.isArray(rule?.projects) ? (rule?.projects ?? []) : [],
   );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
@@ -1058,11 +1086,10 @@ export default function RuleModal({
       // When auto-promoting to rollout, ensure hashAttribute has a sensible value
       if (targetType === "rollout") {
         if (!form.getValues("hashAttribute")) {
-          const defaultHash =
-            attributeSchema?.find((a) => a.hashAttribute)?.property ||
-            attributeSchema?.[0]?.property ||
-            "id";
-          form.setValue("hashAttribute", defaultHash);
+          form.setValue(
+            "hashAttribute",
+            getDefaultHashAttribute(attributeSchema),
+          );
         }
       }
     }
@@ -1408,7 +1435,9 @@ export default function RuleModal({
           owner: "",
           status: "draft",
           tags: feature.tags || [],
-          trackingKey: values.trackingKey || feature.id,
+          trackingKey:
+            values.trackingKey ||
+            (settings.experimentKeyRegexValidator ? "" : feature.id),
           description: values.description,
           hypothesis: values.hypothesis,
           linkedFeatures: [feature.id],
@@ -2385,8 +2414,24 @@ export default function RuleModal({
     setAllProjects: setScopeAllProjects,
     selectedProjects,
     setSelectedProjects,
-    // Limit scoping to the feature's delivery set (null = all projects).
-    allowedProjectIds: getTargetingProjectIds(feature),
+    // The delivery set (null = all projects) of the viewed feature, the live
+    // feature, the target draft, and the revision that draft began from, plus
+    // this rule's scope live and in that revision, so a removed scope can be
+    // put back.
+    allowedProjectIds: unionProjectIds(
+      getTargetingProjectIds(feature),
+      getTargetingProjectIds(baseFeature),
+      getTargetingProjectIds(
+        withStagedTargeting(baseFeature, targetDraft?.metadata),
+      ),
+      targetDraftBase
+        ? getTargetingProjectIds(
+            withStagedTargeting(baseFeature, targetDraftBase.metadata),
+          )
+        : [],
+      liveRule?.projects ?? [],
+      baseRule?.projects ?? [],
+    ),
   };
 
   // Resolved env list used by child components that care about which envs the
@@ -2395,6 +2440,15 @@ export default function RuleModal({
   const effectiveEnvList = scopeAllEnvs
     ? environments.map((e) => e.id)
     : selectedEnvironments;
+
+  const savedGroupProjects = settings.enforceSavedGroupProjectScope
+    ? getRuleTargetingProjectIds(
+        targetDraft
+          ? withStagedTargeting(baseFeature, targetDraft.metadata)
+          : feature,
+        { allProjects: scopeAllProjects, projects: selectedProjects },
+      )
+    : undefined;
 
   const modalContent = (
     <FormProvider {...form}>
@@ -2487,6 +2541,7 @@ export default function RuleModal({
               ruleType={ruleType}
               feature={feature}
               attributeProjects={effectiveAttributeProjects}
+              savedGroupProjects={savedGroupProjects}
               attributeSelectIndicator={attributeScopeToggle}
               environments={effectiveEnvList}
               defaultValues={defaultValues}
@@ -2525,6 +2580,7 @@ export default function RuleModal({
               hideNameField={true}
               feature={feature}
               attributeProjects={effectiveAttributeProjects}
+              savedGroupProjects={savedGroupProjects}
               attributeSelectIndicator={attributeScopeToggle}
               environments={environments.map((e) => e.id)}
               hashAttribute={form.watch("hashAttribute") as string}
@@ -2545,6 +2601,7 @@ export default function RuleModal({
           <SafeRolloutFields
             feature={feature}
             attributeProjects={effectiveAttributeProjects}
+            savedGroupProjects={savedGroupProjects}
             attributeSelectIndicator={attributeScopeToggle}
             environment={environment}
             defaultValues={defaultValues}
@@ -2601,6 +2658,7 @@ export default function RuleModal({
                   feature={feature}
                   project={feature.project}
                   attributeProjects={effectiveAttributeProjects}
+                  savedGroupProjects={savedGroupProjects}
                   attributeSelectIndicator={attributeScopeToggle}
                   environments={effectiveEnvList}
                   defaultValues={defaultValues}
@@ -2672,6 +2730,7 @@ export default function RuleModal({
                   feature={feature}
                   project={feature.project}
                   attributeProjects={effectiveAttributeProjects}
+                  savedGroupProjects={savedGroupProjects}
                   attributeSelectIndicator={attributeScopeToggle}
                   environments={effectiveEnvList}
                   prerequisiteValue={form.watch("prerequisites") || []}

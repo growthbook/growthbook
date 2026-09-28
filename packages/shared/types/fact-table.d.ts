@@ -13,6 +13,7 @@ import {
   factTableColumnTypeValidator,
   factTableTypeValidator,
   testFactFilterPropsValidator,
+  testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
   conversionWindowUnitValidator,
   cappingSettingsValidator,
@@ -31,6 +32,7 @@ import {
   funnelStepValidator,
   funnelOrderingValidator,
   funnelSettingsValidator,
+  conditionalInlineFiltersValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
@@ -57,6 +59,9 @@ export interface ColumnInterface {
   dataTypeFromWarehouse?: FactTableColumnType;
   numberFormat: NumberFormat;
   alwaysInlineFilter?: boolean;
+  // value -> extra column to prompt for when this column is filtered to that
+  // value; see getInlineFilterPromptColumns in shared/experiments.
+  conditionalInlineFilters?: ConditionalInlineFilters;
   topValues?: string[];
   topValuesDate?: Date;
   jsonFields?: JSONColumnFields;
@@ -172,6 +177,9 @@ export type LegacyColumnRef = ColumnRef & {
 };
 
 export type RowFilter = z.infer<typeof rowFilterValidator>;
+export type ConditionalInlineFilters = z.infer<
+  typeof conditionalInlineFiltersValidator
+>;
 
 export type LegacyFactMetricInterface = Omit<
   FactMetricInterface,
@@ -203,6 +211,7 @@ export type UpdateFactFilterProps = z.infer<
   typeof updateFactFilterPropsValidator
 >;
 export type TestFactFilterProps = z.infer<typeof testFactFilterPropsValidator>;
+export type TestRowFiltersProps = z.infer<typeof testRowFiltersPropsValidator>;
 export type TestVirtualColumnProps = z.infer<
   typeof testVirtualColumnPropsValidator
 >;
@@ -238,4 +247,11 @@ export type FactFilterTestResults = {
   duration?: number;
   error?: string;
   results?: TestQueryRow[];
+};
+
+export type RowFilterTestResults = FactFilterTestResults & {
+  // The generated WHERE clause body, shown next to the sample rows so the user
+  // can see what their filters compile to. Only the dialect can build it, so it
+  // comes back with the results rather than being derived on the front-end.
+  where: string;
 };

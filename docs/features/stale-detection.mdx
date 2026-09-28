@@ -23,12 +23,17 @@ You can also see the stale indicator on individual feature pages, next to the fe
 
 ## How GrowthBook Determines Stale Status
 
-Hover over the warning icon next to a stale flag to see the specific reason it was flagged.
+Hover over the verdict in the **Stale** column to see the reason for each environment. A flag that is stale in some environments but not others shows as **Not stale** with an asterisk.
 
 A flag is considered stale if it hasn't been updated in two weeks **and** meets at least one of these criteria:
 
 - No active environments (the flag is disabled everywhere)
 - One-sided rules that send 100% of traffic to a single variation
+- The only thing an environment serves is the released variation of an experiment that stopped more than 30 days ago
+
+A temporary rollout from an experiment stopped less than 30 days ago keeps the flag out of the stale list. Cleanup signals that do not make a flag stale on their own, such as a lingering temporary rollout on a flag that still has other rules, appear in the separate **Health** column.
+
+You can filter the features table with `is:stale`, `is:partially-stale`, and `is:stale-detection-off`. See [Search Syntax](/using/growthbook-best-practices#features-syntax-fields) for the full list.
 
 ## Toggling Stale Detection
 

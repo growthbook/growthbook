@@ -6,8 +6,7 @@ slug: /app/webhooks/event-webhooks
 ---
 
 import { ExternalLink } from "/snippets/ExternalLink.jsx";
-
-<Badge color="purple">BETA</Badge>
+import CloudEgressIP from '/snippets/partials/_cloud-egress-ip.mdx';
 
 GrowthBook has event-based webhooks that trigger a script on your server whenever something changes within GrowthBook.
 
@@ -70,7 +69,7 @@ You can view the status of your webhooks in the GrowthBook app under **Settings 
 
 ### VPCs and Firewalls
 
-If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
+<CloudEgressIP />
 
 ## Verify Signatures
 

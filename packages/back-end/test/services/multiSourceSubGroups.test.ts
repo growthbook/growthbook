@@ -253,4 +253,87 @@ describe("buildMultiSourceSubGroups", () => {
     expect(result[0].metrics.map((m) => m.id)).toEqual(["mf_funnel"]);
     expect(result[0].crossFtRatioMetrics).toEqual([]);
   });
+
+  it("splits metrics whose caches for the same fact table differ into separate sub-groups", () => {
+    // ft_a's metrics are chunked over two cache tables (column budget). Each
+    // stats query joins exactly one cache per fact table, so metrics that
+    // resolve to different caches cannot share a query.
+    const splitSourceGroups: MultiSourceGroupRef[] = [
+      { groupId: "gA1", factTableId: "ft_a", metrics: [{ id: "m_short" }] },
+      { groupId: "gA2", factTableId: "ft_a", metrics: [{ id: "m_short_2" }] },
+      {
+        groupId: "gB",
+        factTableId: "ft_b",
+        metrics: [{ id: "m_short" }, { id: "m_short_2" }],
+      },
+    ];
+    const pipelineA1: MultiSourcePipelineRef = {
+      group: { groupId: "gA1", factTableId: "ft_a" },
+    };
+    const pipelineA2: MultiSourcePipelineRef = {
+      group: { groupId: "gA2", factTableId: "ft_a" },
+    };
+    const crossFtEntries = [shortMetric, anotherShortMetric].map((metric) => ({
+      metric,
+      numeratorFactTableId: "ft_a",
+      denominatorFactTableId: "ft_b",
+    }));
+    const group = makeMultiSourceGroup(
+      [shortMetric, anotherShortMetric],
+      crossFtEntries,
+    );
+    const result = buildMultiSourceSubGroups({
+      multiSourceGroups: [group],
+      metricSourceGroups: splitSourceGroups,
+      pipelineByGroupId: new Map<string, MultiSourcePipelineRef>([
+        ["gA1", pipelineA1],
+        ["gA2", pipelineA2],
+        ["gB", pipelineB],
+      ]),
+      onMissingPipeline: "throw",
+    });
+    const byPipelines = Object.fromEntries(
+      result.map((sg) => [
+        sg.pipelines.map((p) => p.group.groupId).join("+"),
+        {
+          metrics: sg.metrics.map((m) => m.id),
+          crossFt: sg.crossFtRatioMetrics.map((c) => c.metric.id),
+        },
+      ]),
+    );
+    expect(byPipelines).toEqual({
+      "gA1+gB": { metrics: ["m_short"], crossFt: ["m_short"] },
+      "gA2+gB": { metrics: ["m_short_2"], crossFt: ["m_short_2"] },
+    });
+  });
+
+  it("skips only the metric whose cache is missing when onMissingPipeline is skip", () => {
+    const splitSourceGroups: MultiSourceGroupRef[] = [
+      { groupId: "gA1", factTableId: "ft_a", metrics: [{ id: "m_short" }] },
+      { groupId: "gA2", factTableId: "ft_a", metrics: [{ id: "m_short_2" }] },
+      {
+        groupId: "gB",
+        factTableId: "ft_b",
+        metrics: [{ id: "m_short" }, { id: "m_short_2" }],
+      },
+    ];
+    const group = makeMultiSourceGroup([shortMetric, anotherShortMetric]);
+    // gA2 has no pipeline yet (cache not built): m_short_2 is skipped,
+    // m_short still gets its query.
+    const result = buildMultiSourceSubGroups({
+      multiSourceGroups: [group],
+      metricSourceGroups: splitSourceGroups,
+      pipelineByGroupId: new Map<string, MultiSourcePipelineRef>([
+        ["gA1", { group: { groupId: "gA1", factTableId: "ft_a" } }],
+        ["gB", pipelineB],
+      ]),
+      onMissingPipeline: "skip",
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].pipelines.map((p) => p.group.groupId)).toEqual([
+      "gA1",
+      "gB",
+    ]);
+    expect(result[0].metrics.map((m) => m.id)).toEqual(["m_short"]);
+  });
 });

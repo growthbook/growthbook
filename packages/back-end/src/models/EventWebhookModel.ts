@@ -8,12 +8,12 @@ import { NotificationEventName } from "shared/types/events/base-types";
 import {
   zodNotificationEventNamesEnum,
   eventWebHookPayloadTypes,
-  EventWebHookPayloadType,
   eventWebHookMethods,
-  EventWebHookMethod,
+  notificationSettingsSchema,
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
-  NotificationEventNameOrWildcard,
+  NotificationFilters,
+  NotificationDelivery,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -45,6 +45,11 @@ const eventWebHookSchema = new mongoose.Schema({
     channelName: String,
     channelId: String,
     configurationUrl: String,
+  },
+  notificationSettings: {
+    type: Object,
+    validate: (value: unknown) =>
+      notificationSettingsSchema.safeParse(value).success,
   },
   method: {
     type: String,
@@ -106,6 +111,7 @@ const eventWebHookSchema = new mongoose.Schema({
     type: [String],
     required: false,
   },
+  excludeBookkeepingUpdates: { type: Boolean, required: false },
   dateCreated: {
     type: Date,
     required: true,
@@ -224,21 +230,13 @@ export const EventWebHookModel = mongoose.model<EventWebHookInterface>(
   eventWebHookSchema,
 );
 
-type CreateEventWebHookOptions = {
-  id?: string;
-  name: string;
-  url: string;
-  organizationId: string;
-  enabled: boolean;
-  events: NotificationEventNameOrWildcard[];
-  projects: string[];
-  tags: string[];
-  environments: string[];
-  payloadType: EventWebHookPayloadType;
-  method: EventWebHookMethod;
-  headers: Record<string, string>;
-  slack?: EventWebHookInterface["slack"];
-};
+type EditableEventWebHook = NotificationFilters &
+  NotificationDelivery &
+  Pick<EventWebHookInterface, "name" | "enabled">;
+
+type CreateEventWebHookOptions = EditableEventWebHook &
+  Pick<EventWebHookInterface, "organizationId" | "excludeBookkeepingUpdates"> &
+  Partial<Pick<EventWebHookInterface, "id">>;
 
 /**
  * Create an event web hook for an organization for the given events
@@ -259,6 +257,8 @@ export const createEventWebHook = async ({
   method,
   headers,
   slack,
+  notificationSettings,
+  excludeBookkeepingUpdates,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
@@ -280,6 +280,8 @@ export const createEventWebHook = async ({
     method,
     headers,
     slack,
+    notificationSettings,
+    excludeBookkeepingUpdates,
     lastRunAt: null,
     lastState: "none",
     lastResponseBody: null,
@@ -343,19 +345,7 @@ export const deleteOrganizationventWebHook = async (
   return result.deletedCount > 0;
 };
 
-export type UpdateEventWebHookAttributes = {
-  name?: string;
-  url?: string;
-  enabled?: boolean;
-  events?: NotificationEventNameOrWildcard[];
-  tags?: string[];
-  environments?: string[];
-  projects?: string[];
-  payloadType?: EventWebHookPayloadType;
-  method?: EventWebHookMethod;
-  headers?: Record<string, string>;
-  slack?: EventWebHookInterface["slack"];
-};
+export type UpdateEventWebHookAttributes = Partial<EditableEventWebHook>;
 
 /**
  * Given an EventWebHook.id allows updating some of the properties on the document

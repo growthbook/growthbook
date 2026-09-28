@@ -1,10 +1,14 @@
-import * as bq from "@google-cloud/bigquery";
+import {
+  BigQueryDate,
+  BigQueryDatetime,
+  BigQueryTimestamp,
+  type TableField,
+} from "@google-cloud/bigquery";
 import { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
 import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { SqlDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import {
   ExternalIdCallback,
@@ -19,7 +23,6 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
@@ -28,8 +31,8 @@ import {
   getFactTableTypeFromBigQueryType,
   sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import SqlIntegration from "./SqlIntegration";
-import { bigQueryDialect } from "./dialects/bigquery";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
@@ -41,23 +44,9 @@ export default class BigQuery extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
-  getSqlDialect(): SqlDialect {
-    return bigQueryDialect;
-  }
 
   private getClient() {
-    // If pull credentials from env or the metadata server
-    if (!IS_CLOUD && this.params.authType === "auto") {
-      return new bq.BigQuery();
-    }
-
-    return new bq.BigQuery({
-      projectId: this.params.projectId,
-      credentials: {
-        client_email: this.params.clientEmail,
-        private_key: this.params.privateKey,
-      },
-    });
+    return createBigQueryClient(this.params);
   }
 
   async cancelQuery(
@@ -181,11 +170,11 @@ export default class BigQuery extends SqlIntegration {
     for (const row of rows) {
       for (const key in row) {
         const value = row[key];
-        if (value instanceof bq.BigQueryDatetime) {
+        if (value instanceof BigQueryDatetime) {
           row[key] = value.value + "Z"; // Convert to ISO date
         } else if (
-          value instanceof bq.BigQueryTimestamp ||
-          value instanceof bq.BigQueryDate
+          value instanceof BigQueryTimestamp ||
+          value instanceof BigQueryDate
         ) {
           row[key] = value.value; // Already in ISO format
         }
@@ -283,10 +272,28 @@ export default class BigQuery extends SqlIntegration {
     return formatInformationSchema(results as RawInformationSchema[]);
   }
 
+  async estimateQueryCost(
+    sql: string,
+  ): Promise<{ bytesProcessed: number; costEstimateUsd?: number }> {
+    const client = this.getClient();
+    const [job] = await client.createQueryJob({
+      query: sql,
+      useLegacySql: false,
+      dryRun: true,
+    });
+    const metadata = job.metadata;
+    const bytes = Number(metadata?.statistics?.totalBytesProcessed ?? 0);
+    const TIB = 1024 ** 4;
+    return {
+      bytesProcessed: bytes,
+      costEstimateUsd: (bytes / TIB) * 6.25,
+    };
+  }
+
   getQueryResultResponseColumns(
     bqQueryResultsResponse: QueryResultsResponse,
   ): QueryResponseColumnData[] | undefined {
-    const mapField = (field: bq.TableField): QueryResponseColumnData => {
+    const mapField = (field: TableField): QueryResponseColumnData => {
       let childFields: QueryResponseColumnData[] | undefined = undefined;
       if (field.type === "RECORD" || field.type === "STRUCT") {
         childFields = field.fields

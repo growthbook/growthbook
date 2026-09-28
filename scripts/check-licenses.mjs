@@ -32,6 +32,8 @@ const EXCEPTIONS = {
     "LGPL-3.0 prebuilt binary, dynamically loaded and unmodified",
   "@img/sharp-libvips-linux-arm64":
     "LGPL-3.0 prebuilt binary, dynamically loaded and unmodified",
+  "@resvg/resvg-wasm":
+    "MPL-2.0 file-level copyleft; unmodified wasm binary loaded at runtime",
   "@sentry/cli": "FSL-1.1-MIT, build-time only, not linked into the app",
   "@sentry/cli-linux-x64":
     "FSL-1.1-MIT, build-time only, not linked into the app",
@@ -39,6 +41,7 @@ const EXCEPTIONS = {
     "FSL-1.1-MIT, build-time only, not linked into the app",
   flatbuffers:
     "Apache-2.0 upstream; the published package omits the license field",
+  satori: "MPL-2.0 file-level copyleft; used unmodified as a library",
   "seq-queue": "MIT per its bundled LICENSE; no license field in package.json",
   "url-template":
     'BSD-3-Clause upstream; declared as the non-SPDX string "BSD"',

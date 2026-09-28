@@ -140,18 +140,41 @@ export function isDashboardBlockRef(
   return dashboardBlockRef.safeParse(block).success;
 }
 
-/** An `id` marks a block the dashboard already has; only a new one gets stripped. */
+/**
+ * A saved block sent in full: the create shape plus the `id` that says which
+ * tile it is. `uid` and `organization` are the server's — accepted so a block
+ * copied straight from the `GET` parses, ignored on the way in. Sharing the
+ * create shape is what lets an edit drop `explorerAnalysisId` to re-run a chart.
+ */
+const apiUpdateSavedBlockOptions = apiCreateDashboardBlockInterface.options.map(
+  (option) =>
+    option.extend({
+      id: z.string().min(1),
+      uid: z.string().optional(),
+      organization: z.string().optional(),
+    }),
+);
+const apiUpdateSavedBlock = z.discriminatedUnion(
+  "type",
+  apiUpdateSavedBlockOptions as [
+    (typeof apiUpdateSavedBlockOptions)[number],
+    ...(typeof apiUpdateSavedBlockOptions)[number][],
+  ],
+);
+
 const apiUpdateDashboardBlock = z.preprocess(
+  // A block whose id was removed to re-add it as a new tile still carries the
+  // server keys from the GET; drop those rather than reject it.
   (raw) => {
     const id = (raw as { id?: unknown } | null)?.id;
     if (typeof id === "string" && id) return raw;
     return withoutKeys(raw, ["uid", "organization"]);
   },
-  // Ref first: it is strict, so a full block falls through to the shapes below.
+  // Ref first: it is strict, so a fuller block falls through to the shapes below.
   z.union([
     dashboardBlockRef,
+    apiUpdateSavedBlock,
     apiCreateDashboardBlockInterface,
-    apiDashboardBlockInterface,
   ]),
 );
 

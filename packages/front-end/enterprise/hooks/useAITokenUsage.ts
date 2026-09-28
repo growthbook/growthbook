@@ -3,7 +3,8 @@ import { isCloud } from "@/services/env";
 
 export type AITokenUsage = {
   numTokensUsed: number;
-  dailyLimit: number;
+  // null when the org has no cap
+  dailyLimit: number | null;
   nextResetAt: number;
 };
 

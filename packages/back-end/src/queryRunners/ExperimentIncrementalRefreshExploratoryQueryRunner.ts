@@ -1,3 +1,4 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   ExperimentMetricInterface,
   getFactMetricFactTableIds,
@@ -318,7 +319,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     }
   }
 
-  // Multi-source pass — mirrors the main runner. Soft-skip any group whose
+  // Multi-source pass — mirrors the main runner. Soft-skip any metric whose
   // caches haven't all been built yet.
   const fanOut = planMetricFanOut(factMetrics);
   const multiSourceSubGroups = buildMultiSourceSubGroups<ExploratoryPipeline>({
@@ -514,13 +515,13 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
+    // Reached from the runner's own failure paths, where neither the queries
+    // nor the analysis is known to be at fault.
     const wrote = await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
-      {
-        queries: this.model.queries,
-        error,
-      },
+      { queries: this.model.queries, error },
+      "unknown",
     );
     if (wrote) {
       await this.context.models.incrementalRefresh
@@ -540,12 +541,14 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     runStarted,
     result,
     error,
+    failureCause,
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -563,6 +566,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

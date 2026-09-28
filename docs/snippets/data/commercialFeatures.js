@@ -37,6 +37,10 @@ export default {
     plan: "enterprise",
     displayName: "Contextual Bandits",
   },
+  "custom-environments": {
+    plan: "enterprise",
+    displayName: "Custom Environments",
+  },
   "custom-hooks": {
     plan: "enterprise",
     displayName: "Custom Hooks",
@@ -237,6 +241,10 @@ export default {
     plan: "pro",
     displayName: "Retention Metrics",
   },
+  "role-management": {
+    plan: "pro",
+    displayName: "Role Management",
+  },
   "safe-rollout": {
     plan: "pro",
     displayName: "Safe Rollout",
@@ -288,6 +296,10 @@ export default {
   "unlimited-managed-warehouse-usage": {
     plan: "pro",
     displayName: "Unlimited Managed Warehouse Usage",
+  },
+  "unlimited-projects": {
+    plan: "enterprise",
+    displayName: "Unlimited Projects",
   },
   "visual-editor": {
     plan: "pro",
