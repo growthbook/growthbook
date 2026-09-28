@@ -171,6 +171,7 @@ function FactCappingTailEditor({
   form,
   path,
   isLower,
+  metricType,
   datasourceType,
   idSuffix,
 }: {
@@ -181,6 +182,7 @@ function FactCappingTailEditor({
   /** Form path of this tail's settings object. */
   path: "cappingSettings" | "lowerCappingSettings";
   isLower: boolean;
+  metricType: string;
   datasourceType?: string;
   idSuffix: string;
 }) {
@@ -261,13 +263,23 @@ function FactCappingTailEditor({
       ? "Upper tail (ceiling)"
       : "Upper tail (ceiling percentile)";
 
-  const valueHelpText = isLower
-    ? mode === "absolute"
-      ? "Values below this are raised to this floor. Must be less than the ceiling when both use absolute capping."
-      : "Quantile for the floor (e.g. 0.05). Must be less than the upper percentile when both use percentile capping."
-    : mode === "absolute"
-      ? "Maximum aggregated value per user."
-      : "Quantile for the ceiling (e.g. 0.99).";
+  // Ratio metrics cap the numerator and denominator independently, never the ratio.
+  const valueHelpText =
+    metricType === "ratio"
+      ? isLower
+        ? mode === "absolute"
+          ? "Same floor for each user's aggregated numerator and denominator. Must be less than the ceiling when both use absolute capping. Does not cap the ratio."
+          : "Quantile for the floor (e.g. 0.05), computed separately for the numerator and the denominator. Must be less than the upper percentile when both use percentile capping."
+        : mode === "absolute"
+          ? "Same maximum for each user's aggregated numerator and denominator. Does not cap the ratio."
+          : "Quantile for the ceiling (e.g. 0.99), computed separately for the numerator and the denominator."
+      : isLower
+        ? mode === "absolute"
+          ? "Values below this are raised to this floor. Must be less than the ceiling when both use absolute capping."
+          : "Quantile for the floor (e.g. 0.05). Must be less than the upper percentile when both use percentile capping."
+        : mode === "absolute"
+          ? "Maximum aggregated value per user."
+          : "Quantile for the ceiling (e.g. 0.99).";
 
   const selectHelpText = isLower
     ? "Lower-tail winsorization: raise extreme low aggregated user values."
@@ -333,6 +345,7 @@ function FactCappingTailEditor({
 /** Fact metrics: independent upper- and lower-tail capping (SQL warehouses only). */
 function FactMetricCappingSettingsFormContent({
   form,
+  metricType,
   datasourceType,
 }: {
   form: {
@@ -340,6 +353,7 @@ function FactMetricCappingSettingsFormContent({
     getValues: (path: string) => unknown;
     setValue: (path: string, value: unknown) => void;
   };
+  metricType: string;
   datasourceType?: string;
 }) {
   return (
@@ -348,6 +362,7 @@ function FactMetricCappingSettingsFormContent({
         form={form}
         path="cappingSettings"
         isLower={false}
+        metricType={metricType}
         datasourceType={datasourceType}
         idSuffix="Upper"
       />
@@ -355,6 +370,7 @@ function FactMetricCappingSettingsFormContent({
         form={form}
         path="lowerCappingSettings"
         isLower={true}
+        metricType={metricType}
         datasourceType={datasourceType}
         idSuffix="Lower"
       />
@@ -364,6 +380,7 @@ function FactMetricCappingSettingsFormContent({
 
 export function MetricCappingSettingsForm({
   form,
+  metricType,
   datasourceType,
   /** Lower-tail winsorization is supported for Fact Metrics (SQL) only, not Legacy or Mixpanel. */
   allowLowerTailCapping = false,
@@ -373,6 +390,7 @@ export function MetricCappingSettingsForm({
     getValues?: (path: string) => unknown;
     setValue: (path: string, value: unknown) => void;
   };
+  metricType: string;
   datasourceType?: string;
   allowLowerTailCapping?: boolean;
 }) {
@@ -386,6 +404,7 @@ export function MetricCappingSettingsForm({
             setValue: (path: string, value: unknown) => void;
           }
         }
+        metricType={metricType}
         datasourceType={datasourceType}
       />
     );
