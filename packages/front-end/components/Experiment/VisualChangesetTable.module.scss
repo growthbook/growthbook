@@ -80,17 +80,22 @@
   cursor: pointer;
   white-space: nowrap;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--gray-12);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-high);
 }
 
+// An outline, not a fill: a gray fill reads as disabled.
 .changesToggle:hover {
-  background: var(--gray-a3);
+  border-color: var(--accent-a8);
 }
 
 .changesChev {
   display: inline-flex;
   color: var(--gray-a9);
+}
+
+.changesToggle:hover .changesChev {
+  color: var(--accent-11);
 }
 
 // Expanded change list under a variation row.

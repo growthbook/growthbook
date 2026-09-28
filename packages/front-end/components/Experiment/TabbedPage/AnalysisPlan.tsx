@@ -436,11 +436,11 @@ export default function AnalysisPlan({
             </Flex>
             {canEdit ? (
               <Button
-                size="sm"
                 variant="ghost"
+                icon={<PiPencilSimple />}
                 onClick={() => setAdvancedOpen(true)}
               >
-                <PiPencilSimple /> Additional settings
+                Additional settings
               </Button>
             ) : null}
           </Flex>
