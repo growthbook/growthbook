@@ -208,6 +208,7 @@ export function useCombinedMetrics({
     _metricsIncludingArchived: inlineMetrics,
     _factMetricsIncludingArchived: factMetrics,
     mutateDefinitions,
+    getFactTableById,
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
@@ -302,8 +303,14 @@ export function useCombinedMetrics({
       return item;
     }),
     ...factMetrics.map((m) => {
+      // Match /fact-metrics/new: the copy gets its fact table's Projects.
+      const seedTable = getFactTableById(
+        m.metricType === "funnel"
+          ? (m.funnelSettings?.steps[0]?.factTableId ?? "")
+          : (m.numerator?.factTableId ?? ""),
+      );
       const canDuplicate = permissionsUtil.canCreateFactMetric({
-        projects: m.projects,
+        projects: seedTable ? seedTable.projects || [] : m.projects,
       });
       let canEdit = permissionsUtil.canUpdateFactMetric(m, {});
       let canDelete = permissionsUtil.canDeleteFactMetric(m);
