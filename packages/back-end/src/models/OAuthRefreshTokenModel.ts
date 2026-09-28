@@ -13,12 +13,7 @@ const BaseClass = MakeModelClass({
   pKey: ["tokenHash"] as const,
   globallyUniquePrimaryKeys: true,
   idPrefix: "ort_",
-  auditLog: {
-    entity: "oauthRefreshToken",
-    createEvent: "oauthRefreshToken.create",
-    updateEvent: "oauthRefreshToken.update",
-    deleteEvent: "oauthRefreshToken.delete",
-  },
+  // No audit log: tokens rotate on every refresh; the grant is the audited object.
   additionalIndexes: [
     { fields: { organization: 1, clientId: 1, userId: 1 } },
     // No custom name — mongoose previously created this as `expiresAt_1`.
@@ -32,7 +27,7 @@ const BaseClass = MakeModelClass({
  *
  * Revoke/refresh look up by hash before the org is known
  * ({@link dangerousFindByHash}); subsequent lifecycle ops use a ReqContext
- * instance so deletes are org-scoped and audited.
+ * instance so deletes are org-scoped.
  *
  * Rotation marks tokens consumed ({@link consumeByTokenHash}) rather than
  * deleting them, so replay is detectable as reuse (RFC 9700 §4.14.2).
