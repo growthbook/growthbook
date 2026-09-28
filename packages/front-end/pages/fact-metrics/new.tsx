@@ -21,6 +21,7 @@ export default function NewFactMetricPage() {
   const router = useRouter();
   const {
     getFactMetricById,
+    getFactTableById,
     project,
     ready,
     mutateDefinitions,
@@ -68,8 +69,22 @@ export default function NewFactMetricPage() {
       }
     : null;
 
+  // Check the Projects the new metric will actually get (MetricWorkspace
+  // copies them from its fact table), not just the Project picked in the
+  // header - the Duplicate button that links here checks the same.
+  const seedFactTable = duplicateSource
+    ? getFactTableById(
+        duplicateSource.metricType === "funnel"
+          ? (duplicateSource.funnelSettings?.steps[0]?.factTableId ?? "")
+          : (duplicateSource.numerator?.factTableId ?? ""),
+      )
+    : null;
   const canCreate = permissionsUtil.canCreateFactMetric({
-    projects: project ? [project] : [],
+    projects: seedFactTable
+      ? seedFactTable.projects || []
+      : project
+        ? [project]
+        : [],
     managedBy: "",
   });
 
