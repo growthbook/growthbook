@@ -12,7 +12,11 @@ import {
 import { getRoles, getDefaultRole } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
+import {
+  AgreementType,
+  oauthAccessPolicyValidator,
+  updateSdkWebhookValidator,
+} from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
@@ -1734,8 +1738,12 @@ export async function putOrganization(
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();
         }
-        if (!["any", "org-apps", "none"].includes(settings.oauthAccess ?? "")) {
-          throw new Error("oauthAccess must be one of: any, org-apps, none");
+        if (
+          !oauthAccessPolicyValidator.safeParse(settings.oauthAccess).success
+        ) {
+          throw new Error(
+            `oauthAccess must be one of: ${oauthAccessPolicyValidator.options.join(", ")}`,
+          );
         }
       } else if (k === "defaultRole") {
         if (!context.permissions.canManageOrgSettings()) {

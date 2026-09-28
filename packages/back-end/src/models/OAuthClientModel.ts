@@ -54,7 +54,7 @@ const oauthClientSchema = new mongoose.Schema({
   responseTypes: [String],
   scope: String,
   clientUri: String,
-  organization: { type: String, index: true },
+  organization: { type: String, index: true, sparse: true },
   clientSecretHash: String,
   createdBy: String,
   dateCreated: { type: Date, default: Date.now },

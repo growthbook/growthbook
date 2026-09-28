@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowCounterClockwise, PiKey, PiUserCircle } from "react-icons/pi";
+import { isLoopbackHost } from "shared/util";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { allowSelfOrgCreation } from "@/services/env";
@@ -31,10 +32,6 @@ type AuthorizeInfoResponse = {
   user?: { id: string; email: string; name: string };
 };
 
-// Loopback hosts are the OS itself, so a code delivered here never leaves the
-// user's machine.
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-
 // Where the authorization code will be delivered. This is the one signal on
 // this page the app cannot fake: the code always goes to a redirect_uri
 // pre-registered by the client.
@@ -50,7 +47,8 @@ function describeRedirectTarget(
   try {
     const url = new URL(redirectUri);
     if (url.protocol === "http:" || url.protocol === "https:") {
-      return { host: url.host, isLocal: LOOPBACK_HOSTS.has(url.hostname) };
+      // A code delivered to loopback never leaves the user's machine.
+      return { host: url.host, isLocal: isLoopbackHost(url.hostname) };
     }
     // Custom schemes (cursor://, etc.) hand off to a locally installed app.
     return { host: url.protocol.replace(":", "") + "://", isLocal: true };

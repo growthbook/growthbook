@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import countBy from "lodash/countBy";
 import { OAuthAppInterface, OAuthAppProps } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
@@ -44,20 +45,19 @@ export async function getOAuthApps(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
   assertCanManageOAuthApps(context);
 
-  const apps = await getOrgOAuthApps(context.org.id);
-  const withCounts = await Promise.all(
-    apps.map(async (app) => ({
-      ...app,
-      authorizedUsers: (
-        await context.models.oauthGrants.getActiveForClient(app.clientId)
-      ).length,
-    })),
-  );
+  const [apps, grants] = await Promise.all([
+    getOrgOAuthApps(context.org.id),
+    context.models.oauthGrants.getActiveForOrg(),
+  ]);
+  const authorizedUsers = countBy(grants, "clientId");
 
   res.status(200).json({
     status: 200,
     oauthServerEnabled: OAUTH_AS_ENABLED,
-    apps: withCounts,
+    apps: apps.map((app) => ({
+      ...app,
+      authorizedUsers: authorizedUsers[app.clientId] ?? 0,
+    })),
   });
 }
 

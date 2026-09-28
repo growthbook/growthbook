@@ -51,21 +51,16 @@ function getClientCredentials(req: Request): {
       clientSecret: body.client_secret ? String(body.client_secret) : undefined,
     };
   }
-  const decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
-  const sep = decoded.indexOf(":");
-  const malformed = new OAuthError(
-    "invalid_client",
-    "Malformed client credentials",
-    401,
-  );
-  if (sep < 0) throw malformed;
   let clientId: string;
   let clientSecret: string;
   try {
+    const decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
+    const sep = decoded.indexOf(":");
+    if (sep < 0) throw new Error();
     clientId = formDecode(decoded.slice(0, sep));
     clientSecret = formDecode(decoded.slice(sep + 1));
   } catch {
-    throw malformed;
+    throw new OAuthError("invalid_client", "Malformed client credentials", 401);
   }
   if (body.client_id && String(body.client_id) !== clientId) {
     throw new OAuthError(

@@ -28,6 +28,7 @@ import {
   member,
   memberRoleInfo,
   memberRoleWithProjects,
+  OAuthAccessPolicy,
   pendingMember,
   projectMemberRole,
 } from "shared/validators";
@@ -416,8 +417,7 @@ export interface OrganizationSettings {
   oauthAccess?: OAuthAccessPolicy;
 }
 
-// "org-apps" allows only OAuth apps registered by this organization's admins.
-export type OAuthAccessPolicy = "any" | "org-apps" | "none";
+export type { OAuthAccessPolicy };
 
 export type LearningStatusColor =
   | "gray"

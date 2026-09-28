@@ -1,10 +1,9 @@
 import React, { FC, useState } from "react";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { OAuthAccessPolicy } from "shared/types/organization";
 import { getOAuthAccessPolicy } from "shared/util";
-import { OAuthAppProps } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -12,6 +11,12 @@ import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
+import {
+  ClientSecretModal,
+  OAuthApp,
+  OAuthAppCredentials,
+  OAuthAppModal,
+} from "@/components/Settings/OAuthAppModal";
 import OAuthGrantsTable, {
   OrgOAuthGrant,
 } from "@/components/Settings/OAuthGrantsTable";
@@ -21,11 +26,8 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RadioGroup from "@/ui/RadioGroup";
-import StringArrayField from "@/ui/StringArrayField";
 import Text from "@/ui/Text";
-import TextField from "@/ui/TextField";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -39,18 +41,14 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 
-type OAuthApp = OAuthAppProps & {
-  clientId: string;
-  dateCreated: string;
-  authorizedUsers: number;
-};
-
 type OAuthAppsResponse = { oauthServerEnabled: boolean; apps: OAuthApp[] };
 
+// `confirm` is the warning shown before saving; options without one save immediately.
 const POLICY_OPTIONS: {
   value: OAuthAccessPolicy;
   label: string;
   description: string;
+  confirm?: string;
 }[] = [
   {
     value: "any",
@@ -63,104 +61,18 @@ const POLICY_OPTIONS: {
     label: "Only this organization's OAuth apps",
     description:
       "Members can authorize only the apps registered below. Tokens held by other applications stop working.",
+    confirm:
+      "Tokens held by applications not registered below stop working immediately, including MCP clients and the GrowthBook CLI.",
   },
   {
     value: "none",
     label: "No applications",
     description:
       "Every OAuth token stops working and members can't authorize new applications.",
+    confirm:
+      "Every OAuth token stops working immediately, including MCP clients and the GrowthBook CLI. Members won't be able to authorize new applications.",
   },
 ];
-
-const OAuthAppModal: FC<{
-  existing: OAuthApp | null;
-  close: () => void;
-  onSaved: (clientSecret: string | null, clientId: string) => void;
-}> = ({ existing, close, onSaved }) => {
-  const { apiCall } = useAuth();
-  const [clientName, setClientName] = useState(existing?.clientName ?? "");
-  const [redirectUris, setRedirectUris] = useState<string[]>(
-    existing?.redirectUris ?? [],
-  );
-  const [clientUri, setClientUri] = useState(existing?.clientUri ?? "");
-
-  return (
-    <ModalStandard
-      trackingEventModalType=""
-      open={true}
-      header={existing ? "Edit OAuth App" : "New OAuth App"}
-      cta={existing ? "Save" : "Create"}
-      ctaEnabled={!!clientName.trim() && redirectUris.length > 0}
-      close={close}
-      submit={async () => {
-        const body = JSON.stringify({ clientName, redirectUris, clientUri });
-        if (existing) {
-          await apiCall(`/oauth-apps/${existing.clientId}`, {
-            method: "PUT",
-            body,
-          });
-          onSaved(null, existing.clientId);
-        } else {
-          const res = await apiCall<{
-            app: { clientId: string };
-            clientSecret: string;
-          }>("/oauth-apps", { method: "POST", body });
-          onSaved(res.clientSecret, res.app.clientId);
-        }
-      }}
-    >
-      <Flex direction="column" gap="4">
-        <TextField
-          label="Name"
-          helpText="Shown to members on the authorization screen."
-          value={clientName}
-          onChange={(e) => setClientName(e.target.value)}
-          placeholder="Internal MCP server"
-        />
-        <StringArrayField
-          label="Redirect URIs"
-          helpText="Where authorization codes are sent. Must use https, except for localhost."
-          value={redirectUris}
-          onChange={setRedirectUris}
-          delimiters={["Enter", "Tab", " "]}
-          placeholder="https://mcp.example.com/oauth/callback"
-        />
-        <TextField
-          label="Homepage URL (optional)"
-          value={clientUri}
-          onChange={(e) => setClientUri(e.target.value)}
-          placeholder="https://mcp.example.com"
-        />
-      </Flex>
-    </ModalStandard>
-  );
-};
-
-const ClientSecretModal: FC<{
-  clientId: string;
-  clientSecret: string;
-  close: () => void;
-}> = ({ clientId, clientSecret, close }) => (
-  <ModalStandard
-    trackingEventModalType=""
-    open={true}
-    header="Client Credentials"
-    closeCta="Done"
-    close={close}
-  >
-    <Callout status="warning" mb="4">
-      Copy the client secret now. You won&apos;t be able to see it again.
-    </Callout>
-    <Text as="div" weight="semibold" mb="1">
-      Client ID
-    </Text>
-    <ClickToCopy className="mb-3">{clientId}</ClickToCopy>
-    <Text as="div" weight="semibold" mb="1">
-      Client secret
-    </Text>
-    <ClickToCopy>{clientSecret}</ClickToCopy>
-  </ModalStandard>
-);
 
 // Org-registered OAuth apps plus the policy for which OAuth clients may act as members.
 const OAuthAppsSettings: FC = () => {
@@ -170,7 +82,6 @@ const OAuthAppsSettings: FC = () => {
   const canManageApps = permissionsUtil.canCreateApiKey();
   const canDeleteApps = permissionsUtil.canDeleteApiKey();
   const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
-  const hasFeature = hasCommercialFeature("oauth-apps");
 
   const { data, error, mutate } = useApi<OAuthAppsResponse>("/oauth-apps", {
     shouldRun: () => canManageApps,
@@ -185,10 +96,9 @@ const OAuthAppsSettings: FC = () => {
   };
 
   const [editing, setEditing] = useState<OAuthApp | "new" | null>(null);
-  const [credentials, setCredentials] = useState<{
-    clientId: string;
-    clientSecret: string;
-  } | null>(null);
+  const [credentials, setCredentials] = useState<OAuthAppCredentials | null>(
+    null,
+  );
   const [pendingPolicy, setPendingPolicy] = useState<OAuthAccessPolicy | null>(
     null,
   );
@@ -241,8 +151,11 @@ const OAuthAppsSettings: FC = () => {
         setValue={(value) => {
           const next = value as OAuthAccessPolicy;
           if (next === policy) return;
-          if (next === "any") void savePolicy(next);
-          else setPendingPolicy(next);
+          if (POLICY_OPTIONS.find((o) => o.value === next)?.confirm) {
+            setPendingPolicy(next);
+          } else {
+            void savePolicy(next);
+          }
         }}
       />
       {policyError && (
@@ -355,7 +268,10 @@ const OAuthAppsSettings: FC = () => {
       )}
 
       <PremiumTooltip commercialFeature="oauth-apps">
-        <Button disabled={!hasFeature} onClick={() => setEditing("new")}>
+        <Button
+          disabled={!hasCommercialFeature("oauth-apps")}
+          onClick={() => setEditing("new")}
+        >
           New OAuth app
         </Button>
       </PremiumTooltip>
@@ -372,8 +288,8 @@ const OAuthAppsSettings: FC = () => {
         <OAuthAppModal
           existing={editing === "new" ? null : editing}
           close={() => setEditing(null)}
-          onSaved={(clientSecret, clientId) => {
-            if (clientSecret) setCredentials({ clientId, clientSecret });
+          onSaved={(saved) => {
+            if (saved) setCredentials(saved);
             mutate();
           }}
         />
@@ -388,9 +304,7 @@ const OAuthAppsSettings: FC = () => {
         <ConfirmDialog
           title="Restrict OAuth access?"
           content={
-            pendingPolicy === "none"
-              ? "Every OAuth token stops working immediately, including MCP clients and the GrowthBook CLI. Members won't be able to authorize new applications."
-              : "Tokens held by applications not registered below stop working immediately, including MCP clients and the GrowthBook CLI."
+            POLICY_OPTIONS.find((o) => o.value === pendingPolicy)?.confirm
           }
           yesText="Restrict access"
           onConfirm={async () => {
