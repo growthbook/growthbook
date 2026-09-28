@@ -593,6 +593,23 @@ export default function ExperimentHeader({
     Object.values(holdout?.statusUpdateSchedule ?? {}).some(
       (value) => value !== null,
     );
+  const showEditStatus =
+    canRunExperiment &&
+    !isBandit &&
+    !isHoldout &&
+    (experiment.status !== "draft" || hasResults);
+  const showEditPhase = !!editPhases && !isBandit && !isHoldout;
+  const showEditHoldoutSchedule =
+    !!showEditHoldoutScheduleButton && holdoutHasSchedule;
+  const hasEditItems =
+    showEditStatus || showEditPhase || showEditHoldoutSchedule;
+  const showHoldoutOverride =
+    !!holdout?.nextScheduledStatusUpdate &&
+    ((experiment.status === "running" && !!editResult) ||
+      experiment.status === "draft");
+  const showForceStatus = experiment.status !== "draft" || hasResults;
+  const showHoldoutActions =
+    isHoldout && canRunExperiment && (showHoldoutOverride || showForceStatus);
   const hasExperimentSchedule = !!experiment.statusUpdateSchedule?.startAt;
   const experimentHasAnySchedule = Object.values(
     experiment.statusUpdateSchedule ?? {},
@@ -1063,7 +1080,7 @@ export default function ExperimentHeader({
                     )}{" "}
                     {editSchedule && <PiPencilSimple className="ml-1" />}
                   </Button>
-                ) : experiment.status === "draft" ? (
+                ) : experiment.status === "draft" && canRunExperiment ? (
                   <Tooltip
                     // Starting publishes what's stored, not what's staged.
                     shouldDisplay={!banditImplementationReady || !!editsBlocked}
@@ -1074,11 +1091,7 @@ export default function ExperimentHeader({
                       onClick={() => {
                         setShowStartExperiment(true);
                       }}
-                      disabled={
-                        !canRunExperiment ||
-                        !banditImplementationReady ||
-                        !!editsBlocked
-                      }
+                      disabled={!banditImplementationReady || !!editsBlocked}
                       icon={
                         hasExperimentSchedule ? undefined : <MdRocketLaunch />
                       }
@@ -1121,11 +1134,9 @@ export default function ExperimentHeader({
               }}
               menuPlacement="end"
             >
-              <DropdownMenuGroup>
-                {canRunExperiment &&
-                  !isBandit &&
-                  !isHoldout &&
-                  (experiment.status !== "draft" || hasResults) && (
+              {hasEditItems ? (
+                <DropdownMenuGroup>
+                  {showEditStatus && (
                     <DropdownMenuItem
                       onClick={() => {
                         setStatusModal(true);
@@ -1135,34 +1146,33 @@ export default function ExperimentHeader({
                       Edit status
                     </DropdownMenuItem>
                   )}
-                {editPhases && !isBandit && !isHoldout && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      editPhases();
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Edit phase
-                  </DropdownMenuItem>
-                )}
-                {showEditHoldoutScheduleButton && holdoutHasSchedule && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      editSchedule();
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Edit Schedule
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuGroup>
-              {isHoldout && canRunExperiment && (
+                  {showEditPhase && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        editPhases?.();
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Edit phase
+                    </DropdownMenuItem>
+                  )}
+                  {showEditHoldoutSchedule && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        editSchedule?.();
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Edit Schedule
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuGroup>
+              ) : null}
+              {showHoldoutActions ? (
                 <>
-                  {(holdout?.nextScheduledStatusUpdate ||
-                    experiment.status !== "draft" ||
-                    hasResults) && <DropdownMenuSeparator />}
+                  {hasEditItems ? <DropdownMenuSeparator /> : null}
                   <DropdownMenuGroup>
-                    {holdout?.nextScheduledStatusUpdate &&
+                    {showHoldoutOverride &&
                       (experiment.status === "running" && editResult ? (
                         <DropdownMenuItem
                           onClick={() => {
@@ -1179,7 +1189,7 @@ export default function ExperimentHeader({
                               : "Stop Holdout"}
                           </Tooltip>
                         </DropdownMenuItem>
-                      ) : experiment.status === "draft" ? (
+                      ) : (
                         <DropdownMenuItem
                           onClick={() => {
                             setShowStartExperiment(true);
@@ -1193,8 +1203,8 @@ export default function ExperimentHeader({
                             Start Holdout
                           </Tooltip>
                         </DropdownMenuItem>
-                      ) : null)}
-                    {(experiment.status !== "draft" || hasResults) && (
+                      ))}
+                    {showForceStatus && (
                       <DropdownMenuItem
                         onClick={() => {
                           setStatusModal(true);
@@ -1206,11 +1216,13 @@ export default function ExperimentHeader({
                     )}
                   </DropdownMenuGroup>
                 </>
-              )}
-              {!isHoldout && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
+              ) : null}
+              {hasEditItems || showHoldoutActions ? (
+                <DropdownMenuSeparator />
+              ) : null}
+              <DropdownMenuGroup>
+                {!isHoldout ? (
+                  <>
                     <DropdownSubMenu
                       trigger={
                         <Flex
@@ -1258,17 +1270,17 @@ export default function ExperimentHeader({
                           : "No watchers"}
                       </Flex>
                     </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </>
-              )}
-              <DropdownMenuItem
-                onClick={() => {
-                  setCompareModal(true);
-                  setDropdownOpen(false);
-                }}
-              >
-                Audit history
-              </DropdownMenuItem>
+                  </>
+                ) : null}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCompareModal(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Audit history
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
               {/* Only show the separator if one of the following cases is true to avoid double separators */}
               {(showConvertButton ||
                 showShareableReportButton ||

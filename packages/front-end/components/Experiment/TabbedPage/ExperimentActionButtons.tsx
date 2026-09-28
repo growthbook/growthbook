@@ -1,5 +1,6 @@
 import { ExperimentResultStatusData } from "shared/types/experiment";
 import { HoldoutStage } from "shared/util";
+import { Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 
 export interface Props {
@@ -38,25 +39,26 @@ export default function ExperimentActionButtons({
       return "Stop Experiment";
     }
   };
+  // Neither is offered without permission to run it, as on the feature page.
+  if (!editResult && (holdoutStage || !editTargeting)) return null;
   return (
-    <div className="d-flex ml-2">
-      {!holdoutStage && (
+    <Flex ml="2" gap="3">
+      {!holdoutStage && editTargeting ? (
         <Button
           variant={readyForDecision ? "outline" : "solid"}
-          mr="3"
-          disabled={!editTargeting}
-          onClick={() => editTargeting?.()}
+          onClick={editTargeting}
         >
           Make Changes
         </Button>
-      )}
-      <Button
-        variant={readyForDecision ? "solid" : "outline"}
-        onClick={() => editResult?.()}
-        disabled={!editResult}
-      >
-        {displayCTAText()}
-      </Button>
-    </div>
+      ) : null}
+      {editResult ? (
+        <Button
+          variant={readyForDecision ? "solid" : "outline"}
+          onClick={editResult}
+        >
+          {displayCTAText()}
+        </Button>
+      ) : null}
+    </Flex>
   );
 }
