@@ -16,10 +16,17 @@ import {
   featureIdExists,
   finishFeatureRename,
   getFeature,
-  getFeaturesByIds,
+  getFeaturesByIdsUnfiltered,
+  logFeatureUpdatedEvent,
   markFeatureRenameCleaned,
 } from "back-end/src/models/FeatureModel";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import {
   getAffectedSDKPayloadKeys,
   getEnabledEnvironments,
@@ -226,12 +233,12 @@ export async function resumeFeatureRename(
 
 /**
  * Everything after the claim. Returns the other flags whose references moved,
- * since their payloads change too.
+ * as they were, since their payloads change too.
  */
 async function continueFeatureRename(
   context: ReqContext,
   renaming: NonNullable<FeatureInterface["renaming"]>,
-): Promise<string[]> {
+): Promise<FeatureInterface[]> {
   const { from, to, claimedAt } = renaming;
   if (!renaming.cleaned) {
     // Left by a deleted flag that once held `to`. Everything the cascade
@@ -266,18 +273,30 @@ const MAX_REWRITE_ATTEMPTS = 5;
 async function moveFeatureIdReferences(
   context: ReqContext,
   { from, to, claimedAt }: { from: string; to: string; claimedAt: Date },
-): Promise<string[]> {
+): Promise<FeatureInterface[]> {
   const ref: RenameRef = {
     from,
     to,
     environments: getEnvironmentIdsFromOrg(context.org),
   };
-  const movedFeatures: string[] = [];
+  const movedFeatures: FeatureInterface[] = [];
   for (const reference of FEATURE_ID_REFERENCES) {
     const collection = getCollection(reference.collection);
     const docs = await collection
       .find({ organization: context.org.id, ...reference.filter(ref) })
       .toArray();
+    // The other flags as they were, for their update events.
+    const featuresBefore =
+      reference.collection === "features"
+        ? new Map(
+            (
+              await getFeaturesByIdsUnfiltered(
+                context,
+                docs.map((d) => d.id).filter((id) => id !== to),
+              )
+            ).map((f) => [f.id, f]),
+          )
+        : null;
     for (let doc of docs) {
       for (let attempt = 0; attempt < MAX_REWRITE_ATTEMPTS; attempt++) {
         const set = reference.rewrite(doc, ref);
@@ -295,9 +314,8 @@ async function moveFeatureIdReferences(
         );
         const result = await collection.updateOne(filter, { $set: set });
         if (result.matchedCount) {
-          if (reference.collection === "features" && doc.id !== to) {
-            movedFeatures.push(doc.id);
-          }
+          const before = featuresBefore?.get(doc.id);
+          if (before) movedFeatures.push(before);
           break;
         }
         if (attempt === MAX_REWRITE_ATTEMPTS - 1) {
@@ -328,17 +346,21 @@ function comparableAsRead(value: unknown): boolean {
   return !integerKey && (json?.length ?? 0) <= MAX_COMPARED_FIELD_BYTES;
 }
 
+// Unfiltered: a dependent the caller can't read changed all the same.
 async function afterFeatureRename(
   context: ReqContext,
   before: FeatureInterface,
   after: FeatureInterface,
-  movedFeatureIds: string[],
+  movedBefore: FeatureInterface[],
 ) {
+  // Before the first await, as onFeatureUpdate does.
+  const buffer = captureEventBuffer(context);
   const [allProjectIds, dependents] = await Promise.all([
     context.getAllProjectIds(),
-    movedFeatureIds.length
-      ? getFeaturesByIds(context, movedFeatureIds)
-      : Promise.resolve([]),
+    getFeaturesByIdsUnfiltered(
+      context,
+      movedBefore.map((f) => f.id),
+    ),
   ]);
   queueSDKPayloadRefresh({
     context,
@@ -350,6 +372,27 @@ async function afterFeatureRename(
     ),
     auditContext: { event: "updated", model: "feature", id: after.id },
   });
+
+  // Event webhooks learn the new key, and each prerequisite that moved with it.
+  const updates: [FeatureInterface, FeatureInterface][] = [
+    [before, after],
+    ...dependents.flatMap((current): [FeatureInterface, FeatureInterface][] => {
+      const previous = movedBefore.find((f) => f.id === current.id);
+      return previous ? [[previous, current]] : [];
+    }),
+  ];
+  // A dependent may be in a project the caller can't read; its experiments and
+  // Saved Groups still belong in its payload.
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
+  for (const [previous, current] of updates) {
+    await emitOrDeferBulkPublishEvent(
+      () => logFeatureUpdatedEvent(context, previous, current, scanContext),
+      entityKey("feature", current.id),
+      buffer,
+    );
+  }
 
   if (!context.org.isVercelIntegration) return;
   // Vercel keys its items by flag id, so the item moves too.

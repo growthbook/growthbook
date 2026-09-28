@@ -840,6 +840,17 @@ describe("applyExperimentChanges", () => {
             ?.linkedFeatures ?? {},
         ).sort(),
       ).toEqual(["1234", NEW]);
+
+      // Webhooks hear of the new key, and of the dependent's prerequisites.
+      const updated = await collection("events")
+        .find({ organizationId: ORG_ID, event: "feature.updated" })
+        .toArray();
+      const byObject = new Map(updated.map((e) => [e.objectId, e.data.data]));
+      expect(byObject.get(NEW)?.previous_attributes.id).toBe(FLAG);
+      expect(byObject.get("dependent")?.object.prerequisites).toEqual([NEW]);
+      expect(
+        byObject.get("dependent")?.previous_attributes.prerequisites,
+      ).toEqual([FLAG]);
     });
 
     it("finishes a rename that stopped after the flag moved", async () => {

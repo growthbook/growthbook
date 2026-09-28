@@ -1032,6 +1032,18 @@ export async function getFeaturesByIds(
   );
 }
 
+// Unfiltered, for a system write's follow-ups (events, payload refreshes) on
+// flags the caller may not read. Don't return these to the caller.
+export async function getFeaturesByIdsUnfiltered(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<FeatureInterface[]> {
+  if (!ids.length) return [];
+  return (
+    await FeatureModel.find({ organization: context.org.id, id: { $in: ids } })
+  ).map((m) => toInterface(m, context));
+}
+
 // Returns id -> project for every feature that exists in the org, regardless of
 // the caller's read permission. Intended for permission decisions where missing
 // (inaccessible) and non-existent features must be distinguished — do not use it
@@ -1291,20 +1303,24 @@ export const createFeatureEvent = async <
   Event extends ResourceEvents<"feature">,
 >(eventData: {
   context: ReqContext;
+  // Reads what compiles the payload, where the writer may not see all of it;
+  // the event is still the writer's.
+  lookupContext?: ReqContext | ApiReqContext;
   event: Event;
   data: CreateEventData<"feature", Event, FeatureInterface>;
 }) => {
+  const lookups = eventData.lookupContext ?? eventData.context;
   const event: CreateEventParams<"feature", Event> = await (async () => {
     // Resolve targetingAllProjects into concrete ids so webhooks route by delivery scope.
     const allProjectIds = await eventData.context.getAllProjectIds();
 
     const experimentMap = await getExperimentMapForFeature(
-      eventData.context,
+      lookups,
       eventData.data.object.id,
     );
     // The previous object is compiled from the same maps, so load for both.
     const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
-      eventData.context,
+      lookups,
       {
         features: hasPreviousObject<"feature", Event, FeatureInterface>(
           eventData.data,
@@ -1316,7 +1332,7 @@ export const createFeatureEvent = async <
     );
 
     const currentRevision = await getRevision({
-      context: eventData.context,
+      context: lookups,
       organization: eventData.data.object.organization,
       featureId: eventData.data.object.id,
       feature: eventData.data.object,
@@ -1349,9 +1365,10 @@ export const createFeatureEvent = async <
       } as CreateEventParams<"feature", Event>;
 
     const previousRevision = await getRevision({
-      context: eventData.context,
+      context: lookups,
       organization: eventData.data.previous_object.organization,
-      featureId: eventData.data.previous_object.id,
+      // A rename moves the flag's revisions to its new id.
+      featureId: eventData.data.object.id,
       feature: eventData.data.previous_object,
       version: eventData.data.previous_object.version,
     });
@@ -1422,9 +1439,11 @@ export const logFeatureUpdatedEvent = async (
   context: ReqContext | ApiReqContext,
   previous: FeatureInterface,
   current: FeatureInterface,
+  lookupContext?: ReqContext | ApiReqContext,
 ) =>
   createFeatureEvent({
     context,
+    lookupContext,
     event: "updated",
     data: {
       object: current,
