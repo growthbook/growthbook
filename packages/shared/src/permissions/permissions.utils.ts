@@ -167,6 +167,14 @@ export function changedProjectRoleProjects(
   );
 }
 
+export const DEFAULT_ROLE_FIELDS = [
+  "role",
+  "limitAccessByEnvironment",
+  "environments",
+  "additionalRoles",
+  "projectRoles",
+] as const;
+
 export function getDefaultRole(
   org: Partial<OrganizationInterface>,
 ): MemberRoleWithProjects {
@@ -176,13 +184,7 @@ export function getDefaultRole(
     isRoleValid(org.settings.defaultRole.role, org)
   ) {
     // Settings can hold keys from unvalidated writes; callers spread this result
-    return pick(org.settings.defaultRole, [
-      "role",
-      "limitAccessByEnvironment",
-      "environments",
-      "additionalRoles",
-      "projectRoles",
-    ]);
+    return pick(org.settings.defaultRole, DEFAULT_ROLE_FIELDS);
   }
 
   // Fall back to using "collaborator"

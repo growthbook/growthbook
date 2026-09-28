@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep, isEqual, pick } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   assertTargetingRulesDisjoint,
@@ -9,7 +9,11 @@ import {
   parseIntWithDefaultCapped,
   pruneApprovalRuleReferences,
 } from "shared/util";
-import { getRoles, getDefaultRole } from "shared/permissions";
+import {
+  getRoles,
+  getDefaultRole,
+  DEFAULT_ROLE_FIELDS,
+} from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
@@ -170,6 +174,7 @@ import {
   getInstallation,
   setInstallationName,
 } from "back-end/src/models/InstallationModel";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { putDefaultRoleValidator } from "./organizations.validators";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
@@ -2308,14 +2313,25 @@ export async function postImportConfig(
   }
 
   const importSettings = config.organization?.settings;
-  if (importSettings && "defaultRole" in importSettings) {
-    const defaultRole = putDefaultRoleValidator.shape.defaultRole.parse(
-      importSettings.defaultRole,
+  if (
+    typeof importSettings === "object" &&
+    importSettings !== null &&
+    (importSettings.defaultRole ?? null) !== null
+  ) {
+    // Exported settings can carry keys from old unvalidated writes; drop them
+    // like getDefaultRole does instead of failing the whole import
+    const parsed = putDefaultRoleValidator.shape.defaultRole.safeParse(
+      pick(importSettings.defaultRole, DEFAULT_ROLE_FIELDS),
     );
-    if (!isEqual(defaultRole, getDefaultRole(context.org))) {
-      assertCanUpdateDefaultRole(context, defaultRole);
+    if (!parsed.success) {
+      throw new Error(
+        `Invalid defaultRole: ${errorStringFromZodResult(parsed)}`,
+      );
     }
-    importSettings.defaultRole = defaultRole;
+    if (!isEqual(parsed.data, getDefaultRole(context.org))) {
+      assertCanUpdateDefaultRole(context, parsed.data);
+    }
+    importSettings.defaultRole = parsed.data;
   }
 
   await importConfig(context, config);
@@ -2585,9 +2601,8 @@ function assertCanUpdateDefaultRole(
   defaultRole: MemberRoleWithProjects,
 ) {
   const { org } = context;
-  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
 
-  if (!commercialFeatures.includes("sso")) {
+  if (!context.hasPremiumFeature("sso")) {
     throw new Error(
       "Must have a commercial License Key to update the organization's default role.",
     );
@@ -2613,11 +2628,23 @@ export async function putDefaultRole(
 
   assertCanUpdateDefaultRole(context, defaultRole);
 
-  updateOrganization(org.id, {
+  await updateOrganization(org.id, {
     settings: {
       ...org.settings,
       defaultRole,
     },
+  });
+
+  await req.audit({
+    event: "organization.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(
+      { settings: { defaultRole: org.settings?.defaultRole } },
+      { settings: { defaultRole } },
+    ),
   });
 
   res.status(200).json({

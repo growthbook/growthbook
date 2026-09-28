@@ -1,5 +1,8 @@
 import { getDefaultRole } from "shared/permissions";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationSettings,
+} from "shared/types/organization";
 
 function orgWithDefaultRole(
   defaultRole: unknown,
@@ -7,8 +10,7 @@ function orgWithDefaultRole(
   return {
     id: "org_a",
     settings: {
-      defaultRole:
-        defaultRole as OrganizationInterface["settings"]["defaultRole"],
+      defaultRole: defaultRole as OrganizationSettings["defaultRole"],
     },
   };
 }
