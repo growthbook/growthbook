@@ -49,7 +49,8 @@ import { ReqContext } from "back-end/types/request";
 import {
   acceptInvite,
   addMemberToOrg,
-  addPendingMemberToOrg,
+  addMemberToOrgWithDefaultRole,
+  addPendingMemberToOrgWithDefaultRole,
   assertMemberRoleInfoValid,
   assertRoleAssignmentAllowed,
   assertRoleChangeAllowed,
@@ -680,15 +681,13 @@ export async function putMember(
       await acceptInvite(invite.key, req.userId, req.email);
     } else if (organization.autoApproveMembers) {
       // if auto approve, add user as member
-      await addMemberToOrg({
-        ...getDefaultRole(organization),
+      await addMemberToOrgWithDefaultRole({
         organization,
         userId: req.userId,
       });
     } else {
       // otherwise, add user as pending member
-      await addPendingMemberToOrg({
-        ...getDefaultRole(organization),
+      await addPendingMemberToOrgWithDefaultRole({
         organization,
         name: req.name || "",
         userId: req.userId,
@@ -2329,7 +2328,9 @@ export async function postImportConfig(
       );
     }
     if (!isEqual(parsed.data, getDefaultRole(context.org))) {
-      assertCanUpdateDefaultRole(context, parsed.data);
+      assertCanUpdateDefaultRole(context, parsed.data, {
+        requireCommercialLicense: false,
+      });
     }
     importSettings.defaultRole = parsed.data;
   }
@@ -2599,10 +2600,14 @@ export async function putLicenseKey(
 function assertCanUpdateDefaultRole(
   context: ReqContext,
   defaultRole: MemberRoleWithProjects,
+  // config.yml on disk applies defaultRole without a license, so import matches
+  {
+    requireCommercialLicense = true,
+  }: { requireCommercialLicense?: boolean } = {},
 ) {
   const { org } = context;
 
-  if (!context.hasPremiumFeature("sso")) {
+  if (requireCommercialLicense && !context.hasPremiumFeature("sso")) {
     throw new Error(
       "Must have a commercial License Key to update the organization's default role.",
     );

@@ -782,20 +782,17 @@ export async function addMemberToOrg({
   environments,
   limitAccessByEnvironment,
   projectRoles,
+  additionalRoles,
   externalId,
   managedByIdp,
   teams = [],
 }: {
   organization: OrganizationInterface;
   userId: string;
-  role: string;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-  projectRoles?: ProjectMemberRole[];
   externalId?: string;
   managedByIdp?: boolean;
   teams?: string[];
-}) {
+} & MemberRoleWithProjects) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
     return;
@@ -818,6 +815,7 @@ export async function addMemberToOrg({
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    additionalRoles,
     dateCreated: new Date(),
     externalId,
     managedByIdp,
@@ -954,16 +952,13 @@ export async function addPendingMemberToOrg({
   environments,
   limitAccessByEnvironment,
   projectRoles,
+  additionalRoles,
 }: {
   organization: OrganizationInterface;
   name: string;
   userId: string;
   email: string;
-  role: string;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-  projectRoles?: ProjectMemberRole[];
-}) {
+} & MemberRoleWithProjects) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
     return;
@@ -991,11 +986,48 @@ export async function addPendingMemberToOrg({
       limitAccessByEnvironment,
       environments,
       projectRoles,
+      additionalRoles,
       dateCreated: new Date(),
     },
   ];
 
   await updateOrganization(organization.id, { pendingMembers });
+}
+
+// Automated joins (verified-domain auto-join, SSO, SCIM) use the org's
+// default role. Explicit args come last so stored settings can't override them.
+export async function addMemberToOrgWithDefaultRole({
+  organization,
+  userId,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+}) {
+  await addMemberToOrg({
+    ...getDefaultRole(organization),
+    organization,
+    userId,
+  });
+}
+
+export async function addPendingMemberToOrgWithDefaultRole({
+  organization,
+  userId,
+  name,
+  email,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+  name: string;
+  email: string;
+}) {
+  await addPendingMemberToOrg({
+    ...getDefaultRole(organization),
+    organization,
+    userId,
+    name,
+    email,
+  });
 }
 
 export async function acceptInvite(key: string, userId: string, email: string) {
@@ -1596,8 +1628,7 @@ export async function addMemberFromSSOConnection(
       (m) => m.id === req.userId,
     );
     if (!alreadyPending) {
-      await addPendingMemberToOrg({
-        ...getDefaultRole(organization),
+      await addPendingMemberToOrgWithDefaultRole({
         organization,
         name: req.name || "",
         email: req.email || "",
@@ -1619,8 +1650,7 @@ export async function addMemberFromSSOConnection(
     return null;
   }
 
-  await addMemberToOrg({
-    ...getDefaultRole(organization),
+  await addMemberToOrgWithDefaultRole({
     organization,
     userId: req.userId,
   });

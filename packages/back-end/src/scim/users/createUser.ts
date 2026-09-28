@@ -69,7 +69,6 @@ export async function createUser(
         ...roleInfo,
         organization: org,
         userId: newUser.id,
-        projectRoles: roleInfo.projectRoles ?? [],
         externalId,
         managedByIdp: true,
       });
