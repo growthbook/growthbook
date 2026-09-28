@@ -16,6 +16,7 @@ import {
   isRatioMetric,
   quantileMetricType,
   getRowFilterSQL,
+  DEFAULT_IDENTIFIER_QUOTE,
 } from "shared/experiments";
 import { createLikeStringMatchFn } from "shared/sql";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
@@ -185,6 +186,7 @@ function RowFilterCodeDisplay({
               }),
               evalBoolean: (col, value) =>
                 `${col} IS ${value ? "TRUE" : "FALSE"}`,
+              identifierQuote: DEFAULT_IDENTIFIER_QUOTE,
               jsonExtract: (col, path) => `${col}.${path}`,
               showSourceComment: true,
             }),

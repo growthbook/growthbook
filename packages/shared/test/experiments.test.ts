@@ -600,6 +600,24 @@ describe("Experiments", () => {
           ).toStrictEqual(`(${column.column} = 'login''s')`);
         });
 
+        it("quotes a column name that isn't a valid bare identifier", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                operator: "=",
+                column: "Order Date",
+                values: ["2024"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              identifierQuote: "`",
+            }),
+          ).toStrictEqual("(`Order Date` = '2024')");
+        });
+
         it("supports JSON columns", () => {
           expect(
             getRowFilterSQL({
@@ -1883,6 +1901,27 @@ describe("Experiments", () => {
         expect(
           getColumnExpression("unknown_column", factTable, jsonExtract),
         ).toBe("unknown_column");
+      });
+
+      it("quotes only names no warehouse accepts unquoted", () => {
+        const expr = (name: string, quote: '"' | "`" = '"', alias = "") =>
+          getColumnExpression(name, factTable, jsonExtract, alias, quote);
+        // Quoting these would make them case-sensitive in Postgres, Snowflake
+        // and Redshift, and break struct access for dotted names
+        for (const name of [
+          "user_id",
+          "USER_ID",
+          "amount$",
+          "präis",
+          "geo.country",
+        ]) {
+          expect(expr(name)).toBe(name);
+        }
+        expect(expr("Order Date")).toBe('"Order Date"');
+        expect(expr("Order Date", "`")).toBe("`Order Date`");
+        expect(expr("Order Date", "`", "m")).toBe("m.`Order Date`");
+        expect(expr("1st_purchase")).toBe('"1st_purchase"');
+        expect(expr('say "hi"')).toBe('"say ""hi"""');
       });
 
       it("supports aliases", () => {

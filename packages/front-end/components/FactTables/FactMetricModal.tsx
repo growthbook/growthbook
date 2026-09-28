@@ -31,6 +31,7 @@ import {
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
   reconcileInlineFilterPrompts,
+  DEFAULT_IDENTIFIER_QUOTE,
 } from "shared/experiments";
 import { isCappableFactMetric } from "shared/validators";
 import { createLikeStringMatchFn } from "shared/sql";
@@ -729,6 +730,7 @@ function getWHERE({
           // This isn't real SQL syntax for most dialects, but it should get the point across
           jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
           evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+          identifierQuote: DEFAULT_IDENTIFIER_QUOTE,
           showSourceComment: true,
         })
       : [];
@@ -1065,6 +1067,7 @@ function getFunnelPreviewSQL({
       }),
       jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
       evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+      identifierQuote: DEFAULT_IDENTIFIER_QUOTE,
     });
 
     // Ordering against exposure is already covered by the CTE's WHERE.
