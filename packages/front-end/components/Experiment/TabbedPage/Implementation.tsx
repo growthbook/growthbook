@@ -33,7 +33,7 @@ import TrafficAllocationFunnel, {
 } from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import AnalysisPlan from "@/components/Experiment/TabbedPage/AnalysisPlan";
-import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
+import DecisionPlan from "@/components/Experiment/TabbedPage/DecisionPlan";
 import Callout from "@/ui/Callout";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
@@ -590,7 +590,7 @@ export default function Implementation({
             canEdit={!!editTargeting && !pendingScheduledStart}
           />
         )}
-        <DecisionMakingSettings
+        <DecisionPlan
           experiment={experiment}
           mutate={mutate}
           canEdit={!!editTargeting && !pendingScheduledStart}

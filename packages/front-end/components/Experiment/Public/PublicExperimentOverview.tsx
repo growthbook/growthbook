@@ -88,9 +88,7 @@ export default function PublicExperimentOverview({
       />
       <DecisionMakingSettings
         experiment={experiment}
-        canEdit={false}
         ssrPolyfills={ssrPolyfills}
-        isPublic={true}
       />
     </>
   );

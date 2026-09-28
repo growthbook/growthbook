@@ -10,29 +10,20 @@ import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
-import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
-import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
-import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  mutate?: () => void;
-  canEdit: boolean;
   ssrPolyfills?: SSRPolyfills;
-  isPublic?: boolean;
-  // Environments the experiment reaches; the schedule modal gates on them.
-  envs?: string[];
 }
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
+export const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
@@ -45,34 +36,19 @@ export type ExperimentMetricInterfaceWithComputedTargetMDE = Omit<
   metricTargetMDE: number;
 };
 
-export default function DecisionMakingSettings({
-  experiment,
-  mutate,
-  canEdit,
-  ssrPolyfills,
-  isPublic,
-  envs,
-}: Props) {
+/**
+ * What the decision-making settings read back: each goal's target MDE, the
+ * decision criteria and the end-of-experiment plan. Null where the experiment
+ * has none (no decision framework, or a bandit or holdout).
+ */
+export function useDecisionMakingSummary(
+  experiment: ExperimentInterfaceStringDates,
+  ssrPolyfills?: SSRPolyfills,
+) {
   const { getExperimentMetricById, getMetricById, metricGroups } =
     useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
-  const permissionsUtil = usePermissionsUtil();
-
-  const hasDecisionFramework =
-    organization?.settings?.decisionFrameworkEnabled &&
-    hasCommercialFeature("decision-framework");
-
   const { getDecisionCriteria } = useRunningExperimentStatus();
-  const decisionCriteria = getDecisionCriteria(
-    experiment.decisionFrameworkSettings?.decisionCriteriaId,
-  );
-
-  const [targetMDEModal, setTargetMDEModal] = useState(false);
-  const [decisionCriteriaModal, setDecisionCriteriaModal] = useState(false);
-  const [editScheduleModal, setEditScheduleModal] = useState(false);
-
-  const canEditDecisionSettings =
-    canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const expandedGoals = useMemo(
     () =>
@@ -83,11 +59,24 @@ export default function DecisionMakingSettings({
     [experiment.goalMetrics, metricGroups, ssrPolyfills?.metricGroups],
   );
 
+  const hasDecisionFramework =
+    organization?.settings?.decisionFrameworkEnabled &&
+    hasCommercialFeature("decision-framework");
+  if (
+    !hasDecisionFramework ||
+    experiment.type === "multi-armed-bandit" ||
+    experiment.type === "holdout"
+  ) {
+    return null;
+  }
+
+  const metricById = (id: string) =>
+    ssrPolyfills?.getExperimentMetricById?.(id) || getExperimentMetricById(id);
+
   const goalsWithTargetMDE: ExperimentMetricInterfaceWithComputedTargetMDE[] =
     [];
   expandedGoals.forEach((m) => {
-    const metric =
-      ssrPolyfills?.getExperimentMetricById?.(m) || getExperimentMetricById(m);
+    const metric = metricById(m);
     if (metric) {
       // For legacy metrics with a denominator, look up the denominator metric
       const denominatorMetric =
@@ -108,13 +97,6 @@ export default function DecisionMakingSettings({
     }
   });
 
-  const isBandit = experiment.type === "multi-armed-bandit";
-  const isHoldout = experiment.type === "holdout";
-
-  if (!hasDecisionFramework || isBandit || isHoldout) {
-    return null;
-  }
-
   // Summarize the end-of-experiment scheduled-stop plan.
   const plan = experiment.statusUpdateSchedule?.scheduledStopPlan;
   const shippingVariationName = (id?: string) =>
@@ -123,10 +105,7 @@ export default function DecisionMakingSettings({
   const endDetails: string[] = [];
   const tiebreakerName = () => {
     if (!plan?.tiebreakerMetricId) return null;
-    const metric =
-      ssrPolyfills?.getExperimentMetricById?.(plan.tiebreakerMetricId) ||
-      getExperimentMetricById(plan.tiebreakerMetricId);
-    return metric?.name ?? plan.tiebreakerMetricId;
+    return metricById(plan.tiebreakerMetricId)?.name ?? plan.tiebreakerMetricId;
   };
   if (plan?.mode === "auto-ship") {
     endSummary = "Ship the winning variation";
@@ -149,47 +128,35 @@ export default function DecisionMakingSettings({
     endSummary = "Notify only — keep running";
   }
 
+  return {
+    goalsWithTargetMDE,
+    decisionCriteria: getDecisionCriteria(
+      experiment.decisionFrameworkSettings?.decisionCriteriaId,
+    ),
+    endSummary,
+    endDetails,
+  };
+}
+
+/** The decision-making settings as a read-only card, for the public page. */
+export default function DecisionMakingSettings({
+  experiment,
+  ssrPolyfills,
+}: Props) {
+  const summary = useDecisionMakingSummary(experiment, ssrPolyfills);
+  const [criteriaOpen, setCriteriaOpen] = useState(false);
+  if (!summary) return null;
+  const { goalsWithTargetMDE, decisionCriteria, endSummary, endDetails } =
+    summary;
+
   return (
     <>
-      {decisionCriteriaModal &&
-      mutate &&
-      canEditDecisionSettings &&
-      !isPublic ? (
-        <DecisionCriteriaSelectorModal
-          initialCriteria={decisionCriteria}
-          experiment={experiment}
-          onSubmit={() => {
-            setDecisionCriteriaModal(false);
-            mutate();
-          }}
-          onClose={() => setDecisionCriteriaModal(false)}
-          canEdit={canEditDecisionSettings}
-        />
-      ) : decisionCriteriaModal ? (
+      {criteriaOpen ? (
         <DecisionCriteriaModal
           decisionCriteria={decisionCriteria}
           editable={false}
           mutate={() => {}}
-          onClose={() => setDecisionCriteriaModal(false)}
-        />
-      ) : null}
-      {targetMDEModal && mutate ? (
-        <TargetMDEModal
-          goalsWithTargetMDE={goalsWithTargetMDE}
-          experiment={experiment}
-          onSubmit={() => {
-            setTargetMDEModal(false);
-            mutate();
-          }}
-          onClose={() => setTargetMDEModal(false)}
-        />
-      ) : null}
-      {editScheduleModal && mutate ? (
-        <EditScheduleModal
-          experiment={experiment}
-          mutate={mutate}
-          envs={envs}
-          close={() => setEditScheduleModal(false)}
+          onClose={() => setCriteriaOpen(false)}
         />
       ) : null}
 
@@ -225,17 +192,6 @@ export default function DecisionMakingSettings({
                 <Text color="text-mid">--</Text>
               )}
             </Box>
-            {canEditDecisionSettings && !isPublic ? (
-              <Box mt="1">
-                <Link
-                  onClick={() => {
-                    setTargetMDEModal(true);
-                  }}
-                >
-                  View/Edit
-                </Link>
-              </Box>
-            ) : null}
           </Box>
           <Box>
             <Text color="text-high" weight="semibold" mb="1">
@@ -246,13 +202,7 @@ export default function DecisionMakingSettings({
               <Text color="text-mid">{`: ${decisionCriteria.description}`}</Text>
             </Box>
             <Box mt="1">
-              <Link
-                onClick={() => {
-                  setDecisionCriteriaModal(true);
-                }}
-              >
-                {canEditDecisionSettings && !isPublic ? "View/Edit" : "View"}
-              </Link>
+              <Link onClick={() => setCriteriaOpen(true)}>View</Link>
             </Box>
           </Box>
           <Box>
@@ -269,17 +219,6 @@ export default function DecisionMakingSettings({
                 </Text>
               ))}
             </Box>
-            {canEditDecisionSettings && mutate && !isPublic ? (
-              <Box mt="1">
-                <Link
-                  onClick={() => {
-                    setEditScheduleModal(true);
-                  }}
-                >
-                  View/Edit
-                </Link>
-              </Box>
-            ) : null}
           </Box>
         </Grid>
       </Frame>
