@@ -1,12 +1,12 @@
+import { createLikeMatchFns } from "shared/sql";
 import type { DataType } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
-import { createLikeMatchFns } from "shared/sql";
-import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
-import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
+import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
+import { indicesTableUnpivot } from "./clauses/indices-table-unpivot";
 import {
   approxTopKCapacity,
   eligibleTopValueExpr,
-} from "back-end/src/integrations/sql/clauses/approx-top-values";
+} from "./clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const snowflakeEscapeStringLiteral = (value: string) =>

@@ -1,5 +1,6 @@
 import { format } from "shared/sql";
 import { FactTableColumnType } from "shared/types/fact-table";
+import { baseDialect } from "shared/dialects";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
@@ -11,7 +12,6 @@ import {
   mergeJsonFields,
   getHost,
 } from "back-end/src/util/sql";
-import { baseDialect } from "back-end/src/integrations/dialects/base";
 
 describe("backend", () => {
   describe("compileSqlTemplate", () => {
