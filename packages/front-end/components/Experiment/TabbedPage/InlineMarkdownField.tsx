@@ -14,6 +14,9 @@ import {
 } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Metadata from "@/ui/Metadata";
+import QuickEditButton, {
+  revealsQuickEdit,
+} from "@/components/Experiment/TabbedPage/QuickEditButton";
 import ExpandableBlock from "./ExpandableBlock";
 
 export interface Props {
@@ -37,6 +40,13 @@ export interface Props {
   stacked?: boolean;
   /** Beside a stacked label, such as the field's own edit button. */
   labelAction?: ReactNode;
+  /**
+   * When not `editable`, offer a pencil that opens the editor anyway, for a
+   * field that is safe to change at any stage.
+   */
+  editOnDemand?: boolean;
+  /** Shown in place of an empty value that isn't being edited. */
+  emptyLabel?: string;
 }
 
 /**
@@ -48,7 +58,7 @@ export default function InlineMarkdownField({
   experiment,
   field,
   placeholder,
-  editable,
+  editable: editableHere,
   onSaved,
   addLabel,
   aiSuggestFunction,
@@ -57,8 +67,12 @@ export default function InlineMarkdownField({
   trackingSource,
   stacked,
   labelAction,
+  editOnDemand,
+  emptyLabel,
 }: Props) {
   const savedValue = experiment[field] || "";
+  const [editingOnDemand, setEditingOnDemand] = useState(false);
+  const editable = editableHere || editingOnDemand;
   const [value, setValue] = useState(savedValue);
   const editor = useRef<RichTextEditorHandle>(null);
   const [revealed, setRevealed] = useState(false);
@@ -75,9 +89,13 @@ export default function InlineMarkdownField({
   useRegisterExperimentEdit(`inline:${field}`, dirty, {
     changes: () =>
       experimentFieldChanges(experiment, { [field]: value.trim() }),
-    onSaved: () => onSaved?.(value.trim()),
+    onSaved: () => {
+      onSaved?.(value.trim());
+      setEditingOnDemand(false);
+    },
     discard: () => {
       replaceValue(savedValue);
+      setEditingOnDemand(false);
     },
   });
 
@@ -106,8 +124,8 @@ export default function InlineMarkdownField({
   if (!editable) {
     if (!savedValue) {
       // In a column of metadata an empty row still reads as a field; on the
-      // page on its own it would just be noise.
-      if (!stacked) return null;
+      // page on its own it would just be noise, unless it can be filled in.
+      if (!stacked && !editOnDemand) return null;
       body = (
         <Text
           weight="regular"
@@ -115,7 +133,7 @@ export default function InlineMarkdownField({
           size={stacked ? "sm" : "md"}
           fontStyle="italic"
         >
-          None
+          {emptyLabel ?? "None"}
         </Text>
       );
     } else {
@@ -147,6 +165,21 @@ export default function InlineMarkdownField({
       />
     );
   }
+  if (!editable && editOnDemand) {
+    body = (
+      <Flex
+        align={savedValue ? "start" : "center"}
+        gap="2"
+        className={revealsQuickEdit}
+      >
+        <Box minWidth="0">{body}</Box>
+        <QuickEditButton
+          label={`Edit ${label.toLowerCase()}`}
+          onClick={() => setEditingOnDemand(true)}
+        />
+      </Flex>
+    );
+  }
 
   if (stacked) {
     return (
@@ -162,7 +195,13 @@ export default function InlineMarkdownField({
   }
 
   return (
-    <SetupFieldRow label={label} labelSize="lg">
+    <SetupFieldRow
+      label={label}
+      labelSize="lg"
+      content={editable ? "control" : "text"}
+      // One line with its pencil, so the label centres on it.
+      labelAlign={!editable && !savedValue ? "center" : "top"}
+    >
       {body}
     </SetupFieldRow>
   );

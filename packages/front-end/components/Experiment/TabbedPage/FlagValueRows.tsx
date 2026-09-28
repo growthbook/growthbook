@@ -104,7 +104,7 @@ const CaretTrigger = forwardRef<
 >(function CaretTrigger({ children, color, ...props }, ref) {
   return (
     <span ref={ref} {...props}>
-      <Link color={color}>
+      <Link color={color} underline="none" className={styles.caretTrigger}>
         <Flex align="center" gap="1">
           <Text size="sm">{children}</Text>
           <PiCaretDownFill size={10} />
@@ -272,9 +272,19 @@ function FlagValueRow({
   // stack both. A managed flag keeps one draft.
   const canStartSeparateDraft =
     !managed && !!pendingDraft?.hasUnrelatedDraftChanges;
-  const [target, setTarget] = useState<"draft" | "new">(
-    pendingDraft ? "draft" : "new",
-  );
+  // Follows the open draft, which can appear after the row mounts (a re-link
+  // lands one), until someone picks a target themselves.
+  const [chosenTarget, setTarget] = useState<{
+    draftVersion: number | null;
+    target: "draft" | "new";
+  } | null>(null);
+  const target =
+    chosenTarget &&
+    chosenTarget.draftVersion === (pendingDraft?.version ?? null)
+      ? chosenTarget.target
+      : pendingDraft
+        ? "draft"
+        : "new";
   const fromDraft = !!pendingDraft && !showLive && target === "draft";
   // Its rule is gone, so nothing edits here until it's linked again.
   const orphaned = info.state === "discarded";
@@ -507,7 +517,9 @@ function FlagValueRow({
   ) : null;
   const draftName = draftRevision ? (
     <Box as="span" display="block" maxWidth="180px">
-      <Text truncate>{draftRevision}</Text>
+      <Text size="sm" truncate>
+        {draftRevision}
+      </Text>
     </Box>
   ) : null;
   const targetLabel = showLive ? "Live" : fromDraft ? draftName : "New draft";
@@ -545,7 +557,10 @@ function FlagValueRow({
       >
         <DropdownMenuItem
           onClick={() => {
-            setTarget("draft");
+            setTarget({
+              draftVersion: pendingDraft?.version ?? null,
+              target: "draft",
+            });
             setStaged(null);
           }}
         >
@@ -553,7 +568,10 @@ function FlagValueRow({
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
-            setTarget("new");
+            setTarget({
+              draftVersion: pendingDraft?.version ?? null,
+              target: "new",
+            });
             setStaged(null);
           }}
         >
@@ -870,11 +888,13 @@ function FlagValueRow({
               </ReviewFeedbackPopover>
             ) : (
               <RevisionStatusBadge
+                // Live only when live holds the rule; otherwise the draft
+                // that links it is the state that matters.
                 revision={
-                  shownDraft ?? {
-                    version: feature.version,
-                    status: "published",
-                  }
+                  shownDraft ??
+                  (info.state !== "live" && pendingDraft
+                    ? pendingDraft
+                    : { version: feature.version, status: "published" })
                 }
                 liveVersion={feature.version}
               />

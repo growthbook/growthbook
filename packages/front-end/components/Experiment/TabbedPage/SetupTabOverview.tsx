@@ -222,7 +222,11 @@ export default function SetupTabOverview({
         )}
 
         {!isBandit && !isHoldout && (
-          <HypothesisField experiment={experiment} editable={editingInline} />
+          <HypothesisField
+            experiment={experiment}
+            editable={editingInline}
+            canEdit={canEditExperiment}
+          />
         )}
       </div>
       {experiment.status === "draft" && experiment.type !== "holdout" && (

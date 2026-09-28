@@ -14,9 +14,15 @@ import InlineMarkdownField from "@/components/Experiment/TabbedPage/InlineMarkdo
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   editable: boolean;
+  /** Past draft, the hypothesis still opens for editing from its pencil. */
+  canEdit: boolean;
 }
 
-export default function HypothesisField({ experiment, editable }: Props) {
+export default function HypothesisField({
+  experiment,
+  editable,
+  canEdit,
+}: Props) {
   const { apiCall } = useAuth();
   const gb = useGrowthBook<AppFeatures>();
   const aiSuggestion = useRef<string | null>(null);
@@ -56,6 +62,8 @@ export default function HypothesisField({ experiment, editable }: Props) {
       field="hypothesis"
       placeholder="What do you expect to happen, and why?"
       editable={editable}
+      editOnDemand={canEdit}
+      emptyLabel="No hypothesis"
       onSaved={(hypothesis) => {
         if (aiSuggestion.current) {
           track("experiment-hypothesis-saved-after-ai-suggestion", {

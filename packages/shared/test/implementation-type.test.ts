@@ -5,6 +5,7 @@ import {
   getImplementationType,
   hasImplementationLinkages,
 } from "../src/util/implementation-type";
+import { canEditDeliveryInPlace } from "../src/util";
 
 describe("deriveImplementationType", () => {
   it("is undefined with nothing linked", () => {
@@ -145,5 +146,44 @@ describe("implementationTypeAfterUnlink", () => {
       implementationTypeAfterUnlink({ implementationType: "values" }),
     ).toBe("values");
     expect(implementationTypeAfterUnlink({})).toBeUndefined();
+  });
+});
+
+describe("canEditDeliveryInPlace", () => {
+  const running = {
+    status: "running" as const,
+    hasVisualChangesets: false,
+    hasURLRedirects: false,
+    linkedFeatures: [] as string[],
+  };
+
+  it("sends a running experiment with any implementation through a release plan", () => {
+    expect(
+      canEditDeliveryInPlace({ ...running, linkedFeatures: ["flag"] }),
+    ).toBe(false);
+    expect(
+      canEditDeliveryInPlace({ ...running, hasVisualChangesets: true }),
+    ).toBe(false);
+    expect(canEditDeliveryInPlace({ ...running, hasURLRedirects: true })).toBe(
+      false,
+    );
+  });
+
+  it("edits in place before launch, after stopping, and when analysis only", () => {
+    expect(
+      canEditDeliveryInPlace({
+        ...running,
+        status: "draft",
+        linkedFeatures: ["flag"],
+      }),
+    ).toBe(true);
+    expect(
+      canEditDeliveryInPlace({
+        ...running,
+        status: "stopped",
+        linkedFeatures: ["flag"],
+      }),
+    ).toBe(true);
+    expect(canEditDeliveryInPlace(running)).toBe(true);
   });
 });

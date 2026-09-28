@@ -10,7 +10,7 @@ import { useMemo, useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import {
-  experimentHasLiveLinkedChanges,
+  canEditDeliveryInPlace,
   getImplementationType,
   isManagedByExperiment,
 } from "shared/util";
@@ -254,9 +254,7 @@ export default function Implementation({
   const isHoldout = experiment.type === "holdout";
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  const safeToEdit =
-    experiment.status !== "running" ||
-    !experimentHasLiveLinkedChanges(experiment, linkedFeatures);
+  const safeToEdit = canEditDeliveryInPlace(experiment);
 
   // Temporary check while we test the new traffic funnel
   // TODO: Remove this once we're ready to support holdouts in the new traffic funnel UI.

@@ -8,7 +8,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "shared/types/idea";
-import { includeExperimentInPayload } from "shared/util";
+import { canEditDeliveryInPlace } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -109,12 +109,7 @@ const BanditExperimentPage = (): ReactElement => {
     ? () => setTargetingModalOpen(true)
     : null;
 
-  const safeToEdit =
-    experiment.status !== "running" ||
-    !includeExperimentInPayload(
-      experiment,
-      linkedFeatures.map((f) => f.feature),
-    );
+  const safeToEdit = canEditDeliveryInPlace(experiment);
 
   return (
     <>

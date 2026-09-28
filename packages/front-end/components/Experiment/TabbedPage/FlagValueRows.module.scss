@@ -32,20 +32,24 @@
 }
 
 // Not a control, but it has a tooltip, so it reads as one on hover.
+// One unbroken line under the whole label, which text-decoration can't give
+// across the inline-block revision number.
 .revisionLabel,
-.revisionLabel span {
-  text-decoration-color: var(--gray-a8);
-  text-underline-offset: 2px;
+.caretTrigger {
+  display: inline-flex;
+  border-bottom: 1px solid transparent;
 }
 
 .revisionLabel {
   cursor: default;
 
-  // The number sits in an inline-block, which doesn't inherit the line.
-  &:hover,
-  &:hover span {
-    text-decoration-line: underline;
+  &:hover {
+    border-bottom-color: var(--gray-a8);
   }
+}
+
+.caretTrigger:hover {
+  border-bottom-color: currentColor;
 }
 
 // A managed value: the variation number and widgets inside a full-width field.

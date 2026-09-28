@@ -12,12 +12,7 @@ import {
   hasAttributeCondition,
   hasTargetingConfigured,
 } from "shared/experiments";
-import {
-  filterEnvironmentsByExperiment,
-  filterEnvironmentsByFeature,
-  generateVariationId,
-  isManagedByExperiment,
-} from "shared/util";
+import { generateVariationId, isManagedByExperiment } from "shared/util";
 import {
   Box,
   Flex,
@@ -40,7 +35,6 @@ import VariationsTable, {
   variationGridMaxWidth,
 } from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
@@ -74,14 +68,14 @@ import { useTargetingDefaults } from "@/components/Experiment/useExperimentTarge
 import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
 import { attributeOptionLabelFormatter } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
+import styles from "./TrafficAllocationFunnel.module.scss";
+import FlagValueRows from "./FlagValueRows";
+import SetupFieldRow from "./SetupFieldRow";
+import useExperimentEditing from "./useExperimentEditing";
 import {
   FlagEnvironmentsDraft,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
-import useExperimentEditing from "./useExperimentEditing";
-import SetupFieldRow from "./SetupFieldRow";
-import FlagValueRows from "./FlagValueRows";
-import styles from "./TrafficAllocationFunnel.module.scss";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -393,7 +387,6 @@ export default function TrafficAllocationFunnel({
     getNamespaceDisplayData(phase?.namespace, namespaces);
 
   const isBandit = experiment.type === "multi-armed-bandit";
-  const allEnvironments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
 
   // Each readout asks about itself.
@@ -480,17 +473,6 @@ export default function TrafficAllocationFunnel({
     },
   );
 
-  // A subset of environments is a restriction even without attribute
-  // targeting. The flag's project decides which it can run in.
-  const allowedEnvironments = servedValueFeature
-    ? filterEnvironmentsByFeature(allEnvironments, servedValueFeature.feature)
-    : filterEnvironmentsByExperiment(allEnvironments, experiment);
-  const ruleEnvironments = new Set(
-    environmentStates.filter((e) => e.state !== "missing").map((e) => e.env),
-  );
-  const reachesAllEnvironments =
-    !servedValueFeature ||
-    allowedEnvironments.every((e) => ruleEnvironments.has(e.id));
   const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
   // Analysis only serves nothing, so its variations stay editable throughout.
@@ -512,7 +494,8 @@ export default function TrafficAllocationFunnel({
   const hasMenuActions = canAddNamespace;
 
   const hasConfiguredTargeting = hasTargetingConfigured(phase);
-  const targetsEveryone = !hasConfiguredTargeting && reachesAllEnvironments;
+  // Environment scope has its own line above, so the audience is attributes alone.
+  const targetsEveryone = !hasConfiguredTargeting;
   const hasCondition = hasAttributeCondition(phase?.condition);
   const hasSavedGroups = !!phase?.savedGroups?.length;
   const hasPrerequisites = !!phase?.prerequisites?.length && !isHoldout;

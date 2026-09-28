@@ -234,6 +234,20 @@ export function experimentHasLinkedChanges(
   return false;
 }
 
+/**
+ * Whether targeting, traffic and namespace can change in place. A running
+ * experiment with any implementation changes through a release plan, served
+ * or not: a draft rule or a re-link can put it back in the payload at once.
+ */
+export function canEditDeliveryInPlace(
+  exp: Pick<
+    ExperimentInterface,
+    "status" | "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
+  >,
+): boolean {
+  return exp.status !== "running" || !experimentHasLinkedChanges(exp);
+}
+
 export function experimentHasLiveLinkedChanges(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: LinkedFeatureInfo[],
