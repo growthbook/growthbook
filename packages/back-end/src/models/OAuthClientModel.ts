@@ -101,6 +101,16 @@ export async function getOAuthClientById(
   return doc as OAuthClientInterface | null;
 }
 
+export async function getOAuthClientsByIds(
+  clientIds: string[],
+): Promise<OAuthClientInterface[]> {
+  if (!clientIds.length) return [];
+  const docs = await OAuthClientModel.find({
+    clientId: { $in: clientIds },
+  }).lean();
+  return docs as OAuthClientInterface[];
+}
+
 /** Reset idle TTL on token issuance. Org apps have no TTL and are skipped. */
 export async function touchOAuthClient(clientId: string): Promise<void> {
   await OAuthClientModel.updateOne(

@@ -16,7 +16,10 @@ import {
 } from "back-end/src/services/oauth";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
-import { getOAuthClientById } from "back-end/src/models/OAuthClientModel";
+import {
+  getOAuthClientById,
+  getOAuthClientsByIds,
+} from "back-end/src/models/OAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {
@@ -47,6 +50,7 @@ jest.mock("back-end/src/models/OAuthRefreshTokenModel", () => ({
 jest.mock("back-end/src/models/OAuthClientModel", () => ({
   createOAuthClient: jest.fn(),
   getOAuthClientById: jest.fn(),
+  getOAuthClientsByIds: jest.fn(),
   touchOAuthClient: jest.fn(),
 }));
 
@@ -778,11 +782,12 @@ describe("admin view of member grants", () => {
         },
       ]),
     });
-    mockGetOAuthClientById.mockImplementation(async (id) =>
-      id === "gbapp_internal"
-        ? ({ clientId: id, clientName: "Internal MCP" } as never)
-        : null,
-    );
+    // gbc_gone has no client row any more
+    jest
+      .mocked(getOAuthClientsByIds)
+      .mockResolvedValue([
+        { clientId: "gbapp_internal", clientName: "Internal MCP" } as never,
+      ]);
 
     const grants = await listOrgGrants(context as never);
 
