@@ -278,3 +278,49 @@ export function buildBreakdownRows({
   if (!(dimension === "value" && valueType === "boolean")) out.sort(byVolume);
   return [...out, ...otherRow()];
 }
+
+/** What a stream row's ruleId refers to. */
+export type RuleCellReference =
+  | { kind: "rule"; label: string; color: string }
+  /** "$default": the default value was served. */
+  | { kind: "default" }
+  /** "": served without a rule (an override, a prerequisite). */
+  | { kind: "none" }
+  /** No rule in the flag's current config has this stem. */
+  | { kind: "deleted" };
+
+/**
+ * Resolves a stream row's ruleId to the same name and colour the breakdown
+ * panel and chart give it, by calling their functions rather than restating
+ * them: the label is ruleReference, the colour is buildSeriesColors' Rule
+ * grouping (keyed to the rule's position in the flag's rule list, not to its
+ * traffic, so it matches the chart band whatever the volumes).
+ *
+ * Matched by stem: telemetry carries stemRuleId, so a v1-migrated rule stored
+ * as "fr_abc__production" arrives as "fr_abc". A raw compare would call every
+ * such rule deleted.
+ */
+export function buildRuleCellResolver(
+  rules: FeatureRule[],
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
+): (ruleId: string) => RuleCellReference {
+  const colors = buildSeriesColors("ruleId", [], rules);
+  const byStem = new Map<string, FeatureRule>();
+  rules.forEach((rule) => {
+    if (!rule.id) return;
+    const stem = stemRuleId(rule.id);
+    if (!byStem.has(stem)) byStem.set(stem, rule);
+  });
+  return (ruleId) => {
+    if (ruleId === DEFAULT_RULE_KEY) return { kind: "default" };
+    if (ruleId === "") return { kind: "none" };
+    const stem = stemRuleId(ruleId);
+    const rule = byStem.get(stem);
+    if (!rule) return { kind: "deleted" };
+    return {
+      kind: "rule",
+      label: ruleReference(rule, experimentsMap),
+      color: colors[stem],
+    };
+  };
+}

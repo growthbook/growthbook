@@ -49,13 +49,26 @@ export function managedStreamColumnLabel(key: string): string {
 
 /**
  * The managed warehouse's always-on middle columns, in display order: the
- * explanation chain, coarse to fine — what was served, by what kind of
- * mechanism, by which rule. Its projection is fixed
+ * explanation chain, coarse to fine — what was served, then by which rule. Its projection is fixed
  * (ClickHouse#getFeatureEvalDiagnosticsQuery), so the set is known without
  * reading the rows. User ID leads and Variation and Environment follow; see
  * the columns memo in FeatureDiagnostics.
  */
-export const MANAGED_STREAM_TABLE_COLUMNS = ["value", "source", "ruleId"];
+// Source is hidden. The field is still in every row, but the stream's search
+// covers visible columns only, so it no longer matches source values.
+export const MANAGED_STREAM_TABLE_COLUMNS = ["value", "ruleId"];
+
+/**
+ * One row's timestamp in full — date with year, and milliseconds only when the
+ * raw value has them — for the detail drawer, where there is room for it.
+ */
+export function formatFullStreamTimestamp(raw: unknown): string {
+  const date = getValidDate(raw as string);
+  return `${format(date, "PP")}, ${format(
+    date,
+    hasSubSecond(raw) ? "h:mm:ss.SSS a" : "h:mm:ss a",
+  )}`;
+}
 
 /** Whether a raw timestamp carries a sub-second part. */
 function hasSubSecond(raw: unknown): boolean {
@@ -78,11 +91,6 @@ const EMPTY_TIMESTAMP_WIDTH = 210;
 export interface StreamTimestampPlan {
   /** A row's timestamp, at the precision its raw value has. */
   format: (raw: unknown, date: Date) => string;
-  /**
-   * What the dates are, for the caption above the table: the one date every
-   * row shares, or the range they span. Null with no rows.
-   */
-  caption: string | null;
   /** Wide enough that no timestamp in the set truncates. */
   width: number;
 }
@@ -92,42 +100,26 @@ export interface StreamTimestampPlan {
  * set — the same rule as the User ID and Variation gates — so it holds still
  * while paging and changes only when the query re-runs.
  *
- * Never truncates: the column is sized to the longest string in the set. Parts
- * are dropped from least informative first: all rows on one calendar day show
- * time only, with the date stated once in the caption; one year but several
- * days drops the year, and the caption gives the range; several years keep
- * everything (the format the stream always used). Milliseconds only when the raw value has a sub-second part —
- * never padded to a ".000" that would claim precision the data does not have.
+ * Every cell carries its own date as an abbreviated month and day ("Sep 28,
+ * 1:23:45 PM"); the year is added only when the set spans more than one.
+ * Milliseconds only when the raw value has a sub-second part — never padded to
+ * a ".000" that would claim precision the data does not have. Never truncates:
+ * the width covers the longest string in the set.
  */
 export function planStreamTimestamps(
   rows: { timestamp: unknown }[],
 ): StreamTimestampPlan {
   const dates = rows.map((r) => getValidDate(r.timestamp as string));
-  const sameDay = new Set(dates.map((d) => format(d, "yyyy-MM-dd"))).size <= 1;
   const sameYear = new Set(dates.map((d) => d.getFullYear())).size <= 1;
 
   const time = (raw: unknown, date: Date) =>
     format(date, hasSubSecond(raw) ? "h:mm:ss.SSS a" : "h:mm:ss a");
   const formatRow = (raw: unknown, date: Date) =>
-    sameDay
-      ? time(raw, date)
-      : sameYear
-        ? `${format(date, "MMM d")}, ${time(raw, date)}`
-        : `${format(date, "PP")}, ${time(raw, date)}`;
+    `${format(date, sameYear ? "MMM d" : "PP")}, ${time(raw, date)}`;
 
   if (!rows.length) {
-    return { format: formatRow, caption: null, width: EMPTY_TIMESTAMP_WIDTH };
+    return { format: formatRow, width: EMPTY_TIMESTAMP_WIDTH };
   }
-
-  const times = dates.map((d) => d.getTime());
-  const first = new Date(Math.min(...times));
-  const last = new Date(Math.max(...times));
-  const caption = sameDay
-    ? format(first, "PP")
-    : sameYear
-      ? `${format(first, "MMM d")} – ${format(last, "PP")}`
-      : `${format(first, "PP")} – ${format(last, "PP")}`;
-
   const longest = Math.max(
     ...rows.map((r, i) => formatRow(r.timestamp, dates[i]).length),
   );
@@ -137,11 +129,11 @@ export function planStreamTimestamps(
       "Timestamp".length * HEADER_CHAR_PX + HEADER_ICON_PX + CELL_PADDING_PX,
     ),
   );
-  return { format: formatRow, caption, width };
+  return { format: formatRow, width };
 }
 
 /**
- * Names a row's variation from the flag's current config: "0 · Control". The
+ * Names a row's variation from the flag's current config: "(0) Control". The
  * warehouse value leads, since it is what the row actually holds.
  *
  * Matched the way the payload builder keys them (back-end util/features.ts):
@@ -181,7 +173,7 @@ export function buildVariationLabeler(
     if (!variationId) return variationId;
     const rule = rulesByStem.get(stemRuleId(ruleId));
     const name = rule ? nameFor(rule, variationId)?.trim() : undefined;
-    return name ? `${variationId} · ${name}` : variationId;
+    return name ? `(${variationId}) ${name}` : variationId;
   };
 }
 
@@ -196,4 +188,66 @@ export function ruleAbsenceNote(ruleId: string): string | null {
   }
   if (ruleId === "") return "Served without a rule.";
   return null;
+}
+
+/**
+ * A header label's width in the cells' `ch`. Headers are 11px uppercase with
+ * 0.06em tracking in the UI font, so an uppercase glyph runs ~1.15 of the
+ * 12px monospace `ch`; the sort control adds ~2ch. An estimate from type
+ * metrics, not a measurement — it only has to keep the header from clipping.
+ */
+function headerCh(label: string): number {
+  return Math.ceil(label.length * 1.15 + 2);
+}
+
+/**
+ * Breathing room added to a column's content width, in px. At exact content
+ * width the columns sat tight against their neighbours.
+ */
+export const STREAM_COLUMN_EXTRA_PX: Record<string, number> = {
+  timestamp: 14,
+  unit_id: 14,
+  value: 28,
+  ruleId: 14,
+  variationId: 28,
+};
+
+/** Per-column bounds in `ch`. */
+const COLUMN_BOUNDS: Record<string, { min: number; max: number }> = {
+  timestamp: { min: 0, max: Infinity },
+  unit_id: { min: 14, max: 28 },
+  value: { min: 8, max: 24 },
+  variationId: { min: 0, max: 24 },
+  environment: { min: 0, max: 24 },
+  ruleId: { min: 24, max: 48 },
+};
+
+/**
+ * Column widths in `ch` for the managed stream, decided once from the full
+ * fetched result set like the other gates, so they hold still while paging.
+ *
+ * Each column is sized to its widest value, never below its header, clamped
+ * to its bounds — Rule's are 24–48ch. The table stays full width: whatever the
+ * columns leave over goes to an empty trailing column rather than opening a
+ * gap inside Rule.
+ */
+export function planStreamColumnWidths(
+  keys: string[],
+  rows: Record<string, unknown>[],
+  label: (key: string) => string,
+  /** What a cell actually renders, where that is not its raw value. */
+  text: (key: string, row: Record<string, unknown>) => string = (key, row) =>
+    String(row[key] ?? ""),
+): Record<string, number> {
+  const widths: Record<string, number> = {};
+  keys.forEach((key) => {
+    const header = headerCh(label(key));
+    const content = Math.max(0, ...rows.map((row) => text(key, row).length));
+    const { min, max } = COLUMN_BOUNDS[key] ?? { min: 0, max: Infinity };
+    widths[key] = Math.min(
+      Math.max(content, header, min),
+      Math.max(max, header),
+    );
+  });
+  return widths;
 }

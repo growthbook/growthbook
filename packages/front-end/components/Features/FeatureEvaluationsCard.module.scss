@@ -116,6 +116,11 @@
   border: 1px dashed var(--gray-a8);
 }
 
+.swatchDefault {
+  box-sizing: border-box;
+  border: 1px solid var(--gray-a6);
+}
+
 .rowLabel {
   font-size: 11.5px;
   overflow: hidden;

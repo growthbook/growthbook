@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { FeatureRule } from "shared/types/feature";
 import {
   buildVariationLabeler,
+  planStreamColumnWidths,
   planStreamTimestamps,
   ruleAbsenceNote,
   streamColumnLabel,
@@ -27,60 +28,31 @@ describe("streamColumnLabel", () => {
 describe("planStreamTimestamps", () => {
   const at = (iso: string) => ({ timestamp: iso });
 
-  it("shows time only, with the date in the caption, when every row shares a day", () => {
+  it("puts the month and day in every cell, even when rows share a day", () => {
     const plan = planStreamTimestamps([
-      at("2026-09-25T13:23:45"),
-      at("2026-09-25T09:02:11"),
+      at("2026-09-28T13:23:45"),
+      at("2026-09-28T09:02:11"),
     ]);
-    const date = new Date("2026-09-25T13:23:45");
-    expect(plan.format("2026-09-25T13:23:45", date)).toBe(
-      format(date, "h:mm:ss a"),
-    );
-    expect(plan.caption).toBe(format(date, "PP"));
-  });
-
-  it("drops only the year across several days of one year", () => {
-    const plan = planStreamTimestamps([
-      at("2026-09-25T13:23:45"),
-      at("2026-09-24T09:02:11"),
-    ]);
-    const date = new Date("2026-09-24T09:02:11");
-    expect(plan.format("2026-09-24T09:02:11", date)).toBe(
+    const date = new Date("2026-09-28T13:23:45");
+    expect(plan.format("2026-09-28T13:23:45", date)).toBe(
       `${format(date, "MMM d")}, ${format(date, "h:mm:ss a")}`,
     );
-    expect(plan.caption).toBe(
-      `${format(date, "MMM d")} – ${format(new Date("2026-09-25T13:23:45"), "PP")}`,
-    );
   });
 
-  it("keeps the stream's original format across years", () => {
+  it("adds the year only across years", () => {
     const plan = planStreamTimestamps([
       at("2026-01-01T00:00:05"),
       at("2025-12-31T23:59:59"),
     ]);
     const date = new Date("2025-12-31T23:59:59");
     expect(plan.format("2025-12-31T23:59:59", date)).toBe(format(date, "PPpp"));
-    expect(plan.caption).toBe(
-      `${format(date, "PP")} – ${format(new Date("2026-01-01T00:00:05"), "PP")}`,
-    );
   });
 
   it("shows milliseconds only when the raw value has them", () => {
-    const plan = planStreamTimestamps([at("2026-09-25T13:23:45.123")]);
-    const date = new Date("2026-09-25T13:23:45.123");
-    expect(plan.format("2026-09-25T13:23:45.123", date)).toContain(".123");
-    expect(plan.format("2026-09-25T13:23:45", date)).not.toContain(".");
-  });
-
-  it("is wide enough for its longest timestamp", () => {
-    const rows = [at("2025-12-31T23:59:59.999"), at("2026-01-01T00:00:00.000")];
-    const plan = planStreamTimestamps(rows);
-    const longest = Math.max(
-      ...rows.map(
-        (r) => plan.format(r.timestamp, new Date(r.timestamp)).length,
-      ),
-    );
-    expect(plan.width).toBeGreaterThanOrEqual(Math.ceil(longest * 7.32) + 24);
+    const plan = planStreamTimestamps([at("2026-09-28T13:23:45.123")]);
+    const date = new Date("2026-09-28T13:23:45.123");
+    expect(plan.format("2026-09-28T13:23:45.123", date)).toContain(".123");
+    expect(plan.format("2026-09-28T13:23:45", date)).not.toContain(".");
   });
 });
 
@@ -106,8 +78,8 @@ describe("buildVariationLabeler", () => {
   );
 
   it("names the index from the current config, index first", () => {
-    expect(label("fr_exp", "1")).toBe("1 · Treatment");
-    expect(label("fr_safe", "0")).toBe("0 · Control");
+    expect(label("fr_exp", "1")).toBe("(1) Treatment");
+    expect(label("fr_safe", "0")).toBe("(0) Control");
   });
 
   it("shows the bare index with no match, never a guessed name", () => {
@@ -123,5 +95,57 @@ describe("ruleAbsenceNote", () => {
     expect(ruleAbsenceNote("$default")).toMatch(/default value was served/);
     expect(ruleAbsenceNote("")).toBe("Served without a rule.");
     expect(ruleAbsenceNote("fr_abc")).toBeNull();
+  });
+});
+
+describe("planStreamColumnWidths", () => {
+  const label = (key: string) =>
+    ({
+      timestamp: "Timestamp",
+      unit_id: "User ID",
+      value: "Value",
+      ruleId: "Rule",
+      environment: "Environment",
+    })[key] ?? key;
+  const keys = ["timestamp", "unit_id", "value", "ruleId", "environment"];
+
+  it("sizes to content within bounds, never below the header", () => {
+    const widths = planStreamColumnWidths(
+      keys,
+      [
+        {
+          timestamp: "Sep 28, 1:23:45.123 PM",
+          unit_id: "user_104829",
+          value: "false",
+          ruleId: "fr_abc",
+          environment: "production",
+        },
+      ],
+      label,
+    );
+    expect(widths.timestamp).toBe(22);
+    // Under each floor: User ID 14, Value 8, Rule 24.
+    expect(widths.unit_id).toBe(14);
+    expect(widths.value).toBe(8);
+    expect(widths.ruleId).toBe(24);
+    // "production" is 10 but the uppercase ENVIRONMENT header is wider.
+    expect(widths.environment).toBeGreaterThan(10);
+  });
+
+  it("caps long values at the column's max", () => {
+    const widths = planStreamColumnWidths(
+      ["unit_id", "value", "ruleId"],
+      [
+        {
+          unit_id: "x".repeat(60),
+          value: '{"a":"' + "y".repeat(50) + '"}',
+          ruleId: "r".repeat(80),
+        },
+      ],
+      label,
+    );
+    expect(widths.unit_id).toBe(28);
+    expect(widths.value).toBe(24);
+    expect(widths.ruleId).toBe(48);
   });
 });

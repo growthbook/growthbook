@@ -17,3 +17,22 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+// "middle" mode: head and tail side by side. The head can shrink below its
+// content and ellipsizes; the tail keeps its width, so the end of the value is
+// always on screen.
+.middle {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+
+  .text {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+}
+
+.tail {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}

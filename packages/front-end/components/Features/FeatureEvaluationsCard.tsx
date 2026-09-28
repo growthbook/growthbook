@@ -329,8 +329,15 @@ function BreakdownPanel({
               <span
                 className={clsx(styles.swatch, {
                   [styles.swatchEmpty]: (zero || unknown) && !isDefault,
+                  // Not a rule: an empty light outline, as in the stream's
+                  // Rule cell, whatever its traffic.
+                  [styles.swatchDefault]: isDefault,
                 })}
-                style={zero || unknown ? undefined : { background: row.color }}
+                style={
+                  zero || unknown || isDefault
+                    ? undefined
+                    : { background: row.color }
+                }
               />
               <span className={styles.rowLabel}>{row.label}</span>
               <span className={styles.rowCount}>

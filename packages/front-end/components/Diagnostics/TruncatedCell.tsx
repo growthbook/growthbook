@@ -4,7 +4,20 @@ import styles from "./TruncatedCell.module.scss";
 
 interface Props {
   value: string;
+  /**
+   * Where the ellipsis goes. "end" (the default) is what every cell had.
+   * "middle" keeps the tail visible, for identifiers whose distinguishing part
+   * is the end: "gbdemo-chec…ayout-v2" rather than "gbdemo-checkout-layout…".
+   */
+  truncate?: "end" | "middle";
 }
+
+/**
+ * Characters pinned at the end in "middle" mode. Pure CSS: the head shrinks
+ * with an ellipsis and the tail never does, so it works at any column width
+ * without measuring the column.
+ */
+const MIDDLE_TAIL_CHARS = 10;
 
 /**
  * A stream-table cell value that reveals itself on hover only when it is
@@ -20,7 +33,7 @@ interface Props {
  * rendered as a sibling inside the cell would be clipped by the very rule that
  * made the tooltip necessary.
  */
-export default function TruncatedCell({ value }: Props) {
+export default function TruncatedCell({ value, truncate = "end" }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const [truncated, setTruncated] = useState(false);
 
@@ -50,9 +63,19 @@ export default function TruncatedCell({ value }: Props) {
       usePortal
       className={styles.trigger}
     >
-      <span ref={ref} className={styles.text}>
-        {value}
-      </span>
+      {truncate === "middle" && value.length > MIDDLE_TAIL_CHARS + 2 ? (
+        <span className={styles.middle}>
+          {/* The measured box is the head: it is the part that clips. */}
+          <span ref={ref} className={styles.text}>
+            {value.slice(0, -MIDDLE_TAIL_CHARS)}
+          </span>
+          <span className={styles.tail}>{value.slice(-MIDDLE_TAIL_CHARS)}</span>
+        </span>
+      ) : (
+        <span ref={ref} className={styles.text}>
+          {value}
+        </span>
+      )}
     </Tooltip>
   );
 }

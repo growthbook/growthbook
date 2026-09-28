@@ -205,8 +205,42 @@
 // ui/Table's list-variant rules — see StreamTable.module.scss for the
 // arithmetic. The separator under the header is left alone: ui/Table already
 // draws it as an inset box-shadow on the cell.
+// Managed-path column widths (see planStreamColumnWidths). The <col> widths are
+// in `ch`, which resolves against the element's own font — so the table takes
+// the cells' 12px monospace, making one `ch` the width of one cell character,
+// and the headers are set back to the UI font. Out-specifies the shared
+// `.streamTable table` rule at (0,1,1).
+.contentWidths.contentWidths :global(table) {
+  font-family: monospace;
+  font-size: 12px;
+  min-width: var(--stream-table-min-width, 0);
+
+  :global(.rt-TableColumnHeaderCell) {
+    font-family: var(--default-font-family);
+  }
+}
+
 .evalTable {
   &.evalTable.evalTable {
+    // Room for the caret overlay, on every path: the last cell always keeps
+    // it, so the caret never sits on a customer query's last column, and
+    // nothing reflows on hover — that column just truncates slightly earlier.
+    :global(.rt-TableBody .rt-TableRow .rt-TableCell):last-child {
+      padding-right: 28px;
+    }
+
+    // Selected row, held while its drawer is open: the same tint and inset
+    // accent bar as the Event Logs stream, so a selected row reads the same on
+    // both. Tripled class to beat ui/Table's list-variant hover rule.
+    :global(.rt-TableBody .rt-TableRow).rowSelected :global(.rt-TableCell) {
+      background-color: var(--violet-3);
+    }
+
+    :global(.rt-TableBody .rt-TableRow).rowSelected
+      :global(.rt-TableCell):first-child {
+      box-shadow: inset 2px 0 0 0 var(--violet-9);
+    }
+
     :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
       font-size: 11px;
       letter-spacing: 0.06em;
@@ -259,4 +293,164 @@
     animation: none !important;
     background-color: var(--gray-a3) !important;
   }
+}
+
+// The Rule cell as a reference: swatch, name, and for a deleted rule a tag.
+// The name is what gives way when the column is narrow.
+.ruleCell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ruleCellText {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.ruleCellMuted {
+  color: var(--color-text-low);
+}
+
+.ruleSwatch {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+// The default value is not a rule and has no colour of its own: an empty,
+// light outline in the swatch's place.
+.ruleSwatchDefault {
+  border: 1px solid var(--gray-a6);
+}
+
+// No band in the chart, so no colour: an outline where the colour would be.
+.ruleSwatchDeleted {
+  border: 1px dashed var(--gray-a8);
+}
+
+// Open affordance, overlaid at the row's right edge (rows are positioned by
+// the shared stream table). Hidden with opacity, not display, so it stays in
+// the tab order: shown on row hover, on keyboard focus, and while selected.
+.openCaret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  border-radius: var(--radius-1);
+  background: none;
+  color: var(--slate-11);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.streamRow:hover .openCaret,
+.rowSelected .openCaret,
+.openCaret:focus-visible {
+  opacity: 1;
+}
+
+// Drawer header, in the Event Logs drawer's type: eyebrow, title, meta line.
+.drawerEyebrow {
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--slate-10);
+}
+
+.drawerTitle {
+  font-size: var(--font-size-4);
+  line-height: var(--line-height-4);
+  font-weight: 600;
+  color: var(--color-text-high);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawerMeta {
+  margin-top: 8px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.drawerMetaSep {
+  color: var(--slate-10);
+}
+
+.drawerMetaBadge {
+  flex-shrink: 0;
+}
+
+.drawerMono {
+  min-width: 0;
+  font-family: monospace;
+  font-size: 12.5px;
+  color: var(--color-text-high);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The Rule cell's renderer at the drawer's type size.
+.drawerRule {
+  min-width: 0;
+  font-family: monospace;
+  font-size: 12.5px;
+}
+
+// Array attributes: one chip per entry, wrapping onto as many lines as needed.
+.drawerChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.drawerChip {
+  padding: 0 6px;
+  border-radius: var(--radius-1);
+  background-color: var(--gray-a3);
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--color-text-high);
+  white-space: nowrap;
+  // One entry longer than the row would otherwise force the drawer body wider
+  // than the panel (measured: a 90-character entry pushed it to 732px in a
+  // 480px drawer). Capped at the row and truncated instead; the full entry is
+  // in the chip's title.
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Number entries take the tint TypedValue gives scalars.
+.drawerChipScalar {
+  color: var(--teal-11);
+}
+
+.drawerRaw {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-2);
+  background-color: var(--gray-a2);
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-high);
+  white-space: pre;
+  overflow-x: auto;
 }

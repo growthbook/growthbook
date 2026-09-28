@@ -6,7 +6,14 @@ import {
 } from "shared/types/feature-revision";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "shared/types/organization";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -28,8 +35,11 @@ import { Box, Flex, Skeleton } from "@radix-ui/themes";
 import clsx from "clsx";
 import {
   PiArrowClockwiseBold,
+  PiCaretRight,
   PiChartBarBold,
+  PiCheck,
   PiClockBold,
+  PiCopy,
   PiXBold,
 } from "react-icons/pi";
 import { format } from "date-fns";
@@ -44,7 +54,13 @@ import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import EmptyState from "@/components/EmptyState";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
-import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import StreamSearchField from "@/components/Diagnostics/StreamSearchField";
 import TruncatedCell from "@/components/Diagnostics/TruncatedCell";
 import StreamPagination, {
@@ -59,13 +75,30 @@ import FeatureDiagnosticsControlBar, {
   type EnvironmentOption,
 } from "@/components/Features/FeatureDiagnosticsControlBar";
 import Heading from "@/ui/Heading";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import DetailDrawer, {
+  DetailEmpty,
+  DetailRow,
+  DetailSectionLabel,
+  TypedValue,
+} from "@/components/Diagnostics/DetailDrawer";
+import { DocLink } from "@/components/DocLink";
 import DataCardHeader from "@/components/Diagnostics/DataCardHeader";
 import FeatureEvaluationsCard from "@/components/Features/FeatureEvaluationsCard";
 import styles from "./FeatureDiagnostics.module.scss";
 import { dummyUserForRow } from "./featureDiagnosticsDummyUsers";
 import {
+  buildRuleCellResolver,
+  RuleCellReference,
+} from "./featureEvaluationsBreakdown";
+import {
   buildVariationLabeler,
+  formatFullStreamTimestamp,
   MANAGED_STREAM_TABLE_COLUMNS,
+  planStreamColumnWidths,
+  STREAM_COLUMN_EXTRA_PX,
   managedStreamColumnLabel,
   planStreamTimestamps,
   ruleAbsenceNote,
@@ -385,6 +418,225 @@ function getDatasourceInitialFormValue(
   return {
     datasourceId: initialDatasource.id,
   };
+}
+
+const DEFAULT_VALUE_TEXT = "Default value";
+const NO_RULE_TEXT = "Served without a rule";
+
+/** What the Rule cell renders, as text — for sizing the column. */
+function ruleCellText(reference: RuleCellReference, rawId: unknown): string {
+  switch (reference.kind) {
+    case "rule":
+      // The swatch and its gap take ~2ch.
+      return `  ${reference.label}`;
+    case "default":
+      return `  ${DEFAULT_VALUE_TEXT}`;
+    case "none":
+      return NO_RULE_TEXT;
+    case "deleted":
+      // Swatch, then the id, then the "deleted" tag (~9ch).
+      return `  ${String(rawId ?? "")}         `;
+  }
+}
+
+/**
+ * The Rule cell as a reference rather than raw text: the rule's chart colour
+ * and name. No list number: a stream row is history, and "rule 2" today may
+ * be a different rule from the one that served the row. The raw id stays in
+ * the title on every rule, for cross-referencing the warehouse.
+ */
+function RuleCell({
+  rawId,
+  reference,
+}: {
+  rawId: string;
+  reference: RuleCellReference;
+}) {
+  if (reference.kind === "default") {
+    return (
+      <span
+        className={clsx(styles.ruleCell, styles.ruleCellMuted)}
+        title={ruleAbsenceNote(rawId) ?? undefined}
+      >
+        <span className={clsx(styles.ruleSwatch, styles.ruleSwatchDefault)} />
+        {DEFAULT_VALUE_TEXT}
+      </span>
+    );
+  }
+  if (reference.kind === "none") {
+    return (
+      <span
+        className={styles.ruleCellMuted}
+        title={ruleAbsenceNote(rawId) ?? undefined}
+      >
+        {NO_RULE_TEXT}
+      </span>
+    );
+  }
+  if (reference.kind === "deleted") {
+    // The id rather than a guess: it is the only true thing left about it.
+    return (
+      <span className={styles.ruleCell} title={rawId}>
+        <span className={clsx(styles.ruleSwatch, styles.ruleSwatchDeleted)} />
+        <span className={clsx(styles.ruleCellText, styles.ruleCellMuted)}>
+          <TruncatedCell value={rawId} truncate="middle" />
+        </span>
+        <Badge label="deleted" color="gray" variant="soft" size="xs" />
+      </span>
+    );
+  }
+  return (
+    <span className={styles.ruleCell} title={rawId}>
+      <span
+        className={styles.ruleSwatch}
+        style={{ backgroundColor: reference.color }}
+      />
+      <span className={styles.ruleCellText}>
+        <TruncatedCell value={reference.label} truncate="middle" />
+      </span>
+    </span>
+  );
+}
+
+export const EVALUATION_DRAWER_ID = "evaluation-detail-drawer";
+
+/** A non-empty string field of a raw row, or null. */
+function rowString(row: Record<string, unknown>, key: string): string | null {
+  const v = row[key];
+  return typeof v === "string" && v !== "" ? v : null;
+}
+
+/** A row's attributes when it carries any; null for absent or {}. */
+function rowAttributes(
+  row: Record<string, unknown>,
+): [string, unknown][] | null {
+  const a = row.attributes;
+  if (!a || typeof a !== "object" || Array.isArray(a)) return null;
+  const entries = Object.entries(a as Record<string, unknown>);
+  return entries.length ? entries : null;
+}
+
+/**
+ * An attribute value. Arrays get one chip per entry, wrapping — a seven-entry
+ * tag list is not readable as JSON on one line. Everything else is the shared
+ * TypedValue, so strings keep their quotes and scalars their tint.
+ */
+function AttributeValue({ value }: { value: unknown }) {
+  if (Array.isArray(value)) {
+    return (
+      <span className={styles.drawerChips}>
+        {value.map((entry, i) => (
+          <span
+            key={i}
+            className={clsx(
+              styles.drawerChip,
+              typeof entry !== "string" && styles.drawerChipScalar,
+            )}
+            title={String(entry)}
+          >
+            {String(entry)}
+          </span>
+        ))}
+      </span>
+    );
+  }
+  return <TypedValue value={value} />;
+}
+
+function EvaluationHeader({ row }: { row: Record<string, unknown> }) {
+  const value = String(row.value ?? "");
+  const unitId = rowString(row, "unit_id");
+  const environment = rowString(row, "environment");
+  return (
+    <>
+      <div className={styles.drawerEyebrow}>Feature evaluation</div>
+      <div className={styles.drawerTitle} title={value}>
+        {`Served ${value}`}
+      </div>
+      <Flex className={styles.drawerMeta}>
+        <Text size="sm" color="text-mid">
+          {formatFullStreamTimestamp(row.timestamp)}
+        </Text>
+        {unitId && (
+          <>
+            <span className={styles.drawerMetaSep}>·</span>
+            <span className={styles.drawerMono} title={unitId}>
+              {unitId}
+            </span>
+          </>
+        )}
+        {environment && (
+          <Badge
+            label={environment}
+            color="gray"
+            variant="soft"
+            className={styles.drawerMetaBadge}
+          />
+        )}
+      </Flex>
+    </>
+  );
+}
+
+function EvaluationBody({
+  row,
+  ruleReference,
+  variationText,
+}: {
+  row: Record<string, unknown>;
+  ruleReference: RuleCellReference;
+  variationText: string | null;
+}) {
+  const attributes = rowAttributes(row);
+  // The row as fetched: every field the query returned, minus the positional
+  // id the table adds for its own keys.
+  const raw = Object.fromEntries(
+    Object.entries(row).filter(([key]) => key !== "id"),
+  );
+  return (
+    <>
+      <DetailSectionLabel>Evaluation</DetailSectionLabel>
+      <DetailRow label="Value">
+        <span className={styles.drawerMono}>{String(row.value ?? "")}</span>
+      </DetailRow>
+      {/* Not a table column any more (Rule covers it), so this is where the
+          field is shown at all. */}
+      <DetailRow label="Source">
+        <span className={styles.drawerMono}>{String(row.source ?? "")}</span>
+      </DetailRow>
+      <DetailRow label="Rule">
+        <span className={styles.drawerRule}>
+          <RuleCell
+            rawId={String(row.ruleId ?? "")}
+            reference={ruleReference}
+          />
+        </span>
+      </DetailRow>
+      {variationText && (
+        <DetailRow label="Variation">
+          <span className={styles.drawerMono}>{variationText}</span>
+        </DetailRow>
+      )}
+
+      <DetailSectionLabel spaced>User attributes</DetailSectionLabel>
+      {attributes ? (
+        attributes.map(([key, value]) => (
+          <DetailRow key={key} label={key}>
+            <AttributeValue value={value} />
+          </DetailRow>
+        ))
+      ) : (
+        <DetailEmpty>
+          This SDK isn&apos;t reporting user attributes. Evaluations still
+          record who was served, but not what was known about them at the time.{" "}
+          <DocLink docSection="targeting">About attributes</DocLink>
+        </DetailEmpty>
+      )}
+
+      <DetailSectionLabel spaced>Raw</DetailSectionLabel>
+      <pre className={styles.drawerRaw}>{JSON.stringify(raw, null, 2)}</pre>
+    </>
+  );
 }
 
 export default function FeatureDiagnostics({
@@ -872,7 +1124,16 @@ export default function FeatureDiagnostics({
     [displayResults],
   );
 
-  // "0 · Control" from the flag's current config; the bare index when the
+  /**
+   * The Rule cell's reference: the breakdown panel's own resolver, so a rule
+   * has one name and one colour across the card. Stem-matched inside it.
+   */
+  const resolveRuleCell = useMemo(
+    () => buildRuleCellResolver(feature.rules ?? [], experimentsMap),
+    [feature.rules, experimentsMap],
+  );
+
+  // "(0) Control" from the flag's current config; the bare index when the
   // config has no name for it.
   const variationLabel = useMemo(
     () => buildVariationLabeler(feature.rules ?? [], experimentsMap),
@@ -950,6 +1211,50 @@ export default function FeatureDiagnostics({
   // page size and no rows-per-page control. Paginating here instead — over the
   // rows it has already filtered and sorted — is what lets this share the Event
   // Logs footer, which is the same slice against host-owned state.
+  /**
+   * Managed path only: each column sized to the widest value it holds across
+   * the full fetched set (never below its header), within its bounds. From `evalItems` — the display strings, before search and
+   * paging — so widths hold still while paging and searching.
+   */
+  const columnWidths = useMemo(
+    () =>
+      managedStream
+        ? planStreamColumnWidths(
+            ["timestamp", ...columns],
+            evalItems as Record<string, unknown>[],
+            (key) =>
+              key === "timestamp" ? "Timestamp" : managedStreamColumnLabel(key),
+            (key, row) =>
+              key === "ruleId"
+                ? ruleCellText(
+                    resolveRuleCell(String(row[key] ?? "")),
+                    row[key],
+                  )
+                : String(row[key] ?? ""),
+          )
+        : null,
+    [managedStream, columns, evalItems, resolveRuleCell],
+  );
+
+  /**
+   * Floor for the table, in the cells' `ch`: every sized column plus its
+   * padding. Full width above that; the trailing column takes the rest.
+   */
+  const tableWidthStyle = useMemo(() => {
+    if (!columnWidths) return undefined;
+    const widths = Object.values(columnWidths);
+    const totalCh = widths.reduce((sum, n) => sum + n, 0);
+    const extraPx = Object.keys(columnWidths).reduce(
+      (sum, key) => sum + (STREAM_COLUMN_EXTRA_PX[key] ?? 0),
+      0,
+    );
+    return {
+      // The trailing column is unsized but still carries its padding, the
+      // caret's 28px on the right.
+      "--stream-table-min-width": `calc(${totalCh}ch + ${widths.length} * 2 * var(--space-3) + ${extraPx}px + var(--space-3) + 28px)`,
+    } as CSSProperties;
+  }, [columnWidths]);
+
   const {
     items,
     SortableTableColumnHeader,
@@ -991,6 +1296,33 @@ export default function FeatureDiagnostics({
   }, [stickySentinel]);
 
   const [page, setPage] = useState(1);
+
+  /**
+   * The row whose drawer is open, by its id in the current result set. That id
+   * is positional and means nothing across runs, so the selection is cleared
+   * whenever the fetched set or its narrowing changes — never carried over.
+   */
+  const [openRowId, setOpenRowId] = useState<string | null>(null);
+  // Carets by row id, so focus returns to the one that opened the drawer.
+  const caretRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  useEffect(() => {
+    setOpenRowId(null);
+  }, [displayResults, streamNarrowing]);
+  // The raw row as fetched — not the table's display strings — so the drawer
+  // shows real values and Raw is the actual JSON.
+  const openRow = useMemo(
+    () =>
+      openRowId === null
+        ? null
+        : ((displayResults ?? []).find((r) => r.id === openRowId) ?? null),
+    [openRowId, displayResults],
+  );
+  const closeDrawer = useCallback(() => {
+    const id = openRowId;
+    setOpenRowId(null);
+    if (id) caretRefs.current[id]?.focus();
+  }, [openRowId]);
+  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 1500 });
   const [rowsPerPage, setRowsPerPage] = useState(STREAM_DEFAULT_ROWS_PER_PAGE);
 
   // Clamped rather than reset: a search that shrinks the result set below the
@@ -1412,7 +1744,7 @@ export default function FeatureDiagnostics({
                 </Heading>
               </Box>
 
-              {/* Search spans the table's width, 12px above the date caption. A bar
+              {/* Search spans the table's width, 12px above it. A bar
                   selection's chip, when there is one, takes its own width at
                   the end of the row and the search yields to it. */}
               <Flex align="center" gap="2" mb="3" wrap="wrap">
@@ -1467,17 +1799,6 @@ export default function FeatureDiagnostics({
                   </Flex>
                 ) : null}
               </Flex>
-              {/* The dates the rows cover, stated once for the whole fetched
-                  set: a fact about the data, so it sits outside the table and
-                  is set as a caption, not a heading. It keeps its line when
-                  empty so the table does not move between states. */}
-              <Box mb="2" style={{ minHeight: 16 }}>
-                {timestampPlan.caption && (
-                  <Text size="sm" color="text-low" as="div">
-                    {timestampPlan.caption}
-                  </Text>
-                )}
-              </Box>
               {error && errorSql ? (
                 <Box my="3">
                   <DisplayTestQueryResults
@@ -1499,7 +1820,7 @@ export default function FeatureDiagnostics({
               per row, from the current page size. */}
               <Box
                 className={streamTableStyles.resultsArea}
-                style={{ minHeight: 30 + rowsPerPage * 30 }}
+                style={{ minHeight: 30 + rowsPerPage * 30, ...tableWidthStyle }}
               >
                 {items.length === 0 && !error && loading && (
                   // Nothing loaded to hold the shape of, so placeholder rows
@@ -1540,8 +1861,30 @@ export default function FeatureDiagnostics({
                     <Table
                       variant="list"
                       size="md"
-                      className={`${streamTableStyles.streamTable} ${styles.evalTable}`}
+                      className={clsx(
+                        streamTableStyles.streamTable,
+                        styles.evalTable,
+                        columnWidths && styles.contentWidths,
+                      )}
                     >
+                      {/* Widths live on <col> in the cells' `ch`, so they track
+                          the monospace font rather than guessed pixels. The
+                          last col is unsized: it takes whatever the others
+                          leave, so the table stays full width without opening
+                          a gap between two columns. */}
+                      {columnWidths && (
+                        <colgroup>
+                          {["timestamp", ...columns].map((key) => (
+                            <col
+                              key={key}
+                              style={{
+                                width: `calc(${columnWidths[key]}ch + 2 * var(--space-3) + ${STREAM_COLUMN_EXTRA_PX[key] ?? 0}px)`,
+                              }}
+                            />
+                          ))}
+                          <col />
+                        </colgroup>
+                      )}
                       <TableHeader>
                         <TableRow>
                           {/* Radix header cells, not the legacy `<th>` SortableTH
@@ -1553,7 +1896,11 @@ export default function FeatureDiagnostics({
                         no width share whatever is left, evenly. */}
                           <SortableTableColumnHeader
                             field="timestampSort"
-                            style={{ width: timestampPlan.width }}
+                            style={
+                              columnWidths
+                                ? undefined
+                                : { width: timestampPlan.width }
+                            }
                           >
                             Timestamp
                           </SortableTableColumnHeader>
@@ -1564,7 +1911,7 @@ export default function FeatureDiagnostics({
                               // Only `value` is pinned; everything else stays
                               // unsized and absorbs what Timestamp took.
                               style={
-                                key === "value"
+                                key === "value" && !columnWidths
                                   ? { width: VALUE_COLUMN_WIDTH }
                                   : undefined
                               }
@@ -1574,15 +1921,41 @@ export default function FeatureDiagnostics({
                                 : streamColumnLabel(key)}
                             </SortableTableColumnHeader>
                           ))}
+                          {columnWidths && <TableColumnHeader aria-hidden />}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {visibleItems.map((row) => (
-                          <TableRow key={row.id}>
+                          <TableRow
+                            key={row.id}
+                            className={clsx(
+                              styles.streamRow,
+                              openRowId === row.id && styles.rowSelected,
+                            )}
+                          >
                             {/* Every column, not just the long ones: `value` holds
                             JSON on a non-boolean flag, and the timestamp clips
                             too once the card is narrow enough. */}
                             <TableCell>
+                              {/* The only way in: a whole-row click target
+                                  would break copying ids and names out of the
+                                  cells. Positioned against the row, so it
+                                  sits at the right edge whatever cell holds
+                                  it; focusable while hidden, so Tab reaches
+                                  it. */}
+                              <button
+                                type="button"
+                                ref={(el) => {
+                                  caretRefs.current[String(row.id)] = el;
+                                }}
+                                className={styles.openCaret}
+                                aria-label="Open evaluation details"
+                                aria-expanded={openRowId === row.id}
+                                aria-controls={EVALUATION_DRAWER_ID}
+                                onClick={() => setOpenRowId(String(row.id))}
+                              >
+                                <PiCaretRight size={12} aria-hidden />
+                              </button>
                               <Skeleton
                                 loading={loading}
                                 className={styles.streamSkeleton}
@@ -1601,33 +1974,30 @@ export default function FeatureDiagnostics({
                                   className={styles.streamSkeleton}
                                 >
                                   <span className={styles.streamSkeletonCell}>
-                                    {managedStream &&
-                                    key === "ruleId" &&
-                                    ruleAbsenceNote(String(row[key] ?? "")) !==
-                                      null ? (
-                                      // A fact, not missing data: muted, with the
-                                      // reason on hover.
-                                      <span
-                                        title={
-                                          ruleAbsenceNote(
-                                            String(row[key] ?? ""),
-                                          ) ?? undefined
-                                        }
-                                        style={{
-                                          color: "var(--color-text-low)",
-                                        }}
-                                      >
-                                        —
-                                      </span>
+                                    {managedStream && key === "ruleId" ? (
+                                      <RuleCell
+                                        rawId={String(row[key] ?? "")}
+                                        reference={resolveRuleCell(
+                                          String(row[key] ?? ""),
+                                        )}
+                                      />
                                     ) : (
                                       <TruncatedCell
                                         value={String(row[key] ?? "")}
+                                        // Identifiers differ at the end, so
+                                        // the tail stays visible.
+                                        truncate={
+                                          managedStream && key === "unit_id"
+                                            ? "middle"
+                                            : "end"
+                                        }
                                       />
                                     )}
                                   </span>
                                 </Skeleton>
                               </TableCell>
                             ))}
+                            {columnWidths && <TableCell aria-hidden />}
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1654,6 +2024,83 @@ export default function FeatureDiagnostics({
           )}
         </Frame>
       )}
+
+      {/* No scrim: the stream is read across rows, so the table stays
+          visible and another row's caret swaps the contents in place. */}
+      <DetailDrawer
+        open={!!openRow}
+        onClose={closeDrawer}
+        id={EVALUATION_DRAWER_ID}
+        ariaLabel="Feature evaluation details"
+        scrim={false}
+        focusKey={openRowId}
+        header={openRow ? <EvaluationHeader row={openRow} /> : null}
+        footer={
+          openRow ? (
+            <>
+              <Flex gap="2" align="center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={
+                    copySuccess ? (
+                      <PiCheck aria-hidden />
+                    ) : (
+                      <PiCopy aria-hidden />
+                    )
+                  }
+                  iconPosition="left"
+                  onClick={() =>
+                    performCopy(
+                      JSON.stringify(
+                        Object.fromEntries(
+                          Object.entries(openRow).filter(([k]) => k !== "id"),
+                        ),
+                        null,
+                        2,
+                      ),
+                    )
+                  }
+                >
+                  {copySuccess ? "Copied!" : "Copy JSON"}
+                </Button>
+                {/* Only when the row names a user. Drives the stream's search,
+                    so it narrows the rows already fetched, not the stream —
+                    the label says so, or three matching rows would read as
+                    every evaluation that user had. */}
+                {rowString(openRow, "unit_id") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearchValue(rowString(openRow, "unit_id") ?? "");
+                      setPage(1);
+                    }}
+                  >
+                    Find this user in these results
+                  </Button>
+                )}
+              </Flex>
+              <Button onClick={closeDrawer}>Close</Button>
+            </>
+          ) : null
+        }
+      >
+        {openRow ? (
+          <EvaluationBody
+            row={openRow}
+            ruleReference={resolveRuleCell(String(openRow.ruleId ?? ""))}
+            variationText={
+              rowString(openRow, "variationId")
+                ? variationLabel(
+                    String(openRow.ruleId ?? ""),
+                    String(openRow.variationId ?? ""),
+                  )
+                : null
+            }
+          />
+        ) : null}
+      </DetailDrawer>
     </Box>
   );
 }

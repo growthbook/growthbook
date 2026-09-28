@@ -2,6 +2,7 @@ import { FeatureRule } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   buildBreakdownRows,
+  buildRuleCellResolver,
   buildSeriesColors,
   DEFAULT_RULE_COLOR,
   DEFAULT_RULE_KEY,
@@ -162,5 +163,32 @@ describe("ruleReference", () => {
     expect(ruleReference(rule({ type: "force" }), noExperiments)).toBe(
       "Force Rule",
     );
+  });
+});
+
+describe("buildRuleCellResolver", () => {
+  const rules = [
+    rule({ id: "fr_a", description: "Beta testers" }),
+    rule({ id: "fr_mig__production", type: "rollout" }),
+  ];
+  const resolve = buildRuleCellResolver(rules, noExperiments);
+
+  it("gives a rule the panel's label and the chart's colour", () => {
+    const colors = buildSeriesColors("ruleId", [{ group: "fr_a" }], rules);
+    expect(resolve("fr_a")).toEqual({
+      kind: "rule",
+      label: ruleReference(rules[0], noExperiments),
+      color: colors.fr_a,
+    });
+  });
+
+  it("matches a v1-migrated rule by stem, not as deleted", () => {
+    expect(resolve("fr_mig")).toMatchObject({ kind: "rule", label: "Rollout" });
+  });
+
+  it("separates the default value, rule-less rows and deleted rules", () => {
+    expect(resolve(DEFAULT_RULE_KEY)).toEqual({ kind: "default" });
+    expect(resolve("")).toEqual({ kind: "none" });
+    expect(resolve("fr_gone")).toEqual({ kind: "deleted" });
   });
 });
