@@ -8,7 +8,7 @@ import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
-  normalizeDefaultRole,
+  pickDefaultRoleFields,
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
@@ -1342,15 +1342,20 @@ export async function sanitizeDefaultRoleUpdate(
   }
   // Exported settings can carry keys from old unvalidated writes; drop them
   // like getDefaultRole does instead of failing the whole import
-  const parsed = memberRoleWithProjects.safeParse(
-    normalizeDefaultRole(defaultRole, context.org),
-  );
+  const submitted = pickDefaultRoleFields(defaultRole);
+  const stored = context.org.settings?.defaultRole;
+  if (stored && sameRoleValue(submitted, pickDefaultRoleFields(stored))) {
+    // Unchanged round-trip: keep it, minus rules for since-deleted roles
+    settings.defaultRole = getDefaultRole(context.org);
+    return;
+  }
+  // A real change is validated as submitted so unknown roles are reported
+  // rather than silently dropped
+  const parsed = memberRoleWithProjects.safeParse(submitted);
   if (!parsed.success) {
     throw new Error(`Invalid defaultRole: ${errorStringFromZodResult(parsed)}`);
   }
-  if (!sameRoleValue(parsed.data, getDefaultRole(context.org))) {
-    await assertCanUpdateDefaultRole(context, parsed.data);
-  }
+  await assertCanUpdateDefaultRole(context, parsed.data);
   settings.defaultRole = parsed.data;
 }
 
