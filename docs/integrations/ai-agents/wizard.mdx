@@ -31,7 +31,13 @@ To let the wizard detect your project and agent, omit those options:
 npx @growthbook/wizard
 ```
 
-The wizard opens your coding agent with setup instructions.
+After the wizard finishes, continue in your coding agent:
+
+- **Claude Code, Codex, opencode, or Cursor CLI (`cursor-agent`):** The agent opens with the setup instructions ready. Continue there.
+- **Cursor or Antigravity desktop app:** Select it with `--cursor` or `--antigravity`. If the wizard opens the app, paste the instructions from your clipboard into its agent chat.
+- **Gemini CLI:** Copy the instructions printed in your terminal and paste them into Gemini.
+
+If your agent doesn't open or the clipboard is empty, copy the printed instructions into your agent manually.
 
   </Tab>
   <Tab title="Inside your agent">
@@ -46,8 +52,6 @@ In other agents, ask them to run `npx @growthbook/wizard --print-prompt`. Your a
 
   </Tab>
 </Tabs>
-
-Claude Code, Cursor's `cursor-agent`, Codex, and opencode open with instructions loaded. If only the Cursor or Antigravity IDE is available, use `--cursor` or `--antigravity` to open it with instructions on your clipboard. Gemini CLI gets instructions to paste. If no agent opens, copy the printed instructions.
 
 For manual setup, use the **Manual setup** tab or [SDK docs](/lib). No-code platforms (including Webflow, WordPress, and Shopify), Roku, and generic script tags only offer this option.
 
