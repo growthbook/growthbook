@@ -30,6 +30,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
 import { getAuthConnection, processJWT } from "back-end/src/services/auth";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 
@@ -275,6 +276,17 @@ function authenticateWithApiKey(
           throw new Error(
             "This organization does not allow this OAuth application",
           );
+        }
+        // Teardown marks the grant revoked before disabling tokens, so a token orphaned midway still fails here.
+        if (
+          !userId ||
+          !(await OAuthGrantModel.dangerousIsActive(
+            organization,
+            apiKeyDoc.oauthClientId,
+            userId,
+          ))
+        ) {
+          throw new Error("This OAuth authorization has been revoked");
         }
       } else if (userId && org.settings?.disablePersonalAccessTokens) {
         throw new Error(

@@ -18,7 +18,7 @@ import {
   touchOAuthClient,
 } from "back-end/src/models/GlobalOAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
-import { OrgOAuthAppModel } from "back-end/src/models/OrgOAuthAppModel";
+import { OrgOAuthClientModel } from "back-end/src/models/OrgOAuthClientModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {
   getContextForAgendaJobByOrgObject,
@@ -71,7 +71,7 @@ interface ResolvedOAuthClient {
 async function findOAuthClient(
   clientId: string,
 ): Promise<ResolvedOAuthClient | null> {
-  const app = await OrgOAuthAppModel.dangerousFindById(clientId);
+  const app = await OrgOAuthClientModel.dangerousFindById(clientId);
   if (app) {
     return {
       clientId: app.id,
@@ -259,7 +259,7 @@ export async function listOrgGrants(
   const grants = await context.models.oauthGrants.dangerousGetAllActiveForOrg();
   const clientIds = [...new Set(grants.map((g) => g.clientId))];
   const [orgApps, publicClients, users] = await Promise.all([
-    context.models.orgOAuthApps.getByIds(clientIds),
+    context.models.orgOAuthClients.getByIds(clientIds),
     getOAuthClientsByIds(clientIds),
     context.getUsersByIds([...new Set(grants.map((g) => g.userId))]),
   ]);

@@ -1,6 +1,9 @@
 import { OAuthGrantInterface, oauthGrantValidator } from "shared/validators";
 import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
-import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
+import {
+  getCollection,
+  isDuplicateKeyError,
+} from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "oauthgrants";
@@ -39,8 +42,8 @@ const BaseClass = MakeModelClass({
 
 /**
  * Durable OAuth grants — the revocation target that outlives rotating tokens.
- * Org-scoped via ReqContext; no cross-org `dangerous*` path. See
- * {@link oauthGrantValidator} for why this exists and how TTL bounds growth.
+ * Org-scoped via ReqContext, except the middleware's {@link dangerousIsActive}.
+ * See {@link oauthGrantValidator} for why this exists and how TTL bounds growth.
  */
 export class OAuthGrantModel extends BaseClass {
   protected canCreate(): boolean {
@@ -54,6 +57,21 @@ export class OAuthGrantModel extends BaseClass {
   }
   protected canDelete(): boolean {
     return true;
+  }
+
+  /** Per-request check for OAuth access tokens; missing counts as revoked. */
+  public static async dangerousIsActive(
+    organization: string,
+    clientId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const grant = await getCollection<OAuthGrantInterface>(
+      COLLECTION_NAME,
+    ).findOne(
+      { organization, clientId, userId },
+      { projection: { revoked: 1 } },
+    );
+    return !!grant && !grant.revoked;
   }
 
   public async getGrant(

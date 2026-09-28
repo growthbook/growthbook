@@ -21,7 +21,7 @@ import {
   getOAuthClientsByIds,
 } from "back-end/src/models/GlobalOAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
-import { OrgOAuthAppModel } from "back-end/src/models/OrgOAuthAppModel";
+import { OrgOAuthClientModel } from "back-end/src/models/OrgOAuthClientModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {
   getContextForAgendaJobByOrgObject,
@@ -55,8 +55,8 @@ jest.mock("back-end/src/models/GlobalOAuthClientModel", () => ({
   touchOAuthClient: jest.fn(),
 }));
 
-jest.mock("back-end/src/models/OrgOAuthAppModel", () => ({
-  OrgOAuthAppModel: {
+jest.mock("back-end/src/models/OrgOAuthClientModel", () => ({
+  OrgOAuthClientModel: {
     dangerousFindById: jest.fn(),
   },
 }));
@@ -78,7 +78,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 }));
 
 const mockGetOAuthClientById = jest.mocked(getOAuthClientById);
-const mockFindOrgApp = jest.mocked(OrgOAuthAppModel.dangerousFindById);
+const mockFindOrgApp = jest.mocked(OrgOAuthClientModel.dangerousFindById);
 const mockDangerousFindByHash = jest.mocked(
   OAuthRefreshTokenModel.dangerousFindByHash,
 );
@@ -169,7 +169,7 @@ function mockOrgContext(
       apiKeys: {
         create: createApiKey,
       },
-      orgOAuthApps: {
+      orgOAuthClients: {
         getByIds: overrides.getOrgApps ?? jest.fn().mockResolvedValue([]),
       },
     },

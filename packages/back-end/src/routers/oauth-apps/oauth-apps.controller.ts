@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import countBy from "lodash/countBy";
-import { OAuthAppProps, OrgOAuthAppInterface } from "shared/validators";
+import { OAuthAppProps, OrgOAuthClientInterface } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -10,7 +10,7 @@ import {
   revokeMemberGrant,
 } from "back-end/src/services/oauth";
 import { OAUTH_AS_ENABLED } from "back-end/src/util/secrets";
-import { OrgOAuthAppModel } from "back-end/src/models/OrgOAuthAppModel";
+import { OrgOAuthClientModel } from "back-end/src/models/OrgOAuthClientModel";
 
 type ClientIdParams = { clientId: string };
 
@@ -32,8 +32,8 @@ function assertPlanAllowsOAuthApps(context: ReqContext) {
 async function getAppOrThrow(
   context: ReqContext,
   clientId: string,
-): Promise<OrgOAuthAppInterface> {
-  const app = await context.models.orgOAuthApps.getById(clientId);
+): Promise<OrgOAuthClientInterface> {
+  const app = await context.models.orgOAuthClients.getById(clientId);
   if (!app) context.throwNotFoundError("OAuth app not found");
   return app;
 }
@@ -43,7 +43,7 @@ export async function getOAuthApps(req: AuthRequest, res: Response) {
   assertCanManageOAuthApps(context);
 
   const [apps, grants] = await Promise.all([
-    context.models.orgOAuthApps.getAll(),
+    context.models.orgOAuthClients.getAll(),
     context.models.oauthGrants.dangerousGetAllActiveForOrg(),
   ]);
   const authorizedUsers = countBy(grants, "clientId");
@@ -54,7 +54,7 @@ export async function getOAuthApps(req: AuthRequest, res: Response) {
     apps: apps
       .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime())
       .map((app) => ({
-        ...OrgOAuthAppModel.toPublic(app),
+        ...OrgOAuthClientModel.toPublic(app),
         authorizedUsers: authorizedUsers[app.id] ?? 0,
       })),
   });
@@ -68,9 +68,8 @@ export async function postOAuthApp(
   assertCanManageOAuthApps(context);
   assertPlanAllowsOAuthApps(context);
 
-  const { app, clientSecret } = await context.models.orgOAuthApps.createApp(
-    req.body,
-  );
+  const { client: app, clientSecret } =
+    await context.models.orgOAuthClients.createClient(req.body);
   res.status(200).json({ status: 200, app, clientSecret });
 }
 
@@ -83,7 +82,10 @@ export async function putOAuthApp(
   assertPlanAllowsOAuthApps(context);
   const existing = await getAppOrThrow(context, req.params.clientId);
 
-  const app = await context.models.orgOAuthApps.updateApp(existing, req.body);
+  const app = await context.models.orgOAuthClients.updateClient(
+    existing,
+    req.body,
+  );
   res.status(200).json({ status: 200, app });
 }
 
@@ -96,7 +98,7 @@ export async function postOAuthAppSecret(
   assertPlanAllowsOAuthApps(context);
   const app = await getAppOrThrow(context, req.params.clientId);
 
-  const clientSecret = await context.models.orgOAuthApps.rotateSecret(app);
+  const clientSecret = await context.models.orgOAuthClients.rotateSecret(app);
   res.status(200).json({ status: 200, clientSecret });
 }
 
@@ -110,7 +112,7 @@ export async function deleteOAuthApp(
 
   // Revoke before and after: a consent in flight during the first pass can re-arm its grant.
   await revokeAllGrantsForClient(context, app.id);
-  await context.models.orgOAuthApps.delete(app);
+  await context.models.orgOAuthClients.delete(app);
   await revokeAllGrantsForClient(context, app.id);
 
   res.status(200).json({ status: 200 });
