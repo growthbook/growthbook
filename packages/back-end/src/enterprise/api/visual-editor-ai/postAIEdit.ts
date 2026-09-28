@@ -32,7 +32,7 @@ import {
   newImageTurnState,
   VISUAL_EDITOR_MAX_STEPS,
 } from "back-end/src/api/visual-editor-ai/aiTools";
-import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
+import { requireVisualChangeWrite } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
 import {
   buildInsertJs,
@@ -807,7 +807,12 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     context.permissions.throwPermissionError();
   }
   // Before the generation, so a doomed save doesn't burn AI quota first.
-  if (persist) requireDraftExperiment(context, experiment);
+  const auditPersist = persist
+    ? requireVisualChangeWrite(req, experiment, {
+        allowRunning: false,
+        visualChangesetId,
+      })
+    : null;
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
@@ -1292,6 +1297,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
           ...(finalized.js !== undefined ? { js: finalized.js } : {}),
         },
       });
+      await auditPersist?.();
       return {
         ...finalized,
         saved: true as const,

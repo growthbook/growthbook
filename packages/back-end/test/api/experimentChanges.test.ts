@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
+import type { ApiKeyInterface } from "shared/types/apikey";
+import type { AuditInterfaceInput } from "shared/types/audit";
 import type { ExperimentChangesBody } from "shared/validators";
 import {
   autoMerge,
@@ -21,7 +23,10 @@ import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
 import { applyExperimentChanges } from "back-end/src/services/experimentChanges/applyExperimentChanges";
 import { setupApp } from "./api.setup";
 
-let mockWriteExperiment: (() => Promise<never>) | null = null;
+// Stands in for the experiment write; `write` runs the real one.
+let mockWriteExperiment:
+  | ((write: () => Promise<unknown>) => Promise<unknown>)
+  | null = null;
 jest.mock(
   "back-end/src/services/experimentChanges/planExperimentUpdate",
   () => {
@@ -32,7 +37,7 @@ jest.mock(
       ...actual,
       writeExperimentUpdatePlan: (...args: unknown[]) =>
         mockWriteExperiment
-          ? mockWriteExperiment()
+          ? mockWriteExperiment(() => actual.writeExperimentUpdatePlan(...args))
           : actual.writeExperimentUpdatePlan(...args),
     };
   },
@@ -51,6 +56,14 @@ const org = {
 
 const EXP = "exp_changes";
 const FLAG = "flag_changes";
+const variation = (id: string, i: number) => ({
+  id,
+  key: String(i),
+  name: id,
+  description: "",
+  screenshots: [],
+});
+const seededVariations = () => [variation("v0", 0), variation("v1", 1)];
 const collection = (name: string) => mongoose.connection.collection(name);
 const arms = (a: string, b: string) => [
   { variationId: "v0", value: a },
@@ -79,13 +92,7 @@ async function seed({ withDraft }: { withDraft: boolean }) {
     description: "",
     status: "draft",
     archived: false,
-    variations: ["v0", "v1"].map((id, i) => ({
-      id,
-      key: String(i),
-      name: id,
-      description: "",
-      screenshots: [],
-    })),
+    variations: seededVariations(),
     phases: [
       {
         name: "Main",
@@ -162,14 +169,17 @@ describe("applyExperimentChanges", () => {
   const { isReady } = setupApp();
   let context: ReqContextClass;
 
-  const run = async (body: ExperimentChangesBody) => {
+  const run = async (
+    body: ExperimentChangesBody,
+    audit: (data: AuditInterfaceInput) => Promise<void> = async () => undefined,
+  ) => {
     const experiment = await getExperimentById(context, EXP);
     if (!experiment) throw new Error("missing experiment");
     return applyExperimentChanges({
       context,
       experiment,
       body,
-      audit: async () => undefined,
+      audit,
       eventAudit: { type: "api_key", apiKey: "key" },
     });
   };
@@ -973,6 +983,397 @@ describe("applyExperimentChanges", () => {
         "This experiment does not manage a Feature Flag.",
       );
       expect(await collection("features").findOne({ id: NEW })).toBeNull();
+    });
+  });
+  describe("URL Redirects and Visual Editor changes", () => {
+    const A = "https://a.example.com";
+    const B = "https://b.example.com";
+    const destinations = (origin: string, ids = ["v0", "v1"]) =>
+      ids.map((variation) => ({ variation, url: `${origin}/${variation}` }));
+    const staged = (
+      urlPattern: string,
+      extra: Partial<
+        NonNullable<ExperimentChangesBody["addUrlRedirects"]>[number]
+      > = {},
+    ) => ({
+      urlPattern,
+      destinationURLs: destinations(urlPattern),
+      persistQueryString: false,
+      checkCircularDependencies: false,
+      ...extra,
+    });
+    const loadedChange = {
+      id: "vc0",
+      variation: "v0",
+      description: "",
+      css: "",
+      domMutations: [],
+    };
+    const editVc0 = {
+      id: "vcs_1",
+      changes: {
+        visualChanges: [{ id: "vc0", css: "body{}", js: "", domMutations: [] }],
+      },
+      base: { visualChanges: [loadedChange] },
+    };
+    const swapV1ForV2 = () => ({
+      changes: {
+        variations: [variation("v0", 0), variation("v2", 2)],
+        variationWeights: [0.5, 0.5],
+      },
+      base: { variations: seededVariations(), variationWeights: [0.5, 0.5] },
+    });
+
+    async function seedLinked(status = "draft") {
+      await seed({ withDraft: false });
+      await collection("experiments").updateOne(
+        { id: EXP },
+        { $set: { linkedFeatures: [], status } },
+      );
+    }
+    // Raw writes, so no model cache holds what a later save reads.
+    async function seedRedirect(id: string, urlPattern: string) {
+      await collection("urlredirects").insertOne({
+        id,
+        organization: ORG_ID,
+        experiment: EXP,
+        urlPattern,
+        destinationURLs: destinations(urlPattern),
+        persistQueryString: false,
+        dateCreated: new Date(LOADED),
+        dateUpdated: new Date(LOADED),
+      });
+      await collection("experiments").updateOne(
+        { id: EXP },
+        { $set: { hasURLRedirects: true } },
+      );
+    }
+    async function seedChangeset() {
+      await collection("visualchangesets").insertOne({
+        id: "vcs_1",
+        organization: ORG_ID,
+        experiment: EXP,
+        editorUrl: A,
+        urlPatterns: [{ include: true, type: "simple", pattern: A }],
+        visualChanges: [
+          loadedChange,
+          { ...loadedChange, id: "vc1", variation: "v1", css: ".loaded{}" },
+        ],
+      });
+      await collection("experiments").updateOne(
+        { id: EXP },
+        { $set: { hasVisualChangesets: true } },
+      );
+    }
+    const storedRedirects = () =>
+      collection("urlredirects")
+        .find({}, { projection: { _id: 0 } })
+        .toArray();
+    const storedVisualChanges = async () =>
+      (
+        await collection("visualchangesets").findOne({ id: "vcs_1" })
+      )?.visualChanges.map(
+        (c: { variation: string; css: string; js?: string }) => [
+          c.variation,
+          c.css,
+          c.js,
+        ],
+      );
+
+    it("removes the last URL Redirect and adds one for the variations the save leaves", async () => {
+      await seedLinked();
+      await seedRedirect("url_a", A);
+
+      const result = await run({
+        experiment: swapV1ForV2(),
+        removeUrlRedirects: ["url_a"],
+        addUrlRedirects: [
+          staged(B, { destinationURLs: destinations(B, ["v0", "v2"]) }),
+        ],
+      });
+
+      expect(await storedRedirects()).toEqual([
+        expect.objectContaining({
+          urlPattern: B,
+          destinationURLs: destinations(B, ["v0", "v2"]),
+        }),
+      ]);
+      expect(result.experiment.hasURLRedirects).toBe(true);
+    });
+
+    // Not admin: an admin role ignores an environment limit.
+    const limitedTo = (environments: string[]) => {
+      context = new ReqContextClass({
+        org,
+        auditUser: { type: "api_key", apiKey: "key" },
+        role: "experimenter",
+        apiKeyData: {
+          role: "experimenter",
+          limitAccessByEnvironment: true,
+          environments,
+        } as ApiKeyInterface,
+        req: { query: {}, headers: {}, body: {} } as unknown as Request,
+      });
+      context.hasPremiumFeature = () => true;
+    };
+
+    it("adds a first URL Redirect for someone who can run the experiment in every environment", async () => {
+      await seedLinked();
+      limitedTo(["production", "staging"]);
+
+      const result = await run({ addUrlRedirects: [staged(A)] });
+
+      expect(await storedRedirects()).toEqual([
+        expect.objectContaining({
+          urlPattern: A,
+          destinationURLs: destinations(A),
+        }),
+      ]);
+      expect(result.experiment).toMatchObject({
+        hasURLRedirects: true,
+        implementationType: "urlredirect",
+      });
+    });
+
+    it("edits a URL Redirect and a Visual Editor change in a save that swaps a variation", async () => {
+      await seedLinked();
+      await seedRedirect("url_a", A);
+      await seedChangeset();
+
+      await run({
+        experiment: swapV1ForV2(),
+        editUrlRedirects: [
+          {
+            ...staged(A, { destinationURLs: destinations(A, ["v0", "v2"]) }),
+            id: "url_a",
+            dateUpdated: LOADED,
+          },
+        ],
+        editVisualChangesets: [editVc0],
+      });
+
+      expect(await storedRedirects()).toEqual([
+        expect.objectContaining({
+          id: "url_a",
+          destinationURLs: destinations(A, ["v0", "v2"]),
+        }),
+      ]);
+      // Written over the synced changeset, so v2's new entry is kept.
+      expect(await storedVisualChanges()).toEqual([
+        ["v0", "body{}", ""],
+        ["v2", "", undefined],
+      ]);
+    });
+
+    it("refuses a Visual Editor edit made stale during the save before writing any URL Redirect", async () => {
+      await seedLinked();
+      await seedChangeset();
+      mockWriteExperiment = async (write) => {
+        await collection("visualchangesets").updateOne(
+          { id: "vcs_1" },
+          { $set: { "visualChanges.0.css": ".extension{}" } },
+        );
+        return write();
+      };
+
+      await expect(
+        run({
+          experiment: hypothesisChange("old"),
+          addUrlRedirects: [staged(A)],
+          editVisualChangesets: [editVc0],
+        }),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(await storedRedirects()).toEqual([]);
+      expect(await storedVisualChanges()).toEqual([
+        ["v0", ".extension{}", undefined],
+        ["v1", ".loaded{}", undefined],
+      ]);
+    });
+
+    it.each([
+      [
+        "a URL Redirect edited since it was loaded",
+        () => seedRedirect("url_a", A),
+        {
+          editUrlRedirects: [
+            {
+              ...staged(A),
+              id: "url_a",
+              dateUpdated: "2025-12-31T00:00:00.000Z",
+            },
+          ],
+        },
+        { status: 409, message: `The URL Redirect from ${A} changed since` },
+      ],
+      [
+        "two staged URL Redirects that chain",
+        async () => undefined,
+        {
+          addUrlRedirects: [
+            staged(A, {
+              destinationURLs: [
+                { variation: "v0", url: B },
+                { variation: "v1", url: `${A}/v1` },
+              ],
+              checkCircularDependencies: true,
+            }),
+            staged(B),
+          ],
+        },
+        {
+          status: 400,
+          message: `A destination of the URL Redirect from ${A} matches the origin of the one from ${B}.`,
+        },
+      ],
+      [
+        "a URL Redirect missing a variation's destination",
+        async () => undefined,
+        {
+          addUrlRedirects: [
+            staged(A, { destinationURLs: destinations(A, ["v0"]) }),
+          ],
+        },
+        { status: 400, message: "needs one destination for each variation" },
+      ],
+      [
+        "a URL Redirect keeping a destination for a variation the save removes",
+        async () => undefined,
+        {
+          experiment: swapV1ForV2(),
+          addUrlRedirects: [
+            staged(A, { destinationURLs: destinations(A, ["v0", "v1", "v2"]) }),
+          ],
+        },
+        { status: 400, message: "needs one destination for each variation" },
+      ],
+      [
+        "a Visual Editor edit for a variation the save removes",
+        seedChangeset,
+        {
+          experiment: swapV1ForV2(),
+          editVisualChangesets: [
+            {
+              id: "vcs_1",
+              changes: {
+                visualChanges: [
+                  { id: "vc1", css: "x", js: "", domMutations: [] },
+                ],
+              },
+              base: {
+                visualChanges: [
+                  {
+                    ...loadedChange,
+                    id: "vc1",
+                    variation: "v1",
+                    css: ".loaded{}",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        { status: 400, message: "edits a variation this save removes" },
+      ],
+      [
+        "a new URL Redirect beside an implementation type change",
+        async () => undefined,
+        {
+          experiment: {
+            changes: { implementationType: "urlredirect", hypothesis: "new" },
+            base: { implementationType: null, hypothesis: "old" },
+          },
+          addUrlRedirects: [staged(A)],
+        },
+        { status: 400, message: "not both in one save" },
+      ],
+      [
+        "a URL Redirect on a running experiment",
+        () =>
+          collection("experiments")
+            .updateOne({ id: EXP }, { $set: { status: "running" } })
+            .then(() => undefined),
+        { addUrlRedirects: [staged(A)] },
+        { status: 400, message: "only change while the experiment is a draft" },
+      ],
+      [
+        "a first URL Redirect from someone who can run the experiment in only some environments",
+        async () => limitedTo(["staging"]),
+        { addUrlRedirects: [staged(A)] },
+        { status: 403, message: "" },
+      ],
+    ] as [
+      string,
+      () => Promise<void>,
+      ExperimentChangesBody,
+      { status: number; message: string },
+    ][])(
+      "refuses %s before writing anything",
+      async (_label, setup, body, { status, message }) => {
+        await seedLinked();
+        await setup();
+        const stored = async () => ({
+          experiment: await collection("experiments").findOne({ id: EXP }),
+          redirects: await storedRedirects(),
+          visualChanges: await storedVisualChanges(),
+        });
+        const before = await stored();
+        await expect(
+          run({ experiment: hypothesisChange("old"), ...body }),
+        ).rejects.toMatchObject({
+          status,
+          message: expect.stringContaining(message),
+        });
+        expect(await stored()).toEqual(before);
+      },
+    );
+
+    it("checks everything in a dry run and writes nothing", async () => {
+      await seedLinked();
+      const body = {
+        experiment: hypothesisChange("old"),
+        addUrlRedirects: [staged(A)],
+        dryRun: true,
+      };
+      expect((await run(body)).dryRun).toBe(true);
+      await expect(
+        run({
+          ...body,
+          addUrlRedirects: [
+            staged(A, { checkCircularDependencies: true }),
+            staged(`${A}/v0`),
+          ],
+        }),
+      ).rejects.toThrow(`matches the origin of the one from ${A}/v0.`);
+      expect(await storedRedirects()).toEqual([]);
+      expect((await getExperimentById(context, EXP))?.hypothesis).toBe("old");
+    });
+
+    it("edits one variation's Visual Editor changes on a stopped experiment, keeping the others as the Visual Editor left them", async () => {
+      await seedLinked("stopped");
+      await seedChangeset();
+      // The Visual Editor writes to another variation after the page loaded.
+      await collection("visualchangesets").updateOne(
+        { id: "vcs_1" },
+        { $set: { "visualChanges.1.css": ".extension{}" } },
+      );
+      const audit = jest.fn(async () => undefined);
+
+      await run({ editVisualChangesets: [editVc0] }, audit);
+      expect(await storedVisualChanges()).toEqual([
+        ["v0", "body{}", ""],
+        ["v1", ".extension{}", undefined],
+      ]);
+      expect(audit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "experiment.update",
+          entity: { object: "experiment", id: EXP },
+        }),
+      );
+
+      // Its own base is stale now.
+      await expect(
+        run({ editVisualChangesets: [editVc0] }),
+      ).rejects.toMatchObject({ status: 409 });
     });
   });
 });

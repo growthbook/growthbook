@@ -37,7 +37,6 @@ import { useAuth } from "@/services/auth";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
 import Button from "@/ui/Button";
@@ -266,7 +265,6 @@ function TabbedPageContents({
       : experiment.status === "draft"
         ? "They go live when the experiment starts."
         : "Publish them to go live.";
-  const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
   const [showDashboardView, setShowDashboardView] = useState(
     experiment.defaultDashboardId ? true : false,
@@ -579,9 +577,6 @@ function TabbedPageContents({
   const showStoppedBanner =
     experiment.status === "stopped" && tab !== "dashboards";
 
-  // Opening another editing surface with unsaved edits on the page would strand
-  // them, so these ask for a decision instead.
-
   return (
     <PreLaunchChecklistProvider
       experiment={experiment}
@@ -640,15 +635,6 @@ function TabbedPageContents({
               });
             }}
             cta="Open Visual Editor"
-            source={trackSource}
-          />
-        )}
-        {urlRedirectModal && (
-          <UrlRedirectModal
-            mode="add"
-            experiment={experiment}
-            mutate={mutate}
-            close={() => setUrlRedirectModal(false)}
             source={trackSource}
           />
         )}
@@ -852,7 +838,6 @@ function TabbedPageContents({
                   mutate={mutate}
                   setFeatureModal={setFeatureModal}
                   setVisualEditorModal={setVisualEditorModal}
-                  setUrlRedirectModal={setUrlRedirectModal}
                   visualChangesets={visualChangesets}
                   urlRedirects={urlRedirects}
                   editTargeting={editTargeting}

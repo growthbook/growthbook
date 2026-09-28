@@ -18,6 +18,7 @@ import type {
 import { useAuth } from "@/services/auth";
 import useUnsavedChangesGuard from "@/hooks/useUnsavedChangesGuard";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import { mergeChanges } from "./mergeChanges";
 
 type PendingEdit = {
   /** Puts the field back to what is stored. */
@@ -26,8 +27,11 @@ type PendingEdit = {
   onSaved?: () => void;
 } & (
   | {
-      /** This edit's share of the one changeset the page saves. */
-      changes: () => ExperimentChangesBody;
+      /**
+       * This edit's share of the one changeset the page saves. A dry run
+       * builds the same share without staging anything on the page.
+       */
+      changes: (options: { dryRun: boolean }) => ExperimentChangesBody;
       save?: never;
     }
   | {
@@ -45,7 +49,14 @@ interface ExperimentEditsValue {
   saveAll: () => Promise<void>;
   discardAll: () => void;
   register: (id: string, edit: PendingEdit | null) => void;
+  checkChanges: CheckChanges;
 }
+
+/**
+ * Runs the save's checks, writing nothing, with `part` standing in for edit
+ * `id`'s share. Rejects with the reason the save would be refused.
+ */
+type CheckChanges = (id: string, part: ExperimentChangesBody) => Promise<void>;
 
 const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
 
@@ -56,39 +67,6 @@ interface LiveViewValue {
 }
 
 const LiveViewContext = createContext<LiveViewValue | null>(null);
-
-function mergeChanges(parts: ExperimentChangesBody[]): ExperimentChangesBody {
-  const body: ExperimentChangesBody = {};
-  for (const part of parts) {
-    if (part.experiment) {
-      body.experiment = {
-        changes: { ...body.experiment?.changes, ...part.experiment.changes },
-        base: { ...body.experiment?.base, ...part.experiment.base },
-      };
-    }
-    if (part.flagValues) {
-      body.flagValues = [...(body.flagValues ?? []), ...part.flagValues];
-    }
-    if (part.linkFeatures) {
-      body.linkFeatures = [...(body.linkFeatures ?? []), ...part.linkFeatures];
-    }
-    if (part.unlinkFeatures) {
-      body.unlinkFeatures = [
-        ...(body.unlinkFeatures ?? []),
-        ...part.unlinkFeatures,
-      ];
-    }
-    if (part.keepFeatures) {
-      body.keepFeatures = [...(body.keepFeatures ?? []), ...part.keepFeatures];
-    }
-    if (part.managedFlag) body.managedFlag = part.managedFlag;
-    if (part.renameManagedFlag) {
-      body.renameManagedFlag = part.renameManagedFlag;
-    }
-    if (part.deleteManagedFlag) body.deleteManagedFlag = true;
-  }
-  return body;
-}
 
 /**
  * An experiment-field edit, with the value each field held when loaded so a
@@ -161,7 +139,11 @@ export function ExperimentEditsProvider({
         await apiCall(`/experiment/${experimentId}/changes`, {
           method: "POST",
           body: JSON.stringify(
-            mergeChanges(inChangeset.map((edit) => edit.changes?.() ?? {})),
+            mergeChanges(
+              inChangeset.map(
+                (edit) => edit.changes?.({ dryRun: false }) ?? {},
+              ),
+            ),
           ),
         });
         wrote = true;
@@ -188,6 +170,29 @@ export function ExperimentEditsProvider({
     setError(null);
   }, []);
 
+  const checkChanges: CheckChanges = useCallback(
+    async (id, part) => {
+      const parts: ExperimentChangesBody[] = [];
+      for (const [editId, edit] of edits.current) {
+        if (editId === id || !edit.changes) continue;
+        // One that can't build its share yet is the save's to report.
+        try {
+          parts.push(edit.changes({ dryRun: true }));
+        } catch {
+          continue;
+        }
+      }
+      await apiCall(`/experiment/${experimentId}/changes`, {
+        method: "POST",
+        body: JSON.stringify({
+          ...mergeChanges([...parts, part]),
+          dryRun: true,
+        }),
+      });
+    },
+    [apiCall, experimentId],
+  );
+
   // Discards before leaving: a route change started with edits still staged
   // doesn't complete until they're saved or discarded.
   const navigationGuard = useUnsavedChangesGuard(
@@ -203,8 +208,9 @@ export function ExperimentEditsProvider({
       saveAll,
       discardAll,
       register,
+      checkChanges,
     }),
-    [dirtyIds, saving, error, saveAll, discardAll, register],
+    [dirtyIds, saving, error, saveAll, discardAll, register, checkChanges],
   );
 
   return (
@@ -235,6 +241,11 @@ export function useExperimentEdits() {
   return useContext(ExperimentEditsContext);
 }
 
+/** Null outside the page's provider, where there's no save to check. */
+export function useCheckExperimentChanges(): CheckChanges | null {
+  return useContext(ExperimentEditsContext)?.checkChanges ?? null;
+}
+
 /**
  * Hands the page a field's pending change. Pass `dirty` false once it matches
  * what is stored, and the field drops out of the pending set.
@@ -259,7 +270,7 @@ export function useRegisterExperimentEdit(
         ? null
         : inChangeset
           ? {
-              changes: () => latest.current.changes?.() ?? {},
+              changes: (options) => latest.current.changes?.(options) ?? {},
               discard,
               onSaved,
             }

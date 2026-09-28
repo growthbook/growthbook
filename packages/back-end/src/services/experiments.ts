@@ -31,6 +31,7 @@ import {
   generateVariationId,
   getAffectedEnvsForExperiment,
   getExperimentAttributeScopeProjectIds,
+  getLinkedChangeEnvs,
   getFeatureAttributeScopeWithDrafts,
   getMatchingRules,
   getRequireRegisteredAttributesSettings,
@@ -85,6 +86,7 @@ import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { AuditInterfaceInput } from "shared/types/audit";
 import { SegmentInterface } from "shared/types/segment";
 import {
   ExperimentAnalysisSummaryVariationStatus,
@@ -204,6 +206,7 @@ import {
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   assessRevisionApprovalForAutoPublish,
   featureReviewRequired,
@@ -2548,6 +2551,55 @@ export async function assertCanRunExperimentInAffectedEnvironments(
         context.permissions.throwPermissionError();
       }
     }
+  }
+}
+
+// On the experiment's project and on any the same save moves it to.
+export function assertCanRunLinkedChanges(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "project">,
+  additionalProjects: (string | undefined)[] = [],
+): void {
+  const envs = getLinkedChangeEnvs();
+  for (const project of [
+    experiment.project || undefined,
+    ...additionalProjects,
+  ]) {
+    if (!context.permissions.canRunExperiment({ project }, envs)) {
+      context.permissions.throwPermissionError();
+    }
+  }
+}
+
+// The write already landed, so a failed audit is logged, not surfaced.
+export function auditVisualChangeEditAfterStart(
+  audit: (data: AuditInterfaceInput) => Promise<void>,
+  experiment: ExperimentInterface,
+  visualChangesetId: string,
+): Promise<void> {
+  return audit({
+    event: "experiment.update",
+    entity: { object: "experiment", id: experiment.id },
+    details: auditDetailsUpdate(experiment, experiment, {
+      visualChangesetId,
+      liveVisualChangeEdit: true,
+    }),
+  }).catch((err) =>
+    logger.error(
+      { err, experimentId: experiment.id, visualChangesetId },
+      "Failed to audit a live visual change edit",
+    ),
+  );
+}
+
+// Visual Editor changes stay editable once the experiment starts or stops.
+export function assertVisualChangesEditable(
+  experiment: Pick<ExperimentInterface, "archived">,
+): void {
+  if (experiment.archived) {
+    throw new BadRequestError(
+      "Unarchive the experiment to change its Visual Editor changes.",
+    );
   }
 }
 

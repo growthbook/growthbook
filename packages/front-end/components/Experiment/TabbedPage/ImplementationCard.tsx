@@ -11,6 +11,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DropdownMenu } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
+import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
 
@@ -115,6 +116,29 @@ export function ImplementationCardHeader({
           </DropdownMenu>
         ) : null}
       </Flex>
+    </Flex>
+  );
+}
+
+/** What Save does with the card's staged change, and a way to take it back. */
+export function StagedChangeNote({
+  children,
+  onUndo,
+  mb = "3",
+}: {
+  children: ReactNode;
+  onUndo: () => void;
+  // "0" when nothing follows it in the card.
+  mb?: "0" | "3";
+}) {
+  return (
+    <Flex align="center" justify="between" gap="2" px="3" mb={mb}>
+      <HelperText status="info" size="sm">
+        {children}
+      </HelperText>
+      <Button variant="outline" size="sm" onClick={onUndo}>
+        Undo
+      </Button>
     </Flex>
   );
 }

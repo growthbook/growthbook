@@ -1,17 +1,18 @@
 import { keyBy } from "lodash";
 import {
-  getAffectedEnvsForExperiment,
+  getLinkedChangeEnvs,
   implementationTypeAfterUnlink,
 } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { ExperimentInterface } from "shared/types/experiment";
+import { ExperimentInterface, Variation } from "shared/types/experiment";
 import {
   DestinationURL,
   URLRedirectInterface,
 } from "shared/types/url-redirect";
 import { urlRedirectValidator } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -24,6 +25,77 @@ type WriteOptions = {
   checkCircularDependencies?: boolean;
   skipSDKRefresh?: boolean;
 };
+
+type RedirectTarget = Pick<
+  URLRedirectInterface,
+  "urlPattern" | "destinationURLs"
+>;
+
+export function assertRedirectOrigin(
+  redirect: Pick<RedirectTarget, "urlPattern">,
+) {
+  if (!redirect.urlPattern) {
+    throw new BadRequestError("A URL Redirect needs an origin URL.");
+  }
+}
+
+// Each variation needs a destination; `exact` also refuses a destination for a
+// variation the experiment doesn't have, or a second one for the same variation.
+export function assertRedirectDestinations(
+  redirect: RedirectTarget,
+  variationIds: string[],
+  { exact }: { exact: boolean },
+) {
+  const given = redirect.destinationURLs.map((d) => d.variation);
+  const covers = variationIds.every((v) => given.includes(v));
+  if (!covers || (exact && given.length !== variationIds.length)) {
+    throw new BadRequestError(
+      `The URL Redirect from ${redirect.urlPattern} needs one destination for each variation.`,
+    );
+  }
+}
+
+// Refuses a redirect that would chain into or out of one of `others`.
+export function assertNoRedirectLoop(
+  redirect: RedirectTarget,
+  others: RedirectTarget[],
+) {
+  const origin = redirect.urlPattern;
+  const matches = (url: string, pattern: string) =>
+    isURLTargeted(url, [{ type: "simple", pattern, include: true }]);
+  for (const other of others) {
+    const theOther = `the one from ${other.urlPattern}`;
+    if (matches(origin, other.urlPattern)) {
+      throw new BadRequestError(
+        `The URL Redirect from ${origin} matches the origin of ${theOther}.`,
+      );
+    }
+    if (other.destinationURLs.some((d) => matches(d.url, origin))) {
+      throw new BadRequestError(
+        `The URL Redirect from ${origin} matches a destination of ${theOther}.`,
+      );
+    }
+    if (
+      redirect.destinationURLs.some((d) => matches(d.url, other.urlPattern))
+    ) {
+      throw new BadRequestError(
+        `A destination of the URL Redirect from ${origin} matches the origin of ${theOther}.`,
+      );
+    }
+  }
+}
+
+// What syncURLRedirectsWithVariations leaves once an experiment's variations change.
+export function syncedDestinationURLs(
+  destinationURLs: DestinationURL[],
+  variations: Pick<Variation, "id">[],
+): DestinationURL[] {
+  const byVariationId = keyBy(destinationURLs, "variation");
+  return variations.map(
+    (variation) =>
+      byVariationId[variation.id] ?? { variation: variation.id, url: "" },
+  );
+}
 
 const BaseClass = MakeModelClass({
   schema: urlRedirectValidator,
@@ -61,11 +133,10 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   private canWrite(doc: URLRedirectInterface): boolean {
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) throw new Error("Could not find experiment");
-    const envs = getAffectedEnvsForExperiment({
+    return this.context.permissions.canRunExperiment(
       experiment,
-      orgEnvironments: this.context.org.settings?.environments || [],
-    });
-    return this.context.permissions.canRunExperiment(experiment, envs);
+      getLinkedChangeEnvs(),
+    );
   }
   protected canCreate(doc: URLRedirectInterface): boolean {
     return this.canWrite(doc);
@@ -82,15 +153,11 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     if (!experiment) {
       throw new Error("Could not find experiment");
     }
-    const variationIds = getLatestPhaseVariations(experiment).map((v) => v.id);
-    const reqVariationIds = doc.destinationURLs.map((r) => r.variation);
-
-    const areValidVariations = variationIds.every((v) =>
-      reqVariationIds.includes(v),
+    assertRedirectDestinations(
+      doc,
+      getLatestPhaseVariations(experiment).map((v) => v.id),
+      { exact: false },
     );
-    if (!areValidVariations) {
-      throw new Error("Invalid variation IDs for urlRedirects");
-    }
   }
 
   protected async customValidation(
@@ -98,15 +165,11 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     previousDoc?: URLRedirectInterface,
     writeOptions?: WriteOptions,
   ) {
-    if (!doc.urlPattern) {
-      throw new Error("url pattern cannot be empty");
-    }
-
+    assertRedirectOrigin(doc);
     if (writeOptions?.checkCircularDependencies) {
-      await this.checkCircularDependencies(
-        doc.urlPattern,
-        doc.destinationURLs,
-        doc.id,
+      assertNoRedirectLoop(
+        doc,
+        (await this.getServedRedirects()).filter((r) => r.id !== doc.id),
       );
     }
   }
@@ -183,84 +246,26 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     urlRedirect: URLRedirectInterface,
     experiment: ExperimentInterface,
   ) {
-    const { variations } = experiment;
-    const { destinationURLs } = urlRedirect;
-    const byVariationId = keyBy(destinationURLs, "variation");
-    const newDestinationURLs = variations.map((variation) => {
-      const destination = byVariationId[variation.id];
-      return destination ? destination : { variation: variation.id, url: "" };
-    });
-
     return await this.update(
       urlRedirect,
       {
-        destinationURLs: newDestinationURLs,
+        destinationURLs: syncedDestinationURLs(
+          urlRedirect.destinationURLs,
+          experiment.variations,
+        ),
       },
       // The SDK was already refreshed by the experiment change
       { skipSDKRefresh: true },
     );
   }
 
-  private async checkCircularDependencies(
-    origin: string,
-    destinations: DestinationURL[],
-    urlRedirectId?: string,
-  ) {
+  // The redirects SDKs serve, which a new one must not loop with.
+  public async getServedRedirects(): Promise<URLRedirectInterface[]> {
     const payloadExperiments = await getAllPayloadExperiments(this.context);
-    const urlRedirects = await getAllURLRedirectExperiments(
+    const served = await getAllURLRedirectExperiments(
       this.context,
       payloadExperiments,
     );
-    const originUrl = origin;
-
-    const existingRedirects = urlRedirects.filter(
-      (r) => r.urlRedirect.id !== urlRedirectId,
-    );
-
-    existingRedirects.forEach((existing) => {
-      if (
-        isURLTargeted(originUrl, [
-          {
-            type: "simple",
-            pattern: existing.urlRedirect.urlPattern,
-            include: true,
-          },
-        ])
-      ) {
-        throw new Error(
-          "Origin URL matches an existing redirect's origin URL.",
-        );
-      }
-      existing.urlRedirect.destinationURLs?.forEach((d) => {
-        if (
-          isURLTargeted(d.url, [
-            {
-              type: "simple",
-              pattern: origin,
-              include: true,
-            },
-          ])
-        ) {
-          throw new Error(
-            "Origin URL targets the destination url of an existing redirect.",
-          );
-        }
-      });
-      destinations.forEach((dest) => {
-        if (
-          isURLTargeted(dest.url, [
-            {
-              type: "simple",
-              pattern: existing.urlRedirect.urlPattern,
-              include: true,
-            },
-          ])
-        ) {
-          throw new Error(
-            "Origin URL of an existing redirect targets a destination URL in this redirect.",
-          );
-        }
-      });
-    });
+    return served.map((r) => r.urlRedirect);
   }
 }

@@ -528,15 +528,16 @@ function FlagValueRow({
         )));
 
   // Like the values modal: repair loose values in place, then ask for a
-  // second save, so nothing lands that the user hasn't seen.
-  const checkedValues = () => {
+  // second save, so nothing lands that the user hasn't seen. A dry run checks
+  // the repaired values and leaves the asking to the save.
+  const checkedValues = ({ dryRun }: { dryRun: boolean }) => {
     const { checked, repaired } = repairVariationValues(
       { valueType, jsonSchema: feature.jsonSchema },
       variations,
       valueFor,
       (v) => `${feature.id}, ${variationLabel(v)}`,
     );
-    if (Object.keys(repaired).length) {
+    if (!dryRun && Object.keys(repaired).length) {
       stage({ values: repaired });
       throw new Error(
         `We fixed some errors in the ${feature.id} values. If they look correct, save again.`,
@@ -546,12 +547,12 @@ function FlagValueRow({
   };
 
   useRegisterExperimentEdit(`flag:${feature.id}`, dirty && !linkAction, {
-    changes: () =>
+    changes: (options) =>
       pending
         ? {
             managedFlag: {
               valueType,
-              variations: checkedValues(),
+              variations: checkedValues(options),
               ...(sparse && { sparse }),
             },
           }
@@ -559,7 +560,7 @@ function FlagValueRow({
             flagValues: [
               {
                 featureId: feature.id,
-                variations: checkedValues(),
+                variations: checkedValues(options),
                 ...(valueType !== storedType && { valueType }),
                 ...(sparse !== storedSparse && { sparse }),
                 ...(stagedScope && { environments: stagedScope }),
@@ -582,7 +583,7 @@ function FlagValueRow({
     clearStaged();
   };
   useRegisterExperimentEdit(`link:${feature.id}`, !!linkAction, {
-    changes: () =>
+    changes: (options) =>
       removing
         ? { unlinkFeatures: [feature.id] }
         : linkAction === "keep"
@@ -591,7 +592,7 @@ function FlagValueRow({
               linkFeatures: [
                 {
                   featureId: feature.id,
-                  variations: checkedValues(),
+                  variations: checkedValues(options),
                   ...(sparse && { sparse }),
                   ...(info.relinkFrom && {
                     environments: {

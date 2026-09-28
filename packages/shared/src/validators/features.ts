@@ -39,6 +39,8 @@ import {
   implementationType,
   variation,
 } from "./experiments";
+import { stagedUrlRedirect } from "./url-redirects";
+import { visualChangesetEdit } from "./visual-changesets";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -2294,6 +2296,32 @@ export const experimentChangesBody = z
       .optional(),
     // A new id for the experiment's own Feature Flag, applied last.
     renameManagedFlag: z.object({ to: z.string() }).strict().optional(),
+    addUrlRedirects: z.array(stagedUrlRedirect).optional(),
+    // Each with the dateUpdated it was loaded at; one changed since fails the save.
+    editUrlRedirects: z
+      .array(
+        stagedUrlRedirect
+          .extend({ id: z.string(), dateUpdated: z.string() })
+          .strict(),
+      )
+      .optional(),
+    removeUrlRedirects: z.array(z.string()).optional(),
+    // Like `experiment`: the edited keys, each beside its value as loaded.
+    // base.visualChanges holds the loaded visual changes the edit touches.
+    editVisualChangesets: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            changes: visualChangesetEdit,
+            base: z.record(z.string(), z.unknown()),
+          })
+          .strict(),
+      )
+      .optional(),
+    removeVisualChangesets: z.array(z.string()).optional(),
+    // Runs every check the save would and writes nothing.
+    dryRun: z.boolean().optional(),
   })
   .strict();
 export type ExperimentChangesBody = z.infer<typeof experimentChangesBody>;

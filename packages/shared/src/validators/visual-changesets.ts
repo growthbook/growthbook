@@ -3,6 +3,45 @@ import { apiExperimentValidator } from "./experiments";
 
 import { namedSchema } from "./openapi-helpers";
 
+export const domMutationValidator = z
+  .object({
+    selector: z.string(),
+    action: z.enum(["append", "set", "remove"]),
+    attribute: z.string(),
+    value: z.string().optional(),
+    parentSelector: z.string().optional(),
+    insertBeforeSelector: z.string().optional(),
+  })
+  .strict();
+
+export const visualChangesetUrlPatternValidator = z
+  .object({
+    include: z.boolean(),
+    type: z.enum(["simple", "regex"]),
+    pattern: z.string(),
+  })
+  .strict();
+
+// The parts of one visual change the Setup page edits; the rest is kept.
+export const stagedVisualChange = z
+  .object({
+    id: z.string(),
+    css: z.string(),
+    js: z.string(),
+    domMutations: z.array(domMutationValidator),
+  })
+  .strict();
+
+export const visualChangesetEdit = z
+  .object({
+    editorUrl: z.string().min(1),
+    urlPatterns: z.array(visualChangesetUrlPatternValidator).min(1),
+    // By id; the changeset's other visual changes are left as they are.
+    visualChanges: z.array(stagedVisualChange),
+  })
+  .partial()
+  .strict();
+
 // Corresponds to schemas/VisualChange.yaml
 export const apiVisualChangeValidator = namedSchema(
   "VisualChange",

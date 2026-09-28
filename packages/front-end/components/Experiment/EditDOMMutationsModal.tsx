@@ -343,7 +343,7 @@ const EditDOMMutationsModal: FC<{
       size="lg"
       header="Edit Visual Changes"
       submit={onSubmit}
-      cta="Save"
+      cta="Apply"
       ctaEnabled={!newDOMMutationErrors.some((e) => e)}
       disabledMessage={
         newDOMMutationErrors.some((e) => e)

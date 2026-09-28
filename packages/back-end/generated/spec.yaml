@@ -77770,6 +77770,46 @@ components:
         - experiment
         - status
       additionalProperties: false
+    VisualChange:
+      type: object
+      properties:
+        description:
+          type: string
+        css:
+          type: string
+        js:
+          type: string
+        variation:
+          type: string
+        domMutations:
+          type: array
+          items:
+            type: object
+            properties:
+              selector:
+                type: string
+              action:
+                type: string
+                enum:
+                  - append
+                  - set
+                  - remove
+              attribute:
+                type: string
+              value:
+                type: string
+              parentSelector:
+                type: string
+              insertBeforeSelector:
+                type: string
+            required:
+              - selector
+              - action
+              - attribute
+            additionalProperties: false
+      required:
+        - variation
+      additionalProperties: false
     FeatureDefinition:
       type: object
       properties:
@@ -78352,46 +78392,6 @@ components:
       required:
         - features
         - constants
-      additionalProperties: false
-    VisualChange:
-      type: object
-      properties:
-        description:
-          type: string
-        css:
-          type: string
-        js:
-          type: string
-        variation:
-          type: string
-        domMutations:
-          type: array
-          items:
-            type: object
-            properties:
-              selector:
-                type: string
-              action:
-                type: string
-                enum:
-                  - append
-                  - set
-                  - remove
-              attribute:
-                type: string
-              value:
-                type: string
-              parentSelector:
-                type: string
-              insertBeforeSelector:
-                type: string
-            required:
-              - selector
-              - action
-              - attribute
-            additionalProperties: false
-      required:
-        - variation
       additionalProperties: false
     ApiErrorConflictDetails:
       type: object

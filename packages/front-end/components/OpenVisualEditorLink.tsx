@@ -7,6 +7,8 @@ import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
 import RadixButton from "@/ui/Button";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import Modal from "./Modal";
 import Button from "./Button";
 
@@ -192,11 +194,14 @@ const OpenVisualEditorLink: FC<{
   useRadix?: boolean;
   useLink?: boolean;
   button?: string | JSX.Element;
+  // Why it can't open right now; shown on the disabled control.
+  disabledReason?: string | null;
 }> = ({
   visualChangeset,
   openSettings,
   useRadix = true,
   useLink,
+  disabledReason = null,
   button = (
     <>
       Open Visual Editor
@@ -240,6 +245,20 @@ const OpenVisualEditorLink: FC<{
       return;
     }
   };
+
+  if (disabledReason) {
+    return (
+      <Tooltip content={disabledReason}>
+        {useLink ? (
+          <Text color="text-disabled">{button}</Text>
+        ) : (
+          <RadixButton variant="ghost" disabled>
+            {button}
+          </RadixButton>
+        )}
+      </Tooltip>
+    );
+  }
 
   return (
     <>

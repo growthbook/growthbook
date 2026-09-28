@@ -6,7 +6,6 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import {
   getImplementationType,
-  getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
   isDefined,
   managedFeatureKeyCandidate,
@@ -59,6 +58,8 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   assertCanRunExperimentInAffectedEnvironments,
+  assertCanRunLinkedChanges,
+  assertVisualChangesEditable,
   getExperimentAffectedEnvs,
   _getSnapshots,
   assertExperimentKeyFormat,
@@ -1492,6 +1493,17 @@ export async function postExperiments(
       phasePrerequisites(obj.phases),
     );
 
+    const originalVisualChangesets = req.query.originalId
+      ? await findVisualChangesetsByExperiment(req.query.originalId, org.id)
+      : [];
+    const originalUrlRedirects = req.query.originalId
+      ? await context.models.urlRedirects.findByExperiment(req.query.originalId)
+      : [];
+    // Copied redirects and changesets serve everywhere; checked before any write.
+    if (originalVisualChangesets.length || originalUrlRedirects.length) {
+      assertCanRunLinkedChanges(context, obj);
+    }
+
     const experiment = await createExperiment({
       data: obj,
       context,
@@ -1515,33 +1527,23 @@ export async function postExperiments(
       );
     }
 
-    if (req.query.originalId) {
-      const visualChangesets = await findVisualChangesetsByExperiment(
-        req.query.originalId,
-        org.id,
-      );
-      for (const visualChangeset of visualChangesets) {
-        await createVisualChangeset({
-          experiment,
-          urlPatterns: visualChangeset.urlPatterns,
-          editorUrl: visualChangeset.editorUrl,
-          context,
-          visualChanges: visualChangeset.visualChanges,
-        });
-      }
-
-      const urlRedirects = await context.models.urlRedirects.findByExperiment(
-        req.query.originalId,
-      );
-      for (const urlRedirect of urlRedirects) {
-        const props: CreateURLRedirectProps = {
-          experiment: experiment.id,
-          destinationURLs: urlRedirect.destinationURLs,
-          persistQueryString: urlRedirect.persistQueryString,
-          urlPattern: urlRedirect.urlPattern,
-        };
-        await context.models.urlRedirects.create(props);
-      }
+    for (const visualChangeset of originalVisualChangesets) {
+      await createVisualChangeset({
+        experiment,
+        urlPatterns: visualChangeset.urlPatterns,
+        editorUrl: visualChangeset.editorUrl,
+        context,
+        visualChanges: visualChangeset.visualChanges,
+      });
+    }
+    for (const urlRedirect of originalUrlRedirects) {
+      const props: CreateURLRedirectProps = {
+        experiment: experiment.id,
+        destinationURLs: urlRedirect.destinationURLs,
+        persistQueryString: urlRedirect.persistQueryString,
+        urlPattern: urlRedirect.urlPattern,
+      };
+      await context.models.urlRedirects.create(props);
     }
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
@@ -3377,7 +3379,8 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
-  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
+  assertVisualChangesEditable(experiment);
+  assertCanRunLinkedChanges(context, experiment);
 
   const visualChangeset = await createVisualChangeset({
     experiment,
@@ -3418,20 +3421,8 @@ export async function putVisualChangeset(
     visualChanges: req.body.visualChanges,
   };
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = experiment
-    ? getAffectedEnvsForExperiment({
-        experiment,
-        linkedFeatures,
-        orgEnvironments: context.org.settings?.environments || [],
-      })
-    : [];
-  if (!context.permissions.canRunExperiment(experiment, envs)) {
-    context.permissions.throwPermissionError();
-  }
+  assertVisualChangesEditable(experiment);
+  assertCanRunLinkedChanges(context, experiment);
 
   const ret = await updateVisualChangeset({
     visualChangeset,
@@ -3466,21 +3457,8 @@ export async function deleteVisualChangeset(
     context,
     visualChangeset.experiment,
   );
-
-  const linkedFeatureIds = experiment?.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = experiment
-    ? getAffectedEnvsForExperiment({
-        experiment,
-        linkedFeatures,
-        orgEnvironments: context.org.settings?.environments || [],
-      })
-    : [];
-  if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
-    context.permissions.throwPermissionError();
-  }
+  if (experiment) assertVisualChangesEditable(experiment);
+  assertCanRunLinkedChanges(context, experiment ?? {});
 
   await deleteVisualChangesetById({
     visualChangeset,

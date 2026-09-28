@@ -61,7 +61,6 @@ import {
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import {
   BadRequestError,
-  ConflictError,
   InternalServerError,
   NotFoundError,
 } from "back-end/src/util/errors";
@@ -76,8 +75,16 @@ import {
   planExperimentUpdate,
   writeExperimentUpdatePlan,
 } from "./planExperimentUpdate";
+import {
+  LinkedChangesPlan,
+  planLinkedChanges,
+  writeLinkedChanges,
+} from "./linkedChanges";
+import { asJson, changedSinceLoaded, isoOrNull } from "./loadedBase";
 
+// A dry run writes nothing: `experiment` is as loaded and `flags` is empty.
 export type ExperimentChangesResult = {
+  dryRun: boolean;
   experiment: ExperimentInterface;
   flags: { featureId: string; version: number }[];
 };
@@ -107,16 +114,6 @@ const PLAN_INPUT_FIELDS: (keyof ExperimentInterface)[] = [
   "variations",
   "linkedFeatures",
 ];
-
-const changedSinceLoaded = (what: string) =>
-  new ConflictError(
-    `${what} changed since you loaded it. Reload to see the latest version, then make your changes again.`,
-  );
-
-const asJson = (value: unknown) => JSON.parse(JSON.stringify(value ?? null));
-
-const isoOrNull = (date: Date | undefined | null) =>
-  date ? new Date(date).toISOString() : null;
 
 function latestWeights(experiment: Pick<ExperimentInterface, "phases">) {
   return experiment.phases[experiment.phases.length - 1]?.variationWeights;
@@ -546,6 +543,13 @@ export async function applyExperimentChanges({
     const feature = await getFeature(context, featureId);
     if (feature) assertNotManagedElsewhere(feature, experiment.id);
   }
+  const linkedPlan = await planLinkedChanges(
+    context,
+    experiment,
+    experimentPlan,
+    body,
+  );
+  if (body.dryRun) return { dryRun: true, experiment, flags: [] };
 
   const compensations: Compensation[] = [];
   const flags: ExperimentChangesResult["flags"] = [];
@@ -562,10 +566,12 @@ export async function applyExperimentChanges({
 
     if (!experimentPlan || !Object.keys(experimentPlan.changes).length) {
       return {
+        dryRun: false,
         experiment: await finishFlags({
           context,
           experiment,
           body,
+          linkedPlan,
           eventAudit,
           audit,
         }),
@@ -612,10 +618,12 @@ export async function applyExperimentChanges({
     audit,
   });
   return {
+    dryRun: false,
     experiment: await finishFlags({
       context,
       experiment: written.updated,
       body,
+      linkedPlan,
       eventAudit,
       audit,
     }),
@@ -624,17 +632,20 @@ export async function applyExperimentChanges({
 }
 
 // Once the values and experiment have landed: flags linked again or unlinked,
-// then the managed flag if one is missing.
+// then Visual Editor changes and URL Redirects, then the managed flag if one
+// is missing.
 async function finishFlags({
   context,
   experiment,
   body,
+  linkedPlan,
   eventAudit,
   audit,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
   body: ExperimentChangesBody;
+  linkedPlan: LinkedChangesPlan | null;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<ExperimentInterface> {
@@ -684,10 +695,19 @@ async function finishFlags({
   for (const featureId of body.keepFeatures ?? []) {
     await keepFlagInExperiment({ context, experiment, featureId, eventAudit });
   }
+  if (linkedPlan) {
+    await writeLinkedChanges({
+      context,
+      experimentId: experiment.id,
+      plan: linkedPlan,
+      audit,
+    });
+  }
   const linked =
     body.linkFeatures?.length ||
     body.unlinkFeatures?.length ||
-    body.keepFeatures?.length
+    body.keepFeatures?.length ||
+    linkedPlan
       ? ((await getExperimentById(context, experiment.id)) ?? experiment)
       : experiment;
   const healed = await healManagedFlag({

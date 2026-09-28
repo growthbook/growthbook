@@ -17,6 +17,7 @@ import {
   FaRegCircleXmark,
 } from "react-icons/fa6";
 import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
@@ -471,11 +472,16 @@ const EnvironmentsCount = forwardRef<
 export function SdkConnectionEnvironmentsPopover({
   environmentStates,
   kind,
+  project,
 }: {
   environmentStates: LinkedChangeEnvStates;
   // As the SDK Connection's setting names it.
   kind: "Visual Editor" | "URL Redirect";
+  // The experiment's, which decides who can manage its SDK Connections.
+  project: string;
 }) {
+  const canManageSdkConnections =
+    usePermissionsUtil().canViewCreateSDKConnectionModal(project);
   const entries = Object.entries(environmentStates);
   if (!entries.length) return null;
   const active = entries.filter(([, state]) => state === "active").length;
@@ -521,9 +527,13 @@ export function SdkConnectionEnvironmentsPopover({
               );
             })}
           </Grid>
-          <Text size="sm">
-            <Link href="/sdks">Manage SDK Connections</Link>
-          </Text>
+          {canManageSdkConnections ? (
+            <Text size="sm">
+              <Link href="/sdks" external>
+                Manage SDK Connections
+              </Link>
+            </Text>
+          ) : null}
         </Flex>
       }
     />

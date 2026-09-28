@@ -4,9 +4,12 @@ import {
   LinkedFeatureInfo,
   Variation,
 } from "shared/types/experiment";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   HoldoutInterfaceStringDates,
   type ImplementationType,
@@ -16,6 +19,7 @@ import {
   canEditDeliveryInPlace,
   experimentHasLinkedChanges,
   getImplementationType,
+  getLinkedChangeEnvs,
   isManagedByExperiment,
 } from "shared/util";
 import {
@@ -29,6 +33,7 @@ import {
   ImplementationTypePrompt,
 } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import VisualEditorRows from "@/components/Experiment/VisualChangesetTable";
+import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import { ImplementationSection } from "@/components/Experiment/TabbedPage/ImplementationCard";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -65,9 +70,36 @@ import {
   FlagEnvironmentsDraft,
   HoldoutDraft,
   ImplementationTypeDraft,
+  useCheckExperimentChanges,
+  useEditsBlockedReason,
   useLiveView,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
+import {
+  addRedirect,
+  editRedirect,
+  EMPTY_LINKED_CHANGES,
+  hasSetAsideVisualChanges,
+  LinkedChangesDraft,
+  linkedChangesBody,
+  pruneLinkedChanges,
+  RedirectFields,
+  removeRedirect,
+  removeVisual,
+  ShownRedirect,
+  shownUrlRedirects,
+  shownVisualChangesets,
+  stageVisualChange,
+  stageVisualTargeting,
+  undoRedirect,
+  undoVisual,
+  VisualTargeting,
+} from "./linkedChangesDraft";
+
+const LINKED_CHANGES_EDIT_ID = "linked-changes";
+
+const LINKED_CHANGES_LOCKED_REASON =
+  "URL Redirects and Visual Editor changes serve in every environment, so changing them needs permission to run this experiment in all of them.";
 
 type ImplementationKind = "feature" | "visual" | "urlredirect";
 
@@ -108,7 +140,6 @@ export interface Props {
   editNamespace?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
-  setUrlRedirectModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
   envs: string[];
   visualChangesetEnvStates?: LinkedChangeEnvStates;
@@ -135,7 +166,6 @@ export default function Implementation({
   editNamespace,
   setFeatureModal,
   setVisualEditorModal,
-  setUrlRedirectModal,
   linkedFeatures: storedLinkedFeatures,
   envs,
   visualChangesetEnvStates,
@@ -197,6 +227,9 @@ export default function Implementation({
     () => withStagedVariations(experiment, variationsDraft),
     [experiment, variationsDraft],
   );
+  // Laid out like the variation cards above, staged edits included.
+  const shownVariations = getLatestPhaseVariations(stagedExperiment);
+  const shownVariationIds = shownVariations.map((v) => v.id);
   const [environmentScopes, setEnvironmentScopes] = useState<
     FlagEnvironmentsDraft["value"]
   >({});
@@ -240,6 +273,69 @@ export default function Implementation({
     ImplementationType | "current" | null
   >(null);
   const { live: viewingLive, setLive } = useLiveView();
+
+  // URL Redirect and Visual Editor edits, staged like the rest.
+  const [linkedDraft, setLinkedDraft] =
+    useState<LinkedChangesDraft>(EMPTY_LINKED_CHANGES);
+  const stagedLinked = pruneLinkedChanges(
+    linkedDraft,
+    urlRedirects,
+    visualChangesets,
+    shownVariationIds,
+  );
+  const linkedBody = linkedChangesBody(stagedLinked, shownVariationIds);
+  const clearLinked = () => setLinkedDraft(EMPTY_LINKED_CHANGES);
+  // One set aside by a staged variation removal stays registered, so Discard
+  // and Save still clear it.
+  useRegisterExperimentEdit(
+    LINKED_CHANGES_EDIT_ID,
+    Object.keys(linkedBody).length > 0 ||
+      (!!variationsDraft &&
+        hasSetAsideVisualChanges(
+          linkedDraft,
+          visualChangesets,
+          shownVariationIds,
+        )),
+    { changes: () => linkedBody, onSaved: clearLinked, discard: clearLinked },
+  );
+  // The change shows in the view it's staged in.
+  const updateLinked = useCallback(
+    (update: (draft: LinkedChangesDraft) => LinkedChangesDraft) => {
+      setLive(false);
+      setLinkedDraft(update);
+    },
+    [setLive],
+  );
+  const onStageVisualTargeting = useCallback(
+    (stored: VisualChangesetInterface, targeting: VisualTargeting) =>
+      updateLinked((d) => stageVisualTargeting(d, stored, targeting)),
+    [updateLinked],
+  );
+  const onStageVisualChange = useCallback(
+    (stored: VisualChangesetInterface, change: VisualChange) =>
+      updateLinked((d) => stageVisualChange(d, stored, change)),
+    [updateLinked],
+  );
+  const checkChanges = useCheckExperimentChanges();
+  const newRedirectKeys = useRef(0);
+  const [redirectModal, setRedirectModal] = useState<{
+    // Null to add one.
+    target: ShownRedirect | null;
+  } | null>(null);
+  // Every check the save runs, so a refusal shows in the modal, not at Save.
+  const stageRedirect = async (
+    target: ShownRedirect | null,
+    fields: RedirectFields,
+  ) => {
+    const key = `new-redirect-${++newRedirectKeys.current}`;
+    const change = (d: LinkedChangesDraft) =>
+      target ? editRedirect(d, target, fields) : addRedirect(d, key, fields);
+    await checkChanges?.(
+      LINKED_CHANGES_EDIT_ID,
+      linkedChangesBody(change(stagedLinked), shownVariationIds),
+    );
+    updateLinked(change);
+  };
   const { canEdit: canEditType } = useExperimentEditing(
     storedExperiment,
     disableEditing,
@@ -285,6 +381,7 @@ export default function Implementation({
     if (was !== "draft" || storedExperiment.status === "draft") return;
     setVariationsDraft(null);
     setTargetingDraft?.(null);
+    setLinkedDraft(EMPTY_LINKED_CHANGES);
   }, [storedExperiment.status, setTargetingDraft]);
   // Opened from the implementation headers' menus, which the Live view keeps;
   // the change shows in the view it's staged in.
@@ -295,7 +392,10 @@ export default function Implementation({
       }
     : null;
   const typeLockedReason = implementationTypeLockedReason(
-    storedExperiment,
+    // A staged redirect counts: the save can't add one and change the type.
+    stagedLinked.addedRedirects.length
+      ? { ...storedExperiment, hasURLRedirects: true }
+      : storedExperiment,
     storedLinkedFeatures,
   );
   // Said where the type can't change at all; left out where nothing edits.
@@ -315,6 +415,14 @@ export default function Implementation({
 
   const hasVisualEditorPermission =
     canEditExperiment && permissionsUtil.canRunExperiment(experiment, []);
+  // Shown, but locked, to someone who can run it in only some environments.
+  const linkedChangesLockedReason =
+    hasVisualEditorPermission &&
+    !permissionsUtil.canRunExperiment(experiment, getLinkedChangeEnvs())
+      ? LINKED_CHANGES_LOCKED_REASON
+      : null;
+  const stagesLinkedChanges = !viewingLive && !disableEditing;
+  const editsBlocked = useEditsBlockedReason();
 
   const canAddLinkedChanges =
     hasVisualEditorPermission &&
@@ -356,16 +464,18 @@ export default function Implementation({
       ? linkedFeatures[0]
       : null;
 
-  // What shows follows the staged type, as the rows above do; adding writes
-  // at once, so it follows the stored one.
-  const canAddAny = canAddLinkedChanges && !stagedType && !viewingLive;
+  // What shows follows the staged type, as the rows above do; adding follows
+  // the stored one, and a staged type locks it: the save can't do both.
+  const canAddAny =
+    canAddLinkedChanges && !stagedType && !viewingLive && !disableEditing;
   // A legacy mix adds from one menu rather than under each section.
   const legacyMix = getImplementationType(storedExperiment) === "multi";
   const canAdd = (kind: ImplementationKind) =>
     canAddAny &&
     !legacyMix &&
     isSetUpFor(storedExperiment, storedLinkedFeatures.length, kind);
-  // Linking anything would strand it: a holdout changes only with nothing linked.
+  // Linking a Feature Flag writes at once, which would strand it: a holdout
+  // changes only with nothing linked.
   const addBlockedReason =
     stagedHoldout !== null
       ? "Save or discard the holdout change first. A holdout can only change while nothing is linked."
@@ -380,32 +490,53 @@ export default function Implementation({
     isSetUpFor(experiment, linkedFeatures.length, kind) &&
     (canAdd(kind) || !!chooseType);
   const shownType = getImplementationType(experiment);
-  // Laid out like the variation cards above, staged edits included.
-  const shownVariations = getLatestPhaseVariations(stagedExperiment);
+  // The Live view shows what's stored, and edits nothing.
+  const shownLinked = viewingLive ? EMPTY_LINKED_CHANGES : stagedLinked;
+  const shownRedirects = shownUrlRedirects(shownLinked, urlRedirects);
+  const shownChangesets = shownVisualChangesets(shownLinked, visualChangesets);
+  // Creating changes and opening the Visual Editor write at once, and opening
+  // it leaves the page.
+  const visualAddBlockedReason = linkedChangesLockedReason ?? editsBlocked;
   const otherImplementations = (
     <>
-      {urlRedirects.length > 0 || shownEmpty("urlredirect") ? (
+      {shownRedirects.length > 0 || shownEmpty("urlredirect") ? (
         <UrlRedirectRows
           experiment={experiment}
           variations={shownVariations}
-          urlRedirects={urlRedirects}
-          canEdit={canAddLinkedChanges}
-          mutate={mutate}
+          urlRedirects={shownRedirects}
+          canEdit={canAddLinkedChanges && stagesLinkedChanges}
+          lockedReason={linkedChangesLockedReason}
           environmentStates={urlRedirectEnvStates}
-          onAdd={canAdd("urlredirect") ? () => setUrlRedirectModal(true) : null}
-          addBlockedReason={addBlockedReason}
+          onAdd={
+            canAdd("urlredirect")
+              ? () => setRedirectModal({ target: null })
+              : null
+          }
+          addBlockedReason={linkedChangesLockedReason}
+          onEdit={(target) => setRedirectModal({ target })}
+          onRemove={(target) => updateLinked((d) => removeRedirect(d, target))}
+          onUndo={(target) => updateLinked((d) => undoRedirect(d, target.key))}
         />
       ) : null}
-      {visualChangesets.length > 0 || shownEmpty("visual") ? (
+      {shownChangesets.length > 0 || shownEmpty("visual") ? (
         <VisualEditorRows
           experiment={experiment}
           variations={shownVariations}
-          visualChangesets={visualChangesets}
-          canEdit={hasVisualEditorPermission}
-          mutate={mutate}
+          visualChangesets={shownChangesets}
+          canEdit={hasVisualEditorPermission && stagesLinkedChanges}
+          lockedReason={linkedChangesLockedReason}
+          canLaunch={
+            experiment.status === "draft" &&
+            !experiment.nextScheduledStatusUpdate
+          }
+          launchBlockedReason={editsBlocked}
           environmentStates={visualChangesetEnvStates}
           onAdd={canAdd("visual") ? () => setVisualEditorModal(true) : null}
-          addBlockedReason={addBlockedReason}
+          addBlockedReason={visualAddBlockedReason}
+          onStageTargeting={onStageVisualTargeting}
+          onStageChange={onStageVisualChange}
+          onRemove={(id) => updateLinked((d) => removeVisual(d, id))}
+          onUndo={(id) => updateLinked((d) => undoVisual(d, id))}
         />
       ) : null}
       {legacyMix && canAddAny ? (
@@ -416,8 +547,12 @@ export default function Implementation({
               experiment={experiment}
               onFeatureFlag={isManaged ? null : () => setFeatureModal(true)}
               onVisualEditor={() => setVisualEditorModal(true)}
-              onUrlRedirect={() => setUrlRedirectModal(true)}
-              disabledReason={addBlockedReason}
+              onUrlRedirect={() => setRedirectModal({ target: null })}
+              blockedReasons={{
+                feature: addBlockedReason,
+                visual: visualAddBlockedReason,
+                urlredirect: linkedChangesLockedReason,
+              }}
             />
           }
         />
@@ -489,6 +624,19 @@ export default function Implementation({
           source="implementation-tab"
         />
       )}
+      {redirectModal ? (
+        <UrlRedirectModal
+          mode={redirectModal.target ? "edit" : "add"}
+          experiment={experiment}
+          variations={shownVariations}
+          urlRedirect={redirectModal.target ?? undefined}
+          stage={(fields) => stageRedirect(redirectModal.target, fields)}
+          close={() => setRedirectModal(null)}
+          source={
+            redirectModal.target ? "redirect-linked-changes" : "tabbed-page"
+          }
+        />
+      ) : null}
       {editKeyIndex !== null && canEditExperiment && (
         <EditVariationKeyModal
           experiment={stagedExperiment}

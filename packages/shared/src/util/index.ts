@@ -64,6 +64,13 @@ export * from "./event-forwarder-warehouse-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
+// URL Redirects and Visual Editor changes serve in every environment, so a
+// write to one, the experiment's first included, needs run permission in all
+// of them. Never empty, which would pass a permission check vacuously.
+export function getLinkedChangeEnvs(): string[] {
+  return ["__ALL__"];
+}
+
 export function getAffectedEnvsForExperiment({
   experiment,
   orgEnvironments,

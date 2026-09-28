@@ -11,28 +11,36 @@ import Field from "@/components/Forms/Field";
 import { GBAddCircle } from "@/components/Icons";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
+import { VisualTargeting } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
 
 const defaultType = "simple";
 
-const VisualChangesetModal: FC<{
-  mode: "add" | "edit";
+type Props = {
   experiment: ExperimentInterfaceStringDates;
-  visualChangeset?: VisualChangesetInterface;
-  mutate: () => void;
   close: () => void;
-  onCreate?: (vc: VisualChangesetInterface) => void;
-  cta?: string;
   source?: string;
-}> = ({
-  mode,
-  experiment,
-  visualChangeset,
-  mutate,
-  close,
-  onCreate,
-  cta,
-  source,
-}) => {
+} & (
+  | {
+      mode: "add";
+      mutate: () => void;
+      onCreate?: (vc: VisualChangesetInterface) => void;
+      cta?: string;
+      visualChangeset?: never;
+      stage?: never;
+    }
+  | {
+      mode: "edit";
+      visualChangeset: VisualChangesetInterface;
+      // Hands the targeting to the page, which saves it with the rest.
+      stage: (targeting: VisualTargeting) => void;
+      mutate?: never;
+      onCreate?: never;
+      cta?: never;
+    }
+);
+
+const VisualChangesetModal: FC<Props> = (props) => {
+  const { mode, experiment, visualChangeset, close, source } = props;
   const { apiCall } = useAuth();
 
   let forceAdvancedMode = false;
@@ -66,32 +74,31 @@ const VisualChangesetModal: FC<{
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const payload = {
+    const payload: VisualTargeting = {
       editorUrl: value.editorUrl,
-      urlPatterns: value.urlPatterns,
+      urlPatterns: value.urlPatterns.map((p) => ({
+        ...p,
+        type: p.type === "regex" ? "regex" : "simple",
+      })),
     };
     if (!showAdvanced) {
       payload.urlPatterns = [
         { pattern: value.editorUrl, type: defaultType, include: true },
       ];
     }
-    if (mode === "add") {
-      const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
-        `/experiments/${experiment.id}/visual-changeset`,
-        {
-          method: "POST",
-          body: JSON.stringify(payload),
-        },
-      );
-      mutate();
-      res.visualChangeset && onCreate && onCreate(res.visualChangeset);
-    } else {
-      await apiCall(`/visual-changesets/${visualChangeset?.id}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      });
-      mutate();
+    if (props.mode === "edit") {
+      props.stage(payload);
+      return;
     }
+    const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
+      `/experiments/${experiment.id}/visual-changeset`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+    props.mutate();
+    if (res.visualChangeset) props.onCreate?.(res.visualChangeset);
   });
 
   const editorUrlLabel = !showAdvanced
@@ -121,7 +128,7 @@ const VisualChangesetModal: FC<{
         mode === "add" ? "Add" : "Modify"
       } Visual Changes URL targeting`}
       submit={onSubmit}
-      cta={cta}
+      cta={props.mode === "edit" ? "Apply" : props.cta}
     >
       <Field
         size="legacy"

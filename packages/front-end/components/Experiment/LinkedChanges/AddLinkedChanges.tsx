@@ -69,18 +69,21 @@ function AddImplementationItem({
   type,
   experiment,
   onClick,
+  blockedReason = null,
 }: {
   type: AddableKind;
   experiment: ExperimentInterfaceStringDates;
   onClick: () => void;
+  blockedReason?: string | null;
 }) {
   const { hasCommercialFeature } = useUser();
   const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
     type,
     experiment,
   );
+  const disabledReason = blockedReason ?? unsupportedReason;
   const option = IMPLEMENTATION_TYPE_OPTIONS[type];
-  const color = unsupportedReason ? "text-disabled" : "text-high";
+  const color = disabledReason ? "text-disabled" : "text-high";
   const content = (
     <Flex align="center" gap="2" p="3">
       <Avatar radius="small" color={option.color} size="sm" variant="soft">
@@ -97,11 +100,11 @@ function AddImplementationItem({
   return (
     <DropdownMenuItem
       onClick={onClick}
-      disabled={!!unsupportedReason}
+      disabled={!!disabledReason}
       style={{ padding: 0, height: "auto" }}
     >
-      {unsupportedReason ? (
-        <Tooltip content={unsupportedReason} side="left">
+      {disabledReason ? (
+        <Tooltip content={disabledReason} side="left">
           <span>{content}</span>
         </Tooltip>
       ) : commercialFeature && !hasCommercialFeature(commercialFeature) ? (
@@ -125,46 +128,49 @@ export function AddImplementationMenu({
   onFeatureFlag,
   onVisualEditor,
   onUrlRedirect,
-  disabledReason = null,
+  blockedReasons = {},
 }: {
   experiment: ExperimentInterfaceStringDates;
   // Absent where the experiment can't take another Feature Flag.
   onFeatureFlag: (() => void) | null;
   onVisualEditor: () => void;
   onUrlRedirect: () => void;
-  disabledReason?: string | null;
+  // Why a kind can't be added right now.
+  blockedReasons?: Partial<Record<AddableKind, string | null>>;
 }) {
-  const trigger = (
-    <Button
-      variant="outline"
-      icon={<PiCaretDownFill />}
-      iconPosition="right"
-      disabled={!!disabledReason}
-    >
-      Add implementation
-    </Button>
-  );
-  if (disabledReason) {
-    return <Tooltip content={disabledReason}>{trigger}</Tooltip>;
-  }
   return (
-    <DropdownMenu trigger={trigger} menuPlacement="end" variant="soft">
+    <DropdownMenu
+      trigger={
+        <Button
+          variant="outline"
+          icon={<PiCaretDownFill />}
+          iconPosition="right"
+        >
+          Add implementation
+        </Button>
+      }
+      menuPlacement="end"
+      variant="soft"
+    >
       {onFeatureFlag ? (
         <AddImplementationItem
           type="feature"
           experiment={experiment}
           onClick={onFeatureFlag}
+          blockedReason={blockedReasons.feature}
         />
       ) : null}
       <AddImplementationItem
         type="visual"
         experiment={experiment}
         onClick={onVisualEditor}
+        blockedReason={blockedReasons.visual}
       />
       <AddImplementationItem
         type="urlredirect"
         experiment={experiment}
         onClick={onUrlRedirect}
+        blockedReason={blockedReasons.urlredirect}
       />
     </DropdownMenu>
   );
