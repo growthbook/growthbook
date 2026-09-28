@@ -1,12 +1,11 @@
 import { z } from "zod";
 import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { customMetricSlice } from "./experiments";
 import {
-  apiAssignmentQueryRef,
-  apiAssignmentQueryRefInput,
-  featurePrerequisite,
-  savedGroupTargeting,
-} from "./shared";
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
+import { customMetricSlice } from "./experiments";
+import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { ownerEmailField, ownerField } from "./owner-field";
 
@@ -78,9 +77,7 @@ export const apiExperimentTemplateValidator = namedSchema(
     customFields: z.record(z.string(), z.string()).optional(),
 
     datasource: z.string(),
-    exposureQuery: apiAssignmentQueryRef.optional(),
-    /** @deprecated use exposureQuery.id */
-    exposureQueryId: z.string().meta({ deprecated: true }),
+    ...apiAssignmentQueryResponseFields("exposureQuery"),
 
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -131,17 +128,7 @@ export const apiCreateExperimentTemplateBody = z.strictObject({
   customFields: z.record(z.string(), z.string()).optional(),
 
   datasource: z.string(),
-  exposureQuery: apiAssignmentQueryRefInput
-    .describe(
-      "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
-    )
-    .optional(),
-  /** @deprecated use exposureQuery.id */
-  exposureQueryId: z
-    .string()
-    .describe("Deprecated: use exposureQuery instead.")
-    .optional()
-    .meta({ deprecated: true }),
+  ...apiAssignmentQueryInputFields("exposureQuery"),
 
   hashAttribute: z.string().optional(),
   fallbackAttribute: z.string().optional(),

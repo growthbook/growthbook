@@ -1,7 +1,7 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
-  ApiRampMonitoringConfig,
+  ApiRampMonitoringConfigInput,
   ApiRampScheduleTemplateInterface,
   RampScheduleTemplateInterface,
   rampScheduleTemplateValidator,
@@ -22,7 +22,7 @@ import {
 // stored shape, resolving its identifier; `null` (clear) and absent pass
 // through.
 async function withInternalMonitoringConfig<
-  T extends { monitoringConfig?: ApiRampMonitoringConfig | null },
+  T extends { monitoringConfig?: ApiRampMonitoringConfigInput | null },
 >(
   context: ReqContext | ApiReqContext,
   body: T,
@@ -135,7 +135,7 @@ export class RampScheduleTemplateModel extends BaseClass {
         "monitoringConfig"
       > & {
         order?: number;
-        monitoringConfig?: ApiRampMonitoringConfig | null;
+        monitoringConfig?: ApiRampMonitoringConfigInput | null;
       },
       null,
     )) as CreateProps<RampScheduleTemplateInterface> & { order?: number };
@@ -154,7 +154,7 @@ export class RampScheduleTemplateModel extends BaseClass {
       req.body as Omit<
         UpdateProps<RampScheduleTemplateInterface>,
         "monitoringConfig"
-      > & { monitoringConfig?: ApiRampMonitoringConfig | null },
+      > & { monitoringConfig?: ApiRampMonitoringConfigInput | null },
       existing?.monitoringConfig,
     )) as UpdateProps<RampScheduleTemplateInterface>;
     return resolveOwnerEmail(

@@ -11,7 +11,7 @@ import {
   RampStepAction,
   stepHoldConditions,
   isAwaitingStartApproval,
-  apiAssignmentQueryRef,
+  apiAssignmentQueryInputFields,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
 import {
@@ -110,17 +110,7 @@ const postRampScheduleValidator = {
       monitoringConfig: z
         .object({
           datasourceId: z.string(),
-          exposureQuery: apiAssignmentQueryRef
-            .describe(
-              "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
-            )
-            .optional(),
-          /** @deprecated use exposureQuery */
-          exposureQueryId: z
-            .string()
-            .describe("Deprecated: use exposureQuery instead.")
-            .optional()
-            .meta({ deprecated: true }),
+          ...apiAssignmentQueryInputFields("exposureQuery"),
           guardrailMetricIds: z.array(z.string()).min(1),
           signalMetricIds: z.array(z.string()).optional(),
           monitoringMode: z.enum(["auto", "manual"]).optional(),

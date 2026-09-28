@@ -1,5 +1,10 @@
 import { ExposureQuery } from "shared/types/datasource";
 import { ResolvedExposureQuery } from "shared/types/integrations";
+import type {
+  ApiAssignmentQueryRef,
+  ApiAssignmentQueryRefInput,
+  AssignmentQueryField,
+} from "../validators/assignment-query-field";
 
 type ExposureQueryIdentity = Pick<
   ExposureQuery,
@@ -44,9 +49,9 @@ export function getAnalysisIdentifierType(
  * `<field>Id`, which are mutually exclusive.
  */
 export function parseAssignmentQueryInput(
-  assignmentQuery: { id: string; identifierType?: string } | undefined,
+  assignmentQuery: ApiAssignmentQueryRefInput | undefined,
   deprecatedId: string | undefined,
-  field: "assignmentQuery" | "exposureQuery",
+  field: AssignmentQueryField,
 ): { id: string | undefined; identifierType: string | undefined } {
   if (assignmentQuery && deprecatedId !== undefined) {
     throw new Error(
@@ -66,7 +71,7 @@ export function parseAssignmentQueryInput(
  */
 export function flattenExposureQueryInput<
   T extends {
-    exposureQuery?: { id: string; identifierType?: string };
+    exposureQuery?: ApiAssignmentQueryRefInput;
     exposureQueryId?: string;
   },
 >(
@@ -206,20 +211,21 @@ export function assertValidAssignmentQuerySelection({
 
 /**
  * API shape of a stored assignment query selection. Legacy records (no stored
- * identifier) report their query's legacy identifier; omitted when that can't be
- * resolved.
+ * identifier) report their query's legacy identifier; null when that can't be
+ * resolved, or no query is selected.
  */
 export function toApiAssignmentQueryRef(
   id: string,
   storedIdentifierType: string | undefined,
   exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
-): { id: string; identifierType: string } | undefined {
-  if (!id) return undefined;
-  const identifierType = getAnalysisIdentifierType(
-    exposureQueries.find((q) => q.id === id),
-    storedIdentifierType,
-  );
-  return identifierType ? { id, identifierType } : undefined;
+): ApiAssignmentQueryRef {
+  const identifierType = id
+    ? getAnalysisIdentifierType(
+        exposureQueries.find((q) => q.id === id),
+        storedIdentifierType,
+      )
+    : undefined;
+  return { id, identifierType: identifierType || null };
 }
 
 export type AssignmentQuerySelection = {

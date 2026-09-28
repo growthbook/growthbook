@@ -285,7 +285,10 @@ describe("monitoringConfigToApi", () => {
     expect(api).not.toHaveProperty("exposureQueryIdentifierType");
   });
 
-  it("leaves exposureQuery unset when the query can't be resolved", () => {
-    expect(monitoringConfigToApi(mc, []).exposureQuery).toBeUndefined();
+  it("reports a null identifier when the query can't be resolved", () => {
+    expect(monitoringConfigToApi(mc, []).exposureQuery).toEqual({
+      id: "eq_1",
+      identifierType: null,
+    });
   });
 });

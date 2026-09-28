@@ -372,11 +372,15 @@ describe("toApiAssignmentQueryRef", () => {
     });
   });
 
-  it("is undefined without a query id or a resolvable identifier", () => {
-    expect(toApiAssignmentQueryRef("", "user_id", [multi])).toBeUndefined();
-    expect(
-      toApiAssignmentQueryRef("eq_gone", undefined, [multi]),
-    ).toBeUndefined();
+  it("has a null identifier without a query id or a resolvable identifier", () => {
+    expect(toApiAssignmentQueryRef("", "user_id", [multi])).toEqual({
+      id: "",
+      identifierType: null,
+    });
+    expect(toApiAssignmentQueryRef("eq_gone", undefined, [multi])).toEqual({
+      id: "eq_gone",
+      identifierType: null,
+    });
   });
 });
 

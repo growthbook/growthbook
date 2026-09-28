@@ -5385,27 +5385,30 @@ paths:
                               type: string
                             exposureQuery:
                               description: >-
-                                The exposure query to use, grouping its ID with
-                                the identifier type to analyze on. Mutually
-                                exclusive with the deprecated exposureQueryId.
+                                The assignment query, grouping its ID with the
+                                identifier type analyzed on. Mutually exclusive
+                                with the deprecated `exposureQueryId`.
                               type: object
                               properties:
                                 id:
+                                  description: >-
+                                    The ID of one of the data source's
+                                    assignment queries.
                                   type: string
                                 identifierType:
                                   description: >-
-                                    Required when selecting a different
-                                    assignment query that declares several
-                                    identifier types. Otherwise defaults to the
-                                    current identifier type, or the query's only
-                                    one.
+                                    The identifier type to analyze on, which the
+                                    query must declare. Required when selecting
+                                    a different assignment query that declares
+                                    several. Otherwise defaults to the current
+                                    identifier type, or the query's only one.
                                   type: string
                               required:
                                 - id
                               additionalProperties: false
                             exposureQueryId:
                               deprecated: true
-                              description: 'Deprecated: use exposureQuery instead.'
+                              description: 'Deprecated: use `exposureQuery`.'
                               type: string
                             guardrailMetricIds:
                               minItems: 1
@@ -14960,22 +14963,21 @@ paths:
                   type: string
                 assignmentQuery:
                   description: >-
-                    The assignment query to use, grouping its ID with the
-                    identifier type to analyze on. The ID must be one of the
-                    assignment query objects associated with the datasource, and
-                    the identifier type must be one it declares. Can only be set
-                    if a templateId is not provided. Mutually exclusive with the
-                    deprecated assignmentQueryId.
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `assignmentQueryId`. Can only be set if a templateId is not
+                    provided.
                   type: object
                   properties:
                     id:
+                      description: The ID of one of the data source's assignment queries.
                       type: string
                     identifierType:
                       description: >-
-                        Required when selecting a different assignment query
-                        that declares several identifier types. Otherwise
-                        defaults to the current identifier type, or the query's
-                        only one.
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one.
                       type: string
                   required:
                     - id
@@ -14983,9 +14985,8 @@ paths:
                 assignmentQueryId:
                   deprecated: true
                   description: >-
-                    Deprecated: use assignmentQuery instead. The ID property of
-                    one of the assignment query objects associated with the
-                    datasource. Can only be set if a templateId is not provided.
+                    Deprecated: use `assignmentQuery`. Can only be set if a
+                    templateId is not provided.
                   type: string
                 trackingKey:
                   type: string
@@ -15703,26 +15704,27 @@ paths:
                   type: string
                 assignmentQuery:
                   description: >-
-                    The assignment query to use, grouping its ID with the
-                    identifier type to analyze on. Mutually exclusive with the
-                    deprecated assignmentQueryId.
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `assignmentQueryId`.
                   type: object
                   properties:
                     id:
+                      description: The ID of one of the data source's assignment queries.
                       type: string
                     identifierType:
                       description: >-
-                        Required when selecting a different assignment query
-                        that declares several identifier types. Otherwise
-                        defaults to the current identifier type, or the query's
-                        only one.
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one.
                       type: string
                   required:
                     - id
                   additionalProperties: false
                 assignmentQueryId:
                   deprecated: true
-                  description: 'Deprecated: use assignmentQuery instead.'
+                  description: 'Deprecated: use `assignmentQuery`.'
                   type: string
                 trackingKey:
                   type: string
@@ -33267,22 +33269,30 @@ paths:
                           type: string
                         exposureQuery:
                           description: >-
-                            The exposure query to use, grouping its ID with the
+                            The assignment query, grouping its ID with the
                             identifier type analyzed on. Mutually exclusive with
-                            the deprecated exposureQueryId.
+                            the deprecated `exposureQueryId`.
                           type: object
                           properties:
                             id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
                               type: string
                             identifierType:
+                              description: >-
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one.
                               type: string
                           required:
                             - id
-                            - identifierType
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use exposureQuery instead.'
+                          description: 'Deprecated: use `exposureQuery`.'
                           type: string
                         guardrailMetricIds:
                           minItems: 1
@@ -34373,26 +34383,38 @@ paths:
                               - warn
                           exposureQuery:
                             description: >-
-                              The exposure query to use, grouping its ID with
-                              the identifier type analyzed on. Mutually
-                              exclusive with the deprecated exposureQueryId.
+                              The assignment query, grouping its ID with the
+                              identifier type analyzed on.
                             type: object
                             properties:
                               id:
+                                description: >-
+                                  The ID of one of the data source's assignment
+                                  queries.
                                 type: string
                               identifierType:
-                                type: string
+                                description: >-
+                                  The identifier type analyzed on. Null when
+                                  none can be resolved: no assignment query is
+                                  selected, or a record saved before identifier
+                                  types were stored points at a query that no
+                                  longer exists.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - id
                               - identifierType
                             additionalProperties: false
                           exposureQueryId:
+                            description: 'Deprecated: use `exposureQuery`.'
                             deprecated: true
-                            description: 'Deprecated: use exposureQuery instead.'
                             type: string
                         required:
                           - datasourceId
                           - guardrailMetricIds
+                          - exposureQuery
+                          - exposureQueryId
                         additionalProperties: false
                       - type: 'null'
                   experimentHealthAction:
@@ -34771,26 +34793,38 @@ paths:
                               - warn
                           exposureQuery:
                             description: >-
-                              The exposure query to use, grouping its ID with
-                              the identifier type analyzed on. Mutually
-                              exclusive with the deprecated exposureQueryId.
+                              The assignment query, grouping its ID with the
+                              identifier type analyzed on.
                             type: object
                             properties:
                               id:
+                                description: >-
+                                  The ID of one of the data source's assignment
+                                  queries.
                                 type: string
                               identifierType:
-                                type: string
+                                description: >-
+                                  The identifier type analyzed on. Null when
+                                  none can be resolved: no assignment query is
+                                  selected, or a record saved before identifier
+                                  types were stored points at a query that no
+                                  longer exists.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - id
                               - identifierType
                             additionalProperties: false
                           exposureQueryId:
+                            description: 'Deprecated: use `exposureQuery`.'
                             deprecated: true
-                            description: 'Deprecated: use exposureQuery instead.'
                             type: string
                         required:
                           - datasourceId
                           - guardrailMetricIds
+                          - exposureQuery
+                          - exposureQueryId
                         additionalProperties: false
                       - type: 'null'
                   experimentHealthAction:
@@ -35030,26 +35064,27 @@ paths:
                     - warn
                 exposureQuery:
                   description: >-
-                    The exposure query to use, grouping its ID with the
-                    identifier type to analyze on. Mutually exclusive with the
-                    deprecated exposureQueryId.
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `exposureQueryId`.
                   type: object
                   properties:
                     id:
+                      description: The ID of one of the data source's assignment queries.
                       type: string
                     identifierType:
                       description: >-
-                        Required when selecting a different assignment query
-                        that declares several identifier types. Otherwise
-                        defaults to the current identifier type, or the query's
-                        only one.
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one.
                       type: string
                   required:
                     - id
                   additionalProperties: false
                 exposureQueryId:
                   deprecated: true
-                  description: 'Deprecated: use exposureQuery instead.'
+                  description: 'Deprecated: use `exposureQuery`.'
                   type: string
               required:
                 - datasourceId
@@ -35251,26 +35286,38 @@ paths:
                               - warn
                           exposureQuery:
                             description: >-
-                              The exposure query to use, grouping its ID with
-                              the identifier type analyzed on. Mutually
-                              exclusive with the deprecated exposureQueryId.
+                              The assignment query, grouping its ID with the
+                              identifier type analyzed on.
                             type: object
                             properties:
                               id:
+                                description: >-
+                                  The ID of one of the data source's assignment
+                                  queries.
                                 type: string
                               identifierType:
-                                type: string
+                                description: >-
+                                  The identifier type analyzed on. Null when
+                                  none can be resolved: no assignment query is
+                                  selected, or a record saved before identifier
+                                  types were stored points at a query that no
+                                  longer exists.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - id
                               - identifierType
                             additionalProperties: false
                           exposureQueryId:
+                            description: 'Deprecated: use `exposureQuery`.'
                             deprecated: true
-                            description: 'Deprecated: use exposureQuery instead.'
                             type: string
                         required:
                           - datasourceId
                           - guardrailMetricIds
+                          - exposureQuery
+                          - exposureQueryId
                         additionalProperties: false
                       - type: 'null'
                   experimentHealthAction:
@@ -35652,26 +35699,38 @@ paths:
                               - warn
                           exposureQuery:
                             description: >-
-                              The exposure query to use, grouping its ID with
-                              the identifier type analyzed on. Mutually
-                              exclusive with the deprecated exposureQueryId.
+                              The assignment query, grouping its ID with the
+                              identifier type analyzed on.
                             type: object
                             properties:
                               id:
+                                description: >-
+                                  The ID of one of the data source's assignment
+                                  queries.
                                 type: string
                               identifierType:
-                                type: string
+                                description: >-
+                                  The identifier type analyzed on. Null when
+                                  none can be resolved: no assignment query is
+                                  selected, or a record saved before identifier
+                                  types were stored points at a query that no
+                                  longer exists.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - id
                               - identifierType
                             additionalProperties: false
                           exposureQueryId:
+                            description: 'Deprecated: use `exposureQuery`.'
                             deprecated: true
-                            description: 'Deprecated: use exposureQuery instead.'
                             type: string
                         required:
                           - datasourceId
                           - guardrailMetricIds
+                          - exposureQuery
+                          - exposureQueryId
                         additionalProperties: false
                       - type: 'null'
                   experimentHealthAction:
@@ -49541,26 +49600,27 @@ paths:
                   type: string
                 exposureQuery:
                   description: >-
-                    The exposure query to use, grouping its ID with the
-                    identifier type analyzed on. Mutually exclusive with the
-                    deprecated exposureQueryId.
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `exposureQueryId`.
                   type: object
                   properties:
                     id:
+                      description: The ID of one of the data source's assignment queries.
                       type: string
                     identifierType:
                       description: >-
-                        Required when selecting a different assignment query
-                        that declares several identifier types. Otherwise
-                        defaults to the current identifier type, or the query's
-                        only one.
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one.
                       type: string
                   required:
                     - id
                   additionalProperties: false
                 exposureQueryId:
                   deprecated: true
-                  description: 'Deprecated: use exposureQuery instead.'
+                  description: 'Deprecated: use `exposureQuery`.'
                   type: string
                 hashAttribute:
                   type: string
@@ -49728,26 +49788,27 @@ paths:
                   type: string
                 exposureQuery:
                   description: >-
-                    The exposure query to use, grouping its ID with the
-                    identifier type analyzed on. Mutually exclusive with the
-                    deprecated exposureQueryId.
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `exposureQueryId`.
                   type: object
                   properties:
                     id:
+                      description: The ID of one of the data source's assignment queries.
                       type: string
                     identifierType:
                       description: >-
-                        Required when selecting a different assignment query
-                        that declares several identifier types. Otherwise
-                        defaults to the current identifier type, or the query's
-                        only one.
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one.
                       type: string
                   required:
                     - id
                   additionalProperties: false
                 exposureQueryId:
                   deprecated: true
-                  description: 'Deprecated: use exposureQuery instead.'
+                  description: 'Deprecated: use `exposureQuery`.'
                   type: string
                 hashAttribute:
                   type: string
@@ -49963,26 +50024,30 @@ paths:
                             type: string
                           exposureQuery:
                             description: >-
-                              The exposure query to use, grouping its ID with
-                              the identifier type analyzed on. Mutually
-                              exclusive with the deprecated exposureQueryId.
+                              The assignment query, grouping its ID with the
+                              identifier type analyzed on. Mutually exclusive
+                              with the deprecated `exposureQueryId`.
                             type: object
                             properties:
                               id:
+                                description: >-
+                                  The ID of one of the data source's assignment
+                                  queries.
                                 type: string
                               identifierType:
                                 description: >-
-                                  Required when selecting a different assignment
-                                  query that declares several identifier types.
-                                  Otherwise defaults to the current identifier
-                                  type, or the query's only one.
+                                  The identifier type to analyze on, which the
+                                  query must declare. Required when selecting a
+                                  different assignment query that declares
+                                  several. Otherwise defaults to the current
+                                  identifier type, or the query's only one.
                                 type: string
                             required:
                               - id
                             additionalProperties: false
                           exposureQueryId:
                             deprecated: true
-                            description: 'Deprecated: use exposureQuery instead.'
+                            description: 'Deprecated: use `exposureQuery`.'
                             type: string
                           hashAttribute:
                             type: string
@@ -55551,26 +55616,30 @@ paths:
                             - warn
                         exposureQuery:
                           description: >-
-                            The exposure query to use, grouping its ID with the
-                            identifier type to analyze on. Mutually exclusive
-                            with the deprecated exposureQueryId.
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
                           type: object
                           properties:
                             id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
                               type: string
                             identifierType:
                               description: >-
-                                Required when selecting a different assignment
-                                query that declares several identifier types.
-                                Otherwise defaults to the current identifier
-                                type, or the query's only one.
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one.
                               type: string
                           required:
                             - id
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use exposureQuery instead.'
+                          description: 'Deprecated: use `exposureQuery`.'
                           type: string
                       required:
                         - datasourceId
@@ -55875,26 +55944,30 @@ paths:
                             - warn
                         exposureQuery:
                           description: >-
-                            The exposure query to use, grouping its ID with the
-                            identifier type to analyze on. Mutually exclusive
-                            with the deprecated exposureQueryId.
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
                           type: object
                           properties:
                             id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
                               type: string
                             identifierType:
                               description: >-
-                                Required when selecting a different assignment
-                                query that declares several identifier types.
-                                Otherwise defaults to the current identifier
-                                type, or the query's only one.
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one.
                               type: string
                           required:
                             - id
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use exposureQuery instead.'
+                          description: 'Deprecated: use `exposureQuery`.'
                           type: string
                       required:
                         - datasourceId
@@ -56523,26 +56596,30 @@ paths:
                             - warn
                         exposureQuery:
                           description: >-
-                            The exposure query to use, grouping its ID with the
-                            identifier type to analyze on. Mutually exclusive
-                            with the deprecated exposureQueryId.
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
                           type: object
                           properties:
                             id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
                               type: string
                             identifierType:
                               description: >-
-                                Required when selecting a different assignment
-                                query that declares several identifier types.
-                                Otherwise defaults to the current identifier
-                                type, or the query's only one.
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one.
                               type: string
                           required:
                             - id
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use exposureQuery instead.'
+                          description: 'Deprecated: use `exposureQuery`.'
                           type: string
                       required:
                         - datasourceId
@@ -56991,27 +57068,27 @@ paths:
                   type: string
                 assignmentQuery:
                   description: >-
-                    The assignment query to use, grouping its ID with the
-                    identifier type to analyze on. The identifier type must be
-                    one the query declares. Mutually exclusive with the
-                    deprecated assignmentQueryId.
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `assignmentQueryId`.
                   type: object
                   properties:
                     id:
+                      description: The ID of one of the data source's assignment queries.
                       type: string
                     identifierType:
                       description: >-
-                        Required when selecting a different assignment query
-                        that declares several identifier types. Otherwise
-                        defaults to the current identifier type, or the query's
-                        only one.
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one.
                       type: string
                   required:
                     - id
                   additionalProperties: false
                 assignmentQueryId:
                   deprecated: true
-                  description: 'Deprecated: use assignmentQuery instead.'
+                  description: 'Deprecated: use `assignmentQuery`.'
                   type: string
                 goalMetrics:
                   type: array
@@ -57175,27 +57252,27 @@ paths:
                   type: string
                 assignmentQuery:
                   description: >-
-                    The assignment query to use, grouping its ID with the
-                    identifier type to analyze on. The identifier type must be
-                    one the query declares. Mutually exclusive with the
-                    deprecated assignmentQueryId.
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `assignmentQueryId`.
                   type: object
                   properties:
                     id:
+                      description: The ID of one of the data source's assignment queries.
                       type: string
                     identifierType:
                       description: >-
-                        Required when selecting a different assignment query
-                        that declares several identifier types. Otherwise
-                        defaults to the current identifier type, or the query's
-                        only one.
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one.
                       type: string
                   required:
                     - id
                   additionalProperties: false
                 assignmentQueryId:
                   deprecated: true
-                  description: 'Deprecated: use assignmentQuery instead.'
+                  description: 'Deprecated: use `assignmentQuery`.'
                   type: string
                 goalMetrics:
                   type: array
@@ -62655,17 +62732,19 @@ components:
               type: string
             exposureQuery:
               description: >-
-                The exposure query to use, grouping its ID with the identifier
-                type to analyze on. Mutually exclusive with the deprecated
-                exposureQueryId.
+                The assignment query, grouping its ID with the identifier type
+                analyzed on. Mutually exclusive with the deprecated
+                `exposureQueryId`.
               type: object
               properties:
                 id:
+                  description: The ID of one of the data source's assignment queries.
                   type: string
                 identifierType:
                   description: >-
-                    Required when selecting a different assignment query that
-                    declares several identifier types. Otherwise defaults to the
+                    The identifier type to analyze on, which the query must
+                    declare. Required when selecting a different assignment
+                    query that declares several. Otherwise defaults to the
                     current identifier type, or the query's only one.
                   type: string
               required:
@@ -62673,7 +62752,7 @@ components:
               additionalProperties: false
             exposureQueryId:
               deprecated: true
-              description: 'Deprecated: use exposureQuery instead.'
+              description: 'Deprecated: use `exposureQuery`.'
               type: string
             guardrailMetricIds:
               minItems: 1
@@ -63158,17 +63237,29 @@ components:
         datasourceId:
           type: string
         assignmentQuery:
+          description: >-
+            The assignment query, grouping its ID with the identifier type
+            analyzed on.
           type: object
           properties:
             id:
+              description: The ID of one of the data source's assignment queries.
               type: string
             identifierType:
-              type: string
+              description: >-
+                The identifier type analyzed on. Null when none can be resolved:
+                no assignment query is selected, or a record saved before
+                identifier types were stored points at a query that no longer
+                exists.
+              anyOf:
+                - type: string
+                - type: 'null'
           required:
             - id
             - identifierType
           additionalProperties: false
         assignmentQueryId:
+          description: 'Deprecated: use `assignmentQuery`.'
           deprecated: true
           type: string
         experimentId:
@@ -63244,6 +63335,7 @@ components:
           $ref: '#/components/schemas/ExperimentMetric'
       required:
         - datasourceId
+        - assignmentQuery
         - assignmentQueryId
         - experimentId
         - segmentId
@@ -69187,26 +69279,35 @@ components:
                     - warn
                 exposureQuery:
                   description: >-
-                    The exposure query to use, grouping its ID with the
-                    identifier type analyzed on. Mutually exclusive with the
-                    deprecated exposureQueryId.
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on.
                   type: object
                   properties:
                     id:
+                      description: The ID of one of the data source's assignment queries.
                       type: string
                     identifierType:
-                      type: string
+                      description: >-
+                        The identifier type analyzed on. Null when none can be
+                        resolved: no assignment query is selected, or a record
+                        saved before identifier types were stored points at a
+                        query that no longer exists.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                   required:
                     - id
                     - identifierType
                   additionalProperties: false
                 exposureQueryId:
+                  description: 'Deprecated: use `exposureQuery`.'
                   deprecated: true
-                  description: 'Deprecated: use exposureQuery instead.'
                   type: string
               required:
                 - datasourceId
                 - guardrailMetricIds
+                - exposureQuery
+                - exposureQueryId
               additionalProperties: false
             - type: 'null'
         experimentHealthAction:
@@ -69575,23 +69676,29 @@ components:
               type: string
             exposureQuery:
               description: >-
-                Datasource exposure query (Assignment Table), grouping its ID
-                with the identifier type analyzed on.
+                The assignment query, grouping its ID with the identifier type
+                analyzed on.
               type: object
               properties:
                 id:
+                  description: The ID of one of the data source's assignment queries.
                   type: string
                 identifierType:
-                  type: string
+                  description: >-
+                    The identifier type analyzed on. Null when none can be
+                    resolved: no assignment query is selected, or a record saved
+                    before identifier types were stored points at a query that
+                    no longer exists.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
               required:
                 - id
                 - identifierType
               additionalProperties: false
             exposureQueryId:
               deprecated: true
-              description: >-
-                Deprecated: use exposureQuery instead. Datasource exposure query
-                ID (Assignment Table).
+              description: 'Deprecated: use `exposureQuery`.'
               type: string
             segment:
               description: Segment ID to filter users by
@@ -74016,17 +74123,29 @@ components:
         datasource:
           type: string
         exposureQuery:
+          description: >-
+            The assignment query, grouping its ID with the identifier type
+            analyzed on.
           type: object
           properties:
             id:
+              description: The ID of one of the data source's assignment queries.
               type: string
             identifierType:
-              type: string
+              description: >-
+                The identifier type analyzed on. Null when none can be resolved:
+                no assignment query is selected, or a record saved before
+                identifier types were stored points at a query that no longer
+                exists.
+              anyOf:
+                - type: string
+                - type: 'null'
           required:
             - id
             - identifierType
           additionalProperties: false
         exposureQueryId:
+          description: 'Deprecated: use `exposureQuery`.'
           deprecated: true
           type: string
         hashAttribute:
@@ -74134,6 +74253,7 @@ components:
         - templateMetadata
         - type
         - datasource
+        - exposureQuery
         - exposureQueryId
         - statsEngine
         - targeting
@@ -76339,26 +76459,35 @@ components:
                     - warn
                 exposureQuery:
                   description: >-
-                    The exposure query to use, grouping its ID with the
-                    identifier type analyzed on. Mutually exclusive with the
-                    deprecated exposureQueryId.
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on.
                   type: object
                   properties:
                     id:
+                      description: The ID of one of the data source's assignment queries.
                       type: string
                     identifierType:
-                      type: string
+                      description: >-
+                        The identifier type analyzed on. Null when none can be
+                        resolved: no assignment query is selected, or a record
+                        saved before identifier types were stored points at a
+                        query that no longer exists.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                   required:
                     - id
                     - identifierType
                   additionalProperties: false
                 exposureQueryId:
+                  description: 'Deprecated: use `exposureQuery`.'
                   deprecated: true
-                  description: 'Deprecated: use exposureQuery instead.'
                   type: string
               required:
                 - datasourceId
                 - guardrailMetricIds
+                - exposureQuery
+                - exposureQueryId
               additionalProperties: false
             - type: 'null'
         lockdownConfig:
@@ -76552,18 +76681,29 @@ components:
         datasourceId:
           type: string
         assignmentQuery:
+          description: >-
+            The assignment query, grouping its ID with the identifier type
+            analyzed on.
           type: object
           properties:
             id:
+              description: The ID of one of the data source's assignment queries.
               type: string
             identifierType:
-              type: string
+              description: >-
+                The identifier type analyzed on. Null when none can be resolved:
+                no assignment query is selected, or a record saved before
+                identifier types were stored points at a query that no longer
+                exists.
+              anyOf:
+                - type: string
+                - type: 'null'
           required:
             - id
             - identifierType
           additionalProperties: false
         assignmentQueryId:
-          description: 'Deprecated: use assignmentQuery instead.'
+          description: 'Deprecated: use `assignmentQuery`.'
           deprecated: true
           type: string
         goalMetrics:
@@ -76726,6 +76866,7 @@ components:
         - hashAttribute
         - targetingCondition
         - datasourceId
+        - assignmentQuery
         - assignmentQueryId
         - goalMetrics
         - secondaryMetrics

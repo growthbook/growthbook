@@ -1,10 +1,9 @@
 import { z } from "zod";
 import {
-  apiAssignmentQueryRef,
-  apiAssignmentQueryRefInput,
-  featurePrerequisite,
-  savedGroupTargeting,
-} from "./shared";
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
+import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
@@ -112,28 +111,12 @@ export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 // internal rampMonitoringConfig stays flat.
 export const apiRampMonitoringConfig = rampMonitoringConfig
   .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
-  .extend({
-    exposureQuery: apiAssignmentQueryRef
-      .describe(
-        "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
-      )
-      .optional(),
-    /** @deprecated use exposureQuery.id */
-    exposureQueryId: z
-      .string()
-      .describe("Deprecated: use exposureQuery instead.")
-      .optional()
-      .meta({ deprecated: true }),
-  });
+  .extend(apiAssignmentQueryResponseFields("exposureQuery"));
 export type ApiRampMonitoringConfig = z.infer<typeof apiRampMonitoringConfig>;
 
-export const apiRampMonitoringConfigInput = apiRampMonitoringConfig.extend({
-  exposureQuery: apiAssignmentQueryRefInput
-    .describe(
-      "The exposure query to use, grouping its ID with the identifier type to analyze on. Mutually exclusive with the deprecated exposureQueryId.",
-    )
-    .optional(),
-});
+export const apiRampMonitoringConfigInput = rampMonitoringConfig
+  .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
+  .extend(apiAssignmentQueryInputFields("exposureQuery"));
 export type ApiRampMonitoringConfigInput = z.infer<
   typeof apiRampMonitoringConfigInput
 >;

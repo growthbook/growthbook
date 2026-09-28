@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiOptionalAssignmentQueryResponseFields } from "./assignment-query-field";
 import { namedSchema } from "./openapi-helpers";
 import {
   apiExperimentResultsValidator,
@@ -12,11 +13,7 @@ import {
   ownerField,
   optionalOwnerInputField,
 } from "./owner-field";
-import {
-  apiAssignmentQueryRef,
-  apiPaginationFieldsValidator,
-  paginationQueryFields,
-} from "./shared";
+import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 const idParams = z
   .object({
@@ -69,19 +66,7 @@ const reportAnalysisSettingsSchema = z
       .string()
       .describe("Tracking key used to identify experiment exposures")
       .optional(),
-    exposureQuery: apiAssignmentQueryRef
-      .describe(
-        "Datasource exposure query (Assignment Table), grouping its ID with the identifier type analyzed on.",
-      )
-      .optional(),
-    /** @deprecated use exposureQuery.id */
-    exposureQueryId: z
-      .string()
-      .describe(
-        "Deprecated: use exposureQuery instead. Datasource exposure query ID (Assignment Table).",
-      )
-      .optional()
-      .meta({ deprecated: true }),
+    ...apiOptionalAssignmentQueryResponseFields("exposureQuery"),
     segment: z.string().describe("Segment ID to filter users by").optional(),
     queryFilter: z
       .string()
