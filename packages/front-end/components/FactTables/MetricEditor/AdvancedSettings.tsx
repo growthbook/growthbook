@@ -5,8 +5,8 @@ import {
   FactTableDefinition,
   MetricCappingSettings,
 } from "shared/types/fact-table";
+import { getCappingTailState } from "shared/validators";
 import { CreateFactMetricFormProps } from "@/services/metrics";
-import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -32,20 +32,35 @@ import {
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import styles from "./AdvancedSettings.module.scss";
 
+// One row per active tail, upper first (same order as the metric page).
 function cappingSummary(
-  cappingSettings: MetricCappingSettings,
-): DataListItem | null {
-  if (!cappingSettings.type || !cappingSettings.value) return null;
-  const extra =
-    cappingSettings.type === "percentile"
-      ? ` (${100 * cappingSettings.value} pctile${
-          cappingSettings.ignoreZeros ? ", ignoring zeros" : ""
-        })`
-      : "";
-  return {
-    label: `${capitalizeFirstLetter(cappingSettings.type)} capping`,
-    value: `${cappingSettings.value}${extra}`,
-  };
+  upper: MetricCappingSettings,
+  lower: MetricCappingSettings | null | undefined,
+): DataListItem[] {
+  const tails = getCappingTailState(upper, lower);
+  const row = (
+    cs: MetricCappingSettings,
+    tail: "upper" | "lower",
+  ): DataListItem =>
+    cs.type === "percentile"
+      ? {
+          label: `Percentile capping (${tail === "upper" ? "ceiling" : "floor"})`,
+          value: `${cs.value} (${100 * cs.value} pctile${
+            cs.ignoreZeros ? ", ignoring zeros" : ""
+          })`,
+        }
+      : {
+          label: tail === "upper" ? "Maximum user value" : "Minimum user value",
+          value: `${cs.value}`,
+        };
+  return [
+    ...(tails.upperPercentileCapped || tails.upperAbsoluteCapped
+      ? [row(upper, "upper")]
+      : []),
+    ...(lower && (tails.lowerPercentileCapped || tails.lowerAbsoluteCapped)
+      ? [row(lower, "lower")]
+      : []),
+  ];
 }
 
 export default function AdvancedSettings({
@@ -74,7 +89,10 @@ export default function AdvancedSettings({
   const showsAutoSlices =
     showsGoalAndSlices && hasCommercialFeature("metric-slices") && !!factTable;
   const priorSettings = form.watch("priorSettings");
-  const cappingItem = cappingSummary(form.watch("cappingSettings"));
+  const cappingItems = cappingSummary(
+    form.watch("cappingSettings"),
+    form.watch("lowerCappingSettings"),
+  );
   const windowSettings = form.watch("windowSettings");
   const minSampleSizeLabel =
     formType === "ratio" ? "Minimum numerator total" : "Minimum metric total";
@@ -162,7 +180,7 @@ export default function AdvancedSettings({
             },
           ]
         : []),
-      ...(cappingOk(formType) && cappingItem ? [cappingItem] : []),
+      ...(cappingOk(formType) ? cappingItems : []),
       ...(showsGoalAndSlices
         ? [
             {
@@ -263,6 +281,7 @@ export default function AdvancedSettings({
                           form={form}
                           datasourceType={datasource?.type}
                           metricType={metricType}
+                          allowLowerTailCapping
                         />
                       </Frame>
                     )}

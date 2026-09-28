@@ -1,4 +1,4 @@
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import { ColumnRef, FactTableDefinition } from "shared/types/fact-table";
 import useFullFactTable from "@/hooks/useFullFactTable";
@@ -7,6 +7,8 @@ import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 import DataList from "@/ui/DataList";
 import Badge from "@/ui/Badge";
+import Checkbox from "@/ui/Checkbox";
+import ThresholdBasisRow from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
@@ -37,6 +39,7 @@ function RatioPart({
   factTable,
   hasCountDistinctHLL,
   before,
+  after,
   canEdit = true,
 }: {
   label: string;
@@ -45,6 +48,7 @@ function RatioPart({
   factTable: FactTableDefinition | null;
   hasCountDistinctHLL: boolean;
   before?: ReactNode;
+  after?: ReactNode;
   canEdit?: boolean;
 }) {
   const shape = shapeFromColumnRef(value) ?? "sum";
@@ -77,6 +81,7 @@ function RatioPart({
           rowFilters={value.rowFilters || []}
           factTable={factTable}
         />
+        {after}
       </Frame>
     );
   }
@@ -118,6 +123,7 @@ function RatioPart({
             onChange={(column) => onChange({ ...value, column })}
           />
         </Flex>
+        {after}
       </Flex>
     </Frame>
   );
@@ -159,6 +165,43 @@ export default function RatioFields({
   );
   const denominatorFactTable = fullDenominatorFactTable ?? factTable;
 
+  // A ratio numerator on unique users can require a minimum per user (the
+  // same user filter the old modal offered). Save clears it for any other
+  // aggregation, so only offer it here.
+  const hasUserFilter = !!numerator.aggregateFilterColumn;
+  const userFilter =
+    numerator.column !== "$$distinctUsers" ? undefined : canEdit ? (
+      <Flex direction="column" gap="2">
+        <Checkbox
+          label="Only count users who meet a threshold"
+          value={hasUserFilter}
+          setValue={(checked) =>
+            onNumeratorChange({
+              ...numerator,
+              aggregateFilterColumn: checked ? "$$count" : undefined,
+              aggregateFilter: checked ? "" : undefined,
+            })
+          }
+        />
+        {hasUserFilter && (
+          <Box pl="5">
+            <ThresholdBasisRow
+              value={numerator}
+              onChange={(v) => onNumeratorChange({ ...numerator, ...v })}
+              factTable={factTable}
+            />
+          </Box>
+        )}
+      </Flex>
+    ) : hasUserFilter ? (
+      <ThresholdBasisRow
+        value={numerator}
+        onChange={() => {}}
+        factTable={factTable}
+        canEdit={false}
+      />
+    ) : undefined;
+
   return (
     <Flex direction="column" gap="3">
       <RatioPart
@@ -169,6 +212,7 @@ export default function RatioFields({
         factTable={factTable}
         hasCountDistinctHLL={hasCountDistinctHLL}
         canEdit={canEdit}
+        after={userFilter}
       />
       <RatioPart
         label="Denominator"
@@ -178,7 +222,11 @@ export default function RatioFields({
         hasCountDistinctHLL={hasCountDistinctHLL}
         canEdit={canEdit}
         before={
-          canEdit && denominatorShape !== "users" ? (
+          // Still show the picker for "users" when the denominator already
+          // uses another table, so that override stays visible and editable.
+          canEdit &&
+          (denominatorShape !== "users" ||
+            denominator.factTableId !== numerator.factTableId) ? (
             <Flex align="center" gap="2" wrap="wrap">
               <Text color="text-mid">Fact table:</Text>
               <Select
