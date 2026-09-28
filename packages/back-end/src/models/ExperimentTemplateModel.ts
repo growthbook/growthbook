@@ -8,14 +8,17 @@ import {
   toApiAssignmentQueryRef,
 } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
-import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+} from "back-end/src/services/owner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   experimentTemplateApiSpec,
   bulkImportExperimentTemplatesEndpoint,
 } from "back-end/src/api/specs/experiment-template.spec";
 import {
-  assertApiAssignmentQueryRefHasIdentifierType,
+  resolveApiAssignmentQueryIdentifier,
   assertValidAssignmentQuerySelectionChange,
 } from "back-end/src/services/assignmentQuerySelection";
 import { ReqContext } from "back-end/types/request";
@@ -33,21 +36,41 @@ function normalizeTemplateExposureQueryBody(body: unknown): unknown {
   );
 }
 
-async function assertTemplateExposureQueryIdentifierType(
+// Flattens a REST body and stores the identifier a new or changed selection
+// resolves to, so templates written over REST are never left implicit.
+async function toTemplateWriteBody(
   context: ReqContext | ApiReqContext,
   rawBody: unknown,
   existing: ExperimentTemplateInterface | null,
-) {
-  const body = rawBody as {
+): Promise<unknown> {
+  const body = normalizeTemplateExposureQueryBody(rawBody) as {
     datasource?: string;
-    exposureQuery?: { id: string; identifierType?: string };
+    exposureQueryId?: string;
+    exposureQueryIdentifierType?: string;
   } | null;
-  await assertApiAssignmentQueryRefHasIdentifierType(context, {
-    datasourceId: body?.datasource ?? existing?.datasource,
-    ref: body?.exposureQuery,
-    field: "exposureQuery",
-    currentExposureQueryId: existing?.exposureQueryId,
-  });
+  if (!body || body.exposureQueryId === undefined) return body;
+  const exposureQueryIdentifierType = await resolveApiAssignmentQueryIdentifier(
+    context,
+    {
+      previous: existing
+        ? {
+            datasource: existing.datasource,
+            exposureQueryId: existing.exposureQueryId,
+            identifierType: existing.exposureQueryIdentifierType,
+          }
+        : null,
+      next: {
+        datasource: body.datasource ?? existing?.datasource ?? "",
+        exposureQueryId: body.exposureQueryId,
+        identifierType: body.exposureQueryIdentifierType,
+      },
+      grouped: !!(rawBody as { exposureQuery?: unknown }).exposureQuery,
+      field: "exposureQuery",
+    },
+  );
+  return exposureQueryIdentifierType === undefined
+    ? body
+    : { ...body, exposureQueryIdentifierType };
 }
 
 // Both fields are optional in the API body, so creates must check for one.
@@ -100,14 +123,11 @@ const BaseClass = MakeModelClass({
               ? id
               : `${ID_PREFIX}${id}`;
             const existing = existingById.get(normalizedId);
-            await assertTemplateExposureQueryIdentifierType(
+            const normalizedData = (await toTemplateWriteBody(
               req.context,
               data,
               existing ?? null,
-            );
-            const normalizedData = normalizeTemplateExposureQueryBody(
-              data,
-            ) as typeof data;
+            )) as typeof data;
             if (existing) {
               await req.context.models.experimentTemplates.update(
                 existing,
@@ -186,12 +206,7 @@ export class ExperimentTemplatesModel extends BaseClass {
   }
 
   protected override async processApiCreateBody(rawBody: unknown) {
-    await assertTemplateExposureQueryIdentifierType(
-      this.context,
-      rawBody,
-      null,
-    );
-    const body = normalizeTemplateExposureQueryBody(rawBody);
+    const body = await toTemplateWriteBody(this.context, rawBody, null);
     assertTemplateHasExposureQuery(body);
     return super.processApiCreateBody(body);
   }
@@ -201,17 +216,14 @@ export class ExperimentTemplatesModel extends BaseClass {
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
     const { id } = req.params as { id: string };
-    await assertTemplateExposureQueryIdentifierType(
+    const toUpdate = (await toTemplateWriteBody(
       this.context,
       req.body,
       await this.getById(id),
-    );
-    return super.handleApiUpdate(req);
-  }
-
-  protected override async processApiUpdateBody(rawBody: unknown) {
-    return super.processApiUpdateBody(
-      normalizeTemplateExposureQueryBody(rawBody),
+    )) as UpdateProps<ExperimentTemplateInterface>;
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.context,
     );
   }
 

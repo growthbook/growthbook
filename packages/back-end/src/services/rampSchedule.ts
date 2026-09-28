@@ -41,6 +41,7 @@ import {
   unanchoredRampTargets,
   validateFeatureValue,
   hasAssignmentQuerySelectionChanged,
+  getAnalysisIdentifierType,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -1798,11 +1799,18 @@ export async function ensureSafeRolloutForMonitoredRamp(
 
   const trackingKey = `ramp_${schedule.id}`;
 
+  // Stored explicitly, so a legacy monitoring config doesn't make it implicit.
+  const exposureQueryIdentifierType = getAnalysisIdentifierType(
+    (await getExposureQueriesForDatasource(ctx, mc.datasourceId)).find(
+      (q) => q.id === mc.exposureQueryId,
+    ),
+    mc.exposureQueryIdentifierType,
+  );
   const sr = await ctx.models.safeRollout.create({
     featureId: schedule.entityId,
     datasourceId: mc.datasourceId,
     exposureQueryId: mc.exposureQueryId,
-    exposureQueryIdentifierType: mc.exposureQueryIdentifierType,
+    exposureQueryIdentifierType,
     guardrailMetricIds: allMetricIds,
     maxDuration: { amount: 90, unit: "days" },
     autoRollback: false,

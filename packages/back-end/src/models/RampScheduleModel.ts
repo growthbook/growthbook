@@ -58,8 +58,8 @@ import {
 import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import {
-  assertApiAssignmentQueryRefHasIdentifierType,
   assertValidAssignmentQuerySelectionChange,
+  resolveApiAssignmentQueryIdentifier,
 } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 
@@ -281,6 +281,44 @@ export function apiMonitoringConfigToInternal<
       ? { exposureQueryIdentifierType: previous.exposureQueryIdentifierType }
       : {}),
   };
+}
+
+// For REST writes: the stored monitoring config, with the identifier a new or
+// changed selection resolves to, so it's never left implicit.
+export async function resolveApiMonitoringConfig<
+  T extends {
+    datasourceId?: string;
+    exposureQuery?: { id: string; identifierType?: string };
+    exposureQueryId?: string;
+  },
+>(
+  context: ReqContext | ApiReqContext,
+  mc: T | null | undefined,
+  previous: RampMonitoringConfig | null | undefined,
+) {
+  const internal = apiMonitoringConfigToInternal(mc, previous);
+  if (!internal || !mc) return internal;
+  const toSelection = (c: {
+    datasourceId?: string;
+    exposureQueryId: string;
+    exposureQueryIdentifierType?: string;
+  }) => ({
+    datasource: c.datasourceId ?? "",
+    exposureQueryId: c.exposureQueryId,
+    identifierType: c.exposureQueryIdentifierType,
+  });
+  const exposureQueryIdentifierType = await resolveApiAssignmentQueryIdentifier(
+    context,
+    {
+      previous: previous ? toSelection(previous) : null,
+      next: toSelection(internal),
+      grouped: !!mc.exposureQuery,
+      field: "exposureQuery",
+    },
+  );
+  return exposureQueryIdentifierType === undefined
+    ? internal
+    : { ...internal, exposureQueryIdentifierType };
 }
 
 export function monitoringConfigToApi(
@@ -881,13 +919,8 @@ export class RampScheduleModel extends BaseClass {
       updates.lockdownConfig = body.lockdownConfig;
     }
     if (body.monitoringConfig !== undefined) {
-      await assertApiAssignmentQueryRefHasIdentifierType(this.context, {
-        datasourceId: body.monitoringConfig?.datasourceId,
-        ref: body.monitoringConfig?.exposureQuery,
-        field: "exposureQuery",
-        currentExposureQueryId: schedule.monitoringConfig?.exposureQueryId,
-      });
-      const monitoringConfig = apiMonitoringConfigToInternal(
+      const monitoringConfig = await resolveApiMonitoringConfig(
+        this.context,
         body.monitoringConfig,
         schedule.monitoringConfig,
       );

@@ -89,6 +89,12 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   registerRevisionPublishedHook: jest.fn(),
 }));
 
+// These mock contexts have no request data source cache.
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock("back-end/src/models/EventModel", () => ({
   createEvent: jest.fn(),
 }));

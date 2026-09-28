@@ -10,6 +10,7 @@ import {
   assertAssignmentQueryRefIdentifierType,
   assertValidAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
+  parseAssignmentQuerySelection,
 } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -47,6 +48,52 @@ export async function loadChangedAssignmentQuerySelection(
     return null;
   }
   return datasource;
+}
+
+/**
+ * For REST writes of records that store their selection as given (templates,
+ * ramps): the identifier to store. Naming the same query without one keeps the
+ * stored identifier; a new or changed selection is validated and resolved, and
+ * the grouped field must name one when the query declares several.
+ */
+export async function resolveApiAssignmentQueryIdentifier(
+  context: ReqContext | ApiReqContext,
+  {
+    previous,
+    next,
+    grouped,
+    field,
+  }: {
+    previous: AssignmentQuerySelection | null;
+    next: AssignmentQuerySelection;
+    grouped: boolean;
+    field: "assignmentQuery" | "exposureQuery";
+  },
+): Promise<string | undefined> {
+  const sameQuery =
+    previous?.datasource === next.datasource &&
+    previous?.exposureQueryId === next.exposureQueryId;
+  const identifierType =
+    next.identifierType ||
+    (sameQuery ? previous?.identifierType : undefined) ||
+    undefined;
+  const datasource = await loadChangedAssignmentQuerySelection(
+    context,
+    previous,
+    { ...next, identifierType },
+  );
+  if (!datasource) return identifierType;
+  const parsed = parseAssignmentQuerySelection(
+    datasource.settings.queries?.exposure ?? [],
+    {
+      exposureQueryId: next.exposureQueryId,
+      identifierType,
+      onOmitted: grouped ? "requireUnambiguous" : "defaultToFirst",
+      field,
+    },
+  );
+  if (!parsed.ok) throw new Error(parsed.error);
+  return parsed.identifierType;
 }
 
 // Only a changed selection is validated, so a record whose query later drifted

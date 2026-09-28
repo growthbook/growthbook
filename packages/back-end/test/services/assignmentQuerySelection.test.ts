@@ -1,5 +1,8 @@
 import { DataSourceInterface } from "shared/types/datasource";
-import { loadChangedAssignmentQuerySelection } from "back-end/src/services/assignmentQuerySelection";
+import {
+  loadChangedAssignmentQuerySelection,
+  resolveApiAssignmentQueryIdentifier,
+} from "back-end/src/services/assignmentQuerySelection";
 import { ReqContext } from "back-end/types/request";
 
 const datasource = {
@@ -89,5 +92,57 @@ describe("loadChangedAssignmentQuerySelection", () => {
         exposureQueryId: "",
       }),
     ).toBeNull();
+  });
+});
+
+describe("resolveApiAssignmentQueryIdentifier", () => {
+  const stored = { ...legacy, identifierType: "anonymous_id" };
+
+  it("keeps the stored identifier when re-sending the same query without one", async () => {
+    const { context } = makeContext();
+    expect(
+      await resolveApiAssignmentQueryIdentifier(context, {
+        previous: stored,
+        next: legacy,
+        grouped: true,
+        field: "exposureQuery",
+      }),
+    ).toBe("anonymous_id");
+  });
+
+  it("defaults a new selection without one to the query's first", async () => {
+    const { context } = makeContext();
+    expect(
+      await resolveApiAssignmentQueryIdentifier(context, {
+        previous: null,
+        next: legacy,
+        grouped: false,
+        field: "exposureQuery",
+      }),
+    ).toBe("user_id");
+  });
+
+  it("doesn't carry the old identifier to a different query", async () => {
+    const { context } = makeContext();
+    await expect(
+      resolveApiAssignmentQueryIdentifier(context, {
+        previous: { ...stored, exposureQueryId: "eq_old" },
+        next: legacy,
+        grouped: false,
+        field: "exposureQuery",
+      }),
+    ).resolves.toBe("user_id");
+  });
+
+  it("requires the grouped field to name one on an ambiguous query", async () => {
+    const { context } = makeContext();
+    await expect(
+      resolveApiAssignmentQueryIdentifier(context, {
+        previous: null,
+        next: legacy,
+        grouped: true,
+        field: "exposureQuery",
+      }),
+    ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
   });
 });

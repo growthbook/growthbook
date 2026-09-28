@@ -2,30 +2,37 @@ import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   ApiRampMonitoringConfig,
-  ApiRampMonitoringConfigInput,
   ApiRampScheduleTemplateInterface,
   RampScheduleTemplateInterface,
   rampScheduleTemplateValidator,
 } from "shared/validators";
 import { rampScheduleTemplateApiSpec } from "back-end/src/api/specs/ramp-schedule-template.spec";
-import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
+import { assertValidAssignmentQuerySelectionChange } from "back-end/src/services/assignmentQuerySelection";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import { MakeModelClass } from "./BaseModel";
 import {
-  apiMonitoringConfigToInternal,
   migrateRampStepTriggers,
   monitoringConfigToApi,
+  resolveApiMonitoringConfig,
 } from "./RampScheduleModel";
 
 // Translates the API's grouped monitoringConfig.exposureQuery to the flat
-// stored shape; `null` (clear) and absent pass through.
-function withInternalMonitoringConfig<
+// stored shape, resolving its identifier; `null` (clear) and absent pass
+// through.
+async function withInternalMonitoringConfig<
   T extends { monitoringConfig?: ApiRampMonitoringConfig | null },
->(body: T, previous?: RampScheduleTemplateInterface["monitoringConfig"]) {
+>(
+  context: ReqContext | ApiReqContext,
+  body: T,
+  previous: RampScheduleTemplateInterface["monitoringConfig"] | undefined,
+) {
   if (!body.monitoringConfig) return body;
   return {
     ...body,
-    monitoringConfig: apiMonitoringConfigToInternal(
+    monitoringConfig: await resolveApiMonitoringConfig(
+      context,
       body.monitoringConfig,
       previous,
     ),
@@ -121,8 +128,8 @@ export class RampScheduleTemplateModel extends BaseClass {
   protected async processApiCreateBody(
     rawBody: unknown,
   ): Promise<CreateProps<RampScheduleTemplateInterface>> {
-    await this.assertApiMonitoringIdentifierType(rawBody, null);
-    const body = withInternalMonitoringConfig(
+    const body = (await withInternalMonitoringConfig(
+      this.context,
       rawBody as Omit<
         CreateProps<RampScheduleTemplateInterface>,
         "monitoringConfig"
@@ -130,7 +137,8 @@ export class RampScheduleTemplateModel extends BaseClass {
         order?: number;
         monitoringConfig?: ApiRampMonitoringConfig | null;
       },
-    ) as CreateProps<RampScheduleTemplateInterface> & { order?: number };
+      null,
+    )) as CreateProps<RampScheduleTemplateInterface> & { order?: number };
     return { ...body, order: body.order ?? (await this.getNextOrder()) };
   }
 
@@ -141,34 +149,43 @@ export class RampScheduleTemplateModel extends BaseClass {
   ) {
     const { id } = req.params as { id: string };
     const existing = await this.getById(id);
-    await this.assertApiMonitoringIdentifierType(req.body, existing);
-    const toUpdate = withInternalMonitoringConfig(
+    const toUpdate = (await withInternalMonitoringConfig(
+      this.context,
       req.body as Omit<
         UpdateProps<RampScheduleTemplateInterface>,
         "monitoringConfig"
       > & { monitoringConfig?: ApiRampMonitoringConfig | null },
       existing?.monitoringConfig,
-    ) as UpdateProps<RampScheduleTemplateInterface>;
+    )) as UpdateProps<RampScheduleTemplateInterface>;
     return resolveOwnerEmail(
       this.toApiInterface(await this.updateById(id, toUpdate)),
       this.context,
     );
   }
 
-  private async assertApiMonitoringIdentifierType(
-    rawBody: unknown,
-    existing: RampScheduleTemplateInterface | null,
+  // Internal writes too; templates aren't tied to a Project, so no scope.
+  protected override async customValidation(
+    doc: RampScheduleTemplateInterface,
+    previousDoc?: RampScheduleTemplateInterface,
   ) {
-    const mc = (
-      rawBody as { monitoringConfig?: ApiRampMonitoringConfigInput | null }
-    )?.monitoringConfig;
-    if (!mc) return;
-    await assertApiAssignmentQueryRefHasIdentifierType(this.context, {
-      datasourceId: mc.datasourceId,
-      ref: mc.exposureQuery,
-      field: "exposureQuery",
-      currentExposureQueryId: existing?.monitoringConfig?.exposureQueryId,
-    });
+    const next = doc.monitoringConfig;
+    if (!next) return;
+    const previous = previousDoc?.monitoringConfig;
+    await assertValidAssignmentQuerySelectionChange(
+      this.context,
+      previous
+        ? {
+            datasource: previous.datasourceId,
+            exposureQueryId: previous.exposureQueryId,
+            identifierType: previous.exposureQueryIdentifierType,
+          }
+        : null,
+      {
+        datasource: next.datasourceId,
+        exposureQueryId: next.exposureQueryId,
+        identifierType: next.exposureQueryIdentifierType,
+      },
+    );
   }
 
   // The monitoring data source is nested, so BaseModel wouldn't cache it.
