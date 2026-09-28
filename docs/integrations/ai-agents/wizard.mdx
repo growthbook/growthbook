@@ -1,0 +1,165 @@
+---
+title: "Set Up GrowthBook With the Wizard"
+description: "Run one command to sign in, create an SDK Connection, and install the GrowthBook SDK. Your coding agent then wires it into your app and adds your first Feature Flag."
+keywords: [wizard, onboarding, AI, Claude Code, Cursor, Codex, SDK setup]
+sidebarTitle: Setup Wizard
+---
+
+The GrowthBook Wizard gets the SDK into an existing codebase with one command. It handles the parts that don't need judgment: sign-in, the SDK Connection, and package installation. Then it hands off to your coding agent, which connects the SDK to your app, suggests targeting attributes, and puts your first Feature Flag in place.
+
+You don't copy any keys. The wizard signs you in through your browser and writes the SDK's public client key into your project.
+
+```bash
+npx @growthbook/wizard
+```
+
+<Info>
+**Open source**
+
+The wizard is published on npm as [`@growthbook/wizard`](https://www.npmjs.com/package/@growthbook/wizard). The source is at [github.com/growthbook/onboarding-wizard](https://github.com/growthbook/onboarding-wizard).
+
+</Info>
+
+## Prerequisites
+
+- **A GrowthBook account:** [GrowthBook Cloud](https://app.growthbook.io) or a self-hosted instance. You sign in during setup.
+- **Node.js 22.20.0 or newer:** Node.js 24 LTS is recommended. Check your version with `node -v`.
+- **A coding agent:** Claude Code, Cursor, Codex, opencode, Gemini CLI, or Antigravity.
+- **Your project's repository:** run the wizard from its root directory.
+
+## Get the command from GrowthBook
+
+The quickest way to start is from the app:
+
+1. Go to **Get Started** &rarr; **Connect Your SDK**.
+2. Select your SDK language.
+3. On the **AI-assisted** tab, choose your **Coding agent**.
+4. Copy the command and run it from your project directory.
+
+The command includes your language and agent, so the wizard doesn't ask for them:
+
+```bash
+npx @growthbook/wizard --language react --claude
+```
+
+The **Manual setup** tab has the same installation and setup snippets that the [SDK docs](/lib) describe. Use it if you'd rather integrate the SDK by hand.
+
+<Note>
+No-code platforms (Webflow, WordPress, Shopify), Roku, and the generic script tag have no package to install, so they only offer manual setup.
+
+</Note>
+
+## Run the wizard
+
+You can run the wizard in a terminal or from inside your agent.
+
+<Tabs>
+  <Tab title="In a terminal">
+
+From your project directory, run:
+
+```bash
+npx @growthbook/wizard
+```
+
+When the wizard finishes its steps, it opens your coding agent with the setup instructions already loaded.
+
+  </Tab>
+  <Tab title="Inside your agent">
+
+In Claude Code, prefix the command with `!` so it runs in your session:
+
+```text
+!npx @growthbook/wizard
+```
+
+In Cursor or another agent, ask it to run `npx @growthbook/wizard`. The wizard sees that it's inside an agent. Instead of launching another one, it prints the setup instructions, and your agent continues from the command output.
+
+  </Tab>
+</Tabs>
+
+## What happens
+
+<Steps>
+  <Step title="Sign in">
+    The wizard opens GrowthBook in your browser. Approve access, and choose an organization if you belong to more than one. Your sign-in stays inside the wizard's helper scripts. Your coding agent never sees it.
+  </Step>
+  <Step title="Detect your project">
+    The wizard reads your repository to find the language, framework, and package manager. To skip detection, pass `--language`.
+  </Step>
+  <Step title="Create an SDK Connection">
+    The wizard creates an SDK Connection for your language in the `dev` environment. If a connection with the same name, language, environment, and project already exists, the wizard reuses it. If your organization has no `dev` environment, the wizard creates one.
+  </Step>
+  <Step title="Install the SDK">
+    The wizard installs the SDK package with your package manager. It writes the client key to your `.env` file with your framework's environment-variable prefix and adds that file to `.gitignore`. The client key is public by design, because it ships in your app's bundle.
+  </Step>
+  <Step title="Install the skills">
+    The wizard installs the GrowthBook setup skill and the [GrowthBook Agent Skills](/integrations/ai-agents/agent-skills) library for your agent. You can then keep working with Feature Flags and experiments after setup.
+  </Step>
+  <Step title="Hand off to your agent">
+    The wizard opens your agent with the setup instructions. Your agent then:
+
+    - Proposes a plan and waits for your approval before it changes any files.
+    - Connects the SDK to your app and checks that the project still builds.
+    - Finds targeting attributes in your code, such as user ID or plan, and adds the ones you select to GrowthBook.
+    - Puts a behavior you choose behind your first Feature Flag.
+    - Runs its checks and opens the setup report in GrowthBook.
+
+  </Step>
+</Steps>
+
+Claude Code, Cursor, Codex, and opencode open with the instructions loaded. Antigravity opens on your project with the instructions on your clipboard. For Gemini CLI, the wizard prints the instructions for you to paste.
+
+## Review the setup report
+
+When your agent finishes, GrowthBook opens a report of the setup:
+
+- **Created During Setup:** the SDK Connection, Feature Flag, and anything else created for you. Open each item to review its settings.
+- **Configured by Your Agent:** the targeting attributes and other settings your agent added.
+- **Checks:** whether the SDK is installed, imported, configured, and used by a Feature Flag in your code.
+
+The report checks your code. It doesn't claim your app is live. The SDK Connection shows as connected after your app first requests features from GrowthBook.
+
+The **Get Started** page links to your most recent report. It shows a warning while any required check fails. After every required check passes, you can dismiss it.
+
+## Resume an interrupted setup
+
+Your agent records its progress in `GROWTHBOOK_SETUP.md` at the root of your repository. If the session ends or a teammate takes over, run the wizard again or ask your agent to continue the GrowthBook setup. The agent reads the file and continues from the last completed step.
+
+To start over with a new report, run the wizard with `--fresh`. The `--fresh` option signs you out first. If your settings haven't changed, the wizard still reuses your existing SDK Connection.
+
+## Options
+
+| Option                                                                       | Description                                                                                                           |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `--language <language>`                                                      | Skip detection, for example `react`, `nextjs`, `nodejs`, or `javascript`.                                             |
+| `--claude`, `--cursor`, `--codex`, `--opencode`, `--gemini`, `--antigravity` | Choose your coding agent. The wizard installs its skills and opens it.                                                |
+| `--agent none`                                                               | Don't open an agent. Print the instructions instead.                                                                  |
+| `--print-prompt`                                                             | Always print the instructions. Never open an agent.                                                                   |
+| `--project <id>`                                                             | Scope the SDK Connection and first Feature Flag to a GrowthBook [project](/using/growthbook-best-practices#projects). |
+| `--environment <name>`                                                       | Use `dev`, `staging`, or `production`. Defaults to `dev`.                                                             |
+| `--name <name>`                                                              | Name for the SDK Connection. Defaults to the name in `package.json`.                                                  |
+| `--org <id>`                                                                 | Preselect an organization on the sign-in screen.                                                                      |
+| `--api-host <url>`                                                           | Your GrowthBook API host. Defaults to `https://api.growthbook.io`.                                                    |
+| `--app-origin <url>`                                                         | Your GrowthBook app URL, if it differs from what your API host reports.                                               |
+| `--fresh`                                                                    | Sign out and start a new setup report.                                                                                |
+| `--no-open`                                                                  | Don't open the setup report when setup finishes.                                                                      |
+| `-y`, `--yes`                                                                | Accept the defaults without asking.                                                                                   |
+| `--help`                                                                     | Show all options.                                                                                                     |
+
+## Self-hosted GrowthBook
+
+The wizard uses GrowthBook Cloud by default. For a self-hosted instance, pass your API host:
+
+```bash
+npx @growthbook/wizard --api-host https://api.growthbook.example.com
+```
+
+If your app runs at a different URL than your API reports, also pass `--app-origin`. When you copy the command from **Connect Your SDK** on a self-hosted instance, the command already includes `--api-host`.
+
+## Next steps
+
+- [Feature Flag Basics](/features/basics)
+- [Keep working with the GrowthBook Agent Skills](/integrations/ai-agents/agent-skills)
+- [Connect the MCP Server](/integrations/mcp)
+- [Browse the SDK docs](/lib)
