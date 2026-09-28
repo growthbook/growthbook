@@ -33,11 +33,27 @@ export default function EditFactTableSQLModal({
 }: Props) {
   const { getDatasourceById } = useDefinitions();
   const [eventName, setEventName] = useState(factTable.eventName);
-  // useState is not updated unitl a re-render, so use useRef instead for this
-  const userIdTypes = useRef(factTable.userIdTypes);
+  // useState is not updated until a re-render, so use useRef instead for this.
+  // Stays null unless a test query returns rows to narrow the id types from.
+  const userIdTypesFromResults = useRef<string[] | null>(null);
 
   const selectedDataSource = getDatasourceById(factTable.datasource);
   const timestampColumn = getFactTableTimestampColumn(factTable);
+
+  const possibleUserIdTypes =
+    selectedDataSource?.settings?.userIdTypes?.map((t) => t.userIdType) || [];
+  const getIdColumn = (idType: string) =>
+    getFactTableIdColumn(factTable, idType).split(".")[0];
+
+  // Without result rows (test skipped or no rows returned), keep the id types
+  // whose columns appear in the SQL, matching the check validateSQL runs on save
+  const getUserIdTypesFromSql = (sql: string) => {
+    if (!possibleUserIdTypes.length) return factTable.userIdTypes;
+    if (sql.match(/SELECT\s+\*/i)) return possibleUserIdTypes;
+    return possibleUserIdTypes.filter((idType) =>
+      sql.toLowerCase().includes(getIdColumn(idType).toLowerCase()),
+    );
+  };
 
   return (
     <EditSqlModal
@@ -51,7 +67,8 @@ export default function EditFactTableSQLModal({
       save={async (sql) => {
         await save({
           eventName,
-          userIdTypes: userIdTypes.current,
+          userIdTypes:
+            userIdTypesFromResults.current ?? getUserIdTypesFromSql(sql),
           sql,
         });
       }}
@@ -66,15 +83,9 @@ export default function EditFactTableSQLModal({
           throw new Error(`Must select a column named '${timestampColumn}'`);
         }
 
-        const possibleUserIdTypes =
-          selectedDataSource?.settings?.userIdTypes?.map((t) => t.userIdType) ||
-          [];
-        const identifierColumns = possibleUserIdTypes.map(
-          (idType) => getFactTableIdColumn(factTable, idType).split(".")[0],
-        );
+        const identifierColumns = possibleUserIdTypes.map(getIdColumn);
         const newUserIdTypes = possibleUserIdTypes.filter(
-          (idType) =>
-            getFactTableIdColumn(factTable, idType).split(".")[0] in response,
+          (idType) => getIdColumn(idType) in response,
         );
 
         if (!newUserIdTypes.length) {
@@ -85,7 +96,7 @@ export default function EditFactTableSQLModal({
           );
         }
 
-        userIdTypes.current = newUserIdTypes;
+        userIdTypesFromResults.current = newUserIdTypes;
       }}
     />
   );
