@@ -184,7 +184,7 @@ export default function MyApp({ Component, pageProps }) {
 }
 ```
 
-This code adds the `id` with in GrowthBook to the Rudderstack anonymous_id. If you want to load user_id as well as anonymous_id you'll have to add this id to the setAttribute, and also call the `rudder.identify()` with the user_id info.
+This code adds the `id` within GrowthBook to the Rudderstack anonymous_id. If you want to load user_id as well as anonymous_id you'll have to add this id to the setAttribute, and also call the `rudder.identify()` with the user_id info.
 
 Finally, wrap your Next.js project in the GrowthBookProvider component, so we can use the GrowthBook methods throughout the codebase without doing addition instantiation.
 

@@ -101,7 +101,7 @@ If you were to only use `userId` to assign variations, signing in could become a
 
 If instead, you were to only use the anonymous `cookieId` to assign variations, it solves the issue where the UI flips during sign in (since the anonymous id stays the same before and after), but now switching devices could become a jarring experience - the same user might get assigned different variations on different devices, since each device would have its own separate anonymous id.
 
-Fallback attributes, when implemented properly with sticky bucketing, lets you have the best of both worlds (with some caveats). Your primary hashing attribute would be the logged-in `userId` and your fallback attribute would be the anonymous `cookieId`.
+Fallback attributes, when implemented properly with sticky bucketing, let you have the best of both worlds (with some caveats). Your primary hashing attribute would be the logged-in `userId` and your fallback attribute would be the anonymous `cookieId`.
 
 The very first variation a user is assigned to will "stick" to them and follow them across devices. So if a visitor lands on your website, gets assigned variation B (from their fallback attribute), and then logs in, they will continue seeing variation B, even though they now have a `userId` attribute. If that same user then logs into your app on a new device, they again will continue seeing variation B.
 
@@ -112,7 +112,7 @@ There are 2 caveats with fallback attributes:
 
 ### Bias Risk
 
-To understand the risk of bias, lets focus on a user switching devices. During analysis, we will have to use the anonymous `cookieId` as the experimental unit to make sure we capture everyone in the experiment, even those who never logged in. When a user logs in on two devices, they will be seen as two separate "users" in the analysis since each device has its own cookie id. Because of the fallback attribute and sticky bucketing, however, they will both get assigned the same variation. This breaks one of the statistical assumptions of A/B testing - that each user is randomly assigned a variation. Let's see how this might play out to cause bias in your results.
+To understand the risk of bias, let's focus on a user switching devices. During analysis, we will have to use the anonymous `cookieId` as the experimental unit to make sure we capture everyone in the experiment, even those who never logged in. When a user logs in on two devices, they will be seen as two separate "users" in the analysis since each device has its own cookie id. Because of the fallback attribute and sticky bucketing, however, they will both get assigned the same variation. This breaks one of the statistical assumptions of A/B testing - that each user is randomly assigned a variation. Let's see how this might play out to cause bias in your results.
 
 Imagine your variation causes people to use multiple devices more often than your control does. 200 people land on your website and get split into control and variation - 100 in each. In the control, 20 of them also log in on their phone, but in the variation 60 of them log in on their phone. In your analysis, you have 280 total anonymous ids and you expect them to be split evenly - 140 each. In reality, the control would have 120 ids while the variation has 160. A difference this extreme is easy to spot in the results (GrowthBook runs Sample Ratio Mismatch tests automatically to catch exactly this type of bug), however there are many similar, but more subtle, issues that may fly under the radar.
 
