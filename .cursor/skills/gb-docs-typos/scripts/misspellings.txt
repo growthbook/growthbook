@@ -1,0 +1,29 @@
+Arroval->Approval
+bernouli->bernoulli
+cacapbilities->capabilities
+colun->column
+coverrage->coverage
+databecause->data because
+Dimenision->Dimension
+evalutead->evaluated
+fecth->fetch
+flexibile->flexible
+goverend->governed
+hypothesises->hypotheses
+Inferes->Infers
+Inremental->Incremental
+insteadd->instead
+meric->metric
+noisely->noisily
+numberline->number line
+organzation->organization
+probabiity->probability
+reivew->review
+slahes->slashes
+snapshto->snapshot
+strikethough->strikethrough
+terrabytes->terabytes
+unpatchd->unpatched
+valdidate->validate
+virtualizaed->virtualized
+Yor->You
