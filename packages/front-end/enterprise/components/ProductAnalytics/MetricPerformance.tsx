@@ -145,7 +145,12 @@ export default function MetricPerformance({
   const denominatorFactTable = getFactTableById(
     metric?.denominator?.factTableId ?? "",
   );
-  const dateRange = useMemo(() => getMetricPreviewDateRange(), []);
+  // Recompute when the UTC day rolls over so "last 7 days" doesn't go stale.
+  const utcToday = new Date().toISOString().slice(0, 10);
+  const dateRange = useMemo(
+    () => getMetricPreviewDateRange(new Date(`${utcToday}T00:00:00Z`)),
+    [utcToday],
+  );
   const config = useMemo(
     () =>
       metric

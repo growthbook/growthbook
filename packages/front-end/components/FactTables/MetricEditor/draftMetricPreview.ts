@@ -72,3 +72,26 @@ export function getMetricPreviewUnavailableReason(
   }
   return null;
 }
+
+// The preview is a plain daily query, not an experiment analysis: it caps each
+// row instead of each unit's total, and it has no exposure to anchor windows.
+export function getMetricPreviewCaveat(
+  metric: Pick<
+    FactMetricInterface,
+    "metricType" | "cappingSettings" | "lowerCappingSettings" | "windowSettings"
+  >,
+): string | null {
+  if (metric.metricType === "funnel") return null;
+  const parts: string[] = [];
+  if (metric.windowSettings.type || metric.windowSettings.delayValue) {
+    parts.push("ignores metric windows and delays");
+  }
+  if (metric.cappingSettings.type && metric.metricType !== "proportion") {
+    parts.push("caps each event instead of each unit's total");
+  }
+  if (metric.lowerCappingSettings?.type) {
+    parts.push("ignores the lower cap");
+  }
+  if (!parts.length) return null;
+  return `The preview ${parts.join(", and ")}. Experiment results will differ.`;
+}
