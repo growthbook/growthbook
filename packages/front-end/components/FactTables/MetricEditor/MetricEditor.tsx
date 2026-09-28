@@ -303,7 +303,6 @@ export default function MetricEditor({
           )}
 
         <Frame px="4" py="4" mb="0">
-
           <Heading as="h4" size="sm" mb="1">
             Definition
           </Heading>
@@ -328,7 +327,8 @@ export default function MetricEditor({
               >
                 {availableFactTables.map((ft) => (
                   <SelectItem key={ft.id} value={ft.id}>
-                    {ft.name}
+                    {ft.name} (
+                    {getDatasourceById(ft.datasource)?.name || ft.datasource})
                   </SelectItem>
                 ))}
               </Select>
