@@ -54,7 +54,7 @@ const POLICY_OPTIONS: {
     value: "any",
     label: "Any application",
     description:
-      "Members can authorize any OAuth application, such as MCP clients and the GrowthBook CLI.",
+      "Members can authorize any OAuth application, such as MCP clients.",
   },
   {
     value: "org-apps",
@@ -62,7 +62,7 @@ const POLICY_OPTIONS: {
     description:
       "Members can authorize only the apps registered below. Tokens held by other applications stop working.",
     confirm:
-      "Tokens held by applications not registered below stop working immediately, including MCP clients and the GrowthBook CLI. Switching back to Any application restores them.",
+      "Tokens held by applications not registered below stop working immediately, including MCP clients. Switching back to Any application restores them.",
   },
   {
     value: "none",
@@ -70,7 +70,7 @@ const POLICY_OPTIONS: {
     description:
       "Every OAuth token stops working and members can't authorize new applications.",
     confirm:
-      "Every OAuth token stops working immediately, including MCP clients and the GrowthBook CLI. Members won't be able to authorize new applications. Switching the setting back restores the tokens.",
+      "Every OAuth token stops working immediately, including MCP clients. Members won't be able to authorize new applications. Switching the setting back restores the tokens.",
   },
 ];
 
