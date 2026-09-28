@@ -1,7 +1,7 @@
-import type { DataType } from "shared/types/integrations";
 import { createLikeMatchFns } from "shared/sql";
+import type { DataType } from "shared/types/integrations";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
-import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
 
 const baseEscapeStringLiteral = (value: string) => value.replace(/'/g, `''`);
 

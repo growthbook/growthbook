@@ -286,7 +286,7 @@ function buildSnowflakeStoredConfigFromDraft(
   const authMethod = datasourceParams?.authMethod ?? "password";
   if (authMethod !== "key-pair") {
     throw new Error(
-      "Snowflake event forwarder requires key-pair authentication. Password authentication is supported for Snowflake queries, but Confluent Snowflake Sink provisioning requires a private key.",
+      "Snowflake event forwarder requires key-pair authentication. Password and Workload Identity authentication are supported for Snowflake queries, but Confluent Snowflake Sink provisioning requires a private key.",
     );
   }
 
