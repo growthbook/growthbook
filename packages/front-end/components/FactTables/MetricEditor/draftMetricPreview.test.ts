@@ -229,5 +229,15 @@ describe("getMetricPreviewCaveat", () => {
     ).toBe(
       "The preview ignores the lower cap. Experiment results will differ.",
     );
+    expect(
+      getMetricPreviewCaveat({
+        metricType: "mean",
+        cappingSettings: { type: "absolute", value: 10 },
+        lowerCappingSettings: { type: "absolute", value: 0 },
+        windowSettings: { ...noWindow, type: "conversion", windowValue: 3 },
+      }),
+    ).toBe(
+      "The preview ignores metric windows and delays, caps each event instead of each unit's total, and ignores the lower cap. Experiment results will differ.",
+    );
   });
 });

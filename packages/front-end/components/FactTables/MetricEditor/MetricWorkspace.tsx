@@ -359,7 +359,7 @@ export default function MetricWorkspace({
         {floating && (
           <Flex direction="column" className={styles.title}>
             <Text weight="semibold" truncate>
-              {form.watch("name") || "New Metric"}
+              {form.watch("name") || "New Fact Metric"}
             </Text>
             <Text size="sm" color="text-mid">
               {existing ? "Unsaved changes" : "Unsaved draft"}
