@@ -246,7 +246,7 @@ export default function MetricEditor({
               Switching to Ratio automatically changed absolute capping to
               percentile capping and reset the value to 0. Choose a percentile
               before saving in Advanced settings → Analysis settings → &quot;Cap
-              User Values?&quot;.
+              user values&quot; → &quot;Percentile value&quot;.
             </Callout>
           )}
 
