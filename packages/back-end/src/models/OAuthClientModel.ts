@@ -97,18 +97,16 @@ export async function createOAuthClient(
 export async function getOAuthClientById(
   clientId: string,
 ): Promise<OAuthClientInterface | null> {
-  const doc = await OAuthClientModel.findOne({ clientId }).lean();
-  return doc as OAuthClientInterface | null;
+  return OAuthClientModel.findOne<OAuthClientInterface>({ clientId }).lean();
 }
 
 export async function getOAuthClientsByIds(
   clientIds: string[],
 ): Promise<OAuthClientInterface[]> {
   if (!clientIds.length) return [];
-  const docs = await OAuthClientModel.find({
+  return OAuthClientModel.find<OAuthClientInterface>({
     clientId: { $in: clientIds },
   }).lean();
-  return docs as OAuthClientInterface[];
 }
 
 /** Reset idle TTL on token issuance. Org apps have no TTL and are skipped. */
@@ -165,18 +163,23 @@ export async function createOrgOAuthApp(
 export async function getOrgOAuthApps(
   organization: string,
 ): Promise<OAuthAppInterface[]> {
-  const docs = await OAuthClientModel.find({ organization })
+  const docs = await OAuthClientModel.find<OAuthClientInterface>({
+    organization,
+  })
     .sort({ dateCreated: -1 })
     .lean();
-  return (docs as OAuthClientInterface[]).map(toOAuthApp);
+  return docs.map(toOAuthApp);
 }
 
 export async function getOrgOAuthApp(
   organization: string,
   clientId: string,
 ): Promise<OAuthAppInterface | null> {
-  const doc = await OAuthClientModel.findOne({ organization, clientId }).lean();
-  return doc ? toOAuthApp(doc as OAuthClientInterface) : null;
+  const doc = await OAuthClientModel.findOne<OAuthClientInterface>({
+    organization,
+    clientId,
+  }).lean();
+  return doc ? toOAuthApp(doc) : null;
 }
 
 export async function updateOrgOAuthApp(
@@ -184,7 +187,7 @@ export async function updateOrgOAuthApp(
   clientId: string,
   props: OAuthAppProps,
 ): Promise<OAuthAppInterface | null> {
-  const doc = await OAuthClientModel.findOneAndUpdate(
+  const doc = await OAuthClientModel.findOneAndUpdate<OAuthClientInterface>(
     { organization, clientId },
     {
       $set: {
@@ -197,7 +200,7 @@ export async function updateOrgOAuthApp(
     },
     { new: true },
   ).lean();
-  return doc ? toOAuthApp(doc as OAuthClientInterface) : null;
+  return doc ? toOAuthApp(doc) : null;
 }
 
 /** Replaces the secret; the old one stops working immediately. */

@@ -162,12 +162,12 @@ const OAuthAppsSettings: FC = () => {
         }))}
         value={policy}
         setValue={(value) => {
-          const next = value as OAuthAccessPolicy;
-          if (next === policy) return;
-          if (POLICY_OPTIONS.find((o) => o.value === next)?.confirm) {
-            setPendingPolicy(next);
+          const option = POLICY_OPTIONS.find((o) => o.value === value);
+          if (!option || option.value === policy) return;
+          if (option.confirm) {
+            setPendingPolicy(option.value);
           } else {
-            void savePolicy(next);
+            void savePolicy(option.value);
           }
         }}
       />
