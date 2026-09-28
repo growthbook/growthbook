@@ -1,6 +1,8 @@
 import {
   ExplorationConfig,
   draftExplorationMetricValidator,
+  explorationConfigValidator,
+  internalExplorationConfigValidator,
 } from "shared/validators";
 import { FactTableInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
@@ -8,6 +10,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import { BadRequestError } from "back-end/src/util/errors";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
@@ -64,6 +67,14 @@ const makeConfig = (
   },
 });
 
+const makePermissions = () => ({
+  canRunProductAnalyticsExplorationQueries: jest.fn(() => true),
+  canCreateFactMetric: jest.fn(() => true),
+  throwPermissionError: jest.fn(() => {
+    throw new Error("permission denied");
+  }),
+});
+
 const makeFactTable = (
   id: string,
   userIdTypes: string[] = ["user_id"],
@@ -77,6 +88,7 @@ const makeFactTable = (
 describe("runProductAnalyticsExploration funnel validation", () => {
   const create = jest.fn();
   const context = {
+    permissions: makePermissions(),
     models: {
       analyticsExplorations: {
         findLatestByConfig: jest.fn(),
@@ -202,14 +214,18 @@ describe("draft metric explorations", () => {
       ],
     },
   };
-  const getByIds = jest.fn().mockResolvedValue([]);
+  const getByIds = jest.fn(async () => []);
   const create = jest.fn();
+  const findLatestByConfig = jest.fn();
+  const permissions = makePermissions();
   const context = {
     org: { id: "org_1" },
+    permissions,
     models: {
       factMetrics: { getByIds },
       analyticsExplorations: {
         create,
+        findLatestByConfig,
         getConfigHashes: jest.fn(() => {
           throw new Error("query boundary");
         }),
@@ -222,11 +238,14 @@ describe("draft metric explorations", () => {
     getDataSourceByIdMock.mockResolvedValue({ id: "ds_1", type: "postgres" });
     getFactTablesByIdsMock.mockResolvedValue([makeFactTable("ft_1")]);
     jest.mocked(FactMetricModel.validateFactMetric).mockResolvedValue();
+    permissions.canRunProductAnalyticsExplorationQueries.mockReturnValue(true);
+    permissions.canCreateFactMetric.mockReturnValue(true);
   });
+  const internal = { cache: "never", allowDraftMetrics: true } as const;
 
   it("uses and validates the unsaved calculation without loading a saved metric", async () => {
     await expect(
-      runProductAnalyticsExploration(context, config, { cache: "never" }),
+      runProductAnalyticsExploration(context, config, internal),
     ).rejects.toThrow("query boundary");
     expect(getByIds).toHaveBeenCalledWith([]);
     expect(FactMetricModel.validateFactMetric).toHaveBeenCalledWith(
@@ -243,13 +262,54 @@ describe("draft metric explorations", () => {
     expect(getFactTablesByIdsMock).toHaveBeenCalledWith(context, ["ft_1"]);
   });
 
-  it("propagates metric validation failures before creating or running a query", async () => {
+  it("turns metric validation failures into a BadRequestError before creating a query", async () => {
     jest
       .mocked(FactMetricModel.validateFactMetric)
       .mockRejectedValueOnce(new Error("Could not find numerator fact table"));
+    const run = runProductAnalyticsExploration(context, config, internal);
+    await expect(run).rejects.toThrow(BadRequestError);
+    await expect(run).rejects.toThrow("Could not find numerator fact table");
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects without run-queries permission before the cache or any warehouse query", async () => {
+    permissions.canRunProductAnalyticsExplorationQueries.mockReturnValue(false);
+    await expect(
+      runProductAnalyticsExploration(context, config, {
+        cache: "preferred",
+        allowDraftMetrics: true,
+      }),
+    ).rejects.toThrow("permission denied");
+    expect(findLatestByConfig).not.toHaveBeenCalled();
+    expect(FactMetricModel.validateFactMetric).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a draft the user could not save as a fact metric", async () => {
+    permissions.canCreateFactMetric.mockReturnValue(false);
+    await expect(
+      runProductAnalyticsExploration(context, config, internal),
+    ).rejects.toThrow("permission denied");
+    expect(FactMetricModel.validateFactMetric).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("ignores drafts from callers that do not opt in", async () => {
     await expect(
       runProductAnalyticsExploration(context, config, { cache: "never" }),
-    ).rejects.toThrow("Could not find numerator fact table");
-    expect(create).not.toHaveBeenCalled();
+    ).rejects.toThrow("Metric not found: fact__preview");
+    expect(FactMetricModel.validateFactMetric).not.toHaveBeenCalled();
+  });
+
+  it("keeps draftMetric out of the public validator only", () => {
+    const publicValue = explorationConfigValidator.parse(config).dataset;
+    const internalValue =
+      internalExplorationConfigValidator.parse(config).dataset;
+    expect(
+      publicValue.type === "metric" && publicValue.values[0],
+    ).not.toHaveProperty("draftMetric");
+    expect(
+      internalValue.type === "metric" && internalValue.values[0].draftMetric,
+    ).toEqual(draftMetric);
   });
 });
