@@ -2,7 +2,10 @@ import {
   FactMetricInterface,
   FactTableDefinition,
 } from "shared/types/fact-table";
-import { ProductAnalyticsResultRow } from "shared/validators";
+import {
+  ProductAnalyticsResultRow,
+  factMetricValidator,
+} from "shared/validators";
 import {
   getDefaultFactMetricProps,
   toFactMetricFormValues,
@@ -14,6 +17,7 @@ import {
   getMetricPreviewSummary,
   getMetricPreviewUnits,
   getMetricPreviewUnitLabel,
+  getPreviewDraftMetric,
 } from "./metricPreview";
 
 const numerator = {
@@ -160,6 +164,61 @@ it("uses the selected numerator and denominator identifiers in the query", () =>
       },
     ],
   });
+});
+it("keeps the query identity when only non-query fields change", () => {
+  const options = {
+    draft: true,
+    unit: "user_id",
+    denominatorUnit: null,
+    dateRange: getMetricPreviewDateRange(new Date("2026-10-03T00:00:00Z")),
+  };
+  const base = metric();
+  const edited: FactMetricInterface = {
+    ...base,
+    name: "Revenue",
+    description: "Total revenue",
+    tags: ["core"],
+    owner: "u_1",
+    inverse: true,
+    winRisk: 0.5,
+    loseRisk: 1,
+    minSampleSize: 500,
+    targetMDE: 0.2,
+    displayAsPercentage: true,
+    archived: true,
+    managedBy: "api",
+    regressionAdjustmentOverride: true,
+    regressionAdjustmentEnabled: true,
+    regressionAdjustmentDays: 30,
+    priorSettings: { override: true, proper: true, mean: 1, stddev: 2 },
+    windowSettings: {
+      type: "conversion",
+      delayValue: 1,
+      delayUnit: "hours",
+      windowValue: 3,
+      windowUnit: "days",
+    },
+  };
+  const key = (m: FactMetricInterface) =>
+    JSON.stringify(getMetricPreviewConfig(m, options));
+  expect(key(edited)).toBe(key(base));
+  expect(
+    key({
+      ...base,
+      cappingSettings: { type: "absolute", value: 10, ignoreZeros: false },
+    }),
+  ).not.toBe(key(base));
+  expect(key({ ...base, projects: ["prj_1"] })).not.toBe(key(base));
+  // The server re-parses the draft as a full fact metric.
+  expect(() =>
+    factMetricValidator.parse({
+      ...getPreviewDraftMetric(edited),
+      id: "fact__preview",
+      organization: "org",
+      dateCreated: new Date(0),
+      dateUpdated: new Date(0),
+    }),
+  ).not.toThrow();
 });
 it("offers only identifiers shared by all funnel steps", () => {
   const tables: Record<string, Pick<FactTableDefinition, "userIdTypes">> = {

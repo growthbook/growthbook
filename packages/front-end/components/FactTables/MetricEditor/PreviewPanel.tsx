@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
@@ -6,14 +6,40 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { MetricPreviewSql } from "@/components/FactTables/MetricEditor/previewSql";
 import MetricPerformance from "@/enterprise/components/ProductAnalytics/MetricPerformance";
 import {
   getMetricPreviewUnavailableReason,
   getDraftMetricPreview,
+  getMetricPreviewCaveat,
 } from "./draftMetricPreview";
+import { getPreviewDraftMetric } from "./metricPreview";
 import styles from "./PreviewPanel.module.scss";
+
+const PREVIEW_DEBOUNCE_MS = 500;
+
+// The form hands over a new draft object on every keystroke. Only publish a
+// new preview metric once its query-relevant fields change and then settle,
+// so typing doesn't fire a cache lookup per key.
+function useSettledPreviewMetric(
+  live: FactMetricInterface | null,
+): FactMetricInterface | null {
+  const key = live ? JSON.stringify(getPreviewDraftMetric(live)) : "";
+  const liveRef = useRef(live);
+  liveRef.current = live;
+  const [settled, setSettled] = useState({ key, metric: live });
+  useEffect(() => {
+    if (key === settled.key) return;
+    const timer = setTimeout(
+      () => setSettled({ key, metric: liveRef.current }),
+      PREVIEW_DEBOUNCE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [key, settled.key]);
+  return settled.metric;
+}
 
 export default function PreviewPanel({
   draft,
@@ -25,8 +51,12 @@ export default function PreviewPanel({
   previewSql: MetricPreviewSql | null;
 }) {
   const [view, setView] = useState<"preview" | "sql">("preview");
-  const previewMetric = draft ? getDraftMetricPreview(draft) : (metric ?? null);
+  const liveDraftMetric = draft ? getDraftMetricPreview(draft) : null;
+  const settledDraftMetric = useSettledPreviewMetric(liveDraftMetric);
+  const previewMetric = draft ? settledDraftMetric : (metric ?? null);
   const currentMetric = draft ?? metric;
+  const caveatMetric = draft ? liveDraftMetric : (metric ?? null);
+  const caveat = caveatMetric ? getMetricPreviewCaveat(caveatMetric) : null;
   const unavailableReason = currentMetric
     ? getMetricPreviewUnavailableReason(currentMetric)
     : null;
@@ -55,7 +85,9 @@ export default function PreviewPanel({
             {previewSql?.sql ? (
               <Flex direction="column" gap="4">
                 <Text size="sm" color="text-mid" as="div">
-                  Illustrative SQL showing how this metric is calculated.
+                  Illustrative SQL showing how experiments calculate this
+                  metric. The Preview tab runs a simpler daily query without
+                  exposure, metric windows, or per-unit capping.
                 </Text>
                 <div>
                   <Text weight="semibold" as="div" mb="1">
@@ -114,11 +146,18 @@ export default function PreviewPanel({
                 </Text>
               </Flex>
             ) : (
-              <MetricPerformance
-                metric={previewMetric}
-                datasourceId={currentMetric?.datasource ?? ""}
-                draft={!!draft}
-              />
+              <Flex direction="column" gap="3" minHeight="0">
+                {caveat && (
+                  <Callout status="info" size="sm">
+                    {caveat}
+                  </Callout>
+                )}
+                <MetricPerformance
+                  metric={previewMetric}
+                  datasourceId={currentMetric?.datasource ?? ""}
+                  draft={!!draft}
+                />
+              </Flex>
             )}
           </TabsContent>
         </Box>

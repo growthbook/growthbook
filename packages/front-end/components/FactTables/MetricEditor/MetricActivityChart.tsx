@@ -12,7 +12,7 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { cssColorToHex } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import { getActivityChart } from "./activityChart";
+import { formatUtcWeekday, getActivityChart } from "./activityChart";
 
 function ActivityChart({ revision }: { revision: number }) {
   const { theme } = useAppearanceUITheme();
@@ -86,11 +86,7 @@ function ActivityChart({ revision }: { revision: number }) {
             axisTick: { show: false },
             axisLabel: {
               color: cssColorToHex("var(--gray-10)"),
-              formatter: (day: string) =>
-                new Date(day).toLocaleDateString("en-US", {
-                  weekday: "narrow",
-                  timeZone: "UTC",
-                }),
+              formatter: (day: string) => formatUtcWeekday(day, "narrow"),
             },
           },
           yAxis: { type: "value", show: false, minInterval: 1 },

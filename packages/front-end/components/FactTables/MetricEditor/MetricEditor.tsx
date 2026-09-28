@@ -163,6 +163,8 @@ export default function MetricEditor({
             factTable:
               getFactTableById(funnelSettings.steps[0].factTableId) ?? null,
             windowSettings,
+            getFactTableById: (id) => getFactTableById(id) ?? null,
+            datasourceType: datasource?.type,
           })
         : null;
     }
@@ -176,6 +178,9 @@ export default function MetricEditor({
         ignoreZeros: false,
       },
       windowSettings,
+      cappingSettings,
+      lowerCappingSettings: form.watch("lowerCappingSettings"),
+      datasourceType: datasource?.type,
       numerator,
       denominator,
       numeratorFactTable: getFactTableById(numerator.factTableId) ?? null,
