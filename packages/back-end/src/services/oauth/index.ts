@@ -217,7 +217,7 @@ export interface OrgOAuthGrant {
 export async function listOrgGrants(
   context: ApiReqContext,
 ): Promise<OrgOAuthGrant[]> {
-  const grants = await context.models.oauthGrants.getActiveForOrg();
+  const grants = await context.models.oauthGrants.dangerousGetAllActiveForOrg();
   const [clients, users] = await Promise.all([
     getOAuthClientsByIds([...new Set(grants.map((g) => g.clientId))]),
     context.getUsersByIds([...new Set(grants.map((g) => g.userId))]),
@@ -261,7 +261,8 @@ export async function revokeAllGrantsForClient(
   context: ApiReqContext,
   clientId: string,
 ): Promise<void> {
-  const grants = await context.models.oauthGrants.getActiveForClient(clientId);
+  const grants =
+    await context.models.oauthGrants.dangerousGetAllActiveForClient(clientId);
   for (const grant of grants) {
     await tearDownGrant(context, clientId, grant.userId);
   }

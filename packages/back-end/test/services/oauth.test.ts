@@ -101,7 +101,7 @@ function mockOrgContext(
     startGrant?: jest.Mock;
     markRevoked?: jest.Mock;
     getActiveForUser?: jest.Mock;
-    getActiveForOrg?: jest.Mock;
+    dangerousGetAllActiveForOrg?: jest.Mock;
     getUsersByIds?: jest.Mock;
     orgSettings?: Record<string, unknown>;
   } = {},
@@ -130,8 +130,8 @@ function mockOrgContext(
     overrides.markRevoked ?? jest.fn().mockResolvedValue(undefined);
   const getActiveForUser =
     overrides.getActiveForUser ?? jest.fn().mockResolvedValue([]);
-  const getActiveForOrg =
-    overrides.getActiveForOrg ?? jest.fn().mockResolvedValue([]);
+  const dangerousGetAllActiveForOrg =
+    overrides.dangerousGetAllActiveForOrg ?? jest.fn().mockResolvedValue([]);
 
   const context = {
     org: { id: "org-1" },
@@ -152,7 +152,7 @@ function mockOrgContext(
         startGrant,
         markRevoked,
         getActiveForUser,
-        getActiveForOrg,
+        dangerousGetAllActiveForOrg,
       },
       oauthAuthCodes: {
         create: jest.fn(),
@@ -767,7 +767,7 @@ describe("admin view of member grants", () => {
         { id: "user-1", name: "Ada", email: "ada@example.com" },
         { id: "user-2", name: "", email: "bob@example.com" },
       ]),
-      getActiveForOrg: jest.fn().mockResolvedValue([
+      dangerousGetAllActiveForOrg: jest.fn().mockResolvedValue([
         {
           clientId: "gbc_gone",
           userId: "user-2",
