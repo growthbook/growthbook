@@ -71,7 +71,7 @@ const OAuthGrantsTable: FC<{
                 <TableCell>
                   {grant.clientName}
                   {grant.isOrgApp && (
-                    <Badge ml="2" variant="soft" label="Registered" />
+                    <Badge ml="2" variant="soft" label="Org app" />
                   )}
                 </TableCell>
                 <TableCell>{datetime(grant.firstAuthorizedAt)}</TableCell>

@@ -94,13 +94,19 @@ export const ClientSecretModal: FC<
     <Callout status="warning" mb="4">
       Copy the client secret now. You won&apos;t be able to see it again.
     </Callout>
-    <Text as="div" weight="semibold" mb="1">
-      Client ID
-    </Text>
-    <ClickToCopy className="mb-3">{clientId}</ClickToCopy>
-    <Text as="div" weight="semibold" mb="1">
-      Client secret
-    </Text>
-    <ClickToCopy>{clientSecret}</ClickToCopy>
+    <Flex direction="column" gap="4">
+      <div>
+        <Text as="div" weight="semibold" mb="1">
+          Client ID
+        </Text>
+        <ClickToCopy>{clientId}</ClickToCopy>
+      </div>
+      <div>
+        <Text as="div" weight="semibold" mb="1">
+          Client secret
+        </Text>
+        <ClickToCopy>{clientSecret}</ClickToCopy>
+      </div>
+    </Flex>
   </ModalStandard>
 );

@@ -26,8 +26,6 @@ const ApiKeys: FC = () => {
 
       <PersonalAccessTokenSettings />
 
-      <OAuthAppsSettings />
-
       {!settings?.disablePersonalAccessTokens && (
         <Callout status="info" mb="4">
           You can also create{" "}
@@ -37,6 +35,8 @@ const ApiKeys: FC = () => {
           for your user account
         </Callout>
       )}
+
+      <OAuthAppsSettings />
     </>
   );
 };

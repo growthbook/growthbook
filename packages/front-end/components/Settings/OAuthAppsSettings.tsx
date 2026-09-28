@@ -1,6 +1,6 @@
 import React, { FC, useState } from "react";
 import { IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDotsThreeVertical } from "react-icons/pi";
 import { date } from "shared/dates";
 import { OAuthAccessPolicy } from "shared/types/organization";
 import { getOAuthAccessPolicy } from "shared/util";
@@ -82,6 +82,13 @@ const OAuthAppsSettings: FC = () => {
   const canManageApps = permissionsUtil.canCreateApiKey();
   const canDeleteApps = permissionsUtil.canDeleteApiKey();
   const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
+  // Downgraded orgs keep using their apps but can't create or change them.
+  const hasFeature = hasCommercialFeature("oauth-apps");
+  const policyDisabledReason = hasFileConfig()
+    ? "Organization settings are managed by your config.yml file"
+    : canManageOrgSettings
+      ? undefined
+      : "Only admins can change this setting";
 
   const { data, error, mutate } = useApi<OAuthAppsResponse>("/oauth-apps", {
     shouldRun: () => canManageApps,
@@ -145,9 +152,12 @@ const OAuthAppsSettings: FC = () => {
       </Text>
       <RadioGroup
         mb="4"
-        options={POLICY_OPTIONS}
+        options={POLICY_OPTIONS.map((o) => ({
+          ...o,
+          disabled: !!policyDisabledReason,
+          disabledReason: policyDisabledReason,
+        }))}
         value={policy}
-        disabled={!canManageOrgSettings || hasFileConfig()}
         setValue={(value) => {
           const next = value as OAuthAccessPolicy;
           if (next === policy) return;
@@ -207,18 +217,23 @@ const OAuthAppsSettings: FC = () => {
                         radius="full"
                         size="2"
                         highContrast
+                        aria-label="OAuth app actions"
                       >
-                        <BsThreeDotsVertical size={18} />
+                        <PiDotsThreeVertical size={18} />
                       </IconButton>
                     }
                     menuPlacement="end"
                     variant="soft"
                   >
                     <DropdownMenuGroup>
-                      <DropdownMenuItem onClick={() => setEditing(app)}>
+                      <DropdownMenuItem
+                        disabled={!hasFeature}
+                        onClick={() => setEditing(app)}
+                      >
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        disabled={!hasFeature}
                         confirmation={{
                           submit: async () => {
                             const res = await apiCall<{
@@ -266,12 +281,14 @@ const OAuthAppsSettings: FC = () => {
           </TableBody>
         </Table>
       )}
+      {data && data.apps.length === 0 && (
+        <Text as="p" color="text-mid" mb="3">
+          No OAuth apps registered yet.
+        </Text>
+      )}
 
       <PremiumTooltip commercialFeature="oauth-apps">
-        <Button
-          disabled={!hasCommercialFeature("oauth-apps")}
-          onClick={() => setEditing("new")}
-        >
+        <Button disabled={!hasFeature} onClick={() => setEditing("new")}>
           New OAuth app
         </Button>
       </PremiumTooltip>

@@ -6,6 +6,7 @@ import {
   OAUTH_REFRESH_TOKEN_PREFIX,
 } from "back-end/src/util/oauth-token.util";
 import {
+  exchangeAuthorizationCode,
   exchangeRefreshToken,
   listOrgGrants,
   mintAuthorizationCode,
@@ -14,6 +15,7 @@ import {
   revokeToken,
 } from "back-end/src/services/oauth";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import { getOAuthClientById } from "back-end/src/models/OAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
@@ -556,17 +558,19 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
   const APP_ID = "gbapp_0123456789abcdef";
   const APP_SECRET = "gbcs_correct-secret";
 
+  const orgAppDoc = (organization = "org-1") => ({
+    clientId: APP_ID,
+    redirectUris: ["https://mcp.example.com/cb"],
+    tokenEndpointAuthMethod: "client_secret_basic" as const,
+    grantTypes: ["authorization_code", "refresh_token"],
+    responseTypes: ["code"],
+    organization,
+    clientSecretHash: hashToken(APP_SECRET),
+    dateCreated: new Date(),
+  });
+
   function mockOrgApp(organization = "org-1") {
-    mockGetOAuthClientById.mockResolvedValue({
-      clientId: APP_ID,
-      redirectUris: ["https://mcp.example.com/cb"],
-      tokenEndpointAuthMethod: "client_secret_basic",
-      grantTypes: ["authorization_code", "refresh_token"],
-      responseTypes: ["code"],
-      organization,
-      clientSecretHash: hashToken(APP_SECRET),
-      dateCreated: new Date(),
-    });
+    mockGetOAuthClientById.mockResolvedValue(orgAppDoc(organization));
   }
 
   function mockDcrClient() {
@@ -704,6 +708,51 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
       }),
     ).rejects.toMatchObject({ error: "invalid_client" });
     expect(deleteForGrant).not.toHaveBeenCalled();
+  });
+
+  it("tears down a grant re-armed by a code exchange that raced app deletion", async () => {
+    const verifier = "code-verifier";
+    // Client exists when authenticated, gone by the time tokens are issued.
+    mockGetOAuthClientById
+      .mockResolvedValueOnce(orgAppDoc())
+      .mockResolvedValueOnce(null);
+    jest.mocked(OAuthAuthCodeModel.dangerousConsumeByHash).mockResolvedValue({
+      codeHash: hashToken("code"),
+      clientId: APP_ID,
+      userId: "user-1",
+      organization: "org-1",
+      redirectUri: "https://mcp.example.com/cb",
+      codeChallenge: crypto
+        .createHash("sha256")
+        .update(verifier, "ascii")
+        .digest("base64url"),
+      codeChallengeMethod: "S256",
+      used: true,
+      expiresAt: new Date(Date.now() + 60_000),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    } as never);
+    const { createApiKey, markRevoked, deleteForGrant } = mockOrgContext();
+
+    await expect(
+      exchangeAuthorizationCode({
+        code: "code",
+        redirectUri: "https://mcp.example.com/cb",
+        clientId: APP_ID,
+        clientSecret: APP_SECRET,
+        codeVerifier: verifier,
+      }),
+    ).rejects.toMatchObject({ error: "invalid_client" });
+
+    // Tokens were written, then the whole grant was torn down.
+    expect(createApiKey).toHaveBeenCalledTimes(1);
+    expect(markRevoked).toHaveBeenCalledWith(APP_ID, "user-1");
+    expect(deleteForGrant).toHaveBeenCalledWith(APP_ID, "user-1");
+    expect(mockDangerousDisableOAuthGrant).toHaveBeenCalledWith(
+      APP_ID,
+      "user-1",
+      "org-1",
+    );
   });
 });
 

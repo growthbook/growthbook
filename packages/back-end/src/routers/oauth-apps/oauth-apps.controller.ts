@@ -32,6 +32,15 @@ function assertCanManageOAuthApps(context: ReqContext) {
   }
 }
 
+// Downgraded orgs keep using their apps but can't create or change them; delete stays open.
+function assertPlanAllowsOAuthApps(context: ReqContext) {
+  if (!context.hasPremiumFeature("oauth-apps")) {
+    context.throwPlanDoesNotAllowError(
+      "OAuth apps require an Enterprise plan.",
+    );
+  }
+}
+
 async function getAppOrThrow(
   context: ReqContext,
   clientId: string,
@@ -67,11 +76,7 @@ export async function postOAuthApp(
 ) {
   const context = getContextFromReq(req);
   assertCanManageOAuthApps(context);
-  if (!context.hasPremiumFeature("oauth-apps")) {
-    context.throwPlanDoesNotAllowError(
-      "OAuth apps require an Enterprise plan.",
-    );
-  }
+  assertPlanAllowsOAuthApps(context);
 
   const { app, clientSecret } = await createOrgOAuthApp(
     context.org.id,
@@ -93,6 +98,7 @@ export async function putOAuthApp(
 ) {
   const context = getContextFromReq(req);
   assertCanManageOAuthApps(context);
+  assertPlanAllowsOAuthApps(context);
   const existing = await getAppOrThrow(context, req.params.clientId);
 
   const app =
@@ -113,6 +119,7 @@ export async function postOAuthAppSecret(
 ) {
   const context = getContextFromReq(req);
   assertCanManageOAuthApps(context);
+  assertPlanAllowsOAuthApps(context);
   const app = await getAppOrThrow(context, req.params.clientId);
 
   const clientSecret = await rotateOrgOAuthAppSecret(
@@ -138,9 +145,10 @@ export async function deleteOAuthApp(
   }
   const app = await getAppOrThrow(context, req.params.clientId);
 
-  // Revoke first so no member keeps a working token if the delete fails midway.
+  // Revoke before and after: a consent in flight during the first pass can re-arm its grant.
   await revokeAllGrantsForClient(context, app.clientId);
   await deleteOrgOAuthApp(context.org.id, app.clientId);
+  await revokeAllGrantsForClient(context, app.clientId);
   await req.audit({
     event: "oauthApp.delete",
     entity: { object: "oauthApp", id: app.clientId, name: app.clientName },
