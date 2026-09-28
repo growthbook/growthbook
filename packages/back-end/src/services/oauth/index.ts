@@ -307,17 +307,8 @@ export async function registerPublicClient(body: OAuthDcrRequest) {
   ];
   const responseTypes = body.response_types ?? ["code"];
 
-  // Only public clients (MCP / native) for Phase 1
-  if (
-    body.token_endpoint_auth_method &&
-    body.token_endpoint_auth_method !== "none"
-  ) {
-    throw new OAuthError(
-      "invalid_client_metadata",
-      "Only token_endpoint_auth_method=none is supported",
-    );
-  }
-
+  // Whatever auth method was requested, DCR clients get no secret; the response says `none`
+  // and RFC 7591 §3.2.1 obliges the client to use the returned metadata.
   const client = await createOAuthClient({
     clientName: body.client_name,
     redirectUris: body.redirect_uris,

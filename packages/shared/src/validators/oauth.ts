@@ -136,7 +136,8 @@ export type OAuthGrantInterface = z.infer<typeof oauthGrantValidator>;
  */
 export const oauthDcrRequestValidator = z.object({
   redirect_uris: z.array(z.string().url()).min(1),
-  token_endpoint_auth_method: z.literal("none").optional(),
+  // Accepted but not honored: DCR clients are always registered as public (RFC 7591 §3.2.1).
+  token_endpoint_auth_method: z.string().optional(),
   grant_types: z.array(z.string()).optional(),
   response_types: z.array(z.string()).optional(),
   client_name: z.string().optional(),
