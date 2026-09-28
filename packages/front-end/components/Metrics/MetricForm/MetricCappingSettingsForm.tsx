@@ -27,14 +27,12 @@ function getCappingMode(cappingSettings: { type?: CappingType }): CappingMode {
 function LegacyMetricCappingSettingsFormContent({
   form,
   datasourceType,
-  metricType,
 }: {
   form: {
     watch: (path: string) => unknown;
     setValue: (path: string, value: unknown) => void;
   };
   datasourceType?: string;
-  metricType: string;
 }) {
   const cappingSettings = form.watch("cappingSettings") as
     | { type?: CappingType; value?: number; ignoreZeros?: boolean }
@@ -49,9 +47,7 @@ function LegacyMetricCappingSettingsFormContent({
 
   const cappingOptions = [
     { value: "", label: "No" },
-    ...(metricType !== "ratio" || mode === "absolute"
-      ? [{ value: "absolute", label: "Absolute capping" }]
-      : []),
+    { value: "absolute", label: "Absolute capping" },
     ...(datasourceType !== "mixpanel"
       ? [{ value: "percentile", label: "Percentile capping" }]
       : []),
@@ -175,7 +171,6 @@ function FactCappingTailEditor({
   form,
   path,
   isLower,
-  metricType,
   datasourceType,
   idSuffix,
 }: {
@@ -186,7 +181,6 @@ function FactCappingTailEditor({
   /** Form path of this tail's settings object. */
   path: "cappingSettings" | "lowerCappingSettings";
   isLower: boolean;
-  metricType: string;
   datasourceType?: string;
   idSuffix: string;
 }) {
@@ -195,9 +189,7 @@ function FactCappingTailEditor({
 
   const cappingOptions = [
     { value: "", label: "No" },
-    ...(metricType !== "ratio" || mode === "absolute"
-      ? [{ value: "absolute", label: "Absolute capping" }]
-      : []),
+    { value: "absolute", label: "Absolute capping" },
     ...(datasourceType !== "mixpanel"
       ? [{ value: "percentile", label: "Percentile capping" }]
       : []),
@@ -342,7 +334,6 @@ function FactCappingTailEditor({
 function FactMetricCappingSettingsFormContent({
   form,
   datasourceType,
-  metricType,
 }: {
   form: {
     watch: (path: string) => unknown;
@@ -350,7 +341,6 @@ function FactMetricCappingSettingsFormContent({
     setValue: (path: string, value: unknown) => void;
   };
   datasourceType?: string;
-  metricType: string;
 }) {
   return (
     <div className="form-group">
@@ -358,7 +348,6 @@ function FactMetricCappingSettingsFormContent({
         form={form}
         path="cappingSettings"
         isLower={false}
-        metricType={metricType}
         datasourceType={datasourceType}
         idSuffix="Upper"
       />
@@ -366,7 +355,6 @@ function FactMetricCappingSettingsFormContent({
         form={form}
         path="lowerCappingSettings"
         isLower={true}
-        metricType={metricType}
         datasourceType={datasourceType}
         idSuffix="Lower"
       />
@@ -377,7 +365,6 @@ function FactMetricCappingSettingsFormContent({
 export function MetricCappingSettingsForm({
   form,
   datasourceType,
-  metricType,
   /** Lower-tail winsorization is supported for Fact Metrics (SQL) only, not Legacy or Mixpanel. */
   allowLowerTailCapping = false,
 }: {
@@ -387,7 +374,6 @@ export function MetricCappingSettingsForm({
     setValue: (path: string, value: unknown) => void;
   };
   datasourceType?: string;
-  metricType: string;
   allowLowerTailCapping?: boolean;
 }) {
   if (allowLowerTailCapping) {
@@ -401,7 +387,6 @@ export function MetricCappingSettingsForm({
           }
         }
         datasourceType={datasourceType}
-        metricType={metricType}
       />
     );
   }
@@ -409,7 +394,6 @@ export function MetricCappingSettingsForm({
     <LegacyMetricCappingSettingsFormContent
       form={form}
       datasourceType={datasourceType}
-      metricType={metricType}
     />
   );
 }
