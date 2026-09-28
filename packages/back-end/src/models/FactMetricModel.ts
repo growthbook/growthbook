@@ -11,7 +11,11 @@ import {
 } from "shared/experiments";
 import { getFunnelRuleViolations } from "shared/funnels";
 import { UpdateProps } from "shared/types/base-model";
-import { factMetricValidator, ApiFactMetric } from "shared/validators";
+import {
+  factMetricValidator,
+  ApiFactMetric,
+  validateFactMetricCapping,
+} from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -33,7 +37,7 @@ import {
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { healPriorSettings } from "back-end/src/util/priors";
-import { Context, MakeModelClass } from "./BaseModel";
+import { CasConflictError, Context, MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
 
@@ -163,7 +167,13 @@ function validateSavedFilterIds({
   }
 }
 
-export class FactMetricModel extends BaseClass {
+type WriteOptions = {
+  // Set by removeAutoSlices: a metricAutoSlices-only write that maintains
+  // derived state and is exempt from the API-managed channel guard.
+  autoSliceCascade?: boolean;
+};
+
+export class FactMetricModel extends BaseClass<WriteOptions> {
   protected canRead(doc: FactMetricInterface): boolean {
     return this.context.hasPermission("readData", doc.projects || []);
   }
@@ -190,6 +200,40 @@ export class FactMetricModel extends BaseClass {
     FactMetricInterface[]
   > {
     return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
+  // Cascade from a fact-table column change. Authority is the fact-table write,
+  // so this bypasses canUpdate; the guarded write plus re-read means a
+  // concurrent edit to the metric is retried against, never clobbered.
+  public async removeAutoSlices(
+    metricId: string,
+    removedColumns: string[],
+  ): Promise<void> {
+    const maxAttempts = 3;
+    for (let attempt = 1; ; attempt++) {
+      const [metric] = await this._find(
+        { id: metricId },
+        { bypassReadPermissionChecks: true },
+      );
+      if (!metric?.metricAutoSlices?.length) return;
+      const metricAutoSlices = metric.metricAutoSlices.filter(
+        (c) => !removedColumns.includes(c),
+      );
+      if (metricAutoSlices.length === metric.metricAutoSlices.length) return;
+      try {
+        await this.updateIfUnchanged(
+          metric,
+          { metricAutoSlices },
+          { autoSliceCascade: true },
+          { dangerouslyBypassCanUpdate: true },
+        );
+        return;
+      } catch (e) {
+        if (!(e instanceof CasConflictError) || attempt >= maxAttempts) {
+          throw e;
+        }
+      }
+    }
   }
 
   /**
@@ -290,6 +334,16 @@ export class FactMetricModel extends BaseClass {
       newDoc.denominator = FactMetricModel.migrateColumnRef(newDoc.denominator);
     }
 
+    // Ratio metrics support only percentile capping.
+    if (newDoc.metricType === "ratio") {
+      if (newDoc.cappingSettings?.type === "absolute") {
+        newDoc.cappingSettings = { type: "", value: 0 };
+      }
+      if (newDoc.lowerCappingSettings?.type === "absolute") {
+        newDoc.lowerCappingSettings = null;
+      }
+    }
+
     return newDoc as FactMetricInterface;
   }
 
@@ -369,8 +423,22 @@ export class FactMetricModel extends BaseClass {
     }
   }
 
-  protected async beforeUpdate(existing: FactMetricInterface) {
-    // Check the admin permission here?
+  protected async beforeUpdate(
+    existing: FactMetricInterface,
+    updates: UpdateProps<FactMetricInterface>,
+    newDoc: FactMetricInterface,
+    writeOptions?: WriteOptions,
+  ) {
+    // A fact-table column cascade only maintains derived state, so that write
+    // is exempt from the channel guard below. See removeAutoSlices.
+    if (
+      writeOptions?.autoSliceCascade &&
+      Object.keys(updates).every((k) => k === "metricAutoSlices")
+    ) {
+      return;
+    }
+    // API-managed metrics are only editable through the API so their
+    // definition can't drift from the caller's source of truth.
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
       throw new Error(
         "Cannot update fact metric managed by API if the request isn't from the API.",
@@ -406,6 +474,8 @@ export class FactMetricModel extends BaseClass {
     factTableMap: Map<string, FactTableInterface>,
     context: Context,
   ): Promise<void> {
+    validateFactMetricCapping(data, previousData);
+
     if (data.metricType === "funnel" && !data.funnelSettings) {
       throw new Error("Funnel settings required for funnel metrics");
     }
@@ -528,9 +598,6 @@ export class FactMetricModel extends BaseClass {
     }
     if (data.denominator) {
       throw new Error("Denominator not allowed for funnel metrics");
-    }
-    if (data.cappingSettings.type) {
-      throw new Error("Capping is not supported for funnel metrics");
     }
     if (data.quantileSettings) {
       throw new Error("Quantile settings are not supported for funnel metrics");
@@ -787,6 +854,7 @@ export class FactMetricModel extends BaseClass {
       quantileSettings,
       funnelSettings,
       cappingSettings,
+      lowerCappingSettings,
       windowSettings,
       regressionAdjustmentDays,
       regressionAdjustmentEnabled,
@@ -815,6 +883,13 @@ export class FactMetricModel extends BaseClass {
         type: cappingSettings.type || "none",
         ignoreZeros: cappingSettings.ignoreZeros ?? undefined,
       },
+      lowerCappingSettings: lowerCappingSettings
+        ? {
+            type: lowerCappingSettings.type || "none",
+            value: lowerCappingSettings.value,
+            ignoreZeros: lowerCappingSettings.ignoreZeros ?? undefined,
+          }
+        : null,
       windowSettings: {
         ...windowSettings,
         type: windowSettings.type || "none",

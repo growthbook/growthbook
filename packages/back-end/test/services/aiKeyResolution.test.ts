@@ -1,5 +1,5 @@
 import { AICredentialInterface } from "shared/validators";
-import { AIProvider } from "shared/ai";
+import { AI_PROVIDER_META, AI_PROVIDERS, AIProvider } from "shared/ai";
 
 // Env vars are captured at module load in util/secrets, so they have to be set
 // before the module graph is required. Each test builds its own module instance
@@ -7,15 +7,34 @@ import { AIProvider } from "shared/ai";
 type AICredentialsModule = typeof import("back-end/src/services/aiCredentials");
 type AIKeyContext = Parameters<AICredentialsModule["getResolvedAIKeys"]>[0];
 
+// Everything util/secrets reads that can change what getResolvedAIKeys returns.
+// Cleared before each load so a test asserts exactly the environment it
+// declares — otherwise a provider key exported in the developer's own shell
+// leaks in as a deployment-level key and outranks the stored credential when
+// self-hosted, failing locally while CI's clean env passes.
+const AI_ENV_VARS = [
+  ...AI_PROVIDERS.flatMap((provider) => [
+    AI_PROVIDER_META[provider].envVar,
+    ...(AI_PROVIDER_META[provider].legacyEnvVars ?? []),
+  ]),
+  "IS_CLOUD",
+];
+
 const loadModule = (env: Record<string, string>): AICredentialsModule => {
   let mod: AICredentialsModule | undefined;
   jest.isolateModules(() => {
     const previous = { ...process.env };
+    AI_ENV_VARS.forEach((name) => delete process.env[name]);
     Object.assign(process.env, env);
-    mod = jest.requireActual<AICredentialsModule>(
-      "back-end/src/services/aiCredentials",
-    );
-    process.env = previous;
+    try {
+      mod = jest.requireActual<AICredentialsModule>(
+        "back-end/src/services/aiCredentials",
+      );
+    } finally {
+      // Restore even if the module throws on load, so one failure doesn't
+      // leave the rest of the worker running without the cleared vars.
+      process.env = previous;
+    }
   });
   if (!mod) throw new Error("Could not load aiCredentials module");
   return mod;

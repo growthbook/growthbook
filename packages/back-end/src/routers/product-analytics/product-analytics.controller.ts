@@ -13,12 +13,14 @@ import {
   buildComparisonExplorationConfig,
   computeExplorationComparisonPayload,
   getComparisonAlignmentStrategy,
+  hasTimestampColumn,
 } from "shared/enterprise";
 import { QueryInterface } from "shared/types/query";
 import type { FactMetricInterface } from "shared/types/fact-table";
+import { toClientJourneyExploration } from "shared/journeys";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { getQueryById } from "back-end/src/models/QueryModel";
@@ -109,6 +111,17 @@ export const postProductAnalyticsRun = async (
       exploration,
       query,
     });
+  }
+
+  if (config.chartType === "rawTable") {
+    throw new BadRequestError("Raw tables do not support comparisons");
+  }
+
+  if (
+    config.dataset.type === "sql" &&
+    !hasTimestampColumn(config.dataset.timestampColumn)
+  ) {
+    throw new BadRequestError("Comparisons require a timestamp column");
   }
 
   const comparisonConfig: ExplorationConfig = buildComparisonExplorationConfig(
@@ -311,7 +324,7 @@ export const getExplorationById = async (
 
   return res.status(200).json({
     status: 200,
-    exploration,
+    exploration: toClientJourneyExploration(exploration, exploration.config),
     query,
   });
 };

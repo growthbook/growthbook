@@ -1,10 +1,12 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
+import {
+  bigQueryDialect,
+  snowflakeDialect,
+  prestoDialect,
+  baseDialect,
+} from "shared/dialects";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
-import { prestoDialect } from "back-end/src/integrations/dialects/presto";
-import { baseDialect } from "back-end/src/integrations/dialects/base";
 import {
   afterWatermark,
   rawWatermark,
@@ -26,7 +28,9 @@ import { factMetricFactory } from "../factories/FactMetric.factory";
 const watermark = new Date("2024-01-10T12:00:00.999Z");
 const NEXT_MS = "'2024-01-10 12:00:01.000'";
 const RAW = "2024-01-10 12:00:00.999999";
-const AFTER_RAW = `> CAST('${RAW}' AS TIMESTAMP)`;
+// BigQuery writes the exact value back as a bare literal, which coerces to
+// the column's own type (TIMESTAMP or DATETIME).
+const AFTER_RAW = `> '${RAW}'`;
 
 const factTable = factTableFactory.build({
   id: "ft_events",
@@ -107,7 +111,7 @@ describe("formatTimestampExact", () => {
 
   it("is selected alongside every watermark", () => {
     // @ts-expect-error -- context not needed for this unit test
-    const bq = new BigQuery("", { settings: {} });
+    const bq = new BigQuery("", { type: "bigquery", settings: {} });
     const exact = 'format_timestamp("%F %H:%M:%E6S", MAX(max_timestamp))';
     for (const sql of [
       bq.getMaxTimestampIncrementalUnitsQuery({
@@ -157,6 +161,24 @@ describe("afterWatermark", () => {
     );
   });
 
+  it("writes the exact value back in the dialect's literal form", () => {
+    // A TIMESTAMP cast is the default. BigQuery's fact-table timestamp columns
+    // may be DATETIME, which does not compare with TIMESTAMP, so it uses a bare
+    // literal that coerces to either type. Presto's CAST is timestamp(3) and
+    // would round a finer watermark, so it uses a typed literal.
+    for (const dialect of [baseDialect, snowflakeDialect]) {
+      expect(afterWatermark(dialect, "m.timestamp", watermark, RAW)).toBe(
+        `m.timestamp > CAST('${RAW}' AS TIMESTAMP)`,
+      );
+    }
+    expect(afterWatermark(prestoDialect, "m.timestamp", watermark, RAW)).toBe(
+      `m.timestamp > TIMESTAMP '${RAW}'`,
+    );
+    expect(afterWatermark(bigQueryDialect, "m.timestamp", watermark, RAW)).toBe(
+      `m.timestamp ${AFTER_RAW}`,
+    );
+  });
+
   it("starts from the millisecond after the watermark otherwise", () => {
     expect(afterWatermark(bigQueryDialect, "m.timestamp", watermark)).toBe(
       `m.timestamp >= ${NEXT_MS}`,
@@ -182,6 +204,7 @@ describe("incremental refresh watermark filters", () => {
   beforeEach(() => {
     // @ts-expect-error -- context not needed for this unit test
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: { queries: { exposure: [exposureQuery] } },
     });
   });

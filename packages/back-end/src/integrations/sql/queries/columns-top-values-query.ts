@@ -13,6 +13,7 @@ export function getColumnsTopValuesQuery(
     limit = 50,
     lookbackDays,
     maxValueLength,
+    searchTerm,
   }: ColumnTopValuesParams,
 ): string {
   if (columns.length === 0) {
@@ -52,6 +53,7 @@ __topValues AS (
     start,
     limit,
     maxValueLength,
+    searchTerm,
     timestampColumn,
   })}
 )
@@ -67,6 +69,7 @@ type TopValuesCTEBodyParams = {
   start: Date;
   limit: number;
   maxValueLength?: number;
+  searchTerm?: string;
   timestampColumn: string;
 };
 
@@ -77,13 +80,23 @@ function getTopValuesCTEBody(
     start,
     limit,
     maxValueLength,
+    searchTerm,
     timestampColumn,
   }: TopValuesCTEBodyParams,
 ): string {
-  const pairs = columns.map((c) => ({
-    keyLiteral: c.column.replace(/'/g, "''"),
-    valueSql: dialect.castToString(c.column),
-  }));
+  const pairs = columns.map((c) => {
+    const valueSql = dialect.castToString(c.column);
+    return {
+      keyLiteral: c.column.replace(/'/g, "''"),
+      valueSql: searchTerm
+        ? `CASE WHEN ${dialect.stringMatch(
+            `LOWER(${valueSql})`,
+            "contains",
+            searchTerm.toLowerCase(),
+          )} THEN ${valueSql} ELSE NULL END`
+        : valueSql,
+    };
+  });
 
   // When the dialect has a native approximate top-k aggregate use it
   // for better performance.

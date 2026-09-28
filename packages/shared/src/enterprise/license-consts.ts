@@ -16,6 +16,9 @@ export type CommercialFeature =
   | "scim"
   | "sso"
   | "advanced-permissions"
+  | "role-management"
+  | "unlimited-projects"
+  | "custom-environments"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
   | "events-forwarder"
@@ -209,6 +212,7 @@ export type LicenseData = {
 
 const commercialFeaturesPro: CommercialFeature[] = [
   "advanced-permissions",
+  "role-management",
   "encrypt-features-endpoint",
   "schedule-feature-flag",
   "events-forwarder",
@@ -249,6 +253,8 @@ const commercialFeaturesProSso: CommercialFeature[] = [
 
 const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "ai-suggestions",
+  "unlimited-projects",
+  "custom-environments",
   "ai-byok",
   "scim",
   "audit-logging",

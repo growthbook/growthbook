@@ -524,4 +524,20 @@ describe("runColumnDetectionQuery", () => {
       dataTypeFromWarehouse: "string",
     });
   });
+
+  it("does not mutate the input columns", async () => {
+    const column = makeCol("missing");
+    const originalDateUpdated = column.dateUpdated;
+
+    await refreshColumns({
+      column,
+      result: {
+        results: [],
+        duration: 1,
+      },
+    });
+
+    expect(column.deleted).toBe(false);
+    expect(column.dateUpdated).toBe(originalDateUpdated);
+  });
 });

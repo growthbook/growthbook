@@ -11,6 +11,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  assertExperimentKeyFormat,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
@@ -28,6 +29,11 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
+import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -158,6 +164,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
       );
     }
+
+    await assertExperimentKeyFormat(
+      req.context,
+      payload.trackingKey,
+      payload.datasourceId,
+    );
 
     // check if tracking key is unique (skip the lookup entirely if the caller
     // is bypassing the duplicate check and the org doesn't require uniqueness)
@@ -333,6 +345,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         incoming: payload.statusUpdateSchedule,
       });
     }
+
+    await validateChangedPhaseReferences(newExperiment.phases, [], req.context);
+    await assertValidExperimentPrerequisites(
+      req.context,
+      phasePrerequisites(newExperiment.phases),
+    );
 
     const experiment = await createExperiment({
       data: newExperiment,

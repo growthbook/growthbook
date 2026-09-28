@@ -3,9 +3,19 @@ import path from "node:path";
 import { format, resolveConfig } from "prettier";
 import { z } from "zod";
 import {
+  notificationEventMetadata,
+  publicNotificationEventNames,
+} from "../src/notifications";
+import type {
+  NotificationEventName,
+  NotificationEventResource,
+  ResourceEvents,
+} from "../types/events/base-types";
+import {
   notificationEvents,
   notificationEventPayload,
-} from "shared/validators";
+  notificationEventResources,
+} from "../src/validators/events";
 
 const basePath = path.resolve(path.dirname(process.argv[1]), "../../../docs");
 
@@ -17,29 +27,35 @@ const typeScriptSchema = async <T extends z.ZodTypeAny>(schema: T) => {
   return result;
 };
 
-const events = Object.keys(notificationEvents).reduce(
-  (events, resource) => [
-    ...events,
-    ...Object.keys(notificationEvents[resource])
-      .filter((event) => !notificationEvents[resource][event].noDoc)
-      .map((event) => ({
-        name: `${resource}.${event}`,
-        description: notificationEvents[resource][event].description,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        payload: notificationEventPayload(resource as any, event as any),
-      })),
-  ],
-  [],
-);
+function documentedResourceEvents<Resource extends NotificationEventResource>(
+  resource: Resource,
+) {
+  const events = Object.keys(
+    notificationEvents[resource],
+  ) as ResourceEvents<Resource>[];
+  return events.map((event) => {
+    const name = `${resource}.${event}` as NotificationEventName;
+    return {
+      name,
+      description: notificationEventMetadata[name].description,
+      payload: notificationEventPayload(resource, event),
+    };
+  });
+}
+
+const events = notificationEventResources
+  .flatMap(documentedResourceEvents)
+  .filter(({ name }) => publicNotificationEventNames.includes(name));
+type DocumentedEvent = (typeof events)[number];
 
 const eventAnchor = (name: string) => name.replace(/\./g, "-").toLowerCase();
 
-const eventTableEntry = ({ name, description }) =>
+const eventTableEntry = ({ name, description }: DocumentedEvent) =>
   `| **[${name}](#${eventAnchor(name)})** | ${description} |`;
 
 const quote = "```";
 
-const eventEntry = async ({ name, description, payload }) => `
+const eventEntry = async ({ name, description, payload }: DocumentedEvent) => `
 ### ${name}
 
 ${description}

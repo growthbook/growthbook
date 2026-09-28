@@ -42,6 +42,8 @@ type DropdownProps = {
   // collision, so e.g. "top" opens upward when there's room, else downward.
   menuSide?: "top" | "right" | "bottom" | "left";
   menuWidth?: "full" | number;
+  menuMaxHeight?: number | string;
+  menuZIndex?: number;
   children: AllowedChildren;
   color?: RadixDropdownMenu.ContentProps["color"];
   variant?: RadixDropdownMenu.ContentProps["variant"];
@@ -64,6 +66,8 @@ export function DropdownMenu({
   menuPlacement = "start",
   menuSide = "bottom",
   menuWidth,
+  menuMaxHeight,
+  menuZIndex,
   children,
   color,
   variant,
@@ -116,21 +120,21 @@ export function DropdownMenu({
     handleOpenChange(false);
   };
 
-  // When modal=true, walk up from the Content node to find the Radix popper
-  // wrapper and elevate its z-index above the backdrop (9998).
+  // z-index has to land on the Popper wrapper; it owns the stacking context.
   const contentRef = useCallback(
     (node: HTMLDivElement | null) => {
-      if (!modal || !node) return;
+      const zIndex = menuZIndex ?? (modal ? 9999 : null);
+      if (zIndex === null || !node) return;
       let el: HTMLElement | null = node.parentElement;
       while (el) {
         if (el.hasAttribute("data-radix-popper-content-wrapper")) {
-          el.style.zIndex = "9999";
+          el.style.zIndex = String(zIndex);
           return;
         }
         el = el.parentElement;
       }
     },
-    [modal],
+    [menuZIndex, modal],
   );
 
   return (
@@ -171,6 +175,7 @@ export function DropdownMenu({
           }
           style={{
             width: typeof menuWidth === "number" ? menuWidth : undefined,
+            maxHeight: menuMaxHeight,
             visibility: isHiddenWithDelay ? "hidden" : "visible",
           }}
         >

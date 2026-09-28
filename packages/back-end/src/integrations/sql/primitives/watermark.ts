@@ -36,7 +36,8 @@ export function rawWatermark(date: Date | null, value: unknown): string | null {
 
 // Predicate selecting rows strictly after a persisted watermark.
 //
-// With the exact `raw` value this is a plain `>`. Without it we only have the
+// With the exact `raw` value this is a plain `>` against that value, written
+// back as the dialect's exactTimestampLiteral. Without it we only have the
 // millisecond-truncated Date, and a strict `> date` would re-match every row
 // inside the watermark's last millisecond on the next refresh (rows at
 // 12:00:00.999999 vs a stored 12:00:00.999), so the append-only caches would
@@ -45,13 +46,17 @@ export function rawWatermark(date: Date | null, value: unknown): string | null {
 // sub-millisecond remainder, which the serial-arrival assumption already
 // tolerates for anything at or before the watermark.
 export function afterWatermark(
-  dialect: Pick<SqlDialect, "castToTimestamp">,
+  dialect: Pick<SqlDialect, "castToTimestamp" | "exactTimestampLiteral">,
   column: string,
   watermark: Date,
   raw?: string | null,
 ): string {
   if (raw && RAW_WATERMARK.test(raw)) {
-    return `${column} > ${dialect.castToTimestamp(`'${raw}'`)}`;
+    const quoted = `'${raw}'`;
+    const literal = dialect.exactTimestampLiteral
+      ? dialect.exactTimestampLiteral(quoted)
+      : dialect.castToTimestamp(quoted);
+    return `${column} > ${literal}`;
   }
   const nextMillisecond = new Date(watermark.getTime() + 1);
   return `${column} >= ${toTimestampWithMs(nextMillisecond)}`;

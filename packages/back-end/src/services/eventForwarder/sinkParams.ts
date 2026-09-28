@@ -67,6 +67,7 @@ export function buildSinkQueryConnectionParams(
         tablePrefix: getSnowflakeEventForwarderTablePrefix(decrypted),
       };
     }
+    case "databricks":
     default:
       return null;
   }

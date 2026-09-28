@@ -5,10 +5,13 @@ import {
   ExperimentResultStatusData,
   ExperimentDataForStatus,
 } from "shared/types/experiment";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   getContextualBanditResultStatus,
   getExperimentResultStatus,
 } from "./decisionCriteria";
+
+export type MetricNameResolver = (metricId: string) => string;
 
 export type StatusIndicatorData = {
   color: "amber" | "green" | "red" | "gold" | "indigo" | "gray" | "pink";
@@ -20,12 +23,22 @@ export type StatusIndicatorData = {
   sortOrder: number;
 };
 
-export function getStatusIndicatorData(
-  experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates,
-  skipArchived: boolean,
-  healthSettings: ExperimentHealthSettings,
-  decisionCriteria: DecisionCriteriaData,
-): StatusIndicatorData {
+export function getStatusIndicatorData({
+  experimentData,
+  skipArchived,
+  healthSettings,
+  decisionCriteria,
+  metricGroups,
+  resolveMetricName,
+}: {
+  experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
+  skipArchived: boolean;
+  healthSettings: ExperimentHealthSettings;
+  decisionCriteria: DecisionCriteriaData;
+  metricGroups: MetricGroupInterface[];
+  // Errored metric ids are shown as-is when omitted.
+  resolveMetricName?: MetricNameResolver;
+}): StatusIndicatorData {
   if (!skipArchived && experimentData.archived) {
     return {
       color: "gold",
@@ -77,9 +90,13 @@ export function getStatusIndicatorData(
       experimentData,
       healthSettings,
       decisionCriteria,
+      metricGroups,
     });
     if (runningStatusData) {
-      return getDetailedRunningStatusIndicatorData(runningStatusData);
+      return getDetailedRunningStatusIndicatorData(
+        runningStatusData,
+        resolveMetricName,
+      );
     }
 
     // 6. Otherwise, show running status
@@ -147,6 +164,7 @@ export function getStatusIndicatorData(
 
 function getDetailedRunningStatusIndicatorData(
   decisionData: ExperimentResultStatusData,
+  resolveMetricName?: MetricNameResolver,
 ): StatusIndicatorData {
   switch (decisionData.status) {
     case "rollback-now":
@@ -194,6 +212,22 @@ function getDetailedRunningStatusIndicatorData(
         needsAttention: true,
         sortOrder: 10,
       };
+    case "data-incomplete": {
+      const erroredNames = decisionData.erroredMetrics.map(
+        (id) => resolveMetricName?.(id) ?? id,
+      );
+      const subject = erroredNames.length
+        ? erroredNames.join(", ")
+        : "Some metrics";
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "Data incomplete",
+        tooltip: `${subject} could not be computed, so ship and review recommendations are paused. Roll back recommendations still apply.`,
+        needsAttention: true,
+        sortOrder: 9.5,
+      };
+    }
     case "unhealthy":
       return {
         color: "amber",

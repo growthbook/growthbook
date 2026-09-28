@@ -114,7 +114,6 @@ const HoldoutValueModal = ({
 
   return (
     <Modal
-      useRadixButton={false}
       header="Change Holdout Value"
       open={true}
       close={close}

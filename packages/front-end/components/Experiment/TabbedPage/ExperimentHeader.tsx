@@ -529,7 +529,6 @@ export default function ExperimentHeader({
       )}
       {showBanditModal ? (
         <Modal
-          useRadixButton={false}
           open={true}
           close={() => setShowBanditModal(false)}
           trackingEventModalType=""
@@ -738,6 +737,7 @@ export default function ExperimentHeader({
           experiment={experiment}
           close={() => setShowScheduleModal(false)}
           mutate={mutate}
+          envs={envs}
         />
       ) : null}
       {showTemplateForm && (

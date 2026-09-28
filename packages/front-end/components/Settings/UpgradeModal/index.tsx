@@ -284,6 +284,11 @@ export default function UpgradeModal({
       "Create product analytics dashboards and control who can view and edit them.",
     "metric-groups": "Simplify experiment analysis with Metric Groups",
     "advanced-permissions": "Manage advanced user permissions",
+    "role-management":
+      "Assign roles to teammates instead of making everyone an admin",
+    "unlimited-projects": "Create as many projects as you need",
+    "custom-environments":
+      "Create custom environments beyond production, dev, staging, and test",
     "encrypt-features-endpoint": "SDK endpoint encryption",
     "schedule-feature-flag": "Schedule feature flag rollouts",
     "override-metrics": "Override metric definitions on a per-experiment basis",
@@ -677,7 +682,6 @@ export default function UpgradeModal({
   if (accountPlan === "enterprise") {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType="upgrade-modal"
         allowlistedTrackingEventProps={trackContext}
         open={true}
@@ -769,7 +773,6 @@ export default function UpgradeModal({
         </StripeProvider>
       ) : orgIsManagedByVercel ? (
         <Modal
-          useRadixButton={false}
           trackingEventModalType="upgrade-modal"
           allowlistedTrackingEventProps={trackContext}
           open={true}
@@ -813,7 +816,6 @@ export default function UpgradeModal({
         </Modal>
       ) : (
         <Modal
-          useRadixButton={false}
           trackingEventModalType="upgrade-modal"
           allowlistedTrackingEventProps={trackContext}
           open={true}

@@ -290,6 +290,7 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           close={() => setEditScheduleModalOpen(false)}
           mutate={mutate}
+          envs={envs}
         />
       )}
 

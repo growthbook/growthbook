@@ -197,7 +197,7 @@ Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook inst
 
 #### Synchronous Init
 
-There is a alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
+There is an alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
@@ -383,7 +383,7 @@ const userContext = {
 
 ### Feature Flag Experiments
 
-There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+Evaluating the feature is what enrolls a user and fires `trackingCallback`. See [Feature Flag Experiments](/features/feature-flag-experiments).
 
 ```js
 // If this has an active experiment and the user is included,
@@ -590,7 +590,7 @@ const salt = "f09jq3fij"; // Your organization's secure attribute salt (see Orga
 // hashing a secureString attribute
 const userEmail = sha256(salt + user.email);
 
-// hashing an secureString[] attribute
+// hashing a secureString[] attribute
 const userTags = user.tags.map(tag => sha256(salt + tag));
 
 const userContext = {
@@ -883,7 +883,7 @@ The `hashUsed` flag will only be true if the user was randomly assigned a variat
 
 ## Implementing DevTools
 
-The DevTools plugins are designed to work both GrowthBookClient and GrowthBook (legacy) SDK instances. Your SDK must be in dev mode (`enableDevMode: true`) for the plugin to work.
+The DevTools plugins are designed to work with both GrowthBookClient and GrowthBook (legacy) SDK instances. Your SDK must be in dev mode (`enableDevMode: true`) for the plugin to work.
 
 ### Helper Functions
 
@@ -1084,7 +1084,7 @@ Similar to the Express and Next.js middleware examples above, you can generate y
 
 ## Examples
 
-- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+- [TypeScript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
 
 ## Supported Features
 

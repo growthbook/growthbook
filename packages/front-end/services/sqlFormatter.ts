@@ -1,5 +1,6 @@
 import { DataSourceType } from "shared/types/datasource";
 import { format } from "shared/sql";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import { FormatDialect } from "shared/types/sql";
 
 export function canFormatSql(datasourceType: DataSourceType): boolean {
@@ -7,25 +8,7 @@ export function canFormatSql(datasourceType: DataSourceType): boolean {
 }
 
 function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
-  const typeMap: Record<DataSourceType, FormatDialect | ""> = {
-    redshift: "redshift",
-    snowflake: "snowflake",
-    mysql: "mysql",
-    bigquery: "bigquery",
-    postgres: "postgresql",
-    mssql: "tsql",
-    clickhouse: "clickhouse",
-    growthbook_clickhouse: "clickhouse",
-    athena: "trino",
-    presto: "trino",
-    databricks: "spark",
-    vertica: "postgresql",
-    adobe_experience_platform_query_service: "spark",
-    mixpanel: "",
-    google_analytics: "",
-  };
-
-  return typeMap[datasourceType];
+  return getDataSourceSqlDialect(datasourceType)?.formatDialect ?? "";
 }
 
 // The formatter doesn't support template variables, so we need to replace them with placeholders

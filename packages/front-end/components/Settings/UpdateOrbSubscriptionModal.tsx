@@ -180,7 +180,6 @@ export default function UpdateOrbSubscriptionModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="update-orb-subscription"
       open={true}
       close={close}

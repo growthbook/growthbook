@@ -1012,7 +1012,6 @@ export default function CompareRevisionsModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="compare-revisions"
       open={true}
       header="Compare revisions"

@@ -24,7 +24,7 @@ describe("BigQuery reservation job config", () => {
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
+    integration = new BigQuery("", { type: "bigquery" });
 
     mockJob = {
       id: "job_123",
@@ -77,12 +77,100 @@ describe("BigQuery reservation job config", () => {
   });
 });
 
+describe("BigQuery getExternalQueryStatus (status-only)", () => {
+  let integration: BigQuery;
+  let mockJob: { getMetadata: jest.Mock };
+  let mockClientJob: jest.Mock;
+
+  beforeEach(() => {
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    integration = new BigQuery("", { type: "bigquery" });
+
+    mockJob = { getMetadata: jest.fn() };
+    mockClientJob = jest.fn().mockReturnValue(mockJob);
+
+    jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .spyOn(integration as any, "getClient")
+      .mockReturnValue({ job: mockClientJob });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("maps DONE + errorResult to failed with the warehouse message", async () => {
+    mockJob.getMetadata.mockResolvedValue([
+      {
+        status: {
+          state: "DONE",
+          errorResult: { message: "Query exceeded resource limits" },
+        },
+      },
+    ]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "failed",
+      error: "Query exceeded resource limits",
+    });
+  });
+
+  it("maps a clean DONE to succeeded", async () => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state: "DONE" } }]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "succeeded",
+    });
+  });
+
+  it.each(["RUNNING", "PENDING"])("maps %s to running", async (state) => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state } }]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "running",
+    });
+  });
+
+  it.each([
+    ["missing status", {}],
+    ["missing state", { status: {} }],
+    ["unfamiliar state", { status: { state: "SOMETHING_NEW" } }],
+  ])("maps %s to unknown/unrecognized", async (_, metadata) => {
+    mockJob.getMetadata.mockResolvedValue([metadata]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "unrecognized",
+    });
+  });
+
+  it("maps a 404 to unknown/expired", async () => {
+    mockJob.getMetadata.mockRejectedValue(
+      Object.assign(new Error("Job x: not found"), { code: 404 }),
+    );
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "expired",
+    });
+  });
+
+  it("maps a thrown request error to unknown/unreachable", async () => {
+    mockJob.getMetadata.mockRejectedValue(new Error("network exploded"));
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "unreachable",
+    });
+  });
+
+  it("passes location through to client.job when metadata has one", async () => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state: "DONE" } }]);
+    await integration.getExternalQueryStatus("job_1", { location: "EU" });
+    expect(mockClientJob).toHaveBeenCalledWith("job_1", { location: "EU" });
+  });
+});
+
 describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
   let integration: BigQuery;
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
+    integration = new BigQuery("", { type: "bigquery" });
   });
 
   const norm = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -136,7 +224,7 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
     );
   });
 
-  it("reshapes to UNPIVOT/GROUP BY/PIVOT once the column count crosses the threshold", () => {
+  it("reshapes to UNNEST/GROUP BY/per-group extraction once the column count crosses the threshold", () => {
     const RESHAPE_THRESHOLD = 20;
     const cols = Array.from({ length: RESHAPE_THRESHOLD }, (_, i) => ({
       valueCol: `m${i}_value`,
@@ -150,14 +238,116 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
         .getSqlDialect()
         .percentileCapSelectClause(cols, "__userMetricAgg"),
     );
-    const unpivotList = cols.map((c) => c.valueCol).join(", ");
-    const pivotList = cols
-      .map((c) => `'${c.valueCol}' AS ${c.outputCol}`)
-      .join(", ");
-    expect(sql).toContain(`UNPIVOT (val FOR col_name IN (${unpivotList}))`);
-    expect(sql).toContain("GROUP BY col_name");
+    // One sketch per group, grouped instead of one sketch per output column.
     expect(sql).toContain(
-      `PIVOT (ANY_VALUE(cap) FOR col_name IN (${pivotList}))`,
+      "APPROX_QUANTILES(pair.val, 10000 IGNORE NULLS) AS q",
+    );
+    expect(sql).toContain("CROSS JOIN UNNEST(");
+    expect(sql).toContain("GROUP BY pair.col_name");
+    // Each output extracts its percentile offset from its group's sketch. m0
+    // is the first distinct (valueCol, ignoreZeros) group → label s0 at 0.99.
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(9900)], NULL)) AS m0_value_cap",
+    );
+    // m1 opts into ignoreZeros and uses 0.999 → its own group with an IF guard.
+    expect(sql).toContain("IF(m1_value = 0, NULL, CAST(m1_value AS FLOAT64))");
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's1', q[OFFSET(9990)], NULL)) AS m1_value_cap",
+    );
+    // The old ambiguity-prone UNPIVOT/PIVOT form is gone.
+    expect(sql).not.toContain("UNPIVOT");
+    expect(sql).not.toContain("PIVOT");
+  });
+
+  it("shares one sketch across both tails of a both-tails-percentile column (no ambiguous column)", () => {
+    // Regression: a metric with percentile capping on BOTH tails contributes
+    // two caps for the same source column (upper `_cap` + lower `_cap_lower`).
+    // The old reshape emitted that column twice and BigQuery rejected it with
+    // "Column name m0_value is ambiguous". Now the shared (valueCol,
+    // ignoreZeros) group is projected once and indexed at both offsets.
+    const cols = [
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap",
+        percentile: 0.99,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      },
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap_lower",
+        percentile: 0.01,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      },
+      // Pad past the reshape threshold so we exercise the UNNEST path.
+      ...Array.from({ length: 10 }, (_, i) => ({
+        valueCol: `m${i + 1}_value`,
+        outputCol: `m${i + 1}_value_cap`,
+        percentile: 0.99,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      })),
+    ];
+    const sql = norm(
+      integration
+        .getSqlDialect()
+        .percentileCapSelectClause(cols, "__userMetricAgg"),
+    );
+    // m0_value appears exactly once as a projected STRUCT value (one sketch).
+    const projectionCount = (
+      sql.match(/CAST\(m0_value AS FLOAT64\) AS val/g) || []
+    ).length;
+    expect(projectionCount).toBe(1);
+    // Both tails read the same group (s0) at their respective offsets.
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(9900)], NULL)) AS m0_value_cap",
+    );
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(100)], NULL)) AS m0_value_cap_lower",
+    );
+  });
+
+  it("uses separate sketches when the two tails of a column differ in ignoreZeros", () => {
+    // ignoreZeros nulls zeros inside the sketch, so an upper tail that ignores
+    // zeros and a lower tail that doesn't cannot share one sketch. They must
+    // resolve to distinct (valueCol, ignoreZeros) groups.
+    const cols = [
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap",
+        percentile: 0.99,
+        ignoreZeros: true,
+        sourceIndex: 0,
+      },
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap_lower",
+        percentile: 0.01,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      },
+      ...Array.from({ length: 10 }, (_, i) => ({
+        valueCol: `m${i + 1}_value`,
+        outputCol: `m${i + 1}_value_cap`,
+        percentile: 0.99,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      })),
+    ];
+    const sql = norm(
+      integration
+        .getSqlDialect()
+        .percentileCapSelectClause(cols, "__userMetricAgg"),
+    );
+    // Two distinct groups for m0_value: the ignoreZeros one (s0, with IF guard)
+    // and the plain one (s1).
+    expect(sql).toContain("IF(m0_value = 0, NULL, CAST(m0_value AS FLOAT64))");
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(9900)], NULL)) AS m0_value_cap",
+    );
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's1', q[OFFSET(100)], NULL)) AS m0_value_cap_lower",
     );
   });
 
@@ -175,8 +365,8 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
         .getSqlDialect()
         .percentileCapSelectClause(cols, "__userMetricAgg"),
     );
-    expect(sql).toContain("APPROX_QUANTILES(val, 10000 IGNORE NULLS)");
-    expect(sql).not.toContain("val = 0");
+    expect(sql).toContain("APPROX_QUANTILES(pair.val, 10000 IGNORE NULLS)");
+    expect(sql).not.toContain("= 0, NULL");
   });
 });
 
@@ -191,7 +381,7 @@ describe("BigQuery KLL quantile sketch methods", () => {
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
+    integration = new BigQuery("", { type: "bigquery" });
   });
 
   it("reports quantile sketch support", () => {
@@ -340,7 +530,7 @@ describe("BigQuery pre-built sketch column aggregations (hll merge / kll merge)"
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
+    integration = new BigQuery("", { type: "bigquery" });
   });
 
   it("merges pre-built HLL sketch columns (not INIT) for 'hll merge'", () => {
@@ -485,6 +675,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // satisfies getExposureQuery(settings.exposureQueryId === "exposure") without
     // jest.spyOn (non-configurable export under @swc/jest).
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: {
         queries: {
           exposure: [exposureQuery],
@@ -492,6 +683,77 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       },
     });
   });
+
+  it.each(["raw events", "daily aggregates"])(
+    "materializes uncapped covariates from %s when both tails are configured",
+    (source) => {
+      const metrics = [
+        factMetricFactory.build({
+          id: "fact_capped_mean",
+          metricType: "mean",
+          numerator: { factTableId: factTable.id, column: "amount" },
+          cappingSettings: { type: "percentile", value: 0.99 },
+          lowerCappingSettings: { type: "absolute", value: 0 },
+          regressionAdjustmentEnabled: true,
+        }),
+        factMetricFactory.build({
+          id: "fact_capped_ratio",
+          metricType: "ratio",
+          numerator: { factTableId: factTable.id, column: "amount" },
+          denominator: { factTableId: factTable.id, column: "orders" },
+          cappingSettings: { type: "percentile", value: 0.99 },
+          lowerCappingSettings: { type: "percentile", value: 0.05 },
+          regressionAdjustmentEnabled: true,
+        }),
+      ];
+      const params = {
+        settings: { ...settings, regressionAdjustmentEnabled: true },
+        exposureQuery: resolvedExposureQuery,
+        activationMetric: null,
+        factTableMap,
+        factTableId: factTable.id,
+        metricSourceCovariateTableFullName: "proj.ds.covariates",
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics,
+        lastCovariateSuccessfulMaxTimestamp: null,
+      };
+      const sql = (
+        source === "raw events"
+          ? integration.getInsertMetricSourceCovariateDataQuery({
+              ...params,
+              alignLegacyScanToDailyGrain: false,
+            })
+          : integration.getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
+              {
+                ...params,
+                aggregatedTableFullName: "proj.ds.daily",
+                idType: "user_id",
+              },
+            )
+      ).replace(/\s+/g, " ");
+
+      expect(sql).not.toContain("value_cap");
+      expect(sql).not.toContain("GREATEST(");
+      expect(sql).not.toContain("LEAST(");
+      expect(sql).toContain(
+        "COALESCE(c.m0_covariate_value, 0) AS fact_capped_mean_value",
+      );
+      expect(sql).toContain(
+        "COALESCE(c.m1_covariate_value, 0) AS fact_capped_ratio_value",
+      );
+      expect(sql).toContain(
+        "COALESCE(c.m1_covariate_denominator, 0) AS fact_capped_ratio_denominator_value",
+      );
+      expect(metrics[0].lowerCappingSettings).toEqual({
+        type: "absolute",
+        value: 0,
+      });
+      expect(metrics[1].lowerCappingSettings).toEqual({
+        type: "percentile",
+        value: 0.05,
+      });
+    },
+  );
 
   it("getCreateMetricSourceTableQuery emits BYTES sketch + INT64 n_events columns", () => {
     const sql = integration.getCreateMetricSourceTableQuery({
@@ -1489,6 +1751,7 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
   beforeEach(() => {
     // @ts-expect-error -- context not needed for this unit test
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: {
         queries: {
           exposure: [exposureQuery],

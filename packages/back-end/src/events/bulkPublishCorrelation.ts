@@ -5,6 +5,16 @@ export function entityKey(entityType: string, id: string): string {
   return `${entityType}:${id}`;
 }
 
+// Owner key for a holdout linkage write's deferred `config.newLinkage` event.
+// Keyed by the WRITE (holdout plus the item whose publish caused it), not the
+// holdout: a release can link several items to one holdout, and rewinding one
+// must not silence the others' events.
+export const holdoutLinkageOwner = (
+  holdoutId: string,
+  itemKey?: string,
+): string =>
+  entityKey("holdout", itemKey ? `${holdoutId}:${itemKey}` : holdoutId);
+
 export type DeferredEventBuffer = {
   entries: Array<{ owner: string; emit: () => Promise<unknown> }>;
   closed?: boolean;

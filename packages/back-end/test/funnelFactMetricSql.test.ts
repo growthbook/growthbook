@@ -7,9 +7,8 @@ import {
   MetricFunnelStep,
 } from "shared/types/fact-table";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import { bigQueryDialect, redshiftDialect } from "shared/dialects";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 import { factTableFactory } from "back-end/test/factories/FactTable.factory";
@@ -288,7 +287,7 @@ describe("funnel fact metric SQL", () => {
     expect(sql).not.toContain("COALESCE(r.m0_step_0_resolved_ts, r.timestamp)");
   });
 
-  it("resolves the first step against exposure when it has a conversion window", () => {
+  it("resolves a windowed first step to a scalar in the aggregate", () => {
     const sql = buildSql([
       buildFunnelMetric({
         steps: [
@@ -300,11 +299,12 @@ describe("funnel fact metric SQL", () => {
       }),
     ]);
 
-    // Step 0 is materialized as an array and resolved in a dedicated CTE.
-    expect(sql).toContain("m0_step_0_arr");
-    expect(sql).toContain("__funnelResolve_0");
-    expect(sql).toMatch(/r\.timestamp/);
-    // 6 hours = 21600 seconds.
+    // Step 0 anchors on exposure, so it's resolved to a scalar via
+    // MIN(CASE ... within window) in the aggregate — not an array + resolve CTE.
+    expect(sql).toContain("m0_step_0_resolved_ts");
+    expect(sql).not.toContain("m0_step_0_arr");
+    expect(sql).not.toContain("__funnelResolve_0");
+    // 6 hours = 21600 seconds, applied against exposure in the aggregate.
     expect(sql).toContain("21600");
   });
 

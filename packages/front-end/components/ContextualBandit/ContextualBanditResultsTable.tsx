@@ -8,6 +8,8 @@ import {
   expandMetricGroups,
   conditionFromLeafClauses,
   getMetricLink,
+  isActiveVariation,
+  isDeactivatedVariation,
 } from "shared/experiments";
 import type {
   ContextualBanditResultsLeaf,
@@ -20,6 +22,7 @@ import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
 import VariationNumber from "@/ui/VariationNumber";
+import OutdatedBadge from "@/components/OutdatedBadge";
 import Tooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExperimentMetricFormatter } from "@/services/metrics";
@@ -210,9 +213,6 @@ export default function ContextualBanditResultsTable({
     permissionsUtil.canRunExperimentQueries(datasource) &&
     allExpandedMetrics.length > 0;
 
-  const variations = cb.variations;
-  const numVariations = variations.length;
-
   const leaves = useMemo(() => results?.leaves ?? [], [results?.leaves]);
   const hasTableData = leaves.length > 0;
 
@@ -237,29 +237,68 @@ export default function ContextualBanditResultsTable({
     () => results?.overall.variations ?? [],
     [results?.overall.variations],
   );
-  const overallVariationWeights = useMemo(
+  const snapshotIds = useMemo(
+    () => new Set(overallVariations.map((v) => v.variationId)),
+    [overallVariations],
+  );
+  const pendingActiveVariations = useMemo(
     () =>
-      Array.from(
-        { length: numVariations },
-        (_, i) => overallVariations[i]?.weight ?? null,
+      cb.variations.filter(
+        (v) => isActiveVariation(v) && !snapshotIds.has(v.id),
       ),
-    [numVariations, overallVariations],
+    [cb.variations, snapshotIds],
+  );
+  const variations = useMemo(
+    () => [
+      ...overallVariations.map((v, i) => {
+        const canonical = cb.variations.findIndex(
+          (c) => c.id === v.variationId,
+        );
+        const current = canonical >= 0 ? cb.variations[canonical] : undefined;
+        return {
+          id: v.variationId,
+          name: current?.name ?? v.variationName ?? "Removed variation",
+          index: canonical >= 0 ? canonical : i,
+        };
+      }),
+      ...pendingActiveVariations.map((v) => ({
+        id: v.id,
+        name: v.name,
+        index: cb.variations.findIndex((c) => c.id === v.id),
+      })),
+    ],
+    [overallVariations, cb.variations, pendingActiveVariations],
+  );
+  const isOutdated = useMemo(
+    () =>
+      pendingActiveVariations.length > 0 ||
+      overallVariations.some((v) => {
+        const current = cb.variations.find((c) => c.id === v.variationId);
+        return !current || isDeactivatedVariation(current);
+      }),
+    [overallVariations, cb.variations, pendingActiveVariations],
+  );
+  const numVariations = variations.length;
+  const overallVariationWeights = useMemo(
+    () => [
+      ...overallVariations.map((v) => v.weight ?? null),
+      ...pendingActiveVariations.map(() => null),
+    ],
+    [overallVariations, pendingActiveVariations],
   );
   const overallVariationMeans = useMemo(
-    () =>
-      Array.from(
-        { length: numVariations },
-        (_, i) => overallVariations[i]?.mean ?? null,
-      ),
-    [numVariations, overallVariations],
+    () => [
+      ...overallVariations.map((v) => v.mean ?? null),
+      ...pendingActiveVariations.map(() => null),
+    ],
+    [overallVariations, pendingActiveVariations],
   );
   const overallVariationUnits = useMemo(
-    () =>
-      Array.from(
-        { length: numVariations },
-        (_, i) => overallVariations[i]?.users ?? 0,
-      ),
-    [numVariations, overallVariations],
+    () => [
+      ...overallVariations.map((v) => v.users ?? 0),
+      ...pendingActiveVariations.map(() => 0),
+    ],
+    [overallVariations, pendingActiveVariations],
   );
 
   const totalUnits = useMemo(
@@ -279,11 +318,11 @@ export default function ContextualBanditResultsTable({
 
   const comparisonColumns: HeatmapColumn[] = useMemo(
     () =>
-      variations.map((v, index) => ({
+      variations.map((v) => ({
         key: v.id,
         header: (
           <Tooltip content={v.name} side="top">
-            <VariationNumber number={index} />
+            <VariationNumber number={v.index} />
           </Tooltip>
         ),
         align: "center",
@@ -364,6 +403,13 @@ export default function ContextualBanditResultsTable({
           showQueries ? () => setQueriesModalOpen(true) : undefined
         }
       />
+      {isOutdated && hasTableData ? (
+        <OutdatedBadge
+          reasons={[
+            "The Contextual Bandit's variations have changed since the last results were computed. Update results to reflect the current variation set.",
+          ]}
+        />
+      ) : null}
       {canRunQueries ? (
         <RunQueriesButton
           cta="Update results"

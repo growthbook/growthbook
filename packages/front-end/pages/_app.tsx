@@ -42,7 +42,7 @@ import { growthbook } from "@/services/utils";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
-import { FeatureStaleStatesProvider } from "@/hooks/useFeatureStaleStates";
+import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
 import AgentLauncher from "@/components/Agent/AgentLauncher";
 import { AgentPanelProvider } from "@/components/Agent/AgentPanelContext";
@@ -209,7 +209,7 @@ function App({
                           {organizationRequired ? (
                             <GetStartedProvider>
                               <DefinitionsProvider>
-                                <FeatureStaleStatesProvider>
+                                <FeatureHealthStatesProvider>
                                   <AgentPanelProvider>
                                     {liteLayout ? <LayoutLite /> : <Layout />}
                                     <CommandPaletteLauncher />
@@ -232,7 +232,7 @@ function App({
                                       </OrgPageContent>
                                     </main>
                                   </AgentPanelProvider>
-                                </FeatureStaleStatesProvider>
+                                </FeatureHealthStatesProvider>
                               </DefinitionsProvider>
                             </GetStartedProvider>
                           ) : (

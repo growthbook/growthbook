@@ -244,6 +244,11 @@ export default function PrerequisiteModal({
         },
         project: projectId,
         projectName,
+        valueType: f.valueType,
+        configBackingKey: f.configBackingKey,
+        tags: f.tags,
+        description: f.description,
+        states: featuresStates[f.id],
       };
     });
 
@@ -257,7 +262,6 @@ export default function PrerequisiteModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}

@@ -1,6 +1,8 @@
 import { z } from "zod";
+import isEqual from "lodash/isEqual";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
@@ -38,9 +40,28 @@ export const numberFormatValidator = z.enum([
   "",
   "currency",
   "time:seconds",
+  "time:milliseconds",
   "memory:bytes",
   "memory:kilobytes",
 ]);
+
+export const factTableTypeValidator = z
+  .enum(["event", "model", "rollup", "other"])
+  .describe(
+    'The shape of the underlying table. "event" is a stream of many event types told apart by a type column, "model" models one specific object type (orders, signups, etc.), "rollup" is pre-aggregated with one row per user per day.',
+  );
+
+export const timestampColumnField = z
+  .string()
+  .describe(
+    'The column holding the event timestamp. Must be a date column on this fact table. Defaults to "timestamp" when unset.',
+  );
+
+export const userIdColumnsField = z
+  .record(z.string(), z.string())
+  .describe(
+    'Maps an identifier type to the column holding it, for SQL that does not alias its columns to the identifier type names, e.g. `{"user_id": "userId"}`. May also be a single-level field path into a JSON column (`properties.userId`). Unmapped types use the identifier type name as the column name.',
+  );
 
 /** Persisted JSON fields: every field has a datatype (`""` until detected). */
 export const jsonColumnFieldsValidator = z.record(
@@ -61,6 +82,16 @@ export const jsonColumnFieldsInputValidator = z.record(
   }),
 );
 
+/**
+ * For an `alwaysInlineFilter` column: value -> extra column to also prompt for
+ * when a metric filters this column to that value. The extra column may be a
+ * JSON field path, e.g. { "Page View": "path", "Modal Open": "properties.modalType" }.
+ */
+export const conditionalInlineFiltersValidator = z.record(
+  z.string(),
+  z.string(),
+);
+
 export const createColumnPropsValidator = z
   .object({
     column: z.string(),
@@ -72,6 +103,7 @@ export const createColumnPropsValidator = z
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
+    conditionalInlineFilters: conditionalInlineFiltersValidator.optional(),
     topValues: z.array(z.string()).optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
@@ -108,6 +140,7 @@ export const updateColumnPropsValidator = z
     datatype: factTableColumnTypeValidator.optional(),
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
+    conditionalInlineFilters: conditionalInlineFiltersValidator.optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
     isAutoSliceColumn: z.boolean().optional(),
@@ -161,8 +194,11 @@ export const createFactTablePropsValidator = z
     tags: z.array(z.string()),
     datasource: z.string(),
     userIdTypes: z.array(z.string()),
+    userIdColumns: userIdColumnsField.optional(),
     sql: z.string(),
+    timestampColumn: timestampColumnField.optional(),
     eventName: z.string(),
+    tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
@@ -180,8 +216,11 @@ export const updateFactTablePropsValidator = z
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
     userIdTypes: z.array(z.string()).optional(),
+    userIdColumns: userIdColumnsField.optional(),
     sql: z.string().optional(),
+    timestampColumn: timestampColumnField.optional(),
     eventName: z.string().optional(),
+    tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
     archived: z.boolean().optional(),
@@ -220,6 +259,8 @@ export const rowFilterOperators = [
   "not_in",
   "contains",
   "not_contains",
+  "matches_pattern",
+  "not_matches_pattern",
   "starts_with",
   "ends_with",
   "is_null",
@@ -287,6 +328,379 @@ export const cappingSettingsValidator = z
     ignoreZeros: z.boolean().nullable().optional(),
   })
   .strict();
+
+/**
+ * Minimal shape for evaluating whether a single capping tail is active
+ * (API, DB, forms). Upper and lower tails are configured independently, each
+ * with its own settings object of this shape.
+ */
+const cappingSettingsPatchValidator = cappingSettingsValidator.extend({
+  type: cappingTypeValidator.or(z.literal("none")),
+  value: z.number().optional(),
+});
+
+export type CappingSettingsTailInput = Partial<
+  z.infer<typeof cappingSettingsPatchValidator>
+>;
+
+export type CappingTailState = {
+  upperPercentileCapped: boolean;
+  upperAbsoluteCapped: boolean;
+  lowerPercentileCapped: boolean;
+  lowerAbsoluteCapped: boolean;
+  anyCap: boolean;
+  usesPercentile: boolean;
+};
+
+function normalizeCappingTypeForTails(
+  type: CappingSettingsTailInput["type"],
+): "" | "absolute" | "percentile" {
+  if (type === undefined || type === "" || type === "none") return "";
+  return type;
+}
+
+function isValidTailValue(
+  value: number | null | undefined,
+  type: "" | "absolute" | "percentile",
+  isLower: boolean,
+): boolean {
+  if (type === "") return false;
+  if (value === undefined || value === null || !Number.isFinite(value))
+    return false;
+  if (type === "percentile") {
+    return value > 0 && value < 1;
+  }
+  return isLower || value > 0;
+}
+
+/**
+ * Upper tail activation for a capping settings object.
+ * Percentile: `value` ∈ (0,1). Absolute: `value` > 0.
+ */
+function getUpperTailFlags(cs: CappingSettingsTailInput | null | undefined): {
+  upperPercentileCapped: boolean;
+  upperAbsoluteCapped: boolean;
+} {
+  const type = normalizeCappingTypeForTails(cs?.type);
+  const value = cs?.value;
+  return {
+    upperPercentileCapped:
+      type === "percentile" && isValidTailValue(value, type, false),
+    upperAbsoluteCapped:
+      type === "absolute" && isValidTailValue(value, type, false),
+  };
+}
+
+/**
+ * Lower tail activation for a capping settings object.
+ * Percentile: `value` ∈ (0,1). Absolute: finite `value` (incl. 0, may be negative).
+ */
+function getLowerTailFlags(cs: CappingSettingsTailInput | null | undefined): {
+  lowerPercentileCapped: boolean;
+  lowerAbsoluteCapped: boolean;
+} {
+  const type = normalizeCappingTypeForTails(cs?.type);
+  const value = cs?.value;
+  return {
+    lowerPercentileCapped:
+      type === "percentile" && isValidTailValue(value, type, true),
+    lowerAbsoluteCapped:
+      type === "absolute" && isValidTailValue(value, type, true),
+  };
+}
+
+/**
+ * Per-tail activation for fact-metric style capping. Upper and lower tails are
+ * independent settings objects, each with its own `type`/`value`/`ignoreZeros`,
+ * so mixed configurations (e.g. absolute lower + percentile upper) are allowed.
+ */
+export function getCappingTailState(
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
+): CappingTailState {
+  const { upperPercentileCapped, upperAbsoluteCapped } =
+    getUpperTailFlags(upper);
+  const { lowerPercentileCapped, lowerAbsoluteCapped } =
+    getLowerTailFlags(lower);
+  const anyCap =
+    upperPercentileCapped ||
+    upperAbsoluteCapped ||
+    lowerPercentileCapped ||
+    lowerAbsoluteCapped;
+  const usesPercentile = upperPercentileCapped || lowerPercentileCapped;
+
+  return {
+    upperPercentileCapped,
+    upperAbsoluteCapped,
+    lowerPercentileCapped,
+    lowerAbsoluteCapped,
+    anyCap,
+    usesPercentile,
+  };
+}
+
+/**
+ * Cross-object ordering validation for the upper and lower capping tails.
+ * When both tails share a type, require lower value < upper value (and, for
+ * percentiles, both strictly within (0,1)). Mixed types have no ordering
+ * constraint (e.g. absolute-0 lower + percentile upper is valid).
+ */
+export function validateCappingSettingsOrdering(
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
+): void {
+  const upperType = normalizeCappingTypeForTails(upper?.type);
+  const lowerType = normalizeCappingTypeForTails(lower?.type);
+  const upperValue = upper?.value;
+  const lowerValue = lower?.value;
+
+  validateCappingSettingsValueEntered(upper, false);
+  validateCappingSettingsValueEntered(lower, true);
+
+  // When both tails are absolute, the lower floor must be below the upper cap.
+  if (
+    upperType === "absolute" &&
+    lowerType === "absolute" &&
+    upperValue !== undefined &&
+    upperValue !== null &&
+    lowerValue !== undefined &&
+    lowerValue !== null &&
+    upperValue > 0 &&
+    lowerValue >= upperValue
+  ) {
+    throw new Error(
+      "Lower tail value must be less than upper tail value when both are absolute.",
+    );
+  }
+
+  // When both tails are percentiles, the lower percentile must be below the upper.
+  if (
+    upperType === "percentile" &&
+    lowerType === "percentile" &&
+    upperValue !== undefined &&
+    upperValue !== null &&
+    lowerValue !== undefined &&
+    lowerValue !== null &&
+    upperValue > 0 &&
+    upperValue < 1 &&
+    lowerValue > 0 &&
+    lowerValue < 1 &&
+    lowerValue >= upperValue
+  ) {
+    throw new Error("Lower percentile must be less than upper percentile.");
+  }
+}
+
+/**
+ * `ignoreZeros` only applies to percentile capping, so consistency is
+ * enforced only when both tails use percentile capping.
+ */
+export function validateCappingSettingsIgnoreZerosConsistency(
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
+): void {
+  const tails = getCappingTailState(upper, lower);
+  if (!tails.upperPercentileCapped || !tails.lowerPercentileCapped) return;
+
+  // Normalize null/undefined/false to false so only an explicit true differs.
+  if (!!upper?.ignoreZeros !== !!lower?.ignoreZeros) {
+    throw new Error(
+      "Ignore zeros must be enabled on both percentile capping tails or on neither.",
+    );
+  }
+}
+
+/**
+ * A capping tail with a selected type must have a usable value.
+ */
+export function validateCappingSettingsValueEntered(
+  tail: CappingSettingsTailInput | null | undefined,
+  isLower: boolean,
+): void {
+  const type = normalizeCappingTypeForTails(tail?.type);
+  if (type === "") return;
+
+  const value = tail?.value;
+  const tailLabel = isLower
+    ? "lowerCappingSettings.value"
+    : "cappingSettings.value";
+
+  if (type === "percentile") {
+    if (!isValidTailValue(value, type, isLower)) {
+      throw new Error(
+        `${tailLabel} must be greater than 0 and less than 1. Disable the cap explicitly to remove it.`,
+      );
+    }
+    return;
+  }
+
+  // Absolute: the lower floor may be 0 or negative, so any finite value is
+  // valid; the upper ceiling must be greater than 0.
+  if (isLower) {
+    if (value === undefined || value === null || !Number.isFinite(value)) {
+      throw new Error(`${tailLabel} must be a finite number.`);
+    }
+    return;
+  }
+  if (
+    value === undefined ||
+    value === null ||
+    !Number.isFinite(value) ||
+    value <= 0
+  ) {
+    throw new Error(`${tailLabel} must be a finite number greater than 0.`);
+  }
+}
+
+/**
+ * Ratio metrics only support percentile capping.
+ */
+export function validateCappingSettingsMetricTypeCompatibility(
+  metricType: string,
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
+): void {
+  if (metricType !== "ratio") return;
+
+  const upperType = normalizeCappingTypeForTails(upper?.type);
+  const lowerType = normalizeCappingTypeForTails(lower?.type);
+
+  if (upperType === "absolute" || lowerType === "absolute") {
+    throw new Error("Ratio metrics support only percentile capping.");
+  }
+}
+
+type CappingPair = Pick<
+  z.infer<typeof factMetricValidator>,
+  "cappingSettings" | "lowerCappingSettings"
+>;
+
+function sameCappingTail(
+  a: CappingSettingsTailInput | null | undefined,
+  b: CappingSettingsTailInput | null | undefined,
+): boolean {
+  return (
+    normalizeCappingTypeForTails(a?.type) ===
+      normalizeCappingTypeForTails(b?.type) &&
+    (a?.value ?? null) === (b?.value ?? null) &&
+    (a?.ignoreZeros ?? false) === (b?.ignoreZeros ?? false)
+  );
+}
+
+export function resolveCappingSettingsPatch(
+  input: {
+    cappingSettings?: CappingSettingsTailInput;
+    lowerCappingSettings?: CappingSettingsTailInput | null;
+  },
+  previous?: Partial<CappingPair> | null,
+): Partial<CappingPair> {
+  const updates: Partial<CappingPair> = {};
+  for (const key of ["cappingSettings", "lowerCappingSettings"] as const) {
+    const supplied = input[key];
+    if (supplied === undefined) continue;
+    const tail =
+      supplied === null ? null : cappingSettingsPatchValidator.parse(supplied);
+    if (key === "cappingSettings" && tail === null) {
+      throw new Error(
+        "cappingSettings must be an object. Use type: none to disable it.",
+      );
+    }
+    const isLower = key === "lowerCappingSettings";
+    const type = normalizeCappingTypeForTails(tail?.type);
+    if (!type) {
+      if (isLower) updates.lowerCappingSettings = null;
+      else updates.cappingSettings = { type: "", value: 0, ignoreZeros: false };
+      continue;
+    }
+    const old = previous?.[key];
+    const sameType = type === old?.type;
+    const candidate = {
+      type,
+      value: tail?.value ?? (sameType ? old?.value : undefined),
+      ignoreZeros:
+        tail?.ignoreZeros ?? (sameType ? old?.ignoreZeros : false) ?? false,
+    };
+    // A full form submission may include unchanged legacy settings.
+    if (old && sameCappingTail(candidate, old)) {
+      updates[key] = old;
+      continue;
+    }
+    validateCappingSettingsValueEntered(candidate, isLower);
+    updates[key] = cappingSettingsValidator.parse(candidate);
+  }
+  return updates;
+}
+
+export function validateFactMetricCapping(
+  metric: Pick<
+    FactMetricInterface,
+    | "metricType"
+    | "cappingSettings"
+    | "lowerCappingSettings"
+    | "numerator"
+    | "denominator"
+  >,
+  previous: Pick<
+    FactMetricInterface,
+    | "metricType"
+    | "cappingSettings"
+    | "lowerCappingSettings"
+    | "numerator"
+    | "denominator"
+  > | null = null,
+): void {
+  const changed =
+    !previous ||
+    metric.metricType !== previous.metricType ||
+    !sameCappingTail(metric.cappingSettings, previous.cappingSettings) ||
+    !sameCappingTail(
+      metric.lowerCappingSettings,
+      previous.lowerCappingSettings,
+    );
+  if (changed) {
+    validateCappingSettingsOrdering(
+      metric.cappingSettings,
+      metric.lowerCappingSettings,
+    );
+    validateCappingSettingsIgnoreZerosConsistency(
+      metric.cappingSettings,
+      metric.lowerCappingSettings,
+    );
+    const enabled =
+      !!normalizeCappingTypeForTails(metric.cappingSettings?.type) ||
+      !!normalizeCappingTypeForTails(metric.lowerCappingSettings?.type);
+    if (enabled && !isCappableFactMetric(metric.metricType)) {
+      throw new Error(
+        `Capping is not supported for ${metric.metricType} metrics. Disable both tails explicitly.`,
+      );
+    }
+    if (!previous) {
+      validateCappingSettingsMetricTypeCompatibility(
+        metric.metricType ?? "",
+        metric.cappingSettings,
+        metric.lowerCappingSettings,
+      );
+    }
+  }
+  const filterChanged = (["numerator", "denominator"] as const).some((key) => {
+    return (
+      metric[key]?.aggregateFilterColumn !==
+        previous?.[key]?.aggregateFilterColumn ||
+      !isEqual(metric[key]?.aggregateFilter, previous?.[key]?.aggregateFilter)
+    );
+  });
+  if (
+    (changed || filterChanged) &&
+    getCappingTailState(metric.cappingSettings, metric.lowerCappingSettings)
+      .anyCap &&
+    (metric.numerator?.aggregateFilterColumn ||
+      metric.denominator?.aggregateFilterColumn)
+  ) {
+    throw new Error(
+      "Cannot specify both capping and a user filter. Remove one of them explicitly.",
+    );
+  }
+}
 
 export const legacyWindowSettingsValidator = z.object({
   type: windowTypeValidator.optional(),
@@ -388,6 +802,24 @@ export const metricTypeValidator = z.enum([
   "funnel",
 ]);
 
+export function isCappableFactMetric(
+  metricType: z.infer<typeof metricTypeValidator>,
+): boolean {
+  switch (metricType) {
+    case "mean":
+    case "ratio":
+      return true;
+    case "proportion":
+    case "retention":
+    case "funnel":
+    case "dailyParticipation":
+    case "quantile":
+      return false;
+    default:
+      return metricType satisfies never;
+  }
+}
+
 const factMetricObjectValidator = z
   .object({
     id: z.string(),
@@ -415,6 +847,10 @@ const factMetricObjectValidator = z
     denominator: columnRefValidator.nullable(),
 
     cappingSettings: cappingSettingsValidator,
+    // Optional independent lower-tail (negative-value winsorization) capping.
+    // Has its own type/value/ignoreZeros so it can differ from the upper tail
+    // (e.g. absolute-0 floor + percentile upper cap).
+    lowerCappingSettings: cappingSettingsValidator.optional().nullable(),
     windowSettings: windowSettingsValidator,
     priorSettings: priorSettingsValidator,
 
@@ -505,6 +941,12 @@ export const testFactFilterPropsValidator = z
   })
   .strict();
 
+export const testRowFiltersPropsValidator = z
+  .object({
+    rowFilters: z.array(rowFilterValidator),
+  })
+  .strict();
+
 // ---- API Validators (migrated from openapi.ts) ----
 
 // Corresponds to schemas/FactTableColumn.yaml
@@ -527,6 +969,7 @@ export const apiFactTableColumnValidator = namedSchema(
           "",
           "currency",
           "time:seconds",
+          "time:milliseconds",
           "memory:bytes",
           "memory:kilobytes",
         ])
@@ -565,6 +1008,11 @@ export const apiFactTableColumnValidator = namedSchema(
         )
         .optional()
         .meta({ default: false }),
+      conditionalInlineFilters: conditionalInlineFiltersValidator
+        .describe(
+          'Value -> additional column to prompt for when a metric filters this column to that value, e.g. {"Page View": "path", "Modal Open": "properties.modalType"}. Requires alwaysInlineFilter.',
+        )
+        .optional(),
       deleted: z.boolean().optional().meta({ default: false }),
       isAutoSliceColumn: z
         .boolean()
@@ -657,12 +1105,14 @@ export const apiFactTableValidator = namedSchema(
       tags: z.array(z.string()),
       datasource: z.string(),
       userIdTypes: z.array(z.string()),
+      userIdColumns: userIdColumnsField.optional(),
       aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
         .describe(
           "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
         )
         .optional(),
       sql: z.string(),
+      timestampColumn: timestampColumnField.optional(),
       eventName: z
         .string()
         .describe("The event name used in SQL template variables")
@@ -810,12 +1260,14 @@ export const postFactTableBody = z
       .describe(
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
       ),
+    userIdColumns: userIdColumnsField.optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
       .describe(
         "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
       )
       .optional(),
     sql: z.string().describe("The SQL query for this fact table"),
+    timestampColumn: timestampColumnField.optional(),
     eventName: z
       .string()
       .describe("The event name used in SQL template variables")
@@ -854,12 +1306,14 @@ const updateFactTableBody = z
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
       )
       .optional(),
+    userIdColumns: userIdColumnsField.optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
       .describe(
         "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
       )
       .optional(),
     sql: z.string().describe("The SQL query for this fact table").optional(),
+    timestampColumn: timestampColumnField.optional(),
     eventName: z
       .string()
       .describe("The event name used in SQL template variables")

@@ -75,7 +75,10 @@ export default function MessageTokens({
           if (!mention) return part.text;
           return (
             <MentionPopover key={i} mention={mention}>
-              <Link href={metricHref(mention)} className={styles.token}>
+              <Link
+                href={metricHref(mention)}
+                className={`${styles.token} ${styles.mentionToken}`}
+              >
                 {part.text}
               </Link>
             </MentionPopover>

@@ -13,18 +13,20 @@ import { Dimension } from "shared/types/integrations";
 import { SqlDialect } from "shared/types/sql";
 import { getRowFilterSQL } from "shared/experiments";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
-import BigQuery from "back-end/src/integrations/BigQuery";
+import {
+  bigQueryDialect,
+  mysqlDialect,
+  clickHouseDialect,
+  snowflakeDialect,
+  redshiftDialect,
+  databricksDialect,
+  mssqlDialect,
+  postgresDialect,
+  verticaDialect,
+  adobeExperiencePlatformQueryServiceDialect,
+} from "shared/dialects";
 import Snowflake from "back-end/src/integrations/Snowflake";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
-import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
-import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
-import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
-import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
-import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
-import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
-import { adobeExperiencePlatformQueryServiceDialect } from "back-end/src/integrations/dialects/adobeExperiencePlatformQueryService";
+import BigQuery from "back-end/src/integrations/BigQuery";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
@@ -511,6 +513,77 @@ describe("bigquery integration", () => {
       "WHERE m.event_time >= '2023-01-01 00:00:00' AND m.event_time <= '2023-01-31 00:00:00'",
     );
     expect(result).not.toContain("m.timestamp");
+  });
+
+  it("maps identifier columns and aliases them back to the id type", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT userId, anonId, props, timestamp, value FROM events",
+      userIdColumns: { user_id: "userId", anonymous_id: "anonId" },
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const params = {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      startDate: new Date("2023-01-01"),
+      endDate: new Date("2023-01-31"),
+    };
+
+    // Base id type is on the fact table: select the mapped column directly.
+    const result = getFactMetricCTE(bigQueryDialect, {
+      ...params,
+      baseIdType: "user_id",
+      idJoinMap: {},
+    });
+    expect(result).toContain("userId as user_id");
+    expect(result).not.toContain("user_id as user_id");
+
+    // Base id type isn't on the fact table: join on the mapped column instead.
+    const joined = getFactMetricCTE(bigQueryDialect, {
+      ...params,
+      baseIdType: "device_id",
+      idJoinMap: { anonymous_id: "__identities" },
+    });
+    expect(joined).toContain(
+      "JOIN __identities i ON (i.anonymous_id = m.anonId)",
+    );
+
+    // A mapped virtual column inlines its expression in the identifier position.
+    const virtual = getFactMetricCTE(bigQueryDialect, {
+      ...params,
+      factTable: factTableFactory.build({
+        id: factTable.id,
+        sql: "SELECT userId, anonId, timestamp, value FROM events",
+        userIdColumns: { user_id: "combined_id" },
+        columns: [
+          {
+            column: "combined_id",
+            name: "combined_id",
+            description: "",
+            datatype: "string",
+            numberFormat: "",
+            deleted: false,
+            dateCreated: new Date(0),
+            dateUpdated: new Date(0),
+            isVirtual: true,
+            sql: "COALESCE(userId, anonId)",
+          },
+        ],
+      }),
+      baseIdType: "user_id",
+      idJoinMap: {},
+    });
+    // No alias prefix here: the expression sits directly in the SELECT over
+    // the fact table subquery, same as the plain mapped column above.
+    expect(virtual).toContain("(COALESCE(userId, anonId)) as user_id");
+    expect(virtual).toContain("m.value as m0_value");
   });
 
   it("substitutes {{experimentId}} in fact table SQL when experimentId is provided", () => {
@@ -1027,6 +1100,7 @@ describe("full fact metric experiment query - bigquery", () => {
   beforeEach(() => {
     // @ts-expect-error -- context not needed for test
     bqIntegration = new BigQuery("", {
+      type: "bigquery",
       settings: {
         queries: {
           exposure: [testExposureQuery],
@@ -1614,6 +1688,7 @@ describe("quantile grid array packing is BigQuery-only", () => {
   // ONLY difference between the two SQL strings is the dialect.
   // @ts-expect-error -- context not needed for test
   const datasourceIntegration = new BigQuery("", {
+    type: "bigquery",
     settings: { queries: { exposure: [testExposureQuery] } },
   });
 
@@ -1709,10 +1784,12 @@ describe("quantile grid array packing is BigQuery-only", () => {
     it("only BigQuery's source properties enable the efficient (array) grid", () => {
       // @ts-expect-error -- context not needed for test
       const bq = new BigQuery("", {
+        type: "bigquery",
         settings: { queries: { exposure: [testExposureQuery] } },
       });
       // @ts-expect-error -- context not needed for test
       const sf = new Snowflake("", {
+        type: "snowflake",
         settings: { queries: { exposure: [testExposureQuery] } },
       });
 
@@ -1818,6 +1895,7 @@ describe("getFeatureEvalDiagnosticsQuery", () => {
 
   it("replaces template variables in the feature usage query", () => {
     const datasource = {
+      type: "bigquery",
       settings: {
         queries: {
           featureUsage: [
@@ -1869,6 +1947,7 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
 
   // @ts-expect-error -- context not needed for test
   const datasourceIntegration = new BigQuery("", {
+    type: "bigquery",
     settings: { queries: { exposure: [testExposureQuery] } },
   });
 

@@ -30,7 +30,6 @@ export const EditJupyterNotebookQueryRunner: FC<
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       submit={handleSubmit}

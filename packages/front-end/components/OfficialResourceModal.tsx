@@ -22,7 +22,6 @@ export default function OfficialResourceModal({
 }) {
   return (
     <Modal
-      useRadixButton={false}
       open={true}
       trackingEventModalType={`convert-to-official-${resourceType}`}
       trackingEventModalSource={source}

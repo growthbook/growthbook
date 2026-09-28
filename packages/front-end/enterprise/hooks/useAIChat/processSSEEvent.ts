@@ -1,39 +1,5 @@
 import type { ActiveTurnItem, SSEEvent } from "./types";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Extracts chart-relevant data from a successful runExploration tool output.
- * Returns undefined when the output isn't a valid exploration result.
- */
-function extractExplorationResultData(
-  toolName: string,
-  output: unknown,
-): Record<string, unknown> | undefined {
-  if (toolName !== "runExploration") return undefined;
-  if (!output || typeof output !== "object" || Array.isArray(output))
-    return undefined;
-
-  const o = output as Record<string, unknown>;
-  if (o.status !== "success") return undefined;
-
-  const ex = o.exploration;
-  if (!ex || typeof ex !== "object" || !("config" in ex)) return undefined;
-  if (typeof (ex as Record<string, unknown>).config !== "object")
-    return undefined;
-
-  const data: Record<string, unknown> = {};
-  if (typeof o.snapshotId === "string") data.snapshotId = o.snapshotId;
-  if (o.exploration !== undefined) data.exploration = o.exploration;
-  // Include the top-level normalized config so the active-turn chart renders
-  // with the same config as the final persisted message. The exploration's
-  // embedded config can be stale (e.g. a cached exploration keeps its
-  // original showAs) — the top-level config reflects the current request.
-  if (o.config !== undefined) data.config = o.config;
-  return data;
-}
+import { extractExplorationResultData } from "./extractExplorationResultData";
 
 // ---------------------------------------------------------------------------
 // Pure SSE event processor
@@ -55,6 +21,7 @@ export function processSSEEvent(
   currentItems: ActiveTurnItem[],
   toolStatusLabels: Record<string, string>,
   nextId: () => number,
+  toolPreparingLabels: Record<string, string> = {},
 ): SSEProcessResult {
   switch (event.type) {
     case "reasoning-delta": {
@@ -107,7 +74,10 @@ export function processSSEEvent(
         typeof event.data.toolCallId === "string"
           ? event.data.toolCallId
           : `tool_${nextId()}`;
-      const label = toolStatusLabels[toolName] ?? "Working...";
+      const label =
+        toolPreparingLabels[toolName] ??
+        toolStatusLabels[toolName] ??
+        "Working...";
 
       const already = currentItems.some(
         (i) => i.kind === "tool-status" && i.toolCallId === toolCallId,
@@ -244,7 +214,17 @@ export function processSSEEvent(
           ? (rawIn as Record<string, unknown>)
           : undefined;
 
-      const toolResultData = extractExplorationResultData(toolName, output);
+      const existingItem = currentItems.find(
+        (item) => item.kind === "tool-status" && item.toolCallId === toolCallId,
+      );
+      const toolResultData = extractExplorationResultData(
+        toolName,
+        inputPatch ??
+          (existingItem?.kind === "tool-status"
+            ? existingItem.toolInput
+            : undefined),
+        output,
+      );
 
       return {
         waitingForNextStep: !preliminary,

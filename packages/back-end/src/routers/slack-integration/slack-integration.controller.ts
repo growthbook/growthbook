@@ -1,10 +1,44 @@
+import {
+  SlackNotificationPreviewBody,
+  SlackNotificationSettingsBody,
+  SlackWorkspaceConnectionFrontEndInterface,
+  SlackLinkBody,
+  SlackLinkConsent,
+  SlackAccountLink,
+} from "shared/validators";
 import type { Response } from "express";
-import { SlackIntegrationInterface } from "shared/types/slack-integration";
+import {
+  SlackIntegrationInterface,
+  SlackOAuthIntegrationInterface,
+} from "shared/types/slack-integration";
 import { NotificationEventName } from "shared/types/events/base-types";
+import {
+  buildSlackSettingsPreview,
+  sendSlackSettingsTest,
+} from "back-end/src/services/slack/slackSettingsPreview";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getSlackLinkConsent,
+  getSlackAccountLinks,
+} from "back-end/src/services/slack/slackIdentity";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
+import {
+  addSlackChannelToWorkspace,
+  connectSlackOAuthIntegration,
+  connectSlackOAuthInstallFromSession,
+  deleteSlackOAuthIntegration,
+  disconnectSlackWorkspace,
+  getSlackOAuthAuthorizeUrl,
+  getSlackOAuthIntegrationById,
+  isSlackOAuthConfigured,
+  listSlackOAuthConnections,
+  listSlackWorkspaceChannels,
+  setSlackAssistantEnabled,
+  type SlackChannelOption,
+  updateSlackOAuthIntegration,
+} from "back-end/src/services/slackIntegration";
 
 // region GET /integrations/slack
 
@@ -16,6 +50,12 @@ type GetSlackIntegrationsRequest = AuthRequest<
 
 type GetSlackIntegrationsResponse = {
   slackIntegrations: SlackIntegrationInterface[];
+};
+
+type GetSlackOAuthIntegrationsResponse = {
+  slackConnections: SlackWorkspaceConnectionFrontEndInterface[];
+  slackIntegrations: SlackOAuthIntegrationInterface[];
+  oauthConfigured: boolean;
 };
 
 /**
@@ -38,12 +78,335 @@ export const getSlackIntegrations = async (
     context.org.id,
   );
 
-  return res.json({
-    slackIntegrations,
-  });
+  return res.json({ slackIntegrations });
 };
 
 // endregion GET /integrations/slack
+
+export const getSlackOAuthConnections = async (
+  req: GetSlackIntegrationsRequest,
+  res: Response<GetSlackOAuthIntegrationsResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const connections = await listSlackOAuthConnections(context);
+  return res.json({
+    ...connections,
+    oauthConfigured: isSlackOAuthConfigured(),
+  });
+};
+
+type GetSlackOAuthConnectionRequest = AuthRequest<
+  Record<string, never>,
+  { id: string },
+  Record<string, never>
+>;
+
+type GetSlackOAuthConnectionResponse = {
+  slackIntegration: SlackOAuthIntegrationInterface;
+};
+
+export const getSlackOAuthConnection = async (
+  req: GetSlackOAuthConnectionRequest,
+  res: Response<GetSlackOAuthConnectionResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const slackIntegration = await getSlackOAuthIntegrationById({
+    context,
+    id: req.params.id,
+  });
+  if (!slackIntegration) {
+    return res.status(404).json({ message: "Not found" });
+  }
+
+  return res.json({ slackIntegration });
+};
+
+type PutSlackOAuthConnectionRequest = AuthRequest<
+  SlackNotificationSettingsBody,
+  { id: string }
+>;
+
+export const putSlackOAuthConnection = async (
+  req: PutSlackOAuthConnectionRequest,
+  res: Response<GetSlackOAuthConnectionResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const slackIntegration = await updateSlackOAuthIntegration({
+    context,
+    id: req.params.id,
+    updates: req.body,
+  });
+  if (!slackIntegration) {
+    return res.status(404).json({ message: "Not found" });
+  }
+
+  return res.json({ slackIntegration });
+};
+
+// region POST /integrations/slack/connect
+
+type PostSlackOAuthConnectRequest = AuthRequest<
+  { teamId?: string },
+  Record<string, never>,
+  Record<string, never>
+>;
+
+type PostSlackOAuthConnectResponse = {
+  url: string;
+};
+
+export const postSlackOAuthConnect = async (
+  req: PostSlackOAuthConnectRequest,
+  res: Response<PostSlackOAuthConnectResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  return res.json({
+    url: getSlackOAuthAuthorizeUrl(context, req.body.teamId),
+  });
+};
+
+// endregion POST /integrations/slack/connect
+
+// region POST /integrations/slack/oauth-callback
+
+type PostSlackOAuthCallbackRequest = AuthRequest<{
+  code: string;
+  state: string;
+}>;
+
+type PostSlackOAuthCallbackResponse = {
+  slackConnection: SlackWorkspaceConnectionFrontEndInterface;
+  slackIntegration: SlackOAuthIntegrationInterface | null;
+};
+
+export const postSlackOAuthCallback = async (
+  req: PostSlackOAuthCallbackRequest,
+  res: Response<PostSlackOAuthCallbackResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const result = await connectSlackOAuthIntegration({
+    context,
+    code: req.body.code,
+    state: req.body.state,
+  });
+
+  return res.json(result);
+};
+
+// endregion POST /integrations/slack/oauth-callback
+
+// region POST /integrations/slack/oauth-install
+
+// Slack-initiated install (App Directory "Add to Slack"): `code` with no signed
+// `state`. Authorized by the logged-in session + this permission check + the
+// org confirmed in the UI (X-Organization header).
+type PostSlackOAuthInstallRequest = AuthRequest<{
+  code: string;
+}>;
+
+type PostSlackOAuthInstallResponse = {
+  slackConnection: SlackWorkspaceConnectionFrontEndInterface;
+  slackIntegration: SlackOAuthIntegrationInterface | null;
+};
+
+export const postSlackOAuthInstall = async (
+  req: PostSlackOAuthInstallRequest,
+  res: Response<PostSlackOAuthInstallResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const result = await connectSlackOAuthInstallFromSession({
+    context,
+    code: req.body.code,
+  });
+
+  return res.json(result);
+};
+
+// endregion POST /integrations/slack/oauth-install
+
+// region GET /integrations/slack/channels
+
+type GetSlackWorkspaceChannelsRequest = AuthRequest<
+  Record<string, never>,
+  Record<string, never>,
+  { teamId?: string; cursor?: string }
+>;
+
+type GetSlackWorkspaceChannelsResponse = {
+  channels: SlackChannelOption[];
+  nextCursor: string | null;
+  teamId: string;
+};
+
+// Channels available to connect in the org's Slack workspace (for the
+// add-channel picker on the settings page).
+export const getSlackWorkspaceChannels = async (
+  req: GetSlackWorkspaceChannelsRequest,
+  res: Response<GetSlackWorkspaceChannelsResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const result = await listSlackWorkspaceChannels({
+    context,
+    teamId: req.query.teamId,
+    cursor: req.query.cursor,
+  });
+
+  return res.json(result);
+};
+
+// endregion GET /integrations/slack/channels
+
+// region POST /integrations/slack/channels
+
+type PostSlackChannelRequest = AuthRequest<{
+  teamId?: string;
+  channelId: string;
+}>;
+
+type PostSlackChannelResponse = {
+  slackIntegration: SlackOAuthIntegrationInterface;
+};
+
+// Connect a channel picked in the UI: the bot joins it (public channels) and a
+// per-channel connection is created with the workspace's credentials.
+export const postSlackChannel = async (
+  req: PostSlackChannelRequest,
+  res: Response<PostSlackChannelResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const slackIntegration = await addSlackChannelToWorkspace({
+    context,
+    teamId: req.body.teamId,
+    channelId: req.body.channelId,
+  });
+
+  return res.json({ slackIntegration });
+};
+
+// endregion POST /integrations/slack/channels
+
+// region POST /integrations/slack/disconnect
+
+type PostSlackDisconnectRequest = AuthRequest<{ teamId?: string }>;
+
+// Disconnect a whole Slack workspace — removes its connection + every channel.
+export const postSlackDisconnect = async (
+  req: PostSlackDisconnectRequest,
+  res: Response<{ deleted: number } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const result = await disconnectSlackWorkspace({
+    context,
+    teamId: req.body.teamId,
+  });
+
+  return res.json(result);
+};
+
+export const postSlackLinkConsent = async (
+  req: AuthRequest<{ state: string }>,
+  res: Response<SlackLinkConsent>,
+) => {
+  return res.json(
+    await getSlackLinkConsent(getContextFromReq(req), req.body.state),
+  );
+};
+
+export const postSlackLink = async (
+  req: AuthRequest<SlackLinkBody>,
+  res: Response<{ linked: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  if (req.body.organizationId !== context.org.id) {
+    return res.status(403).json({
+      message:
+        "Switch to the GrowthBook organization connected to this Slack workspace to link your account.",
+    });
+  }
+  await context.models.slackUserLinks.linkCurrentUser(req.body.state);
+  return res.json({ linked: true });
+};
+
+export const getMySlackLinks = async (
+  req: AuthRequest,
+  res: Response<{ links: SlackAccountLink[] }>,
+) => res.json({ links: await getSlackAccountLinks(getContextFromReq(req)) });
+
+export const deleteMySlackLink = async (
+  req: AuthRequest<
+    Pick<SlackAccountLink, "slackTeamId" | "slackUserId" | "linkId">
+  >,
+  res: Response<{ unlinked: boolean }>,
+) =>
+  res.json({
+    unlinked: await getContextFromReq(
+      req,
+    ).models.slackUserLinks.unlinkCurrentUser(req.body),
+  });
+
+export const postSlackAssistant = async (
+  req: AuthRequest<{ teamId?: string; enabled: boolean }>,
+  res: Response<{ enabled: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+  return res.json(
+    await setSlackAssistantEnabled({
+      context,
+      teamId: req.body.teamId,
+      enabled: req.body.enabled,
+    }),
+  );
+};
+
+// endregion POST /integrations/slack/disconnect
 
 // region GET /integrations/slack/:id
 
@@ -252,10 +615,15 @@ export const deleteSlackIntegration = async (
   if (!context.permissions.canManageIntegrations()) {
     context.permissions.throwPermissionError();
   }
-  const successful = await SlackIntegration.deleteSlackIntegration({
-    slackIntegrationId: req.params.id,
-    organizationId: context.org.id,
-  });
+  const successful =
+    (await deleteSlackOAuthIntegration({
+      context,
+      id: req.params.id,
+    })) ||
+    (await SlackIntegration.deleteSlackIntegration({
+      slackIntegrationId: req.params.id,
+      organizationId: context.org.id,
+    }));
 
   const status = successful ? 200 : 404;
 
@@ -265,3 +633,31 @@ export const deleteSlackIntegration = async (
 };
 
 // endregion DELETE /integrations/slack/:id
+
+export const postSlackPreview = async (
+  req: AuthRequest<SlackNotificationPreviewBody>,
+  res: Response,
+) => {
+  const { message, card } = await buildSlackSettingsPreview(
+    getContextFromReq(req),
+    req.body.eventName,
+    req.body.notificationSettings,
+  );
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    message,
+    image: card ? `data:image/png;base64,${card.png.toString("base64")}` : null,
+  });
+};
+export const postSlackTest = async (
+  req: AuthRequest<SlackNotificationPreviewBody, { id: string }>,
+  res: Response,
+) => {
+  const result = await sendSlackSettingsTest(
+    getContextFromReq(req),
+    req.params.id,
+    req.body.eventName,
+    req.body.notificationSettings,
+  );
+  res.json(result);
+};

@@ -132,7 +132,6 @@ export default function PaymentInfo() {
       ) : null}
       {defaultPaymentMethod ? (
         <Modal
-          useRadixButton={false}
           header="Update default payment method"
           open={true}
           cta="Set as default payment method"
