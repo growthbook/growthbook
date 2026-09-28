@@ -69,17 +69,10 @@ const OAuthClientModel = mongoose.model<OAuthClientInterface>(
 );
 
 export async function createOAuthClient(
-  props: Omit<
-    OAuthClientInterface,
-    "clientId" | "dateCreated" | "expiresAt"
-  > & {
-    clientId?: string;
-  },
+  props: Omit<OAuthClientInterface, "clientId" | "dateCreated" | "expiresAt">,
 ): Promise<OAuthClientInterface> {
-  const clientId =
-    props.clientId || `gbc_${crypto.randomBytes(16).toString("hex")}`;
   const doc: OAuthClientInterface = {
-    clientId,
+    clientId: `gbc_${crypto.randomBytes(16).toString("hex")}`,
     clientName: props.clientName,
     redirectUris: props.redirectUris,
     tokenEndpointAuthMethod: "none",

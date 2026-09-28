@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { Request } from "express";
 import { OAuthClientInterface, OAuthDcrRequest } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
-import { isOAuthClientAllowed, isOrgOAuthAppClientId } from "shared/util";
+import { isOAuthClientAllowed } from "shared/util";
 import {
   APP_ORIGIN,
   OAUTH_ACCESS_TOKEN_TTL_SECONDS,
@@ -93,7 +93,7 @@ function assertClientAllowedInOrg(
       "This application is registered to a different organization",
     );
   }
-  if (!isOAuthClientAllowed(org.settings, client.clientId)) {
+  if (!isOAuthClientAllowed(org, client.organization ?? null)) {
     throw new OAuthError(
       error,
       "This organization does not allow this application to access GrowthBook",
@@ -232,7 +232,8 @@ export async function listOrgGrants(
       return {
         clientId: grant.clientId,
         clientName: client?.clientName || grant.clientId,
-        isOrgApp: isOrgOAuthAppClientId(grant.clientId),
+        // Deleting an org app revokes its grants, so an active grant with no client row is DCR.
+        isOrgApp: !!client?.organization,
         userId: grant.userId,
         userName: user?.name || "",
         userEmail: user?.email || "",
@@ -466,6 +467,7 @@ export async function exchangeAuthorizationCode(params: {
 
   const tokens = await issueTokenPair(context, {
     clientId: authCode.clientId,
+    officialClientForOrg: client.organization ?? null,
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
@@ -547,6 +549,7 @@ export async function exchangeRefreshToken(params: {
 
   return issueTokenPair(context, {
     clientId: existing.clientId,
+    officialClientForOrg: client.organization ?? null,
     userId: existing.userId,
     scope: existing.scope,
     resource: existing.resource,
@@ -601,6 +604,7 @@ export async function revokeToken(params: {
 
 interface IssueParams {
   clientId: string;
+  officialClientForOrg: string | null;
   userId: string;
   scope?: string;
   resource?: string;
@@ -644,6 +648,7 @@ async function issueTokenPair(
     environments: [],
     expiresAt: accessExpires,
     oauthClientId: params.clientId,
+    officialClientForOrg: params.officialClientForOrg,
     scopes: params.scope ? params.scope.split(/\s+/).filter(Boolean) : [],
     lastUsed: null,
   });

@@ -639,7 +639,10 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
     await refresh(APP_ID, APP_SECRET);
 
     expect(createApiKey).toHaveBeenCalledWith(
-      expect.objectContaining({ oauthClientId: APP_ID }),
+      expect.objectContaining({
+        oauthClientId: APP_ID,
+        officialClientForOrg: "org-1",
+      }),
     );
   });
 
@@ -783,11 +786,13 @@ describe("admin view of member grants", () => {
       ]),
     });
     // gbc_gone has no client row any more
-    jest
-      .mocked(getOAuthClientsByIds)
-      .mockResolvedValue([
-        { clientId: "gbapp_internal", clientName: "Internal MCP" } as never,
-      ]);
+    jest.mocked(getOAuthClientsByIds).mockResolvedValue([
+      {
+        clientId: "gbapp_internal",
+        clientName: "Internal MCP",
+        organization: "org-1",
+      } as never,
+    ]);
 
     const grants = await listOrgGrants(context as never);
 

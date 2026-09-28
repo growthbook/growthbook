@@ -1,8 +1,4 @@
-import {
-  getOAuthAccessPolicy,
-  isOAuthClientAllowed,
-  isOrgOAuthAppClientId,
-} from "../src/util/oauth";
+import { getOAuthAccessPolicy, isOAuthClientAllowed } from "../src/util/oauth";
 
 describe("getOAuthAccessPolicy", () => {
   it("defaults to allowing any client", () => {
@@ -33,23 +29,17 @@ describe("getOAuthAccessPolicy", () => {
 });
 
 describe("isOAuthClientAllowed", () => {
-  const orgApp = "gbapp_0123456789abcdef";
-  const dcrClient = "gbc_0123456789abcdef";
-
-  it("recognizes org app client IDs by prefix", () => {
-    expect(isOrgOAuthAppClientId(orgApp)).toBe(true);
-    expect(isOrgOAuthAppClientId(dcrClient)).toBe(false);
-  });
-
   it.each([
-    ["any", true, true],
-    ["org-apps", true, false],
-    ["none", false, false],
+    ["any", true, true, true],
+    ["org-apps", true, false, false],
+    ["none", false, false, false],
   ] as const)(
-    "under %s allows org apps=%s and DCR clients=%s",
-    (oauthAccess, orgAppAllowed, dcrAllowed) => {
-      expect(isOAuthClientAllowed({ oauthAccess }, orgApp)).toBe(orgAppAllowed);
-      expect(isOAuthClientAllowed({ oauthAccess }, dcrClient)).toBe(dcrAllowed);
+    "under %s allows own org app=%s, another org's app=%s, DCR client=%s",
+    (oauthAccess, ownApp, otherOrgApp, dcrClient) => {
+      const org = { id: "org-1", settings: { oauthAccess } };
+      expect(isOAuthClientAllowed(org, "org-1")).toBe(ownApp);
+      expect(isOAuthClientAllowed(org, "org-2")).toBe(otherOrgApp);
+      expect(isOAuthClientAllowed(org, null)).toBe(dcrClient);
     },
   );
 });

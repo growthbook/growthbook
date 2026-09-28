@@ -1,14 +1,11 @@
 import {
   OAuthAccessPolicy,
+  OrganizationInterface,
   OrganizationSettings,
 } from "shared/types/organization";
 
+// Cosmetic only: nothing trusts the prefix, see isOAuthClientAllowed.
 export const ORG_OAUTH_APP_CLIENT_ID_PREFIX = "gbapp_";
-
-// Org app IDs are minted server-side with this prefix; DCR can't choose its client_id.
-export function isOrgOAuthAppClientId(clientId: string): boolean {
-  return clientId.startsWith(ORG_OAUTH_APP_CLIENT_ID_PREFIX);
-}
 
 // URL.hostname keeps IPv6 brackets, so "[::1]" is the form to match.
 export function isLoopbackHost(hostname: string): boolean {
@@ -26,12 +23,14 @@ export function getOAuthAccessPolicy(
   );
 }
 
+// `officialClientForOrg` is the org that registered the client (null for public DCR
+// clients); it comes from the client doc at issuance and is stamped on the token.
 export function isOAuthClientAllowed(
-  settings: OrganizationSettings | undefined,
-  clientId: string,
+  org: Pick<OrganizationInterface, "id" | "settings">,
+  officialClientForOrg: string | null,
 ): boolean {
-  const policy = getOAuthAccessPolicy(settings);
+  const policy = getOAuthAccessPolicy(org.settings);
   if (policy === "none") return false;
-  if (policy === "org-apps") return isOrgOAuthAppClientId(clientId);
+  if (policy === "org-apps") return officialClientForOrg === org.id;
   return true;
 }

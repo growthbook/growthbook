@@ -195,7 +195,7 @@ export async function getAuthorizeInfoHandler(
     }
     // Refuse before consent, not after: the token endpoint would reject it anyway.
     const orgs = eligibleOrgs.filter((o) =>
-      isOAuthClientAllowed(o.settings, info.clientId),
+      isOAuthClientAllowed(o, info.organization ?? null),
     );
     if (eligibleOrgs.length && !orgs.length) {
       return res.status(403).json({
