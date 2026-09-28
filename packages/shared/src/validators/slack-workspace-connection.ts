@@ -13,6 +13,7 @@ export const slackWorkspaceConnectionSchema = createBaseSchemaWithPrimaryKey({
   authedUserId: z.string().optional(),
   scope: z.string().optional(),
   isEnterpriseInstall: z.boolean().optional(),
+  assistantEnabled: z.boolean().optional(),
 });
 
 export type SlackWorkspaceConnectionInterface = z.infer<

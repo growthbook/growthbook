@@ -68,6 +68,7 @@ describe("buildDatabricksConnectionOptions", () => {
       authType: "databricks-oauth",
       oauthClientId: "service-principal-app-id",
       oauthClientSecret: "oauth-secret",
+      useDatabricksOAuthInAzure: true,
     });
     expect("token" in options).toBe(false);
   });

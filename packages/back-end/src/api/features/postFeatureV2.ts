@@ -19,7 +19,7 @@ import {
   assertFeatureValuesValid,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObjV2,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { auditDetailsCreate } from "back-end/src/services/audit";
@@ -30,20 +30,16 @@ import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import {
-  assertValidRuleEnvironments,
+  assertValidFeatureRules,
   validateCustomFields,
   validateRuleAttributes,
-  validateRulesReferences,
 } from "./validations";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertConfigSchemaCompat,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidRuleProjectIds,
   assertUniqueRuleIds,
-  assertValidRuleExperimentIds,
-  validateRulesScheduleRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -155,15 +151,8 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       mapV2ApiRuleToFeatureRule(rule),
     );
     assertUniqueRuleIds(feature.rules);
-    assertValidRuleEnvironments(req.context, feature.rules);
-    await assertValidRuleProjectIds(feature.rules, req.context);
-    await assertValidRuleExperimentIds(feature.rules, req.context);
-    // Same condition / saved-group reference checks the per-rule endpoints
-    // run; the payload builder silently drops a condition it cannot parse and
-    // unknown group ids, which widens the rule's audience.
-    await validateRulesReferences(feature.rules, req.context);
+    await assertValidFeatureRules(req.context, feature.rules);
     await assertValidPrerequisiteParents(req.context, feature);
-    validateRulesScheduleRules(feature.rules, req.context);
 
     // Config backing comes through dedicated fields — reject a raw `@config:`
     // in the default value, validate the fields, then compose the stored value
@@ -252,7 +241,9 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
 
     addIdsToFlatRules(feature.rules, feature.id);
 
-    await createFeature(req.context, feature);
+    await createFeature(req.context, feature, {
+      comment: req.body.comment,
+    });
 
     await req.audit({
       event: "feature.create",
@@ -260,13 +251,14 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       details: auditDetailsCreate(feature),
     });
 
-    const groupMap = await getSavedGroupMap(req.context);
     const experimentMap = await getExperimentMapForFeature(
       req.context,
       feature.id,
     );
-    const safeRolloutMap =
-      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+      req.context,
+      { features: [feature], experiments: experimentMap.values() },
+    );
     const revision = await getRevision({
       context: req.context,
       organization: feature.organization,

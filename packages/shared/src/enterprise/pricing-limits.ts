@@ -6,27 +6,23 @@ import { FREE_ORG_LIMITS } from "./entitlements";
 // with targeting rules on the accountPlan attribute.
 export const PRICING_PHASE_1_FLAG_KEY = "pricing-phase-1-limits";
 
+function asLimitsConfig(raw: unknown): Record<string, unknown> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  return raw as Record<string, unknown>;
+}
+
 export function isLimitsFlagDisabled(raw: unknown): boolean {
-  return (
-    !!raw &&
-    typeof raw === "object" &&
-    !Array.isArray(raw) &&
-    (raw as Record<string, unknown>).enabled === false
-  );
+  return asLimitsConfig(raw)?.enabled === false;
 }
 
 const maxProjectsSchema = z.number().int().nonnegative().nullable();
 const flagBoolSchema = z.boolean();
 
-// Per-field fallback to the tier's defaults so the config is always complete.
 export function resolveOrgLimitsConfig(
   raw: unknown,
   defaults: OrgLimits = FREE_ORG_LIMITS,
 ): OrgLimits {
-  const obj =
-    raw && typeof raw === "object" && !Array.isArray(raw)
-      ? (raw as Record<string, unknown>)
-      : {};
+  const obj = asLimitsConfig(raw) ?? {};
 
   const pick = <T>(schema: z.ZodType<T>, value: unknown, fallback: T): T => {
     const parsed = schema.safeParse(value);

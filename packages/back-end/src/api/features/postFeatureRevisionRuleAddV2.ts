@@ -49,6 +49,10 @@ import {
   assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
 import {
@@ -77,6 +81,16 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     rampSchedule: inlineRampSchedule,
   });
   const ruleInput = req.body.rule as RuleCreateInputV2;
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      feature,
+      ruleInput,
+    ),
+  );
 
   // Capture config-backing inputs before the experiment-ref variation backfill
   // below rewrites `ruleInput.variations` (which would otherwise drop `config`).
@@ -294,7 +308,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     }
 
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id)
+      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, feature)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       if (usesLegacyScheduling) {

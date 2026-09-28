@@ -13,6 +13,7 @@ const helpers: SqlDialect = {
     `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
   evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
   dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
+  concatStrings: (parts) => parts.join(" || "),
   percentileApprox: (col, quantile) => `APPROX_PERCENTILE(${col}, ${quantile})`,
   hllReaggregate: (col) => `HLL_MERGE(${col})`,
   hllCardinality: (col) => `HLL_COUNT(${col})`,

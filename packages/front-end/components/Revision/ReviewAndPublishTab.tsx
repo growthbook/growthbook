@@ -41,6 +41,7 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import PermissionBlocker from "@/ui/PermissionBlocker";
@@ -460,16 +461,8 @@ function ReviewAndPublishRevision<T>({
     revision.version,
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
+
   const scheduledPending = isScheduledPublishPending(revision);
-  const scheduleArmedByAdmin =
-    scheduledPending && !!revision.scheduledPublishBypassApproval;
-  // A pending dated schedule blocks "publish now": the schedule card already
-  // explains it and offers Cancel/Change, so (matching the feature tab) we hide
-  // the otherwise-dead Publish button. An admin can override a non-admin-armed
-  // schedule by checking the bypass box; an admin-armed schedule is
-  // cancel-and-re-arm only, so it always blocks.
-  const scheduleBlocksPublish =
-    scheduledPending && (!adminPublish || scheduleArmedByAdmin);
 
   // ── Reviewers: latest active verdict per user. Cycle membership is persisted
   // on each review (`stale` is set by the model at every cycle reset — submit,
@@ -1625,8 +1618,7 @@ function ReviewAndPublishRevision<T>({
                   </Box>
                 )}
 
-                {!scheduleBlocksPublish &&
-                  !publishBlockedReason &&
+                {!publishBlockedReason &&
                   (state.submitAction === "publish" ||
                     adminBypassAvailable) && (
                     <Button
@@ -1677,7 +1669,7 @@ function ReviewAndPublishRevision<T>({
 
                   {submitError && (
                     <Callout status="error" size="sm">
-                      {submitError}
+                      <MarkdownLinks text={submitError} />
                     </Callout>
                   )}
 

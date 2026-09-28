@@ -1,6 +1,11 @@
 {
   "versions": [
     {
+      "version": "1.8.0",
+      "prerelease": true,
+      "capabilities": ["savedGroupReferencesV2"]
+    },
+    {
       "version": "1.7.0",
       "capabilities": ["contextualBandits"]
     },

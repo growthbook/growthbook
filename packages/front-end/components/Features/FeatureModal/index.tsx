@@ -400,6 +400,7 @@ export default function FeatureModal({
 
         const body = {
           ...feature,
+          duplicateOf: featureToDuplicate?.id,
           baseConfig: configKey,
           defaultValue: storedDefault,
           holdout: {

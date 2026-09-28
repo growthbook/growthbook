@@ -105,12 +105,18 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Explore",
         href: "/product-analytics/explore",
-        path: /^product-analytics\/explore(\/(?!funnel|sql).*)?$/,
+        path: /^product-analytics\/explore(\/(?!funnel|journey|sql).*)?$/,
       },
       {
         name: "Funnels",
         href: "/product-analytics/explore/funnel",
         path: /^product-analytics\/explore\/funnel/,
+      },
+      {
+        name: "User Journeys",
+        href: "/product-analytics/explore/journey",
+        path: /^product-analytics\/explore\/journey/,
+        beta: true,
       },
       {
         name: "SQL Explorer",
@@ -318,12 +324,8 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Slack",
         href: "/integrations/slack",
         path: /^integrations\/slack/,
-        // Default ON so self-hosted and airgapped installs without a features
-        // payload still see the link; the remote flags only turn it off.
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canManageIntegrations() &&
-          ((gb?.getFeatureValue("slack-workspace-ui", true) ?? true) ||
-            (gb?.getFeatureValue("slack-integration", true) ?? true)),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageIntegrations(),
       },
       {
         name: "Import your data",
