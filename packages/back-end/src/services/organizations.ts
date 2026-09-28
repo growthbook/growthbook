@@ -8,12 +8,15 @@ import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
+  pickDefaultRoleFields,
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
+  sameRoleValue,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
   hasNoDuplicateProjects,
+  memberRoleWithProjects,
 } from "shared/validators";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -60,6 +63,7 @@ import {
   MemberRoleWithProjects,
   MetricDefaults,
   OrganizationInterface,
+  OrganizationSettings,
   PendingMember,
   ProjectMemberRole,
 } from "shared/types/organization";
@@ -112,6 +116,7 @@ import {
   updateDimension,
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { PaymentRequiredError } from "back-end/src/util/errors";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
@@ -997,8 +1002,8 @@ export async function addPendingMemberToOrg({
   await updateOrganization(organization.id, { pendingMembers });
 }
 
-// Automated joins (verified-domain auto-join, SSO, SCIM) use the org's
-// default role. Explicit args come last so stored settings can't override them.
+// Automated joins (verified-domain auto-join and SSO) use the org's default
+// role; SCIM passes its own roleInfo to addMemberToOrg. Explicit args come last so stored settings can't override them.
 export async function addMemberToOrgWithDefaultRole({
   organization,
   userId,
@@ -1066,6 +1071,7 @@ export async function acceptInvite(key: string, userId: string, email: string) {
       limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
       environments: invite.environments || [],
       projectRoles: invite.projectRoles,
+      additionalRoles: invite.additionalRoles,
       teams: invite.teams,
       dateCreated: new Date(),
     },
@@ -1291,6 +1297,59 @@ function validateConfig(context: ReqContext, config: ConfigFile) {
   return errors;
 }
 
+export async function assertCanUpdateDefaultRole(
+  context: ReqContext | ApiReqContext,
+  defaultRole: MemberRoleWithProjects,
+) {
+  const { org } = context;
+
+  if (!context.hasPremiumFeature("sso")) {
+    throw new Error(
+      "Must have a commercial License Key to update the organization's default role.",
+    );
+  }
+
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Only gate a change so an existing non-admin default keeps working
+  assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
+
+  assertMemberRoleInfoValid(org, defaultRole);
+  await assertProjectRulesReferenceProjects(
+    context,
+    undefined,
+    defaultRole.projectRoles,
+  );
+}
+
+// Imported settings are merged into the org as-is, so the default role gets
+// the same checks as PUT /organization/default-role before that happens.
+async function sanitizeImportedDefaultRole(
+  context: ReqContext | ApiReqContext,
+  settings: OrganizationSettings,
+) {
+  const { defaultRole } = settings;
+  if (defaultRole === undefined || defaultRole === null) {
+    // A null would be saved and silently fall back to collaborator
+    delete settings.defaultRole;
+    return;
+  }
+  // Exported settings can carry keys from old unvalidated writes; drop them
+  // like getDefaultRole does instead of failing the whole import
+  const parsed = memberRoleWithProjects.safeParse(
+    pickDefaultRoleFields(defaultRole),
+  );
+  if (!parsed.success) {
+    throw new Error(`Invalid defaultRole: ${errorStringFromZodResult(parsed)}`);
+  }
+  if (!sameRoleValue(parsed.data, getDefaultRole(context.org))) {
+    await assertCanUpdateDefaultRole(context, parsed.data);
+  }
+  settings.defaultRole = parsed.data;
+}
+
 export async function importConfig(
   context: ReqContext | ApiReqContext,
   config: ConfigFile,
@@ -1302,6 +1361,7 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
+    await sanitizeImportedDefaultRole(context, config.organization.settings);
     const settings = {
       ...organization.settings,
       ...config.organization.settings,

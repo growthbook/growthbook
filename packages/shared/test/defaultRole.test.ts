@@ -1,4 +1,8 @@
-import { getDefaultRole } from "shared/permissions";
+import {
+  areAdditionalRolesValid,
+  getDefaultRole,
+  pickDefaultRoleFields,
+} from "shared/permissions";
 import {
   OrganizationInterface,
   OrganizationSettings,
@@ -67,5 +71,88 @@ describe("getDefaultRole", () => {
       environments: [],
       limitAccessByEnvironment: false,
     });
+  });
+});
+
+describe("pickDefaultRoleFields", () => {
+  it("drops unknown keys at every level", () => {
+    expect(
+      pickDefaultRoleFields({
+        role: "engineer",
+        limitAccessByEnvironment: false,
+        environments: [],
+        teams: ["t1"],
+        additionalRoles: [
+          {
+            role: "analyst",
+            limitAccessByEnvironment: false,
+            environments: [],
+            teams: ["t1"],
+          },
+        ],
+        projectRoles: [
+          {
+            project: "p1",
+            role: "admin",
+            limitAccessByEnvironment: false,
+            environments: [],
+            teams: ["t1"],
+            additionalRoles: [
+              {
+                role: "analyst",
+                limitAccessByEnvironment: false,
+                environments: [],
+                teams: ["t1"],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toEqual({
+      role: "engineer",
+      limitAccessByEnvironment: false,
+      environments: [],
+      additionalRoles: [
+        { role: "analyst", limitAccessByEnvironment: false, environments: [] },
+      ],
+      projectRoles: [
+        {
+          project: "p1",
+          role: "admin",
+          limitAccessByEnvironment: false,
+          environments: [],
+          additionalRoles: [
+            {
+              role: "analyst",
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+          ],
+        },
+      ],
+    });
+  });
+});
+
+describe("areAdditionalRolesValid", () => {
+  const org = { id: "org_a" };
+  it("accepts absent or empty lists", () => {
+    expect(areAdditionalRolesValid(undefined, org)).toBe(true);
+    expect(areAdditionalRolesValid([], org)).toBe(true);
+  });
+  it("checks every role id", () => {
+    const rule = { limitAccessByEnvironment: false, environments: [] };
+    expect(areAdditionalRolesValid([{ role: "analyst", ...rule }], org)).toBe(
+      true,
+    );
+    expect(
+      areAdditionalRolesValid(
+        [
+          { role: "analyst", ...rule },
+          { role: "nope", ...rule },
+        ],
+        org,
+      ),
+    ).toBe(false);
   });
 });

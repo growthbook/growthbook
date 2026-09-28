@@ -104,7 +104,11 @@ export function areProjectRolesValid(
   if (!hasNoDuplicateProjects(projectRoles)) {
     return false;
   }
-  return projectRoles.every((p) => isRoleValid(p.role, org));
+  return projectRoles.every(
+    (p) =>
+      isRoleValid(p.role, org) &&
+      areAdditionalRolesValid(p.additionalRoles, org),
+  );
 }
 
 export function areAdditionalRolesValid(
@@ -174,13 +178,37 @@ export function changedProjectRoleProjects(
   );
 }
 
-export const DEFAULT_ROLE_FIELDS = [
+const ROLE_RULE_FIELDS = [
   "role",
   "limitAccessByEnvironment",
   "environments",
-  "additionalRoles",
-  "projectRoles",
 ] as const;
+
+// Deep pick of the role fields; drops keys left by unvalidated writes
+export function pickDefaultRoleFields(
+  defaultRole: MemberRoleWithProjects,
+): MemberRoleWithProjects {
+  const pickRules = (rules: unknown) =>
+    Array.isArray(rules)
+      ? rules.map((r) => pick(r, ROLE_RULE_FIELDS))
+      : undefined;
+  return {
+    ...pick(defaultRole, ROLE_RULE_FIELDS),
+    ...(defaultRole.additionalRoles
+      ? { additionalRoles: pickRules(defaultRole.additionalRoles) }
+      : {}),
+    ...(Array.isArray(defaultRole.projectRoles)
+      ? {
+          projectRoles: defaultRole.projectRoles.map((p) => ({
+            ...pick(p, [...ROLE_RULE_FIELDS, "project"]),
+            ...(p.additionalRoles
+              ? { additionalRoles: pickRules(p.additionalRoles) }
+              : {}),
+          })),
+        }
+      : {}),
+  };
+}
 
 export function getDefaultRole(
   org: Partial<OrganizationInterface>,
@@ -191,7 +219,7 @@ export function getDefaultRole(
     isRoleValid(org.settings.defaultRole.role, org)
   ) {
     // Settings can hold keys from unvalidated writes; callers spread this result
-    return pick(org.settings.defaultRole, DEFAULT_ROLE_FIELDS);
+    return pickDefaultRoleFields(org.settings.defaultRole);
   }
 
   // Fall back to using "collaborator"

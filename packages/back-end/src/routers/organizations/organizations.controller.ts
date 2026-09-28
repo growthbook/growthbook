@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { cloneDeep, isEqual, pick } from "lodash";
+import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   assertTargetingRulesDisjoint,
@@ -9,11 +9,7 @@ import {
   parseIntWithDefaultCapped,
   pruneApprovalRuleReferences,
 } from "shared/util";
-import {
-  getRoles,
-  getDefaultRole,
-  DEFAULT_ROLE_FIELDS,
-} from "shared/permissions";
+import { getRoles } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
@@ -45,12 +41,12 @@ import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
-import { ReqContext } from "back-end/types/request";
 import {
   acceptInvite,
   addMemberToOrg,
   addMemberToOrgWithDefaultRole,
   addPendingMemberToOrgWithDefaultRole,
+  assertCanUpdateDefaultRole,
   assertMemberRoleInfoValid,
   assertRoleAssignmentAllowed,
   assertRoleChangeAllowed,
@@ -175,8 +171,6 @@ import {
   getInstallation,
   setInstallationName,
 } from "back-end/src/models/InstallationModel";
-import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { putDefaultRoleValidator } from "./organizations.validators";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -766,6 +760,7 @@ export async function postMemberApproval(
       limitAccessByEnvironment: pendingMember.limitAccessByEnvironment,
       environments: pendingMember.environments,
       projectRoles: pendingMember.projectRoles,
+      additionalRoles: pendingMember.additionalRoles,
     });
   } catch (e) {
     return res.status(400).json({
@@ -2311,29 +2306,6 @@ export async function postImportConfig(
     throw new Error("Failed to parse config.yml file contents.");
   }
 
-  const importSettings = config.organization?.settings;
-  if (typeof importSettings === "object" && importSettings !== null) {
-    if ((importSettings.defaultRole ?? null) === null) {
-      // A null would be saved and silently fall back to collaborator
-      delete importSettings.defaultRole;
-    } else {
-      // Exported settings can carry keys from old unvalidated writes; drop them
-      // like getDefaultRole does instead of failing the whole import
-      const parsed = putDefaultRoleValidator.shape.defaultRole.safeParse(
-        pick(importSettings.defaultRole, DEFAULT_ROLE_FIELDS),
-      );
-      if (!parsed.success) {
-        throw new Error(
-          `Invalid defaultRole: ${errorStringFromZodResult(parsed)}`,
-        );
-      }
-      if (!isEqual(parsed.data, getDefaultRole(context.org))) {
-        assertCanUpdateDefaultRole(context, parsed.data);
-      }
-      importSettings.defaultRole = parsed.data;
-    }
-  }
-
   await importConfig(context, config);
 
   res.status(200).json({
@@ -2405,8 +2377,13 @@ export async function addOrphanedUser(
   const { org } = context;
 
   const { id } = req.params;
-  const { role, environments, limitAccessByEnvironment, projectRoles } =
-    req.body;
+  const {
+    role,
+    environments,
+    limitAccessByEnvironment,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
 
   // Make sure user exists
   const user = await getUserById(id);
@@ -2433,6 +2410,7 @@ export async function addOrphanedUser(
       limitAccessByEnvironment,
       environments,
       projectRoles,
+      additionalRoles,
     });
     await assertProjectRulesReferenceProjects(context, undefined, projectRoles);
   } catch (e) {
@@ -2458,6 +2436,7 @@ export async function addOrphanedUser(
     environments,
     limitAccessByEnvironment,
     projectRoles,
+    additionalRoles,
   });
 
   return res.status(200).json({
@@ -2596,28 +2575,6 @@ export async function putLicenseKey(
   });
 }
 
-function assertCanUpdateDefaultRole(
-  context: ReqContext,
-  defaultRole: MemberRoleWithProjects,
-) {
-  const { org } = context;
-
-  if (!context.hasPremiumFeature("sso")) {
-    throw new Error(
-      "Must have a commercial License Key to update the organization's default role.",
-    );
-  }
-
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Only gate a change so an existing non-admin default keeps working
-  assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
-
-  assertMemberRoleInfoValid(org, defaultRole);
-}
-
 export async function putDefaultRole(
   req: AuthRequest<{ defaultRole: MemberRoleWithProjects }>,
   res: Response,
@@ -2626,7 +2583,7 @@ export async function putDefaultRole(
   const { org } = context;
   const { defaultRole } = req.body;
 
-  assertCanUpdateDefaultRole(context, defaultRole);
+  await assertCanUpdateDefaultRole(context, defaultRole);
 
   await updateOrganization(org.id, {
     settings: {
