@@ -84,7 +84,7 @@ export default function NewFactMetricPage() {
       {!canCreate ? (
         <Callout status="error">
           You don&apos;t have permission to create Fact Metrics in this Project.{" "}
-          <Link href="/metrics">Back to all metrics</Link>
+          <Link href={returnUrl}>Go back</Link>
         </Callout>
       ) : !hasDatasource ? (
         <Callout status="info">
