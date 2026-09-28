@@ -216,7 +216,7 @@ export default function MetricPerformance({
                           <Text size="sm" color="text-mid">
                             {table?.name ||
                               step.factTableId ||
-                              "Select a Fact Table"}
+                              "Select a fact table"}
                           </Text>
                           {column && (
                             <Text size="sm" color="text-low">
@@ -237,7 +237,7 @@ export default function MetricPerformance({
                   <Text size="sm" color="text-mid">
                     {numeratorFactTable?.name ||
                       metric.numerator.factTableId ||
-                      "Select a Fact Table"}
+                      "Select a fact table"}
                   </Text>
                 </Flex>
               )}
@@ -308,7 +308,7 @@ export default function MetricPerformance({
                     <Text size="sm" color="text-mid">
                       {denominatorFactTable?.name ||
                         metric.denominator?.factTableId ||
-                        "Select a Fact Table"}
+                        "Select a fact table"}
                     </Text>
                   </Flex>
                 </>

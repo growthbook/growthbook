@@ -93,5 +93,7 @@ export function getMetricPreviewCaveat(
     parts.push("ignores the lower cap");
   }
   if (!parts.length) return null;
-  return `The preview ${parts.join(", and ")}. Experiment results will differ.`;
+  const last = parts.pop();
+  const list = parts.length ? `${parts.join(", ")}, and ${last}` : last;
+  return `The preview ${list}. Experiment results will differ.`;
 }
