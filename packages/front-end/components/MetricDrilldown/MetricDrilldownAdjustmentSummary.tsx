@@ -2,6 +2,7 @@ import { FC, useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   DifferenceType,
+  PValueCorrection,
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
@@ -27,6 +28,11 @@ interface MetricDrilldownAdjustmentSummaryProps {
   baselineRow: number;
   variationFilter?: number[];
   significanceThresholds: SignificanceThresholds;
+  /**
+   * Used to recompute family-wide adjusted p-values.
+   */
+  goalRows?: ExperimentTableRow[];
+  pValueCorrection?: PValueCorrection;
   /**
    * When provided, adjustment labels become links that jump to the matching
    * detailed comparison table below.
@@ -66,6 +72,8 @@ const MetricDrilldownAdjustmentSummary: FC<
   baselineRow,
   variationFilter,
   significanceThresholds,
+  goalRows,
+  pValueCorrection,
   onAdjustmentClick,
 }) => {
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -84,6 +92,8 @@ const MetricDrilldownAdjustmentSummary: FC<
         ciUpper,
         ciLower,
         pValueThreshold,
+        goalRows,
+        pValueCorrection,
       }),
     [
       row,
@@ -95,6 +105,8 @@ const MetricDrilldownAdjustmentSummary: FC<
       ciUpper,
       ciLower,
       pValueThreshold,
+      goalRows,
+      pValueCorrection,
     ],
   );
 

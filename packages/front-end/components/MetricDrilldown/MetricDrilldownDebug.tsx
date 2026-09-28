@@ -44,6 +44,8 @@ interface MetricDrilldownDebugProps {
   reportDate: Date;
   isLatestPhase: boolean;
   pValueCorrection?: PValueCorrection;
+  /** All non-slice goal rows, used to recompute family-wide adjusted p-values. */
+  goalRows?: ExperimentTableRow[];
   sequentialTestingEnabled?: boolean;
   experimentStatus?: ExperimentStatus;
 }
@@ -138,6 +140,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   reportDate,
   isLatestPhase,
   pValueCorrection,
+  goalRows,
   sequentialTestingEnabled,
   experimentStatus,
 }) => {
@@ -347,6 +350,8 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
           baselineRow={baselineRow}
           variationFilter={variationFilter}
           significanceThresholds={significanceThresholds}
+          goalRows={goalRows}
+          pValueCorrection={pValueCorrection}
           onAdjustmentClick={handleAdjustmentClick}
         />
       </Box>

@@ -1,6 +1,17 @@
-import { getMetricResultStatus } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  getMetricResultStatus,
+  setAdjustedPValuesOnResults,
+} from "shared/experiments";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "shared/types/stats";
+import {
+  SnapshotMetric,
+  SnapshotVariation,
+} from "shared/types/experiment-snapshot";
+import { ExperimentReportResultDimension } from "shared/types/report";
 import { MetricDefaults } from "shared/types/organization";
 import { ExperimentTableRow } from "@/services/experiments";
 
@@ -128,6 +139,73 @@ function classifyPair({
   return { effectSize, relativeChange, significanceChanged, signFlipped };
 }
 
+export function computeSupplementalAdjustedPValues({
+  goalRows,
+  field,
+  pValueCorrection,
+}: {
+  goalRows: ExperimentTableRow[];
+  field: SupplementalField;
+  pValueCorrection: PValueCorrection;
+}): Map<string, number> | null {
+  if (!pValueCorrection) return null;
+
+  const metricIds = goalRows.map((goalRow) => goalRow.metric.id);
+  const variationCount = goalRows[0]?.variations.length ?? 0;
+  if (variationCount === 0) return null;
+
+  let missingCoverage = false;
+
+  // Rebuild a single-dimension result whose goal-metric p-values are the field's
+  // unadjusted values.
+  const variations: SnapshotVariation[] = [];
+  for (
+    let variationIndex = 0;
+    variationIndex < variationCount;
+    variationIndex++
+  ) {
+    const metrics: Record<string, SnapshotMetric> = {};
+    goalRows.forEach((goalRow) => {
+      const stats = goalRow.variations[variationIndex];
+      if (stats?.pValue === undefined) return; // not part of the family
+      const supplementalPValue = (
+        stats.supplementalResults?.[field] as { pValue?: number } | undefined
+      )?.pValue;
+      if (supplementalPValue === undefined) {
+        // A family member lacks this adjustment's supplemental result, so we
+        // cannot build a comparable family — signal fallback.
+        missingCoverage = true;
+        return;
+      }
+      metrics[goalRow.metric.id] = {
+        ...stats,
+        pValue: supplementalPValue,
+        pValueAdjusted: undefined,
+      };
+    });
+    variations.push({ users: 0, metrics });
+  }
+
+  if (missingCoverage) return null;
+
+  const results: ExperimentReportResultDimension[] = [
+    { name: "", srm: 0, variations },
+  ];
+  setAdjustedPValuesOnResults(results, metricIds, pValueCorrection);
+
+  const map = new Map<string, number>();
+  results[0].variations.forEach((variation, variationIndex) => {
+    metricIds.forEach((metricId) => {
+      const adjusted = variation.metrics[metricId]?.pValueAdjusted;
+      if (adjusted !== undefined) {
+        map.set(`${metricId}:${variationIndex}`, adjusted);
+      }
+    });
+  });
+
+  return map.size > 0 ? map : null;
+}
+
 /**
  * Classify a single adjustment's impact across the displayed treatment
  * variations. Returns null when the supplemental data required for the
@@ -144,6 +222,8 @@ export function classifyAdjustmentImpact({
   ciUpper,
   ciLower,
   pValueThreshold,
+  goalRows,
+  pValueCorrection,
 }: {
   row: ExperimentTableRow;
   field: SupplementalField;
@@ -155,9 +235,21 @@ export function classifyAdjustmentImpact({
   ciUpper: number;
   ciLower: number;
   pValueThreshold: number;
+  /** All non-slice goal rows, used to recompute family-wide adjusted p-values. */
+  goalRows?: ExperimentTableRow[];
+  pValueCorrection?: PValueCorrection;
 }): AdjustmentClassification | null {
   const baseline = row.variations[baselineRow];
   if (!baseline) return null;
+
+  const altAdjustedPValues =
+    statsEngine === "frequentist" && pValueCorrection && goalRows
+      ? computeSupplementalAdjustedPValues({
+          goalRows,
+          field,
+          pValueCorrection,
+        })
+      : null;
 
   let worst: AdjustmentClassification | null = null;
 
@@ -189,15 +281,27 @@ export function classifyAdjustmentImpact({
       differenceType,
     };
 
+    const altAdjusted = altAdjustedPValues?.get(`${row.metric.id}:${index}`);
+
+    let primaryForSignificance: SnapshotMetric;
+    let altForSignificance: SnapshotMetric;
+    if (altAdjusted !== undefined) {
+      primaryForSignificance = primaryStats;
+      altForSignificance = { ...altStats, pValueAdjusted: altAdjusted };
+    } else {
+      primaryForSignificance = { ...primaryStats, pValueAdjusted: undefined };
+      altForSignificance = { ...altStats, pValueAdjusted: undefined };
+    }
+
     const { significant: primarySignificant } = getMetricResultStatus({
       ...commonArgs,
       baseline,
-      stats: primaryStats,
+      stats: primaryForSignificance,
     });
     const { significant: altSignificant } = getMetricResultStatus({
       ...commonArgs,
       baseline: altBaseline,
-      stats: altStats,
+      stats: altForSignificance,
     });
 
     const classification = classifyPair({
@@ -229,6 +333,9 @@ export function getAdjustmentImpactSummary(args: {
   ciUpper: number;
   ciLower: number;
   pValueThreshold: number;
+  /** All non-slice goal rows, used to recompute family-wide adjusted p-values. */
+  goalRows?: ExperimentTableRow[];
+  pValueCorrection?: PValueCorrection;
 }): AdjustmentImpact[] {
   const summary: AdjustmentImpact[] = [];
   ADJUSTMENTS.forEach(({ field, label }) => {

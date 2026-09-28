@@ -255,6 +255,12 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     return updatedRow ?? row;
   }, [allRows, metric.id, row]);
 
+  // Compute family-wide adjusted p-values (ignored for slice metrics).
+  const goalRows = useMemo(
+    () => allRows.filter((r) => r.resultGroup === "goal" && !r.isSliceRow),
+    [allRows],
+  );
+
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
@@ -443,6 +449,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
           pValueCorrection={pValueCorrection}
+          goalRows={goalRows}
           sequentialTestingEnabled={sequentialTestingEnabled}
           experimentStatus={experimentStatus}
           variationNames={variations.map((v) => v.name)}
