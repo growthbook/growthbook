@@ -253,6 +253,9 @@ importers:
       '@opentelemetry/winston-transport':
         specifier: ~0.28.0
         version: 0.28.0
+      '@pydantic/genai-prices':
+        specifier: 0.1.9
+        version: 0.1.9
       '@resvg/resvg-wasm':
         specifier: ^2.6.2
         version: 2.6.2
@@ -4669,6 +4672,11 @@ packages:
 
   '@protobufjs/utf8@1.1.1':
     resolution: {integrity: sha512-oOAWABowe8EAbMyWKM0tYDKi8Yaox52D+HWZhAIJqQXbqe0xI/GV7FhLWqlEKreMkfDjshR5FKgi3mnle0h6Eg==}
+
+  '@pydantic/genai-prices@0.1.9':
+    resolution: {integrity: sha512-M93O77DCs533HASyjenihMo9b2OTW6c8v49w6yS/W50osugJ1rkUX8baaDNCnw+ZPiMD6jIxUsa1Bz1MrpX3Uw==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@radix-ui/colors@3.0.0':
     resolution: {integrity: sha512-FUOsGBkHrYJwCSEtWRCIfQbZG7q1e6DgxCIOe1SUQzDe/7rXXeA47s8yCn6fuTNQAj1Zq4oTFi9Yjp3wzElcxg==}
@@ -18410,6 +18418,8 @@ snapshots:
   '@protobufjs/pool@1.1.0': {}
 
   '@protobufjs/utf8@1.1.1': {}
+
+  '@pydantic/genai-prices@0.1.9': {}
 
   '@radix-ui/colors@3.0.0': {}
 

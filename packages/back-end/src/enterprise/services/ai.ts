@@ -472,7 +472,7 @@ export const simpleCompletion = async ({
   }
 
   const usage = completionUsageFromSdk(sdkUsage);
-  const spendUsd = await estimateAICompletionUsd(model, usage);
+  const spendUsd = estimateAICompletionUsd(model, usage);
 
   if (IS_CLOUD) {
     if (!ownKey) {
@@ -562,7 +562,7 @@ export const streamingChatCompletion = async ({
     outcome: AIUsageOutcome;
   }) => {
     const buckets = usage ?? {};
-    const spendUsd = await estimateAICompletionUsd(model, buckets);
+    const spendUsd = estimateAICompletionUsd(model, buckets);
     trackAIUsage({
       organizationId: context.org.id,
       userId: context.userId,
@@ -1074,7 +1074,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }
 
   const usage = completionUsageFromSdk(response.usage);
-  const spendUsd = await estimateAICompletionUsd(model, usage);
+  const spendUsd = estimateAICompletionUsd(model, usage);
 
   trackAIUsage({
     organizationId: context.org.id,
