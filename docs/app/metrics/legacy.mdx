@@ -390,4 +390,4 @@ Ratio metrics are now self-contained. Previously, the denominator would just be 
 
 During analysis, Ratio metrics used to behave like a Funnel - the denominator had to happen first before the numerator. This was unintuitive for many people, so With Fact Tables, we changed them to act like true ratios - we calculate the numerator and denominator independently and then divide them. We plan to add a dedicated Funnel metric type in the future to support this use case.
 
-Lastly, Ratio metrics now have a single metric window and capping behavior. Previously, this would be controlled separately for the numerator and denominator. Because of this change, only "percentile" capping is allowed for ratio metrics.
+Lastly, ratio Fact Metrics have a single metric window and capping configuration. Legacy metrics control these separately for the numerator and denominator. Fact Metrics support both absolute and percentile capping, applied separately to each user's aggregated numerator and denominator. Absolute capping uses the same numeric bound for both components; percentile capping calculates a separate bound for each component using the shared percentile setting.
