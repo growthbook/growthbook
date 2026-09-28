@@ -5,6 +5,7 @@ import { DataSourceType } from "shared/types/datasource";
 import {
   getColumnExpression,
   getFactTableTimestampColumn,
+  type LookupResolver,
 } from "../../experiments/experiments";
 import {
   ExplorationConfig,
@@ -29,6 +30,7 @@ import {
   generateDimensionExpression,
   generateDynamicDimensionCTE,
   generateRowFilterSQL,
+  getProductAnalyticsLookupResolver,
 } from "./sql";
 
 type CTE = { name: string; sql: string };
@@ -39,6 +41,7 @@ type JourneyFactTable = Pick<
 > & {
   timestampColumn: string | null;
   quoteTimestampColumn: boolean;
+  resolveLookup?: LookupResolver;
 };
 
 type FactTableGroup = {
@@ -48,11 +51,15 @@ type FactTableGroup = {
   units: [];
 };
 
-function toJourneyFactTable(factTable: FactTableInterface): JourneyFactTable {
+function toJourneyFactTable(
+  factTable: FactTableInterface,
+  factTableMap: FactTableMap,
+): JourneyFactTable {
   return {
     ...factTable,
     timestampColumn: getFactTableTimestampColumn(factTable),
     quoteTimestampColumn: false,
+    resolveLookup: getProductAnalyticsLookupResolver(factTable, factTableMap),
   };
 }
 
@@ -361,7 +368,7 @@ export function buildJourneySql(
   // validateJourneyDataset has already rejected a null unit / anchor.
   const unit = dataset.unit as string;
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
-  const journeyFactTable = toJourneyFactTable(factTable);
+  const journeyFactTable = toJourneyFactTable(factTable, factTableMap);
   const timestampColumn = getFactTableTimestampColumn(factTable);
   const unitExpr = columnExpr(unit, factTable, dialect);
   const stepExpr = stepExpression(

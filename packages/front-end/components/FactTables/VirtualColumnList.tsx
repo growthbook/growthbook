@@ -17,6 +17,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import VirtualColumnModal from "./VirtualColumnModal";
+import LookupColumnModal from "./LookupColumnModal";
 
 function VirtualColumnRowMenu({
   column,
@@ -94,6 +95,31 @@ function VirtualColumnRowMenu({
   );
 }
 
+function LookupSummary({
+  column,
+  getFactTableName,
+}: {
+  column: ColumnInterface;
+  getFactTableName: (id: string) => string;
+}) {
+  const lookup = column.lookup;
+  if (!lookup) return null;
+  const source =
+    lookup.type === "factTable" ? (
+      getFactTableName(lookup.factTableId)
+    ) : lookup.type === "table" ? (
+      <code>{lookup.table}</code>
+    ) : (
+      "a SQL query"
+    );
+  return (
+    <span>
+      Lookup: <code>{lookup.remoteColumn}</code> from {source}, matching{" "}
+      <code>{lookup.localKey}</code> = <code>{lookup.remoteKey}</code>
+    </span>
+  );
+}
+
 export interface Props {
   factTable: FactTableInterface;
 }
@@ -101,8 +127,13 @@ export interface Props {
 export default function VirtualColumnList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const [newLookupOpen, setNewLookupOpen] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
+  const { getFactTableById, getDatasourceById } = useDefinitions();
+  // Warehouses that can't run the subquery lookups compile to (Databricks).
+  const supportsLookupColumns = !!getDatasourceById(factTable.datasource)
+    ?.properties?.supportsLookupColumns;
 
   const virtualColumns = (factTable.columns || [])
     .filter((c) => c.isVirtual && !c.deleted)
@@ -121,6 +152,8 @@ export default function VirtualColumnList({ factTable }: Props) {
   // honors managedBy — matching what the back-end enforces.
   const canEdit = permissionsUtil.canManageFactTableVirtualColumn(factTable);
 
+  const editingColumn = virtualColumns.find((c) => c.column === editOpen);
+
   return (
     <>
       {newOpen && (
@@ -129,13 +162,26 @@ export default function VirtualColumnList({ factTable }: Props) {
           factTable={factTable}
         />
       )}
-      {editOpen && (
-        <VirtualColumnModal
-          close={() => setEditOpen("")}
+      {newLookupOpen && (
+        <LookupColumnModal
+          close={() => setNewLookupOpen(false)}
           factTable={factTable}
-          existing={virtualColumns.find((c) => c.column === editOpen)}
         />
       )}
+      {editOpen &&
+        (editingColumn?.lookup ? (
+          <LookupColumnModal
+            close={() => setEditOpen("")}
+            factTable={factTable}
+            existing={editingColumn}
+          />
+        ) : (
+          <VirtualColumnModal
+            close={() => setEditOpen("")}
+            factTable={factTable}
+            existing={editingColumn}
+          />
+        ))}
 
       <div className="row align-items-center">
         {virtualColumns.length > 0 && (
@@ -164,6 +210,20 @@ export default function VirtualColumnList({ factTable }: Props) {
             </Button>
           </Tooltip>
         </div>
+        {supportsLookupColumns && (
+          <div className="col-auto">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!canEdit) return;
+                setNewLookupOpen(true);
+              }}
+              disabled={!canEdit}
+            >
+              Add lookup column
+            </Button>
+          </div>
+        )}
       </div>
       {virtualColumns.length > 0 && (
         <>
@@ -182,7 +242,16 @@ export default function VirtualColumnList({ factTable }: Props) {
                   <td style={{ verticalAlign: "top" }}>{column.name}</td>
                   <td style={{ verticalAlign: "top" }}>
                     <div style={{ marginTop: 2 }}>
-                      <InlineCode language="sql" code={column.sql || ""} />
+                      {column.lookup ? (
+                        <LookupSummary
+                          column={column}
+                          getFactTableName={(id) =>
+                            getFactTableById(id)?.name || id
+                          }
+                        />
+                      ) : (
+                        <InlineCode language="sql" code={column.sql || ""} />
+                      )}
                     </div>
                   </td>
                   <td style={{ verticalAlign: "top" }}>

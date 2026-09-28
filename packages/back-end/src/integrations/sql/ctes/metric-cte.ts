@@ -9,6 +9,7 @@ import {
 } from "shared/experiments";
 import type { PhaseSQLVar, SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
+import { makeSqlLookupResolver } from "back-end/src/integrations/sql/clauses/lookup-resolver";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 
 import { getMetricColumns } from "back-end/src/integrations/sql/columns/metric-columns";
@@ -126,6 +127,17 @@ export function getMetricCTE(
       castToTimestamp: dialect.castToTimestamp,
       sliceInfo,
       identifierQuote: dialect.identifierQuote,
+      resolveLookup: makeSqlLookupResolver(dialect, {
+        factTableMap,
+        datasourceId: factTable.datasource,
+        sqlVars: {
+          startDate,
+          endDate: endDate || undefined,
+          experimentId,
+          phase,
+          customFields,
+        },
+      }),
     }).forEach((filterSQL) => {
       where.push(filterSQL);
     });

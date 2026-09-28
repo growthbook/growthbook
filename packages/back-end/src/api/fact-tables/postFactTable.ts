@@ -9,6 +9,7 @@ import {
   toFactTableApiInterface,
 } from "back-end/src/models/FactTableModel";
 import { addTags } from "back-end/src/models/TagModel";
+import { validateLookupColumnsWrite } from "back-end/src/services/factTableLookups";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
@@ -55,7 +56,20 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
     for (const col of data.columns || []) {
       if (col.isVirtual) {
         validateVirtualColumnProps(col);
+      } else if (col.lookup) {
+        throw new Error(
+          `Only virtual columns can have a lookup source: "${col.column}"`,
+        );
       }
+    }
+
+    if (data.columns) {
+      // A new table: its columns are only what the request sends.
+      await validateLookupColumnsWrite(
+        req.context,
+        { id: data.id ?? "", datasource: data.datasource, columns: [] },
+        data.columns,
+      );
     }
 
     if (

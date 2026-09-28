@@ -1,5 +1,6 @@
 import { deleteFactTableValidator } from "shared/validators";
 import {
+  assertNoLookupDependents,
   deleteFactTable as deleteFactTableFromDb,
   getFactTable,
 } from "back-end/src/models/FactTableModel";
@@ -13,6 +14,7 @@ export const deleteFactTable = createApiRequestHandler(
     throw new Error("Unable to delete - Could not find factTable with that id");
   }
 
+  await assertNoLookupDependents(req.context, factTable);
   await deleteFactTableFromDb(req.context, factTable);
 
   return {

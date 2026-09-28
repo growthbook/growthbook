@@ -28,7 +28,8 @@ export default function FactTableTabContent() {
     : null;
 
   const numericColumns =
-    factTable?.columns?.filter((c) => c.datatype === "number") ?? [];
+    factTable?.columns?.filter((c) => c.datatype === "number" && !c.lookup) ??
+    [];
 
   const values: FactTableValue[] =
     draftExploreState.dataset?.type === "fact_table"

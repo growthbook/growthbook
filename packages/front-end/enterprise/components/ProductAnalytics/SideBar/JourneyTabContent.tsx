@@ -124,7 +124,7 @@ export default function JourneyTabContent() {
     const userIdTypes = new Set(factTable.userIdTypes ?? []);
     const options: { label: string; value: string }[] = [];
     for (const c of factTable.columns ?? []) {
-      if (c.deleted || userIdTypes.has(c.column)) continue;
+      if (c.deleted || c.lookup || userIdTypes.has(c.column)) continue;
       if (c.datatype === "string") {
         options.push({ label: c.name || c.column, value: c.column });
       }

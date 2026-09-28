@@ -8,7 +8,7 @@ import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 import useApi from "./useApi";
 
 export default function useSchemaFormOptions(
-  datasource: DataSourceInterfaceWithParams,
+  datasource: DataSourceInterfaceWithParams | null,
 ) {
   const [tableId, setTableId] = useState("");
 

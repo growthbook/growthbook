@@ -34,6 +34,9 @@ export const databricksDialect: SqlDialect = {
   }),
   escapeStringLiteral: databricksEscapeStringLiteral,
   hasCountDistinctHLL: () => true,
+  // Spark only allows IN/EXISTS subqueries in filters and joins, not in the
+  // SELECT-list CASE that lookup row filters compile into.
+  supportsLookupColumns: () => false,
   hllAggregate: (col: string) =>
     `HLL_SKETCH_AGG(${databricksDialect.castToString(col)})`,
   hllReaggregate: (col: string) => `HLL_UNION_AGG(${col})`,

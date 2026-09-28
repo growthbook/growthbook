@@ -21,6 +21,7 @@ import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getPercentileLabel } from "@/services/metrics";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { getPreviewLookupResolver } from "@/components/FactTables/rowFilterUtils";
 
 interface MetricDrilldownMetricCardProps {
   metric: ExperimentMetricDefinition;
@@ -47,6 +48,7 @@ function RowFilterDisplay({
   rowFilters: RowFilter[];
   factTable?: FactTableDefinition | null;
 }) {
+  const { getFactTableById } = useDefinitions();
   if (!rowFilters.length) return null;
 
   const text = `WHERE ${
@@ -65,6 +67,10 @@ function RowFilterDisplay({
                 `${col} IS ${value ? "TRUE" : "FALSE"}`,
               jsonExtract: (col, path) => `${col}.${path}`,
               showSourceComment: true,
+              resolveLookup: getPreviewLookupResolver(
+                factTable,
+                getFactTableById,
+              ),
             }),
           )
           .join("\nAND ")

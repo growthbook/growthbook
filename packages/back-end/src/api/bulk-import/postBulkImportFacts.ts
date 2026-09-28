@@ -21,6 +21,7 @@ import {
   upsertColumns,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
+import { validateLookupColumnsWrite } from "back-end/src/services/factTableLookups";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/updateFactMetric";
@@ -213,6 +214,11 @@ export const postBulkImportFacts = createApiRequestHandler(
                 `Cannot change whether column "${col.column}" is a virtual column`,
               );
             }
+            if (!col.isVirtual && col.lookup) {
+              throw new Error(
+                `Only virtual columns can have a lookup source: "${col.column}"`,
+              );
+            }
             if (col.isVirtual) {
               validateVirtualColumnProps(col);
               // A virtual column carries raw SQL, so importing one into an
@@ -228,6 +234,18 @@ export const postBulkImportFacts = createApiRequestHandler(
               }
             }
           }
+        }
+
+        if (data.columns) {
+          await validateLookupColumnsWrite(
+            req.context,
+            existing ?? {
+              id,
+              datasource: data.datasource,
+              columns: [],
+            },
+            data.columns,
+          );
         }
 
         // Update existing fact table

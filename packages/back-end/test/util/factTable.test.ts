@@ -15,6 +15,9 @@ import {
   stripIncompatibleFields,
   detectColumnsFromQueryResult,
   buildColumnTypeMaps,
+  validateLookupReferences,
+  validateLookupShape,
+  validateVirtualColumnProps,
 } from "back-end/src/util/factTable";
 import { mergeUpsertColumns } from "back-end/src/models/FactTableModel";
 
@@ -758,5 +761,163 @@ describe("buildColumnTypeMaps", () => {
     });
 
     expect([...datatypes]).toEqual([["revenue", "number"]]);
+  });
+});
+
+describe("lookup columns", () => {
+  const lookup = {
+    type: "factTable" as const,
+    factTableId: "ftb_users",
+    localKey: "user_id",
+    remoteKey: "id",
+    remoteColumn: "plan",
+  };
+  const keys = { localKey: "user_id", remoteKey: "id", remoteColumn: "plan" };
+  const events = {
+    id: "ftb_events",
+    datasource: "ds_1",
+    columns: [makeColumn("user_id", false, "string")],
+  };
+  const users = {
+    id: "ftb_users",
+    name: "Users",
+    datasource: "ds_1",
+    columns: [
+      makeColumn("id", false, "string"),
+      makeColumn("plan", false, "string"),
+    ],
+  };
+
+  it("requires each source type's field", () => {
+    expect(() => validateLookupShape({ ...lookup, factTableId: "" })).toThrow(
+      /Choose the Fact Table/,
+    );
+    expect(() =>
+      validateLookupShape({ type: "sql", sql: " ", ...keys }),
+    ).toThrow(/needs a query/);
+    expect(() =>
+      validateLookupShape({ type: "sql", sql: "SELECT 1", ...keys }),
+    ).not.toThrow();
+    expect(() =>
+      validateLookupShape({ type: "table", table: "crm.users", ...keys }),
+    ).not.toThrow();
+    expect(() =>
+      validateLookupShape({ type: "table", table: "users; DROP", ...keys }),
+    ).toThrow(/table name/);
+  });
+
+  it("rejects keys that aren't plain identifiers", () => {
+    expect(() =>
+      validateLookupShape({ ...lookup, remoteKey: "id) OR (1=1" }),
+    ).toThrow(/remote key/);
+    expect(() =>
+      validateLookupShape({ ...lookup, remoteColumn: "properties.plan" }),
+    ).not.toThrow();
+  });
+
+  it("doesn't let a lookup column also carry an expression", () => {
+    expect(() =>
+      validateVirtualColumnProps({
+        column: "plan_vc",
+        datatype: "string",
+        sql: "1",
+        lookup,
+      }),
+    ).toThrow(/can't also have a SQL expression/);
+    expect(() =>
+      validateVirtualColumnProps({
+        column: "plan_vc",
+        datatype: "string",
+        lookup,
+      }),
+    ).not.toThrow();
+  });
+
+  it("returns the remote column's datatype", () => {
+    expect(
+      validateLookupReferences({ factTable: events, lookup, source: users }),
+    ).toBe("string");
+  });
+
+  it("returns null for a SQL source", () => {
+    expect(
+      validateLookupReferences({
+        factTable: events,
+        lookup: { type: "sql", sql: "SELECT * FROM users", ...keys },
+        source: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("checks references", () => {
+    expect(() =>
+      validateLookupReferences({
+        factTable: events,
+        lookup: { ...lookup, localKey: "missing" },
+        source: users,
+      }),
+    ).toThrow(/Local key/);
+    expect(() =>
+      validateLookupReferences({
+        factTable: events,
+        lookup,
+        source: { ...users, datasource: "ds_2" },
+      }),
+    ).toThrow(/same Data Source/);
+    expect(() =>
+      validateLookupReferences({
+        factTable: events,
+        lookup: { ...lookup, remoteColumn: "missing" },
+        source: users,
+      }),
+    ).toThrow(/isn't a column/);
+    expect(() =>
+      validateLookupReferences({
+        factTable: users,
+        lookup: { ...lookup, localKey: "id" },
+        source: users,
+      }),
+    ).toThrow(/its own Fact Table/);
+    expect(() =>
+      validateLookupReferences({
+        factTable: events,
+        lookup,
+        source: {
+          ...users,
+          columns: [
+            makeColumn("id", false, "string"),
+            { ...makeColumn("plan", false, "string"), lookup },
+          ],
+        },
+      }),
+    ).toThrow(/another lookup column/);
+  });
+});
+
+describe("mergeUpsertColumns with lookups", () => {
+  it("never turns a column into a lookup, and keeps an existing one", () => {
+    const lookup = {
+      type: "factTable" as const,
+      factTableId: "ftb_users",
+      localKey: "user_id",
+      remoteKey: "id",
+      remoteColumn: "plan",
+    };
+    const plain = makeColumn("user_id", false, "string");
+    const lookupCol = {
+      ...makeColumn("plan_vc", false, "string"),
+      isVirtual: true,
+      lookup,
+    };
+    const { columns } = mergeUpsertColumns(
+      [plain, lookupCol],
+      [
+        { column: "user_id", lookup },
+        { column: "plan_vc", sql: "1", name: "Plan" },
+      ],
+    );
+    expect(columns[0].lookup).toBeUndefined();
+    expect(columns[1].lookup).toEqual(lookup);
+    expect(columns[1].sql).toBeUndefined();
   });
 });

@@ -12,8 +12,10 @@ import type { PhaseSQLVar, SqlDialect } from "shared/types/sql";
 import type {
   FactMetricInterface,
   FactTableInterface,
+  FactTableMap,
 } from "shared/types/fact-table";
 import { compileSqlTemplate } from "back-end/src/util/sql";
+import { makeSqlLookupResolver } from "back-end/src/integrations/sql/clauses/lookup-resolver";
 
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
 import { funnelStepTimestampColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
@@ -27,6 +29,7 @@ export function getFactMetricCTE(
   {
     metricsWithIndices,
     factTable,
+    factTableMap,
     baseIdType,
     castIdToString,
     idJoinMap,
@@ -42,6 +45,8 @@ export function getFactMetricCTE(
   }: {
     metricsWithIndices: { metric: FactMetricInterface; index: number }[];
     factTable: FactTableInterface;
+    // Resolves lookup-column row filters' sources.
+    factTableMap: FactTableMap;
     baseIdType: string;
     idJoinMap: Record<string, string>;
     startDate: Date;
@@ -110,6 +115,18 @@ export function getFactMetricCTE(
   const metricCols: string[] = [];
   const allMetricFilters: string[][] = [];
 
+  const resolveLookup = makeSqlLookupResolver(dialect, {
+    factTableMap,
+    datasourceId: factTable.datasource,
+    sqlVars: {
+      startDate,
+      endDate: endDate || undefined,
+      experimentId,
+      phase,
+      customFields,
+    },
+  });
+
   metricsWithIndices.forEach((metricWithIndex) => {
     const m = metricWithIndex.metric;
     const index = metricWithIndex.index;
@@ -134,6 +151,7 @@ export function getFactMetricCTE(
           evalBoolean: dialect.evalBoolean,
           castToTimestamp: dialect.castToTimestamp,
           identifierQuote: dialect.identifierQuote,
+          resolveLookup,
         });
 
         const column = filters.length
@@ -170,6 +188,7 @@ export function getFactMetricCTE(
         castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
         identifierQuote: dialect.identifierQuote,
+        resolveLookup,
       });
 
       const column =
@@ -230,6 +249,7 @@ export function getFactMetricCTE(
         castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
         identifierQuote: dialect.identifierQuote,
+        resolveLookup,
       });
       const column =
         filters.length > 0

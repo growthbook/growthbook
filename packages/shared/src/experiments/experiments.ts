@@ -16,6 +16,7 @@ import {
 } from "shared/types/metric";
 import {
   ColumnInterface,
+  ColumnLookup,
   ColumnRef,
   FactMetricInterface,
   FactTableColumnType,
@@ -608,6 +609,13 @@ export function getColumnExpression(
   // are referenced (metric value SELECT, row-filter WHERE, slice WHERE, ...).
   // `!c.deleted` matches `expandVirtualColumnsInSql`: a soft-deleted virtual
   // column must not keep contributing its expression to generated SQL.
+  // A lookup is a semi-join, not a value: getRowFilterSQL handles it before
+  // reaching here, so any other use (value, dimension, slice) is an error.
+  if (factTable.columns.some((c) => c.column === column && c.lookup)) {
+    throw new Error(
+      `Lookup column "${column}" can only be used in row filters`,
+    );
+  }
   const virtualCol = factTable.columns.find(
     (c) => c.column === column && c.isVirtual && c.sql && !c.deleted,
   );
@@ -651,6 +659,7 @@ export function getColumnRefWhereClause({
   showSourceComment = false,
   sliceInfo,
   identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  resolveLookup,
 }: {
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   columnRef: ColumnRef;
@@ -662,6 +671,7 @@ export function getColumnRefWhereClause({
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
   identifierQuote?: SqlIdentifierQuote;
+  resolveLookup?: LookupResolver;
 }): string[] {
   const where = new Set<string>();
 
@@ -729,6 +739,7 @@ export function getColumnRefWhereClause({
       castToTimestamp,
       showSourceComment,
       identifierQuote,
+      resolveLookup,
     });
     if (filterSQL) {
       where.add(filterSQL);
@@ -846,17 +857,119 @@ export function getRowFilterDateDayEnd(value: string): string {
  */
 const MATCH_NO_ROWS_SQL = "(1 = 0)";
 
-export function getRowFilterSQL({
-  rowFilter,
-  factTable,
-  jsonExtract,
-  escapeStringLiteral,
-  stringMatch,
-  evalBoolean,
-  castToTimestamp,
-  showSourceComment = false,
-  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+export function isLookupColumn(
+  col: Pick<ColumnInterface, "lookup"> | undefined,
+): boolean {
+  return !!col?.lookup;
+}
+
+/**
+ * Resolves a lookup column's source for SQL generation. `sql` is the source
+ * query, already template-compiled with the source's own variables. `columns`
+ * describes the source's columns (so the remote column's datatype, JSON fields
+ * and virtual expressions resolve); for inline-SQL sources, pass a single
+ * column carrying the lookup column's datatype. Throw when the source can't be
+ * resolved: a lookup filter must never silently match all or no rows.
+ */
+export type LookupResolver = (
+  lookup: ColumnLookup,
+  lookupColumn: Pick<ColumnInterface, "column" | "datatype">,
+) => {
+  sql: string;
+  columns: ColumnInterface[];
+};
+
+// `sql` is absent on client-side definitions, which render a placeholder.
+type LookupSourceFactTable = Pick<
+  FactTableInterface,
+  "name" | "datasource" | "columns"
+> & { sql?: string };
+
+// A table source is inlined as `SELECT * FROM <table>`, so it must be a bare
+// (optionally quoted, dot-separated) name: no whitespace, parentheses,
+// semicolons or comments. Covers `db.schema.table`, `` `db`.`table` ``
+// (MySQL / ClickHouse) and `` `project-id.dataset.events_*` `` (BigQuery).
+export function isValidLookupTableName(table: string): boolean {
+  if (!/^[A-Za-z0-9_$*.`"-]+$/.test(table)) return false;
+  if (table.includes("--")) return false;
+  const count = (ch: string) => table.split(ch).length - 1;
+  return count("`") % 2 === 0 && count('"') % 2 === 0;
+}
+
+/** The SQL for a lookup's SQL or table source (not a Fact Table source). */
+export function getLookupQuerySql(
+  source: { type: "sql"; sql: string } | { type: "table"; table: string },
+): string {
+  if (source.type === "table") {
+    if (!isValidLookupTableName(source.table)) {
+      throw new Error(`Invalid lookup table name: ${source.table}`);
+    }
+    return `SELECT * FROM ${source.table}`;
+  }
+  return source.sql;
+}
+
+/**
+ * Builds a LookupResolver over a map of Fact Tables. `getSql` returns the SQL
+ * to nest for a source, compiled however the caller needs (e.g. with a Fact
+ * Table's own template variables). `rawSql` is the source's SQL: the Fact
+ * Table's when `factTable` is set and the map carries SQL, otherwise the
+ * lookup's SQL or table query.
+ */
+export function makeLookupResolver<T extends LookupSourceFactTable>({
+  factTableMap,
+  datasourceId,
+  getSql,
 }: {
+  // A Map, or anything with the same lookup (e.g. `getFactTableById`).
+  factTableMap: { get: (id: string) => T | null | undefined };
+  // The filtered Fact Table's Data Source; a source Fact Table must share it.
+  datasourceId: string;
+  getSql: (rawSql: string, factTable: T | null) => string;
+}): LookupResolver {
+  return (lookup, lookupColumn) => {
+    const name = lookupColumn.column;
+    if (lookup.type === "factTable") {
+      const source = factTableMap.get(lookup.factTableId);
+      if (!source) {
+        throw new Error(
+          `Lookup column "${name}" references a Fact Table that doesn't exist: ${lookup.factTableId}`,
+        );
+      }
+      if (source.datasource !== datasourceId) {
+        throw new Error(
+          `Lookup column "${name}" references a Fact Table on a different Data Source`,
+        );
+      }
+      const columns = source.columns.filter((c) => !c.deleted);
+      for (const col of [lookup.remoteKey, lookup.remoteColumn]) {
+        if (!columns.some((c) => c.column === col.split(".")[0])) {
+          throw new Error(
+            `Lookup column "${name}" references column "${col}", which no longer exists on Fact Table "${source.name}"`,
+          );
+        }
+      }
+      return { sql: getSql(source.sql ?? "", source), columns };
+    }
+    return {
+      sql: getSql(getLookupQuerySql(lookup), null),
+      columns: [
+        {
+          column: lookup.remoteColumn,
+          name: lookup.remoteColumn,
+          datatype: lookupColumn.datatype,
+          description: "",
+          numberFormat: "",
+          deleted: false,
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+        },
+      ],
+    };
+  };
+}
+
+type RowFilterSQLParams = {
   rowFilter: RowFilter;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
@@ -870,7 +983,71 @@ export function getRowFilterSQL({
   castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
   identifierQuote?: SqlIdentifierQuote;
-}): string | null {
+  // Required only when a row filter targets a lookup column.
+  resolveLookup?: LookupResolver;
+};
+
+// A lookup filter compiles to a semi-join, so it can't fan out rows:
+// `localKey IN (SELECT remoteKey FROM (<source>) WHERE <remote predicate>)`.
+// Negation lives in the inner predicate (never `NOT IN`, which breaks on
+// NULLs), so rows of A with no match in the source are always excluded.
+function getLookupRowFilterSQL(
+  lookupColumn: ColumnInterface,
+  params: RowFilterSQLParams,
+): string | null {
+  const { rowFilter, factTable, resolveLookup, identifierQuote } = params;
+  const lookup = lookupColumn.lookup;
+  if (!lookup) return null;
+  if (!resolveLookup) {
+    throw new Error(
+      `Lookup column "${lookupColumn.column}" can't be used in this query`,
+    );
+  }
+  const source = resolveLookup(lookup, lookupColumn);
+  if (
+    source.columns.some((c) => c.column === lookup.remoteColumn && c.lookup)
+  ) {
+    throw new Error(
+      `Lookup column "${lookupColumn.column}" can't reference another lookup column`,
+    );
+  }
+  // The remote predicate is an ordinary row filter over the source's columns,
+  // so every operator, date and boolean rule applies unchanged. No resolver is
+  // passed down, so lookups can't chain.
+  const inner = getRowFilterSQL({
+    ...params,
+    rowFilter: { ...rowFilter, column: lookup.remoteColumn },
+    factTable: { columns: source.columns, filters: [], userIdTypes: [] },
+    resolveLookup: undefined,
+    showSourceComment: false,
+  });
+  if (!inner) return null;
+
+  const localExpr = getColumnExpression(
+    lookup.localKey,
+    factTable,
+    params.jsonExtract,
+    "",
+    identifierQuote,
+  );
+  const comment = params.showSourceComment
+    ? `-- Lookup: ${lookupColumn.name || lookupColumn.column}\n`
+    : "";
+  return `${comment}(${localExpr} IN (\nSELECT ${lookup.remoteKey}\nFROM (\n${source.sql}\n) __lookup\nWHERE ${inner}\n))`;
+}
+
+export function getRowFilterSQL(params: RowFilterSQLParams): string | null {
+  const {
+    rowFilter,
+    factTable,
+    jsonExtract,
+    escapeStringLiteral,
+    stringMatch,
+    evalBoolean,
+    castToTimestamp,
+    showSourceComment = false,
+    identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  } = params;
   // Some operators do not require a column
   if (rowFilter.operator === "saved_filter") {
     const filter = factTable.filters.find(
@@ -898,6 +1075,12 @@ export function getRowFilterSQL({
 
   if (!rowFilter.column) {
     return null;
+  }
+  const lookupColumn = factTable.columns.find(
+    (c) => c.column === rowFilter.column && c.lookup && !c.deleted,
+  );
+  if (lookupColumn) {
+    return getLookupRowFilterSQL(lookupColumn, params);
   }
   const columnExpr = getColumnExpression(
     rowFilter.column,

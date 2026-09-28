@@ -6,6 +6,7 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { validateVirtualColumnSql } from "back-end/src/util/factTable";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { validateLookupWrite } from "back-end/src/services/factTableLookups";
 
 export const updateFactTableVirtualColumn = createApiRequestHandler(
   updateFactTableVirtualColumnValidator,
@@ -30,6 +31,22 @@ export const updateFactTableVirtualColumn = createApiRequestHandler(
     throw new Error("Only virtual columns can be updated");
   }
 
+  if (column.lookup && req.body.sql !== undefined) {
+    throw new Error("Lookup columns can't have a SQL expression");
+  }
+  if (!column.lookup && req.body.lookup !== undefined) {
+    throw new Error("Only lookup columns can have a lookup source");
+  }
+  const changes = { ...req.body };
+  if (column.lookup && req.body.lookup) {
+    const datatype = await validateLookupWrite(
+      req.context,
+      factTable,
+      req.body.lookup,
+    );
+    if (datatype) changes.datatype = datatype;
+  }
+
   // Editing a virtual column's expression must not blank it out.
   if (req.body.sql !== undefined && !req.body.sql.trim()) {
     throw new Error("Virtual columns require a SQL expression");
@@ -43,7 +60,7 @@ export const updateFactTableVirtualColumn = createApiRequestHandler(
     context: req.context,
     factTable,
     column: req.params.id,
-    changes: req.body,
+    changes,
   });
 
   const updated = factTable.columns.find((c) => c.column === req.params.id);

@@ -1,10 +1,16 @@
 import {
   isValidRowFilterDateValue,
   normalizeRowFilterDateValue,
+  makeLookupResolver,
+  type LookupResolver,
 } from "shared/experiments";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { truncateString } from "shared/util";
-import { FactTableInterface, RowFilter } from "shared/types/fact-table";
+import {
+  FactTableDefinition,
+  FactTableInterface,
+  RowFilter,
+} from "shared/types/fact-table";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
 export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
@@ -622,3 +628,19 @@ export function getRowFilterInputState({
 }
 
 export type RowFilterInputState = ReturnType<typeof getRowFilterInputState>;
+
+/**
+ * Lookup resolver for client-side SQL previews. Definitions don't carry Fact
+ * Table SQL, so a Fact Table source is shown as a placeholder comment.
+ */
+export function getPreviewLookupResolver(
+  factTable: Pick<FactTableInterface, "datasource">,
+  getFactTableById: (id: string) => FactTableDefinition | null,
+): LookupResolver {
+  return makeLookupResolver({
+    factTableMap: { get: getFactTableById },
+    datasourceId: factTable.datasource,
+    getSql: (rawSql, source) =>
+      source ? `/* SQL for Fact Table "${source.name}" */` : rawSql,
+  });
+}

@@ -1,13 +1,18 @@
 import {
   expandVirtualColumnsInSql,
   getFactTableTimestampColumn,
+  getLookupQuerySql,
   getRowFilterSQL,
+  type LookupResolver,
 } from "shared/experiments";
+import { DEFAULT_TEST_QUERY_DAYS } from "shared/constants";
 import {
   FactFilterTestResults,
   FactTableInterface,
+  LookupSourceTestResults,
   RowFilter,
   RowFilterTestResults,
+  TestLookupSourceProps,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import type { SqlDialect } from "shared/types/sql";
@@ -18,7 +23,12 @@ import {
   getIntegrationSqlDialect,
 } from "back-end/src/services/datasource";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { validateVirtualColumnSql } from "back-end/src/util/factTable";
+import {
+  buildColumnTypeMaps,
+  validateVirtualColumnSql,
+} from "back-end/src/util/factTable";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { makeSqlLookupResolver } from "back-end/src/integrations/sql/clauses/lookup-resolver";
 
 const SAMPLE_ROWS_LIMIT = 20;
 
@@ -95,6 +105,7 @@ export function buildRowFilterWhereClause({
   rowFilters,
   factTable,
   dialect,
+  resolveLookup,
 }: {
   rowFilters: RowFilter[];
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
@@ -107,6 +118,7 @@ export function buildRowFilterWhereClause({
     | "castToTimestamp"
     | "identifierQuote"
   >;
+  resolveLookup?: LookupResolver;
 }): string {
   const where: string[] = [];
   rowFilters.forEach((rowFilter) => {
@@ -119,6 +131,7 @@ export function buildRowFilterWhereClause({
       evalBoolean: dialect.evalBoolean,
       castToTimestamp: dialect.castToTimestamp,
       identifierQuote: dialect.identifierQuote,
+      resolveLookup,
     });
 
     // Incomplete/deleted filters would silently widen the preview.
@@ -174,10 +187,29 @@ export async function testRowFiltersQuery(
     throw new Error("Sample rows are not supported on this Data Source");
   }
 
+  // Only load other Fact Tables when a filter goes through a lookup column.
+  const usesLookup = rowFilters.some((f) =>
+    factTable.columns.some((c) => c.column === f.column && c.lookup),
+  );
+  let resolveLookup: LookupResolver | undefined;
+  if (usesLookup) {
+    const startDate = new Date();
+    startDate.setDate(
+      startDate.getDate() -
+        (context.org.settings?.testQueryDays ?? DEFAULT_TEST_QUERY_DAYS),
+    );
+    resolveLookup = makeSqlLookupResolver(dialect, {
+      factTableMap: await getFactTableMap(context),
+      datasourceId: factTable.datasource,
+      sqlVars: { startDate },
+    });
+  }
+
   const where = buildRowFilterWhereClause({
     rowFilters,
     factTable,
     dialect,
+    resolveLookup,
   });
 
   const result = await runFactTableTestQuery(
@@ -231,4 +263,43 @@ export async function testVirtualColumnQuery(
     },
     integration,
   );
+}
+
+/**
+ * Runs a lookup's SQL or table source and returns its columns and types.
+ * `LIMIT 0`: types come from the result's schema, so no rows are read. No date
+ * filter (a users table needn't have a timestamp), but template variables such
+ * as `{{startDate}}` resolve against the org's test-query window.
+ */
+export async function testLookupSourceQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  source: TestLookupSourceProps,
+): Promise<LookupSourceTestResults> {
+  if (!context.permissions.canRunFactQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+  const integration = requireTestQueryIntegration(context, datasource);
+  const sql = integration.getTestQuery({
+    query: getLookupQuerySql(source),
+    testDays: context.org.settings?.testQueryDays,
+    limit: 0,
+  });
+  try {
+    const result = await integration.runTestQuery(
+      sql,
+      [],
+      "factTableValidation",
+    );
+    const { datatypes } = buildColumnTypeMaps(result);
+    return {
+      sql,
+      columns: Array.from(datatypes.entries()).map(([column, datatype]) => ({
+        column,
+        datatype,
+      })),
+    };
+  } catch (e) {
+    return { sql, error: e.message };
+  }
 }

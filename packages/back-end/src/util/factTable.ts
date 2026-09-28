@@ -1,9 +1,14 @@
 import { set, subDays, addDays } from "date-fns";
 import { utcToZonedTime, zonedTimeToUtc } from "date-fns-tz";
-import { validateVirtualColumnExpression } from "shared/experiments";
+import {
+  getSelectedColumnDatatype,
+  isValidLookupTableName,
+  validateVirtualColumnExpression,
+} from "shared/experiments";
 import {
   AggregatedFactTableSettings,
   ColumnInterface,
+  ColumnLookup,
   CreateColumnProps,
   DetectedFactTableColumn,
   FactTableColumnType,
@@ -89,19 +94,123 @@ export function validateVirtualColumnProps(data: {
   column: string;
   sql?: string;
   datatype?: string;
+  lookup?: ColumnLookup;
 }): void {
   if (!data.column.match(VIRTUAL_COLUMN_ID_REGEX)) {
     throw new Error(
       "Virtual column ids must contain only letters, numbers, and underscores and end with '_vc'",
     );
   }
-  if (!data.sql || !data.sql.trim()) {
-    throw new Error("Virtual columns require a SQL expression");
+  if (data.lookup) {
+    if (data.sql) {
+      throw new Error("Lookup columns can't also have a SQL expression");
+    }
+    validateLookupShape(data.lookup);
+  } else {
+    if (!data.sql || !data.sql.trim()) {
+      throw new Error("Virtual columns require a SQL expression");
+    }
+    validateVirtualColumnSql(data.sql);
   }
-  validateVirtualColumnSql(data.sql);
   if (!data.datatype) {
     throw new Error("Virtual columns require a data type");
   }
+}
+
+// Lookup keys are inlined into generated SQL, so they must be plain
+// identifiers, optionally a JSON field path (`properties.plan`).
+const LOOKUP_KEY_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)*$/;
+
+/** Structural checks that need no other Fact Tables. */
+export function validateLookupShape(lookup: ColumnLookup): void {
+  if (lookup.type === "factTable" && !lookup.factTableId) {
+    throw new Error("Choose the Fact Table to look up");
+  }
+  if (lookup.type === "sql" && !lookup.sql.trim()) {
+    throw new Error("A SQL lookup needs a query");
+  }
+  if (lookup.type === "table" && !isValidLookupTableName(lookup.table)) {
+    throw new Error(
+      `The lookup table must be a table name, e.g. schema.users: "${lookup.table}"`,
+    );
+  }
+  for (const [label, value] of [
+    ["local key", lookup.localKey],
+    ["remote key", lookup.remoteKey],
+    ["remote column", lookup.remoteColumn],
+  ] as const) {
+    if (!LOOKUP_KEY_REGEX.test(value)) {
+      throw new Error(
+        `The lookup's ${label} must be a column name, optionally with a JSON field path: "${value}"`,
+      );
+    }
+  }
+}
+
+/**
+ * Checks a lookup against the Fact Table it's on and its source Fact Table
+ * (`null` for a SQL or table source). Returns the remote column's datatype for
+ * a Fact Table source, which the lookup column should carry; `null` otherwise,
+ * where the caller supplies the datatype.
+ */
+export function validateLookupReferences({
+  factTable,
+  lookup,
+  source,
+}: {
+  factTable: Pick<FactTableInterface, "id" | "datasource" | "columns">;
+  lookup: ColumnLookup;
+  source: Pick<
+    FactTableInterface,
+    "id" | "name" | "datasource" | "columns"
+  > | null;
+}): FactTableColumnType | null {
+  validateLookupShape(lookup);
+
+  const findLive = (
+    columns: ColumnInterface[],
+    column: string,
+  ): ColumnInterface | undefined =>
+    columns.find((c) => c.column === column.split(".")[0] && !c.deleted);
+
+  const local = findLive(factTable.columns, lookup.localKey);
+  if (!local) {
+    throw new Error(
+      `Local key "${lookup.localKey}" isn't a column on this Fact Table`,
+    );
+  }
+  if (local.lookup) {
+    throw new Error("The local key can't be a lookup column");
+  }
+
+  if (lookup.type !== "factTable") return null;
+
+  if (!source) {
+    throw new Error(`Could not find Fact Table "${lookup.factTableId}"`);
+  }
+  if (source.id === factTable.id) {
+    throw new Error("A lookup column can't look up its own Fact Table");
+  }
+  if (source.datasource !== factTable.datasource) {
+    throw new Error(
+      "A lookup column's Fact Table must be on the same Data Source",
+    );
+  }
+  for (const col of [lookup.remoteKey, lookup.remoteColumn]) {
+    const remote = findLive(source.columns, col);
+    if (!remote) {
+      throw new Error(`"${col}" isn't a column on Fact Table "${source.name}"`);
+    }
+    if (remote.lookup) {
+      throw new Error("A lookup column can't reference another lookup column");
+    }
+  }
+  return (
+    getSelectedColumnDatatype({
+      factTable: source,
+      column: lookup.remoteColumn,
+    }) || null
+  );
 }
 
 /**
