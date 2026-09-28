@@ -1,4 +1,4 @@
-import { buildRowFilterWhereClause } from "back-end/src/services/factTableTestQueries";
+import { buildRowFilterWhereClause } from "shared/experiments";
 
 const factTable = {
   columns: [],

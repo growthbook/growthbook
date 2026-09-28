@@ -1,6 +1,6 @@
 import { createLikeStringMatchFn } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
-import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
 
 const escapeStringLiteral = (value: string) =>
