@@ -8,7 +8,11 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
-import { revokeAllGrantsForClient } from "back-end/src/services/oauth";
+import {
+  listOrgGrants,
+  revokeAllGrantsForClient,
+  revokeMemberGrant,
+} from "back-end/src/services/oauth";
 import { OAUTH_AS_ENABLED } from "back-end/src/util/secrets";
 import {
   createOrgOAuthApp,
@@ -143,5 +147,25 @@ export async function deleteOAuthApp(
     details: auditDetailsDelete(app),
   });
 
+  res.status(200).json({ status: 200 });
+}
+
+export async function getOAuthGrants(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  assertCanManageOAuthApps(context);
+
+  res.status(200).json({ status: 200, grants: await listOrgGrants(context) });
+}
+
+export async function postRevokeOAuthGrant(
+  req: AuthRequest<{ clientId: string; userId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canDeleteApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await revokeMemberGrant(context, req.body.clientId, req.body.userId);
   res.status(200).json({ status: 200 });
 }

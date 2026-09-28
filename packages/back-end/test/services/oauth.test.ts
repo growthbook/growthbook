@@ -7,10 +7,13 @@ import {
 } from "back-end/src/util/oauth-token.util";
 import {
   exchangeRefreshToken,
+  listOrgGrants,
   mintAuthorizationCode,
   OAuthError,
+  revokeMemberGrant,
   revokeToken,
 } from "back-end/src/services/oauth";
+import { getUsersByIds } from "back-end/src/models/UserModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getOAuthClientById } from "back-end/src/models/OAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
@@ -44,6 +47,10 @@ jest.mock("back-end/src/models/OAuthClientModel", () => ({
   createOAuthClient: jest.fn(),
   getOAuthClientById: jest.fn(),
   touchOAuthClient: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/UserModel", () => ({
+  getUsersByIds: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
@@ -93,6 +100,7 @@ function mockOrgContext(
     startGrant?: jest.Mock;
     markRevoked?: jest.Mock;
     getActiveForUser?: jest.Mock;
+    getActiveForOrg?: jest.Mock;
   } = {},
 ) {
   const activeGrant = {
@@ -119,10 +127,15 @@ function mockOrgContext(
     overrides.markRevoked ?? jest.fn().mockResolvedValue(undefined);
   const getActiveForUser =
     overrides.getActiveForUser ?? jest.fn().mockResolvedValue([]);
+  const getActiveForOrg =
+    overrides.getActiveForOrg ?? jest.fn().mockResolvedValue([]);
 
   const context = {
     org: { id: "org-1" },
     userId: overrides.userId ?? "user-1",
+    throwNotFoundError: jest.fn(() => {
+      throw new Error("not found");
+    }),
     models: {
       oauthRefreshTokens: {
         deleteForGrant,
@@ -135,6 +148,7 @@ function mockOrgContext(
         startGrant,
         markRevoked,
         getActiveForUser,
+        getActiveForOrg,
       },
       oauthAuthCodes: {
         create: jest.fn(),
@@ -693,5 +707,78 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
       }),
     ).rejects.toMatchObject({ error: "invalid_client" });
     expect(deleteForGrant).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin view of member grants", () => {
+  const mockGetUsersByIds = jest.mocked(getUsersByIds);
+
+  it("lists the org's grants with client and member details, newest activity first", async () => {
+    const { context } = mockOrgContext({
+      getActiveForOrg: jest.fn().mockResolvedValue([
+        {
+          clientId: "gbc_gone",
+          userId: "user-2",
+          dateCreated: new Date("2026-01-01"),
+          dateUpdated: new Date("2026-01-02"),
+        },
+        {
+          clientId: "gbapp_internal",
+          userId: "user-1",
+          dateCreated: new Date("2026-02-01"),
+          dateUpdated: new Date("2026-03-01"),
+        },
+      ]),
+    });
+    mockGetOAuthClientById.mockImplementation(async (id) =>
+      id === "gbapp_internal"
+        ? ({ clientId: id, clientName: "Internal MCP" } as never)
+        : null,
+    );
+    mockGetUsersByIds.mockResolvedValue([
+      { id: "user-1", name: "Ada", email: "ada@example.com" },
+      { id: "user-2", name: "", email: "bob@example.com" },
+    ] as never);
+
+    const grants = await listOrgGrants(context as never);
+
+    expect(grants.map((g) => [g.clientName, g.isOrgApp, g.userEmail])).toEqual([
+      ["Internal MCP", true, "ada@example.com"],
+      // A deleted DCR client still lists under its ID
+      ["gbc_gone", false, "bob@example.com"],
+    ]);
+  });
+
+  it("revokes only the named member's grant", async () => {
+    const { context, markRevoked, deleteForGrant } = mockOrgContext({
+      getGrant: jest
+        .fn()
+        .mockResolvedValue({ clientId: "client-a", userId: "user-2" }),
+    });
+
+    await revokeMemberGrant(context as never, "client-a", "user-2");
+
+    expect(markRevoked).toHaveBeenCalledTimes(1);
+    expect(markRevoked).toHaveBeenCalledWith("client-a", "user-2");
+    expect(deleteForGrant).toHaveBeenCalledWith("client-a", "user-2");
+    expect(mockDangerousDisableOAuthGrant).toHaveBeenCalledWith(
+      "client-a",
+      "user-2",
+      "org-1",
+    );
+  });
+
+  it.each([
+    ["a missing", null],
+    ["an already-revoked", { clientId: "client-a", revoked: true }],
+  ])("refuses to revoke %s grant", async (_, grant) => {
+    const { context, markRevoked } = mockOrgContext({
+      getGrant: jest.fn().mockResolvedValue(grant),
+    });
+
+    await expect(
+      revokeMemberGrant(context as never, "client-a", "user-2"),
+    ).rejects.toThrow("not found");
+    expect(markRevoked).not.toHaveBeenCalled();
   });
 });

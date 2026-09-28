@@ -13,6 +13,16 @@ const clientIdParams = z.object({ clientId: z.string() }).strict();
 
 router.get("/", oauthAppsController.getOAuthApps);
 
+router.get("/grants", oauthAppsController.getOAuthGrants);
+
+router.post(
+  "/grants/revoke",
+  validateRequestMiddleware({
+    body: z.object({ clientId: z.string(), userId: z.string() }).strict(),
+  }),
+  oauthAppsController.postRevokeOAuthGrant,
+);
+
 router.post(
   "/",
   validateRequestMiddleware({ body: oauthAppPropsValidator }),
