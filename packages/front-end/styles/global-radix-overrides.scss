@@ -421,6 +421,66 @@
   border-radius: var(--radius-3);
 }
 
+// SegmentedControl
+.rt-SegmentedControlRoot.gb-segmented-control {
+  --gb-segmented-control-track: var(--gray-a2);
+  --gb-segmented-control-separator: var(--gray-a6);
+  --segmented-control-indicator-background-color: var(--accent-3);
+  --gb-segmented-control-ring: 0 0 0 1px var(--accent-a7);
+  color: var(--color-text-mid);
+  background-image: linear-gradient(
+    var(--gb-segmented-control-track),
+    var(--gb-segmented-control-track)
+  );
+
+  // One label at one weight, so picking a segment never changes its size or line breaks.
+  .rt-SegmentedControlItemLabelInactive {
+    display: none;
+  }
+  .rt-SegmentedControlItemLabelActive {
+    opacity: 1;
+    font-weight: var(--font-weight-medium);
+    letter-spacing: inherit;
+    word-spacing: inherit;
+    transition: color var(--segmented-control-transition-duration);
+  }
+  .rt-SegmentedControlItem[data-state="on"] {
+    color: var(--accent-11);
+  }
+  .rt-SegmentedControlItemSeparator {
+    background-color: var(--gb-segmented-control-separator);
+  }
+  .rt-SegmentedControlIndicator::before {
+    box-shadow: var(--gb-segmented-control-ring);
+  }
+}
+
+.rt-SegmentedControlRoot.gb-segmented-control--wrap {
+  // Narrows down to its longest words and no further, so segments stay inside it.
+  min-width: min-content;
+  height: auto;
+
+  &.rt-r-size-1 {
+    min-height: var(--space-5);
+  }
+  &.rt-r-size-2 {
+    min-height: var(--space-6);
+  }
+  &.rt-r-size-3 {
+    min-height: var(--space-7);
+  }
+
+  .rt-SegmentedControlItemLabel {
+    padding: var(--space-1) var(--space-3);
+  }
+
+  &[data-indicator-placed] .rt-SegmentedControlIndicator {
+    width: var(--gb-segmented-control-indicator-width);
+    transform: translateX(var(--gb-segmented-control-indicator-x));
+    transition-property: transform, width;
+  }
+}
+
 // TextField
 .rt-TextFieldRoot {
   &.error {

@@ -33,6 +33,7 @@ import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
 import MultiSelectFieldStories from "@/ui/MultiSelectField.stories";
+import SegmentedControlStories from "@/ui/SegmentedControl.stories";
 import SelectStories from "@/ui/Select.stories";
 import SelectFieldStories from "@/ui/SelectField.stories";
 import SliderStories from "@/ui/Slider.stories";
@@ -117,6 +118,7 @@ export default function DesignSystemPage() {
     { name: "ProgressBar", Stories: ProgressBarStories },
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
+    { name: "SegmentedControl", Stories: SegmentedControlStories },
     { name: "Select", Stories: SelectStories },
     {
       name: "Field (legacy text input)",

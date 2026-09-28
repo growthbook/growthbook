@@ -1,6 +1,6 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
 import { ReactNode, useMemo, useState } from "react";
-import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
@@ -24,6 +24,7 @@ import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
 import VariationNumber from "@/ui/VariationNumber";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import Tooltip from "@/ui/Tooltip";
+import SegmentedControl from "@/ui/SegmentedControl";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -517,20 +518,17 @@ export default function ContextualBanditResultsTable({
                 sizes by bandit group.
               </Text>
             </Box>
-            <SegmentedControl.Root
-              size="1"
-              value={mode}
-              onValueChange={(value) => setMode(value as ComparisonMode)}
+            <SegmentedControl
+              size="sm"
               aria-label="Comparison value type"
-            >
-              <SegmentedControl.Item value="weights">
-                Weights
-              </SegmentedControl.Item>
-              <SegmentedControl.Item value="means">Means</SegmentedControl.Item>
-              <SegmentedControl.Item value="units">
-                {unitDisplayName}
-              </SegmentedControl.Item>
-            </SegmentedControl.Root>
+              value={mode}
+              setValue={setMode}
+              options={[
+                { value: "weights", label: "Weights" },
+                { value: "means", label: "Means" },
+                { value: "units", label: unitDisplayName },
+              ]}
+            />
           </Flex>
 
           <Heatmap

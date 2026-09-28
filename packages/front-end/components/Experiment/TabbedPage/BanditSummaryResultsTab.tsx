@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useState } from "react";
-import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "shared/validators";
@@ -16,6 +16,7 @@ import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateS
 import { GBCuped } from "@/components/Icons";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import SegmentedControl from "@/ui/SegmentedControl";
 import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -184,50 +185,45 @@ export default function BanditSummaryResultsTab({
         <>
           <h3 className="mt-4 mb-3">Variation Performance over Time</h3>
           <div className="box px-3 py-2">
-            <Flex gap="5" mb="4" wrap="wrap" align="end">
+            <Flex gap="5" mb="4" wrap="wrap" align="start">
               <Flex direction="column" gap="1">
                 <Text size="sm" weight="medium" color="text-mid">
                   Chart
                 </Text>
-                <SegmentedControl.Root
-                  size="2"
-                  value={chartMode}
-                  onValueChange={(v) => setChartMode(v as typeof chartMode)}
+                <SegmentedControl
+                  wrap
                   aria-label="Chart"
-                >
-                  <SegmentedControl.Item value="values">
-                    Cumulative variation means
-                  </SegmentedControl.Item>
-                  <SegmentedControl.Item value="probabilities">
-                    Probability of winning
-                  </SegmentedControl.Item>
-                  <SegmentedControl.Item value="weights">
-                    Variation weights
-                  </SegmentedControl.Item>
-                </SegmentedControl.Root>
+                  value={chartMode}
+                  setValue={setChartMode}
+                  options={[
+                    { value: "values", label: "Cumulative variation means" },
+                    { value: "probabilities", label: "Probability of winning" },
+                    { value: "weights", label: "Variation weights" },
+                  ]}
+                />
               </Flex>
               {chartMode !== "values" && (
                 <Flex direction="column" gap="1">
                   <Text size="sm" weight="medium" color="text-mid">
                     Chart type
                   </Text>
-                  <SegmentedControl.Root
-                    size="2"
-                    value={chartType}
-                    onValueChange={(v) => setChartType(v as typeof chartType)}
+                  <SegmentedControl
                     aria-label="Chart type"
-                  >
-                    <SegmentedControl.Item value="area" aria-label="Area">
-                      <Flex align="center">
-                        <TbChartAreaLineFilled size={18} />
-                      </Flex>
-                    </SegmentedControl.Item>
-                    <SegmentedControl.Item value="line" aria-label="Line">
-                      <Flex align="center">
-                        <LiaChartLineSolid size={18} />
-                      </Flex>
-                    </SegmentedControl.Item>
-                  </SegmentedControl.Root>
+                    value={chartType}
+                    setValue={setChartType}
+                    options={[
+                      {
+                        value: "area",
+                        ariaLabel: "Area",
+                        label: <TbChartAreaLineFilled size={18} />,
+                      },
+                      {
+                        value: "line",
+                        ariaLabel: "Line",
+                        label: <LiaChartLineSolid size={18} />,
+                      },
+                    ]}
+                  />
                 </Flex>
               )}
             </Flex>

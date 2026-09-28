@@ -22,13 +22,7 @@ import {
   hasTargetingConfigured,
 } from "shared/experiments";
 import { generateVariationId, isManagedByExperiment } from "shared/util";
-import {
-  Box,
-  Flex,
-  Grid,
-  IconButton,
-  SegmentedControl,
-} from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiPencilSimple } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -57,6 +51,7 @@ import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsMod
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
 import Link from "@/ui/Link";
+import SegmentedControl from "@/ui/SegmentedControl";
 import {
   EnvironmentStateChips,
   environmentStateTense,
@@ -686,31 +681,39 @@ export default function TrafficAllocationFunnel({
   const actions = (
     <Flex align="center" gap="3">
       {hasDraftChanges ? (
-        <SegmentedControl.Root
-          size="2"
-          value={preferDraft ? "draft" : "live"}
-          onValueChange={(v) => setLive(v === "live")}
+        <SegmentedControl
           aria-label="Values shown"
-        >
-          <SegmentedControl.Item value="draft">
-            <Flex align="center" gap="2">
-              <UnpublishedDot />
-              Unpublished
-            </Flex>
-          </SegmentedControl.Item>
-          <SegmentedControl.Item value="live">
-            Live values
-          </SegmentedControl.Item>
-        </SegmentedControl.Root>
+          value={preferDraft ? "draft" : "live"}
+          setValue={(v) => setLive(v === "live")}
+          options={[
+            {
+              value: "draft",
+              label: (
+                <Flex align="center" gap="2">
+                  <UnpublishedDot />
+                  Unpublished
+                </Flex>
+              ),
+            },
+            { value: "live", label: "Live values" },
+          ]}
+        />
       ) : (
         // Nothing unpublished to compare, so the one view the page shows.
-        <SegmentedControl.Root size="2" value="only" aria-label="Values shown">
-          <SegmentedControl.Item value="only">
-            {linkedFeatures.length > 0 || experiment.status !== "draft"
-              ? "Live values"
-              : "Unpublished"}
-          </SegmentedControl.Item>
-        </SegmentedControl.Root>
+        <SegmentedControl
+          aria-label="Values shown"
+          value="only"
+          setValue={() => undefined}
+          options={[
+            {
+              value: "only",
+              label:
+                linkedFeatures.length > 0 || experiment.status !== "draft"
+                  ? "Live values"
+                  : "Unpublished",
+            },
+          ]}
+        />
       )}
     </Flex>
   );
