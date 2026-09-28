@@ -4,25 +4,32 @@ import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";
 import PersonalAccessTokenSettings from "./PersonalAccessTokenSettings";
 import OAuthAppsSettings from "./OAuthAppsSettings";
 
 const ApiKeys: FC = () => {
-  const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
+  const permissionsUtil = usePermissionsUtil();
+  // OAuth Apps has its own permission, so a viewer may be here without access to secret keys.
+  const canManageKeys =
+    permissionsUtil.canCreateApiKey() || permissionsUtil.canDeleteApiKey();
+  const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys", {
+    shouldRun: () => canManageKeys,
+  });
   const { settings } = useUser();
 
   if (error) {
     return <Callout status="error">{error.message}</Callout>;
   }
-  if (!data) {
+  if (canManageKeys && !data) {
     return <LoadingOverlay />;
   }
 
   return (
     <>
-      <SecretApiKeys keys={data.keys} mutate={mutate} />
+      {data && <SecretApiKeys keys={data.keys} mutate={mutate} />}
 
       <PersonalAccessTokenSettings />
 

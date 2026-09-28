@@ -29,9 +29,8 @@ export type OrgOAuthGrant = {
 // Every member's live OAuth authorization in the org, across all applications.
 const OAuthGrantsTable: FC<{
   grants: OrgOAuthGrant[];
-  canRevoke: boolean;
   onRevoked: () => void;
-}> = ({ grants, canRevoke, onRevoked }) => {
+}> = ({ grants, onRevoked }) => {
   const { apiCall } = useAuth();
   const [pendingRevoke, setPendingRevoke] = useState<OrgOAuthGrant | null>(
     null,
@@ -88,15 +87,13 @@ const OAuthGrantsTable: FC<{
                   </Tooltip>
                 </TableCell>
                 <TableCell>
-                  {canRevoke && (
-                    <Button
-                      color="red"
-                      variant="outline"
-                      onClick={() => setPendingRevoke(grant)}
-                    >
-                      Revoke
-                    </Button>
-                  )}
+                  <Button
+                    color="red"
+                    variant="outline"
+                    onClick={() => setPendingRevoke(grant)}
+                  >
+                    Revoke
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

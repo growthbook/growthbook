@@ -1,33 +1,21 @@
 import type { Response } from "express";
 import countBy from "lodash/countBy";
-import { OAuthAppInterface, OAuthAppProps } from "shared/validators";
+import { OAuthAppProps, OrgOAuthAppInterface } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "back-end/src/services/audit";
 import {
   listOrgGrants,
   revokeAllGrantsForClient,
   revokeMemberGrant,
 } from "back-end/src/services/oauth";
 import { OAUTH_AS_ENABLED } from "back-end/src/util/secrets";
-import {
-  createOrgOAuthApp,
-  deleteOrgOAuthApp,
-  getOrgOAuthApp,
-  getOrgOAuthApps,
-  rotateOrgOAuthAppSecret,
-  updateOrgOAuthApp,
-} from "back-end/src/models/OAuthClientModel";
+import { OrgOAuthAppModel } from "back-end/src/models/OrgOAuthAppModel";
 
 type ClientIdParams = { clientId: string };
 
 function assertCanManageOAuthApps(context: ReqContext) {
-  if (!context.permissions.canCreateApiKey()) {
+  if (!context.permissions.canManageOAuthApps()) {
     context.permissions.throwPermissionError();
   }
 }
@@ -44,8 +32,8 @@ function assertPlanAllowsOAuthApps(context: ReqContext) {
 async function getAppOrThrow(
   context: ReqContext,
   clientId: string,
-): Promise<OAuthAppInterface> {
-  const app = await getOrgOAuthApp(context.org.id, clientId);
+): Promise<OrgOAuthAppInterface> {
+  const app = await context.models.orgOAuthApps.getById(clientId);
   if (!app) context.throwNotFoundError("OAuth app not found");
   return app;
 }
@@ -55,7 +43,7 @@ export async function getOAuthApps(req: AuthRequest, res: Response) {
   assertCanManageOAuthApps(context);
 
   const [apps, grants] = await Promise.all([
-    getOrgOAuthApps(context.org.id),
+    context.models.orgOAuthApps.getAll(),
     context.models.oauthGrants.dangerousGetAllActiveForOrg(),
   ]);
   const authorizedUsers = countBy(grants, "clientId");
@@ -63,10 +51,12 @@ export async function getOAuthApps(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     oauthServerEnabled: OAUTH_AS_ENABLED,
-    apps: apps.map((app) => ({
-      ...app,
-      authorizedUsers: authorizedUsers[app.clientId] ?? 0,
-    })),
+    apps: apps
+      .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime())
+      .map((app) => ({
+        ...OrgOAuthAppModel.toPublic(app),
+        authorizedUsers: authorizedUsers[app.id] ?? 0,
+      })),
   });
 }
 
@@ -78,17 +68,9 @@ export async function postOAuthApp(
   assertCanManageOAuthApps(context);
   assertPlanAllowsOAuthApps(context);
 
-  const { app, clientSecret } = await createOrgOAuthApp(
-    context.org.id,
-    context.userId,
+  const { app, clientSecret } = await context.models.orgOAuthApps.createApp(
     req.body,
   );
-  await req.audit({
-    event: "oauthApp.create",
-    entity: { object: "oauthApp", id: app.clientId, name: app.clientName },
-    details: auditDetailsCreate(app),
-  });
-
   res.status(200).json({ status: 200, app, clientSecret });
 }
 
@@ -101,15 +83,7 @@ export async function putOAuthApp(
   assertPlanAllowsOAuthApps(context);
   const existing = await getAppOrThrow(context, req.params.clientId);
 
-  const app =
-    (await updateOrgOAuthApp(context.org.id, existing.clientId, req.body)) ??
-    context.throwNotFoundError("OAuth app not found");
-  await req.audit({
-    event: "oauthApp.update",
-    entity: { object: "oauthApp", id: app.clientId, name: app.clientName },
-    details: auditDetailsUpdate(existing, app),
-  });
-
+  const app = await context.models.orgOAuthApps.updateApp(existing, req.body);
   res.status(200).json({ status: 200, app });
 }
 
@@ -122,16 +96,7 @@ export async function postOAuthAppSecret(
   assertPlanAllowsOAuthApps(context);
   const app = await getAppOrThrow(context, req.params.clientId);
 
-  const clientSecret = await rotateOrgOAuthAppSecret(
-    context.org.id,
-    app.clientId,
-  );
-  if (!clientSecret) context.throwNotFoundError("OAuth app not found");
-  await req.audit({
-    event: "oauthApp.rotateSecret",
-    entity: { object: "oauthApp", id: app.clientId, name: app.clientName },
-  });
-
+  const clientSecret = await context.models.orgOAuthApps.rotateSecret(app);
   res.status(200).json({ status: 200, clientSecret });
 }
 
@@ -140,20 +105,13 @@ export async function deleteOAuthApp(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  if (!context.permissions.canDeleteApiKey()) {
-    context.permissions.throwPermissionError();
-  }
+  assertCanManageOAuthApps(context);
   const app = await getAppOrThrow(context, req.params.clientId);
 
   // Revoke before and after: a consent in flight during the first pass can re-arm its grant.
-  await revokeAllGrantsForClient(context, app.clientId);
-  await deleteOrgOAuthApp(context.org.id, app.clientId);
-  await revokeAllGrantsForClient(context, app.clientId);
-  await req.audit({
-    event: "oauthApp.delete",
-    entity: { object: "oauthApp", id: app.clientId, name: app.clientName },
-    details: auditDetailsDelete(app),
-  });
+  await revokeAllGrantsForClient(context, app.id);
+  await context.models.orgOAuthApps.delete(app);
+  await revokeAllGrantsForClient(context, app.id);
 
   res.status(200).json({ status: 200 });
 }
@@ -170,9 +128,7 @@ export async function postRevokeOAuthGrant(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  if (!context.permissions.canDeleteApiKey()) {
-    context.permissions.throwPermissionError();
-  }
+  assertCanManageOAuthApps(context);
 
   await revokeMemberGrant(context, req.body.clientId, req.body.userId);
   res.status(200).json({ status: 200 });

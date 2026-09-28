@@ -19,8 +19,9 @@ import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import {
   getOAuthClientById,
   getOAuthClientsByIds,
-} from "back-end/src/models/OAuthClientModel";
+} from "back-end/src/models/GlobalOAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
+import { OrgOAuthAppModel } from "back-end/src/models/OrgOAuthAppModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {
   getContextForAgendaJobByOrgObject,
@@ -47,11 +48,17 @@ jest.mock("back-end/src/models/OAuthRefreshTokenModel", () => ({
   },
 }));
 
-jest.mock("back-end/src/models/OAuthClientModel", () => ({
+jest.mock("back-end/src/models/GlobalOAuthClientModel", () => ({
   createOAuthClient: jest.fn(),
   getOAuthClientById: jest.fn(),
   getOAuthClientsByIds: jest.fn(),
   touchOAuthClient: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/OrgOAuthAppModel", () => ({
+  OrgOAuthAppModel: {
+    dangerousFindById: jest.fn(),
+  },
 }));
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
@@ -71,6 +78,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 }));
 
 const mockGetOAuthClientById = jest.mocked(getOAuthClientById);
+const mockFindOrgApp = jest.mocked(OrgOAuthAppModel.dangerousFindById);
 const mockDangerousFindByHash = jest.mocked(
   OAuthRefreshTokenModel.dangerousFindByHash,
 );
@@ -102,6 +110,7 @@ function mockOrgContext(
     markRevoked?: jest.Mock;
     getActiveForUser?: jest.Mock;
     dangerousGetAllActiveForOrg?: jest.Mock;
+    getOrgApps?: jest.Mock;
     getUsersByIds?: jest.Mock;
     orgSettings?: Record<string, unknown>;
   } = {},
@@ -160,6 +169,9 @@ function mockOrgContext(
       apiKeys: {
         create: createApiKey,
       },
+      orgOAuthApps: {
+        getByIds: overrides.getOrgApps ?? jest.fn().mockResolvedValue([]),
+      },
     },
   };
 
@@ -186,6 +198,8 @@ function mockOrgContext(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Org apps are looked up first; most tests use public DCR clients.
+  mockFindOrgApp.mockResolvedValue(null);
 });
 
 describe("oauth PKCE + token hashing", () => {
@@ -563,18 +577,20 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
   const APP_SECRET = "gbcs_correct-secret";
 
   const orgAppDoc = (organization = "org-1") => ({
-    clientId: APP_ID,
-    redirectUris: ["https://mcp.example.com/cb"],
-    tokenEndpointAuthMethod: "client_secret_basic" as const,
-    grantTypes: ["authorization_code", "refresh_token"],
-    responseTypes: ["code"],
+    id: APP_ID,
     organization,
+    clientName: "Internal MCP",
+    redirectUris: ["https://mcp.example.com/cb"],
+    clientUri: "",
     clientSecretHash: hashToken(APP_SECRET),
+    createdBy: "user-1",
     dateCreated: new Date(),
+    dateUpdated: new Date(),
   });
 
   function mockOrgApp(organization = "org-1") {
-    mockGetOAuthClientById.mockResolvedValue(orgAppDoc(organization));
+    mockFindOrgApp.mockResolvedValue(orgAppDoc(organization));
+    mockGetOAuthClientById.mockResolvedValue(null);
   }
 
   function mockDcrClient() {
@@ -719,10 +735,11 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
 
   it("tears down a grant re-armed by a code exchange that raced app deletion", async () => {
     const verifier = "code-verifier";
-    // Client exists when authenticated, gone by the time tokens are issued.
-    mockGetOAuthClientById
+    // App exists when authenticated, gone by the time tokens are issued.
+    mockFindOrgApp
       .mockResolvedValueOnce(orgAppDoc())
       .mockResolvedValueOnce(null);
+    mockGetOAuthClientById.mockResolvedValue(null);
     jest.mocked(OAuthAuthCodeModel.dangerousConsumeByHash).mockResolvedValue({
       codeHash: hashToken("code"),
       clientId: APP_ID,
@@ -770,6 +787,11 @@ describe("admin view of member grants", () => {
         { id: "user-1", name: "Ada", email: "ada@example.com" },
         { id: "user-2", name: "", email: "bob@example.com" },
       ]),
+      getOrgApps: jest
+        .fn()
+        .mockResolvedValue([
+          { id: "gbapp_internal", clientName: "Internal MCP" },
+        ]),
       dangerousGetAllActiveForOrg: jest.fn().mockResolvedValue([
         {
           clientId: "gbc_gone",
@@ -786,13 +808,7 @@ describe("admin view of member grants", () => {
       ]),
     });
     // gbc_gone has no client row any more
-    jest.mocked(getOAuthClientsByIds).mockResolvedValue([
-      {
-        clientId: "gbapp_internal",
-        clientName: "Internal MCP",
-        organization: "org-1",
-      } as never,
-    ]);
+    jest.mocked(getOAuthClientsByIds).mockResolvedValue([]);
 
     const grants = await listOrgGrants(context as never);
 
