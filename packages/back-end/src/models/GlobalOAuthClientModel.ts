@@ -7,7 +7,7 @@ import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
  * Public OAuth clients registered via DCR (RFC 7591).
  *
  * Clients are globally scoped (no `organization`) — they are not a fit for
- * BaseModel. Org-registered confidential apps live in `OrgOAuthAppModel`;
+ * BaseModel. Org-registered confidential clients live in `OrgOAuthClientModel`;
  * auth codes and refresh tokens in `OAuthAuthCodeModel` / `OAuthRefreshTokenModel`.
  *
  * DCR is unauthenticated, so `expiresAt` + a TTL index bound growth

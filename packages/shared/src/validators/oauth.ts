@@ -51,10 +51,10 @@ export const oauthAppPropsValidator = z
 export type OAuthAppProps = z.infer<typeof oauthAppPropsValidator>;
 
 /**
- * Confidential OAuth clients registered by an org's admins. Own collection;
- * the BaseModel `id` is the OAuth `client_id`.
+ * Confidential OAuth clients registered by an org's admins ("OAuth apps" in
+ * the product). Own collection; the BaseModel `id` is the OAuth `client_id`.
  */
-export const orgOAuthAppValidator = baseSchema.safeExtend({
+export const orgOAuthClientValidator = baseSchema.safeExtend({
   clientName: z.string(),
   redirectUris: z.array(z.string()).min(1),
   clientUri: z.string(),
@@ -62,11 +62,11 @@ export const orgOAuthAppValidator = baseSchema.safeExtend({
   createdBy: z.string(),
 });
 
-export type OrgOAuthAppInterface = z.infer<typeof orgOAuthAppValidator>;
+export type OrgOAuthClientInterface = z.infer<typeof orgOAuthClientValidator>;
 
 /** Admin-facing shape of an org OAuth app; never includes the secret hash. */
 export type OAuthAppInterface = Omit<
-  OrgOAuthAppInterface,
+  OrgOAuthClientInterface,
   "id" | "organization" | "clientSecretHash"
 > & { clientId: string };
 

@@ -105,7 +105,7 @@ import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
-import { OrgOAuthAppModel } from "back-end/src/models/OrgOAuthAppModel";
+import { OrgOAuthClientModel } from "back-end/src/models/OrgOAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
@@ -164,7 +164,7 @@ export type ModelName =
   | "oauthAuthCodes"
   | "oauthGrants"
   | "oauthRefreshTokens"
-  | "orgOAuthApps"
+  | "orgOAuthClients"
   | "rampSchedules"
   | "autoRuns"
   | "rampScheduleTemplates"
@@ -225,7 +225,7 @@ export const modelClasses = {
   oauthAuthCodes: OAuthAuthCodeModel,
   oauthGrants: OAuthGrantModel,
   oauthRefreshTokens: OAuthRefreshTokenModel,
-  orgOAuthApps: OrgOAuthAppModel,
+  orgOAuthClients: OrgOAuthClientModel,
   rampSchedules: RampScheduleModel,
   autoRuns: AutoRunModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
@@ -403,7 +403,7 @@ export class ReqContextClass {
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       oauthGrants: new OAuthGrantModel(this),
       oauthRefreshTokens: new OAuthRefreshTokenModel(this),
-      orgOAuthApps: new OrgOAuthAppModel(this),
+      orgOAuthClients: new OrgOAuthClientModel(this),
       rampSchedules: new RampScheduleModel(this),
       autoRuns: new AutoRunModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
