@@ -364,7 +364,8 @@ export default function NewFactTableSqlStep({
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql");
 
-  // Bumped per picked table so a slow query can't apply results to the next one
+  // Bumped per picked table and mode switch so a slow query can't apply
+  // results to the next one
   const tableGeneration = useRef(0);
 
   const runQuery = useCallback(
@@ -419,10 +420,12 @@ export default function NewFactTableSqlStep({
     };
   }, [validateRef, hasFreshResults, columnError, runQuery, mode]);
 
+  // Results belong to one table in one mode; a SQL test shouldn't linger in
+  // table mode, where only validation errors render
   useEffect(() => {
     tableGeneration.current++;
     setTestQueryResults(null);
-  }, [selectedTable?.id]);
+  }, [selectedTable?.id, mode]);
 
   const testButton = (label: string) => (
     <Tooltip
@@ -433,7 +436,7 @@ export default function NewFactTableSqlStep({
       }
     >
       <Button
-        size="sm"
+        size="md"
         variant="soft"
         icon={<PiPlay />}
         onClick={() => runQuery(SAMPLE_ROW_LIMIT)}
