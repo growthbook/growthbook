@@ -74,7 +74,7 @@ export class OAuthGrantModel extends BaseClass {
   }
 
   /** Every active grant in the org — the admin authorizations view. */
-  public async getActiveForOrg(): Promise<OAuthGrantInterface[]> {
+  public async dangerousGetAllActiveForOrg(): Promise<OAuthGrantInterface[]> {
     return this._find(
       { revoked: { $ne: true } },
       { bypassReadPermissionChecks: true },
@@ -82,7 +82,7 @@ export class OAuthGrantModel extends BaseClass {
   }
 
   /** Active grants for one client across the org's members — for admin teardown and counts. */
-  public async getActiveForClient(
+  public async dangerousGetAllActiveForClient(
     clientId: string,
   ): Promise<OAuthGrantInterface[]> {
     return this._find(

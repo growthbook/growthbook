@@ -56,7 +56,7 @@ export async function getOAuthApps(req: AuthRequest, res: Response) {
 
   const [apps, grants] = await Promise.all([
     getOrgOAuthApps(context.org.id),
-    context.models.oauthGrants.getActiveForOrg(),
+    context.models.oauthGrants.dangerousGetAllActiveForOrg(),
   ]);
   const authorizedUsers = countBy(grants, "clientId");
 
