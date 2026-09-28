@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { cloneDeep } from "lodash";
+import { cloneDeep, isEqual } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   assertTargetingRulesDisjoint,
@@ -41,6 +41,7 @@ import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import {
   acceptInvite,
   addMemberToOrg,
@@ -169,6 +170,7 @@ import {
   getInstallation,
   setInstallationName,
 } from "back-end/src/models/InstallationModel";
+import { putDefaultRoleValidator } from "./organizations.validators";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -674,18 +676,18 @@ export async function putMember(
     } else if (organization.autoApproveMembers) {
       // if auto approve, add user as member
       await addMemberToOrg({
+        ...getDefaultRole(organization),
         organization,
         userId: req.userId,
-        ...getDefaultRole(organization),
       });
     } else {
       // otherwise, add user as pending member
       await addPendingMemberToOrg({
+        ...getDefaultRole(organization),
         organization,
         name: req.name || "",
         userId: req.userId,
         email: req.email,
-        ...getDefaultRole(organization),
       });
 
       try {
@@ -1731,14 +1733,9 @@ export async function putOrganization(
           "Not supported: Updating namespaces not supported via this route.",
         );
       } else if (k === "defaultRole") {
-        if (!context.permissions.canManageOrgSettings()) {
-          context.permissions.throwPermissionError();
-        }
-        const newRole = settings.defaultRole?.role;
-        if (newRole) {
-          // Only gate a change so an existing non-admin default keeps working
-          assertRoleChangeAllowed(org, getDefaultRole(org).role, newRole);
-        }
+        throw new Error(
+          "Not supported: Updating the default role is not supported via this route. Use PUT /organization/default-role instead.",
+        );
       } else {
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();
@@ -2310,6 +2307,17 @@ export async function postImportConfig(
     throw new Error("Failed to parse config.yml file contents.");
   }
 
+  const importSettings = config.organization?.settings;
+  if (importSettings && "defaultRole" in importSettings) {
+    const defaultRole = putDefaultRoleValidator.shape.defaultRole.parse(
+      importSettings.defaultRole,
+    );
+    if (!isEqual(defaultRole, getDefaultRole(context.org))) {
+      assertCanUpdateDefaultRole(context, defaultRole);
+    }
+    importSettings.defaultRole = defaultRole;
+  }
+
   await importConfig(context, config);
 
   res.status(200).json({
@@ -2572,14 +2580,11 @@ export async function putLicenseKey(
   });
 }
 
-export async function putDefaultRole(
-  req: AuthRequest<{ defaultRole: MemberRoleWithProjects }>,
-  res: Response,
+function assertCanUpdateDefaultRole(
+  context: ReqContext,
+  defaultRole: MemberRoleWithProjects,
 ) {
-  const context = getContextFromReq(req);
   const { org } = context;
-  const { defaultRole } = req.body;
-
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
 
   if (!commercialFeatures.includes("sso")) {
@@ -2596,6 +2601,17 @@ export async function putDefaultRole(
   assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
 
   assertMemberRoleInfoValid(org, defaultRole);
+}
+
+export async function putDefaultRole(
+  req: AuthRequest<{ defaultRole: MemberRoleWithProjects }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { defaultRole } = req.body;
+
+  assertCanUpdateDefaultRole(context, defaultRole);
 
   updateOrganization(org.id, {
     settings: {

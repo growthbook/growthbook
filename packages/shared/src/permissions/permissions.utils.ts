@@ -1,4 +1,4 @@
-import { isEqual } from "lodash";
+import { isEqual, pick } from "lodash";
 import {
   Permission,
   UserPermissions,
@@ -175,7 +175,14 @@ export function getDefaultRole(
     org.settings?.defaultRole?.role &&
     isRoleValid(org.settings.defaultRole.role, org)
   ) {
-    return org.settings.defaultRole;
+    // Settings can hold keys from unvalidated writes; callers spread this result
+    return pick(org.settings.defaultRole, [
+      "role",
+      "limitAccessByEnvironment",
+      "environments",
+      "additionalRoles",
+      "projectRoles",
+    ]);
   }
 
   // Fall back to using "collaborator"

@@ -1597,11 +1597,11 @@ export async function addMemberFromSSOConnection(
     );
     if (!alreadyPending) {
       await addPendingMemberToOrg({
+        ...getDefaultRole(organization),
         organization,
         name: req.name || "",
         email: req.email || "",
         userId: req.userId,
-        ...getDefaultRole(organization),
       });
       try {
         const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
@@ -1620,9 +1620,9 @@ export async function addMemberFromSSOConnection(
   }
 
   await addMemberToOrg({
+    ...getDefaultRole(organization),
     organization,
     userId: req.userId,
-    ...getDefaultRole(organization),
   });
   try {
     await sendNewMemberEmail(
