@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
+import { isAutoSnapshotScheduled } from "shared/experiments";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -110,7 +111,8 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const { org: organization } = context;
 
   const experiment = await getExperimentById(context, experimentId);
-  if (!experiment || experiment.archived) return;
+  // Check if it is scheduled again because it might have changed between queued and now
+  if (!experiment || !isAutoSnapshotScheduled(experiment)) return;
 
   let project = null;
   if (experiment.project) {

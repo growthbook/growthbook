@@ -116,4 +116,16 @@ describe("scheduled experiment updates", () => {
     await updateSingleExperiment(jobFor("exp_live"));
     expect(getDataSourceById).toHaveBeenCalledTimes(1);
   });
+
+  it("skips an update queued before auto-update was turned off", async () => {
+    await experiments().insertOne({
+      ...running,
+      id: "exp_disabled",
+      disableAutoSnapshots: true,
+      nextSnapshotAttempt: new Date(),
+    });
+
+    await updateSingleExperiment(jobFor("exp_disabled"));
+    expect(getDataSourceById).not.toHaveBeenCalled();
+  });
 });

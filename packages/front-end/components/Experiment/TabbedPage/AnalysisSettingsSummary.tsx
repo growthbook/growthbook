@@ -23,6 +23,7 @@ import {
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
+  isAutoSnapshotScheduled,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -880,11 +881,7 @@ export default function AnalysisSettingsSummary({
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
-                autoUpdateEnabled={
-                  experiment.autoSnapshots &&
-                  !experiment.disableAutoSnapshots &&
-                  !experiment.archived
-                }
+                autoUpdateEnabled={isAutoSnapshotScheduled(experiment)}
                 showAutoUpdateWidget={true}
                 failedString={
                   latest && !latest.queries.length && latest.error
