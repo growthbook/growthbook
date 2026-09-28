@@ -1,8 +1,7 @@
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
+import { mysqlDialect, postgresDialect } from "shared/dialects";
 import { computeParticipationDenominator } from "back-end/src/integrations/sql/processing/compute-participation-denominator";
-import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
 
 type WindowSettings = FactMetricInterface["windowSettings"];
 
