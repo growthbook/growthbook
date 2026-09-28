@@ -7,7 +7,8 @@ export interface SnowflakeConnectionParams {
   schema: string;
   role?: string;
   warehouse?: string;
-  authMethod?: "password" | "key-pair";
+  authMethod?: "password" | "key-pair" | "workload-identity";
   privateKey?: string;
   privateKeyPassword?: string;
+  workloadIdentityProvider?: "AWS" | "AZURE" | "GCP";
 }
