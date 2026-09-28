@@ -210,6 +210,15 @@ export function pickDefaultRoleFields(
   };
 }
 
+// Same shape getDefaultRole returns: known fields only, and no rules for
+// custom roles the org has since deleted (an export can still carry them)
+export function normalizeDefaultRole(
+  defaultRole: MemberRoleWithProjects,
+  org: Partial<OrganizationInterface>,
+): MemberRoleWithProjects {
+  return dropStaleRoleRules(pickDefaultRoleFields(defaultRole), org);
+}
+
 // A custom role deleted while referenced here must not block automated joins
 function dropStaleRoleRules(
   defaultRole: MemberRoleWithProjects,
@@ -244,10 +253,7 @@ export function getDefaultRole(
     isRoleValid(org.settings.defaultRole.role, org)
   ) {
     // Settings can hold keys from unvalidated writes; callers spread this result
-    return dropStaleRoleRules(
-      pickDefaultRoleFields(org.settings.defaultRole),
-      org,
-    );
+    return normalizeDefaultRole(org.settings.defaultRole, org);
   }
 
   // Fall back to using "collaborator"

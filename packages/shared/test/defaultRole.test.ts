@@ -1,6 +1,7 @@
 import {
   areAdditionalRolesValid,
   getDefaultRole,
+  normalizeDefaultRole,
   pickDefaultRoleFields,
 } from "shared/permissions";
 import {
@@ -186,5 +187,19 @@ describe("getDefaultRole with deleted custom roles", () => {
         { project: "p2", role: "admin", ...rule, additionalRoles: [] },
       ],
     });
+  });
+});
+
+describe("normalizeDefaultRole", () => {
+  it("matches getDefaultRole for the same stored value", () => {
+    const rule = { limitAccessByEnvironment: false, environments: [] };
+    const stored = {
+      role: "engineer",
+      ...rule,
+      teams: ["t1"],
+      additionalRoles: [{ role: "deleted_role", ...rule }],
+    };
+    const org = orgWithDefaultRole(stored);
+    expect(normalizeDefaultRole(stored, org)).toEqual(getDefaultRole(org));
   });
 });

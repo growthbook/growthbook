@@ -8,7 +8,7 @@ import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
-  pickDefaultRoleFields,
+  normalizeDefaultRole,
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
@@ -1313,13 +1313,16 @@ export async function assertCanUpdateDefaultRole(
     context.permissions.throwPermissionError();
   }
 
+  const current = getDefaultRole(org);
   // Only gate a change so an existing non-admin default keeps working
-  assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
+  assertRoleChangeAllowed(org, current.role, defaultRole.role);
 
   assertMemberRoleInfoValid(org, defaultRole);
+  // Diff against the current rules so a stale deleted-project rule that is
+  // merely round-tripped doesn't block unrelated edits
   await assertProjectRulesReferenceProjects(
     context,
-    undefined,
+    current.projectRoles,
     defaultRole.projectRoles,
   );
 }
@@ -1340,7 +1343,7 @@ export async function sanitizeDefaultRoleUpdate(
   // Exported settings can carry keys from old unvalidated writes; drop them
   // like getDefaultRole does instead of failing the whole import
   const parsed = memberRoleWithProjects.safeParse(
-    pickDefaultRoleFields(defaultRole),
+    normalizeDefaultRole(defaultRole, context.org),
   );
   if (!parsed.success) {
     throw new Error(`Invalid defaultRole: ${errorStringFromZodResult(parsed)}`);
