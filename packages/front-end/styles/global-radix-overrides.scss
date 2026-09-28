@@ -443,9 +443,7 @@
     justify-content: center;
     gap: inherit;
     opacity: 1;
-    font-weight: var(--font-weight-medium);
     letter-spacing: inherit;
-    word-spacing: inherit;
     transition: color var(--segmented-control-transition-duration);
   }
   .rt-SegmentedControlItem[data-state="on"] {

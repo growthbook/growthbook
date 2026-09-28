@@ -35,7 +35,7 @@ const MAX_IMAGE_HEIGHT = 150;
 // Radix Themes breakpoints (px), mirroring `@radix-ui/themes` `--xs`/`--sm`.
 
 /** Narrower than this and a card has no room for a name beside its controls. */
-export const MIN_VARIATION_WIDTH = 220;
+const MIN_VARIATION_WIDTH = 220;
 export const VARIATION_GRID_GAP_PX = 16;
 
 /**
@@ -44,6 +44,15 @@ export const VARIATION_GRID_GAP_PX = 16;
  * and breakpoints would still promise three columns.
  */
 export const VARIATION_GRID_COLUMNS = `repeat(auto-fit, minmax(min(100%, ${MIN_VARIATION_WIDTH}px), 1fr))`;
+
+/** How many columns `VARIATION_GRID_COLUMNS` lays `count` cards into at `width`. */
+export function variationGridColumnCount(width: number, count: number) {
+  const fit = Math.floor(
+    (width + VARIATION_GRID_GAP_PX) /
+      (MIN_VARIATION_WIDTH + VARIATION_GRID_GAP_PX),
+  );
+  return Math.max(1, Math.min(count, fit));
+}
 
 /** How wide the grid can get, so anything aligned to it can match. */
 export const variationGridMaxWidth = (cols: number) =>

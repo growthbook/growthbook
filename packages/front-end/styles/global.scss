@@ -655,9 +655,8 @@ pre {
   padding: 0 10px;
 }
 
-// Scrolls sideways once the table outgrows its column. The table says so
-// itself (`overflowing`): the details panel narrows the column without the
-// window, so the viewport query alone misses it.
+// `overflowing` is measured, since the details panel narrows the column
+// without the window and the viewport query alone misses that.
 .experiment-results-wrapper,
 .bandit-summary-results-wrapper {
   &.overflowing {

@@ -159,7 +159,7 @@ export default function BanditUpdateStatus({
             </DetailRow>
             {lastReweightEvent ? (
               <DetailRow label="Last weights updated">
-                {datetime(lastReweightEvent?.date ?? "")}
+                {datetime(lastReweightEvent.date)}
               </DetailRow>
             ) : null}
             {showScheduling && (
@@ -189,9 +189,9 @@ export default function BanditUpdateStatus({
           <Flex direction="column" gap="2">
             <Text as="div">
               The Bandit is{" "}
-              {experiment.banditStage === "paused" || !isRunning ? (
-                "not running"
-              ) : experiment.banditStage ? (
+              {isRunning &&
+              experiment.banditStage &&
+              experiment.banditStage !== "paused" ? (
                 <>
                   in the{" "}
                   <Text size="inherit" weight="semibold">
@@ -243,15 +243,13 @@ export default function BanditUpdateStatus({
           {!isPublic && isRunning && mutate && (
             <>
               <Separator size="4" />
-              <Box>
-                <RefreshBanditButton
-                  mutate={mutate}
-                  experiment={experiment}
-                  setError={setError}
-                  setGeneratedSnapshot={setGeneratedSnapshot}
-                  onLoadingChange={setRefreshing}
-                />
-              </Box>
+              <RefreshBanditButton
+                mutate={mutate}
+                experiment={experiment}
+                setError={setError}
+                setGeneratedSnapshot={setGeneratedSnapshot}
+                onLoadingChange={setRefreshing}
+              />
             </>
           )}
         </Flex>

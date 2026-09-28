@@ -33,8 +33,8 @@ import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetin
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import EditSplitModal from "@/components/Experiment/EditSplitModal";
 import VariationsTable, {
-  MIN_VARIATION_WIDTH,
   VARIATION_GRID_GAP_PX,
+  variationGridColumnCount,
   variationGridMaxWidth,
 } from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -279,18 +279,7 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
     const grid = gridRef.current;
     if (!grid) return;
     const measure = () =>
-      setShown(
-        Math.max(
-          1,
-          Math.min(
-            cols,
-            Math.floor(
-              (grid.clientWidth + VARIATION_GRID_GAP_PX) /
-                (MIN_VARIATION_WIDTH + VARIATION_GRID_GAP_PX),
-            ),
-          ),
-        ),
-      );
+      setShown(variationGridColumnCount(grid.clientWidth, cols));
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(grid);

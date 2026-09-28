@@ -562,7 +562,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                     textAnchor: "middle",
                     dy: 5,
                   })}
-                  tickFormat={(d) => formatXTick(d as Date)}
+                  tickFormat={formatXTick}
                 />
                 <AxisLeft
                   scale={yScale}

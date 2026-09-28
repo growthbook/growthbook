@@ -90,9 +90,8 @@ type TooltipData = {
 
 const height = 300;
 const margin = [15, 30, 50, 80];
-// How close events can sit before a burst of them shows as one.
+// Updates can come hourly; markers closer than this collapse into one.
 const EVENT_GAP = 16;
-const ERROR_GAP = 16;
 
 type GraphVariation = { name: string; index: number };
 
@@ -589,9 +588,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           xScale,
           xMax,
         );
-        // Updates can come hourly; a burst of them reads as one marker.
         const shownReweights = spacedOut(reweights, xScale, EVENT_GAP);
-        const shownErrorTicks = spacedOut(errorTicks, xScale, ERROR_GAP);
+        const shownErrorTicks = spacedOut(errorTicks, xScale, EVENT_GAP);
         // As many decimals as the ticks' spacing needs, so no two read alike.
         const yTicks = yScale.ticks(5);
         const yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
@@ -709,7 +707,6 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   <SelectItem value="3">Top 3</SelectItem>
                 ) : null}
                 <SelectItem value="1">Winning variation</SelectItem>
-                {/* Picked one by one from the legend. */}
                 {filterVariations === "picked" ? (
                   <SelectItem value="picked">
                     {`Selected (${showVariations.filter((sv) => sv).length})`}
@@ -718,20 +715,22 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               </Select>
               <Flex wrap="wrap" gapX="4" gapY="1" minWidth="0">
                 {variations.map((v, i) => {
+                  const CheckboxIcon = showVariations[i]
+                    ? BiCheckboxSquare
+                    : BiCheckbox;
                   return (
                     <Flex
                       key={v.index}
                       align="center"
                       gap="1"
                       height="24px"
+                      maxWidth="200px"
                       pr="1"
                       className="hover-highlight rounded"
                       style={{
-                        maxWidth: 200,
                         color: getVariationColor(v.index, true),
                         cursor: "pointer",
                         userSelect: "none",
-                        whiteSpace: "nowrap",
                       }}
                       onClick={() => {
                         let sv = [...showVariations];
@@ -740,18 +739,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                           sv = variations.map((_, j) => i !== j);
                         }
                         setShowVariations(sv);
-                        if (sv.every((v) => v)) {
-                          setFilterVariations("all");
-                        } else {
-                          setFilterVariations("picked");
-                        }
+                        setFilterVariations(
+                          sv.every((v) => v) ? "all" : "picked",
+                        );
                       }}
                     >
-                      {showVariations[i] ? (
-                        <BiCheckboxSquare size={24} style={{ flexShrink: 0 }} />
-                      ) : (
-                        <BiCheckbox size={24} style={{ flexShrink: 0 }} />
-                      )}
+                      <CheckboxIcon size={24} style={{ flexShrink: 0 }} />
                       <span className="text-ellipsis">{v.name}</span>
                     </Flex>
                   );
@@ -938,7 +931,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     textAnchor: "middle",
                     dy: 5,
                   })}
-                  tickFormat={(d) => formatXTick(d as Date)}
+                  tickFormat={formatXTick}
                 />
 
                 <AxisBottom

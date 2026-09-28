@@ -46,6 +46,7 @@ import {
   RowResults,
   useDomain,
 } from "@/services/experiments";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -147,7 +148,7 @@ export type ResultsTableProps = {
   oneSided?: boolean;
 };
 
-const ROW_HEIGHT = 46;
+export const ROW_HEIGHT = 46;
 const METRIC_LABEL_ROW_HEIGHT = 56;
 const LABEL_ONLY_ROW_HEIGHT = 36;
 const SPACER_ROW_HEIGHT = 6;
@@ -335,8 +336,7 @@ export default function ResultsTable({
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
-  // Wider than its column, which the details panel narrows without the window.
-  const [overflowing, setOverflowing] = useState(false);
+  const overflowing = useIsOverflowingX(tableContainerRef);
 
   const { isAuthenticated } = useAuth();
 
@@ -392,8 +392,6 @@ export default function ResultsTable({
     const graphWidth = tableWidth - totalCellWidth;
     setGraphCellWidth(Math.max(graphWidth, 200));
     setTableCellScale(Math.max(Math.min(1, tableWidth / 1000), 0.85));
-    const container = tableContainerRef.current;
-    setOverflowing(container.scrollWidth > container.clientWidth + 1);
   }
 
   useEffect(() => {

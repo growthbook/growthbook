@@ -610,7 +610,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     fontSize: 11,
                     textAnchor: "middle",
                   })}
-                  tickFormat={(d) => formatXTick(d as Date)}
+                  tickFormat={formatXTick}
                   tickValues={xTickValues}
                 />
                 <AxisLeft

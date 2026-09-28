@@ -158,7 +158,10 @@ export default function BanditSummaryResultsTab({
                 <Flex align="center" gap="1">
                   <GBCuped size={13} />
                   <Text size="sm" color="text-low">
-                    <Text weight="semibold">CUPED:</Text> Enabled
+                    <Text size="inherit" weight="semibold">
+                      CUPED:
+                    </Text>{" "}
+                    Enabled
                   </Text>
                 </Flex>
               )}

@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import type { ScaleTime } from "d3-scale";
+import type { NumberValue, ScaleTime } from "d3-scale";
 
 // Room for one date label, so they never run into each other.
 const TICK_SPACING = 90;
@@ -14,7 +14,7 @@ export function dateAxisTicks(
   scale: ScaleTime<number, number>,
   width: number,
   points: Date[] = [],
-): { ticks: Date[]; format: (d: Date) => string } {
+): { ticks: Date[]; format: (d: Date | NumberValue) => string } {
   const count = Math.max(2, Math.floor(width / TICK_SPACING));
   const ticks =
     points.length && points.length <= count ? points : scale.ticks(count);
@@ -22,7 +22,7 @@ export function dateAxisTicks(
     ticks.length > 1 ? ticks[1].getTime() - ticks[0].getTime() : DAY_MS;
   const pattern =
     step >= MONTH_MS ? "MMM yyyy" : step >= DAY_MS ? "MMM d" : "MMM d, h a";
-  return { ticks, format: (d) => format(d, pattern) };
+  return { ticks, format: (d) => format(d.valueOf(), pattern) };
 }
 
 /** Of a run of events, only those at least `gap` pixels apart, so a burst reads as one. */

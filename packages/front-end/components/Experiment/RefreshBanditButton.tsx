@@ -18,7 +18,7 @@ const RefreshBanditButton: FC<{
   experiment: ExperimentInterfaceStringDates;
   setError: (e: string | undefined) => void;
   setGeneratedSnapshot: (s: ExperimentSnapshotInterface | undefined) => void;
-  onLoadingChange?: (loading: boolean) => void;
+  onLoadingChange: (loading: boolean) => void;
 }> = ({
   mutate: mutateExperiment,
   experiment,
@@ -29,7 +29,7 @@ const RefreshBanditButton: FC<{
   const [loading, setLoadingState] = useState(false);
   const setLoading = (next: boolean) => {
     setLoadingState(next);
-    onLoadingChange?.(next);
+    onLoadingChange(next);
   };
   const [_error, setError] = useState("");
   const [generatedSnapshot, setGeneratedSnapshot] = useState<
@@ -131,7 +131,6 @@ const RefreshBanditButton: FC<{
             variant="outline"
             size="sm"
             icon={<PiArrowClockwise />}
-            loading={loading}
             setError={(e) => setError(e ?? "")}
             onClick={async () => {
               setLoading(true);

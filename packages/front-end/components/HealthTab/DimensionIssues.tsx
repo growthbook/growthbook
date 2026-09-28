@@ -116,7 +116,6 @@ export const DimensionIssues = ({
     !!isBandit,
   ).sort((a, b) => b.issues.length - a.issues.length);
 
-  // Whether the list runs past what's shown; the card sizes it to its sibling.
   const listRef = useRef<HTMLDivElement | null>(null);
   const [moreBelow, setMoreBelow] = useState(false);
   const updateMoreBelow = useCallback(() => {
@@ -323,7 +322,6 @@ export const DimensionIssues = ({
                 );
               })}
             </div>
-            {/* The shadow says there's more below, so only while there is. */}
             <div
               className="py-3 px-4 w-100"
               style={{

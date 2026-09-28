@@ -1,4 +1,5 @@
 import { ExperimentReportVariation } from "shared/types/report";
+import { Box } from "@radix-ui/themes";
 import { pValueFormatter } from "@/services/experiments";
 import VariationLabel from "@/ui/VariationLabel";
 import Text from "@/ui/Text";
@@ -31,11 +32,9 @@ export default function VariationUsersTable({
     .map((v) => v.weight)
     .reduce((sum, n) => sum + n, 0);
 
-  // Columns size to their headers and scroll within this box when it's
-  // narrow, rather than squeezing into each other.
   return (
-    <div className="px-2" style={{ overflowX: "auto" }}>
-      <table className="table mt-0 mb-2" style={{ width: "100%" }}>
+    <Box px="2" overflowX="auto">
+      <table className="table mt-0 mb-2">
         <thead>
           <tr>
             <th
@@ -117,6 +116,6 @@ export default function VariationUsersTable({
           )}
         </tbody>
       </table>
-    </div>
+    </Box>
   );
 }

@@ -17,14 +17,14 @@ import { TooltipHoverSettings } from "@/components/Experiment/ResultsTableToolti
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
+import { ROW_HEIGHT } from "@/components/Experiment/ResultsTable";
 import AlignedGraph from "./AlignedGraph";
 
 export const WIN_THRESHOLD_PROBABILITY = 0.95;
-// As the experiment results table's variation rows.
-const ROW_HEIGHT = 46;
 const ROW_HEIGHT_CONDENSED = 34;
 
 export type BanditSummaryTableProps = {
@@ -53,9 +53,7 @@ export default function BanditSummaryTable({
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
-  // The fixed columns give way on a narrow page, so the graph keeps its room.
   const [cellScale, setCellScale] = useState(1);
-  const [overflowing, setOverflowing] = useState(false);
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
@@ -70,8 +68,6 @@ export default function BanditSummaryTable({
     }
     const graphWidth = tableWidth - totalCellWidth;
     setGraphCellWidth(Math.max(graphWidth, 200));
-    const container = tableContainerRef.current;
-    setOverflowing(container.scrollWidth > container.clientWidth + 1);
   }
 
   const phaseObj = experiment.phases[phase];
@@ -202,6 +198,7 @@ export default function BanditSummaryTable({
   }, []);
   useLayoutEffect(onResize, [cellScale]);
   useEffect(onResize, [isTabActive]);
+  const overflowing = useIsOverflowingX(tableContainerRef, !!results);
 
   const {
     containerRef,
