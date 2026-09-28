@@ -269,7 +269,9 @@ function authenticateWithApiKey(
 
       // Both settings revoke matching tokens immediately, without touching the stored docs.
       if (apiKeyDoc.oauthClientId) {
-        if (!isOAuthClientAllowed(org.settings, apiKeyDoc.oauthClientId)) {
+        if (
+          !isOAuthClientAllowed(org, apiKeyDoc.officialClientForOrg ?? null)
+        ) {
           throw new Error(
             "This organization does not allow this OAuth application",
           );
