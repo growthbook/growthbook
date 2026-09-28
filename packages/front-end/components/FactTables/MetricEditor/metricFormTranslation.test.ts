@@ -249,7 +249,7 @@ describe("onShapeChange", () => {
 });
 
 describe("onFactTableChange", () => {
-  it("refits the column, clears row filters and aggregate filter", () => {
+  it("refits the column, clears row filters, and keeps the threshold", () => {
     const current = {
       factTableId: "old_ft",
       column: "revenue",
@@ -266,8 +266,25 @@ describe("onFactTableChange", () => {
     expect(result.factTableId).toBe("new_ft");
     expect(result.column).toBe("revenue");
     expect(result.rowFilters).toEqual([]);
-    expect(result.aggregateFilterColumn).toBeUndefined();
-    expect(result.aggregateFilter).toBeUndefined();
+    // Clearing these would turn a Threshold metric into a Proportion.
+    expect(result.aggregateFilterColumn).toBe("$$count");
+    expect(result.aggregateFilter).toBe(">= 3");
+  });
+
+  it("falls back to a row-count threshold when the summed column is missing", () => {
+    const result = onFactTableChange(
+      {
+        factTableId: "old_ft",
+        column: "$$distinctUsers",
+        rowFilters: [],
+        aggregateFilterColumn: "not_on_new_table",
+        aggregateFilter: "> 10",
+      },
+      { ...factTable, id: "new_ft" },
+      dialect,
+    );
+    expect(result.aggregateFilterColumn).toBe("$$count");
+    expect(result.aggregateFilter).toBe("> 10");
   });
 
   it("falls back to a valid column when the current one doesn't exist on the new table", () => {
@@ -931,7 +948,9 @@ describe("applyFormType", () => {
         delayValue: 0,
         delayUnit: "hours",
         type: "",
-        windowValue: 0,
+        // A usable default, so turning a window back on isn't zero-width.
+        windowValue: 3,
+        windowUnit: "days",
       });
     },
   );
@@ -1245,5 +1264,110 @@ describe("PR review regressions", () => {
       delayUnit: "hours",
       windowUnit: "hours",
     });
+  });
+});
+
+describe("JSON sub-field columns", () => {
+  const jsonTable = {
+    ...factTable,
+    columns: [
+      ...factTable.columns,
+      {
+        ...columnDefaults,
+        column: "properties",
+        datatype: "json" as const,
+        jsonFields: {
+          amount: { datatype: "number" as const },
+          page: { datatype: "string" as const },
+        },
+      },
+    ],
+  };
+
+  it("offers matching JSON fields after top-level columns", () => {
+    expect(columnsForShape("sum", jsonTable, dialect)).toEqual([
+      "revenue",
+      "properties.amount",
+    ]);
+    expect(columnsForShape("distinct", jsonTable, hllDialect)).toEqual([
+      "plan",
+      "properties.page",
+    ]);
+  });
+
+  it("keeps an existing JSON-field column on refit", () => {
+    expect(fitColumn("sum", jsonTable, "properties.amount", dialect)).toBe(
+      "properties.amount",
+    );
+  });
+});
+
+describe("applyFormType from funnel", () => {
+  it("starts the numerator on the funnel's first-step table", () => {
+    const result = applyFormType(
+      {
+        metricType: "funnel",
+        numerator: { factTableId: "", column: "$$count", rowFilters: [] },
+        funnelSettings: {
+          steps: [
+            {
+              name: "Step 1",
+              factTableId: "ft1",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+          ],
+        },
+      },
+      "colSum",
+      factTable,
+      dialect,
+    );
+    expect(result.numerator).toMatchObject({
+      factTableId: "ft1",
+      column: "revenue",
+      aggregation: "sum",
+    });
+  });
+});
+
+describe("applyFormType lower-tail capping", () => {
+  const lower = { type: "absolute" as const, value: 0, ignoreZeros: false };
+  const meanState: MetricTypeSwitchState = {
+    metricType: "mean",
+    numerator: { factTableId: "ft1", column: "revenue", rowFilters: [] },
+    cappingSettings: { type: "absolute", value: 100, ignoreZeros: false },
+    lowerCappingSettings: lower,
+  };
+
+  it("drops the lower tail on a type that can't be capped", () => {
+    expect(
+      applyFormType(meanState, "proportion", factTable, dialect)
+        .lowerCappingSettings,
+    ).toBeNull();
+  });
+
+  it("drops an absolute lower tail on ratio but keeps a percentile one", () => {
+    expect(
+      applyFormType(meanState, "ratio", factTable, dialect)
+        .lowerCappingSettings,
+    ).toBeNull();
+    const percentile = { type: "percentile" as const, value: 0.05 };
+    expect(
+      applyFormType(
+        { ...meanState, lowerCappingSettings: percentile },
+        "ratio",
+        factTable,
+        dialect,
+      ).lowerCappingSettings,
+    ).toEqual(percentile);
+  });
+
+  it("keeps the lower tail between cappable value types", () => {
+    expect(
+      applyFormType(meanState, "colMax", factTable, dialect)
+        .lowerCappingSettings,
+    ).toEqual(lower);
   });
 });
