@@ -99,7 +99,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
+export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
 
@@ -110,7 +110,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const { org: organization } = context;
 
   const experiment = await getExperimentById(context, experimentId);
-  if (!experiment) return;
+  if (!experiment || experiment.archived) return;
 
   let project = null;
   if (experiment.project) {

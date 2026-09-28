@@ -147,7 +147,8 @@ export default function BanditUpdateStatus({
                       <td>
                         {experiment.nextSnapshotAttempt &&
                         experiment.autoSnapshots &&
-                        !experiment.disableAutoSnapshots ? (
+                        !experiment.disableAutoSnapshots &&
+                        !experiment.archived ? (
                           ago(experiment.nextSnapshotAttempt)
                         ) : (
                           <em>Not scheduled</em>
