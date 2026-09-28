@@ -5,6 +5,8 @@ import { FactMetricInterface } from "shared/types/fact-table";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  getFactTableColumnsFingerprint,
+  getFactTableNonSqlSettingsHashForAggregatedFactTable,
   getFactTableSettingsHashForAggregatedFactTable,
   getMetricSettingsHashForAggregatedFactTable,
 } from "back-end/src/enterprise/services/data-pipeline";
@@ -194,6 +196,76 @@ describe("resolveCovariateInsertPath", () => {
       activationMetric: null,
     });
     expect(result).toEqual({ path: "legacy", reason: "window-not-covered" });
+  });
+
+  it("falls back to legacy when the fact table SQL changed and the registry has no schema-compat fingerprints", async () => {
+    // Legacy registry doc (no factTableNonSqlSettingsHash /
+    // factTableColumnsFingerprint stored) → conservative fallback.
+    const registry = buildRegistry({
+      factTableSettingsHash: getFactTableSettingsHashForAggregatedFactTable({
+        ...factTable,
+        sql: "SELECT * FROM events -- old",
+      }),
+    });
+    const result = await resolveCovariateInsertPath({
+      context: makeContext(registry),
+      factTable,
+      datasourceId: DATASOURCE_ID,
+      exposureUserIdType: ID_TYPE,
+      regressionAdjustedMetrics: [raMetric],
+      settings,
+      activationMetric: null,
+    });
+    expect(result).toEqual({ path: "legacy", reason: "pending-restate" });
+  });
+
+  it("stays on the aggregated path when the SQL text changed but output schema is unchanged", async () => {
+    const columns = [
+      {
+        column: "user_id",
+        name: "user_id",
+        datatype: "string" as const,
+        description: "",
+        numberFormat: "" as const,
+        deleted: false,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      },
+      {
+        column: "amount",
+        name: "amount",
+        datatype: "number" as const,
+        description: "",
+        numberFormat: "" as const,
+        deleted: false,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      },
+    ];
+    const ftWithColumns = { ...factTable, columns };
+    const oldFt = { ...ftWithColumns, sql: "SELECT * FROM events -- old" };
+    const registry = buildRegistry({
+      factTableSettingsHash:
+        getFactTableSettingsHashForAggregatedFactTable(oldFt),
+      factTableNonSqlSettingsHash:
+        getFactTableNonSqlSettingsHashForAggregatedFactTable(oldFt),
+      factTableColumnsFingerprint: getFactTableColumnsFingerprint(oldFt),
+    });
+    const result = await resolveCovariateInsertPath({
+      context: makeContext(registry),
+      factTable: ftWithColumns,
+      datasourceId: DATASOURCE_ID,
+      exposureUserIdType: ID_TYPE,
+      regressionAdjustedMetrics: [raMetric],
+      settings,
+      activationMetric: null,
+    });
+    expect(result).toEqual({
+      path: "aggregated",
+      aggregatedTableFullName: TABLE,
+      idType: ID_TYPE,
+      reason: "aggregated",
+    });
   });
 
   it("falls back to legacy when the exposure id type is not materialized", async () => {
