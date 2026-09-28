@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect } from "react";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 // Mounted globally on pages/metrics.tsx: landing here with ?addMetric=<json>
 // (a link crafted externally - docs, support, onboarding, not generated
@@ -18,5 +19,5 @@ export default function MetricTemplateRedirect() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.query.addMetric]);
 
-  return null;
+  return typeof router.query.addMetric === "string" ? <LoadingOverlay /> : null;
 }
