@@ -357,6 +357,7 @@ describe("bigquery integration", () => {
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
         stringMatch: dialect.stringMatch,
+        identifierQuote: dialect.identifierQuote,
       });
 
     it("emits a valid BigQuery pattern with no ESCAPE clause", () => {

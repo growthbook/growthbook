@@ -234,6 +234,7 @@ describe("Experiments", () => {
       it("returns empty array when there are no filters", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: "event_name",
@@ -248,6 +249,7 @@ describe("Experiments", () => {
 
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: "event_name",
@@ -263,6 +265,7 @@ describe("Experiments", () => {
 
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: "event_name",
@@ -284,6 +287,7 @@ describe("Experiments", () => {
 
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: "event_name",
@@ -327,6 +331,7 @@ describe("Experiments", () => {
       it("Adds row filters even for columns that don't exist", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: column.column,
@@ -369,6 +374,7 @@ describe("Experiments", () => {
       it("returns where clause for single filter", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: column.column,
@@ -390,6 +396,7 @@ describe("Experiments", () => {
       it("returns where clause for multiple filters", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: column.column,
@@ -415,6 +422,7 @@ describe("Experiments", () => {
       it("returns where clause for single row filter value", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: column.column,
@@ -437,6 +445,7 @@ describe("Experiments", () => {
       it("converts in to =, not_in to != when there is only 1 value", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: column.column,
@@ -468,6 +477,7 @@ describe("Experiments", () => {
       it("uses in clause", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: column.column,
@@ -491,6 +501,7 @@ describe("Experiments", () => {
       it("ignores duplicate values", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: column.column,
@@ -513,6 +524,7 @@ describe("Experiments", () => {
       it("supports multiple row filters", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: column.column,
@@ -553,6 +565,7 @@ describe("Experiments", () => {
       it("removes duplicate inline filter and filter values", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: column.column,
@@ -586,6 +599,7 @@ describe("Experiments", () => {
         it("escapes string literals", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 operator: "=",
@@ -621,6 +635,7 @@ describe("Experiments", () => {
         it("supports JSON columns", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: `${jsonColumn.column}.b`,
@@ -637,6 +652,7 @@ describe("Experiments", () => {
         it("changes = true to is_true for boolean columns", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: boolColumn.column,
@@ -653,6 +669,7 @@ describe("Experiments", () => {
         it("changes = false to is_false for boolean columns", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: boolColumn.column,
@@ -669,6 +686,7 @@ describe("Experiments", () => {
         it("can detect column types for JSON fields", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: `${jsonColumn.column}.bool`,
@@ -705,6 +723,7 @@ describe("Experiments", () => {
           for (const operator of operators) {
             expect(
               getRowFilterSQL({
+                identifierQuote: '"',
                 factTable,
                 rowFilter: {
                   column: dateColumn.column,
@@ -729,6 +748,7 @@ describe("Experiments", () => {
           for (const operator of operators) {
             expect(
               getRowFilterSQL({
+                identifierQuote: '"',
                 factTable,
                 rowFilter: {
                   column: dateColumn.column,
@@ -749,6 +769,7 @@ describe("Experiments", () => {
         it("compares date-only values against the start of the day for < and >=", () => {
           const call = (operator: "<" | ">=") =>
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -771,6 +792,7 @@ describe("Experiments", () => {
         it("compares date-only values against the end of the day for <= and >", () => {
           const call = (operator: "<=" | ">") =>
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -796,6 +818,7 @@ describe("Experiments", () => {
           const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -813,6 +836,7 @@ describe("Experiments", () => {
           );
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -833,6 +857,7 @@ describe("Experiments", () => {
           const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
           const call = (value: string) =>
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -859,6 +884,7 @@ describe("Experiments", () => {
             `(${col} >= CAST('${from}' AS TIMESTAMP) AND ${col} < CAST('${to}' AS TIMESTAMP))`;
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -876,6 +902,7 @@ describe("Experiments", () => {
           );
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -895,6 +922,7 @@ describe("Experiments", () => {
         it("casts each value for date in/not_in with a time component", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -914,6 +942,7 @@ describe("Experiments", () => {
         it("does not cast is_null/not_null for date columns", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -930,6 +959,7 @@ describe("Experiments", () => {
         it("ignores blank values for date columns", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -952,6 +982,7 @@ describe("Experiments", () => {
           ]) {
             expect(
               getRowFilterSQL({
+                identifierQuote: '"',
                 factTable,
                 rowFilter: {
                   column: dateColumn.column,
@@ -970,6 +1001,7 @@ describe("Experiments", () => {
         it("accepts an all-zero fractional part but rejects sub-second precision", () => {
           const call = (value: string) =>
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -1010,6 +1042,7 @@ describe("Experiments", () => {
           for (const operator of ["in", "not_in"] as const) {
             expect(
               getRowFilterSQL({
+                identifierQuote: '"',
                 factTable,
                 rowFilter: {
                   column: dateColumn.column,
@@ -1028,6 +1061,7 @@ describe("Experiments", () => {
         it("keeps an inclusive upper bound for a date between with a time", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -1048,6 +1082,7 @@ describe("Experiments", () => {
           const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -1068,6 +1103,7 @@ describe("Experiments", () => {
           const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -1088,6 +1124,7 @@ describe("Experiments", () => {
           for (const values of [undefined, [], ["", ""]]) {
             expect(
               getRowFilterSQL({
+                identifierQuote: '"',
                 factTable,
                 rowFilter: {
                   column: dateColumn.column,
@@ -1106,6 +1143,7 @@ describe("Experiments", () => {
         it("matches no rows for a between whose bounds are unparseable", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -1123,6 +1161,7 @@ describe("Experiments", () => {
         it("degrades a single-bound date between to an open-ended comparison", () => {
           const call = (values: string[]) =>
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -1149,6 +1188,7 @@ describe("Experiments", () => {
         it("degrades a single-bound not_between to the inverted comparison", () => {
           const call = (values: string[]) =>
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -1173,6 +1213,7 @@ describe("Experiments", () => {
         it("handles between for numeric columns without a cast", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: numericColumn.column,
@@ -1189,6 +1230,7 @@ describe("Experiments", () => {
         it("falls back to lexicographic comparison without a timestamp cast", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: dateColumn.column,
@@ -1205,6 +1247,7 @@ describe("Experiments", () => {
         it("does not cast string columns even when a timestamp cast is available", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1258,6 +1301,7 @@ describe("Experiments", () => {
         it("quotes non-numbers even for numeric columns", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: numericColumn.column,
@@ -1274,6 +1318,7 @@ describe("Experiments", () => {
         it("quotes numbers for string columns", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1290,6 +1335,7 @@ describe("Experiments", () => {
         it("handles not_in operator", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1306,6 +1352,7 @@ describe("Experiments", () => {
         it("handles not_in operator for numbers", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: numericColumn.column,
@@ -1324,6 +1371,7 @@ describe("Experiments", () => {
         it("handles is_null operator", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1339,6 +1387,7 @@ describe("Experiments", () => {
         it("handles not_null operator", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1354,6 +1403,7 @@ describe("Experiments", () => {
         it("handles starts_with operator", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1370,6 +1420,7 @@ describe("Experiments", () => {
         it("handles ends_with operator", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1386,6 +1437,7 @@ describe("Experiments", () => {
         it("handles contains operator", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1402,6 +1454,7 @@ describe("Experiments", () => {
         it("handles not_contains operator", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1418,6 +1471,7 @@ describe("Experiments", () => {
         it("escapes strings in LIKE clauses", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1436,6 +1490,7 @@ describe("Experiments", () => {
           (operator) => {
             expect(
               getRowFilterSQL({
+                identifierQuote: '"',
                 factTable,
                 rowFilter: {
                   column: column.column,
@@ -1461,6 +1516,7 @@ describe("Experiments", () => {
         it("doubles wildcard-escape backslashes for backslash-escaping dialects", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1480,6 +1536,7 @@ describe("Experiments", () => {
         it("escapes percent wildcards for backslash-escaping dialects", () => {
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1502,6 +1559,7 @@ describe("Experiments", () => {
           // consumed as a LIKE escape.
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1523,6 +1581,7 @@ describe("Experiments", () => {
           // the ESCAPE clause's escape char must also be doubled in the literal.
           expect(
             getRowFilterSQL({
+              identifierQuote: '"',
               factTable,
               rowFilter: {
                 column: column.column,
@@ -1546,6 +1605,7 @@ describe("Experiments", () => {
       it("includes metric slices", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: "foo",
@@ -1581,6 +1641,7 @@ describe("Experiments", () => {
       it("includes metric auto slices - boolean", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: "foo",
@@ -1607,6 +1668,7 @@ describe("Experiments", () => {
       it("includes metric auto slices - other", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: "foo",
@@ -1635,6 +1697,7 @@ describe("Experiments", () => {
       it("combines multiple types of filters", () => {
         expect(
           getColumnRefWhereClause({
+            identifierQuote: '"',
             factTable,
             columnRef: {
               column: "foo",
@@ -1867,11 +1930,23 @@ describe("Experiments", () => {
     describe("getColumnExpression", () => {
       it("replaces JSON column access with proper syntax", () => {
         expect(
-          getColumnExpression(`${jsonColumn.column}.a`, factTable, jsonExtract),
+          getColumnExpression(
+            `${jsonColumn.column}.a`,
+            factTable,
+            jsonExtract,
+            "",
+            '"',
+          ),
         ).toBe(`${jsonColumn.column}:'a'`);
 
         expect(
-          getColumnExpression(`${jsonColumn.column}.b`, factTable, jsonExtract),
+          getColumnExpression(
+            `${jsonColumn.column}.b`,
+            factTable,
+            jsonExtract,
+            "",
+            '"',
+          ),
         ).toBe(`${jsonColumn.column}:'b'::float`);
 
         expect(
@@ -1879,6 +1954,8 @@ describe("Experiments", () => {
             `${jsonColumn.column}.c.d`,
             factTable,
             jsonExtract,
+            "",
+            '"',
           ),
         ).toBe(`${jsonColumn.column}:'c.d'`);
 
@@ -1887,19 +1964,27 @@ describe("Experiments", () => {
             `${jsonColumn.column}.c.e`,
             factTable,
             jsonExtract,
+            "",
+            '"',
           ),
         ).toBe(`${jsonColumn.column}:'c.e'::float`);
       });
 
       it("returns untransformed column for non-JSON columns", () => {
-        expect(getColumnExpression(column.column, factTable, jsonExtract)).toBe(
-          column.column,
-        );
+        expect(
+          getColumnExpression(column.column, factTable, jsonExtract, "", '"'),
+        ).toBe(column.column);
       });
 
       it("returns untransformed column for unknown columns", () => {
         expect(
-          getColumnExpression("unknown_column", factTable, jsonExtract),
+          getColumnExpression(
+            "unknown_column",
+            factTable,
+            jsonExtract,
+            "",
+            '"',
+          ),
         ).toBe("unknown_column");
       });
 
@@ -1931,15 +2016,16 @@ describe("Experiments", () => {
             factTable,
             jsonExtract,
             "m",
+            '"',
           ),
         ).toBe(`m.${jsonColumn.column}:'b'::float`);
 
         expect(
-          getColumnExpression(column.column, factTable, jsonExtract, "m"),
+          getColumnExpression(column.column, factTable, jsonExtract, "m", '"'),
         ).toBe(`m.${column.column}`);
 
         expect(
-          getColumnExpression("unknown", factTable, jsonExtract, "m"),
+          getColumnExpression("unknown", factTable, jsonExtract, "m", '"'),
         ).toBe(`m.unknown`);
       });
 
@@ -1949,6 +2035,8 @@ describe("Experiments", () => {
             `${jsonColumn.column}.unknown`,
             factTable,
             jsonExtract,
+            "",
+            '"',
           ),
         ).toBe(`${jsonColumn.column}:'unknown'`);
 
@@ -1957,6 +2045,8 @@ describe("Experiments", () => {
             `${jsonColumn.column}.c.unknown`,
             factTable,
             jsonExtract,
+            "",
+            '"',
           ),
         ).toBe(`${jsonColumn.column}:'c.unknown'`);
 
@@ -1965,6 +2055,8 @@ describe("Experiments", () => {
             `${jsonColumn.column}.unknown.unknown`,
             factTable,
             jsonExtract,
+            "",
+            '"',
           ),
         ).toBe(`${jsonColumn.column}:'unknown.unknown'`);
       });
@@ -2507,15 +2599,15 @@ describe("Virtual Columns", () => {
     };
 
     it("inlines the expression wrapped in parens", () => {
-      expect(getColumnExpression("vc_total", factTable, jsonExtract)).toBe(
-        "(price * quantity)",
-      );
+      expect(
+        getColumnExpression("vc_total", factTable, jsonExtract, "", '"'),
+      ).toBe("(price * quantity)");
     });
 
     it("qualifies referenced columns with the alias", () => {
-      expect(getColumnExpression("vc_total", factTable, jsonExtract, "m")).toBe(
-        "(m.price * m.quantity)",
-      );
+      expect(
+        getColumnExpression("vc_total", factTable, jsonExtract, "m", '"'),
+      ).toBe("(m.price * m.quantity)");
     });
 
     it("leaves an already-qualified reference alone even with spaces around the dot", () => {
@@ -2533,9 +2625,9 @@ describe("Virtual Columns", () => {
           }),
         ],
       };
-      expect(getColumnExpression("spaced_vc", spaced, jsonExtract, "m")).toBe(
-        "(m . price * m.quantity)",
-      );
+      expect(
+        getColumnExpression("spaced_vc", spaced, jsonExtract, "m", '"'),
+      ).toBe("(m . price * m.quantity)");
     });
 
     it("does not rewrite column names inside string literals", () => {
@@ -2552,7 +2644,7 @@ describe("Virtual Columns", () => {
         ],
       };
       expect(
-        getColumnExpression("flagged_vc", withLiteral, jsonExtract, "m"),
+        getColumnExpression("flagged_vc", withLiteral, jsonExtract, "m", '"'),
       ).toBe("(CASE WHEN m.status = 'price' THEN m.price ELSE 0 END)");
     });
 
@@ -2576,7 +2668,7 @@ describe("Virtual Columns", () => {
         ],
       };
       expect(
-        getColumnExpression("margin_pct_vc", chained, jsonExtract, "m"),
+        getColumnExpression("margin_pct_vc", chained, jsonExtract, "m", '"'),
       ).toBe("((m.price - m.cost) / m.price)");
     });
 
@@ -2594,7 +2686,13 @@ describe("Virtual Columns", () => {
         ],
       };
       expect(
-        getColumnExpression("vc_total", alreadyQualified, jsonExtract, "m"),
+        getColumnExpression(
+          "vc_total",
+          alreadyQualified,
+          jsonExtract,
+          "m",
+          '"',
+        ),
       ).toBe("(m.price * m.quantity)");
     });
   });
@@ -2796,6 +2894,7 @@ describe("Virtual Columns", () => {
           chained('"margin_vc" / price'),
           jsonExtract,
           "m",
+          '"',
         ),
       ).toBe("((m.price - m.cost) / m.price)");
     });
@@ -2824,7 +2923,7 @@ describe("Virtual Columns", () => {
           }),
         ],
       };
-      expect(getColumnExpression("doubled_vc", ft, jsonExtract, "m")).toBe(
+      expect(getColumnExpression("doubled_vc", ft, jsonExtract, "m", '"')).toBe(
         '(m."price" * 2)',
       );
     });
