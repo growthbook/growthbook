@@ -1,5 +1,4 @@
 import { ReactElement } from "react";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
@@ -20,28 +19,32 @@ import {
   type ManagedValueProblem,
 } from "shared/util";
 import track from "@/services/track";
-import Link from "@/ui/Link";
 import VariationLabel from "@/ui/VariationLabel";
 
+export type ChecklistAction =
+  | { onClick: () => void }
+  | { href: string; external?: boolean };
+
 export type CheckListItem = {
+  // Unique per row.
+  key: string;
+  // Plain copy: the row makes it a link when there's an action.
   display: string | ReactElement;
+  action?: ChecklistAction;
   status: "complete" | "incomplete";
-  tooltip?: string | ReactElement;
-  key?: string;
   type: "auto" | "manual";
   required: boolean;
   /**
-   * Items that can't be bypassed via "Start Anyway" (merge conflicts, missing
+   * Items that can't be bypassed via "Start anyway" (merge conflicts, missing
    * approvals, unrelated draft edits) — auto-publish would fail.
    */
   hardBlock?: boolean;
   warning?: string;
-  hideDescription?: boolean;
-  /**
-   * Custom subtext shown below the label, overriding the default auto/manual
-   * hint. Hidden when `hideDescription` is true or the item is complete.
-   */
   description?: string | ReactElement;
+  // What a manual task's status is stored under.
+  manualKey?: string;
+  // The Feature Flag an approval row waits on.
+  featureId?: string;
 };
 
 export function getChecklistItems({
@@ -50,37 +53,47 @@ export function getChecklistItems({
   visualChangesets,
   urlRedirects = [],
   connections,
-  editTargeting,
-  openSetupTab,
-  openManagedApproval,
-  editVariationValues,
-  setAnalysisModal,
-  setShowSdkForm,
   checklist,
-  checkLinkedChanges,
-  setShowScheduleModal,
   /** When publishing from a feature draft page, waive the unrelated-edits gate
    *  for that feature — the user is explicitly reviewing the full draft. */
   publishingFeatureId,
+  // In-page fixes. Callers leave out the ones this viewer can't make.
+  openAnalysisSettings,
+  openImplementation,
+  editVariationValues,
+  openManagedApproval,
+  editTargeting,
+  editSchedule,
+  createSdkConnection,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
   urlRedirects?: URLRedirectInterface[];
   connections: SDKConnectionInterface[];
-  editTargeting?: (() => void) | null;
-  openSetupTab?: () => void;
-  openManagedApproval?: () => void;
-  editVariationValues?: () => void;
-  className?: string;
-  setAnalysisModal?: (value: boolean) => void;
-  setShowSdkForm?: (value: boolean) => void;
   checklist?: ExperimentLaunchChecklistInterface;
-  checkLinkedChanges: boolean;
-  setShowScheduleModal?: (value: boolean) => void;
   publishingFeatureId?: string;
-}) {
+  openAnalysisSettings?: (() => void) | null;
+  openImplementation?: (() => void) | null;
+  editVariationValues?: (() => void) | null;
+  openManagedApproval?: (() => void) | null;
+  editTargeting?: (() => void) | null;
+  editSchedule?: (() => void) | null;
+  createSdkConnection?: (() => void) | null;
+}): CheckListItem[] {
   const isBandit = experiment.type === "multi-armed-bandit";
+
+  // An approved start locks the editors these would open; links still work.
+  const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
+  const onClick = (fn?: (() => void) | null): ChecklistAction | undefined =>
+    fn && !startApproved ? { onClick: fn } : undefined;
+  const featureLink = (
+    f: LinkedFeatureInfo,
+    draft = true,
+  ): ChecklistAction => ({
+    href: `/features/${f.feature.id}${draft && (f.draftRevisionVersion ?? null) !== null ? `?v=${f.draftRevisionVersion}` : ""}`,
+    external: true,
+  });
 
   function isChecklistItemComplete(
     // Some items we check completion for automatically, others require users to manually check an item as complete
@@ -140,16 +153,8 @@ export function getChecklistItems({
       key: "datasource",
       required: true,
       status: hasDatasource ? "complete" : "incomplete",
-      display: (
-        <>
-          {setAnalysisModal ? (
-            <Link onClick={() => setAnalysisModal(true)}>Select</Link>
-          ) : (
-            "Select"
-          )}{" "}
-          a Data Source for this experiment
-        </>
-      ),
+      display: "Select a Data Source",
+      action: onClick(openAnalysisSettings),
     });
 
     items.push({
@@ -157,16 +162,8 @@ export function getChecklistItems({
       key: "exposureQuery",
       required: true,
       status: hasAssignmentTable ? "complete" : "incomplete",
-      display: (
-        <>
-          {setAnalysisModal ? (
-            <Link onClick={() => setAnalysisModal(true)}>Select</Link>
-          ) : (
-            "Select"
-          )}{" "}
-          an Experiment Assignment Table
-        </>
-      ),
+      display: "Select an experiment assignment table",
+      action: onClick(openAnalysisSettings),
     });
 
     if (hasDatasource && hasAssignmentTable) {
@@ -176,16 +173,8 @@ export function getChecklistItems({
         required: true,
         status:
           (experiment.goalMetrics?.length ?? 0) > 0 ? "complete" : "incomplete",
-        display: (
-          <>
-            {setAnalysisModal ? (
-              <Link onClick={() => setAnalysisModal(true)}>Add</Link>
-            ) : (
-              "Add"
-            )}{" "}
-            at least one goal metric
-          </>
-        ),
+        display: "Add at least one goal metric",
+        action: onClick(openAnalysisSettings),
       });
     }
   }
@@ -196,10 +185,17 @@ export function getChecklistItems({
   const valuesMode =
     linkedFeatures.some(isManaged) || implementationType === "values";
 
-  if (checkLinkedChanges && implementationType !== "none") {
+  if (implementationType !== "none") {
+    // Publishing this flag's draft is what takes it live.
+    const publishesLinkedFeature =
+      !!publishingFeatureId &&
+      linkedFeatures.some(
+        (f) => f.feature.id === publishingFeatureId && f.state === "draft",
+      );
     const hasLiveLinkedChanges =
       experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
-      hasStartReadyManagedFlag(experiment.id, linkedFeatures);
+      hasStartReadyManagedFlag(experiment.id, linkedFeatures) ||
+      publishesLinkedFeature;
     const hasLinkedChanges =
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
@@ -207,46 +203,24 @@ export function getChecklistItems({
     const linkedChangesDone =
       (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges);
     items.push({
-      display: valuesMode ? (
-        <>
-          Add{" "}
-          {editVariationValues && !linkedChangesDone ? (
-            <Link onClick={editVariationValues}>variation values</Link>
-          ) : (
-            "variation values"
-          )}
-        </>
-      ) : (
-        <>
-          Add at least one{isBandit && " live"}{" "}
-          {openSetupTab &&
-          ((isBandit && !hasLiveLinkedChanges) ||
-            (!isBandit && hasLinkedChanges)) ? (
-            <Link onClick={openSetupTab}>
-              Linked Feature or Visual Editor change
-            </Link>
-          ) : (
-            "Linked Feature, Visual Editor change, or URL Redirect"
-          )}
-        </>
-      ),
+      key: "linkedChanges",
+      display: valuesMode
+        ? "Add variation values"
+        : `Add a${isBandit ? " live" : ""} linked Feature Flag, Visual Editor change, or URL redirect`,
+      action: onClick(valuesMode ? editVariationValues : openImplementation),
       required: true,
+      // The header won't start a Bandit without one. Only the experiment page
+      // blocks on it: elsewhere, publishing is how the change goes live.
+      hardBlock: isBandit && !publishingFeatureId,
       status: linkedChangesDone ? "complete" : "incomplete",
       type: "auto",
     });
 
     if (isBandit) {
       items.push({
-        display: (
-          <>
-            {setAnalysisModal ? (
-              <Link onClick={() => setAnalysisModal(true)}>Choose</Link>
-            ) : (
-              "Choose"
-            )}{" "}
-            a Decision Metric and update cadence
-          </>
-        ),
+        key: "banditGoalMetric",
+        display: "Choose a decision metric and update cadence",
+        action: onClick(openAnalysisSettings),
         status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
         type: "auto",
         required: true,
@@ -262,34 +236,21 @@ export function getChecklistItems({
         .filter((f) => f.state === "draft" && f.hasMergeConflict)
         .forEach((f) => {
           items.push({
+            key: `mergeConflict:${f.feature.id}`,
             status: "incomplete",
             type: "auto",
             required: true,
             hardBlock: true,
-            hideDescription: true,
-            display: isManaged(f) ? (
-              <>
-                Resolve the merge conflict in this experiment&apos;s{" "}
-                {editVariationValues ? (
-                  <Link onClick={editVariationValues}>variation values</Link>
-                ) : (
-                  "variation values"
-                )}{" "}
-                before it can start
-              </>
-            ) : (
-              <>
-                Resolve merge conflict in{" "}
-                <Link
-                  href={`/features/${f.feature.id}${f.draftRevisionVersion != null ? `?v=${f.draftRevisionVersion}` : ""}`}
-                  target="_blank"
-                >
-                  {f.feature.id}
-                  <PiArrowSquareOut className="ml-1" />
-                </Link>{" "}
-                before this experiment can start
-              </>
-            ),
+            ...(isManaged(f)
+              ? {
+                  display:
+                    "Resolve the merge conflict in this experiment's variation values",
+                  action: onClick(editVariationValues),
+                }
+              : {
+                  display: `Resolve the merge conflict in ${f.feature.id}`,
+                  action: featureLink(f),
+                }),
           });
         });
 
@@ -306,6 +267,7 @@ export function getChecklistItems({
         .forEach((f) => {
           items.push({
             key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
+            featureId: f.feature.id,
             status:
               (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
                 ? "complete"
@@ -313,28 +275,15 @@ export function getChecklistItems({
             type: "auto",
             required: true,
             hardBlock: true,
-            hideDescription: true,
-            display: isManaged(f) ? (
-              <>
-                {openManagedApproval ? (
-                  <Link onClick={openManagedApproval}>Review and approve</Link>
-                ) : (
-                  "Review and approve"
-                )}{" "}
-                variation values
-              </>
-            ) : (
-              <>
-                Approve the feature draft revision in{" "}
-                <Link
-                  href={`/features/${f.feature.id}${f.draftRevisionVersion != null ? `?v=${f.draftRevisionVersion}` : ""}`}
-                  target="_blank"
-                >
-                  {f.feature.id}
-                  <PiArrowSquareOut className="ml-1" />
-                </Link>
-              </>
-            ),
+            ...(isManaged(f)
+              ? {
+                  display: "Review and approve the variation values",
+                  action: onClick(openManagedApproval),
+                }
+              : {
+                  display: `Approve the Feature Flag draft for ${f.feature.id}`,
+                  action: featureLink(f),
+                }),
           });
         });
 
@@ -348,31 +297,15 @@ export function getChecklistItems({
         )
         .forEach((f) => {
           items.push({
+            key: `unrelatedDraftChanges:${f.feature.id}`,
             status: "incomplete",
             type: "auto",
             required: true,
             hardBlock: true,
-            display: (
-              <>
-                The feature draft revision in{" "}
-                <Link
-                  href={`/features/${f.feature.id}${f.draftRevisionVersion != null ? `?v=${f.draftRevisionVersion}` : ""}`}
-                  target="_blank"
-                >
-                  {f.feature.id}
-                  <PiArrowSquareOut className="ml-1" />
-                </Link>{" "}
-                contains additional changes unrelated to this experiment.
-              </>
-            ),
-            description: (
-              <>
-                Either <em style={{ fontWeight: 700 }}>remove these changes</em>{" "}
-                from the draft to auto-publish the feature or{" "}
-                <em style={{ fontWeight: 700 }}>manually publish this draft</em>
-                .
-              </>
-            ),
+            display: `The ${f.feature.id} draft has changes unrelated to this experiment`,
+            description:
+              "Remove them from the draft to auto-publish the Feature Flag, or publish the draft manually.",
+            action: featureLink(f),
           });
         });
 
@@ -394,12 +327,6 @@ export function getChecklistItems({
                   />
                 </span>
               ));
-            const fixLink = (label: string) =>
-              editVariationValues ? (
-                <Link onClick={editVariationValues}>{label}</Link>
-              ) : (
-                label
-              );
             const problems = getManagedValueProblems({
               variations: latestVariations,
               values: f.pendingDraft?.values ?? f.values,
@@ -409,34 +336,34 @@ export function getChecklistItems({
             const malformed = problems.filter((p) => p.problem === "malformed");
             if (missing.length) {
               items.push({
+                key: `missingVariationValues:${f.feature.id}`,
                 status: "incomplete",
                 type: "auto",
                 required: true,
-                hideDescription: true,
                 display: (
-                  <>
-                    {fixLink("Add a variation value")} for{" "}
-                    {variationList(missing)}
-                  </>
+                  <>Add a variation value for {variationList(missing)}</>
                 ),
+                action: onClick(editVariationValues),
               });
             }
             if (malformed.length) {
               items.push({
+                key: `malformedVariationValues:${f.feature.id}`,
                 status: "incomplete",
                 type: "auto",
                 required: true,
                 hardBlock: true,
-                hideDescription: true,
                 display: (
-                  <>
-                    {fixLink("Fix the variation value")} for{" "}
-                    {variationList(malformed)}
-                  </>
+                  <>Fix the variation value for {variationList(malformed)}</>
                 ),
-                tooltip: malformed
-                  .map((p) => `${p.variationName}: ${p.detail}`)
+                description: malformed
+                  .map((p) =>
+                    p.detail
+                      ? `${p.variationName}: ${p.detail}`
+                      : p.variationName,
+                  )
                   .join("; "),
+                action: onClick(editVariationValues),
               });
             }
             return;
@@ -449,19 +376,12 @@ export function getChecklistItems({
           );
           if (hasMissingValues) {
             items.push({
+              key: `missingVariationValues:${f.feature.id}`,
               status: "incomplete",
               type: "auto",
               required: true,
-              hideDescription: true,
-              display: (
-                <>
-                  Fill in missing variation values for{" "}
-                  <Link href={`/features/${f.feature.id}`} target="_blank">
-                    {f.feature.id}
-                    <PiArrowSquareOut className="ml-1" />
-                  </Link>
-                </>
-              ),
+              display: `Fill in missing variation values for ${f.feature.id}`,
+              action: featureLink(f, false),
             });
           }
         });
@@ -473,16 +393,9 @@ export function getChecklistItems({
         hasVisualChanges(vc.visualChanges),
       );
       items.push({
-        display: (
-          <>
-            Add changes in the{" "}
-            {openSetupTab ? (
-              <Link onClick={openSetupTab}>Visual Editor</Link>
-            ) : (
-              "Visual Editor"
-            )}
-          </>
-        ),
+        key: "visualEditorChanges",
+        display: "Add changes in the Visual Editor",
+        action: onClick(openImplementation),
         status: hasSomeVisualChanges ? "complete" : "incomplete",
         type: "auto",
         // An A/A test is a valid experiment that doesn't have changes, so don't make this required
@@ -494,22 +407,15 @@ export function getChecklistItems({
   // Experiment has phases
   const hasPhases = experiment.phases.length > 0;
   items.push({
-    display: (
-      <>
-        {editTargeting ? (
-          <Link
-            onClick={() => {
-              editTargeting();
-              track("Edit targeting", { source: "experiment-start-banner" });
-            }}
-          >
-            Configure
-          </Link>
-        ) : (
-          "Configure"
-        )}{" "}
-        variation assignment and targeting behavior
-      </>
+    key: "targeting",
+    display: "Configure variation assignment and targeting",
+    action: onClick(
+      editTargeting
+        ? () => {
+            editTargeting();
+            track("Edit targeting", { source: "experiment-start-banner" });
+          }
+        : null,
     ),
     status: hasPhases ? "complete" : "incomplete",
     type: "auto",
@@ -517,20 +423,15 @@ export function getChecklistItems({
   });
 
   const verifiedConnections = connections.some((c) => c.connected);
+  const addConnection = connections.length
+    ? undefined
+    : onClick(createSdkConnection);
   items.push({
     type: "auto",
-    key: "has-connection",
+    key: "sdkConnection",
     status: connections.length ? "complete" : "incomplete",
-    display: (
-      <>
-        Integrate GrowthBook into your app by adding an SDK Connection{" "}
-        {!setShowSdkForm && !verifiedConnections ? (
-          <Link href="/sdks">Manage SDK Connections</Link>
-        ) : connections.length === 0 && setShowSdkForm ? (
-          <Link onClick={() => setShowSdkForm(true)}>Add SDK Connection</Link>
-        ) : null}
-      </>
-    ),
+    display: "Add an SDK Connection",
+    action: addConnection ?? { href: "/sdks" },
     required: true,
     warning:
       connections.length > 0 && !verifiedConnections
@@ -544,15 +445,13 @@ export function getChecklistItems({
   if (hasAnyVisualChanges) {
     items.push({
       type: "auto",
+      key: "visualEditorSdk",
       status: connections.some((c) => c.includeVisualExperiments)
         ? "complete"
         : "incomplete",
-      display: (
-        <>
-          Enable Visual Experiments on a compatible SDK Connection for this
-          project <Link href="/sdks">Manage SDK Connections</Link>
-        </>
-      ),
+      display:
+        "Enable Visual Editor experiments on an SDK Connection for this Project",
+      action: { href: "/sdks" },
       required: true,
     });
   }
@@ -560,74 +459,57 @@ export function getChecklistItems({
   if (urlRedirects.length > 0) {
     items.push({
       type: "auto",
+      key: "urlRedirectSdk",
       status: connections.some((c) => c.includeRedirectExperiments)
         ? "complete"
         : "incomplete",
-      display: (
-        <>
-          Enable URL Redirects on a compatible SDK Connection for this project{" "}
-          <Link href="/sdks">Manage SDK Connections</Link>
-        </>
-      ),
+      display:
+        "Enable URL redirect experiments on an SDK Connection for this Project",
+      action: { href: "/sdks" },
       required: true,
     });
   }
 
-  if (checklist?.tasks?.length) {
-    checklist.tasks.forEach((item) => {
-      if (item.completionType === "manual") {
-        items.push({
-          type: "manual",
-          key: item.task,
-          status: isChecklistItemComplete("manual", item.task)
-            ? "complete"
-            : "incomplete",
-          display: item.url ? (
-            <a href={item.url} target="_blank" rel="noreferrer">
-              {item.task}
-            </a>
-          ) : (
-            <>{item.task}</>
-          ),
-          required: true,
-        });
-      }
+  checklist?.tasks?.forEach((item, i) => {
+    // Task text can repeat, or match a built-in key.
+    const key = `custom:${i}:${item.task}`;
+    if (item.completionType === "manual") {
+      items.push({
+        type: "manual",
+        key,
+        manualKey: item.task,
+        status: isChecklistItemComplete("manual", item.task)
+          ? "complete"
+          : "incomplete",
+        display: item.task,
+        action: item.url ? { href: item.url, external: true } : undefined,
+        required: true,
+      });
+    }
 
-      if (item.completionType === "auto" && item.propertyKey) {
-        if (
-          isBandit &&
-          (item.propertyKey === "hypothesis" || item.propertyKey === "schedule")
-        ) {
-          return;
-        }
-        items.push({
-          display:
-            item.propertyKey === "schedule" ? (
-              <>
-                {setShowScheduleModal ? (
-                  <Link onClick={() => setShowScheduleModal(true)}>
-                    Add scheduled start date
-                  </Link>
-                ) : (
-                  "Add scheduled start date"
-                )}{" "}
-                to experiment.
-              </>
-            ) : (
-              <>{item.task}</>
-            ),
-          status: isChecklistItemComplete(
-            "auto",
-            item.propertyKey,
-            item.customFieldId,
-          )
-            ? "complete"
-            : "incomplete",
-          type: "auto",
-          required: true,
-        });
+    if (item.completionType === "auto" && item.propertyKey) {
+      if (
+        isBandit &&
+        (item.propertyKey === "hypothesis" || item.propertyKey === "schedule")
+      ) {
+        return;
       }
-    });
-  }
+      const isSchedule = item.propertyKey === "schedule";
+      items.push({
+        key,
+        display: isSchedule ? "Add a scheduled start date" : item.task,
+        action: isSchedule ? onClick(editSchedule) : undefined,
+        status: isChecklistItemComplete(
+          "auto",
+          item.propertyKey,
+          item.customFieldId,
+        )
+          ? "complete"
+          : "incomplete",
+        type: "auto",
+        required: true,
+      });
+    }
+  });
   return items;
 }

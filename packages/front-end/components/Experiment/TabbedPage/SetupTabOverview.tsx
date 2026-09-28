@@ -1,7 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { PreLaunchChecklistDrawer } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
@@ -53,81 +52,76 @@ export default function SetupTabOverview({
       (value) => value !== null,
     );
   return (
-    <>
-      <div>
-        {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
-          <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
-            <Flex align="center" justify="between" className="text-dark">
-              <Heading color="text-high" mb="0" as="h4" size="sm">
-                Holdout Schedule
-              </Heading>
-              <Flex align="center" gap="2">
-                {canEditSchedule ? (
-                  <>
-                    <DeleteButton
-                      text="Delete"
-                      displayName="Schedule"
-                      deleteMessage="Deleting the schedule will remove the automatic transition of the Holdout from start, to analysis, to stopped. Manual intervention will be required for each transition if no schedule is set."
-                      onClick={async () => {
-                        await apiCall<HoldoutInterfaceStringDates>(
-                          `/holdout/${holdout.id}`,
-                          {
-                            method: "PUT",
-                            body: JSON.stringify({
-                              statusUpdateSchedule: null,
-                              nextScheduledStatusUpdate: null,
-                            }),
-                          },
-                        );
-                        mutate();
-                      }}
-                    />
-                    <Link
-                      mr={experiment.description ? "3" : "0"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        editSchedule();
-                      }}
-                    >
-                      <Text weight="semibold">Edit</Text>
-                    </Link>
-                  </>
-                ) : null}
-              </Flex>
+    <div>
+      {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
+        <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
+          <Flex align="center" justify="between" className="text-dark">
+            <Heading color="text-high" mb="0" as="h4" size="sm">
+              Holdout Schedule
+            </Heading>
+            <Flex align="center" gap="2">
+              {canEditSchedule ? (
+                <>
+                  <DeleteButton
+                    text="Delete"
+                    displayName="Schedule"
+                    deleteMessage="Deleting the schedule will remove the automatic transition of the Holdout from start, to analysis, to stopped. Manual intervention will be required for each transition if no schedule is set."
+                    onClick={async () => {
+                      await apiCall<HoldoutInterfaceStringDates>(
+                        `/holdout/${holdout.id}`,
+                        {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            statusUpdateSchedule: null,
+                            nextScheduledStatusUpdate: null,
+                          }),
+                        },
+                      );
+                      mutate();
+                    }}
+                  />
+                  <Link
+                    mr={experiment.description ? "3" : "0"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      editSchedule();
+                    }}
+                  >
+                    <Text weight="semibold">Edit</Text>
+                  </Link>
+                </>
+              ) : null}
             </Flex>
-            <HoldoutSchedule holdout={holdout} experiment={experiment} />
-          </Frame>
-        ) : null}
+          </Flex>
+          <HoldoutSchedule holdout={holdout} experiment={experiment} />
+        </Frame>
+      ) : null}
 
-        {showHoldoutTimeline && (
-          <div className="box p-4 my-4">
-            <HoldoutTimeline
-              experiments={holdoutExperiments}
-              startDate={
-                experiment.phases[0]?.dateStarted
-                  ? new Date(experiment.phases[0].dateStarted)
-                  : new Date()
-              }
-              holdoutEndDate={
-                experiment.phases[0]?.dateEnded
-                  ? new Date(experiment.phases[0].dateEnded)
-                  : undefined
-              }
-            />
-          </div>
-        )}
-
-        {!isBandit && !isHoldout && (
-          <HypothesisField
-            experiment={experiment}
-            editable={editingInline}
-            canEdit={canEditExperiment}
+      {showHoldoutTimeline && (
+        <div className="box p-4 my-4">
+          <HoldoutTimeline
+            experiments={holdoutExperiments}
+            startDate={
+              experiment.phases[0]?.dateStarted
+                ? new Date(experiment.phases[0].dateStarted)
+                : new Date()
+            }
+            holdoutEndDate={
+              experiment.phases[0]?.dateEnded
+                ? new Date(experiment.phases[0].dateEnded)
+                : undefined
+            }
           />
-        )}
-      </div>
-      {experiment.status === "draft" && experiment.type !== "holdout" && (
-        <PreLaunchChecklistDrawer />
+        </div>
       )}
-    </>
+
+      {!isBandit && !isHoldout && (
+        <HypothesisField
+          experiment={experiment}
+          editable={editingInline}
+          canEdit={canEditExperiment}
+        />
+      )}
+    </div>
   );
 }

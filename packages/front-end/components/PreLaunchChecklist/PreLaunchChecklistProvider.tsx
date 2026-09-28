@@ -4,44 +4,38 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
 import useApi from "@/hooks/useApi";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import { CheckListItem, getChecklistItems } from "./PreLaunchChecklistItems";
+import { ChecklistSummary, summarizeChecklist } from "./checklistSummary";
+import { useManualChecklistToggle } from "./useManualChecklistToggle";
 
 interface PreLaunchChecklistContextValue {
   experiment: ExperimentInterfaceStringDates;
-  mutateExperiment: () => unknown | Promise<unknown>;
-  envs: string[];
+  // A draft that isn't a holdout: nothing to check off otherwise.
+  active: boolean;
   checklist: CheckListItem[];
+  summary: ChecklistSummary;
   loading: boolean;
-  // null until the checklist data has loaded.
+  // The custom checklist didn't load; the built-in items still show.
+  loadError: boolean;
+  // null only while an active checklist is still loading.
   checklistItemsRemaining: number | null;
   checklistHardBlockerCount: number;
-  incompleteChecklistItems: CheckListItem[];
   checklistReady: boolean;
-  // Modal state for checklist row actions. The modals themselves are rendered
-  // by the checklist UI; this context only owns the open/close state so the
-  // onClick handlers baked into the checklist items can toggle them.
-  analysisModal: boolean;
-  setAnalysisModal: (value: boolean) => void;
-  showSdkForm: boolean;
-  setShowSdkForm: (value: boolean) => void;
-  showScheduleModal: boolean;
-  setShowScheduleModal: (value: boolean) => void;
+  // null when the viewer can't check tasks off.
+  toggleManualItem: ((manualKey: string, checked: boolean) => void) | null;
+  toggleError: string | null;
   /** Opens the managed flag's review modal, when the page has one. */
   openManagedApproval?: () => void;
 }
 
 const PreLaunchChecklistContext =
   createContext<PreLaunchChecklistContextValue | null>(null);
-
-/** For surfaces that may render outside the provider. */
-export function useOptionalPreLaunchChecklist(): PreLaunchChecklistContextValue | null {
-  return useContext(PreLaunchChecklistContext);
-}
 
 export function usePreLaunchChecklist(): PreLaunchChecklistContextValue {
   const ctx = useContext(PreLaunchChecklistContext);
@@ -58,13 +52,14 @@ export interface PreLaunchChecklistProviderProps {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
-  connections: SDKConnectionInterface[];
   mutateExperiment: () => unknown | Promise<unknown>;
+  canEdit: boolean;
   editTargeting?: (() => void) | null;
-  openSetupTab?: () => void;
-  openManagedApproval?: () => void;
+  editSchedule?: (() => void) | null;
   editVariationValues?: () => void;
-  envs: string[];
+  openImplementation?: () => void;
+  openAnalysisSettings?: () => void;
+  openManagedApproval?: () => void;
   children: ReactNode;
 }
 
@@ -73,45 +68,45 @@ export function PreLaunchChecklistProvider({
   linkedFeatures,
   visualChangesets,
   urlRedirects,
-  connections,
   mutateExperiment,
+  canEdit,
   editTargeting,
-  openSetupTab,
-  openManagedApproval,
+  editSchedule,
   editVariationValues,
-  envs,
+  openImplementation,
+  openAnalysisSettings,
+  openManagedApproval,
   children,
 }: PreLaunchChecklistProviderProps) {
   const permissionsUtil = usePermissionsUtil();
-  const canEditExperiment =
-    !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
+  const canCreateSdkConnection =
+    permissionsUtil.canViewCreateSDKConnectionModal(experiment.project);
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   // The pre-launch checklist only applies to draft experiments. Holdouts use a
   // separate launch flow, so skip the fetch + computation for them.
   const isActive =
     experiment.status === "draft" && experiment.type !== "holdout";
 
-  const { data, isLoading } = useApi<{
+  const { data, error } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
   }>(`/experiment/${experiment.id}/launch-checklist`, {
     shouldRun: () => isActive,
   });
+  const { data: sdkData, error: sdkError } = useSDKConnections();
+  // Counting before both arrive would count the SDK Connection row as missing.
+  const loading = isActive && ((!data && !error) || (!sdkData && !sdkError));
 
-  // Modal open/close state for checklist row actions. Owned here so the
-  // onClick handlers baked into checklist items work regardless of which
-  // consumer renders the checklist; the modals are rendered by the checklist UI.
   const [showSdkForm, setShowSdkForm] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [analysisModal, setAnalysisModal] = useState(false);
 
   const projectConnections = useMemo(
     () =>
-      connections.filter(
+      (sdkData?.connections ?? []).filter(
         (connection) =>
           !connection.projects.length ||
           connection.projects.includes(experiment.project || ""),
       ),
-    [connections, experiment.project],
+    [sdkData, experiment.project],
   );
 
   const checklist: CheckListItem[] = useMemo(() => {
@@ -123,87 +118,86 @@ export function PreLaunchChecklistProvider({
       visualChangesets,
       urlRedirects,
       checklist: data?.checklist,
-      setAnalysisModal: canEditExperiment ? setAnalysisModal : undefined,
-      editTargeting,
-      openSetupTab,
-      openManagedApproval,
-      editVariationValues,
-      checkLinkedChanges: true,
       connections: projectConnections,
-      setShowSdkForm,
-      setShowScheduleModal: canEditExperiment
-        ? setShowScheduleModal
-        : undefined,
+      // The Bandit card edits only with the targeting editor's permission.
+      openAnalysisSettings:
+        canEdit && (!isBandit || editTargeting) ? openAnalysisSettings : null,
+      openImplementation: canEdit ? openImplementation : null,
+      editVariationValues: canEdit ? editVariationValues : null,
+      openManagedApproval,
+      editTargeting,
+      editSchedule: canEdit ? editSchedule : null,
+      createSdkConnection: canCreateSdkConnection
+        ? () => setShowSdkForm(true)
+        : null,
     });
   }, [
     isActive,
     data,
-    editTargeting,
-    openSetupTab,
-    openManagedApproval,
-    editVariationValues,
     experiment,
     linkedFeatures,
     visualChangesets,
     urlRedirects,
-    canEditExperiment,
     projectConnections,
+    canEdit,
+    isBandit,
+    editTargeting,
+    openAnalysisSettings,
+    openImplementation,
+    editVariationValues,
+    openManagedApproval,
+    editSchedule,
+    canCreateSdkConnection,
   ]);
 
-  const incompleteChecklistItems = useMemo(
-    () => checklist.filter((item) => item.status === "incomplete"),
-    [checklist],
+  const summary = useMemo(() => summarizeChecklist(checklist), [checklist]);
+  const checklistItemsRemaining = loading ? null : summary.remaining;
+
+  const { toggle, error: toggleError } = useManualChecklistToggle(
+    experiment,
+    mutateExperiment,
   );
-
-  const checklistItemsRemaining =
-    isActive && data ? incompleteChecklistItems.length : null;
-
-  const checklistHardBlockerCount = useMemo(
-    () => incompleteChecklistItems.filter((item) => item.hardBlock).length,
-    [incompleteChecklistItems],
-  );
-
-  const checklistReady = checklistItemsRemaining === 0;
 
   const value = useMemo<PreLaunchChecklistContextValue>(
     () => ({
       experiment,
-      mutateExperiment,
-      envs,
+      active: isActive,
       checklist,
-      loading: isActive ? !!isLoading : false,
+      summary,
+      loading,
+      loadError: isActive && !!error,
       checklistItemsRemaining,
-      checklistHardBlockerCount,
-      incompleteChecklistItems,
-      checklistReady,
-      analysisModal,
-      setAnalysisModal,
-      showSdkForm,
-      setShowSdkForm,
-      showScheduleModal,
-      setShowScheduleModal,
+      checklistHardBlockerCount: summary.blocking,
+      checklistReady: checklistItemsRemaining === 0,
+      toggleManualItem: canEdit ? toggle : null,
+      toggleError,
       openManagedApproval,
     }),
     [
       experiment,
-      mutateExperiment,
-      envs,
-      checklist,
       isActive,
-      isLoading,
+      checklist,
+      summary,
+      loading,
+      error,
       checklistItemsRemaining,
-      checklistHardBlockerCount,
-      incompleteChecklistItems,
-      checklistReady,
-      analysisModal,
-      showSdkForm,
-      showScheduleModal,
+      canEdit,
+      toggle,
+      toggleError,
       openManagedApproval,
     ],
   );
 
   return (
     <PreLaunchChecklistContext.Provider value={value}>
+      {showSdkForm ? (
+        <InitialSDKConnectionForm
+          close={() => setShowSdkForm(false)}
+          includeCheck={true}
+          cta="Continue"
+          goToNextStep={() => setShowSdkForm(false)}
+        />
+      ) : null}
       {children}
     </PreLaunchChecklistContext.Provider>
   );

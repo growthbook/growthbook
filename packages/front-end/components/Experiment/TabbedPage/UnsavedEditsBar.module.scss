@@ -1,8 +1,8 @@
 .bar {
   position: sticky;
   bottom: 0;
-  // Above the pre-launch checklist drawer, which is fixed at 1000 and would
-  // otherwise cover the only way to save.
+  // Above the page's positioned content, which would otherwise cover the only
+  // way to save.
   z-index: 1001;
   padding: var(--space-2) var(--space-4);
   border-top: 1px solid var(--gray-a5);

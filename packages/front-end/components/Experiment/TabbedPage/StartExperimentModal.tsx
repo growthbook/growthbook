@@ -6,10 +6,7 @@ import { ApiErrorDetails } from "shared/validators";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { hasAttributeCondition } from "shared/experiments";
-import {
-  isManagedByExperiment,
-  PENDING_APPROVAL_ITEM_PREFIX,
-} from "shared/util";
+import { isManagedByExperiment } from "shared/util";
 import { format } from "date-fns-tz";
 import { ReactNode, useState } from "react";
 import { Box, Flex, type AvatarProps } from "@radix-ui/themes";
@@ -47,8 +44,15 @@ import {
   LINKED_CHANGE_CONTAINER_PROPERTIES,
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
-import { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
-import { useOptionalPreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import { ChecklistItems } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import {
+  isPendingApprovalItem,
+  summarizeChecklist,
+} from "@/components/PreLaunchChecklist/checklistSummary";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import HelperText from "@/ui/HelperText";
+import StartModalSection from "@/components/Experiment/StartModalSection";
 import { ManagedFlagName } from "@/components/Experiment/ManagedFlagName";
 
 export type PendingDraftFailure =
@@ -59,13 +63,10 @@ export interface Props {
   close: () => void;
   startExperiment: (opts?: { bypassApproval?: boolean }) => Promise<void>;
   scheduleExperiment?: () => Promise<void>;
-  checklistItemsRemaining: number;
-  checklistHardBlockerCount?: number;
   isHoldout?: boolean;
   linkedFeatures?: LinkedFeatureInfo[];
   visualChangesets?: VisualChangesetInterface[];
   urlRedirects?: URLRedirectInterface[];
-  incompleteChecklistItems?: CheckListItem[];
   // Per-feature failures from the last start attempt (structured details of
   // the pending_draft_publish_failed error) — rendered as actionable links
   // below the generic error message.
@@ -218,13 +219,10 @@ export default function StartExperimentModal({
   close,
   startExperiment,
   scheduleExperiment,
-  checklistItemsRemaining,
-  checklistHardBlockerCount = 0,
   isHoldout,
   linkedFeatures = [],
   visualChangesets = [],
   urlRedirects = [],
-  incompleteChecklistItems = [],
   pendingDraftFailures = [],
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
@@ -243,9 +241,15 @@ export default function StartExperimentModal({
   const featuresEnablingEnvsCount = linkedFeatures.filter(
     (f) => !!f.environmentsToEnable?.length,
   ).length;
+  const {
+    checklist,
+    summary: fullSummary,
+    checklistItemsRemaining,
+    toggleManualItem,
+    toggleError,
+    openManagedApproval,
+  } = usePreLaunchChecklist();
   // The experiment owns this flag, so it is not a "linked" change: name it.
-  const openManagedApproval =
-    useOptionalPreLaunchChecklist()?.openManagedApproval;
   const managedFeature =
     linkedFeatures.length === 1 &&
     linkedFeatures[0].feature &&
@@ -265,52 +269,35 @@ export default function StartExperimentModal({
   // The schedule action only makes sense for a future-dated schedule.
   const useScheduledFlow =
     scheduledStartDateIsInTheFuture && !!scheduleExperiment;
-  // Hard blockers (merge conflicts, missing approvals, unrelated draft edits)
-  // can't be bypassed via "Start Anyway" — the auto-publish at start either
-  // rejects them outright or would silently publish unreviewed changes.
-  // Mirrors the checklist's approval blocker; the server re-checks per feature.
-  const approvalBlockedFeatures = linkedFeatures.filter(
-    (f) =>
-      f.pendingApproval &&
-      !f.hasUnrelatedDraftChanges &&
-      !(f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved"),
-  );
   // A scheduled start is approved ahead and fires later, so it can't bypass.
   // The server waives the checklist on the experiment's project and publishes
   // on each flag's.
+  const approvalRows = fullSummary.incomplete.blocking.filter(
+    isPendingApprovalItem,
+  );
   const adminBypassAvailable =
     !useScheduledFlow &&
-    approvalBlockedFeatures.length > 0 &&
+    approvalRows.length > 0 &&
     permissionsUtil.canBypassFlagApprovalChecks(experiment, "feature") &&
-    approvalBlockedFeatures.every((f) =>
-      permissionsUtil.canBypassFlagApprovalChecks(f.feature, "feature"),
-    );
+    approvalRows.every((row) => {
+      const info = linkedFeatures.find((f) => f.feature.id === row.featureId);
+      return (
+        !!info &&
+        permissionsUtil.canBypassFlagApprovalChecks(info.feature, "feature")
+      );
+    });
   const bypassingApproval = adminBypassAvailable && adminBypass;
-  // Counted off the items themselves, not the features: the checklist skips
-  // its own approval row in cases this list does not.
-  const bypassedItems = bypassingApproval
-    ? incompleteChecklistItems.filter((item) =>
-        item.key?.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
-      )
-    : [];
-  const hasHardBlockers =
-    checklistHardBlockerCount -
-      bypassedItems.filter((i) => i.hardBlock).length >
-    0;
-  const hardBlockerItems = incompleteChecklistItems.filter(
-    (item) => item.hardBlock && !bypassedItems.includes(item),
-  );
-  const checklistIncomplete =
-    checklistItemsRemaining - bypassedItems.length > 0;
-  const softBlockerItems = incompleteChecklistItems.filter(
-    (item) => !item.hardBlock && item.required && !bypassedItems.includes(item),
-  );
-  const visibleItems = incompleteChecklistItems.filter(
-    (item) => !bypassedItems.includes(item),
-  );
-  // Only group when we actually have hard-blocker items in the rendered list,
-  // not just a non-zero count from props, so we never render an empty section.
-  const shouldGroupBlockers = hardBlockerItems.length > 0;
+  const summary = bypassingApproval
+    ? summarizeChecklist(checklist, isPendingApprovalItem)
+    : fullSummary;
+  const checklistLoading = checklistItemsRemaining === null;
+  // Hard blockers (merge conflicts, missing approvals, unrelated draft edits)
+  // can't be bypassed via "Start anyway" — the auto-publish at start either
+  // rejects them outright or would silently publish unreviewed changes.
+  const hasHardBlockers = summary.blocking > 0;
+  const checklistIncomplete = summary.remaining > 0;
+  const showTasks =
+    checklistLoading || checklistIncomplete || summary.flagged.length > 0;
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
@@ -340,17 +327,16 @@ export default function StartExperimentModal({
     );
   }
 
-  const header =
-    hasSchedule && !isHoldout
+  const header = isHoldout
+    ? "Start Holdout"
+    : useScheduledFlow
       ? "Schedule Experiment to Start"
-      : isHoldout
-        ? "Start Holdout"
-        : "Start Experiment";
+      : "Start Experiment";
 
   const primaryCta =
     hasSchedule && parsedScheduledDate
       ? `Start ${format(parsedScheduledDate, "MMM d, yyyy 'at' h:mm a")}`
-      : "Start Now";
+      : "Start now";
 
   const subHeader =
     hasSchedule && parsedScheduledDate
@@ -362,26 +348,29 @@ export default function StartExperimentModal({
   const start = () => startExperiment({ bypassApproval: bypassingApproval });
   const primaryAction = useScheduledFlow ? scheduleExperiment! : start;
   const primaryDisabled =
-    checklistIncomplete || !!needsUpgrade || scheduledStartDateIsInThePast;
+    checklistLoading ||
+    checklistIncomplete ||
+    !!needsUpgrade ||
+    scheduledStartDateIsInThePast;
 
   // Secondary action: a single button slot that surfaces the contextually
   // appropriate fallback. Hidden entirely when there's nothing to override
   // (no upgrade gate, no hard blockers).
   let secondaryLabel: string | null = null;
   let secondaryAction: (() => Promise<void>) | null = null;
-  if (!needsUpgrade && !hasHardBlockers) {
+  if (!checklistLoading && !needsUpgrade && !hasHardBlockers) {
     if (scheduledStartDateIsInThePast) {
-      secondaryLabel = "Start Now";
+      secondaryLabel = checklistIncomplete ? "Start anyway" : "Start now";
       secondaryAction = start;
     } else if (
       scheduledStartDateIsInTheFuture &&
       checklistIncomplete &&
       scheduleExperiment
     ) {
-      secondaryLabel = "Schedule Anyway";
+      secondaryLabel = "Schedule anyway";
       secondaryAction = scheduleExperiment;
     } else if (!hasSchedule && checklistIncomplete) {
-      secondaryLabel = "Start Anyway";
+      secondaryLabel = "Start anyway";
       secondaryAction = start;
     }
   }
@@ -455,16 +444,26 @@ export default function StartExperimentModal({
               <Text weight="semibold">
                 {format(parsedScheduledDate, "MMM d, yyyy 'at' h:mm a (z)")}
               </Text>{" "}
-              has passed. Click <Text weight="semibold">Start Now</Text> to
-              start the experiment immediately, or close this modal and update
-              the schedule.
+              has passed.{" "}
+              {secondaryLabel ? (
+                <>
+                  Click <Text weight="semibold">{secondaryLabel}</Text> to start
+                  the experiment immediately, or close this modal and update the
+                  schedule.
+                </>
+              ) : hasHardBlockers ? (
+                "Resolve the items below, or close this modal and update the schedule."
+              ) : (
+                "Close this modal and update the schedule."
+              )}
             </Callout>
           )}
 
-          {checklistIncomplete && (
-            <Box mb="3">
-              <Flex align="center" gap="1">
-                {hasHardBlockers ? (
+          {showTasks && (
+            <StartModalSection
+              title="To Do"
+              icon={
+                checklistLoading ? null : hasHardBlockers ? (
                   <PiWarningOctagonFill
                     color="var(--red-11)"
                     size={15}
@@ -476,170 +475,95 @@ export default function StartExperimentModal({
                     size={15}
                     aria-label="warning"
                   />
-                )}
-                <Text size="lg" weight="semibold" color="text-high">
-                  Tasks to Complete
-                </Text>
-              </Flex>
-              {visibleItems.length > 0 && (
-                <Box
-                  mt="3"
-                  style={{
-                    backgroundColor: "var(--slate-2)",
-                    padding: "20px",
-                    borderRadius: "var(--radius-3)",
-                  }}
-                >
-                  {shouldGroupBlockers ? (
-                    <Flex direction="column" gap="4">
-                      <Box>
-                        <Text size="sm" weight="semibold" color="text-high">
-                          Must resolve before starting
-                        </Text>
-                        <Box mt="2">
-                          <Flex direction="column" gap="2">
-                            {hardBlockerItems.map((item, i) => (
-                              <Flex
-                                key={item.key ?? `hard-${i}`}
-                                gap="2"
-                                align="baseline"
-                              >
-                                <Text color="text-mid">•</Text>
-                                <Text
-                                  as="div"
-                                  weight="semibold"
-                                  color="text-mid"
-                                >
-                                  {item.display}
-                                </Text>
-                              </Flex>
-                            ))}
-                          </Flex>
-                        </Box>
-                      </Box>
-                      {softBlockerItems.length > 0 && (
-                        <Box>
-                          <Text size="sm" weight="semibold" color="text-high">
-                            Recommended
-                          </Text>
-                          <Box mt="2">
-                            <Flex direction="column" gap="2">
-                              {softBlockerItems.map((item, i) => (
-                                <Flex
-                                  key={item.key ?? `soft-${i}`}
-                                  gap="2"
-                                  align="baseline"
-                                >
-                                  <Text color="text-mid">•</Text>
-                                  <Text
-                                    as="div"
-                                    weight="semibold"
-                                    color="text-mid"
-                                  >
-                                    {item.display}
-                                  </Text>
-                                </Flex>
-                              ))}
-                            </Flex>
-                          </Box>
-                        </Box>
-                      )}
-                    </Flex>
-                  ) : (
-                    <Flex direction="column" gap="2">
-                      {visibleItems.map((item, i) => (
-                        <Flex key={item.key ?? i} gap="2" align="baseline">
-                          <Text color="text-mid">•</Text>
-                          <Text as="div" weight="semibold" color="text-mid">
-                            {item.display}
-                          </Text>
-                        </Flex>
-                      ))}
-                    </Flex>
-                  )}
-                </Box>
+                )
+              }
+              mb="3"
+            >
+              {checklistLoading ? (
+                <LoadingSpinner />
+              ) : (
+                <>
+                  <ChecklistItems
+                    summary={summary}
+                    size="md"
+                    onToggleManual={toggleManualItem}
+                    // In-page fixes open behind the modal otherwise.
+                    wrapAction={(run) => {
+                      close();
+                      run();
+                    }}
+                  />
+                  {toggleError ? (
+                    <HelperText status="error" mt="2">
+                      {toggleError}
+                    </HelperText>
+                  ) : null}
+                </>
               )}
-            </Box>
+            </StartModalSection>
           )}
 
           {latestPhase && (
-            <Box>
-              <Flex align="center" gap="1">
-                <PiInfoFill color="var(--indigo-11)" size={15} />
-                <Text size="lg" weight="semibold" color="text-high">
-                  Summary
-                </Text>
-              </Flex>
-              <Box
-                mt="3"
-                style={{
-                  backgroundColor: "var(--slate-2)",
-                  padding: "20px",
-                  borderRadius: "var(--radius-3)",
-                }}
-              >
-                <Flex direction="column" gap="4">
-                  {hasNamespace && (
-                    <SummaryRow label="Namespace" inline>
-                      <Text>
-                        {percentFormatter.format(namespaceCoverage)} of{" "}
-                        {namespaceName}
-                      </Text>
-                    </SummaryRow>
-                  )}
-                  <SummaryRow label="Traffic" inline={!isHoldout}>
-                    {isHoldout ? (
-                      <Flex direction="column" gap="1">
-                        <Text>
-                          {holdoutTraffic.inHoldoutPercent}% in holdout
-                        </Text>
-                        <Text>
-                          {holdoutTraffic.forMeasurementPercent}% not in holdout
-                          (for measurement)
-                        </Text>
-                        <Text>
-                          {holdoutTraffic.notForMeasurementPercent}% not in
-                          holdout (not for measurement)
-                        </Text>
-                      </Flex>
-                    ) : (
-                      <Text>
-                        {Math.floor(latestPhase.coverage * 100)}% included
-                        {!isBandit && (
-                          <>
-                            ,{" "}
-                            {formatTrafficSplit(
-                              latestPhase.variationWeights,
-                              2,
-                            )}{" "}
-                            split
-                          </>
-                        )}
-                      </Text>
-                    )}
+            <StartModalSection
+              title="Summary"
+              icon={<PiInfoFill color="var(--indigo-11)" size={15} />}
+            >
+              <Flex direction="column" gap="4">
+                {hasNamespace && (
+                  <SummaryRow label="Namespace" inline>
+                    <Text>
+                      {percentFormatter.format(namespaceCoverage)} of{" "}
+                      {namespaceName}
+                    </Text>
                   </SummaryRow>
-                  {hasAttributeTargeting && (
-                    <SummaryRow label="Attribute Targeting">
-                      <ConditionDisplay condition={latestPhase.condition} />
-                    </SummaryRow>
+                )}
+                <SummaryRow label="Traffic" inline={!isHoldout}>
+                  {isHoldout ? (
+                    <Flex direction="column" gap="1">
+                      <Text>{holdoutTraffic.inHoldoutPercent}% in holdout</Text>
+                      <Text>
+                        {holdoutTraffic.forMeasurementPercent}% not in holdout
+                        (for measurement)
+                      </Text>
+                      <Text>
+                        {holdoutTraffic.notForMeasurementPercent}% not in
+                        holdout (not for measurement)
+                      </Text>
+                    </Flex>
+                  ) : (
+                    <Text>
+                      {Math.floor(latestPhase.coverage * 100)}% included
+                      {!isBandit && (
+                        <>
+                          ,{" "}
+                          {formatTrafficSplit(latestPhase.variationWeights, 2)}{" "}
+                          split
+                        </>
+                      )}
+                    </Text>
                   )}
-                  {hasSavedGroupTargeting && (
-                    <SummaryRow label="Saved Group Targeting">
-                      <SavedGroupTargetingDisplay
-                        savedGroups={latestPhase.savedGroups}
-                      />
-                    </SummaryRow>
-                  )}
-                  {hasPrerequisites && (
-                    <SummaryRow label="Prerequisites">
-                      <ConditionDisplay
-                        prerequisites={latestPhase.prerequisites}
-                      />
-                    </SummaryRow>
-                  )}
-                </Flex>
-              </Box>
-            </Box>
+                </SummaryRow>
+                {hasAttributeTargeting && (
+                  <SummaryRow label="Attribute targeting">
+                    <ConditionDisplay condition={latestPhase.condition} />
+                  </SummaryRow>
+                )}
+                {hasSavedGroupTargeting && (
+                  <SummaryRow label="Saved Group targeting">
+                    <SavedGroupTargetingDisplay
+                      savedGroups={latestPhase.savedGroups}
+                    />
+                  </SummaryRow>
+                )}
+                {hasPrerequisites && (
+                  <SummaryRow label="Prerequisites">
+                    <ConditionDisplay
+                      prerequisites={latestPhase.prerequisites}
+                    />
+                  </SummaryRow>
+                )}
+              </Flex>
+            </StartModalSection>
           )}
           {needsVisualEditorUpgrade ? (
             <PremiumCallout
@@ -659,14 +583,7 @@ export default function StartExperimentModal({
               This experiment contains URL redirects, which require a paid plan.
             </PremiumCallout>
           ) : !isHoldout && hasLinkedChanges ? (
-            <Box
-              mt="3"
-              style={{
-                backgroundColor: "var(--slate-2)",
-                padding: "20px",
-                borderRadius: "var(--radius-3)",
-              }}
-            >
+            <StartModalSection mt="3">
               <Text weight="semibold" color="text-high">
                 {managedFlagIsWholeChange
                   ? scheduledStartDateIsInTheFuture
@@ -769,7 +686,7 @@ export default function StartExperimentModal({
                   </LinkedChangeSection>
                 )}
               </Flex>
-            </Box>
+            </StartModalSection>
           ) : null}
           {adminBypassAvailable && (
             <Box mt="3">

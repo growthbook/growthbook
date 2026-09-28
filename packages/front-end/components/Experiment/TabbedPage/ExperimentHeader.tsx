@@ -48,7 +48,6 @@ import Modal from "@/components/Modal";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
-import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -187,13 +186,8 @@ export default function ExperimentHeader({
   const dataSource = getDatasourceById(experiment.datasource);
   const startCelebration = useCelebration();
   const { snapshot, phase, analysis } = useSnapshot();
-  const {
-    checklistItemsRemaining,
-    checklistHardBlockerCount,
-    incompleteChecklistItems,
-  } = usePreLaunchChecklist();
+  const { checklistReady } = usePreLaunchChecklist();
 
-  const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
   const [linkedChanges, setLinkedChanges] = useState<
@@ -629,7 +623,6 @@ export default function ExperimentHeader({
     experiment.nextScheduledStatusUpdate?.date
       ? new Date(experiment.nextScheduledStatusUpdate.date)
       : null;
-  const checklistReady = checklistItemsRemaining === 0;
 
   const runningExperimentDecisionBanner =
     experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
@@ -653,16 +646,6 @@ export default function ExperimentHeader({
 
   return (
     <>
-      {showSdkForm && (
-        <InitialSDKConnectionForm
-          close={() => setShowSdkForm(false)}
-          includeCheck={true}
-          cta="Continue"
-          goToNextStep={() => {
-            setShowSdkForm(false);
-          }}
-        />
-      )}
       {showBanditModal ? (
         <Modal
           open={true}
@@ -915,9 +898,6 @@ export default function ExperimentHeader({
           startExperiment={startExperiment}
           pendingDraftFailures={pendingDraftFailures}
           scheduleExperiment={approveScheduledExperimentStart}
-          checklistItemsRemaining={checklistItemsRemaining || 0}
-          checklistHardBlockerCount={checklistHardBlockerCount}
-          incompleteChecklistItems={incompleteChecklistItems}
           isHoldout={isHoldout}
           linkedFeatures={linkedFeatures}
           visualChangesets={visualChangesets}

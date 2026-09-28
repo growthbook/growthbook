@@ -25,9 +25,17 @@ import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionField";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import {
+  ChecklistCountBadge,
+  PreLaunchChecklistPanel,
+} from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import ExpandableBlock from "./ExpandableBlock";
 import ExperimentHealthBadges from "./ExperimentHealthBadges";
+
+const DETAILS_PANEL_TABS = ["details", "comments", "todo"] as const;
+export type DetailsPanelTab = (typeof DETAILS_PANEL_TABS)[number];
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -41,6 +49,8 @@ export interface Props {
   editSchedule?: (() => void) | null;
   mutate: () => void;
   disableEditing?: boolean;
+  tab: DetailsPanelTab;
+  setTab: (tab: DetailsPanelTab) => void;
 }
 
 /** The experiment's metadata and discussion, beside the page rather than above it. */
@@ -53,6 +63,8 @@ export default function ExperimentDetailsPanel({
   editSchedule = null,
   mutate,
   disableEditing,
+  tab,
+  setTab,
 }: Props) {
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
   const managedFeature =
@@ -116,6 +128,14 @@ export default function ExperimentDetailsPanel({
     />
   );
   const { canEdit } = useExperimentEditing(experiment, disableEditing);
+  const {
+    active: checklistActive,
+    checklistItemsRemaining,
+    checklistHardBlockerCount,
+  } = usePreLaunchChecklist();
+  const showTodo = checklistActive && !experiment.archived;
+  // Once it starts, a draft's To Do tab is gone.
+  const shownTab = tab === "todo" && !showTodo ? "details" : tab;
 
   const customFieldRows = hasCustomFields ? (
     <ExpandableBlock>
@@ -154,7 +174,11 @@ export default function ExperimentDetailsPanel({
         />
       ) : null}
       <Tabs
-        defaultValue="details"
+        value={shownTab}
+        onValueChange={(value) => {
+          const next = DETAILS_PANEL_TABS.find((t) => t === value);
+          if (next) setTab(next);
+        }}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -166,6 +190,17 @@ export default function ExperimentDetailsPanel({
           <TabsList size="sm" style={{ flex: 1, minWidth: 0 }}>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="comments">Comments</TabsTrigger>
+            {showTodo && (
+              <TabsTrigger value="todo">
+                <Flex as="span" align="center" gap="2">
+                  To Do
+                  <ChecklistCountBadge
+                    remaining={checklistItemsRemaining}
+                    blocking={checklistHardBlockerCount > 0}
+                  />
+                </Flex>
+              </TabsTrigger>
+            )}
           </TabsList>
         </Flex>
         <TabsContent value="details">
@@ -231,6 +266,13 @@ export default function ExperimentDetailsPanel({
             />
           </Box>
         </TabsContent>
+        {showTodo && (
+          <TabsContent value="todo">
+            <Flex px="5" py="4" direction="column" gap="4">
+              <PreLaunchChecklistPanel />
+            </Flex>
+          </TabsContent>
+        )}
       </Tabs>
     </>
   );

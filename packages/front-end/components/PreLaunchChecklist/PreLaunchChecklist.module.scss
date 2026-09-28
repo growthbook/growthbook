@@ -1,119 +1,3 @@
-@use "../../styles/variables";
-
-// Spans from the right edge of the sidebar to the right edge of the viewport.
-// The inner wrapper mirrors .pagecontents (max-width 1340px, margin: 0 auto,
-// 15px horizontal padding) so the drawer's contents track .pagecontents
-// exactly — including the centering Bootstrap's .container-fluid applies on
-// very wide viewports.
-.drawer {
-  position: fixed;
-  bottom: 0;
-  left: variables.$sidebarwidth;
-  right: 0;
-  z-index: 1000;
-  // The strip runs the full width but only its header and body are visible,
-  // so the rest must not swallow clicks meant for the page beneath it.
-  pointer-events: none;
-}
-
-.drawerInner {
-  --drawer-header-width: 300px;
-
-  pointer-events: none;
-
-  max-width: 1340px;
-  margin: 0 auto;
-  padding: 0 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.drawerHeader {
-  position: relative;
-  z-index: 1;
-  pointer-events: auto;
-  width: var(--drawer-header-width);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px 12px 32px;
-  cursor: pointer;
-  user-select: none;
-  background-color: var(--color-landmark, #0c1225);
-  color: #fff;
-  border-radius: var(--radius-4) var(--radius-4) 0 0;
-  border: 1px solid var(--slate-a3);
-  border-bottom: none;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
-  clip-path: inset(-20px -20px 0 -20px);
-  margin-bottom: -1px;
-
-  &:hover {
-    background-color: color-mix(
-      in srgb,
-      var(--color-landmark, #0c1225) 100%,
-      white 8%
-    );
-  }
-}
-
-.drawerBody {
-  position: relative;
-  pointer-events: auto;
-  width: 100%;
-  max-width: 423px;
-  min-height: 84px;
-  max-height: 378px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 24px 0 32px 32px;
-  background-color: var(--color-landmark, #0c1225);
-  color: #fff;
-  border: 1px solid var(--slate-a3);
-  border-top: none;
-  border-bottom: none;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
-  border-radius: 0 var(--radius-4) 0 0;
-
-  &::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: var(--drawer-header-width);
-    right: 0;
-    border-top: 1px solid var(--slate-a3);
-  }
-}
-
-.drawerBodyInner {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.showCompletedToggle {
-  margin-right: 32px;
-}
-
-.itemsScroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 32px;
-}
-
-// Below this breakpoint, global.scss drops `.main { padding-left: 0 }` so
-// `.pagecontents` spans the full viewport. Drop the sidebar offset here too
-// so .drawerInner keeps tracking pagecontents.
-@media (max-width: 1180px) {
-  .drawer {
-    left: 0;
-  }
-}
-
 .completedLabel {
   text-decoration: line-through;
 
@@ -123,7 +7,7 @@
   }
 }
 
-// Auto items aren't user-toggleable: the label reads as plain (default cursor)
+// Rows the viewer can't toggle: the label reads as plain (default cursor)
 // while the checkbox itself reads as not-allowed.
 .readonly {
   cursor: default;
@@ -134,7 +18,7 @@
 }
 
 // Mute the checkbox itself (not the label text) so the box reads as
-// "filled in automatically" rather than an action the user should take.
+// something that isn't the viewer's to tick.
 .readonlyIncomplete :global(.rt-CheckboxRoot)::before {
   box-shadow: inset 0 0 0 1px var(--gray-a6);
   background-color: var(--gray-a3);

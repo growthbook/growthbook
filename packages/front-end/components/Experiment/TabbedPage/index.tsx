@@ -64,7 +64,9 @@ import useMediaQuery from "@/hooks/useMediaQuery";
 import { ManagedFlagRenameProvider } from "@/components/Experiment/ManagedFlagRename";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
-import ExperimentDetailsPanel from "./ExperimentDetailsPanel";
+import ExperimentDetailsPanel, {
+  DetailsPanelTab,
+} from "./ExperimentDetailsPanel";
 import {
   ExperimentEditsProvider,
   experimentFieldChanges,
@@ -74,7 +76,7 @@ import {
 } from "./ExperimentEdits";
 import UnsavedEditsBar from "./UnsavedEditsBar";
 import SetupTabOverview from "./SetupTabOverview";
-import Implementation from "./Implementation";
+import Implementation, { IMPLEMENTATION_ID } from "./Implementation";
 import { TargetingDraft } from "./TrafficAllocationFunnel";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
@@ -182,8 +184,10 @@ function TabbedPageContents({
     `experiment-details-panel-width`,
     PANEL_WIDTH_PX,
   );
+  // Up here because the panel unmounts whenever it closes.
+  const [detailsTab, setDetailsTab] = useState<DetailsPanelTab>("details");
   const [managedApprovalOpen, setManagedApprovalOpen] = useState(false);
-  // The analysis plan's settings modal, which the details rail opens too.
+  // The analysis settings modal, which the pre-launch checklist opens too.
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
@@ -583,14 +587,19 @@ function TabbedPageContents({
       linkedFeatures={linkedFeatures}
       visualChangesets={visualChangesets}
       urlRedirects={urlRedirects}
-      connections={connections}
       mutateExperiment={mutate}
+      canEdit={canEditExperiment}
       editTargeting={editTargeting}
+      editSchedule={editSchedule}
       openManagedApproval={
         managedFlagWithDraft ? () => setManagedApprovalOpen(true) : undefined
       }
       editVariationValues={() => setTabAndScroll("overview", FLAG_VALUES_ID)}
-      envs={envs}
+      openImplementation={() => setTabAndScroll("overview", IMPLEMENTATION_ID)}
+      openAnalysisSettings={() => {
+        setTabAndScroll("overview");
+        setAnalysisSettingsOpen(true);
+      }}
     >
       <ManagedFlagRenameProvider
         experiment={experiment}
@@ -709,6 +718,8 @@ function TabbedPageContents({
                   stagedImplementationType={stagedType?.type ?? null}
                   stagedHoldoutId={stagedHoldout}
                   editSchedule={editSchedule}
+                  tab={detailsTab}
+                  setTab={setDetailsTab}
                 />
               ) : null
             }

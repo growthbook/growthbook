@@ -98,6 +98,9 @@ import {
 
 const LINKED_CHANGES_EDIT_ID = "linked-changes";
 
+/** Where the pre-launch checklist sends you to add linked changes. */
+export const IMPLEMENTATION_ID = "experiment-implementation";
+
 const LINKED_CHANGES_LOCKED_REASON =
   "URL Redirects and Visual Editor changes serve in every environment, so changing them needs permission to run this experiment in all of them.";
 
@@ -648,7 +651,11 @@ export default function Implementation({
       )}
       {/* Divides it from the hypothesis, which bandits don't have. */}
       {!isBandit ? <Separator size="4" my="2" /> : null}
-      <div className="my-4">
+      <div
+        id={IMPLEMENTATION_ID}
+        className="my-4"
+        style={{ scrollMarginTop: "100px" }}
+      >
         <Flex justify="between" align="center" gap="3" mb="2">
           <Heading as="h4" size="sm" color="text-high" mb="0">
             Implementation
@@ -827,6 +834,8 @@ export default function Implementation({
             mutate={mutate}
             envs={envs}
             canEdit={!!editTargeting && !pendingScheduledStart}
+            settingsOpen={analysisSettingsOpen}
+            setSettingsOpen={setAnalysisSettingsOpen}
           />
         )}
         <DecisionPlan

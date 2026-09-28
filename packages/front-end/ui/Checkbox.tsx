@@ -18,6 +18,8 @@ export type Props = {
   id?: string;
   disabled?: boolean;
   disabledMessage?: string;
+  /** A state the viewer can't change: out of the tab order, clicks do nothing. */
+  readOnly?: boolean;
   value: boolean | "indeterminate";
   size?: Size;
   checkboxTooltip?: string;
@@ -38,6 +40,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
     id,
     disabled,
     disabledMessage,
+    readOnly = false,
     value,
     size = "md",
     checkboxTooltip,
@@ -57,7 +60,9 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
   const checkboxEl = (
     <RadixCheckbox
       checked={value}
-      onCheckedChange={(v) => setValue(!!v)}
+      onCheckedChange={readOnly ? undefined : (v) => setValue(!!v)}
+      tabIndex={readOnly ? -1 : undefined}
+      aria-readonly={readOnly || undefined}
       disabled={disabled}
       color={checkboxColor}
       size={radixSize(size)}
