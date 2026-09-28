@@ -61,8 +61,7 @@ const SnowflakeForm: FC<{
           onChange={(e) => {
             const value = e.target.value;
             if (value === "workload-identity") {
-              // Workload identity is secretless — clear any stored credentials
-              // from a previously configured auth method
+              // Needed on create, which stores params without the server-side merge strip.
               setParams({
                 authMethod: value,
                 password: "",

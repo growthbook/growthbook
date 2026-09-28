@@ -58,7 +58,6 @@ function getProxySettings(): ProxyOptions {
 
 const SNOWFLAKE_QUERY_TAG_MAX_LENGTH = 2000;
 
-// Exported for tests.
 export function buildSnowflakeConnection(
   conn: SnowflakeConnectionParams,
   queryMetadata?: QueryMetadata,
@@ -88,21 +87,13 @@ export function buildSnowflakeConnection(
       throw new Error("Invalid private key or private key password");
     }
   } else if (conn.authMethod === "workload-identity") {
-    // Authenticates with the ambient cloud identity of the GrowthBook server
-    // (e.g. its AWS IAM role) — no stored credential. Requires a Snowflake
-    // service user with a matching WORKLOAD_IDENTITY binding.
-    // Self-hosted only, enforced server-side (the UI restriction alone could be
-    // bypassed by a direct API request): on GrowthBook Cloud the ambient identity
-    // would be GrowthBook's own infrastructure, not the customer's.
+    // On Cloud the ambient identity would be GrowthBook's infrastructure, not the customer's.
     if (IS_CLOUD) {
       throw new Error(
         "Workload Identity authentication is only supported on self-hosted GrowthBook installations",
       );
     }
-    // Allowlist, not a presence check: the TypeScript union only constrains the
-    // UI — a direct API request can supply anything, and an invalid value would
-    // otherwise surface as an opaque SDK/connection failure instead of a clear
-    // configuration error.
+    // Fail before connecting; the SDK would also accept OIDC, which needs a token we don't plumb.
     if (
       conn.workloadIdentityProvider !== "AWS" &&
       conn.workloadIdentityProvider !== "AZURE" &&

@@ -124,9 +124,6 @@ describe("mergeDataSourceParams", () => {
   });
 
   it("strips stored credentials when a snowflake datasource switches to workload identity", () => {
-    // Blank secret updates normally mean "keep existing" — but workload identity's
-    // whole point is that nothing is stored, so the superseded credentials must not
-    // survive the switch even though the client can only send blanks.
     const merged = mergeDataSourceParams(
       "snowflake",
       {
