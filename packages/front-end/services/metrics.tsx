@@ -10,8 +10,15 @@ import {
 } from "shared/types/fact-table";
 import { CreateProps } from "shared/types/base-model";
 import {
+  getCappingTailState,
+  isCappableFactMetric,
+  validateCappingSettingsIgnoreZerosConsistency,
+  validateCappingSettingsOrdering,
+} from "shared/validators";
+import {
   getInlineFilterPromptColumns,
   ExperimentMetricDefinition,
+  isEmptyInlineFilterPlaceholder,
 } from "shared/experiments";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
@@ -223,6 +230,50 @@ export function fromFactMetricFormValues(
     result.displayAsPercentage = true;
   }
 
+  // Type-dependent resets the old modal applied on submit. applyFormType only
+  // runs when the user switches type, so a template or duplicate seed would
+  // otherwise save whatever it came with.
+  const type = result.metricType;
+  if (type !== "funnel") {
+    const numerator = { ...result.numerator };
+    if (type === "proportion" || type === "retention") {
+      numerator.column = "$$distinctUsers";
+      numerator.aggregation = undefined;
+    } else if (type === "dailyParticipation") {
+      numerator.column = "$$distinctDates";
+      numerator.aggregation = undefined;
+    }
+    // A user filter (aggregateFilter) only applies to proportion, retention,
+    // and a ratio numerator on unique users.
+    if (
+      !(type === "proportion" || type === "retention" || type === "ratio") ||
+      (type === "ratio" && numerator.column !== "$$distinctUsers")
+    ) {
+      numerator.aggregateFilterColumn = undefined;
+    }
+    if (!numerator.aggregateFilterColumn) numerator.aggregateFilter = undefined;
+    result.numerator = numerator;
+  }
+  if (type !== "quantile") result.quantileSettings = null;
+  if (type !== "ratio") result.denominator = null;
+
+  if (!isCappableFactMetric(type)) {
+    if (result.cappingSettings?.type) {
+      result.cappingSettings = {
+        ...result.cappingSettings,
+        type: "",
+        value: 0,
+      };
+    }
+    result.lowerCappingSettings = null;
+  } else if (
+    type === "ratio" &&
+    result.lowerCappingSettings?.type === "absolute"
+  ) {
+    // Ratio metrics only support percentile capping.
+    result.lowerCappingSettings = null;
+  }
+
   if (result.cappingSettings?.type && !result.cappingSettings.value) {
     throw new Error("Capped Value cannot be 0");
   }
@@ -231,7 +282,125 @@ export function fromFactMetricFormValues(
     throw new Error("Must select a Data Source");
   }
 
+  // Unfilled inline-filter prompts are UI placeholders, not filters. Saved as
+  // `col = ''` they would match almost no rows.
+  const dropPlaceholders = (rowFilters: RowFilter[] | undefined) =>
+    rowFilters?.filter((rf) => !isEmptyInlineFilterPlaceholder(rf));
+  if (type === "funnel") {
+    if (result.funnelSettings) {
+      result.funnelSettings = {
+        ...result.funnelSettings,
+        steps: result.funnelSettings.steps.map((step) => ({
+          ...step,
+          rowFilters: dropPlaceholders(step.rowFilters) ?? [],
+        })),
+      };
+    }
+  } else {
+    result.numerator = {
+      ...result.numerator,
+      rowFilters: dropPlaceholders(result.numerator.rowFilters),
+    };
+    if (result.denominator) {
+      result.denominator = {
+        ...result.denominator,
+        rowFilters: dropPlaceholders(result.denominator.rowFilters),
+      };
+    }
+  }
+
   return result;
+}
+
+// Save-time checks for values the editor's inputs can't stop on their own
+// (Save doesn't go through a native form submit). Runs on the output of
+// fromFactMetricFormValues, so percents are already fractions. Kept separate
+// so the live preview can still run on a half-filled draft.
+export function validateFactMetricFormValues(
+  values: CreateFactMetricFormProps,
+): void {
+  const isNumber = (n: unknown): n is number =>
+    typeof n === "number" && Number.isFinite(n);
+  const type = values.metricType;
+
+  if (type !== "funnel") {
+    const numerator = values.numerator;
+    if (numerator.aggregateFilterColumn && !numerator.aggregateFilter?.trim()) {
+      throw new Error("Enter a threshold comparison, such as >= 3.");
+    }
+    if (
+      numerator.aggregateFilterColumn &&
+      getCappingTailState(values.cappingSettings, values.lowerCappingSettings)
+        .anyCap
+    ) {
+      throw new Error(
+        "Cannot use both capping and a user filter. Remove one of them.",
+      );
+    }
+  }
+
+  const capping = values.cappingSettings;
+  if (capping?.type) {
+    if (!isNumber(capping.value) || capping.value <= 0) {
+      throw new Error("Enter a capped value greater than 0.");
+    }
+    if (capping.type === "percentile" && capping.value >= 1) {
+      throw new Error(
+        "Enter the percentile cap as a decimal between 0 and 1, such as 0.95.",
+      );
+    }
+  }
+  const lower = values.lowerCappingSettings;
+  if (lower?.type) {
+    if (!isNumber(lower.value)) {
+      throw new Error("Enter a lower capped value.");
+    }
+    if (lower.type === "percentile" && (lower.value <= 0 || lower.value >= 1)) {
+      throw new Error(
+        "Enter the lower percentile cap as a decimal between 0 and 1, such as 0.05.",
+      );
+    }
+  }
+  // Tail ordering and matching ignore-zeros, same checks as the server.
+  validateCappingSettingsOrdering(capping, lower);
+  validateCappingSettingsIgnoreZerosConsistency(capping, lower);
+
+  const ws = values.windowSettings;
+  if (ws) {
+    if (!isNumber(ws.delayValue)) throw new Error("Enter a metric delay.");
+    if (type === "retention" && ws.delayValue <= 0) {
+      throw new Error("Enter a retention delay greater than 0.");
+    }
+    if (
+      (ws.type === "conversion" || ws.type === "lookback") &&
+      (!isNumber(ws.windowValue) || ws.windowValue <= 0)
+    ) {
+      throw new Error("Enter a metric window greater than 0.");
+    }
+  }
+
+  if (
+    values.regressionAdjustmentOverride &&
+    values.regressionAdjustmentEnabled &&
+    (!isNumber(values.regressionAdjustmentDays) ||
+      values.regressionAdjustmentDays <= 0)
+  ) {
+    throw new Error("Enter a CUPED lookback greater than 0 days.");
+  }
+
+  const numericSettings: [string, unknown][] = [
+    ["Minimum sample size", values.minSampleSize],
+    ["Minimum percent change", values.minPercentChange],
+    ["Maximum percent change", values.maxPercentChange],
+    ...(values.targetMDE === undefined
+      ? []
+      : [["Target MDE", values.targetMDE] as [string, unknown]]),
+  ];
+  for (const [label, value] of numericSettings) {
+    if (!isNumber(value) || value < 0) {
+      throw new Error(`${label} must be a number of 0 or more.`);
+    }
+  }
 }
 
 export function getMetricConversionTitle(type: MetricType): string {

@@ -1,6 +1,8 @@
 import { quantileSettingsValidator } from "shared/validators";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { isEmptyInlineFilterPlaceholder } from "shared/experiments";
+import { useEffect, useRef, useState } from "react";
 import omit from "lodash/omit";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -14,6 +16,7 @@ import {
   fromFactMetricFormValues,
   getDefaultFactMetricProps,
   toFactMetricFormValues,
+  validateFactMetricFormValues,
 } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -79,7 +82,7 @@ export default function MetricWorkspace({
   existing: FactMetricInterface | null;
   isEditing: boolean;
   setIsEditing?: (value: boolean) => void;
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
   onSaved?: (metric: FactMetricInterface) => void;
   onCancel?: () => void;
 }) {
@@ -109,8 +112,48 @@ export default function MetricWorkspace({
   // existing metric) while MetricEditor's own effect reports the real value.
   const [representable, setRepresentable] = useState(true);
 
+  // Unsaved-changes guard. Snapshots skip unfilled inline-filter prompts,
+  // which MetricEditor adds on its own when editing starts.
+  const router = useRouter();
+  const baseline = useRef("");
+  const leaving = useRef(false);
+  const snapshot = () =>
+    JSON.stringify(form.getValues(), (key, value) =>
+      key === "rowFilters" && Array.isArray(value)
+        ? value.filter((rf) => !isEmptyInlineFilterPlaceholder(rf))
+        : value,
+    );
+  useEffect(() => {
+    if (!isEditing) return;
+    leaving.current = false;
+    baseline.current = snapshot();
+    const isDirty = () => !leaving.current && snapshot() !== baseline.current;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty()) e.preventDefault();
+    };
+    const onRouteChangeStart = () => {
+      if (
+        !isDirty() ||
+        window.confirm("Leave without saving? Your changes will be lost.")
+      ) {
+        return;
+      }
+      router.events.emit("routeChangeError");
+      // Next's pages router only cancels a route change when a handler throws.
+      throw new Error("Navigation cancelled to keep unsaved metric changes");
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    router.events.on("routeChangeStart", onRouteChangeStart);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      router.events.off("routeChangeStart", onRouteChangeStart);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, router.events]);
+
   function resync(source: FactMetricInterface | null) {
     form.reset(buildFormDefaults(source, defaultsCtx));
+    baseline.current = snapshot();
   }
 
   // useForm's defaultValues are only read once, at mount - view mode would
@@ -128,6 +171,7 @@ export default function MetricWorkspace({
 
   async function handleSave() {
     const values = fromFactMetricFormValues(form.getValues());
+    validateFactMetricFormValues(values);
     // Save calls form.getValues() directly, not a native form submit, so the
     // Name field's `required` attribute (HTML5 constraint validation) never
     // runs - check it explicitly instead.
@@ -159,7 +203,8 @@ export default function MetricWorkspace({
         method: "PUT",
         body: JSON.stringify(updatePayload),
       });
-      mutate();
+      // Await so view mode doesn't resync from the pre-edit metric.
+      await mutate();
       setIsEditing(false);
     } else {
       // New metrics have no Projects field of their own yet (matches
@@ -180,13 +225,16 @@ export default function MetricWorkspace({
           body: JSON.stringify(createPayload),
         },
       );
-      mutate();
+      // Await so the metric page can find the new metric on arrival.
+      await mutate();
+      leaving.current = true;
       onSaved?.(res.factMetric);
     }
   }
 
   function handleDiscard() {
     if (onCancel) {
+      leaving.current = true;
       onCancel();
       return;
     }
