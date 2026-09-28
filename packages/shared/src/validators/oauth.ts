@@ -1,34 +1,28 @@
 import { z } from "zod";
 import { isLoopbackHost } from "../util/oauth";
-import { createBaseSchemaWithPrimaryKey } from "./base-model";
+import { baseSchema, createBaseSchemaWithPrimaryKey } from "./base-model";
 
 // "org-apps" allows only OAuth apps registered by this organization's admins.
 export const oauthAccessPolicyValidator = z.enum(["any", "org-apps", "none"]);
 export type OAuthAccessPolicy = z.infer<typeof oauthAccessPolicyValidator>;
 
 /**
- * OAuth clients. Two kinds share this collection:
- * - Public clients registered via DCR (RFC 7591): no org, no secret, and
- *   `expiresAt` + TTL bound growth (idle window reset on token issuance).
- * - Org OAuth apps registered by an admin: confidential (`clientSecretHash`),
- *   bound to `organization`, and never expire.
+ * Public OAuth clients registered via DCR (RFC 7591). No org scoping.
+ * DCR is unauthenticated, so `expiresAt` + TTL bound growth (idle window
+ * reset on token issuance).
  */
 export const oauthClientValidator = z
   .object({
     clientId: z.string(),
     clientName: z.string().optional(),
     redirectUris: z.array(z.string()).min(1),
-    tokenEndpointAuthMethod: z.enum(["none", "client_secret_basic"]),
+    tokenEndpointAuthMethod: z.literal("none"),
     grantTypes: z.array(z.string()),
     responseTypes: z.array(z.string()),
     scope: z.string().optional(),
     clientUri: z.string().optional(),
-    organization: z.string().optional(),
-    clientSecretHash: z.string().optional(),
-    createdBy: z.string().optional(),
     dateCreated: z.date(),
-    dateUpdated: z.date().optional(),
-    expiresAt: z.date().optional(),
+    expiresAt: z.date(),
   })
   .strict();
 
@@ -56,13 +50,25 @@ export const oauthAppPropsValidator = z
 
 export type OAuthAppProps = z.infer<typeof oauthAppPropsValidator>;
 
+/**
+ * Confidential OAuth clients registered by an org's admins. Own collection;
+ * the BaseModel `id` is the OAuth `client_id`.
+ */
+export const orgOAuthAppValidator = baseSchema.safeExtend({
+  clientName: z.string(),
+  redirectUris: z.array(z.string()).min(1),
+  clientUri: z.string(),
+  clientSecretHash: z.string(),
+  createdBy: z.string(),
+});
+
+export type OrgOAuthAppInterface = z.infer<typeof orgOAuthAppValidator>;
+
 /** Admin-facing shape of an org OAuth app; never includes the secret hash. */
-export type OAuthAppInterface = OAuthAppProps & {
-  clientId: string;
-  createdBy?: string;
-  dateCreated: Date;
-  dateUpdated?: Date;
-};
+export type OAuthAppInterface = Omit<
+  OrgOAuthAppInterface,
+  "id" | "organization" | "clientSecretHash"
+> & { clientId: string };
 
 /**
  * Short-lived authorization codes. Primary key is the hashed code

@@ -55,6 +55,7 @@ export const POLICIES = [
   "ProjectAdminAccess",
   "TagsFullAccess",
   "APIKeysFullAccess",
+  "OAuthAppsFullAccess",
   "IntegrationsFullAccess",
   "EventWebhooksFullAccess",
   "BillingFullAccess",
@@ -312,6 +313,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ProjectAdminAccess: ["readData", "manageProjects"],
   TagsFullAccess: ["readData", "manageTags"],
   APIKeysFullAccess: ["readData", "manageApiKeys"],
+  OAuthAppsFullAccess: ["readData", "manageOAuthApps"],
   IntegrationsFullAccess: ["readData", "manageIntegrations"],
   EventWebhooksFullAccess: ["readData", "manageEventWebhooks", "viewAuditLog"],
   BillingFullAccess: ["readData", "manageBilling"],
@@ -430,6 +432,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "ProjectAdminAccess",
       "TagsFullAccess",
       "APIKeysFullAccess",
+      "OAuthAppsFullAccess",
       "IntegrationsFullAccess",
       "EventWebhooksFullAccess",
       "BillingFullAccess",
@@ -694,6 +697,13 @@ export const POLICY_METADATA_MAP: Record<
     description:
       "Create, edit, and delete API secret keys. Not required to create Personal Access Tokens.",
     warning: "Can be used to create an API Key with full admin permissions.",
+  },
+  OAuthAppsFullAccess: {
+    displayName: "OAuth Apps Full Access",
+    description:
+      "Register OAuth apps that act as the members who authorize them, and view or revoke members' OAuth authorizations.",
+    warning:
+      "A registered app acts with the full permissions of every member who authorizes it.",
   },
   IntegrationsFullAccess: {
     displayName: "Integrations Full Access",
@@ -1041,6 +1051,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageTeam",
   "manageTags",
   "manageApiKeys",
+  "manageOAuthApps",
   "manageIntegrations",
   "manageEventWebhooks",
   "manageBilling",

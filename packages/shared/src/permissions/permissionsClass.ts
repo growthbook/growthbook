@@ -169,6 +169,10 @@ export class Permissions {
     return this.checkGlobalPermission("manageApiKeys");
   };
 
+  public canManageOAuthApps = (): boolean => {
+    return this.checkGlobalPermission("manageOAuthApps");
+  };
+
   public canManageTeam = (): boolean => {
     return this.checkGlobalPermission("manageTeam");
   };

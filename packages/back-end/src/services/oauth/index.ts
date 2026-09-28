@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Request } from "express";
-import { OAuthClientInterface, OAuthDcrRequest } from "shared/validators";
+import { OAuthDcrRequest } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { isOAuthClientAllowed } from "shared/util";
 import {
@@ -16,8 +16,9 @@ import {
   getOAuthClientById,
   getOAuthClientsByIds,
   touchOAuthClient,
-} from "back-end/src/models/OAuthClientModel";
+} from "back-end/src/models/GlobalOAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
+import { OrgOAuthAppModel } from "back-end/src/models/OrgOAuthAppModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {
   getContextForAgendaJobByOrgObject,
@@ -55,9 +56,47 @@ async function getOrgForGrant(
   return org;
 }
 
+/** Either kind of client, as the token endpoints see them. */
+interface ResolvedOAuthClient {
+  clientId: string;
+  clientName: string;
+  clientUri?: string;
+  redirectUris: string[];
+  // The registering org for org apps; null for public DCR clients.
+  organization: string | null;
+  clientSecretHash: string | null;
+}
+
+/** The token endpoints only know a client_id, so look in both collections. */
+async function findOAuthClient(
+  clientId: string,
+): Promise<ResolvedOAuthClient | null> {
+  const app = await OrgOAuthAppModel.dangerousFindById(clientId);
+  if (app) {
+    return {
+      clientId: app.id,
+      clientName: app.clientName,
+      clientUri: app.clientUri || undefined,
+      redirectUris: app.redirectUris,
+      organization: app.organization,
+      clientSecretHash: app.clientSecretHash,
+    };
+  }
+  const client = await getOAuthClientById(clientId);
+  if (!client) return null;
+  return {
+    clientId: client.clientId,
+    clientName: client.clientName || client.clientId,
+    clientUri: client.clientUri,
+    redirectUris: client.redirectUris,
+    organization: null,
+    clientSecretHash: null,
+  };
+}
+
 /** Confidential clients (org OAuth apps) must present their secret; public DCR clients have none. */
 function verifyClientSecret(
-  client: OAuthClientInterface,
+  client: ResolvedOAuthClient,
   clientSecret: string | undefined,
 ): void {
   if (!client.clientSecretHash) return;
@@ -72,8 +111,8 @@ function verifyClientSecret(
 async function authenticateClient(
   clientId: string,
   clientSecret: string | undefined,
-): Promise<OAuthClientInterface> {
-  const client = await getOAuthClientById(clientId);
+): Promise<ResolvedOAuthClient> {
+  const client = await findOAuthClient(clientId);
   if (!client) {
     throw new OAuthError("invalid_client", "Unknown client_id");
   }
@@ -83,7 +122,7 @@ async function authenticateClient(
 
 /** Org binding for org apps, then the org's OAuth access policy. */
 function assertClientAllowedInOrg(
-  client: Pick<OAuthClientInterface, "clientId" | "organization">,
+  client: Pick<ResolvedOAuthClient, "organization">,
   org: OrganizationInterface,
   error: "access_denied" | "invalid_grant",
 ): void {
@@ -93,7 +132,7 @@ function assertClientAllowedInOrg(
       "This application is registered to a different organization",
     );
   }
-  if (!isOAuthClientAllowed(org, client.organization ?? null)) {
+  if (!isOAuthClientAllowed(org, client.organization)) {
     throw new OAuthError(
       error,
       "This organization does not allow this application to access GrowthBook",
@@ -174,9 +213,9 @@ export async function listConnectedApps(
   // client record was removed) still lists, falling back to the clientId.
   await Promise.all(
     apps.map(async (app) => {
-      const client = await getOAuthClientById(app.clientId);
+      const client = await findOAuthClient(app.clientId);
       if (client) {
-        app.clientName = client.clientName || client.clientId;
+        app.clientName = client.clientName;
         app.clientUri = client.clientUri;
       }
     }),
@@ -218,22 +257,27 @@ export async function listOrgGrants(
   context: ApiReqContext,
 ): Promise<OrgOAuthGrant[]> {
   const grants = await context.models.oauthGrants.dangerousGetAllActiveForOrg();
-  const [clients, users] = await Promise.all([
-    getOAuthClientsByIds([...new Set(grants.map((g) => g.clientId))]),
+  const clientIds = [...new Set(grants.map((g) => g.clientId))];
+  const [orgApps, publicClients, users] = await Promise.all([
+    context.models.orgOAuthApps.getByIds(clientIds),
+    getOAuthClientsByIds(clientIds),
     context.getUsersByIds([...new Set(grants.map((g) => g.userId))]),
   ]);
-  const clientById = new Map(clients.map((c) => [c.clientId, c]));
+  const orgAppById = new Map(orgApps.map((a) => [a.id, a]));
+  const publicClientById = new Map(publicClients.map((c) => [c.clientId, c]));
   const userById = new Map(users.map((u) => [u.id, u]));
 
   return grants
     .map((grant) => {
-      const client = clientById.get(grant.clientId);
+      const orgApp = orgAppById.get(grant.clientId);
       const user = userById.get(grant.userId);
       return {
         clientId: grant.clientId,
-        clientName: client?.clientName || grant.clientId,
-        // Deleting an org app revokes its grants, so an active grant with no client row is DCR.
-        isOrgApp: !!client?.organization,
+        clientName:
+          orgApp?.clientName ||
+          publicClientById.get(grant.clientId)?.clientName ||
+          grant.clientId,
+        isOrgApp: !!orgApp,
         userId: grant.userId,
         userName: user?.name || "",
         userEmail: user?.email || "",
@@ -334,7 +378,7 @@ export async function getAuthorizeInfo(params: {
   clientId: string;
   redirectUri: string;
 }) {
-  const client = await getOAuthClientById(params.clientId);
+  const client = await findOAuthClient(params.clientId);
   if (!client) {
     throw new OAuthError("invalid_client", "Unknown client_id");
   }
@@ -346,7 +390,7 @@ export async function getAuthorizeInfo(params: {
   }
   return {
     clientId: client.clientId,
-    clientName: client.clientName || client.clientId,
+    clientName: client.clientName,
     redirectUri: params.redirectUri,
     organization: client.organization,
   };
@@ -458,14 +502,14 @@ export async function exchangeAuthorizationCode(params: {
 
   const tokens = await issueTokenPair(context, {
     clientId: authCode.clientId,
-    officialClientForOrg: client.organization ?? null,
+    officialClientForOrg: client.organization,
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
   });
 
   // startGrant re-arms a grant that app deletion revoked moments ago; re-check the client.
-  if (!(await getOAuthClientById(client.clientId))) {
+  if (!(await findOAuthClient(client.clientId))) {
     await tearDownGrant(context, authCode.clientId, authCode.userId);
     throw new OAuthError("invalid_client", "Unknown client_id");
   }
@@ -540,7 +584,7 @@ export async function exchangeRefreshToken(params: {
 
   return issueTokenPair(context, {
     clientId: existing.clientId,
-    officialClientForOrg: client.organization ?? null,
+    officialClientForOrg: client.organization,
     userId: existing.userId,
     scope: existing.scope,
     resource: existing.resource,
@@ -554,7 +598,7 @@ export async function revokeToken(params: {
 }): Promise<void> {
   // RFC 7009 §2.1: confidential clients must authenticate to revoke.
   const client = params.clientId
-    ? await getOAuthClientById(params.clientId)
+    ? await findOAuthClient(params.clientId)
     : null;
   if (client) verifyClientSecret(client, params.clientSecret);
   const tokenHash = hashToken(params.token);
@@ -665,8 +709,8 @@ async function issueTokenPair(
     throw new OAuthError("invalid_grant", "Grant has been revoked");
   }
 
-  // Keep the DCR client row alive while in use.
-  await touchOAuthClient(params.clientId);
+  // Keep the DCR client row alive while in use; org apps have no TTL.
+  if (!params.officialClientForOrg) await touchOAuthClient(params.clientId);
 
   return {
     access_token: accessToken,

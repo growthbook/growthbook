@@ -79,8 +79,7 @@ const OAuthAppsSettings: FC = () => {
   const { apiCall } = useAuth();
   const { settings, refreshOrganization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const canManageApps = permissionsUtil.canCreateApiKey();
-  const canDeleteApps = permissionsUtil.canDeleteApiKey();
+  const canManageApps = permissionsUtil.canManageOAuthApps();
   const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
   // Downgraded orgs keep using their apps but can't create or change them.
   const hasFeature = hasCommercialFeature("oauth-apps");
@@ -259,25 +258,23 @@ const OAuthAppsSettings: FC = () => {
                       >
                         Rotate secret
                       </DropdownMenuItem>
-                      {canDeleteApps && (
-                        <DropdownMenuItem
-                          color="red"
-                          confirmation={{
-                            submit: async () => {
-                              await apiCall(`/oauth-apps/${app.clientId}`, {
-                                method: "DELETE",
-                              });
-                              refresh();
-                            },
-                            confirmationTitle: "Delete OAuth app",
-                            cta: "Delete",
-                            getConfirmationContent: async () =>
-                              `Deleting "${app.clientName}" immediately signs it out for every member who authorized it (${app.authorizedUsers}). This can't be undone.`,
-                          }}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      )}
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          submit: async () => {
+                            await apiCall(`/oauth-apps/${app.clientId}`, {
+                              method: "DELETE",
+                            });
+                            refresh();
+                          },
+                          confirmationTitle: "Delete OAuth app",
+                          cta: "Delete",
+                          getConfirmationContent: async () =>
+                            `Deleting "${app.clientName}" immediately signs it out for every member who authorized it (${app.authorizedUsers}). This can't be undone.`,
+                        }}
+                      >
+                        Delete
+                      </DropdownMenuItem>
                     </DropdownMenuGroup>
                   </DropdownMenu>
                 </TableCell>
@@ -299,11 +296,7 @@ const OAuthAppsSettings: FC = () => {
       </PremiumTooltip>
 
       {grantsData && (
-        <OAuthGrantsTable
-          grants={grantsData.grants}
-          canRevoke={canDeleteApps}
-          onRevoked={refresh}
-        />
+        <OAuthGrantsTable grants={grantsData.grants} onRevoked={refresh} />
       )}
 
       {editing && (
