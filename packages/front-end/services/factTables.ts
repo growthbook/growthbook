@@ -168,17 +168,17 @@ export function getPickerTableSql(
     return rowFilterWhere ? `${sql}\n  AND ${rowFilterWhere}` : sql;
   }
 
+  const quote = (c: string) =>
+    SIMPLE_IDENTIFIER.test(c) ? c : quoteIdentifier(c, identifierQuote);
+
   const where = table.shards ? [shardFilter(table.hasIntraday)] : [];
   if (partitionColumn) {
     const start = `'{{date startDateISO "yyyy-MM-dd"}}'`;
     // Athena doesn't coerce a string literal when comparing it to a date
     const literal = datasourceType === "athena" ? `DATE ${start}` : start;
-    where.push(`${partitionColumn} >= ${literal}`);
+    where.push(`${quote(partitionColumn)} >= ${literal}`);
   }
   if (rowFilterWhere) where.push(rowFilterWhere);
-
-  const quote = (c: string) =>
-    SIMPLE_IDENTIFIER.test(c) ? c : quoteIdentifier(c, identifierQuote);
   const select = columns?.length
     ? `SELECT\n  ${columns.map(quote).join(",\n  ")}\nFROM ${table.path}`
     : `SELECT * FROM ${table.path}`;

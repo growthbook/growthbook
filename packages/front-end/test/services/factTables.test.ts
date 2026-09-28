@@ -134,6 +134,15 @@ describe("getPickerTableSql", () => {
     ).toContain(`event_date >= DATE ${start}`);
   });
 
+  it("quotes a partition column that needs it", () => {
+    expect(
+      getPickerTableSql(tracks, {
+        partitionColumn: "Order Date",
+        identifierQuote: "`",
+      }),
+    ).toContain(`\`Order Date\` >= ${start}`);
+  });
+
   it("keeps the intraday OR grouped when adding the partition filter", () => {
     const [events] = getSchemaBrowserTables(
       schema("marts", "events_20240101", "events_intraday_20240102"),

@@ -298,6 +298,7 @@ export default function NewFactTableSqlStep({
   rowFilters,
   setRowFilters,
   columnSource,
+  columnNames,
   testRowFilters,
   rowFilterError,
   selectedColumns,
@@ -321,6 +322,8 @@ export default function NewFactTableSqlStep({
   setRowFilters: (rowFilters: RowFilter[]) => void;
   // Null until the selected table's columns load
   columnSource: FilterColumnSource | null;
+  // Every column, including the complex ones filters leave out
+  columnNames: string[] | null;
   testRowFilters: (rowFilters: RowFilter[]) => Promise<RowFilterTestResults>;
   rowFilterError: string | null;
   // Null selects every column
@@ -353,7 +356,7 @@ export default function NewFactTableSqlStep({
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
-  const columnCount = columnSource?.columns.length ?? 0;
+  const columnCount = columnNames?.length ?? 0;
 
   const validDatasources = datasources
     .filter((d) => isProjectListValidForProject(d.projects, project))
@@ -611,7 +614,7 @@ export default function NewFactTableSqlStep({
                   mb="0"
                 >
                   <SelectItem value="all">
-                    All {columnSource?.columns.length ?? ""} columns
+                    All {columnNames?.length ?? ""} columns
                   </SelectItem>
                   <SelectItem value="specific">Specific columns</SelectItem>
                 </Select>
@@ -625,11 +628,14 @@ export default function NewFactTableSqlStep({
                   <MultiSelectField
                     value={selectedColumns}
                     onChange={setSelectedColumns}
-                    options={columnSource?.columns ?? []}
+                    options={(columnNames ?? []).map((c) => ({
+                      label: c,
+                      value: c,
+                    }))}
                     placeholder="Select columns..."
                     size="md"
                     sort={false}
-                    disabled={!columnSource}
+                    disabled={!columnNames}
                     autoFocus
                   />
                 ) : null}

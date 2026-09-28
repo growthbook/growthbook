@@ -312,8 +312,21 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       ),
     [tableColumns],
   );
+  const columnNames = useMemo(
+    () => tableColumns?.map((c) => c.columnName) ?? null,
+    [tableColumns],
+  );
+  // Complex types (STRUCT, ARRAY, JSON) can't be compared with a literal, so
+  // filters only offer primitive columns. A SQL filter covers the rest.
   const columnSource = useMemo(
-    () => (tableColumns ? columnTypesToColumnSource(columnTypes) : null),
+    () =>
+      tableColumns
+        ? columnTypesToColumnSource(
+            Object.fromEntries(
+              Object.entries(columnTypes).filter(([, t]) => t !== "other"),
+            ),
+          )
+        : null,
     [tableColumns, columnTypes],
   );
 
@@ -520,6 +533,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
             rowFilters={rowFilters}
             setRowFilters={setRowFilters}
             columnSource={columnSource}
+            columnNames={columnNames}
             testRowFilters={testRowFilters}
             rowFilterError={rowFilterError}
             selectedColumns={selectedColumns}
