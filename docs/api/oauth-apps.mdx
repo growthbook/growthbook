@@ -87,7 +87,7 @@ Each refresh returns a new refresh token, and the old one stops working. **Prese
 
 ### Revoking access
 
-Members can revoke your app from **Personal Access Tokens → Connected Apps**. Your app can revoke a token by posting it to `/oauth/revoke` with the same client credentials. Deleting an app from **Settings → API Keys** signs it out for every member immediately.
+Members can revoke your app from **Personal Access Tokens → Connected Apps**. Admins can see every member's authorizations, for any application, under **Member Authorizations** in the OAuth Apps section and revoke any of them. Your app can revoke a token by posting it to `/oauth/revoke` with the same client credentials. Deleting an app from **Settings → API Keys** signs it out for every member immediately.
 
 ## Self-hosted
 

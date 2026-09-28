@@ -12,6 +12,9 @@ import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
+import OAuthGrantsTable, {
+  OrgOAuthGrant,
+} from "@/components/Settings/OAuthGrantsTable";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -172,6 +175,14 @@ const OAuthAppsSettings: FC = () => {
   const { data, error, mutate } = useApi<OAuthAppsResponse>("/oauth-apps", {
     shouldRun: () => canManageApps,
   });
+  const { data: grantsData, mutate: mutateGrants } = useApi<{
+    grants: OrgOAuthGrant[];
+  }>("/oauth-apps/grants", { shouldRun: () => canManageApps });
+  // App counts and the grants table move together on revoke or delete.
+  const refresh = () => {
+    mutate();
+    mutateGrants();
+  };
 
   const [editing, setEditing] = useState<OAuthApp | "new" | null>(null);
   const [credentials, setCredentials] = useState<{
@@ -323,7 +334,7 @@ const OAuthAppsSettings: FC = () => {
                               await apiCall(`/oauth-apps/${app.clientId}`, {
                                 method: "DELETE",
                               });
-                              mutate();
+                              refresh();
                             },
                             confirmationTitle: "Delete OAuth app",
                             cta: "Delete",
@@ -348,6 +359,14 @@ const OAuthAppsSettings: FC = () => {
           New OAuth app
         </Button>
       </PremiumTooltip>
+
+      {grantsData && (
+        <OAuthGrantsTable
+          grants={grantsData.grants}
+          canRevoke={canDeleteApps}
+          onRevoked={refresh}
+        />
+      )}
 
       {editing && (
         <OAuthAppModal

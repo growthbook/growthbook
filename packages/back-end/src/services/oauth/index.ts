@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { Request } from "express";
 import { OAuthClientInterface, OAuthDcrRequest } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
-import { isOAuthClientAllowed } from "shared/util";
+import { isOAuthClientAllowed, isOrgOAuthAppClientId } from "shared/util";
 import {
   APP_ORIGIN,
   OAUTH_ACCESS_TOKEN_TTL_SECONDS,
@@ -18,6 +18,7 @@ import {
 } from "back-end/src/models/OAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
+import { getUsersByIds } from "back-end/src/models/UserModel";
 import {
   getContextForAgendaJobByOrgObject,
   getContextForUserIdInOrg,
@@ -200,6 +201,64 @@ export async function revokeConnectedApp(
     throw new OAuthError("access_denied", "Must be authenticated");
   }
   await tearDownGrant(context, clientId, context.userId);
+}
+
+export interface OrgOAuthGrant {
+  clientId: string;
+  clientName: string;
+  isOrgApp: boolean;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  firstAuthorizedAt: Date;
+  // Last token activity (issuance or refresh bumps the grant), not last consent
+  lastUsedAt: Date;
+}
+
+/** Every member's active grant in the org, enriched with client and user details. */
+export async function listOrgGrants(
+  context: ApiReqContext,
+): Promise<OrgOAuthGrant[]> {
+  const grants = await context.models.oauthGrants.getActiveForOrg();
+  const clientIds = [...new Set(grants.map((g) => g.clientId))];
+  const [clients, users] = await Promise.all([
+    Promise.all(clientIds.map((id) => getOAuthClientById(id))),
+    getUsersByIds([...new Set(grants.map((g) => g.userId))]),
+  ]);
+  const clientById = new Map(
+    clients.flatMap((c) => (c ? [[c.clientId, c] as const] : [])),
+  );
+  const userById = new Map(users.map((u) => [u.id, u]));
+
+  return grants
+    .map((grant) => {
+      const client = clientById.get(grant.clientId);
+      const user = userById.get(grant.userId);
+      return {
+        clientId: grant.clientId,
+        clientName: client?.clientName || grant.clientId,
+        isOrgApp: isOrgOAuthAppClientId(grant.clientId),
+        userId: grant.userId,
+        userName: user?.name || "",
+        userEmail: user?.email || "",
+        firstAuthorizedAt: grant.dateCreated,
+        lastUsedAt: grant.dateUpdated,
+      };
+    })
+    .sort((a, b) => b.lastUsedAt.getTime() - a.lastUsedAt.getTime());
+}
+
+/** Admin revoke of one member's grant; same teardown as the member's own revoke. */
+export async function revokeMemberGrant(
+  context: ApiReqContext,
+  clientId: string,
+  userId: string,
+): Promise<void> {
+  const grant = await context.models.oauthGrants.getGrant(clientId, userId);
+  if (!grant || grant.revoked) {
+    context.throwNotFoundError("Authorization not found");
+  }
+  await tearDownGrant(context, clientId, userId);
 }
 
 /** Ends every member's grant with one client in this org (org app deletion). */
