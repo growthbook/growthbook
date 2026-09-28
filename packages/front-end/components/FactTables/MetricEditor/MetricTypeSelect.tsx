@@ -12,7 +12,6 @@ import {
 } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
 import { Select, SelectGroup, SelectItem, SelectLabel } from "@/ui/Select";
-import Text from "@/ui/Text";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { FormMetricType } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import styles from "./MetricTypeSelect.module.scss";
@@ -131,11 +130,7 @@ export default function MetricTypeSelect({
     <Flex direction="column" gap="1">
       <Select
         aria-label="Metric type"
-        label={
-          <Flex direction="column" gap="1" mb="2">
-            <Text weight="semibold">Metric type</Text>
-          </Flex>
-        }
+        label="Metric type"
         triggerClassName={styles.trigger}
         value={value}
         setValue={(v) => onChange(v as FormMetricType)}

@@ -121,7 +121,7 @@ function FunnelStepInput({
           {!inheritTable && (
             <SelectField
               size="small"
-              label="Fact Table"
+              label="Fact table"
               disabled={disableFactTableSelector}
               value={step.factTableId}
               options={factTableOptions}
@@ -261,7 +261,7 @@ export default function FunnelStepsInput({
   initialFactTable?: string;
   allowChangingDatasource?: boolean;
 }) {
-  const { factTables, getFactTableById } = useDefinitions();
+  const { factTables, getFactTableById, getDatasourceById } = useDefinitions();
   const overriddenTables = useRef(
     new Set(
       value.steps.flatMap((step, index) =>
@@ -324,7 +324,10 @@ export default function FunnelStepsInput({
     )
     .filter((t) => isProjectListValidForProject(t.projects, project))
     .map((t) => ({
-      label: t.name,
+      label:
+        allowChangingDatasource && !hasCommitted
+          ? `${t.name} (${getDatasourceById(t.datasource)?.name || t.datasource})`
+          : t.name,
       value: t.id,
     }));
 
