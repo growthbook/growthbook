@@ -1,6 +1,7 @@
 import {
   ExplorationConfig,
   explorationConfigValidator,
+  internalExplorationConfigValidator,
   ProductAnalyticsExploration,
   ExplorationCacheQuery,
   factMetricValidator,
@@ -77,9 +78,17 @@ const PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS = 5000;
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
   config: ExplorationConfig,
-  options: ExplorationCacheQuery,
+  options: ExplorationCacheQuery & {
+    // Only the internal app endpoint (metric editor preview) may run unsaved
+    // `draftMetric` definitions; every other caller gets them stripped.
+    allowDraftMetrics?: boolean;
+  },
 ): Promise<ProductAnalyticsExploration | null> {
-  config = explorationConfigValidator.parse(config);
+  config = (
+    options.allowDraftMetrics
+      ? internalExplorationConfigValidator
+      : explorationConfigValidator
+  ).parse(config);
 
   const dataset = config.dataset;
   if (!dataset) {
@@ -99,6 +108,16 @@ export async function runProductAnalyticsExploration(
   const datasource = await getDataSourceById(context, config.datasource);
   if (!datasource) {
     throw new NotFoundError("Datasource not found");
+  }
+  // Before the cache lookup and any warehouse query (draft row filters are
+  // validated against the warehouse below).
+  if (
+    !context.permissions.canRunProductAnalyticsExplorationQueries(
+      datasource,
+      dataset.type,
+    )
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   if (options.cache !== "never") {
@@ -200,12 +219,20 @@ export async function runProductAnalyticsExploration(
       if (!value.draftMetric) continue;
       const metric = metricMap.get(value.metricId);
       if (!metric) throw new NotFoundError("Draft metric not found");
-      await FactMetricModel.validateFactMetric(
-        metric,
-        null,
-        factTableMap,
-        context,
-      );
+      // A draft is user-authored SQL, gated like saving a new fact metric.
+      if (!context.permissions.canCreateFactMetric(metric)) {
+        context.permissions.throwPermissionError();
+      }
+      try {
+        await FactMetricModel.validateFactMetric(
+          metric,
+          null,
+          factTableMap,
+          context,
+        );
+      } catch (e) {
+        throw new BadRequestError(e instanceof Error ? e.message : String(e));
+      }
     }
 
     // Populate datasource
