@@ -86,14 +86,15 @@ export default function NewFactMetricPage() {
 
   // Check the Projects the new metric will actually get (MetricWorkspace
   // copies them from its fact table), not just the Project picked in the
-  // header. The Duplicate buttons that link here check the same.
-  const seedFactTable = duplicateSource
-    ? getFactTableById(
+  // header. The Add and Duplicate buttons that link here check the same.
+  const seedFactTable =
+    (duplicateSource &&
+      getFactTableById(
         duplicateSource.metricType === "funnel"
           ? (duplicateSource.funnelSettings?.steps[0]?.factTableId ?? "")
           : (duplicateSource.numerator?.factTableId ?? ""),
-      )
-    : null;
+      )) ||
+    initialFactTable;
   const canCreate = permissionsUtil.canCreateFactMetric({
     projects: seedFactTable
       ? seedFactTable.projects || []
