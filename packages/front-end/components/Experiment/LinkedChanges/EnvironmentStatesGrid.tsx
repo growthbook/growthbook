@@ -1,5 +1,6 @@
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import {
+  LinkedChangeEnvStates,
   LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
 } from "shared/types/experiment";
@@ -8,7 +9,7 @@ import type {
   ExperimentStatus,
 } from "shared/validators";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
-import { Fragment, useState } from "react";
+import { forwardRef, Fragment, HTMLAttributes, useState } from "react";
 import {
   FaCircleCheck,
   FaCircleXmark,
@@ -362,20 +363,11 @@ export function EnvironmentInputsPopover({
       align="end"
       avoidCollisions={false}
       trigger={
-        // The trigger takes the hover handlers, so it must be a plain element.
-        <span
-          style={{
-            cursor: "default",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "var(--space-1)",
-          }}
-        >
-          {anyChanged ? <UnpublishedDot /> : null}
-          <Text size="sm" color="text-low">
-            Environments {active}/{environmentStates.length}
-          </Text>
-        </span>
+        <EnvironmentsCount
+          active={active}
+          total={environmentStates.length}
+          changed={anyChanged}
+        />
       }
       content={
         // The two settings get fixed columns so their marks line up.
@@ -435,6 +427,104 @@ export function EnvironmentInputsPopover({
             </Box>
           ) : null}
         </Grid>
+      }
+    />
+  );
+}
+
+// The popover's trigger: it hands over its hover handlers and ref, so they
+// land on the span.
+const EnvironmentsCount = forwardRef<
+  HTMLSpanElement,
+  HTMLAttributes<HTMLSpanElement> & {
+    active: number;
+    total: number;
+    changed?: boolean;
+  }
+>(function EnvironmentsCount(
+  { active, total, changed = false, ...props },
+  ref,
+) {
+  return (
+    <span
+      ref={ref}
+      {...props}
+      style={{
+        cursor: "default",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "var(--space-1)",
+      }}
+    >
+      {changed ? <UnpublishedDot /> : null}
+      <Text size="sm" color="text-low">
+        Environments {active}/{total}
+      </Text>
+    </span>
+  );
+});
+
+/**
+ * "Environments n/m" for changes the SDK applies itself, opening on hover to
+ * where each environment's state comes from: its SDK Connections.
+ */
+export function SdkConnectionEnvironmentsPopover({
+  environmentStates,
+  kind,
+}: {
+  environmentStates: LinkedChangeEnvStates;
+  // As the SDK Connection's setting names it.
+  kind: "Visual Editor" | "URL Redirect";
+}) {
+  const entries = Object.entries(environmentStates);
+  if (!entries.length) return null;
+  const active = entries.filter(([, state]) => state === "active").length;
+  return (
+    <Popover
+      openOnHover
+      side="top"
+      align="end"
+      avoidCollisions={false}
+      trigger={<EnvironmentsCount active={active} total={entries.length} />}
+      content={
+        <Flex direction="column" gap="3" style={{ maxWidth: 300 }}>
+          <Text size="sm" color="text-mid">
+            On where an SDK Connection in the environment includes this
+            experiment&apos;s Project and has <strong>{kind}</strong>{" "}
+            experiments enabled.
+          </Text>
+          <Grid
+            columns="max-content max-content"
+            gapX="4"
+            gapY="2"
+            align="center"
+          >
+            {entries.map(([env, state]) => {
+              const isActive = state === "active";
+              return (
+                <Fragment key={env}>
+                  <span
+                    style={{
+                      color: isActive ? undefined : "var(--gray-8)",
+                      fontWeight: isActive ? 500 : 300,
+                    }}
+                  >
+                    {env}
+                  </span>
+                  <Flex align="center" gap="1">
+                    <EnvironmentStateIcon isActive={isActive} />
+                    <Text size="sm" weight="medium">
+                      {isActive ? "On" : "No SDK Connection"}
+                    </Text>
+                  </Flex>
+                </Fragment>
+              );
+            })}
+          </Grid>
+          <Text size="sm">
+            <Link href="/sdks">Manage SDK Connections</Link>
+          </Text>
+        </Flex>
       }
     />
   );

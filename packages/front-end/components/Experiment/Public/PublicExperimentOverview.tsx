@@ -72,9 +72,6 @@ export default function PublicExperimentOverview({
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
             experiment={experiment}
-            canAddChanges={false}
-            isPublic={true}
-            canEditVisualChangesets={false}
           />
         </>
       ) : null}

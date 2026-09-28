@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
@@ -7,36 +7,45 @@ import {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
-import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { getLatestPhaseVariations } from "shared/experiments";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   PiArrowSquareOut,
-  PiArrowSquareOutBold,
   PiArrowsOutCardinalBold,
-  PiCaretDown,
   PiCaretRight,
   PiCodeBold,
+  PiDesktop,
   PiImageBold,
   PiPaintBrushBold,
+  PiPencilSimple,
   PiTextTBold,
   PiTrashBold,
+  PiWarningFill,
 } from "react-icons/pi";
 import track from "@/services/track";
-import { appendQueryParamsToURL, decimalToPercent } from "@/services/utils";
+import { appendQueryParamsToURL } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
-import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
+import { SdkConnectionEnvironmentsPopover } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import { useLinkedChangeAddGate } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
+import {
+  AddImplementationButton,
+  CardHeaderDivider,
+  ImplementationCard,
+  ImplementationCardHeader,
+  ImplementationSection,
+  VariationCells,
+} from "@/components/Experiment/TabbedPage/ImplementationCard";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import Avatar from "@/ui/Avatar";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import Metadata from "@/ui/Metadata";
-import VariationLabel from "@/ui/VariationLabel";
-import { ICON_PROPERTIES } from "./LinkedChanges/constants";
+import Tooltip from "@/ui/Tooltip";
 import {
   ChangeType,
   Humanized,
@@ -314,48 +323,15 @@ function ChangeRow({
   );
 }
 
-// One variation in a card: swatch + name + split bar + changes toggle +
-// preview/edit row actions. Expanded body holds the change rows.
-function VariationRow({
-  vc,
-  experiment,
-  variationIndex,
-  variationId,
-  variationName,
-  splitPct,
-  canEdit,
-  canDeleteVariation,
-  defaultOpen,
-  isLast,
-  setEditingVisualChange,
-  onDeleteDomMutation,
-  onClearGlobal,
-  onDeleteVariation,
-}: {
-  vc: VisualChangesetInterface;
-  experiment: ExperimentInterfaceStringDates;
-  variationIndex: number;
-  variationId: string;
-  variationName: string;
-  splitPct: number;
-  canEdit: boolean;
-  // Whether the row should render its own trash icon (variation-level).
-  // Gated by the caller so we can disable for Control / running
-  // experiments / when only 2 variations remain.
-  canDeleteVariation: boolean;
-  defaultOpen: boolean;
-  // Whether this is the last variation row. The separator between rows
-  // lives inside the component so it inherits the row's horizontal
-  // padding; we skip it on the final row.
-  isLast: boolean;
-  setEditingVisualChange: (params: {
-    visualChange: VisualChange;
-    visualChangeIndex: number;
-    visualChangeset: VisualChangesetInterface;
-  }) => void;
-  // Delete a single DOM mutation row in this changeset's visualChange
-  // entry for this variation. Callback is fully scoped — variation +
-  // changeset already bound by the parent.
+type ShownVariation = ReturnType<typeof getLatestPhaseVariations>[number];
+
+type ChangeListRow = {
+  key: string;
+  humanized: Humanized;
+  onDelete?: () => Promise<void>;
+};
+
+type ChangeHandlers = {
   onDeleteDomMutation: (args: {
     visualChangeset: VisualChangesetInterface;
     visualChangeIndex: number;
@@ -366,187 +342,155 @@ function VariationRow({
     visualChangeIndex: number;
     kind: "css" | "js";
   }) => Promise<void>;
-  onDeleteVariation: (variationId: string) => Promise<void>;
-}) {
-  // The visualChange entry for THIS variation under THIS changeset (data-
-  // model invariant from the README — variations are global, but their
-  // edits are scoped per-changeset).
+};
+
+// One row per DOM mutation, then the global CSS and JS. Keyed by the
+// mutation's identity rather than its index, so a row's open state stays put
+// when another is removed.
+function changeRowsFor(
+  vc: VisualChangesetInterface,
+  variationId: string,
+  canEdit: boolean,
+  { onDeleteDomMutation, onClearGlobal }: ChangeHandlers,
+): ChangeListRow[] {
   const changeIdx = vc.visualChanges.findIndex(
     (c) => c.variation === variationId,
   );
-  const change = changeIdx >= 0 ? vc.visualChanges[changeIdx] : undefined;
-  const count = visualChangeCount(change);
-  const [open, setOpen] = useState(defaultOpen);
-  const [confirmingVariantDelete, setConfirmingVariantDelete] = useState(false);
-
-  // Per-variation preview URL (forces this variation via the experiment's
-  // tracking key + the variation INDEX, matching the existing convention).
-  const previewUrl = useMemo(() => {
-    const base = normalizeVisualEditorUrl(vc.editorUrl);
-    if (!base) return null;
-    return appendQueryParamsToURL(base, {
-      [experiment.trackingKey]: variationIndex,
+  const change = vc.visualChanges[changeIdx];
+  if (!change) return [];
+  const rows: ChangeListRow[] = (change.domMutations || []).map((m, i) => ({
+    key: `mut:${m.selector}|${m.attribute}|${m.action}|${i}`,
+    humanized: humanizeMutation(m),
+    onDelete: canEdit
+      ? () =>
+          onDeleteDomMutation({
+            visualChangeset: vc,
+            visualChangeIndex: changeIdx,
+            mutationIndex: i,
+          })
+      : undefined,
+  }));
+  (["css", "js"] as const).forEach((kind) => {
+    const value = change[kind];
+    if (!value?.trim()) return;
+    rows.push({
+      key: `global:${kind}`,
+      humanized: humanizeGlobalBlock({ kind, value }),
+      onDelete: canEdit
+        ? () =>
+            onClearGlobal({
+              visualChangeset: vc,
+              visualChangeIndex: changeIdx,
+              kind,
+            })
+        : undefined,
     });
-  }, [vc.editorUrl, experiment.trackingKey, variationIndex]);
+  });
+  return rows;
+}
 
-  // Build the humanized rows: one per DOM mutation, then global CSS / JS
-  // appended as additional rows (the design treats "Added custom CSS" as
-  // just another row at the end of the variation's change list).
-  //
-  // Each row carries a stable key derived from the mutation's identity
-  // (selector + attribute + action + position) — NOT just its array
-  // index — so React doesn't shuffle per-row state (showCode,
-  // imageError) when a mutation is removed or reordered via the Edit
-  // modal. Globals get fixed sentinel keys since there's at most one
-  // of each. Each row also carries a fully-scoped `onDelete` (or
-  // undefined when the user can't edit) so ChangeRow doesn't need to
-  // know the row's source kind.
-  type ChangeListRow = {
-    key: string;
-    humanized: Humanized;
-    onDelete?: () => Promise<void>;
-  };
-  const rows: ChangeListRow[] = useMemo(() => {
-    if (!change || changeIdx < 0) return [];
-    const list: ChangeListRow[] = [];
-    (change.domMutations || []).forEach((m, i) => {
-      list.push({
-        // `i` is the disambiguator if two mutations share selector +
-        // attribute + action (rare but possible). Putting it last keeps
-        // the key stable when the FIRST occurrence is unchanged.
-        key: `mut:${m.selector}|${m.attribute}|${m.action}|${i}`,
-        humanized: humanizeMutation(m),
-        onDelete: canEdit
-          ? () =>
-              onDeleteDomMutation({
-                visualChangeset: vc,
-                visualChangeIndex: changeIdx,
-                mutationIndex: i,
-              })
-          : undefined,
-      });
-    });
-    if (change.css?.trim()) {
-      list.push({
-        key: "global:css",
-        humanized: humanizeGlobalBlock({ kind: "css", value: change.css }),
-        onDelete: canEdit
-          ? () =>
-              onClearGlobal({
-                visualChangeset: vc,
-                visualChangeIndex: changeIdx,
-                kind: "css",
-              })
-          : undefined,
-      });
-    }
-    if (change.js?.trim()) {
-      list.push({
-        key: "global:js",
-        humanized: humanizeGlobalBlock({ kind: "js", value: change.js }),
-        onDelete: canEdit
-          ? () =>
-              onClearGlobal({
-                visualChangeset: vc,
-                visualChangeIndex: changeIdx,
-                kind: "js",
-              })
-          : undefined,
-      });
-    }
-    return list;
-  }, [change, changeIdx, canEdit, vc, onDeleteDomMutation, onClearGlobal]);
-
+// Where the changeset applies: the first page it targets, and how many more.
+function AppliesTo({
+  urlPatterns,
+}: {
+  urlPatterns: VisualChangesetInterface["urlPatterns"];
+}) {
+  const includes = urlPatterns.filter((p) => p.include);
+  const [first, ...rest] = [
+    ...includes,
+    ...urlPatterns.filter((p) => !p.include),
+  ];
+  if (!first) return null;
   return (
-    <Box className={styles.variationRow}>
-      <Flex className={styles.variationHead}>
-        <Box flexBasis="25%" flexShrink="0" minWidth="0">
-          <VariationLabel
-            number={variationIndex}
-            name={variationName}
-            size="md"
-          />
-        </Box>
-        <Flex flexBasis="90px" flexShrink="0" justify="end">
-          <Metadata label="Split" value={splitPct + "%"} />
-        </Flex>
-        <Box className={styles.changesArea}>
-          {count === 0 ? (
-            <span className={styles.changesEmpty}>No visual changes</span>
-          ) : (
-            <button
-              type="button"
-              className={`${styles.changesToggle}${open ? " " + styles.changesToggleOpen : ""}`}
-              onClick={() => setOpen((o) => !o)}
-              aria-expanded={open}
-            >
-              {count} visual change{count > 1 ? "s" : ""}
-              <span
-                className={`${styles.changesChev}${open ? " " + styles.changesChevOpen : ""}`}
-              >
-                {open ? <PiCaretDown size={11} /> : <PiCaretRight size={11} />}
-              </span>
-            </button>
-          )}
-        </Box>
-        <Flex className={styles.rowActions}>
-          {previewUrl && (
-            <a
-              className={styles.ghostAction}
-              href={previewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Preview
-              <PiArrowSquareOutBold size={12} />
-            </a>
-          )}
-          {canEdit && change && (
-            <Link
-              onClick={() =>
-                setEditingVisualChange({
-                  visualChange: change,
-                  visualChangeIndex: changeIdx,
-                  visualChangeset: vc,
-                })
-              }
-            >
-              <Text weight="semibold">Edit</Text>
-            </Link>
-          )}
-          {canDeleteVariation && (
-            <button
-              type="button"
-              className={styles.variationDeleteBtn}
-              onClick={() => setConfirmingVariantDelete(true)}
-              title="Delete this variation"
-              aria-label="Delete this variation"
-            >
-              <PiTrashBold size={13} />
-            </button>
-          )}
-        </Flex>
-      </Flex>
-      {confirmingVariantDelete && (
-        <ConfirmDialog
-          title={`Delete "${variationName}"?`}
+    <Flex align="center" gap="2" minWidth="0" wrap="wrap">
+      <Text color="text-low">
+        {includes.length ? "Applies to" : "Applies everywhere except"}
+      </Text>
+      <RuleChip rule={first} />
+      {rest.length ? (
+        <Tooltip
           content={
-            <>
-              This will remove <strong>{variationName}</strong> from the
-              experiment, along with all of its visual changes across every
-              targeted URL. Other variations are unaffected. This can&rsquo;t be
-              undone.
-            </>
+            <Flex direction="column" gap="1">
+              {rest.map((p, i) => (
+                <span key={i}>
+                  {p.include ? "" : "Except "}
+                  <code>{p.pattern}</code>
+                </span>
+              ))}
+            </Flex>
           }
-          yesText="Delete variation"
-          onConfirm={async () => {
-            await onDeleteVariation(variationId);
-            setConfirmingVariantDelete(false);
-          }}
-          onCancel={() => setConfirmingVariantDelete(false)}
-        />
-      )}
-      {open && rows.length > 0 && (
+        >
+          <span className={styles.ruleChip}>
+            <Text size="sm" color="text-low">
+              +{rest.length}
+            </Text>
+          </span>
+        </Tooltip>
+      ) : null}
+    </Flex>
+  );
+}
+
+// A variation's changes in full, with its preview.
+function VariationChangesModal({
+  vc,
+  experiment,
+  variation,
+  rows,
+  onEdit,
+  close,
+}: {
+  vc: VisualChangesetInterface;
+  experiment: ExperimentInterfaceStringDates;
+  variation: ShownVariation;
+  rows: ChangeListRow[];
+  // Absent when the changes can't be edited.
+  onEdit: (() => void) | null;
+  close: () => void;
+}) {
+  // Forces this variation through the experiment's key, by its saved index;
+  // one only staged has none yet.
+  const base = normalizeVisualEditorUrl(vc.editorUrl);
+  const savedIndex = getLatestPhaseVariations(experiment).findIndex(
+    (v) => v.id === variation.id,
+  );
+  const previewUrl =
+    base && savedIndex >= 0
+      ? appendQueryParamsToURL(base, {
+          [experiment.trackingKey]: savedIndex,
+        })
+      : null;
+  return (
+    <ModalStandard
+      trackingEventModalType="visual-changes"
+      open
+      header={`Visual Changes: ${variation.name}`}
+      subheader={
+        vc.urlPatterns?.length ? (
+          <AppliesTo urlPatterns={vc.urlPatterns} />
+        ) : null
+      }
+      headerAction={
+        previewUrl ? (
+          <Link href={previewUrl} external>
+            <Flex align="center" gap="1">
+              Preview <PiArrowSquareOut />
+            </Flex>
+          </Link>
+        ) : null
+      }
+      secondaryAction={
+        onEdit ? (
+          <Button variant="ghost" onClick={onEdit}>
+            Edit changes
+          </Button>
+        ) : null
+      }
+      closeCta="Close"
+      close={close}
+      size="lg"
+    >
+      {rows.length ? (
         <Flex className={styles.changeList} direction="column">
           {rows.map((row) => (
             <ChangeRow
@@ -556,493 +500,355 @@ function VariationRow({
             />
           ))}
         </Flex>
-      )}
-      {!isLast && <Separator size="4" mt="2" />}
-    </Box>
-  );
-}
-
-// Targeting rows (APPLIES TO + optional EXCEPT). Mode + match-type are
-// pulled directly from the changeset's urlPatterns.
-function TargetingRows({
-  urlPatterns,
-  canEdit,
-  onEdit,
-}: {
-  urlPatterns: VisualChangesetInterface["urlPatterns"];
-  canEdit: boolean;
-  onEdit: () => void;
-}) {
-  const inc = urlPatterns.filter((p) => p.include);
-  const exc = urlPatterns.filter((p) => !p.include);
-  return (
-    <Flex className={styles.targeting} direction="column">
-      <Flex className={styles.targetRow}>
-        <span className={styles.targetLabel}>Applies to</span>
-        {inc.map((p, i) => (
-          <RuleChip key={`inc-${i}-${p.type}-${p.pattern}`} rule={p} />
-        ))}
-        {canEdit && (
-          <Link onClick={onEdit}>
-            <Text weight="semibold">Edit</Text>
-          </Link>
-        )}
-      </Flex>
-      {exc.length > 0 && (
-        <Flex className={styles.targetRow}>
-          <span className={`${styles.targetLabel} ${styles.targetLabelExcept}`}>
-            Except
-          </span>
-          {exc.map((p, i) => (
-            <RuleChip key={`exc-${i}-${p.type}-${p.pattern}`} rule={p} />
-          ))}
+      ) : (
+        <Flex direction="column" align="center" gap="1" py="6">
+          <Text weight="semibold">No changes on {variation.name}</Text>
+          <Text color="text-low">This variation shows the page as it is.</Text>
         </Flex>
       )}
-    </Flex>
+    </ModalStandard>
   );
 }
 
-const VisualEditorIcon = ICON_PROPERTIES["visual-editor"].component;
-const radixColor = ICON_PROPERTIES["visual-editor"].radixColor;
-
-function UrlCard({
+function VisualChangesetCard({
   vc,
   experiment,
+  variations,
   canEdit,
-  envStatesArray,
+  canLaunch,
+  environmentStates,
+  handlers,
   onEditTargeting,
-  onDeleteChangeset,
-  setEditingVisualChange,
-  onDeleteDomMutation,
-  onClearGlobal,
-  onDeleteVariation,
+  onEditChanges,
+  onRemove,
 }: {
   vc: VisualChangesetInterface;
   experiment: ExperimentInterfaceStringDates;
+  variations: ShownVariation[];
   canEdit: boolean;
-  envStatesArray: Array<{
-    env: string;
-    state: string;
-    isActive: boolean;
-    tooltip: string;
-  }>;
+  // The editor only opens while the experiment is a draft.
+  canLaunch: boolean;
+  environmentStates?: LinkedChangeEnvStates;
+  handlers: ChangeHandlers;
   onEditTargeting: () => void;
-  onDeleteChangeset: () => void;
-  setEditingVisualChange: (params: {
-    visualChange: VisualChange;
-    visualChangeIndex: number;
-    visualChangeset: VisualChangesetInterface;
-  }) => void;
-  onDeleteDomMutation: (args: {
-    visualChangeset: VisualChangesetInterface;
-    visualChangeIndex: number;
-    mutationIndex: number;
-  }) => Promise<void>;
-  onClearGlobal: (args: {
-    visualChangeset: VisualChangesetInterface;
-    visualChangeIndex: number;
-    kind: "css" | "js";
-  }) => Promise<void>;
-  onDeleteVariation: (variationId: string) => Promise<void>;
+  onEditChanges: (variationId: string) => void;
+  onRemove: () => Promise<void>;
 }) {
-  const phaseVariations = getLatestPhaseVariations(experiment);
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
-  const editorUrl = vc.editorUrl.trim();
-  const linkUrl = normalizeVisualEditorUrl(editorUrl);
-
-  // Compose the "Text and CSS changes" subline by walking the changeset's
-  // visualChanges for the kinds present (matches today's behavior).
-  const subline = useMemo(() => {
-    const kinds = new Set<string>();
-    vc.visualChanges.forEach((c) => {
-      if (c.domMutations?.length) kinds.add("Text");
-      if (c.css?.trim()) kinds.add("CSS");
-      if (c.js?.trim()) kinds.add("Javascript");
-    });
-    const order = ["Text", "CSS", "Javascript"];
-    const list = order.filter((k) => kinds.has(k));
-    if (list.length === 0) return "No changes yet";
-    const joined =
-      list.length === 1
-        ? list[0]
-        : list.length === 2
-          ? list.join(" and ")
-          : list.slice(0, -1).join(", ") + " and " + list.slice(-1);
-    return `${joined} changes`;
-  }, [vc.visualChanges]);
+  const [viewing, setViewing] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const rowsByVariation = useMemo(
+    () =>
+      new Map(
+        variations.map((v) => [
+          v.id,
+          changeRowsFor(vc, v.id, canEdit, handlers),
+        ]),
+      ),
+    [variations, vc, canEdit, handlers],
+  );
+  const hasChanges = vc.visualChanges.some((c) => visualChangeCount(c) > 0);
+  const viewed = variations.find((v) => v.id === viewing);
 
   return (
-    <Box p="1">
-      <Flex align="center" justify="between" mb="3">
-        <Flex align="center" gap="3">
-          <Avatar radius="small" color={radixColor} size="md" variant="soft">
-            <VisualEditorIcon />
-          </Avatar>
-          <Box className={styles.cardHeaderTitleBlock}>
-            <Flex className={styles.cardUrlRow}>
-              {linkUrl ? (
-                <Link href={linkUrl} target="_blank">
-                  <Text weight="semibold">
-                    {editorUrl}
-                    <PiArrowSquareOut className="ml-2" />
-                  </Text>
-                </Link>
-              ) : (
-                <span className={styles.cardUrl}>
-                  {editorUrl || "(no URL)"}
-                </span>
-              )}
+    <ImplementationCard>
+      {viewed ? (
+        <VariationChangesModal
+          vc={vc}
+          experiment={experiment}
+          variation={viewed}
+          rows={rowsByVariation.get(viewed.id) ?? []}
+          onEdit={
+            canEdit && vc.visualChanges.some((c) => c.variation === viewed.id)
+              ? () => {
+                  setViewing(null);
+                  onEditChanges(viewed.id);
+                }
+              : null
+          }
+          close={() => setViewing(null)}
+        />
+      ) : null}
+      {removing ? (
+        <ConfirmDialog
+          title="Remove Visual Editor changes"
+          content={`Every variation's changes to ${vc.editorUrl || "this page"} are removed from the experiment.`}
+          yesText="Remove"
+          onConfirm={async () => {
+            await onRemove();
+            setRemoving(false);
+          }}
+          onCancel={() => setRemoving(false)}
+        />
+      ) : null}
+      <ImplementationCardHeader
+        icon={<PiDesktop />}
+        title={
+          vc.urlPatterns?.length ? (
+            <AppliesTo urlPatterns={vc.urlPatterns} />
+          ) : (
+            <Text weight="medium">{vc.editorUrl || "No URL"}</Text>
+          )
+        }
+        meta={
+          hasChanges ? null : (
+            <Flex align="center" gap="1" style={{ color: "var(--amber-11)" }}>
+              <PiWarningFill />
+              <Text size="sm" weight="medium">
+                No changes yet
+              </Text>
             </Flex>
-            <span className={styles.cardSummary}>{subline}</span>
-          </Box>
-        </Flex>
-        <Box>
-          {canEdit && (
-            <DeleteButton
-              className="btn-sm ml-4"
-              text="Remove"
-              stopPropagation={true}
-              onClick={() => onDeleteChangeset()}
-              displayName="Visual Changeset"
-            />
-          )}
-          {canEdit && experiment.status === "draft" && (
-            <OpenVisualEditorLink
-              useRadix={false}
-              visualChangeset={vc}
-              useLink
-              button={<Button variant="ghost">Launch visual editor</Button>}
-            />
-          )}
-        </Box>
-      </Flex>
-      <Box mb="5" className="appbox" style={{ backgroundColor: "transparent" }}>
-        {/* Targeting */}
-        {vc.urlPatterns?.length > 0 && (
-          <TargetingRows
-            urlPatterns={vc.urlPatterns}
-            canEdit={canEdit}
-            onEdit={onEditTargeting}
-          />
-        )}
-
-        {/* Variations */}
-        <Box>
-          {phaseVariations.map((v, j) => (
-            <VariationRow
-              key={v.id}
-              vc={vc}
-              experiment={experiment}
-              variationIndex={j}
-              variationId={v.id}
-              variationName={v.name}
-              splitPct={decimalToPercent(
-                latestPhase?.variationWeights?.[j] ?? 0,
-              )}
-              canEdit={canEdit}
-              // Deleting a variation is allowed only on drafts (running
-              // experiments shouldn't lose buckets retroactively), only
-              // for non-Control rows, and only when removing one would
-              // still leave a valid experiment (>= 2 variations). The
-              // base canEdit permission also has to hold.
-              canDeleteVariation={
-                canEdit &&
-                j !== 0 &&
-                experiment.status === "draft" &&
-                phaseVariations.length > 2
-              }
-              // All variations start collapsed — matches the environments
-              // drop-down pattern used elsewhere on this page. Users opt
-              // in to seeing the change list by clicking the chevron.
-              defaultOpen={false}
-              isLast={j === phaseVariations.length - 1}
-              setEditingVisualChange={setEditingVisualChange}
-              onDeleteDomMutation={onDeleteDomMutation}
-              onClearGlobal={onClearGlobal}
-              onDeleteVariation={onDeleteVariation}
-            />
-          ))}
-        </Box>
-
-        {/* Environments footer — uses the shared EnvironmentStatesGrid
-          which renders a clickable "Environments (active / total)"
-          header that expands to a per-env check / warning grid with
-          per-env tooltips. Same component the prior layout used; we
-          just give it a hairline above to fit the card's banded look. */}
-        {envStatesArray.length > 0 && (
-          <Box className={styles.cardFooter}>
-            <EnvironmentStatesGrid environmentStates={envStatesArray} />
-          </Box>
-        )}
-      </Box>
-    </Box>
+          )
+        }
+        actions={
+          <>
+            {environmentStates ? (
+              <SdkConnectionEnvironmentsPopover
+                environmentStates={environmentStates}
+                kind="Visual Editor"
+              />
+            ) : null}
+            {canEdit && canLaunch ? (
+              <>
+                <CardHeaderDivider />
+                <OpenVisualEditorLink
+                  visualChangeset={vc}
+                  useLink
+                  button={
+                    <Flex align="center" gap="1">
+                      <PiPencilSimple size="14" />
+                      <Text size="sm" weight="medium">
+                        Open Visual Editor
+                      </Text>
+                    </Flex>
+                  }
+                />
+              </>
+            ) : null}
+          </>
+        }
+        menuLabel="Visual Editor changes actions"
+        menu={
+          canEdit ? (
+            <>
+              <DropdownMenuItem onClick={onEditTargeting}>
+                Edit targeting
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem color="red" onClick={() => setRemoving(true)}>
+                Remove from experiment
+              </DropdownMenuItem>
+            </>
+          ) : null
+        }
+      />
+      <VariationCells variations={variations}>
+        {(v) => {
+          const rows = rowsByVariation.get(v.id) ?? [];
+          const [first] = rows;
+          return (
+            <button
+              type="button"
+              className={styles.changesToggle}
+              onClick={() => setViewing(v.id)}
+              style={{ width: "100%", justifyContent: "space-between" }}
+            >
+              <span className="text-ellipsis" style={{ minWidth: 0 }}>
+                {first ? (
+                  `${first.humanized.verb} ${first.humanized.title}${
+                    rows.length > 1 ? `, +${rows.length - 1}` : ""
+                  }`
+                ) : (
+                  <Text color="text-low" weight="regular">
+                    No visual changes
+                  </Text>
+                )}
+              </span>
+              <span className={styles.changesChev}>
+                <PiCaretRight size={11} />
+              </span>
+            </button>
+          );
+        }}
+      </VariationCells>
+    </ImplementationCard>
   );
 }
 
-type Props = {
-  experiment: ExperimentInterfaceStringDates;
-  visualChangesets: VisualChangesetInterface[];
-  mutate?: () => void;
-  canEditVisualChangesets: boolean;
-  environmentStates?: LinkedChangeEnvStates;
-};
-
-export const VisualChangesetTable: FC<Props> = ({
+/** The experiment's Visual Editor changes: a card per page, a summary per variation. */
+export default function VisualEditorRows({
   experiment,
-  visualChangesets = [],
+  variations,
+  visualChangesets,
+  canEdit,
   mutate,
-  canEditVisualChangesets,
   environmentStates,
-}: Props) => {
+  onAdd,
+  addBlockedReason = null,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  // As the variation cards above show them, staged edits included.
+  variations: ShownVariation[];
+  visualChangesets: VisualChangesetInterface[];
+  canEdit: boolean;
+  mutate: () => void;
+  environmentStates?: LinkedChangeEnvStates;
+  onAdd: (() => void) | null;
+  addBlockedReason?: string | null;
+}) {
   const { apiCall } = useAuth();
-
+  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
+    "visual",
+    experiment,
+  );
   const [editingVisualChangeset, setEditingVisualChangeset] =
     useState<VisualChangesetInterface | null>(null);
-
   const [editingVisualChange, setEditingVisualChange] = useState<{
     visualChangeset: VisualChangesetInterface;
     visualChange: VisualChange;
     visualChangeIndex: number;
   } | null>(null);
 
-  const deleteVisualChangeset = useCallback(
-    async (id: string) => {
-      await apiCall(`/visual-changesets/${id}`, {
-        method: "DELETE",
-      });
-      mutate?.();
-      track("Delete visual changeset", {
-        source: "visual-editor-ui",
-      });
-    },
-    [apiCall, mutate],
-  );
-
-  const updateVisualChange = useCallback(
-    async ({
-      visualChangeset,
-      visualChange,
-      index,
-    }: {
-      visualChangeset: VisualChangesetInterface;
-      visualChange: VisualChange;
-      index: number;
-    }) => {
-      const newVisualChangeset: VisualChangesetInterface = {
-        ...visualChangeset,
-        visualChanges: visualChangeset.visualChanges.map((c, i) =>
-          i === index ? visualChange : c,
-        ),
-      };
+  const putVisualChange = useCallback(
+    async (
+      visualChangeset: VisualChangesetInterface,
+      index: number,
+      visualChange: VisualChange,
+    ) => {
       await apiCall(`/visual-changesets/${visualChangeset.id}`, {
         method: "PUT",
-        body: JSON.stringify(newVisualChangeset),
-      });
-      mutate?.();
-      track("Edit visual change", {
-        source: "visual-editor-ui",
-      });
-    },
-    [apiCall, mutate],
-  );
-
-  // Remove a single DOM mutation from a variation's visualChange entry.
-  // The variation's row in `visualChanges` is updated wholesale via PUT,
-  // matching the pattern updateVisualChange uses. The row stays even if
-  // it ends up with zero mutations + no CSS/JS — empty rows are
-  // semantically distinct from a missing row, and the EditDOMMutations
-  // modal expects one per variation.
-  const deleteDomMutation = useCallback(
-    async ({
-      visualChangeset,
-      visualChangeIndex,
-      mutationIndex,
-    }: {
-      visualChangeset: VisualChangesetInterface;
-      visualChangeIndex: number;
-      mutationIndex: number;
-    }) => {
-      const existing = visualChangeset.visualChanges[visualChangeIndex];
-      if (!existing) return;
-      const nextVisualChange: VisualChange = {
-        ...existing,
-        domMutations: existing.domMutations.filter(
-          (_, i) => i !== mutationIndex,
-        ),
-      };
-      const newVisualChangeset: VisualChangesetInterface = {
-        ...visualChangeset,
-        visualChanges: visualChangeset.visualChanges.map((c, i) =>
-          i === visualChangeIndex ? nextVisualChange : c,
-        ),
-      };
-      await apiCall(`/visual-changesets/${visualChangeset.id}`, {
-        method: "PUT",
-        body: JSON.stringify(newVisualChangeset),
-      });
-      mutate?.();
-      track("Delete visual change", {
-        source: "visual-editor-ui",
-        kind: "mutation",
-      });
-    },
-    [apiCall, mutate],
-  );
-
-  // Clear the Global CSS or Custom JS block on a variation's
-  // visualChange entry. Sets the field to "" (the canonical "empty"
-  // state we test for elsewhere via `.trim()`). Same PUT shape.
-  const clearGlobalBlock = useCallback(
-    async ({
-      visualChangeset,
-      visualChangeIndex,
-      kind,
-    }: {
-      visualChangeset: VisualChangesetInterface;
-      visualChangeIndex: number;
-      kind: "css" | "js";
-    }) => {
-      const existing = visualChangeset.visualChanges[visualChangeIndex];
-      if (!existing) return;
-      const nextVisualChange: VisualChange = {
-        ...existing,
-        ...(kind === "css" ? { css: "" } : { js: "" }),
-      };
-      const newVisualChangeset: VisualChangesetInterface = {
-        ...visualChangeset,
-        visualChanges: visualChangeset.visualChanges.map((c, i) =>
-          i === visualChangeIndex ? nextVisualChange : c,
-        ),
-      };
-      await apiCall(`/visual-changesets/${visualChangeset.id}`, {
-        method: "PUT",
-        body: JSON.stringify(newVisualChangeset),
-      });
-      mutate?.();
-      track("Delete visual change", {
-        source: "visual-editor-ui",
-        kind: kind === "css" ? "globalCss" : "globalJs",
-      });
-    },
-    [apiCall, mutate],
-  );
-
-  // Remove a variation from the experiment AND clean up any matching
-  // `visualChange` rows in every changeset. We do the experiment update
-  // first (the existing edit-variations endpoint handles phase /
-  // variationWeights bookkeeping); then sweep changesets that referenced
-  // the deleted variation. Not atomic across the two writes — but a
-  // partial failure leaves orphan visualChanges that are harmless
-  // (the UI filters by current `variations` ids) and re-runnable.
-  const deleteVariation = useCallback(
-    async (variationId: string) => {
-      const newVariations = experiment.variations.filter(
-        (v) => v.id !== variationId,
-      );
-      const newWeights = getEqualWeights(newVariations.length, 4);
-
-      await apiCall(`/experiment/${experiment.id}`, {
-        method: "POST",
         body: JSON.stringify({
-          variations: newVariations,
-          variationWeights: newWeights,
+          ...visualChangeset,
+          visualChanges: visualChangeset.visualChanges.map((c, i) =>
+            i === index ? visualChange : c,
+          ),
         }),
       });
-
-      // Sweep each changeset that had a row for this variation.
-      await Promise.all(
-        visualChangesets
-          .filter((vc) =>
-            vc.visualChanges.some((c) => c.variation === variationId),
-          )
-          .map((vc) =>
-            apiCall(`/visual-changesets/${vc.id}`, {
-              method: "PUT",
-              body: JSON.stringify({
-                ...vc,
-                visualChanges: vc.visualChanges.filter(
-                  (c) => c.variation !== variationId,
-                ),
-              }),
-            }),
-          ),
-      );
-
-      mutate?.();
-      track("Delete variation", {
-        source: "visual-editor-ui",
-      });
+      mutate();
     },
-    [apiCall, experiment, visualChangesets, mutate],
+    [apiCall, mutate],
   );
 
-  // Flatten environmentStates into the shape EnvironmentStatesGrid
-  // consumes (same shape the prior implementation built). Active =
-  // environments with a connection that has visual experiments enabled.
-  const envStatesArray = useMemo(() => {
-    if (!environmentStates) return [];
-    return Object.entries(environmentStates).map(([env, state]) => ({
-      env,
-      state,
-      isActive: state === "active",
-      tooltip:
-        state === "active"
-          ? "An SDK connection in this environment has visual experiments enabled"
-          : "No SDK connection in this environment has visual experiments enabled",
-    }));
-  }, [environmentStates]);
+  // The row for the variation stays, empty: the editor expects one each.
+  const handlers: ChangeHandlers = useMemo(
+    () => ({
+      onDeleteDomMutation: async ({
+        visualChangeset,
+        visualChangeIndex,
+        mutationIndex,
+      }) => {
+        const existing = visualChangeset.visualChanges[visualChangeIndex];
+        if (!existing) return;
+        await putVisualChange(visualChangeset, visualChangeIndex, {
+          ...existing,
+          domMutations: existing.domMutations.filter(
+            (_, i) => i !== mutationIndex,
+          ),
+        });
+        track("Delete visual change", {
+          source: "visual-editor-ui",
+          kind: "mutation",
+        });
+      },
+      onClearGlobal: async ({ visualChangeset, visualChangeIndex, kind }) => {
+        const existing = visualChangeset.visualChanges[visualChangeIndex];
+        if (!existing) return;
+        await putVisualChange(visualChangeset, visualChangeIndex, {
+          ...existing,
+          [kind]: "",
+        });
+        track("Delete visual change", {
+          source: "visual-editor-ui",
+          kind: kind === "css" ? "globalCss" : "globalJs",
+        });
+      },
+    }),
+    [putVisualChange],
+  );
 
   return (
-    <>
-      {editingVisualChangeset && mutate ? (
+    <ImplementationSection
+      cols={Math.min(variations.length, 3)}
+      heading={
+        <ImplementationHeading inList>
+          Visual Editor Changes
+        </ImplementationHeading>
+      }
+      add={
+        onAdd ? (
+          <AddImplementationButton
+            label="Add Visual Editor changes"
+            onClick={onAdd}
+            disabledReason={addBlockedReason ?? unsupportedReason}
+            commercialFeature={commercialFeature}
+          />
+        ) : null
+      }
+    >
+      {editingVisualChangeset ? (
         <VisualChangesetModal
           mode="edit"
           experiment={experiment}
           visualChangeset={editingVisualChangeset}
           mutate={mutate}
           close={() => setEditingVisualChangeset(null)}
-          source={"visual-changeset-table"}
+          source="visual-changeset-table"
         />
       ) : null}
-
       {editingVisualChange ? (
         <EditDOMMutationsModal
           experiment={experiment}
           visualChange={editingVisualChange.visualChange}
           close={() => setEditingVisualChange(null)}
-          onSave={(newVisualChange) =>
-            updateVisualChange({
-              index: editingVisualChange.visualChangeIndex,
-              visualChange: newVisualChange,
-              visualChangeset: editingVisualChange.visualChangeset,
-            })
-          }
+          onSave={async (newVisualChange) => {
+            await putVisualChange(
+              editingVisualChange.visualChangeset,
+              editingVisualChange.visualChangeIndex,
+              newVisualChange,
+            );
+            track("Edit visual change", { source: "visual-editor-ui" });
+          }}
         />
       ) : null}
-
-      <Flex className={styles.cards} direction="column">
-        {visualChangesets.map((vc) => (
-          <UrlCard
-            key={vc.id}
-            vc={vc}
-            experiment={experiment}
-            canEdit={canEditVisualChangesets}
-            envStatesArray={envStatesArray}
-            onEditTargeting={() => {
-              setEditingVisualChangeset(vc);
-              track("Open visual editor modal", {
-                source: "visual-editor-ui",
-                action: "edit",
+      {visualChangesets.map((vc) => (
+        <VisualChangesetCard
+          key={vc.id}
+          vc={vc}
+          experiment={experiment}
+          variations={variations}
+          canEdit={canEdit}
+          canLaunch={
+            experiment.status === "draft" &&
+            !experiment.nextScheduledStatusUpdate
+          }
+          environmentStates={environmentStates}
+          handlers={handlers}
+          onEditTargeting={() => {
+            setEditingVisualChangeset(vc);
+            track("Open visual editor modal", {
+              source: "visual-editor-ui",
+              action: "edit",
+            });
+          }}
+          onEditChanges={(variationId) => {
+            const visualChangeIndex = vc.visualChanges.findIndex(
+              (c) => c.variation === variationId,
+            );
+            const visualChange = vc.visualChanges[visualChangeIndex];
+            if (visualChange) {
+              setEditingVisualChange({
+                visualChangeset: vc,
+                visualChange,
+                visualChangeIndex,
               });
-            }}
-            onDeleteChangeset={() => deleteVisualChangeset(vc.id)}
-            setEditingVisualChange={setEditingVisualChange}
-            onDeleteDomMutation={deleteDomMutation}
-            onClearGlobal={clearGlobalBlock}
-            onDeleteVariation={deleteVariation}
-          />
-        ))}
-      </Flex>
-    </>
+            }
+          }}
+          onRemove={async () => {
+            await apiCall(`/visual-changesets/${vc.id}`, { method: "DELETE" });
+            mutate();
+            track("Delete visual changeset", { source: "visual-editor-ui" });
+          }}
+        />
+      ))}
+    </ImplementationSection>
   );
-};
+}

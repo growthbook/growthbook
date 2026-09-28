@@ -375,6 +375,13 @@
   &:hover:not(.disabled) {
     background: var(--violet-a3);
   }
+  // Drawn as Radix draws the checked card, disabled included.
+  &.highlighted::after {
+    outline: 2px solid var(--accent-indicator);
+  }
+  &.highlighted:disabled::after {
+    outline-color: var(--gray-8);
+  }
   & > * {
     pointer-events: auto !important;
   }

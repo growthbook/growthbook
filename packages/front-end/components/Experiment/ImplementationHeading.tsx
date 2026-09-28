@@ -3,7 +3,11 @@ import { Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Text, { TextProps } from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { useImplementationTypeChooser } from "@/components/Experiment/ChangeImplementationTypeModal";
+import {
+  useImplementationTypeChooser,
+  useImplementationTypeUnavailableReason,
+} from "@/components/Experiment/ChangeImplementationTypeModal";
+import Tooltip from "@/ui/Tooltip";
 
 /** Labels one kind of implementation on the Setup page: flags, redirects, visual changes. */
 export default function ImplementationHeading({
@@ -25,7 +29,8 @@ export default function ImplementationHeading({
   mb?: TextProps["mb"];
 }) {
   const chooseType = useImplementationTypeChooser();
-  const hasMenu = !!menu || !!chooseType;
+  const unavailableReason = useImplementationTypeUnavailableReason();
+  const hasMenu = !!menu || !!chooseType || !!unavailableReason;
   return (
     <Flex
       align="center"
@@ -68,6 +73,12 @@ export default function ImplementationHeading({
               {chooseType ? (
                 <DropdownMenuItem onClick={() => chooseType()}>
                   Change implementation type
+                </DropdownMenuItem>
+              ) : unavailableReason ? (
+                <DropdownMenuItem disabled>
+                  <Tooltip content={unavailableReason} side="left">
+                    <span>Change implementation type</span>
+                  </Tooltip>
                 </DropdownMenuItem>
               ) : null}
             </DropdownMenu>

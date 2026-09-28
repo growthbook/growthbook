@@ -1,144 +1,220 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
 } from "shared/types/experiment";
-import { diffChars } from "diff";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiArrowSquareOutFill } from "react-icons/pi";
+import { IconButton } from "@radix-ui/themes";
+import { PiLink, PiPencilSimple } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
-import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
+import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
+import { SdkConnectionEnvironmentsPopover } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import { useLinkedChangeAddGate } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
+import {
+  AddImplementationButton,
+  CardHeaderDivider,
+  ImplementationCard,
+  ImplementationCardHeader,
+  ImplementationSection,
+  VariationCells,
+} from "@/components/Experiment/TabbedPage/ImplementationCard";
+import { DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
-import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import Tooltip from "@/ui/Tooltip";
+import { redirectDestinationParts } from "./redirectDestination";
 
-interface RedirectProps {
-  urlRedirect: URLRedirectInterface;
-  experiment: ExperimentInterfaceStringDates;
-  canEdit: boolean;
-  mutate?: () => void;
-  environmentStates?: LinkedChangeEnvStates;
+function RedirectDestination({ from, to }: { from: string; to: string }) {
+  const parts = redirectDestinationParts(from, to);
+  const shown: ReactNode = parts ? (
+    <>
+      {parts.elided ? "…" : null}
+      {parts.kept}
+      <b>{parts.changed}</b>
+    </>
+  ) : (
+    to
+  );
+  return (
+    <Link
+      href={to}
+      external
+      color="dark"
+      underline="none"
+      title={to}
+      style={{ overflowWrap: "anywhere" }}
+    >
+      {shown}
+    </Link>
+  );
 }
 
-function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
-  const differences = diffChars(url1, url2);
-  const filtered = differences.filter((d) => !d.removed);
+type ShownVariation = ReturnType<typeof getLatestPhaseVariations>[number];
 
-  try {
-    const parsedUrl1 = new URL(url1);
-    const parsedUrl2 = new URL(url2);
-
-    return (
-      <Link
-        href={url2}
-        color="dark"
-        underline="none"
-        rel="noreferrer"
-        target="_blank"
-      >
-        <Flex align="center">
-          {parsedUrl1.hostname === parsedUrl2.hostname ? (
-            <>
-              {filtered.map((part, index) => {
-                if (part.added) {
-                  return <b key={index}>{part.value}</b>;
-                } else {
-                  return <span key={index}>{part.value}</span>;
-                }
-              })}
-            </>
-          ) : (
-            <>{url2}</>
-          )}
-          <Box ml="1">
-            <PiArrowSquareOutFill color="var(--violet-a11)" />
-          </Box>
-        </Flex>
-      </Link>
-    );
-  } catch {
-    console.error("Failed to parse URL to for redirect diff");
-    return <span>{url2}</span>;
-  }
-}
-
-export const RedirectLinkedChanges = ({
+function RedirectCard({
   urlRedirect,
   experiment,
-  mutate,
+  variations,
   canEdit,
+  mutate,
   environmentStates,
-}: RedirectProps) => {
+}: {
+  urlRedirect: URLRedirectInterface;
+  experiment: ExperimentInterfaceStringDates;
+  variations: ShownVariation[];
+  canEdit: boolean;
+  mutate: () => void;
+  environmentStates?: LinkedChangeEnvStates;
+}) {
   const { apiCall } = useAuth();
-  const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
-  const originUrl = urlRedirect.urlPattern;
+  const [editing, setEditing] = useState(false);
+  const origin = urlRedirect.urlPattern;
 
   return (
-    <>
-      {editingRedirect && mutate ? (
+    <ImplementationCard>
+      {editing ? (
         <UrlRedirectModal
           mode="edit"
           experiment={experiment}
           urlRedirect={urlRedirect}
           mutate={mutate}
-          close={() => setEditingRedirect(false)}
-          source={"redirect-linked-changes"}
+          close={() => setEditing(false)}
+          source="redirect-linked-changes"
         />
       ) : null}
-      <LinkedChange
-        changeType="redirect"
-        heading={originUrl}
-        headingLink={originUrl}
-        onEdit={() => setEditingRedirect(true)}
-        onDelete={async () => {
-          await apiCall(`/url-redirects/${urlRedirect.id}`, {
-            method: "DELETE",
-          });
-          mutate?.();
+      <ImplementationCardHeader
+        icon={<PiLink />}
+        title={
+          <Link
+            href={origin}
+            external
+            weight="medium"
+            style={{ overflowWrap: "anywhere" }}
+          >
+            {origin}
+          </Link>
+        }
+        actions={
+          <>
+            {environmentStates ? (
+              <SdkConnectionEnvironmentsPopover
+                environmentStates={environmentStates}
+                kind="URL Redirect"
+              />
+            ) : null}
+            {canEdit ? (
+              <>
+                <CardHeaderDivider />
+                <Tooltip content="Edit URL redirect">
+                  <IconButton
+                    variant="ghost"
+                    color="violet"
+                    radius="medium"
+                    size="1"
+                    onClick={() => setEditing(true)}
+                    aria-label="Edit URL redirect"
+                  >
+                    <PiPencilSimple size="14" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            ) : null}
+          </>
+        }
+        menuLabel={`${origin} actions`}
+        menu={
+          canEdit ? (
+            <DropdownMenuItem
+              color="red"
+              confirmation={{
+                confirmationTitle: "Remove URL redirect",
+                cta: "Remove",
+                getConfirmationContent: async () =>
+                  `Users stop being redirected from ${origin}.`,
+                submit: async () => {
+                  await apiCall(`/url-redirects/${urlRedirect.id}`, {
+                    method: "DELETE",
+                  });
+                  mutate();
+                },
+              }}
+            >
+              Remove from experiment
+            </DropdownMenuItem>
+          ) : null
+        }
+      />
+      <VariationCells variations={variations}>
+        {(v) => {
+          const to = urlRedirect.destinationURLs.find(
+            (d) => d.variation === v.id,
+          )?.url;
+          return to ? (
+            <RedirectDestination from={origin} to={to} />
+          ) : (
+            <Text color="text-low">No redirect</Text>
+          );
         }}
-        canEdit={canEdit}
-      >
-        <Box className="appbox" style={{ backgroundColor: "transparent" }}>
-          <Flex width="100%" gap="4" py="3" px="4" direction="column">
-            <Box flexGrow="1">
-              <LinkedChangeVariationRows
-                experiment={experiment}
-                renderContent={(j) =>
-                  urlRedirect.destinationURLs[j]?.url ? (
-                    <UrlDifferenceRenderer
-                      url1={urlRedirect.urlPattern}
-                      url2={urlRedirect.destinationURLs[j].url}
-                    />
-                  ) : (
-                    <Text color="text-low">No redirect</Text>
-                  )
-                }
-              />
-            </Box>
-          </Flex>
-          {environmentStates && Object.keys(environmentStates).length > 0 && (
-            <>
-              <Separator size="4" />
-              <EnvironmentStatesGrid
-                environmentStates={Object.entries(environmentStates).map(
-                  ([env, state]) => ({
-                    env,
-                    state,
-                    isActive: state === "active",
-                    tooltip:
-                      state === "active"
-                        ? "An SDK connection in this environment has URL redirect experiments enabled"
-                        : "No SDK connection in this environment has URL redirect experiments enabled",
-                  }),
-                )}
-              />
-            </>
-          )}
-        </Box>
-      </LinkedChange>
-    </>
+      </VariationCells>
+    </ImplementationCard>
   );
-};
+}
+
+/** The experiment's URL Redirects: a card each, a destination per variation. */
+export default function UrlRedirectRows({
+  experiment,
+  variations,
+  urlRedirects,
+  canEdit,
+  mutate,
+  environmentStates,
+  onAdd,
+  addBlockedReason = null,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  // As the variation cards above show them, staged edits included.
+  variations: ShownVariation[];
+  urlRedirects: URLRedirectInterface[];
+  canEdit: boolean;
+  mutate: () => void;
+  environmentStates?: LinkedChangeEnvStates;
+  onAdd: (() => void) | null;
+  addBlockedReason?: string | null;
+}) {
+  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
+    "urlredirect",
+    experiment,
+  );
+  return (
+    <ImplementationSection
+      cols={Math.min(variations.length, 3)}
+      heading={
+        <ImplementationHeading inList>URL Redirects</ImplementationHeading>
+      }
+      add={
+        onAdd ? (
+          <AddImplementationButton
+            label="Add URL redirect"
+            onClick={onAdd}
+            disabledReason={addBlockedReason ?? unsupportedReason}
+            commercialFeature={commercialFeature}
+          />
+        ) : null
+      }
+    >
+      {urlRedirects.map((r) => (
+        <RedirectCard
+          key={r.id}
+          urlRedirect={r}
+          experiment={experiment}
+          variations={variations}
+          canEdit={canEdit}
+          mutate={mutate}
+          environmentStates={environmentStates}
+        />
+      ))}
+    </ImplementationSection>
+  );
+}

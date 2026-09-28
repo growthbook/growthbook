@@ -18,9 +18,18 @@ import {
   getImplementationType,
   isManagedByExperiment,
 } from "shared/util";
-import { getActivePhaseIndex } from "shared/experiments";
+import {
+  getActivePhaseIndex,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { Flex, Separator } from "@radix-ui/themes";
-import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
+import UrlRedirectRows from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
+import {
+  AddImplementationMenu,
+  ImplementationTypePrompt,
+} from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
+import VisualEditorRows from "@/components/Experiment/VisualChangesetTable";
+import { ImplementationSection } from "@/components/Experiment/TabbedPage/ImplementationCard";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
@@ -59,6 +68,22 @@ import {
   useLiveView,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
+
+type ImplementationKind = "feature" | "visual" | "urlredirect";
+
+// Every kind a legacy mix has linked, otherwise the one chosen.
+function isSetUpFor(
+  experiment: ExperimentInterfaceStringDates,
+  linkedFlagCount: number,
+  kind: ImplementationKind,
+): boolean {
+  const type = getImplementationType(experiment);
+  if (type !== "multi") return type === kind;
+  if (kind === "feature") return linkedFlagCount > 0;
+  return kind === "visual"
+    ? !!experiment.hasVisualChangesets
+    : !!experiment.hasURLRedirects;
+}
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -273,6 +298,16 @@ export default function Implementation({
     storedExperiment,
     storedLinkedFeatures,
   );
+  // Said where the type can't change at all; left out where nothing edits.
+  const typeUnavailableReason =
+    chooseType ||
+    !implementationTypeDraft ||
+    disableEditing ||
+    storedExperiment.type === "holdout"
+      ? null
+      : storedExperiment.archived
+        ? "Unarchive this experiment to change its implementation type."
+        : "You don't have permission to change this experiment's implementation type.";
 
   const canEditExperiment =
     !experiment.archived &&
@@ -321,15 +356,83 @@ export default function Implementation({
       ? linkedFeatures[0]
       : null;
 
-  // The value rows above already show every flag, managed or linked, so the
-  // box below is only for redirects, visual changes and choosing a type.
-  // A Feature Flag experiment with none yet offers adding one there too.
-  const flagsShownAbove =
-    isManaged ||
-    implementationType === "values" ||
-    ((linkedFeatures.length > 0 || implementationType === "feature") &&
-      !experiment.hasVisualChangesets &&
-      !experiment.hasURLRedirects);
+  // What shows follows the staged type, as the rows above do; adding writes
+  // at once, so it follows the stored one.
+  const canAddAny = canAddLinkedChanges && !stagedType && !viewingLive;
+  // A legacy mix adds from one menu rather than under each section.
+  const legacyMix = getImplementationType(storedExperiment) === "multi";
+  const canAdd = (kind: ImplementationKind) =>
+    canAddAny &&
+    !legacyMix &&
+    isSetUpFor(storedExperiment, storedLinkedFeatures.length, kind);
+  // Linking anything would strand it: a holdout changes only with nothing linked.
+  const addBlockedReason =
+    stagedHoldout !== null
+      ? "Save or discard the holdout change first. A holdout can only change while nothing is linked."
+      : null;
+  const settingUp =
+    experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate &&
+    !experiment.archived;
+  // An empty section is there to add to, or to change the type from.
+  const shownEmpty = (kind: ImplementationKind) =>
+    settingUp &&
+    isSetUpFor(experiment, linkedFeatures.length, kind) &&
+    (canAdd(kind) || !!chooseType);
+  const shownType = getImplementationType(experiment);
+  // Laid out like the variation cards above, staged edits included.
+  const shownVariations = getLatestPhaseVariations(stagedExperiment);
+  const otherImplementations = (
+    <>
+      {urlRedirects.length > 0 || shownEmpty("urlredirect") ? (
+        <UrlRedirectRows
+          experiment={experiment}
+          variations={shownVariations}
+          urlRedirects={urlRedirects}
+          canEdit={canAddLinkedChanges}
+          mutate={mutate}
+          environmentStates={urlRedirectEnvStates}
+          onAdd={canAdd("urlredirect") ? () => setUrlRedirectModal(true) : null}
+          addBlockedReason={addBlockedReason}
+        />
+      ) : null}
+      {visualChangesets.length > 0 || shownEmpty("visual") ? (
+        <VisualEditorRows
+          experiment={experiment}
+          variations={shownVariations}
+          visualChangesets={visualChangesets}
+          canEdit={hasVisualEditorPermission}
+          mutate={mutate}
+          environmentStates={visualChangesetEnvStates}
+          onAdd={canAdd("visual") ? () => setVisualEditorModal(true) : null}
+          addBlockedReason={addBlockedReason}
+        />
+      ) : null}
+      {legacyMix && canAddAny ? (
+        <ImplementationSection
+          cols={Math.min(shownVariations.length, 3)}
+          add={
+            <AddImplementationMenu
+              experiment={experiment}
+              onFeatureFlag={isManaged ? null : () => setFeatureModal(true)}
+              onVisualEditor={() => setVisualEditorModal(true)}
+              onUrlRedirect={() => setUrlRedirectModal(true)}
+              disabledReason={addBlockedReason}
+            />
+          }
+        />
+      ) : null}
+      {/* Until a kind is chosen, choosing one takes their place. */}
+      {settingUp && chooseType && (!shownType || shownType === "none") ? (
+        <ImplementationSection cols={Math.min(shownVariations.length, 3)}>
+          <ImplementationTypePrompt
+            analysisOnly={shownType === "none"}
+            onChooseType={() => chooseType()}
+          />
+        </ImplementationSection>
+      ) : null}
+    </>
+  );
 
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
@@ -365,7 +468,9 @@ export default function Implementation({
   }
 
   return (
-    <ImplementationTypeChooserContext.Provider value={chooseType}>
+    <ImplementationTypeChooserContext.Provider
+      value={{ choose: chooseType, unavailableReason: typeUnavailableReason }}
+    >
       {showEditEnvironmentsModal && holdout && (
         <EditEnvironmentsModal
           holdout={holdout}
@@ -442,15 +547,12 @@ export default function Implementation({
             // goes through review.
             canEditFlagValues={canEditExperiment}
             addFeatureFlag={
-              // The stored type: adding a flag writes at once, so it can't
-              // follow a type that is only staged.
-              canAddLinkedChanges &&
-              !isManaged &&
-              !stagedType &&
-              getImplementationType(storedExperiment) === "feature"
+              !isManaged && canAdd("feature")
                 ? () => setFeatureModal(true)
                 : null
             }
+            addFeatureFlagBlockedReason={addBlockedReason}
+            otherImplementations={otherImplementations}
           />
         ) : (
           <TrafficAndTargeting
@@ -460,33 +562,6 @@ export default function Implementation({
             phaseIndex={getActivePhaseIndex(experiment)}
           />
         )}
-        {!isHoldout &&
-        !flagsShownAbove &&
-        (hasLinkedChanges ||
-          canAddLinkedChanges ||
-          // Its type chooser needs less than adding changes does.
-          (!!chooseType &&
-            experiment.status === "draft" &&
-            !experiment.nextScheduledStatusUpdate)) ? (
-          <LinkedChanges
-            linkedFeatures={linkedFeatures}
-            experiment={experiment}
-            canAddChanges={canAddLinkedChanges}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            mutate={mutate}
-            canEditVisualChangesets={hasVisualEditorPermission}
-            visualChangesetEnvStates={visualChangesetEnvStates}
-            urlRedirectEnvStates={urlRedirectEnvStates}
-            setVisualEditorModal={setVisualEditorModal}
-            setFeatureModal={setFeatureModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-            onChooseType={
-              chooseType && !typeLockedReason ? () => chooseType() : undefined
-            }
-          />
-        ) : null}
-
         {isHoldout && holdout ? (
           <HoldoutEnvironments
             editEnvironments={() => setShowEditEnvironmentsModal(true)}

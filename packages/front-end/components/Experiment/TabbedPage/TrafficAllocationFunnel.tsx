@@ -130,6 +130,10 @@ export interface Props {
   canEditFlagValues?: boolean;
   /** Links another Feature Flag from under the value rows. */
   addFeatureFlag?: (() => void) | null;
+  /** Why a Feature Flag can't be added right now. */
+  addFeatureFlagBlockedReason?: string | null;
+  /** The URL Redirect and Visual Editor sections, under the Feature Flags. */
+  otherImplementations?: ReactNode;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
@@ -339,6 +343,8 @@ export default function TrafficAllocationFunnel({
   linkedFeatures = [],
   canEditFlagValues: canEditFlagValuesHere = false,
   addFeatureFlag,
+  addFeatureFlagBlockedReason = null,
+  otherImplementations,
   canEditExperiment: canEditExperimentHere = false,
   safeToEdit = false,
   mutate,
@@ -1062,8 +1068,10 @@ export default function TrafficAllocationFunnel({
               canEdit={canEditFlagValues}
               canEditLinks={canEditFlagValuesHere}
               onAddFlag={viewingLive ? null : addFeatureFlag}
+              addFlagBlockedReason={addFeatureFlagBlockedReason}
               showLive={hasDraftChanges && !preferDraft}
             />
+            {otherImplementations}
           </>
         )}
       </Flex>

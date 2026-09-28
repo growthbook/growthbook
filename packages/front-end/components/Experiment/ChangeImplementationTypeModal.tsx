@@ -76,12 +76,18 @@ export function implementationTypeLockedReason(
  * Opens the page's implementation type chooser, optionally on a given type;
  * null where the type can't be changed from here.
  */
-export const ImplementationTypeChooserContext = createContext<
-  ((initialType?: ImplementationType) => void) | null
->(null);
+export const ImplementationTypeChooserContext = createContext<{
+  choose: ((initialType?: ImplementationType) => void) | null;
+  // Why it can't be changed at all, where saying so beats hiding it.
+  unavailableReason: string | null;
+}>({ choose: null, unavailableReason: null });
 
 export function useImplementationTypeChooser() {
-  return useContext(ImplementationTypeChooserContext);
+  return useContext(ImplementationTypeChooserContext).choose;
+}
+
+export function useImplementationTypeUnavailableReason() {
+  return useContext(ImplementationTypeChooserContext).unavailableReason;
 }
 
 export default function ChangeImplementationTypeModal({
@@ -207,6 +213,8 @@ export default function ChangeImplementationTypeModal({
               </Avatar>
             ),
             badge: currentKinds.has(type) ? "Current" : undefined,
+            // A mix is no single choice, so each kind it has shows chosen.
+            highlighted: !next && currentKinds.has(type),
           };
         })}
       />

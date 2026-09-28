@@ -28,7 +28,6 @@ import {
   PiCaretDownFill,
   PiFlag,
   PiPencilSimple,
-  PiPlus,
   PiWarningFill,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -91,6 +90,7 @@ import {
   resolveDraftPick,
 } from "./draftPicks";
 import FlagValuesModal from "./FlagValuesModal";
+import { AddImplementationButton } from "./ImplementationCard";
 import {
   getDuplicateVariationIds,
   repairVariationValues,
@@ -147,6 +147,8 @@ export interface Props {
   showLive?: boolean;
   /** Links another Feature Flag, offered under the last one. */
   onAddFlag?: (() => void) | null;
+  /** Why another Feature Flag can't be added right now. */
+  addFlagBlockedReason?: string | null;
   /** Environment scopes staged per flag. */
   flagEnvironments?: FlagEnvironmentsDraft;
   draftPicks: FlagDraftPicks;
@@ -193,6 +195,7 @@ export default function FlagValueRows({
   canEditLinks = false,
   showLive = false,
   onAddFlag,
+  addFlagBlockedReason = null,
   flagEnvironments,
   draftPicks,
   pendingManagedFlag = false,
@@ -283,9 +286,11 @@ export default function FlagValueRows({
       ))}
       {onAddFlag ? (
         <Flex justify="end">
-          <Button variant="outline" icon={<PiPlus />} onClick={onAddFlag}>
-            Add Feature Flag
-          </Button>
+          <AddImplementationButton
+            label="Add Feature Flag"
+            onClick={onAddFlag}
+            disabledReason={addFlagBlockedReason}
+          />
         </Flex>
       ) : null}
     </Flex>

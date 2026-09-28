@@ -4,246 +4,197 @@ import {
   SDKCapability,
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
-import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
-import { ImplementationType } from "shared/validators";
-import { getImplementationType } from "shared/util";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiCaretDownFill } from "react-icons/pi";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
-import Text from "@/ui/Text";
+import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Avatar from "@/ui/Avatar";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import { ICON_PROPERTIES, LinkedChange } from "./constants";
+import Tooltip from "@/ui/Tooltip";
 
-const KIND_FOR_TYPE: Partial<Record<ImplementationType, LinkedChange>> = {
-  feature: "feature-flag",
-  visual: "visual-editor",
-  urlredirect: "redirects",
-};
-
-export const LINKED_CHANGES: Record<
-  LinkedChange,
-  {
-    header: string;
-    cta: string;
-    description: string;
-    commercialFeature: CommercialFeature | "";
-    sdkCapabilityKey: SDKCapability | "";
-  }
-> = {
-  "feature-flag": {
-    header: "Feature Flag",
-    cta: "Link Feature Flag",
-    description:
-      "Use feature flags and SDKs to make changes in your front-end, back-end or mobile application code.",
-    commercialFeature: "",
-    sdkCapabilityKey: "",
-  },
-  "visual-editor": {
+// What adding each no-code kind needs: an SDK that applies it, and the plan
+// feature that lets the experiment start. A Feature Flag needs neither.
+const ADD_GATES = {
+  visual: {
     header: "Visual Editor",
-    cta: "Launch Visual Editor",
-    description:
-      "Use our no-code browser extension to A/B test minor changes, such as headings or button text.",
     commercialFeature: "visual-editor",
     sdkCapabilityKey: "visualEditor",
   },
-  redirects: {
+  urlredirect: {
     header: "URL Redirects",
-    cta: "Add URL Redirect",
-    description:
-      "Use our no-code tool to A/B test URL redirects for whole pages, or to test parts of a URL.",
     commercialFeature: "redirects",
     sdkCapabilityKey: "redirects",
   },
-};
+} as const satisfies Record<
+  string,
+  {
+    header: string;
+    commercialFeature: CommercialFeature;
+    sdkCapabilityKey: SDKCapability;
+  }
+>;
 
-const AddLinkedChangeRow = ({
-  type,
-  setModal,
-  experiment,
-}: {
-  type: LinkedChange;
-  setModal: (open: boolean) => void;
-  experiment: ExperimentInterfaceStringDates;
-}) => {
-  const { header, cta, description, commercialFeature, sdkCapabilityKey } =
-    LINKED_CHANGES[type];
-  const { component: Icon, radixColor } = ICON_PROPERTIES[type];
+type AddableKind = "feature" | keyof typeof ADD_GATES;
+
+/** Why this kind can't be added yet, and the plan feature starting it needs. */
+export function useLinkedChangeAddGate(
+  type: AddableKind,
+  experiment: ExperimentInterfaceStringDates,
+): {
+  unsupportedReason: string | null;
+  commercialFeature: CommercialFeature | null;
+} {
   const { data: sdkConnectionsData } = useSDKConnections();
+  if (type === "feature") {
+    return { unsupportedReason: null, commercialFeature: null };
+  }
+  const { header, commercialFeature, sdkCapabilityKey } = ADD_GATES[type];
+  const hasSDKWithFeature = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project: experiment.project ?? "",
+  }).includes(sdkCapabilityKey);
+  return {
+    unsupportedReason: hasSDKWithFeature
+      ? null
+      : `The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`,
+    commercialFeature,
+  };
+}
 
+function AddImplementationItem({
+  type,
+  experiment,
+  onClick,
+}: {
+  type: AddableKind;
+  experiment: ExperimentInterfaceStringDates;
+  onClick: () => void;
+}) {
   const { hasCommercialFeature } = useUser();
-  const hasFeature = commercialFeature
-    ? hasCommercialFeature(commercialFeature)
-    : true;
-
-  const hasSDKWithFeature =
-    type === "feature-flag" ||
-    getConnectionsSDKCapabilities({
-      connections: sdkConnectionsData?.connections ?? [],
-      project: experiment.project ?? "",
-    }).includes(sdkCapabilityKey as SDKCapability);
-
-  const isCTAClickable = hasSDKWithFeature;
-
-  return (
-    <Flex align="center" justify="between" gap="3" width="100%">
-      <Flex align="center" direction="row" flexGrow="1" minWidth="0" gap="5">
-        <Box width="150px" flexShrink="0">
-          <Avatar
-            radius="full"
-            color={radixColor as AvatarProps["color"]}
-            size="md"
-            variant="soft"
-            mr="2"
-          >
-            <Icon />
-          </Avatar>
-          <Text size="lg" weight="semibold" color="text-high">
-            {header}
-          </Text>
-        </Box>
-        <Box flexGrow="1" minWidth="0">
-          <Text color="text-low">{description}</Text>
-        </Box>
+  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
+    type,
+    experiment,
+  );
+  const option = IMPLEMENTATION_TYPE_OPTIONS[type];
+  const color = unsupportedReason ? "text-disabled" : "text-high";
+  const content = (
+    <Flex align="center" gap="2" p="3">
+      <Avatar radius="small" color={option.color} size="sm" variant="soft">
+        {option.icon}
+      </Avatar>
+      <Flex direction="column">
+        <Text color={color} weight="semibold">
+          {option.header}
+        </Text>
+        <Text color={color}>{option.description}</Text>
       </Flex>
-      <Box flexShrink="0">
-        {isCTAClickable ? (
-          commercialFeature && !hasFeature ? (
-            <PremiumTooltip
-              commercialFeature={commercialFeature}
-              body={
-                "You can add this to your draft, but you will not be able to start the experiment until upgrading."
-              }
-              usePortal={true}
-            >
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setModal(true);
-                }}
-              >
-                {cta}
-              </Button>
-            </PremiumTooltip>
-          ) : (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setModal(true);
-              }}
-            >
-              {cta}
-            </Button>
-          )
-        ) : (
-          <Tooltip
-            body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
-            tipPosition="top"
-          >
-            <Button variant="ghost" disabled>
-              {cta}
-            </Button>
-          </Tooltip>
-        )}
-      </Box>
     </Flex>
   );
-};
+  return (
+    <DropdownMenuItem
+      onClick={onClick}
+      disabled={!!unsupportedReason}
+      style={{ padding: 0, height: "auto" }}
+    >
+      {unsupportedReason ? (
+        <Tooltip content={unsupportedReason} side="left">
+          <span>{content}</span>
+        </Tooltip>
+      ) : commercialFeature && !hasCommercialFeature(commercialFeature) ? (
+        <PremiumTooltip
+          commercialFeature={commercialFeature}
+          body="You can add this to your draft, but you will not be able to start the experiment until upgrading."
+          tipPosition="left"
+        >
+          {content}
+        </PremiumTooltip>
+      ) : (
+        content
+      )}
+    </DropdownMenuItem>
+  );
+}
 
-export default function AddLinkedChanges({
+/** A legacy mix adds any kind from one menu, not a button per section. */
+export function AddImplementationMenu({
   experiment,
-  numLinkedChanges,
-  hasLinkedFeatures,
-  setFeatureModal,
-  setVisualEditorModal,
-  setUrlRedirectModal,
-  onChooseType,
-  canAddChanges = true,
+  onFeatureFlag,
+  onVisualEditor,
+  onUrlRedirect,
+  disabledReason = null,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  numLinkedChanges: number;
-  hasLinkedFeatures?: boolean;
-  /** Offers the add rows; without it only the type chooser shows. */
-  canAddChanges?: boolean;
-  /** Opens the type chooser; absent when the type is locked. */
-  onChooseType?: () => void;
-  setVisualEditorModal: (state: boolean) => unknown;
-  setFeatureModal: (state: boolean) => unknown;
-  setUrlRedirectModal: (state: boolean) => unknown;
+  // Absent where the experiment can't take another Feature Flag.
+  onFeatureFlag: (() => void) | null;
+  onVisualEditor: () => void;
+  onUrlRedirect: () => void;
+  disabledReason?: string | null;
 }) {
-  if (experiment.status !== "draft") return null;
-  if (experiment.nextScheduledStatusUpdate) return null;
-  if (experiment.archived) return null;
-  // Already has linked changes
-  if (numLinkedChanges && numLinkedChanges > 0) return null;
-
-  const implementationType = getImplementationType(experiment);
-  // Values are wired up from the traffic card, not from here.
-  if (implementationType === "values") return null;
-  if (!implementationType || implementationType === "none") {
-    return (
-      <Box className="appbox mb-0" p="4" mt="2" mb="0">
-        <Flex justify="between" align="center" gap="4">
-          <Text color="text-mid">
-            {implementationType === "none"
-              ? "This experiment is analysis only."
-              : "Choose how this experiment delivers its variations."}
-          </Text>
-          {onChooseType && (
-            <Button variant="outline" onClick={onChooseType}>
-              {implementationType === "none"
-                ? "Change implementation type"
-                : "Select implementation type"}
-            </Button>
-          )}
-        </Flex>
-      </Box>
-    );
-  }
-
-  const sections = {
-    "feature-flag": {
-      render: !hasLinkedFeatures,
-      setModal: setFeatureModal,
-    },
-    "visual-editor": {
-      render: !experiment.hasVisualChangesets,
-      setModal: setVisualEditorModal,
-    },
-    redirects: {
-      render: !experiment.hasURLRedirects,
-      setModal: setUrlRedirectModal,
-    },
-  };
-
-  const onlyKind = KIND_FOR_TYPE[implementationType];
-  const possibleSections = Object.keys(sections).filter(
-    (s) => !onlyKind || s === onlyKind,
+  const trigger = (
+    <Button
+      variant="outline"
+      icon={<PiCaretDownFill />}
+      iconPosition="right"
+      disabled={!!disabledReason}
+    >
+      Add implementation
+    </Button>
   );
-
+  if (disabledReason) {
+    return <Tooltip content={disabledReason}>{trigger}</Tooltip>;
+  }
   return (
-    <Box className="appbox mb-0" p="4" mt="2" mb="0">
-      {(canAddChanges ? possibleSections : []).map((s, i) => {
-        return (
-          <Box key={s}>
-            <AddLinkedChangeRow
-              type={s as LinkedChange}
-              setModal={sections[s].setModal}
-              experiment={experiment}
-            />
-            {i < possibleSections.length - 1 && <Separator size="4" my="3" />}
-          </Box>
-        );
-      })}
-      {/* With nothing added yet there's no heading to carry the type menu. */}
-      {onChooseType ? (
-        <Flex justify="end" mt={canAddChanges ? "3" : "0"}>
-          <Button variant="outline" onClick={onChooseType}>
-            Change implementation type
-          </Button>
-        </Flex>
+    <DropdownMenu trigger={trigger} menuPlacement="end" variant="soft">
+      {onFeatureFlag ? (
+        <AddImplementationItem
+          type="feature"
+          experiment={experiment}
+          onClick={onFeatureFlag}
+        />
       ) : null}
+      <AddImplementationItem
+        type="visual"
+        experiment={experiment}
+        onClick={onVisualEditor}
+      />
+      <AddImplementationItem
+        type="urlredirect"
+        experiment={experiment}
+        onClick={onUrlRedirect}
+      />
+    </DropdownMenu>
+  );
+}
+
+/** Until a kind is chosen: what to do instead of adding one. */
+export function ImplementationTypePrompt({
+  analysisOnly,
+  onChooseType,
+}: {
+  analysisOnly: boolean;
+  /** Opens the type chooser; absent when it can't open. */
+  onChooseType?: () => void;
+}) {
+  return (
+    <Box className="appbox mb-0" p="4">
+      <Flex justify="between" align="center" gap="4">
+        <Text color="text-mid">
+          {analysisOnly
+            ? "This experiment is analysis only."
+            : "Choose how this experiment delivers its variations."}
+        </Text>
+        {onChooseType && (
+          <Button variant="outline" onClick={onChooseType}>
+            {analysisOnly
+              ? "Change implementation type"
+              : "Select implementation type"}
+          </Button>
+        )}
+      </Flex>
     </Box>
   );
 }

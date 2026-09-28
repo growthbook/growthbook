@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import {
   Flex,
   Text,
@@ -18,6 +19,8 @@ export type RadioOptions = {
   disabled?: boolean;
   badge?: ReactElement | string;
   tooltip?: string;
+  // Looks chosen beside `value`, so several can: a mix of kinds, say.
+  highlighted?: boolean;
 }[];
 
 export type Props = {
@@ -75,13 +78,19 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
               disabled,
               badge,
               tooltip,
+              highlighted,
             }) => {
               const item = (
                 <RadixRadioCards.Item
                   key={value}
                   value={value}
                   disabled={disabled}
-                  className={disabled ? "disabled" : undefined}
+                  className={
+                    clsx(
+                      disabled && "disabled",
+                      highlighted && "highlighted",
+                    ) || undefined
+                  }
                 >
                   <Flex direction="row" width="100%" gap="3" align={align}>
                     {avatar}
