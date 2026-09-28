@@ -73,6 +73,16 @@ export class OAuthGrantModel extends BaseClass {
     );
   }
 
+  /** Active grants for one client across the org's members — for admin teardown and counts. */
+  public async getActiveForClient(
+    clientId: string,
+  ): Promise<OAuthGrantInterface[]> {
+    return this._find(
+      { clientId, revoked: { $ne: true } },
+      { bypassReadPermissionChecks: true },
+    );
+  }
+
   /**
    * Read-then-create against the unique index. On a concurrent-create race,
    * adopt the winner's doc instead of surfacing a 500.

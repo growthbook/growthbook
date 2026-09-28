@@ -7,6 +7,7 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";
 import PersonalAccessTokenSettings from "./PersonalAccessTokenSettings";
+import OAuthAppsSettings from "./OAuthAppsSettings";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -24,6 +25,8 @@ const ApiKeys: FC = () => {
       <SecretApiKeys keys={data.keys} mutate={mutate} />
 
       <PersonalAccessTokenSettings />
+
+      <OAuthAppsSettings />
 
       {!settings?.disablePersonalAccessTokens && (
         <Callout status="info" mb="4">

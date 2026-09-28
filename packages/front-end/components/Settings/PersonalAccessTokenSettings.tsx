@@ -1,4 +1,5 @@
 import React, { FC, useState } from "react";
+import { getOAuthAccessPolicy } from "shared/util";
 import Heading from "@/ui/Heading";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig } from "@/services/env";
@@ -24,9 +25,13 @@ const PersonalAccessTokenSettings: FC = () => {
   const save = async (disablePersonalAccessTokens: boolean) => {
     setError(null);
     try {
+      // Pin the OAuth policy first so it stops following this toggle's legacy fallback.
+      const oauthAccess = getOAuthAccessPolicy(settings);
       await apiCall("/organization", {
         method: "PUT",
-        body: JSON.stringify({ settings: { disablePersonalAccessTokens } }),
+        body: JSON.stringify({
+          settings: { disablePersonalAccessTokens, oauthAccess },
+        }),
       });
       await refreshOrganization();
     } catch (e) {
@@ -41,7 +46,7 @@ const PersonalAccessTokenSettings: FC = () => {
       </Heading>
       <Checkbox
         label="Disable personal access tokens"
-        description="Blocks new personal access tokens and stops existing ones working — including OAuth tokens and the Visual Editor."
+        description="Blocks new personal access tokens and stops existing ones working, including Visual Editor keys. OAuth apps are controlled separately below."
         value={tokensDisabled}
         disabled={!canManageOrgSettings || hasFileConfig()}
         disabledMessage={
@@ -65,7 +70,7 @@ const PersonalAccessTokenSettings: FC = () => {
       {confirming && (
         <ConfirmDialog
           title="Disable personal access tokens?"
-          content="Every token that acts as a user stops working immediately — personal access tokens, OAuth access tokens, and the Visual Editor. Members won't be able to create new ones. Turning this setting back off restores them."
+          content="Personal access tokens and Visual Editor keys stop working immediately, and members won't be able to create new ones. OAuth apps follow the OAuth access setting below. Turning this setting back off restores the tokens."
           yesText="Disable tokens"
           onConfirm={async () => {
             await save(true);

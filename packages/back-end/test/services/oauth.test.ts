@@ -7,6 +7,7 @@ import {
 } from "back-end/src/util/oauth-token.util";
 import {
   exchangeRefreshToken,
+  mintAuthorizationCode,
   OAuthError,
   revokeToken,
 } from "back-end/src/services/oauth";
@@ -533,5 +534,164 @@ describe("exchangeRefreshToken reuse detection + revoke race", () => {
     expect(createRefresh).toHaveBeenCalledTimes(1);
     expect(markRevoked).toHaveBeenCalledWith("client-a", "user-1");
     expect(deleteForGrant).toHaveBeenCalledWith("client-a", "user-1");
+  });
+});
+
+describe("org OAuth apps: client authentication, org binding, access policy", () => {
+  const APP_ID = "gbapp_0123456789abcdef";
+  const APP_SECRET = "gbcs_correct-secret";
+
+  function mockOrgApp(organization = "org-1") {
+    mockGetOAuthClientById.mockResolvedValue({
+      clientId: APP_ID,
+      redirectUris: ["https://mcp.example.com/cb"],
+      tokenEndpointAuthMethod: "client_secret_basic",
+      grantTypes: ["authorization_code", "refresh_token"],
+      responseTypes: ["code"],
+      organization,
+      clientSecretHash: hashToken(APP_SECRET),
+      dateCreated: new Date(),
+    });
+  }
+
+  function mockDcrClient() {
+    mockGetOAuthClientById.mockResolvedValue({
+      clientId: "gbc_dcr",
+      redirectUris: ["http://localhost/cb"],
+      tokenEndpointAuthMethod: "none",
+      grantTypes: ["authorization_code", "refresh_token"],
+      responseTypes: ["code"],
+      dateCreated: new Date(),
+    });
+  }
+
+  function mockRefreshToken(clientId: string) {
+    mockDangerousFindByHash.mockResolvedValue({
+      tokenHash: hashToken(OAUTH_REFRESH_TOKEN_PREFIX + "secret"),
+      clientId,
+      userId: "user-1",
+      organization: "org-1",
+      expiresAt: new Date(Date.now() + 60_000),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+  }
+
+  function mockOrgSettings(settings: Record<string, unknown>) {
+    mockFindOrganizationById.mockResolvedValue({
+      id: "org-1",
+      settings,
+    } as never);
+  }
+
+  function refresh(clientId: string, clientSecret?: string) {
+    return exchangeRefreshToken({
+      refreshToken: OAUTH_REFRESH_TOKEN_PREFIX + "secret",
+      clientId,
+      clientSecret,
+    });
+  }
+
+  it.each([
+    ["a missing", undefined],
+    ["a wrong", "gbcs_wrong-secret"],
+  ])(
+    "rejects %s client secret for a confidential client",
+    async (_, secret) => {
+      mockOrgApp();
+      mockRefreshToken(APP_ID);
+      const { consumeByTokenHash } = mockOrgContext();
+
+      await expect(refresh(APP_ID, secret)).rejects.toMatchObject({
+        error: "invalid_client",
+        status: 401,
+      } satisfies Partial<OAuthError>);
+      expect(consumeByTokenHash).not.toHaveBeenCalled();
+    },
+  );
+
+  it("issues tokens to an org app presenting its secret while PATs are disabled", async () => {
+    mockOrgApp();
+    mockRefreshToken(APP_ID);
+    const { createApiKey } = mockOrgContext();
+    mockOrgSettings({
+      disablePersonalAccessTokens: true,
+      oauthAccess: "org-apps",
+    });
+
+    await refresh(APP_ID, APP_SECRET);
+
+    expect(createApiKey).toHaveBeenCalledWith(
+      expect.objectContaining({ oauthClientId: APP_ID }),
+    );
+  });
+
+  it("refuses an org app registered to a different organization", async () => {
+    mockOrgApp("org-other");
+    mockRefreshToken(APP_ID);
+    const { createApiKey, markRevoked } = mockOrgContext();
+
+    await expect(refresh(APP_ID, APP_SECRET)).rejects.toMatchObject({
+      error: "invalid_grant",
+      errorDescription:
+        "This application is registered to a different organization",
+    } satisfies Partial<OAuthError>);
+    expect(createApiKey).not.toHaveBeenCalled();
+    expect(markRevoked).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["org-apps policy", { oauthAccess: "org-apps" }],
+    ["none policy", { oauthAccess: "none" }],
+    ["legacy PAT kill switch", { disablePersonalAccessTokens: true }],
+  ])(
+    "refuses a DCR client under the %s without tearing down its grant",
+    async (_, settings) => {
+      mockDcrClient();
+      mockRefreshToken("gbc_dcr");
+      const { createApiKey, markRevoked } = mockOrgContext();
+      mockOrgSettings(settings);
+
+      await expect(refresh("gbc_dcr")).rejects.toMatchObject({
+        error: "invalid_grant",
+        errorDescription:
+          "This organization does not allow this application to access GrowthBook",
+      } satisfies Partial<OAuthError>);
+      expect(createApiKey).not.toHaveBeenCalled();
+      expect(markRevoked).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses to mint an authorization code for a disallowed client", async () => {
+    mockDcrClient();
+    const { context } = mockOrgContext();
+    mockOrgSettings({ oauthAccess: "org-apps" });
+
+    await expect(
+      mintAuthorizationCode({
+        clientId: "gbc_dcr",
+        redirectUri: "http://localhost/cb",
+        codeChallenge: "challenge",
+        codeChallengeMethod: "S256",
+        userId: "user-1",
+        organization: "org-1",
+      }),
+    ).rejects.toMatchObject({ error: "access_denied" });
+    expect(context.models.oauthAuthCodes.create).not.toHaveBeenCalled();
+  });
+
+  it("does not revoke a confidential client's token without its secret", async () => {
+    mockOrgApp();
+    mockRefreshToken(APP_ID);
+    const { deleteForGrant } = mockOrgContext();
+
+    await expect(
+      revokeToken({
+        token: OAUTH_REFRESH_TOKEN_PREFIX + "secret",
+        clientId: APP_ID,
+        clientSecret: "gbcs_wrong-secret",
+      }),
+    ).rejects.toMatchObject({ error: "invalid_client" });
+    expect(deleteForGrant).not.toHaveBeenCalled();
   });
 });

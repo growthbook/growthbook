@@ -2,26 +2,63 @@ import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 
 /**
- * Public OAuth clients registered via DCR (RFC 7591). No org scoping.
- * DCR is unauthenticated, so `expiresAt` + TTL bound growth (idle window
- * reset on token issuance).
+ * OAuth clients. Two kinds share this collection:
+ * - Public clients registered via DCR (RFC 7591): no org, no secret, and
+ *   `expiresAt` + TTL bound growth (idle window reset on token issuance).
+ * - Org OAuth apps registered by an admin: confidential (`clientSecretHash`),
+ *   bound to `organization`, and never expire.
  */
 export const oauthClientValidator = z
   .object({
     clientId: z.string(),
     clientName: z.string().optional(),
     redirectUris: z.array(z.string()).min(1),
-    tokenEndpointAuthMethod: z.literal("none"),
+    tokenEndpointAuthMethod: z.enum(["none", "client_secret_basic"]),
     grantTypes: z.array(z.string()),
     responseTypes: z.array(z.string()),
     scope: z.string().optional(),
     clientUri: z.string().optional(),
+    organization: z.string().optional(),
+    clientSecretHash: z.string().optional(),
+    createdBy: z.string().optional(),
     dateCreated: z.date(),
-    expiresAt: z.date(),
+    dateUpdated: z.date().optional(),
+    expiresAt: z.date().optional(),
   })
   .strict();
 
 export type OAuthClientInterface = z.infer<typeof oauthClientValidator>;
+
+const oauthAppRedirectUri = z
+  .string()
+  .url()
+  .refine((uri) => {
+    const { protocol, hostname } = new URL(uri);
+    // Plain http is only safe on loopback, where the code never leaves the machine.
+    return (
+      protocol === "https:" ||
+      (protocol === "http:" &&
+        ["localhost", "127.0.0.1", "[::1]"].includes(hostname))
+    );
+  }, "Redirect URIs must use https (http is allowed only for localhost)");
+
+export const oauthAppPropsValidator = z
+  .object({
+    clientName: z.string().trim().min(1).max(100),
+    redirectUris: z.array(oauthAppRedirectUri).min(1).max(10),
+    clientUri: z.string().url().optional().or(z.literal("")),
+  })
+  .strict();
+
+export type OAuthAppProps = z.infer<typeof oauthAppPropsValidator>;
+
+/** Admin-facing shape of an org OAuth app; never includes the secret hash. */
+export type OAuthAppInterface = OAuthAppProps & {
+  clientId: string;
+  createdBy?: string;
+  dateCreated: Date;
+  dateUpdated?: Date;
+};
 
 /**
  * Short-lived authorization codes. Primary key is the hashed code

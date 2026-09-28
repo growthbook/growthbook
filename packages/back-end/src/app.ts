@@ -149,6 +149,7 @@ import { slackActionsRouter } from "./routers/slack-actions/slack-actions.router
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
+import { oauthAppsRouter } from "./routers/oauth-apps/oauth-apps.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
@@ -603,6 +604,7 @@ if (OAUTH_AS_ENABLED) {
 app.use(organizationsRouter);
 
 app.use("/environment", environmentRouter);
+app.use("/oauth-apps", oauthAppsRouter);
 app.use("/auto-runs", autoRunRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
