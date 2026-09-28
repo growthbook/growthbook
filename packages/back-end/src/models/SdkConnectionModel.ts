@@ -212,8 +212,20 @@ export async function findSDKConnectionsByIds(
   return docs.map(toInterface);
 }
 
+// Not org-scoped: only for public SDK endpoints where the key identifies the org
 export async function findSDKConnectionByKey(key: string) {
   const doc = await SDKConnectionModel.findOne({ key });
+  return doc ? toInterface(doc) : null;
+}
+
+export async function findSDKConnectionByKeyForOrg(
+  context: ReqContext | ApiReqContext,
+  key: string,
+) {
+  const doc = await SDKConnectionModel.findOne({
+    organization: context.org.id,
+    key,
+  });
   return doc ? toInterface(doc) : null;
 }
 
