@@ -13,26 +13,28 @@ import {
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
-import { date, datetime } from "shared/dates";
+import { datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ScaleLinear, ScaleTime } from "d3-scale";
+import { ScaleLinear } from "d3-scale";
 import {
   ExperimentMetricDefinition,
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { BanditEvent } from "shared/validators";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
-import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
+import { Flex } from "@radix-ui/themes";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
+import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import styles from "./ExperimentDateGraph.module.scss";
+import { dateAxisTicks, spacedOut } from "./dateAxis";
 
 export interface DataPointVariation {
   probability?: number;
@@ -88,6 +90,9 @@ type TooltipData = {
 
 const height = 300;
 const margin = [15, 30, 50, 80];
+// How close events can sit before a burst of them shows as one.
+const EVENT_GAP = 16;
+const ERROR_GAP = 16;
 
 type GraphVariation = { name: string; index: number };
 
@@ -300,12 +305,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     detectBounds: true,
   });
 
-  const form = useForm({
-    defaultValues: {
-      filterVariations: "all",
-    },
-  });
-  const filterVariations = form.watch("filterVariations");
+  const [filterVariations, setFilterVariations] = useState("all");
   const [showVariations, setShowVariations] = useState<boolean[]>(
     variations.map(() => true),
   );
@@ -572,7 +572,6 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       {({ width }) => {
         const xMax = width - margin[1] - margin[3];
 
-        const allXTicks = stackedData.map((p) => p.date.getTime());
         const reweights = stackedData
           .filter((p) => p.meta?.type !== "today" && p?.reweight === true)
           .map((p) => p.date.getTime());
@@ -586,11 +585,21 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           round: true,
         });
 
-        const visibleTickIndexes = getVisibleTickIndexes(
-          allXTicks,
+        const { ticks: xTicks, format: formatXTick } = dateAxisTicks(
           xScale,
-          width * 0.11,
+          xMax,
         );
+        // Updates can come hourly; a burst of them reads as one marker.
+        const shownReweights = spacedOut(reweights, xScale, EVENT_GAP);
+        const shownErrorTicks = spacedOut(errorTicks, xScale, ERROR_GAP);
+        // As many decimals as the ticks' spacing needs, so no two read alike.
+        const yTicks = yScale.ticks(5);
+        const yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
+        const yTickOptions = {
+          ...metricFormatterOptions,
+          minimumFractionDigits: 0,
+          maximumFractionDigits: Math.max(0, Math.ceil(-Math.log10(yStep))),
+        };
 
         const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
           // coordinates should be relative to the container in which Tooltip is rendered
@@ -681,71 +690,48 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 )}
               </TooltipWithBounds>
             )}
-            <div className="d-flex align-items-start">
-              <div className="position-relative" style={{ top: -17 }}>
-                <label className="uppercase-title text-muted mb-0">
-                  Filter variations
-                </label>
-                <SelectField
-                  size="legacy"
-                  style={{ width: 135 }}
-                  containerClassName="select-dropdown-underline"
-                  isSearchable={false}
-                  sort={false}
-                  options={[
-                    {
-                      label: "All variations",
-                      value: "all",
-                    },
-                    ...(variations.length > 5
-                      ? [
-                          {
-                            label: "Top 5",
-                            value: "5",
-                          },
-                        ]
-                      : []),
-                    ...(variations.length > 3
-                      ? [
-                          {
-                            label: "Top 3",
-                            value: "3",
-                          },
-                        ]
-                      : []),
-                    {
-                      label: "Winning variation",
-                      value: "1",
-                    },
-                    ...(form.watch("filterVariations") === ""
-                      ? [
-                          {
-                            label: `selected (${
-                              showVariations.filter((sv) => sv).length
-                            })`,
-                            value: "",
-                          },
-                        ]
-                      : []),
-                  ]}
-                  value={form.watch("filterVariations")}
-                  onChange={(v) => {
-                    form.setValue("filterVariations", v);
-                  }}
-                />
-              </div>
-              <div
-                className="d-flex flex-wrap px-3 mb-2"
-                style={{ gap: "0.25rem 1rem" }}
+            <Text as="div" size="sm" weight="semibold">
+              Filter variations
+            </Text>
+            {/* Legend rows match the dropdown's height, so the first stays level with it. */}
+            <Flex align="start" gap="4" mb="2">
+              <Select
+                size="sm"
+                value={filterVariations}
+                setValue={setFilterVariations}
+                style={{ width: 160, flexShrink: 0 }}
               >
+                <SelectItem value="all">All variations</SelectItem>
+                {variations.length > 5 ? (
+                  <SelectItem value="5">Top 5</SelectItem>
+                ) : null}
+                {variations.length > 3 ? (
+                  <SelectItem value="3">Top 3</SelectItem>
+                ) : null}
+                <SelectItem value="1">Winning variation</SelectItem>
+                {/* Picked one by one from the legend. */}
+                {filterVariations === "picked" ? (
+                  <SelectItem value="picked">
+                    {`Selected (${showVariations.filter((sv) => sv).length})`}
+                  </SelectItem>
+                ) : null}
+              </Select>
+              <Flex wrap="wrap" gapX="4" gapY="1" minWidth="0">
                 {variations.map((v, i) => {
                   return (
-                    <div
+                    <Flex
                       key={v.index}
-                      className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
+                      align="center"
+                      gap="1"
+                      height="24px"
+                      pr="1"
+                      className="hover-highlight rounded"
                       style={{
                         maxWidth: 200,
                         color: getVariationColor(v.index, true),
+                        cursor: "pointer",
+                        userSelect: "none",
+                        whiteSpace: "nowrap",
                       }}
                       onClick={() => {
                         let sv = [...showVariations];
@@ -755,23 +741,23 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                         }
                         setShowVariations(sv);
                         if (sv.every((v) => v)) {
-                          form.setValue("filterVariations", "all");
+                          setFilterVariations("all");
                         } else {
-                          form.setValue("filterVariations", "");
+                          setFilterVariations("picked");
                         }
                       }}
                     >
                       {showVariations[i] ? (
-                        <BiCheckboxSquare size={24} />
+                        <BiCheckboxSquare size={24} style={{ flexShrink: 0 }} />
                       ) : (
-                        <BiCheckbox size={24} />
+                        <BiCheckbox size={24} style={{ flexShrink: 0 }} />
                       )}
-                      {v.name}
-                    </div>
+                      <span className="text-ellipsis">{v.name}</span>
+                    </Flex>
                   );
                 })}
-              </div>
-            </div>
+              </Flex>
+            </Flex>
             <div
               ref={containerRef}
               className={styles.dategraph}
@@ -851,7 +837,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   scale={xScale}
                   stroke="var(--border-color-300)"
                   height={yMax}
-                  tickValues={reweights}
+                  tickValues={shownReweights}
                 />
 
                 <Group clipPath="url(#bandit-date-graph-clip)">
@@ -945,20 +931,14 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   top={yMax}
                   scale={xScale}
                   stroke={"var(--text-color-table)"}
-                  tickValues={allXTicks}
-                  tickLabelProps={(value, i) => {
-                    return visibleTickIndexes.includes(i)
-                      ? {
-                          fill: "var(--text-color-table)",
-                          fontSize: 11,
-                          textAnchor: "middle",
-                          dy: 5,
-                        }
-                      : { display: "none" };
-                  }}
-                  tickFormat={(d) => {
-                    return date(d as Date);
-                  }}
+                  tickValues={xTicks}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "middle",
+                    dy: 5,
+                  })}
+                  tickFormat={(d) => formatXTick(d as Date)}
                 />
 
                 <AxisBottom
@@ -966,7 +946,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   scale={xScale}
                   stroke={"transparent"}
                   tickLength={4}
-                  tickValues={errorTicks}
+                  tickValues={shownErrorTicks}
                   tickFormat={() => "⚠️"}
                   tickLabelProps={() => ({
                     fontSize: 12,
@@ -993,8 +973,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                         ? getExperimentMetricFormatter(
                             metric,
                             getFactTableById,
-                          )(v as number, metricFormatterOptions)
-                        : formatter(v as number)
+                          )(v as number, yTickOptions)
+                        : formatter(v as number, yTickOptions)
                       : intPercentFormatter.format(v as number)
                   }
                   tickLabelProps={() => ({
@@ -1016,20 +996,3 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   );
 };
 export default BanditDateGraph;
-
-export function getVisibleTickIndexes(
-  ticks: number[],
-  xScale: ScaleTime<number, number>,
-  minGap: number,
-): number[] {
-  const visibleIndexes: number[] = [];
-  let lastXPosition = -Infinity;
-  ticks.forEach((tick, index) => {
-    const currentX = xScale(tick);
-    if (currentX - lastXPosition >= minGap) {
-      visibleIndexes.push(index);
-      lastXPosition = currentX;
-    }
-  });
-  return visibleIndexes;
-}

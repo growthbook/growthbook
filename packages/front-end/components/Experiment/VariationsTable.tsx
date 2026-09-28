@@ -35,7 +35,7 @@ const MAX_IMAGE_HEIGHT = 150;
 // Radix Themes breakpoints (px), mirroring `@radix-ui/themes` `--xs`/`--sm`.
 
 /** Narrower than this and a card has no room for a name beside its controls. */
-const MIN_VARIATION_WIDTH = 220;
+export const MIN_VARIATION_WIDTH = 220;
 export const VARIATION_GRID_GAP_PX = 16;
 
 /**

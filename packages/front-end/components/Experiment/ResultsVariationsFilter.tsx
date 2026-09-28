@@ -1,11 +1,16 @@
+import { useEffect, useState } from "react";
 import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
-import React, { useEffect } from "react";
-import { BsXCircle } from "react-icons/bs";
-import { FaX } from "react-icons/fa6";
-import { useForm } from "react-hook-form";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import SelectField from "@/components/Forms/SelectField";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
+import { PiX } from "react-icons/pi";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Popover } from "@/ui/Popover";
+import Tooltip from "@/ui/Tooltip";
+import Text from "@/ui/Text";
+import Button from "@/ui/Button";
+import RadioGroup from "@/ui/RadioGroup";
+import { Select, SelectItem } from "@/ui/Select";
+
+type VariationsSort = "default" | "ranked";
+type FilterVariations = "all" | "5" | "3";
 
 export default function ResultsVariationsFilter({
   variationNames,
@@ -21,21 +26,17 @@ export default function ResultsVariationsFilter({
   variationRanks: number[];
   showVariations: boolean[];
   setShowVariations: (v: boolean[]) => void;
-  variationsSort: "default" | "ranked";
-  setVariationsSort: (v: "default" | "ranked") => void;
+  variationsSort: VariationsSort;
+  setVariationsSort: (v: VariationsSort) => void;
   showVariationsFilter: boolean;
   setShowVariationsFilter: (show: boolean) => void;
 }) {
-  const form = useForm<{
-    filterVariations: "all" | "5" | "3";
-  }>({
-    defaultValues: {
-      filterVariations: "all",
-    },
-  });
-  const filterVariations = form.watch("filterVariations");
+  const [filterVariations, setFilterVariations] =
+    useState<FilterVariations>("all");
+  // Portal target that keeps the Select dropdown inside the popover, so
+  // picking an option doesn't count as an outside click and dismiss it.
+  const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
 
-  // handle variation filter selector
   useEffect(
     () => {
       let sv = [...showVariations];
@@ -56,149 +57,106 @@ export default function ResultsVariationsFilter({
   );
 
   const filteringApplied =
-    form.watch("filterVariations") !== "all" || variationsSort !== "default";
+    filterVariations !== "all" || variationsSort !== "default";
 
   return (
-    <div
-      className="col position-relative d-flex align-items-end px-0 font-weight-normal"
-      style={{ maxWidth: 20 }}
-    >
-      <Tooltip
-        body={
-          filteringApplied
-            ? "Variation filters applied"
-            : "No variation filters applied"
-        }
-        usePortal={true}
-      >
-        <a
-          role="button"
-          onClick={() => setShowVariationsFilter(!showVariationsFilter)}
-          className={`d-inline-block px-1 ${
-            filteringApplied ? "btn-link-filter-on" : "btn-link-filter-off"
-          }`}
-          style={{ transform: "scale(1.1)", marginRight: -4 }}
-        >
-          {filteringApplied ? (
-            <MdFilterAlt className="position-relative" style={{ bottom: 1 }} />
-          ) : (
-            <MdOutlineFilterAltOff
-              className="position-relative"
-              style={{ bottom: 1 }}
-            />
-          )}
-        </a>
-      </Tooltip>
-      <Tooltip
-        tipPosition="bottom"
-        usePortal={true}
-        style={{ position: "absolute" }}
-        popperStyle={{ marginLeft: 17, marginTop: -2 }}
-        state={showVariationsFilter}
-        body={
-          <div style={{ width: 245 }}>
-            <a
-              role="button"
-              style={{
-                top: 3,
-                right: 5,
-              }}
-              className="position-absolute text-gray cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowVariationsFilter(false);
-              }}
+    <Flex align="end" flexShrink="0" style={{ width: 20 }}>
+      <Popover
+        open={showVariationsFilter}
+        onOpenChange={setShowVariationsFilter}
+        side="bottom"
+        align="start"
+        trigger={
+          <IconButton
+            variant="ghost"
+            color={filteringApplied ? "violet" : "gray"}
+            size="1"
+            aria-label="Variation filters"
+          >
+            <Tooltip
+              content={
+                filteringApplied
+                  ? "Variation filters applied"
+                  : "No variation filters applied"
+              }
             >
-              <BsXCircle size={16} />
-            </a>
-
-            <div className="mt-1 mb-4">
-              <label className="uppercase-title mb-1">Order variations</label>
-              <ButtonSelectField
-                className="w-100"
+              <span style={{ display: "inline-flex" }}>
+                {filteringApplied ? (
+                  <MdFilterAlt size={18} />
+                ) : (
+                  <MdOutlineFilterAltOff size={18} />
+                )}
+              </span>
+            </Tooltip>
+          </IconButton>
+        }
+        content={
+          <Flex
+            ref={setContentEl}
+            direction="column"
+            gap="4"
+            style={{ width: 245 }}
+          >
+            <Box>
+              <Text as="div" weight="semibold" mb="2">
+                Order variations
+              </Text>
+              <RadioGroup
+                gap="0"
                 value={variationsSort}
+                setValue={(v) => setVariationsSort(v as VariationsSort)}
                 options={[
-                  {
-                    label: "Default Order",
-                    value: "default",
-                  },
-                  {
-                    label: "By Probability",
-                    value: "ranked",
-                  },
+                  { value: "default", label: "Default order" },
+                  { value: "ranked", label: "By probability" },
                 ]}
-                setValue={(v) => setVariationsSort(v as "default" | "ranked")}
               />
-            </div>
+            </Box>
 
-            <div className="mt-3 mb-2">
-              <label className="uppercase-title mb-0">Filter variations</label>
-              <SelectField
-                size="legacy"
-                containerClassName="select-dropdown-underline"
-                isSearchable={false}
-                sort={false}
-                disabled={variationNames.length <= 3}
-                options={[
-                  {
-                    label: "All variations",
-                    value: "all",
-                  },
-                  ...(variationNames.length > 5
-                    ? [
-                        {
-                          label: "Top 5",
-                          value: "5",
-                        },
-                      ]
-                    : []),
-                  ...(variationNames.length > 3
-                    ? [
-                        {
-                          label: "Top 3",
-                          value: "3",
-                        },
-                      ]
-                    : []),
-                ]}
-                value={form.watch("filterVariations")}
-                onChange={(v) => {
-                  form.setValue("filterVariations", v as "all" | "5" | "3");
-                }}
-              />
-            </div>
+            {/* Top 3 is every variation until there are more. */}
+            {variationNames.length > 3 ? (
+              <Select
+                label="Filter variations"
+                value={filterVariations}
+                setValue={(v) => setFilterVariations(v as FilterVariations)}
+                container={contentEl}
+              >
+                <SelectItem value="all">All variations</SelectItem>
+                {variationNames.length > 5 ? (
+                  <SelectItem value="5">Top 5</SelectItem>
+                ) : null}
+                <SelectItem value="3">Top 3</SelectItem>
+              </Select>
+            ) : null}
 
-            <div className="d-flex mt-2">
+            <Flex justify="between" align="center">
               {filteringApplied ? (
-                <button
-                  className="btn btn-sm btn-link px-0"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.setValue("filterVariations", "all");
+                <Button
+                  variant="ghost"
+                  color="red"
+                  size="sm"
+                  icon={<PiX />}
+                  onClick={() => {
+                    setFilterVariations("all");
                     setVariationsSort("default");
                     setShowVariationsFilter(false);
                   }}
                 >
-                  <FaX className="mr-1" />
                   Clear filters
-                </button>
-              ) : null}
-              <div className="flex-1" />
-              <button
-                className="btn btn-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowVariationsFilter(false);
-                }}
+                </Button>
+              ) : (
+                <Box />
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowVariationsFilter(false)}
               >
                 Close
-              </button>
-            </div>
-          </div>
+              </Button>
+            </Flex>
+          </Flex>
         }
-      >
-        <></>
-      </Tooltip>
-    </div>
+      />
+    </Flex>
   );
 }

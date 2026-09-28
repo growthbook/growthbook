@@ -13,7 +13,7 @@ import {
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
-import { date, datetime } from "shared/dates";
+import { datetime } from "shared/dates";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -23,7 +23,7 @@ import { BiRadioCircle, BiRadioCircleMarked } from "react-icons/bi";
 import { formatNumber } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import styles from "@/components/Experiment/ExperimentDateGraph.module.scss";
-import { getVisibleTickIndexes } from "@/components/Experiment/BanditDateGraph";
+import { dateAxisTicks } from "@/components/Experiment/dateAxis";
 
 export interface BanditSRMGraphDataPoint {
   date: Date;
@@ -292,18 +292,15 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
       {({ width }) => {
         const xMax = width - margin[1] - margin[3];
 
-        const allXTicks = data.map((p) => p.date.getTime());
-
         const xScale = scaleTime({
           domain: [min, max],
           range: [0, xMax],
           round: true,
         });
 
-        const visibleTickIndexes = getVisibleTickIndexes(
-          allXTicks,
+        const { ticks: xTicks, format: formatXTick } = dateAxisTicks(
           xScale,
-          width * 0.11,
+          xMax,
         );
 
         const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -467,7 +464,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   scale={xScale}
                   stroke="var(--border-color-200)"
                   height={yMax}
-                  tickValues={allXTicks}
+                  tickValues={xTicks}
                 />
 
                 <Group clipPath="url(#bandit-srm-graph-clip)">
@@ -558,20 +555,14 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   top={yMax}
                   scale={xScale}
                   stroke={"var(--text-color-table)"}
-                  tickValues={allXTicks}
-                  tickLabelProps={(value, i) => {
-                    return visibleTickIndexes.includes(i)
-                      ? {
-                          fill: "var(--text-color-table)",
-                          fontSize: 11,
-                          textAnchor: "middle",
-                          dy: 5,
-                        }
-                      : { display: "none" };
-                  }}
-                  tickFormat={(d) => {
-                    return date(d as Date);
-                  }}
+                  tickValues={xTicks}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "middle",
+                    dy: 5,
+                  })}
+                  tickFormat={(d) => formatXTick(d as Date)}
                 />
                 <AxisLeft
                   scale={yScale}

@@ -290,19 +290,6 @@ pre {
   color: inherit;
 }
 
-.btn-link-filter-on {
-  color: var(--text-color-primary);
-  &:hover {
-    color: var(--text-link-hover-color);
-  }
-}
-.btn-link-filter-off {
-  color: var(--text-color-muted);
-  &:hover {
-    color: var(--text-link-hover-color);
-  }
-}
-
 .experiment-status-widget {
   background-color: var(--surface-background-color);
   border-radius: 20px !important;
@@ -668,8 +655,14 @@ pre {
   padding: 0 10px;
 }
 
+// Scrolls sideways once the table outgrows its column. The table says so
+// itself (`overflowing`): the details panel narrows the column without the
+// window, so the viewport query alone misses it.
 .experiment-results-wrapper,
 .bandit-summary-results-wrapper {
+  &.overflowing {
+    overflow-x: auto;
+  }
   @media (max-width: 900px) {
     overflow-x: auto;
   }
@@ -771,6 +764,10 @@ pre {
       &:not(.noStickyHeader) {
         position: sticky;
         top: 95px;
+        // A scrolling wrapper would pin it to the wrapper, not the page.
+        .overflowing & {
+          position: static;
+        }
         @media (max-width: 900px) {
           position: static;
         }

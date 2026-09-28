@@ -1,35 +1,42 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
-import { BsArrowRepeat } from "react-icons/bs";
+import { Flex } from "@radix-ui/themes";
+import { PiArrowClockwise, PiCaretDownFill } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { FaCaretDown, FaExclamationCircle } from "react-icons/fa";
-import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
-import Button from "@/components/Button";
-import Dropdown from "@/components/Dropdown/Dropdown";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import Button from "@/ui/Button";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import HelperText from "@/ui/HelperText";
+import SplitButton from "@/ui/SplitButton";
+import Text from "@/ui/Text";
 
 const RefreshBanditButton: FC<{
   mutate: () => void;
   experiment: ExperimentInterfaceStringDates;
   setError: (e: string | undefined) => void;
   setGeneratedSnapshot: (s: ExperimentSnapshotInterface | undefined) => void;
+  onLoadingChange?: (loading: boolean) => void;
 }> = ({
   mutate: mutateExperiment,
   experiment,
   setError: setOuterError,
   setGeneratedSnapshot: setOuterGeneratedSnapshot,
+  onLoadingChange,
 }) => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoadingState] = useState(false);
+  const setLoading = (next: boolean) => {
+    setLoadingState(next);
+    onLoadingChange?.(next);
+  };
   const [_error, setError] = useState("");
   const [generatedSnapshot, setGeneratedSnapshot] = useState<
     ExperimentSnapshotInterface | undefined
   >(undefined);
   const [longResult, setLongResult] = useState(false);
   const [reweight, setReweight] = useState(false);
-  const [open, setOpen] = useState(false);
 
   const { setSnapshotType, mutate } = useSnapshot();
 
@@ -84,17 +91,48 @@ const RefreshBanditButton: FC<{
   };
 
   return (
-    <>
-      <div className="d-flex align-items-center justify-content-end mx-2">
-        <div className="text-muted d-block mr-2" style={{ fontSize: "12px" }}>
+    <Flex direction="column" align="end" gap="1">
+      <Flex align="center" justify="end" gap="2">
+        <Text size="sm" color="text-low">
           Manually update and
-        </div>
-        <div className="btn-group position-relative">
+        </Text>
+        <SplitButton
+          variant="outline"
+          menu={
+            <DropdownMenu
+              trigger={
+                <Button variant="outline" size="sm" aria-label="Update options">
+                  <PiCaretDownFill />
+                </Button>
+              }
+              menuPlacement="end"
+              variant="soft"
+            >
+              <DropdownMenuItem onClick={() => setReweight(false)}>
+                Check results
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setReweight(true)}
+                style={{ height: "auto" }}
+              >
+                <Flex direction="column" py="1">
+                  <Text>Check results and update variation weights</Text>
+                  {experiment.banditStage === "explore" && (
+                    <HelperText status="warning" size="sm">
+                      Immediately begins the Exploit stage
+                    </HelperText>
+                  )}
+                </Flex>
+              </DropdownMenuItem>
+            </DropdownMenu>
+          }
+        >
           <Button
-            color="outline-primary btn-sm"
-            style={{ width: 130 }}
-            loadingClassName="btn-outline-primary btn-sm disabled"
-            setErrorText={setError}
+            variant="outline"
+            size="sm"
+            icon={<PiArrowClockwise />}
+            loading={loading}
+            setError={(e) => setError(e ?? "")}
             onClick={async () => {
               setLoading(true);
               setLongResult(false);
@@ -135,69 +173,26 @@ const RefreshBanditButton: FC<{
               mutate();
             }}
           >
-            <BsArrowRepeat /> {reweight ? "Update Weights" : "Check Results"}
+            {reweight ? "Update weights" : "Check results"}
           </Button>
-          <Dropdown
-            uuid="bandit-refresh-type"
-            open={open}
-            setOpen={setOpen}
-            caret={false}
-            toggle={
-              <span className="px-2" style={{ lineHeight: "26px" }}>
-                <FaCaretDown />
-              </span>
-            }
-            toggleClassName="btn btn-outline-primary btn-sm p-0"
-            toggleStyle={{ zIndex: "auto" }}
-            className="nowrap py-0"
-          >
-            <button
-              className="dropdown-item py-2"
-              onClick={() => {
-                setReweight(false);
-                setOpen(false);
-              }}
-            >
-              Check results
-            </button>
-            <button
-              className="dropdown-item py-2"
-              onClick={() => {
-                setReweight(true);
-                setOpen(false);
-              }}
-            >
-              Check results and
-              <br />
-              update variation weights
-              {experiment.banditStage === "explore" && (
-                <div className="small text-warning-orange">
-                  <FaExclamationCircle className="mr-1" />
-                  Will immediately begin the <strong>Exploit</strong> stage
-                </div>
-              )}
-            </button>
-          </Dropdown>
-        </div>
-      </div>
+        </SplitButton>
+      </Flex>
 
       {loading && longResult ? (
-        <div className="text-muted text-right mx-2 mt-1 small">
+        <Text size="sm" color="text-low">
           This may take several minutes...
-        </div>
+        </Text>
       ) : null}
       {error ? (
-        <div className="text-danger mx-2 my-2">
-          <FaRegCircleXmark className="mr-1" />
+        <HelperText status="error" size="sm">
           Update errored
-        </div>
+        </HelperText>
       ) : generatedSnapshot ? (
-        <div className="text-success mx-2 my-2">
-          <FaRegCircleCheck className="mr-1" />
+        <HelperText status="success" size="sm">
           Update successful
-        </div>
+        </HelperText>
       ) : null}
-    </>
+    </Flex>
   );
 };
 

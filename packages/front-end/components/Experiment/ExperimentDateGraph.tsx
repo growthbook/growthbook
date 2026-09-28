@@ -20,6 +20,7 @@ import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import styles from "./ExperimentDateGraph.module.scss";
+import { dateAxisTicks } from "./dateAxis";
 
 export interface DataPointVariation {
   v: number;
@@ -366,16 +367,18 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       {({ width }) => {
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
-        const numXTicks =
-          datapoints.length < 7 ? datapoints.length : width > 768 ? 7 : 4;
         const numYTicks = 5;
-        const allXTicks = datapoints.map((p) => p.d.getTime());
 
         const xScale = scaleTime({
           domain: [min, max],
           range: [0, xMax],
           round: true,
         });
+        const { ticks: xTickValues, format: formatXTick } = dateAxisTicks(
+          xScale,
+          xMax,
+          datapoints.map((p) => p.d),
+        );
         const yScale = scaleLinear<number>({
           domain: yDomain,
           range: [yMax, 0],
@@ -542,8 +545,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   scale={xScale}
                   stroke="var(--border-color-200)"
                   height={yMax}
-                  numTicks={numXTicks}
-                  tickValues={numXTicks < 7 ? allXTicks : undefined}
+                  tickValues={xTickValues}
                 />
 
                 <Group clipPath="url(#experiment-date-graph-clip)">
@@ -603,16 +605,13 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 <AxisBottom
                   top={yMax}
                   scale={xScale}
-                  numTicks={numXTicks}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
                     fontSize: 11,
                     textAnchor: "middle",
                   })}
-                  tickFormat={(d) => {
-                    return date(d as Date);
-                  }}
-                  tickValues={numXTicks < 7 ? allXTicks : undefined}
+                  tickFormat={(d) => formatXTick(d as Date)}
+                  tickValues={xTickValues}
                 />
                 <AxisLeft
                   scale={yScale}

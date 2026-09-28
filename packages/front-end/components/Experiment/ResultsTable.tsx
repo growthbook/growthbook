@@ -335,6 +335,8 @@ export default function ResultsTable({
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
+  // Wider than its column, which the details panel narrows without the window.
+  const [overflowing, setOverflowing] = useState(false);
 
   const { isAuthenticated } = useAuth();
 
@@ -390,6 +392,8 @@ export default function ResultsTable({
     const graphWidth = tableWidth - totalCellWidth;
     setGraphCellWidth(Math.max(graphWidth, 200));
     setTableCellScale(Math.max(Math.min(1, tableWidth / 1000), 0.85));
+    const container = tableContainerRef.current;
+    setOverflowing(container.scrollWidth > container.clientWidth + 1);
   }
 
   useEffect(() => {
@@ -398,11 +402,14 @@ export default function ResultsTable({
       globalThis.window?.removeEventListener("resize", onResize, false);
   }, []);
 
-  // Watch for table container resizes (e.g., sidebar opening/closing)
+  // Watch for table container resizes (e.g., sidebar opening/closing), and the
+  // table's own once its graph column is resized to fit.
   useEffect(() => {
     if (!tableContainerRef.current) return;
     const resizeObserver = new ResizeObserver(() => onResize());
     resizeObserver.observe(tableContainerRef.current);
+    const table = tableContainerRef.current.querySelector("table");
+    if (table) resizeObserver.observe(table);
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -546,7 +553,10 @@ export default function ResultsTable({
         onClick: onRowClick_,
       }) => (
         <div className="position-relative">
-          <div ref={tableContainerRef} className="experiment-results-wrapper">
+          <div
+            ref={tableContainerRef}
+            className={clsx("experiment-results-wrapper", { overflowing })}
+          >
             <div className="w-100" style={{ minWidth: 700 }}>
               <table id="main-results" className="experiment-results table-sm">
                 <thead>

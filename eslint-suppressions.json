@@ -212,11 +212,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/BanditDateGraph.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/BanditDecisionMetricSettings.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -387,11 +382,6 @@
   },
   "packages/front-end/components/Experiment/ResultsFilter/ResultsFilter.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/ResultsVariationsFilter.tsx": {
-    "no-restricted-syntax": {
       "count": 1
     }
   },

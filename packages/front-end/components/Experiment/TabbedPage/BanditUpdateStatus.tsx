@@ -1,17 +1,46 @@
-import React, { useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BanditEvent } from "shared/validators";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { Flex } from "@radix-ui/themes";
-import Dropdown from "@/components/Dropdown/Dropdown";
+import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Callout from "@/ui/Callout";
+import { Popover } from "@/ui/Popover";
+import Text from "@/ui/Text";
+import styles from "./BanditUpdateStatus.module.scss";
+
+function SectionLabel({ children, mt }: { children: ReactNode; mt?: "3" }) {
+  return (
+    <Box gridColumn="1 / -1" mt={mt} mb="1">
+      <Text weight="semibold" color="text-high">
+        {children}
+      </Text>
+    </Box>
+  );
+}
+
+function DetailRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <Text color="text-mid">{label}</Text>
+      <Text color="text-high" whiteSpace="nowrap">
+        {children}
+      </Text>
+    </>
+  );
+}
 
 export default function BanditUpdateStatus({
   experiment,
@@ -63,190 +92,170 @@ export default function BanditUpdateStatus({
     : lastEvent?.banditResult?.error;
 
   const [error, setError] = useState<string | undefined>(_error);
+  // Held open through a refresh: closing would drop its progress and let a
+  // second one start.
+  const [open, setOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [generatedSnapshot, setGeneratedSnapshot] = useState<
     ExperimentSnapshotInterface | undefined
   >(undefined);
 
-  return (
-    <div className="hover-highlight rounded">
-      <Dropdown
-        uuid="bandit-update-status"
-        toggle={
-          <div
-            className="d-inline-block text-muted text-right mr-1 user-select-none"
-            style={{ maxWidth: 130, fontSize: "0.8em" }}
-          >
-            <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-              {error && !isPublic ? (
-                <FaExclamationTriangle
-                  className="text-danger mr-1 mb-1"
-                  size={14}
-                />
-              ) : null}
-              last updated
-            </div>
-            <div className="d-flex align-items-center">
-              <div
-                style={{ lineHeight: 1 }}
-                title={
-                  (phase?.banditEvents?.length ?? 0) > 1
-                    ? datetime(lastEvent?.date ?? "")
-                    : "never"
-                }
-              >
-                {(phase?.banditEvents?.length ?? 0) > 1 ? (
-                  ago(lastEvent?.date ?? "")
-                ) : (
-                  <em>never</em>
-                )}
-              </div>
-            </div>
-          </div>
-        }
-        toggleClassName="p-1 rounded"
-      >
-        <div className="px-2 pb-1" style={{ minWidth: 330 }}>
-          <table className="table-tiny mb-4">
-            <tbody>
-              <tr>
-                <td colSpan={2} className="pt-2">
-                  <span className="uppercase-title">Current update</span>
-                </td>
-              </tr>
-              <tr>
-                <td className="text-muted">Last updated at:</td>
-                <td className="nowrap">
-                  {(phase?.banditEvents?.length ?? 0) > 1 ? (
-                    datetime(lastEvent?.date ?? "")
-                  ) : (
-                    <em>never</em>
-                  )}
-                </td>
-              </tr>
-              {lastReweightEvent ? (
-                <tr>
-                  <td className="text-muted">Last weights updated:</td>
-                  <td className="nowrap">
-                    {datetime(lastReweightEvent?.date ?? "")}
-                  </td>
-                </tr>
-              ) : null}
-              {experiment.status === "running" &&
-                !isPublic &&
-                ["explore", "exploit"].includes(
-                  experiment.banditStage ?? "",
-                ) && (
-                  <>
-                    <tr>
-                      <td colSpan={2} className="pt-3">
-                        <span className="uppercase-title">Scheduling</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="text-muted">Next scheduled update:</td>
-                      <td>
-                        {experiment.nextSnapshotAttempt &&
-                        experiment.autoSnapshots &&
-                        !experiment.disableAutoSnapshots ? (
-                          ago(experiment.nextSnapshotAttempt)
-                        ) : (
-                          <em>Not scheduled</em>
-                        )}
-                      </td>
-                    </tr>
-                  </>
-                )}
-            </tbody>
-            {!isPublic && (
-              <tbody>
-                <tr>
-                  <td className="text-muted">Current schedule:</td>
-                  <td>
-                    every {experiment.banditScheduleValue ?? ""}{" "}
-                    {experiment.banditScheduleUnit ?? ""}
-                  </td>
-                </tr>
-              </tbody>
-            )}
-          </table>
+  const hasUpdated = (phase?.banditEvents?.length ?? 0) > 1;
+  const isRunning = experiment.status === "running";
+  const isExploring =
+    !isPublic && isRunning && experiment.banditStage === "explore";
+  const showScheduling =
+    isRunning &&
+    !isPublic &&
+    ["explore", "exploit"].includes(experiment.banditStage ?? "");
+  const queriesSnapshot = generatedSnapshot || latest;
 
-          <div className="mx-2" style={{ fontSize: "12px" }}>
-            <p>
+  const never = (
+    <Text size="inherit" fontStyle="italic">
+      never
+    </Text>
+  );
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next || !refreshing) setOpen(next);
+      }}
+      side="bottom"
+      align="end"
+      contentStyle={{ width: 380 }}
+      trigger={
+        <button type="button" className={styles.trigger}>
+          <Flex as="span" direction="column" align="end">
+            <Flex as="span" align="center" gap="1">
+              {error && !isPublic ? (
+                <PiWarningFill size={14} color="var(--red-9)" />
+              ) : null}
+              <Text size="sm" weight="semibold" color="text-mid">
+                last updated
+              </Text>
+            </Flex>
+            <Flex as="span" align="center" gap="1">
+              <Text
+                size="sm"
+                color="text-mid"
+                whiteSpace="nowrap"
+                title={hasUpdated ? datetime(lastEvent?.date ?? "") : "never"}
+              >
+                {hasUpdated ? ago(lastEvent?.date ?? "") : never}
+              </Text>
+              <PiCaretDown size={12} />
+            </Flex>
+          </Flex>
+        </button>
+      }
+      content={
+        <Flex direction="column" gap="4">
+          <Grid columns="auto 1fr" gapX="4" gapY="1">
+            <SectionLabel>Current update</SectionLabel>
+            <DetailRow label="Last updated at">
+              {hasUpdated ? datetime(lastEvent?.date ?? "") : never}
+            </DetailRow>
+            {lastReweightEvent ? (
+              <DetailRow label="Last weights updated">
+                {datetime(lastReweightEvent?.date ?? "")}
+              </DetailRow>
+            ) : null}
+            {showScheduling && (
+              <>
+                <SectionLabel mt="3">Scheduling</SectionLabel>
+                <DetailRow label="Next scheduled update">
+                  {experiment.nextSnapshotAttempt &&
+                  experiment.autoSnapshots &&
+                  !experiment.disableAutoSnapshots ? (
+                    ago(experiment.nextSnapshotAttempt)
+                  ) : (
+                    <Text size="inherit" fontStyle="italic">
+                      Not scheduled
+                    </Text>
+                  )}
+                </DetailRow>
+              </>
+            )}
+            {!isPublic && (
+              <DetailRow label="Current schedule">
+                every {experiment.banditScheduleValue ?? ""}{" "}
+                {experiment.banditScheduleUnit ?? ""}
+              </DetailRow>
+            )}
+          </Grid>
+
+          <Flex direction="column" gap="2">
+            <Text as="div">
               The Bandit is{" "}
-              {experiment.banditStage === "paused" ||
-              experiment.status !== "running" ? (
+              {experiment.banditStage === "paused" || !isRunning ? (
                 "not running"
               ) : experiment.banditStage ? (
                 <>
                   in the{" "}
-                  <strong>
+                  <Text size="inherit" weight="semibold">
                     {experiment.banditStage === "explore"
                       ? "Exploratory"
                       : upperFirst(experiment.banditStage)}
-                  </strong>{" "}
+                  </Text>{" "}
                   stage
                 </>
               ) : (
                 "not running"
               )}
-              {!isPublic &&
-                experiment.status === "running" &&
-                experiment.banditStage === "explore" && (
-                  <> and is waiting until more data is collected</>
-                )}
+              {isExploring && <> and is waiting until more data is collected</>}
               .
-            </p>
-
-            {!isPublic &&
-              experiment.status === "running" &&
-              experiment.banditStage === "explore" && (
-                <p>
-                  {" "}
-                  It will start updating weights and enter the Exploit stage on{" "}
-                  <em className="nowrap">{datetime(burnInRunDate)}</em> (
-                  {ago(burnInRunDate)}).
-                </p>
-              )}
-          </div>
+            </Text>
+            {isExploring && (
+              <Text as="div">
+                It will start updating weights and enter the Exploit stage on{" "}
+                <Text size="inherit" fontStyle="italic" whiteSpace="nowrap">
+                  {datetime(burnInRunDate)}
+                </Text>{" "}
+                ({ago(burnInRunDate)}).
+              </Text>
+            )}
+          </Flex>
 
           {!isPublic && error ? (
-            <Callout status="error" size="sm" mx="2">
-              <Flex align="start" justify="between" gap="2">
-                <div>{error}</div>
-                {generatedSnapshot || latest ? (
-                  <div>
-                    <ViewAsyncQueriesButton
-                      queries={
-                        (generatedSnapshot || latest)?.queries?.map(
-                          (q) => q.query,
-                        ) ?? []
-                      }
-                      error={(generatedSnapshot || latest)?.error}
-                      status={status}
-                      display={null}
-                      color="link link-purple p-0 pb-1"
-                      condensed={true}
-                      hideQueryCount={true}
-                    />
-                  </div>
-                ) : null}
-              </Flex>
+            <Callout
+              status="error"
+              size="sm"
+              action={
+                queriesSnapshot ? (
+                  <ViewAsyncQueriesButton
+                    queries={queriesSnapshot.queries?.map((q) => q.query) ?? []}
+                    error={queriesSnapshot.error}
+                    status={status}
+                    display={null}
+                    color="link link-purple p-0 pb-1"
+                    condensed={true}
+                    hideQueryCount={true}
+                  />
+                ) : undefined
+              }
+            >
+              {error}
             </Callout>
           ) : null}
 
-          {!isPublic && experiment.status === "running" && mutate && (
+          {!isPublic && isRunning && mutate && (
             <>
-              <hr className="mx-2" />
-              <RefreshBanditButton
-                mutate={mutate}
-                experiment={experiment}
-                setError={setError}
-                setGeneratedSnapshot={setGeneratedSnapshot}
-              />
+              <Separator size="4" />
+              <Box>
+                <RefreshBanditButton
+                  mutate={mutate}
+                  experiment={experiment}
+                  setError={setError}
+                  setGeneratedSnapshot={setGeneratedSnapshot}
+                  onLoadingChange={setRefreshing}
+                />
+              </Box>
             </>
           )}
-        </div>
-      </Dropdown>
-    </div>
+        </Flex>
+      }
+    />
   );
 }

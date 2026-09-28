@@ -4,6 +4,7 @@ import {
   SetStateAction,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -38,7 +39,7 @@ import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetin
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import EditSplitModal from "@/components/Experiment/EditSplitModal";
 import VariationsTable, {
-  VARIATION_GRID_COLUMNS,
+  MIN_VARIATION_WIDTH,
   VARIATION_GRID_GAP_PX,
   variationGridMaxWidth,
 } from "@/components/Experiment/VariationsTable";
@@ -275,6 +276,31 @@ function FunnelConnector({ label }: { label?: ReactNode }) {
 
 function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
   const cols = Math.min(count, 3);
+  // One arrow per column the cards below actually take once they wrap, or a
+  // wrapped arrow's bus points off the edge.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [shown, setShown] = useState(cols);
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const measure = () =>
+      setShown(
+        Math.max(
+          1,
+          Math.min(
+            cols,
+            Math.floor(
+              (grid.clientWidth + VARIATION_GRID_GAP_PX) /
+                (MIN_VARIATION_WIDTH + VARIATION_GRID_GAP_PX),
+            ),
+          ),
+        ),
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, [cols]);
 
   return (
     <Box>
@@ -290,14 +316,14 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
       <Flex direction="column" align="center">
         <Box className={styles.connectorLine} height="12px" />
       </Flex>
-      {/* Matches the variation grid, so the arrows wrap with the cards. */}
       <Grid
-        columns={VARIATION_GRID_COLUMNS}
+        ref={gridRef}
+        columns={`repeat(${shown}, 1fr)`}
         gap="4"
         justify="center"
         style={{ maxWidth: variationGridMaxWidth(cols), margin: "0 auto" }}
       >
-        {Array.from({ length: cols }).map((_, i) => (
+        {Array.from({ length: shown }).map((_, i) => (
           <Flex
             key={i}
             direction="column"
@@ -307,7 +333,7 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
             {i > 0 ? (
               <Box className={clsx(styles.busSegment, styles.busSegmentLeft)} />
             ) : null}
-            {i < cols - 1 ? (
+            {i < shown - 1 ? (
               <Box
                 className={clsx(styles.busSegment, styles.busSegmentRight)}
               />
