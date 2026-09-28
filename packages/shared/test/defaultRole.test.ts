@@ -156,3 +156,35 @@ describe("areAdditionalRolesValid", () => {
     ).toBe(false);
   });
 });
+
+describe("getDefaultRole with deleted custom roles", () => {
+  it("drops rules that reference roles the org no longer has", () => {
+    const rule = { limitAccessByEnvironment: false, environments: [] };
+    const org = orgWithDefaultRole({
+      role: "engineer",
+      ...rule,
+      additionalRoles: [
+        { role: "analyst", ...rule },
+        { role: "deleted_role", ...rule },
+      ],
+      projectRoles: [
+        { project: "p1", role: "deleted_role", ...rule },
+        {
+          project: "p2",
+          role: "admin",
+          ...rule,
+          additionalRoles: [{ role: "deleted_role", ...rule }],
+        },
+      ],
+    });
+
+    expect(getDefaultRole(org)).toEqual({
+      role: "engineer",
+      ...rule,
+      additionalRoles: [{ role: "analyst", ...rule }],
+      projectRoles: [
+        { project: "p2", role: "admin", ...rule, additionalRoles: [] },
+      ],
+    });
+  });
+});

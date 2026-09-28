@@ -1324,9 +1324,10 @@ export async function assertCanUpdateDefaultRole(
   );
 }
 
-// Imported settings are merged into the org as-is, so the default role gets
-// the same checks as PUT /organization/default-role before that happens.
-async function sanitizeImportedDefaultRole(
+// Generic settings writes (PUT /organization, config import) merge into the
+// org as-is, so the default role gets the same checks as
+// PUT /organization/default-role before that happens.
+export async function sanitizeDefaultRoleUpdate(
   context: ReqContext | ApiReqContext,
   settings: OrganizationSettings,
 ) {
@@ -1361,7 +1362,7 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
-    await sanitizeImportedDefaultRole(context, config.organization.settings);
+    await sanitizeDefaultRoleUpdate(context, config.organization.settings);
     const settings = {
       ...organization.settings,
       ...config.organization.settings,

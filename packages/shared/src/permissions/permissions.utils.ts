@@ -210,6 +210,31 @@ export function pickDefaultRoleFields(
   };
 }
 
+// A custom role deleted while referenced here must not block automated joins
+function dropStaleRoleRules(
+  defaultRole: MemberRoleWithProjects,
+  org: Partial<OrganizationInterface>,
+): MemberRoleWithProjects {
+  const validRules = <T extends { role: string }>(rules: T[] | undefined) =>
+    rules?.filter((r) => isRoleValid(r.role, org));
+  return {
+    ...defaultRole,
+    ...(defaultRole.additionalRoles
+      ? { additionalRoles: validRules(defaultRole.additionalRoles) }
+      : {}),
+    ...(defaultRole.projectRoles
+      ? {
+          projectRoles: validRules(defaultRole.projectRoles)?.map((p) => ({
+            ...p,
+            ...(p.additionalRoles
+              ? { additionalRoles: validRules(p.additionalRoles) }
+              : {}),
+          })),
+        }
+      : {}),
+  };
+}
+
 export function getDefaultRole(
   org: Partial<OrganizationInterface>,
 ): MemberRoleWithProjects {
@@ -219,7 +244,10 @@ export function getDefaultRole(
     isRoleValid(org.settings.defaultRole.role, org)
   ) {
     // Settings can hold keys from unvalidated writes; callers spread this result
-    return pickDefaultRoleFields(org.settings.defaultRole);
+    return dropStaleRoleRules(
+      pickDefaultRoleFields(org.settings.defaultRole),
+      org,
+    );
   }
 
   // Fall back to using "collaborator"

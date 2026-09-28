@@ -48,6 +48,7 @@ import {
   addPendingMemberToOrgWithDefaultRole,
   assertCanUpdateDefaultRole,
   assertMemberRoleInfoValid,
+  sanitizeDefaultRoleUpdate,
   assertRoleAssignmentAllowed,
   assertRoleChangeAllowed,
   expandOrgMembers,
@@ -1731,16 +1732,15 @@ export async function putOrganization(
         throw new Error(
           "Not supported: Updating namespaces not supported via this route.",
         );
-      } else if (k === "defaultRole") {
-        throw new Error(
-          "Not supported: Updating the default role is not supported via this route. Use PUT /organization/default-role instead.",
-        );
       } else {
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();
         }
       }
     });
+    if ("defaultRole" in settings) {
+      await sanitizeDefaultRoleUpdate(context, settings);
+    }
   }
 
   try {
