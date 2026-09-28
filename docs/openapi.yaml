@@ -44022,6 +44022,7 @@ paths:
                     it will be validated as existing in the organization. Omit
                     to leave the current owner unchanged.
                   type: string
+                  minLength: 1
               additionalProperties: false
       responses:
         '200':
@@ -51172,6 +51173,7 @@ paths:
                     API key can only be retrieved or updated using its owner's
                     Personal Access Token (PAT).
                   type: string
+                  minLength: 1
               required:
                 - title
                 - editLevel
