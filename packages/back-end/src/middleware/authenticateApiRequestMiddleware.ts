@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
 import { getRolePermissions, hasPermission } from "shared/permissions";
+import { isOAuthClientAllowed } from "shared/util";
 import {
   EventUserApiKey,
   EventUserLoggedIn,
@@ -285,9 +286,14 @@ function authenticateWithApiKey(
       }
       req.organization = org;
 
-      // Turning the org setting on revokes every user-attributed token
-      // immediately, without touching the stored docs.
-      if (userId && org.settings?.disablePersonalAccessTokens) {
+      // Both settings revoke matching tokens immediately, without touching the stored docs.
+      if (apiKeyDoc.oauthClientId) {
+        if (!isOAuthClientAllowed(org.settings, apiKeyDoc.oauthClientId)) {
+          throw new Error(
+            "This organization does not allow this OAuth application",
+          );
+        }
+      } else if (userId && org.settings?.disablePersonalAccessTokens) {
         throw new Error(
           "Personal access tokens are disabled for this organization",
         );

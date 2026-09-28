@@ -8,6 +8,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";
 import OrganizationPoliciesCard from "./OrganizationPoliciesCard";
+import OAuthAppsSettings from "./OAuthAppsSettings";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -55,6 +56,8 @@ const ApiKeys: FC = () => {
           )}
         </Callout>
       )}
+
+      <OAuthAppsSettings />
     </>
   );
 };

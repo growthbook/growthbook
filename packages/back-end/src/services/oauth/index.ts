@@ -1,7 +1,8 @@
 import crypto from "crypto";
 import { Request } from "express";
-import { OAuthDcrRequest } from "shared/validators";
+import { OAuthClientInterface, OAuthDcrRequest } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
+import { isOAuthClientAllowed } from "shared/util";
 import {
   APP_ORIGIN,
   OAUTH_ACCESS_TOKEN_TTL_SECONDS,
@@ -50,6 +51,55 @@ async function getOrgForGrant(
     throw new OAuthError("invalid_grant", "Organization no longer exists");
   }
   return org;
+}
+
+/** Confidential clients (org OAuth apps) must present their secret; public DCR clients have none. */
+function verifyClientSecret(
+  client: OAuthClientInterface,
+  clientSecret: string | undefined,
+): void {
+  if (!client.clientSecretHash) return;
+  const presented = Buffer.from(hashToken(clientSecret || ""));
+  const expected = Buffer.from(client.clientSecretHash);
+  if (
+    !clientSecret ||
+    presented.length !== expected.length ||
+    !crypto.timingSafeEqual(presented, expected)
+  ) {
+    throw new OAuthError("invalid_client", "Client authentication failed", 401);
+  }
+}
+
+async function authenticateClient(
+  clientId: string,
+  clientSecret: string | undefined,
+): Promise<OAuthClientInterface> {
+  const client = await getOAuthClientById(clientId);
+  if (!client) {
+    throw new OAuthError("invalid_client", "Unknown client_id");
+  }
+  verifyClientSecret(client, clientSecret);
+  return client;
+}
+
+/** Org binding for org apps, then the org's OAuth access policy. */
+function assertClientAllowedInOrg(
+  client: Pick<OAuthClientInterface, "clientId" | "organization">,
+  org: OrganizationInterface,
+  error: "access_denied" | "invalid_grant",
+): void {
+  if (client.organization && client.organization !== org.id) {
+    throw new OAuthError(
+      error,
+      "This application is registered to a different organization",
+    );
+  }
+  if (!isOAuthClientAllowed(org.settings, client.clientId)) {
+    throw new OAuthError(
+      error,
+      "This organization does not allow this application to access GrowthBook",
+    );
+  }
 }
 
 /**
@@ -152,6 +202,17 @@ export async function revokeConnectedApp(
   await tearDownGrant(context, clientId, context.userId);
 }
 
+/** Ends every member's grant with one client in this org (org app deletion). */
+export async function revokeAllGrantsForClient(
+  context: ApiReqContext,
+  clientId: string,
+): Promise<void> {
+  const grants = await context.models.oauthGrants.getActiveForClient(clientId);
+  for (const grant of grants) {
+    await tearDownGrant(context, clientId, grant.userId);
+  }
+}
+
 export function getIssuer(req?: Request): string {
   if (OAUTH_ISSUER) return OAUTH_ISSUER;
   if (req) {
@@ -174,7 +235,11 @@ export function getAuthorizationServerMetadata(req?: Request) {
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
-    token_endpoint_auth_methods_supported: ["none"],
+    token_endpoint_auth_methods_supported: [
+      "none",
+      "client_secret_basic",
+      "client_secret_post",
+    ],
     scopes_supported: ["openid", "profile", "email", "offline_access"],
   };
 }
@@ -236,6 +301,7 @@ export async function getAuthorizeInfo(params: {
     clientId: client.clientId,
     clientName: client.clientName || client.clientId,
     redirectUri: params.redirectUri,
+    organization: client.organization,
   };
 }
 
@@ -273,6 +339,7 @@ export async function mintAuthorizationCode(params: {
       "User is not a member of this organization",
     );
   }
+  assertClientAllowedInOrg(info, org, "access_denied");
   const code = randomUrlSafe(32);
   const now = new Date();
   await context.models.oauthAuthCodes.create({
@@ -300,12 +367,10 @@ export async function exchangeAuthorizationCode(params: {
   code: string;
   redirectUri: string;
   clientId: string;
+  clientSecret?: string;
   codeVerifier: string;
 }): Promise<TokenResponse> {
-  const client = await getOAuthClientById(params.clientId);
-  if (!client) {
-    throw new OAuthError("invalid_client", "Unknown client_id");
-  }
+  const client = await authenticateClient(params.clientId, params.clientSecret);
 
   // Bootstrap: hash lookup before org is known.
   const authCode = await OAuthAuthCodeModel.dangerousConsumeByHash(
@@ -335,6 +400,7 @@ export async function exchangeAuthorizationCode(params: {
       "User is no longer a member of this organization",
     );
   }
+  assertClientAllowedInOrg(client, org, "invalid_grant");
 
   await context.models.oauthGrants.startGrant({
     clientId: authCode.clientId,
@@ -354,11 +420,9 @@ export async function exchangeAuthorizationCode(params: {
 export async function exchangeRefreshToken(params: {
   refreshToken: string;
   clientId: string;
+  clientSecret?: string;
 }): Promise<TokenResponse> {
-  const client = await getOAuthClientById(params.clientId);
-  if (!client) {
-    throw new OAuthError("invalid_client", "Unknown client_id");
-  }
+  const client = await authenticateClient(params.clientId, params.clientSecret);
 
   // Bootstrap: hash lookup before org is known.
   const tokenHash = hashToken(params.refreshToken);
@@ -391,6 +455,8 @@ export async function exchangeRefreshToken(params: {
       "User is no longer a member of this organization",
     );
   }
+  // Refuse without tearing down: the policy is reversible, the grant should survive it.
+  assertClientAllowedInOrg(client, org, "invalid_grant");
 
   // ensureGrant bumps TTL; if already revoked, re-tear-down in case a prior
   // teardown was interrupted after markRevoked.
@@ -428,7 +494,13 @@ export async function exchangeRefreshToken(params: {
 export async function revokeToken(params: {
   token: string;
   clientId?: string;
+  clientSecret?: string;
 }): Promise<void> {
+  // RFC 7009 §2.1: confidential clients must authenticate to revoke.
+  const client = params.clientId
+    ? await getOAuthClientById(params.clientId)
+    : null;
+  if (client) verifyClientSecret(client, params.clientSecret);
   const tokenHash = hashToken(params.token);
 
   // Try as refresh token first, then access token (apikeys)

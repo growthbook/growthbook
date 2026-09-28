@@ -297,6 +297,7 @@ export const entityEvents = {
   apiKey: ["create", "update", "delete", "disable", "enable"],
   oauthAuthCode: ["create", "update", "delete"],
   oauthGrant: ["create", "update", "delete"],
+  oauthApp: ["create", "update", "delete", "rotateSecret"],
   oauthRefreshToken: ["create", "update", "delete"],
   installation: ["update"],
   savedGroup: ["created", "deleted", "updated"],

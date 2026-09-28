@@ -413,16 +413,20 @@ export interface OrganizationSettings {
   postStratificationEnabled?: boolean;
   approvalFlows?: ApprovalFlowConfigurations;
   learningStatuses?: LearningStatus[];
-  // When true, members can't create user-attributed API tokens and existing
-  // ones are rejected at authentication. Covers Personal Access Tokens and
-  // OAuth-issued access tokens; app-issued Visual Editor keys are unaffected.
+  // When true, members can't create user-attributed API keys (Personal Access
+  // Tokens, Visual Editor keys) and existing ones are rejected at authentication.
   disablePersonalAccessTokens?: boolean;
   // Maximum lifetime, in days, for newly issued tokens of each kind. Unset
   // means expiry is optional. Kept separate because a PAT expiring inconveniences
   // one member, while a secret key expiring takes down an integration.
   maxPatLifetimeDays?: number | null;
   maxApiKeyLifetimeDays?: number | null;
+  // Which OAuth clients may act as members; resolve with getOAuthAccessPolicy.
+  oauthAccess?: OAuthAccessPolicy;
 }
+
+// "org-apps" allows only OAuth apps registered by this organization's admins.
+export type OAuthAccessPolicy = "any" | "org-apps" | "none";
 
 export type LearningStatusColor =
   | "gray"

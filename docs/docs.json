@@ -464,7 +464,7 @@
         "groups": [
           {
             "group": "Introduction",
-            "pages": ["api/introduction"]
+            "pages": ["api/introduction", "api/oauth-apps"]
           },
           {
             "group": "Endpoints",

@@ -1,0 +1,94 @@
+---
+title: OAuth Apps
+description: Let an internal tool act as each GrowthBook member who authorizes it, without handing out personal access tokens.
+---
+
+An OAuth app lets a tool your team runs, such as an internal MCP server, a Slack bot, or a deploy pipeline, call the GrowthBook API **as the member using it**. Changes are attributed to that member in the audit log, the member's own permissions apply, and nobody has to create or paste a personal access token.
+
+OAuth apps are available on Enterprise plans.
+
+## Register an app
+
+1. Go to **Settings → API Keys** and find the **OAuth Apps** section.
+2. Click **New OAuth app** and enter:
+   - **Name**: shown to members on the authorization screen.
+   - **Redirect URIs**: where GrowthBook sends authorization codes. They must use `https`, except for `localhost`.
+   - **Homepage URL** (optional).
+3. Copy the **client ID** and **client secret**. The secret is shown only once. If you lose it, choose **Rotate secret** from the app's menu; the old secret stops working immediately.
+
+Registering apps requires the `manageApiKeys` permission.
+
+## Choose which applications can act as members
+
+The same section controls which OAuth applications members may authorize:
+
+| Option                              | Effect                                                                                                               |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Any application                     | Members can authorize any OAuth client, including the hosted GrowthBook MCP server and the GrowthBook CLI.           |
+| Only this organization's OAuth apps | Members can authorize only apps registered by your admins. Tokens held by any other client stop working immediately. |
+| No applications                     | Every OAuth token stops working and members can't authorize new applications.                                        |
+
+This setting is independent of **Disable personal access tokens**, so you can turn off personal access tokens and still allow your registered apps. For example, to make sure writes from AI tools only go through your own MCP server, disable personal access tokens and choose **Only this organization's OAuth apps**.
+
+<Note>
+  Organizations that disabled personal access tokens before this setting existed
+  continue to block all OAuth applications until an admin picks an option.
+</Note>
+
+## Connect your app
+
+GrowthBook is a standard OAuth 2.1 authorization server using the authorization code flow with PKCE. Most OAuth client libraries can discover everything they need from `https://api.growthbook.io/.well-known/oauth-authorization-server` (on self-hosted, your `API_HOST`).
+
+### 1. Send the member to the authorization page
+
+```
+https://app.growthbook.io/oauth/authorize
+  ?response_type=code
+  &client_id=gbapp_...
+  &redirect_uri=https://mcp.example.com/oauth/callback
+  &code_challenge=<BASE64URL(SHA256(code_verifier))>
+  &code_challenge_method=S256
+  &state=<random>
+  &scope=offline_access
+```
+
+The member signs in if needed, sees that your organization's admins registered the app, and approves. An app can only be authorized into the organization that registered it.
+
+### 2. Exchange the code
+
+Authenticate with the client secret using HTTP Basic (`client_secret_basic`). Sending `client_id` and `client_secret` in the form body also works.
+
+```bash
+curl https://api.growthbook.io/oauth/token \
+  -u "gbapp_...:gbcs_..." \
+  -d grant_type=authorization_code \
+  -d code=<code> \
+  -d redirect_uri=https://mcp.example.com/oauth/callback \
+  -d code_verifier=<code_verifier>
+```
+
+The response contains an `access_token` (valid for 1 hour) and a `refresh_token` (valid for 30 days, renewed on each use). Call the REST API with the access token as a Bearer token:
+
+```bash
+curl https://api.growthbook.io/api/v1/features \
+  -H "Authorization: Bearer gbo_..."
+```
+
+### 3. Refresh tokens
+
+```bash
+curl https://api.growthbook.io/oauth/token \
+  -u "gbapp_...:gbcs_..." \
+  -d grant_type=refresh_token \
+  -d refresh_token=<refresh_token>
+```
+
+Each refresh returns a new refresh token, and the old one stops working. **Presenting a refresh token a second time is treated as theft and signs the member out of your app.** If your app handles several requests for the same member at once, make sure only one of them refreshes, and save the new refresh token before using it.
+
+### Revoking access
+
+Members can revoke your app from **Personal Access Tokens → Connected Apps**. Your app can revoke a token by posting it to `/oauth/revoke` with the same client credentials. Deleting an app from **Settings → API Keys** signs it out for every member immediately.
+
+## Self-hosted
+
+Set `OAUTH_AS_ENABLED=1` on the API server; see [Environment variables](/self-host/env#oauth-authorization-server-mcp). The settings page shows a warning while it is off.

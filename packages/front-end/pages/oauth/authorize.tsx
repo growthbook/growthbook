@@ -20,7 +20,12 @@ import Text from "@/ui/Text";
 type AuthorizeInfoResponse = {
   status: number;
   message?: string;
-  client?: { clientId: string; clientName: string };
+  client?: {
+    clientId: string;
+    clientName: string;
+    // Set for org OAuth apps: registered by an admin, so the name is vouched for.
+    registeredBy?: { id: string; name: string };
+  };
   redirectUri?: string;
   organizations?: { id: string; name: string }[];
   user?: { id: string; email: string; name: string };
@@ -384,8 +389,9 @@ export default function OAuthAuthorizePage() {
             is requesting access to your GrowthBook account.
           </Text>
           <Text as="div" size="sm" color="text-low" align="center">
-            Name provided by the application. GrowthBook does not verify
-            application identity.
+            {info?.client?.registeredBy
+              ? `Registered by an admin of ${info.client.registeredBy.name}.`
+              : "Name provided by the application. GrowthBook does not verify application identity."}
           </Text>
           {redirectTarget && !redirectTarget.isLocal ? (
             <HelperText status="info" size="sm" mt="2">

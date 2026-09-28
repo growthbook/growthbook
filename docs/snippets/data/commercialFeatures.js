@@ -169,6 +169,10 @@ export default {
     plan: "enterprise",
     displayName: "No Access Role",
   },
+  "oauth-apps": {
+    plan: "enterprise",
+    displayName: "Oauth Apps",
+  },
   "override-metrics": {
     plan: "pro",
     displayName: "Override Metrics",
