@@ -868,7 +868,10 @@ export function ExplorerProvider({
 
     if (needsFetch) {
       if (trackingSource === "metric-preview") {
-        doSubmit({ cache: "required" });
+        // Each submit cancels the in-flight poll, so a draft edit would drop
+        // a running "Run query" result. Wait for it; this effect reruns when
+        // polling ends and checks the cache for the latest draft.
+        if (!polling) doSubmit({ cache: "required" });
       } else if (deferUntilManualRefresh) {
         setIsStale(true);
       } else if (
@@ -901,6 +904,7 @@ export function ExplorerProvider({
   }, [
     needsFetch,
     trackingSource,
+    polling,
     needsUpdate,
     doSubmit,
     baselineConfig,

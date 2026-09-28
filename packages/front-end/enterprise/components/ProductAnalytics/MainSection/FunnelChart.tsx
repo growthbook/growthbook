@@ -6,6 +6,7 @@ import type {
 } from "shared/validators";
 import { getFunnelStepDisplayLabel } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getMetricPreviewUnitLabel } from "@/components/FactTables/MetricEditor/metricPreview";
 import Text from "@/ui/Text";
 import FunnelStepsChart, { FunnelChartSeries } from "./FunnelStepsChart";
 
@@ -123,6 +124,14 @@ export default function FunnelChart({
   const counts = sortedSeries[0].counts;
   const entered = counts[0];
   const completed = counts[counts.length - 1];
+  const dataset = submittedExploreState.dataset;
+  const unitLabel =
+    dataset.type === "funnel" && dataset.unit
+      ? getMetricPreviewUnitLabel(
+          dataset.unit,
+          getFactTableById(dataset.steps[0]?.factTableId ?? ""),
+        ).label.toLowerCase()
+      : "users";
 
   return (
     <Flex direction="column" gap="2" width="100%" minWidth="0">
@@ -135,7 +144,8 @@ export default function FunnelChart({
             Overall funnel completion rate
           </Text>
           <Text as="div" size="sm" color="text-mid">
-            {completed.toLocaleString()} of {entered.toLocaleString()} users
+            {completed.toLocaleString()} of {entered.toLocaleString()}{" "}
+            {unitLabel}
           </Text>
         </Box>
       )}

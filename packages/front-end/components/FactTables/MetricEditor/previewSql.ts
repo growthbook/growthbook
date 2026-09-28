@@ -2,11 +2,14 @@ import {
   ColumnRef,
   FactTableDefinition,
   FunnelStep,
+  MetricCappingSettings,
   MetricQuantileSettings,
   MetricWindowSettings,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
+import { DataSourceType } from "shared/types/datasource";
 import {
+  DEFAULT_IDENTIFIER_QUOTE,
   getAggregateFilters,
   getColumnRefWhereClause,
 } from "shared/experiments";
@@ -22,6 +25,53 @@ import { getFunnelAnchorStepIndex } from "shared/funnels";
 // business logic this preview has no business exposing just because a field
 // changed. Pure client-side text generation, no backend call, no execution -
 // contrast with PreviewPanel's on-demand activity query.
+
+// Mirrors the back-end dialects: only MySQL, BigQuery, and Databricks quote
+// identifiers with backticks.
+function quoteIdentifier(name: string, datasourceType?: DataSourceType) {
+  const quote =
+    datasourceType === "mysql" ||
+    datasourceType === "bigquery" ||
+    datasourceType === "databricks"
+      ? "`"
+      : DEFAULT_IDENTIFIER_QUOTE;
+  return quote + name + quote;
+}
+
+// Experiments cap each unit's total, after aggregation.
+function applyCap(
+  valueExpr: string,
+  cappingSettings: MetricCappingSettings | undefined,
+  lowerCappingSettings?: MetricCappingSettings | null,
+) {
+  let expr = valueExpr;
+  const comments: string[] = [];
+  if (cappingSettings?.type === "absolute") {
+    comments.push(`-- Cap each unit's total at ${cappingSettings.value}`);
+    expr = `LEAST(${expr}, ${cappingSettings.value})`;
+  } else if (cappingSettings?.type === "percentile") {
+    comments.push(
+      `-- Cap each unit's total at the P${cappingSettings.value * 100} across units${
+        cappingSettings.ignoreZeros ? " (ignoring zeros)" : ""
+      }`,
+    );
+    expr = `LEAST(${expr}, percentile_cap)`;
+  }
+  if (lowerCappingSettings?.type === "absolute") {
+    comments.push(
+      `-- Floor each unit's total at ${lowerCappingSettings.value}`,
+    );
+    expr = `GREATEST(${expr}, ${lowerCappingSettings.value})`;
+  } else if (lowerCappingSettings?.type === "percentile") {
+    comments.push(
+      `-- Floor each unit's total at the P${
+        lowerCappingSettings.value * 100
+      } across units${lowerCappingSettings.ignoreZeros ? " (ignoring zeros)" : ""}`,
+    );
+    expr = `GREATEST(${expr}, percentile_floor)`;
+  }
+  return comments.length ? `${comments.join("\n  ")}\n  ${expr}` : expr;
+}
 
 function indentLines(str: string, spaces: number = 2) {
   return str
@@ -126,6 +176,9 @@ export function getPreviewSQL({
   denominator,
   numeratorFactTable,
   denominatorFactTable,
+  cappingSettings,
+  lowerCappingSettings,
+  datasourceType,
 }: {
   type: StandardFactMetricInterface["metricType"];
   quantileSettings: MetricQuantileSettings;
@@ -134,18 +187,20 @@ export function getPreviewSQL({
   denominator: ColumnRef | null;
   numeratorFactTable: FactTableDefinition | null;
   denominatorFactTable: FactTableDefinition | null;
+  cappingSettings?: MetricCappingSettings;
+  lowerCappingSettings?: MetricCappingSettings | null;
+  datasourceType?: DataSourceType;
 }): MetricPreviewSql {
-  const identifier =
-    "`" + (numeratorFactTable?.userIdTypes?.[0] || "user_id") + "`";
+  const quote = (name: string) => quoteIdentifier(name, datasourceType);
+  const identifier = quote(numeratorFactTable?.userIdTypes?.[0] || "user_id");
 
   const identifierComment =
     (numeratorFactTable?.userIdTypes?.length || 0) > 1
       ? `\n  -- All of the Fact Table's identifier types are supported`
       : "";
 
-  const numeratorName = "`" + (numeratorFactTable?.name || "Fact Table") + "`";
-  const denominatorName =
-    "`" + (denominatorFactTable?.name || "Fact Table") + "`";
+  const numeratorName = quote(numeratorFactTable?.name || "Fact Table");
+  const denominatorName = quote(denominatorFactTable?.name || "Fact Table");
 
   const numeratorCol =
     type === "dailyParticipation" || numerator.column === "$$distinctDates"
@@ -232,7 +287,7 @@ SELECT
   ${
     type === "ratio"
       ? `-- ${
-          denominator?.column === "$$distinctusers"
+          denominator?.column === "$$distinctUsers"
             ? `Number of users who converted`
             : `Total denominator value`
         }\n  SUM(d.value)`
@@ -284,7 +339,11 @@ GROUP BY user${HAVING}
         sql: `
 SELECT${identifierComment}
   ${identifier} AS user,
-  ${numeratorCol}${numeratorAdjustment} AS value
+  ${
+    type === "mean"
+      ? applyCap(numeratorCol, cappingSettings, lowerCappingSettings)
+      : `${numeratorCol}${numeratorAdjustment}`
+  } AS value
 FROM
   ${numeratorName}${WHERE}
 GROUP BY user
@@ -300,7 +359,7 @@ SELECT${identifierComment}
       ? `\n  -- Each matching user counts as 1 conversion`
       : ""
   }
-  ${numeratorCol} AS value
+  ${applyCap(numeratorCol, cappingSettings, lowerCappingSettings)} AS value
 FROM
   ${numeratorName}${WHERE}
 GROUP BY user${HAVING}
@@ -312,7 +371,7 @@ SELECT${identifierComment}
       ? `\n  -- Each matching user counts as 1 conversion`
       : ""
   }
-  ${denominatorCol} AS value
+  ${applyCap(denominatorCol, cappingSettings, lowerCappingSettings)} AS value
 FROM
   ${denominatorName}${DENOMINATOR_WHERE}
 GROUP BY user
@@ -335,7 +394,7 @@ GROUP BY user${HAVING}
             : `
 SELECT${identifierComment}
   ${identifier} AS user,
-  \`${numerator.column}\` AS value
+  ${quote(numerator.column)} AS value
 FROM
   ${numeratorName}${WHERE}
 `.trim(),
@@ -348,17 +407,38 @@ export function getFunnelPreviewSQL({
   steps,
   factTable,
   windowSettings,
+  getFactTableById,
+  datasourceType,
 }: {
   steps: FunnelStep[];
+  // Step 1's fact table. Used for every step when `getFactTableById` is absent.
   factTable: FactTableDefinition | null;
   windowSettings: MetricWindowSettings;
+  getFactTableById?: (id: string) => FactTableDefinition | null;
+  datasourceType?: DataSourceType;
 }): MetricPreviewSql {
   if (!factTable || steps.length === 0) {
     return { sql: "", experimentSQL: "" };
   }
 
-  const identifier = "`" + (factTable?.userIdTypes?.[0] || "user_id") + "`";
-  const factTableName = "`" + (factTable?.name || "Fact Table") + "`";
+  const quote = (name: string) => quoteIdentifier(name, datasourceType);
+  const stepTables = steps.map(
+    (step) => getFactTableById?.(step.factTableId) ?? factTable,
+  );
+  const tables = [...new Set(stepTables)];
+  const identifier = quote(factTable.userIdTypes?.[0] || "user_id");
+  const tableName = (table: FactTableDefinition) =>
+    quote(table.name || "Fact Table");
+  // Steps on different fact tables read from all of them.
+  const factTableName =
+    tables.length === 1
+      ? tableName(factTable)
+      : `(\n${indentLines(
+          tables
+            .map((table) => `SELECT * FROM ${tableName(table)}`)
+            .join("\nUNION ALL\n"),
+          4,
+        )}\n  ) events`;
 
   // Exposure, delay, and metric window bounds apply to every step, so they sit
   // on the CTE rather than being repeated in each step's filter.
@@ -384,8 +464,9 @@ export function getFunnelPreviewSQL({
         ? "exposure_timestamp"
         : `step_${anchorIndex + 1}_at`;
 
+    const stepTable = stepTables[i];
     const predicates = getColumnRefWhereClause({
-      factTable,
+      factTable: stepTable,
       columnRef: {
         factTableId: step.factTableId,
         column: "",
@@ -421,6 +502,7 @@ export function getFunnelPreviewSQL({
     ];
     const comments = [
       `-- Step ${stepNumber}: ${step.name} (${timing.join(", ")})`,
+      ...(tables.length > 1 ? [`-- Rows from ${tableName(stepTable)}`] : []),
     ];
 
     const skipped = steps

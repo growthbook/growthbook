@@ -62,6 +62,10 @@ import {
   cssColorToHex,
 } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import { getMetricPreviewSummary } from "@/components/FactTables/MetricEditor/metricPreview";
+import {
+  fillDailyBuckets,
+  formatUtcWeekday,
+} from "@/components/FactTables/MetricEditor/activityChart";
 import FunnelChart from "./FunnelChart";
 import JourneyChart from "./JourneyChart";
 
@@ -401,6 +405,14 @@ export default function ExplorerChart({
       );
     } else {
       sortedXValues = Array.from(uniqueXValues).sort();
+    }
+    // The metric preview's daily bars need a slot for days without rows, or
+    // the weekday labels silently skip them.
+    if (compact && firstDimensionIsDate && resolvedGranularity === "day") {
+      sortedXValues = fillDailyBuckets(sortedXValues, {
+        dateStart: exploration.dateStart,
+        dateEnd: exploration.dateEnd,
+      });
     }
 
     // A custom comparison window can hold more buckets than the primary. The
@@ -810,11 +822,7 @@ export default function ExplorerChart({
             splitLine: { show: false },
             axisLabel: {
               color: cssColorToHex("var(--gray-10)"),
-              formatter: (day: string) =>
-                new Date(day).toLocaleDateString("en-US", {
-                  weekday: "short",
-                  timeZone: "UTC",
-                }),
+              formatter: (day: string) => formatUtcWeekday(day, "short"),
             },
           }
         : xAxis,
@@ -825,7 +833,8 @@ export default function ExplorerChart({
             type: "bar",
             barCategoryGap: "15%",
             data: sortedXValues.map((day) => ({
-              value: dataMap[key][day] ?? null,
+              // Days without rows plot as zero (see fillDailyBuckets above).
+              value: dataMap[key][day] ?? 0,
               itemStyle: {
                 color: cssColorToHex("var(--violet-9)"),
                 borderRadius: [2, 2, 0, 0],
@@ -836,6 +845,8 @@ export default function ExplorerChart({
     };
   }, [
     exploration?.result?.rows,
+    exploration?.dateStart,
+    exploration?.dateEnd,
     comparisonExploration?.result?.rows,
     compareEnabled,
     submittedExploreState,

@@ -5,6 +5,7 @@ import {
 import {
   getMetricPreviewUnavailableReason,
   getDraftMetricPreview,
+  getMetricPreviewCaveat,
 } from "./draftMetricPreview";
 
 const draft = () => ({
@@ -112,8 +113,8 @@ it("allows unit-count previews but disables Active Days and population-dependent
 
 it.each([
   { column: "", operator: "=" as const, values: ["US"] },
-  { column: "country", operator: "=" as const, values: [] },
-  { column: "country", operator: "=" as const, values: [""] },
+  { column: "country", operator: "in" as const, values: [] },
+  { column: "country", operator: "!=" as const, values: [""] },
 ])(
   "blocks incomplete numerator, denominator, and funnel filters: %j",
   (filter) => {
@@ -146,6 +147,20 @@ it.each([
   },
 );
 
+it.each([
+  { column: "country", operator: "=" as const, values: [] },
+  { column: "country", operator: "=" as const, values: [""] },
+])("drops an unfilled inline filter placeholder: %j", (filter) => {
+  const values = draft();
+  const complete = { column: "plan", operator: "=" as const, values: ["pro"] };
+  const preview = getDraftMetricPreview({
+    ...values,
+    metricType: "mean",
+    numerator: { ...values.numerator, rowFilters: [filter, complete] },
+  });
+  expect(preview?.numerator?.rowFilters).toEqual([complete]);
+});
+
 it("allows valueless operators and blocks an unfinished aggregate threshold", () => {
   const values = draft();
   expect(
@@ -167,4 +182,52 @@ it("allows valueless operators and blocks an unfinished aggregate threshold", ()
       },
     }),
   ).toBeNull();
+});
+
+describe("getMetricPreviewCaveat", () => {
+  const noWindow = {
+    type: "" as const,
+    delayValue: 0,
+    delayUnit: "days" as const,
+    windowValue: 0,
+    windowUnit: "days" as const,
+  };
+  const noCap = { type: "" as const, value: 0 };
+  it("names each setting the preview does not apply", () => {
+    expect(
+      getMetricPreviewCaveat({
+        metricType: "mean",
+        cappingSettings: noCap,
+        windowSettings: noWindow,
+      }),
+    ).toBeNull();
+    expect(
+      getMetricPreviewCaveat({
+        metricType: "mean",
+        cappingSettings: { type: "absolute", value: 10 },
+        windowSettings: { ...noWindow, type: "conversion", windowValue: 3 },
+      }),
+    ).toBe(
+      "The preview ignores metric windows and delays, and caps each event instead of each unit's total. Experiment results will differ.",
+    );
+    expect(
+      getMetricPreviewCaveat({
+        metricType: "proportion",
+        cappingSettings: { type: "absolute", value: 10 },
+        windowSettings: { ...noWindow, delayValue: 2 },
+      }),
+    ).toBe(
+      "The preview ignores metric windows and delays. Experiment results will differ.",
+    );
+    expect(
+      getMetricPreviewCaveat({
+        metricType: "mean",
+        cappingSettings: noCap,
+        lowerCappingSettings: { type: "absolute", value: 0 },
+        windowSettings: noWindow,
+      }),
+    ).toBe(
+      "The preview ignores the lower cap. Experiment results will differ.",
+    );
+  });
 });

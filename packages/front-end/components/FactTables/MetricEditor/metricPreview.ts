@@ -95,6 +95,47 @@ export function getMetricPreviewUnits(
   };
 }
 
+const PREVIEW_NAME = "Metric preview";
+
+// The draft as sent to the server, with every field the preview SQL never
+// reads pinned to a constant. Editing a name, owner, prior, or window then
+// reuses the cached result instead of re-running the warehouse query.
+// `projects` stays: the server checks it for permissions.
+export function getPreviewDraftMetric(metric: FactMetricInterface) {
+  const draft = draftExplorationMetricValidator.strip().parse(metric);
+  return {
+    datasource: draft.datasource,
+    projects: draft.projects,
+    metricType: draft.metricType,
+    numerator: draft.numerator,
+    denominator: draft.denominator,
+    cappingSettings: draft.cappingSettings,
+    quantileSettings: draft.quantileSettings,
+    funnelSettings: draft.funnelSettings,
+    name: PREVIEW_NAME,
+    description: "",
+    owner: "",
+    tags: [],
+    inverse: false,
+    windowSettings: {
+      type: "" as const,
+      delayValue: 0,
+      delayUnit: "days" as const,
+      windowValue: 0,
+      windowUnit: "days" as const,
+    },
+    priorSettings: { override: false, proper: false, mean: 0, stddev: 1 },
+    maxPercentChange: 1,
+    minPercentChange: 0,
+    minSampleSize: 0,
+    winRisk: 0,
+    loseRisk: 0,
+    regressionAdjustmentOverride: false,
+    regressionAdjustmentEnabled: false,
+    regressionAdjustmentDays: 0,
+  };
+}
+
 export function getMetricPreviewConfig(
   metric: FactMetricInterface,
   {
@@ -133,14 +174,8 @@ export function getMetricPreviewConfig(
         {
           type: "metric",
           metricId: metric.id,
-          ...(draft
-            ? {
-                draftMetric: draftExplorationMetricValidator
-                  .strip()
-                  .parse(metric),
-              }
-            : {}),
-          name: metric.name,
+          ...(draft ? { draftMetric: getPreviewDraftMetric(metric) } : {}),
+          name: draft ? PREVIEW_NAME : metric.name,
           rowFilters: [],
           unit,
           denominatorUnit,
