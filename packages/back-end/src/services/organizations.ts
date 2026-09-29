@@ -185,7 +185,7 @@ export function validateLoginMethod(
     !req.superAdmin
   ) {
     throw new Error(
-      `Your organization requires you to login with ${
+      `Your organization requires you to log in with ${
         org.restrictLoginMethod.startsWith("vercel:")
           ? "Vercel"
           : "Enterprise SSO"
@@ -209,7 +209,7 @@ export function validateLoginMethod(
     !req.superAdmin
   ) {
     throw new Error(
-      `Your organization requires you to login with ${org.restrictAuthSubPrefix}`,
+      `Your organization requires you to log in with ${org.restrictAuthSubPrefix}`,
     );
   }
 

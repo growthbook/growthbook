@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { SkillSummary } from "shared/ai-chat";
+import type { OrgSkillSummary } from "shared/ai-chat";
 import useApi from "@/hooks/useApi";
 import { skillDisplayName, type SkillItem } from "./extensions/skillCommand";
 
@@ -14,7 +14,7 @@ function toLabel(name: string): string {
 
 /** The lookup catalogue, routers included — an old `/feature-flags` token must resolve. */
 export function useSkillCommandItems(): SkillItem[] {
-  const { data } = useApi<{ skills: SkillSummary[] }>("/agent/skills");
+  const { data } = useApi<{ skills: OrgSkillSummary[] }>("/agent/skills");
 
   return useMemo(() => {
     const skills = data?.skills ?? [];
@@ -28,13 +28,17 @@ export function useSkillCommandItems(): SkillItem[] {
         description: s.description,
         kind: s.kind,
         ...(s.group !== undefined ? { group: s.group } : {}),
+        enabled: s.enabled,
       };
     });
   }, [data?.skills]);
 }
 
-/** The `/` menu: leaves only, since a router is two entries for one job. */
+/** The `/` menu: enabled leaves only, since a router is two entries for one job. */
 export function useSkillMenuItems(): SkillItem[] {
   const items = useSkillCommandItems();
-  return useMemo(() => items.filter((i) => i.kind !== "domain"), [items]);
+  return useMemo(
+    () => items.filter((i) => i.kind !== "domain" && i.enabled),
+    [items],
+  );
 }

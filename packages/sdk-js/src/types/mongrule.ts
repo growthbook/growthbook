@@ -22,7 +22,7 @@ export type SavedGroupReference = {
  * attribute. The plural authoring operator `$savedGroups` never reaches an
  * SDK, so it has no type here.
  */
-type SavedGroupCondition = {
+export type SavedGroupCondition = {
   $savedGroup: SavedGroupReference;
 };
 export type Operator =
