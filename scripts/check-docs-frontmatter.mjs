@@ -16,7 +16,7 @@ const REPO_ROOT = path.resolve(
 );
 const DOCS_ROOT = path.join(REPO_ROOT, "docs");
 const LINE_RE = /^(\s*)([\w-]+):\s+(.*)$/;
-const SLUG_RE = /^slug\s*:/;
+const SLUG_RE = /^(["']?)slug\1\s*:/;
 const SLUG_MESSAGE =
   "Mintlify ignores `slug:` frontmatter; the page's URL comes from its file path under docs/. Remove this line.";
 
@@ -100,6 +100,10 @@ function selfTest() {
   const slugCases = [
     { lines: ["slug: /foo"], want: 1 },
     { lines: ["slug:"], want: 1 },
+    { lines: ["'slug': /foo"], want: 1 },
+    { lines: ['"slug": /foo'], want: 1 },
+    { lines: ["'slugline': /foo"], want: 0 },
+    { lines: ["'slug\": /foo"], want: 0 },
     { lines: ["  slug: /foo"], want: 0 },
     { lines: ["slugs: /foo"], want: 0 },
     { lines: ["title: slug: /foo"], want: 0 },
