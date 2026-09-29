@@ -289,7 +289,6 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         datasourceId: validatableFields.datasourceId,
         ref: validatableFields.exposureQuery,
         field: "exposureQuery",
-        currentExposureQueryId: undefined,
       });
       const validatedFields = await validateCreateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),

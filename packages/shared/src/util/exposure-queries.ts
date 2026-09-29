@@ -158,22 +158,20 @@ export function parseAssignmentQuerySelection<
 }
 
 /**
- * A REST ref may omit `identifierType` unless it selects a different query that
- * declares several, where the choice would be ambiguous. Keeping the current
- * query keeps its identifier.
+ * A new REST ref may omit `identifierType` unless its query declares several,
+ * where the choice would be ambiguous. Updates go through the selection
+ * parser, which also keeps an unchanged selection's identifier.
  */
 export function assertAssignmentQueryRefIdentifierType({
   ref,
   field,
   exposureQueries,
-  currentExposureQueryId,
 }: {
-  ref: { id: string; identifierType?: string } | undefined;
-  field: "assignmentQuery" | "exposureQuery";
+  ref: ApiAssignmentQueryRefInput | undefined;
+  field: AssignmentQueryField;
   exposureQueries: SelectableExposureQuery[];
-  currentExposureQueryId: string | undefined;
 }): void {
-  if (!ref || ref.identifierType || ref.id === currentExposureQueryId) return;
+  if (!ref || ref.identifierType) return;
   // An unknown query is rejected by selection validation, not here.
   if (!exposureQueries.some((q) => q.id === ref.id)) return;
   const parsed = parseAssignmentQuerySelection(exposureQueries, {

@@ -123,16 +123,13 @@ export async function assertApiAssignmentQueryRefHasIdentifierType(
     datasourceId,
     ref,
     field,
-    currentExposureQueryId,
   }: {
     datasourceId: string | undefined;
     ref: { id: string; identifierType?: string } | undefined;
     field: "assignmentQuery" | "exposureQuery";
-    currentExposureQueryId: string | undefined;
   },
 ): Promise<void> {
   if (!datasourceId || !ref || ref.identifierType) return;
-  if (ref.id === currentExposureQueryId) return;
   assertAssignmentQueryRefIdentifierType({
     ref,
     field,
@@ -140,7 +137,6 @@ export async function assertApiAssignmentQueryRefHasIdentifierType(
       context,
       datasourceId,
     ),
-    currentExposureQueryId,
   });
 }
 

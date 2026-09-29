@@ -471,7 +471,6 @@ export class HoldoutModel extends BaseClass {
       datasourceId: body.datasourceId,
       ref: body.assignmentQuery,
       field: "assignmentQuery",
-      currentExposureQueryId: undefined,
     });
 
     const owner = await resolveOwnerForCreate(body.owner, this.context);

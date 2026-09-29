@@ -161,30 +161,21 @@ describe("assertAssignmentQueryRefIdentifierType", () => {
     userIdTypes: ["user_id", "anonymous_id"],
   });
   const check =
-    (
-      ref: { id: string; identifierType?: string } | undefined,
-      currentExposureQueryId?: string,
-    ) =>
-    () =>
+    (ref: { id: string; identifierType?: string } | undefined) => () =>
       assertAssignmentQueryRefIdentifierType({
         ref,
         field: "assignmentQuery",
         exposureQueries: [single, multi],
-        currentExposureQueryId,
       });
 
   it("allows omitting it for a query with one identifier type", () => {
     expect(check({ id: "exq_single" })).not.toThrow();
   });
 
-  it("rejects omitting it for a new query with several, naming them", () => {
-    expect(check({ id: "exq_multi" }, "exq_single")).toThrow(
+  it("rejects omitting it for a query with several, naming them", () => {
+    expect(check({ id: "exq_multi" })).toThrow(
       'Assignment query "Main" declares several identifier types (user_id, anonymous_id). Set assignmentQuery.identifierType to choose one.',
     );
-  });
-
-  it("allows omitting it when keeping the current query", () => {
-    expect(check({ id: "exq_multi" }, "exq_multi")).not.toThrow();
   });
 
   it("allows an explicit identifier type", () => {
