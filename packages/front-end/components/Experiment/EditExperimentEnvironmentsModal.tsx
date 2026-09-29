@@ -65,8 +65,8 @@ export default function EditExperimentEnvironmentsModal({
       header="Edit Environments"
       open={true}
       close={close}
+      // No environment is a valid choice; the field warns what it means.
       cta="Apply"
-      ctaEnabled={allEnvironments || selectedEnvironments.length > 0}
       submit={() =>
         apply({
           allEnvironments,

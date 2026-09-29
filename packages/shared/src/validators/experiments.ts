@@ -2969,7 +2969,7 @@ export const putExperimentVariationValuesValidator = {
   responseSchema: variationValuesResponse,
   summary: "Update pending values",
   description:
-    "Stages new values, a new value type, or new environments on the managed Feature Flag. If a pending change already exists the edits are added to it; otherwise one is started. Pending values can be revised any number of times before they go live. When the flag requires review, the pending values are sent for review automatically. Publishing is separate: pending values go live when the experiment starts, or through `publish` once it is running.",
+    "Stages new values, a new value type, or new environments on the managed Feature Flag. If a pending change already exists the edits are added to it; otherwise one is started. Pending values can be revised any number of times before they go live. When the flag requires review, send them with `request-review` once they're ready. Publishing is separate: pending values go live when the experiment starts, or through `publish` once it is running.",
   operationId: "putExperimentVariationValues",
   tags: ["experiment-values"],
   method: "put" as const,

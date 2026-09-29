@@ -239,12 +239,11 @@ tags:
       Edits are staged as **pending values**, a draft on the managed flag. When
       the flag requires review, pending values go through the same approval as
       any Feature Flag revision. The usual flow is: `POST` to create the flag,
-      `PUT` to set values (this requests review automatically when one is
-      needed), reviewers call `submit-review`, then `POST
-      /experiments/{id}/start` publishes the values as the experiment starts. On
-      a running experiment, `PUT` again and call `publish`. `GET` returns the
-      live values, the pending change, and `publishBlockers` naming anything
-      that would stop a publish.
+      `PUT` to set values, `request-review` when the flag requires review,
+      reviewers call `submit-review`, then `POST /experiments/{id}/start`
+      publishes the values as the experiment starts. On a running experiment,
+      `PUT` again and call `publish`. `GET` returns the live values, the pending
+      change, and `publishBlockers` naming anything that would stop a publish.
 
 
       To back out: `recall-review` withdraws your review request but keeps the
@@ -16594,8 +16593,8 @@ paths:
         Stages new values, a new value type, or new environments on the managed
         Feature Flag. If a pending change already exists the edits are added to
         it; otherwise one is started. Pending values can be revised any number
-        of times before they go live. When the flag requires review, the pending
-        values are sent for review automatically. Publishing is separate:
+        of times before they go live. When the flag requires review, send them
+        with `request-review` once they're ready. Publishing is separate:
         pending values go live when the experiment starts, or through `publish`
         once it is running.
       tags:

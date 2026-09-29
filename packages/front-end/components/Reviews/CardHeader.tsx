@@ -1,0 +1,28 @@
+import { ReactNode } from "react";
+import { Flex } from "@radix-ui/themes";
+
+/** The 40px band atop a review's actions card, tinted by its status. */
+export default function CardHeader({
+  children,
+  background,
+  gap,
+}: {
+  children: ReactNode;
+  background?: string;
+  gap?: "1" | "2" | "3" | "4";
+}) {
+  return (
+    <Flex
+      align="center"
+      gap={gap}
+      px="4"
+      style={{
+        background,
+        borderBottom: "1px solid var(--gray-a4)",
+        minHeight: 40,
+      }}
+    >
+      {children}
+    </Flex>
+  );
+}

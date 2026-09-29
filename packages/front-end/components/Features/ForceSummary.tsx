@@ -18,6 +18,7 @@ export default function ForceSummary({
   fontSize,
   lineHeight,
   actionsOverlay,
+  showCopyButton = true,
 }: {
   value: string;
   feature: FeatureInterface;
@@ -36,6 +37,7 @@ export default function ForceSummary({
   // Environment this value is shown for, so a config-backed value previews its
   // matching env flavor. Absent (e.g. all-environments view) = the base value.
   environment?: string;
+  showCopyButton?: boolean;
 }) {
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
   // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
@@ -56,6 +58,7 @@ export default function ForceSummary({
         isDefault={isDefault}
         environment={environment}
         label={label}
+        showCopyButton={showCopyButton}
       />
     );
   }
@@ -69,6 +72,7 @@ export default function ForceSummary({
             value={value}
             type={feature.valueType}
             showFullscreenButton={true}
+            showCopyButton={showCopyButton}
             sparse={sparse}
             defaultValue={feature.defaultValue}
             fontSize={fontSize}

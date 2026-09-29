@@ -54,13 +54,7 @@ export default function EditPhasesModal({
   if (editPhase === -1) {
     return (
       <NewPhaseForm
-        close={() => {
-          if (isDraft && !isMultiPhase) {
-            close();
-          } else {
-            setEditPhase(null);
-          }
-        }}
+        close={() => setEditPhase(null)}
         experiment={experiment}
         linkedFeatures={linkedFeatures}
         mutate={mutateExperiment}
@@ -179,16 +173,19 @@ export default function EditPhasesModal({
           </TableBody>
         </Table>
       </Box>
-      {!isHoldout && (experiment.status !== "running" || !hasLinkedChanges) && (
-        <Button
-          icon={<GBAddCircle />}
-          onClick={() => {
-            setEditPhase(-1);
-          }}
-        >
-          New Phase
-        </Button>
-      )}
+      {/* A draft starts from its review, which the server requires. */}
+      {!isHoldout &&
+        !isDraft &&
+        (experiment.status !== "running" || !hasLinkedChanges) && (
+          <Button
+            icon={<GBAddCircle />}
+            onClick={() => {
+              setEditPhase(-1);
+            }}
+          >
+            New Phase
+          </Button>
+        )}
     </ModalStandard>
   );
 }

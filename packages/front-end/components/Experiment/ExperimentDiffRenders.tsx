@@ -62,13 +62,6 @@ function MetricBadgeLabel({ id, sign }: { id: string; sign: "+" | "−" }) {
   const group = isGroup ? getMetricGroupById(id) : null;
   const exists = isGroup ? !!group : !!getExperimentMetricById(id);
 
-  const groupMetrics = group
-    ? group.metrics.map((mid) => ({
-        metric: getExperimentMetricById(mid) ?? null,
-        joinable: true,
-      }))
-    : undefined;
-
   return (
     <span className="d-inline-flex align-items-center" style={{ gap: 3 }}>
       {sign}{" "}
@@ -82,7 +75,6 @@ function MetricBadgeLabel({ id, sign }: { id: string; sign: "+" | "−" }) {
             isGroup={isGroup}
             showGroupIcon
             disableTooltip={false}
-            metrics={groupMetrics}
             officialBadgeLeftGap={false}
           />
         </Link>

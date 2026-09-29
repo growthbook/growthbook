@@ -90,6 +90,7 @@ export default function ConfigBackedSummary({
   isDefault = false,
   environment,
   label = "SERVE",
+  showCopyButton = true,
 }: {
   value: string;
   configKey: string;
@@ -103,6 +104,7 @@ export default function ConfigBackedSummary({
   // The environment this value is being previewed for, so the config resolves
   // with its matching env flavor (scopedOverrides). Absent = the base value.
   environment?: string;
+  showCopyButton?: boolean;
 }) {
   const { configs } = useDefinitions();
   const { hasCommercialFeature } = useUser();
@@ -318,6 +320,7 @@ export default function ConfigBackedSummary({
               sparse
               defaultValue={JSON.stringify(resolved.merged)}
               showFullscreenButton={true}
+              showCopyButton={showCopyButton}
               fullStyle={fullStyle}
             />
           ) : (
@@ -325,6 +328,7 @@ export default function ConfigBackedSummary({
               value={JSON.stringify(resolved.merged, null, 2)}
               type="json"
               showFullscreenButton={true}
+              showCopyButton={showCopyButton}
               fullStyle={fullStyle}
             />
           )}

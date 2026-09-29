@@ -22,7 +22,7 @@ export type ChecklistSummary = {
   // Done, but still warning about something: always shown, never counted.
   flagged: CheckListItem[];
   complete: CheckListItem[];
-  // Optional items count too: any of them still asks for "Start anyway".
+  // Optional items count too: any of them still asks for the bypass.
   remaining: number;
   blocking: number;
 };
@@ -60,8 +60,17 @@ export function summarizeChecklist(
   };
 }
 
+export const STALE_VALUES_ITEM_PREFIX = "staleVariationValues:";
+
 export function isPendingApprovalItem(item: Pick<CheckListItem, "key">) {
   return item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX);
+}
+
+/** What an admin's start bypass waives: the server skips both checks with it. */
+export function isBypassableStartItem(item: Pick<CheckListItem, "key">) {
+  return (
+    isPendingApprovalItem(item) || item.key.startsWith(STALE_VALUES_ITEM_PREFIX)
+  );
 }
 
 export function nextManualChecklist(

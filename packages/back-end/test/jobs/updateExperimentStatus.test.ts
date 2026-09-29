@@ -6,9 +6,13 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { getScheduledStatusContext } from "back-end/src/services/experimentScheduling";
-import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import {
+  assertScheduledStartNotHardBlocked,
+  executeExperimentStart,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
 import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
+import { ChecklistIncompleteError } from "back-end/src/util/errors";
 
 // A staged status change fires on the authority of whoever staged it, re-checked
 // at fire time, like a scheduled feature publish. No authority, no change.
@@ -33,6 +37,7 @@ jest.mock("back-end/src/services/experimentScheduling", () => ({
 jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
   () => ({
+    assertScheduledStartNotHardBlocked: jest.fn(),
     executeExperimentStart: jest.fn(async (_ctx, experiment) => ({
       updated: { ...experiment, status: "running" },
     })),
@@ -71,6 +76,9 @@ describe("updateSingleExperimentStatus", () => {
     jest.clearAllMocks();
     (getExperimentById as jest.Mock).mockResolvedValue(draft);
     (getScheduledStatusContext as jest.Mock).mockResolvedValue(scheduler);
+    (
+      assertCanRunExperimentInAffectedEnvironments as jest.Mock
+    ).mockResolvedValue(undefined);
   });
 
   it("starts the experiment as the user who scheduled it", async () => {
@@ -79,9 +87,42 @@ describe("updateSingleExperimentStatus", () => {
       scheduler,
       draft,
     );
+    expect(assertScheduledStartNotHardBlocked).toHaveBeenCalledWith(
+      scheduler,
+      draft,
+    );
     expect(executeExperimentStart).toHaveBeenCalledWith(scheduler, draft);
     expect(scheduler.auditLog).toHaveBeenCalled();
     expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
+  });
+
+  it("retries without starting when a hard block appeared after approval", async () => {
+    (assertScheduledStartNotHardBlocked as jest.Mock).mockRejectedValueOnce(
+      new ChecklistIncompleteError("Experiment cannot be started", [
+        {
+          key: "unrelatedDraftChanges:flag_1",
+          required: true,
+          status: "incomplete",
+          manual: false,
+          reason: "",
+          hardBlock: true,
+        },
+      ]),
+    );
+    await updateSingleExperimentStatus(job);
+    expect(executeExperimentStart).not.toHaveBeenCalled();
+    expect(updateExperiment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: {
+          nextScheduledStatusUpdate: expect.objectContaining({
+            failedAttempts: 1,
+          }),
+        },
+      }),
+    );
+    expect(notifyScheduledStatusUpdateFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ willRetry: true }),
+    );
   });
 
   it("gives up at once when the scheduler may not run the experiment", async () => {

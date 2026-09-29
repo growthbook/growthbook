@@ -1,4 +1,4 @@
-import express from "express";
+import express, { RequestHandler } from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
 import * as rawExperimentsController from "back-end/src/controllers/experiments";
 import * as rawFeaturesController from "back-end/src/controllers/features";
@@ -15,6 +15,16 @@ const router = express.Router({ mergeParams: true });
 const experimentsController = wrapController(rawExperimentsController);
 const featuresController = wrapController(rawFeaturesController);
 
+// A managed draft publishes only through publishManagedDraft, so a review
+// request may not arm an auto-publish or a schedule.
+const stripPublishArming: RequestHandler = (req, res, next) => {
+  if (req.body) {
+    delete req.body.autoPublishOnApproval;
+    delete req.body.scheduledPublishAt;
+  }
+  next();
+};
+
 router.get("/key-plan", experimentsController.getExperimentManagedFlagKeyPlan);
 router.get(
   "/key-check",
@@ -26,6 +36,7 @@ router.post("/remove", experimentsController.postExperimentManagedFlagRemove);
 
 router.post(
   "/request-review",
+  stripPublishArming,
   resolveManagedFlagParams,
   featuresController.postFeatureRequestReview,
 );

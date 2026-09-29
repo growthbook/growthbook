@@ -5,7 +5,6 @@ import {
   isManagedFeature,
   managedByExperimentId,
   isManagedByExperiment,
-  checkIfRevisionNeedsReview,
   featureKeyFormatError,
   FEATURE_KEY_PATTERN,
   getImplementationType,
@@ -52,7 +51,6 @@ import {
   discardRevision,
   getActiveDraft,
   getRevision,
-  markRevisionAsReviewRequested,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
@@ -92,7 +90,6 @@ import {
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
-import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { logger } from "back-end/src/util/logger";
 import { resumeFeatureRename } from "back-end/src/services/featureRename/renameManagedFlag";
 import {
@@ -450,13 +447,6 @@ export async function createManagedFeatureForExperiment({
       autoPublish: false,
       forceNewDraft: true,
     });
-
-    await requestReviewForManagedDraft({
-      context,
-      feature: created,
-      version: linked.version,
-      eventAudit,
-    });
   } catch (e) {
     // `created` predates the link, so deleteFeature can't unlink the experiment side.
     await deleteFeature(context, created);
@@ -526,60 +516,6 @@ async function readManagedValuesForDuplicate({
     "Managed flag source kept changing while copying for a duplicate; seeding fresh values instead",
   );
   return null;
-}
-
-// Editing is the request; a no-op when approvals aren't required.
-export async function requestReviewForManagedDraft({
-  context,
-  feature,
-  version,
-  eventAudit,
-}: {
-  context: ReqContext | ApiReqContext;
-  feature: FeatureInterface;
-  version: number;
-  eventAudit: EventUser;
-}): Promise<void> {
-  const revision = await getRevision({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    version,
-  });
-  if (!revision || revision.status !== "draft") return;
-
-  const { base } = await getLiveAndBaseRevisionsForFeature({
-    context,
-    feature,
-    revision,
-  });
-  const needsReview = checkIfRevisionNeedsReview({
-    feature,
-    baseRevision: base,
-    revision,
-    orgEnvironments: getEnvironments(context.org),
-    settings: context.org.settings,
-    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-  });
-  if (!needsReview) return;
-
-  await markRevisionAsReviewRequested(context, revision, eventAudit, "");
-
-  const updated = await getRevision({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    version,
-  });
-  await dispatchFeatureRevisionEvent(
-    context,
-    feature,
-    updated ?? revision,
-    "revision.reviewRequested",
-    { reviewComment: null },
-  );
 }
 
 export type ManagedFlagValues = {
@@ -1150,12 +1086,6 @@ export async function updateManagedVariationValues({
       defaultValue: values[0].value,
       eventAudit,
     });
-    await requestReviewForManagedDraft({
-      context,
-      feature,
-      version: linked.version,
-      eventAudit,
-    });
     return { feature, version: linked.version };
   }
 
@@ -1208,13 +1138,6 @@ export async function updateManagedVariationValues({
   if (await discardDraftIfNoop({ context, feature, revision, eventAudit })) {
     return { feature, version: feature.version };
   }
-
-  await requestReviewForManagedDraft({
-    context,
-    feature,
-    version: revision.version,
-    eventAudit,
-  });
 
   return { feature, version: revision.version };
 }

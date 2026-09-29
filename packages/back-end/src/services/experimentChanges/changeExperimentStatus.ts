@@ -186,15 +186,22 @@ function getHasLinkedChanges(
   );
 }
 
-function isCustomTaskComplete(
+function isManualTaskComplete(
   experiment: ExperimentInterface,
   key: string,
+): boolean {
+  return (
+    experiment.manualLaunchChecklist?.find((task) => task.key === key)
+      ?.status === "complete"
+  );
+}
+
+function isAutoTaskComplete(
+  experiment: ExperimentInterface,
+  propertyKey: string,
   customFieldId?: string,
 ): boolean {
-  const manualChecklistStatus = experiment.manualLaunchChecklist || [];
-  const item = manualChecklistStatus.find((task) => task.key === key);
-
-  switch (key) {
+  switch (propertyKey) {
     case "hypothesis":
       return !!experiment.hypothesis;
     case "screenshots":
@@ -217,14 +224,12 @@ function isCustomTaskComplete(
     case "schedule":
       return !!experiment.statusUpdateSchedule?.startAt;
     default:
-      break;
+      return isManualTaskComplete(experiment, propertyKey);
   }
-
-  return item?.status === "complete";
 }
 
 export async function getExperimentStartChecklistStatus(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ): Promise<StartChecklistItemStatus[]> {
   const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
@@ -398,11 +403,17 @@ export async function getExperimentStartChecklistStatus(
 
     checklist?.tasks?.forEach((task) => {
       if (task.completionType === "auto" && task.propertyKey) {
-        if (isBandit && task.propertyKey === "hypothesis") return;
+        // Bandits have no hypothesis and never schedule a start.
+        if (
+          isBandit &&
+          (task.propertyKey === "hypothesis" || task.propertyKey === "schedule")
+        ) {
+          return;
+        }
         items.push({
           key: task.task,
           required: true,
-          status: isCustomTaskComplete(
+          status: isAutoTaskComplete(
             experiment,
             task.propertyKey,
             task.customFieldId,
@@ -416,7 +427,7 @@ export async function getExperimentStartChecklistStatus(
         items.push({
           key: task.task,
           required: true,
-          status: isCustomTaskComplete(experiment, task.task)
+          status: isManualTaskComplete(experiment, task.task)
             ? "complete"
             : "incomplete",
           manual: true,
@@ -605,6 +616,35 @@ function assertNoIncompleteHardBlockers(
   }
 }
 
+// Run when a scheduled start fires. The approver already acknowledged the soft items.
+export async function assertScheduledStartNotHardBlocked(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  assertNoIncompleteHardBlockers(
+    await getExperimentStartChecklistStatus(context, experiment),
+  );
+}
+
+// Once a start goes ahead, every item still open was skipped or waived by the bypass.
+export function getStartAcknowledgment({
+  checklistItems,
+  skipChecklist,
+  bypassLockdown,
+}: {
+  checklistItems: StartChecklistItemStatus[];
+  skipChecklist: boolean;
+  bypassLockdown: boolean;
+}) {
+  return {
+    skipChecklist,
+    bypassLockdown,
+    skippedChecklistItems: checklistItems
+      .filter((item) => item.status === "incomplete")
+      .map((item) => item.key),
+  };
+}
+
 export async function startExperiment({
   context,
   experimentId,
@@ -747,7 +787,7 @@ export async function approveScheduledExperimentStart({
     changes,
   });
 
-  return { experiment, updated };
+  return { experiment, updated, checklistItems };
 }
 
 /**

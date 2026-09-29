@@ -81,6 +81,7 @@ import {
 } from "back-end/src/services/attributes";
 import {
   approveScheduledExperimentStart,
+  getStartAcknowledgment,
   startExperiment,
   stopExperiment,
   unapproveScheduledExperimentStart,
@@ -151,6 +152,7 @@ import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
   BadRequestError,
+  ChecklistIncompleteError,
   NotFoundError,
   SoftWarningError,
 } from "back-end/src/util/errors";
@@ -1810,6 +1812,7 @@ export async function postExperimentStatus(
       reason: string;
       dateEnded: string;
       bypassLockdown?: boolean;
+      skipChecklist?: boolean;
     },
     { id: string }
   >,
@@ -1819,6 +1822,7 @@ export async function postExperimentStatus(
   const { org } = context;
   const { id } = req.params;
   const { status, reason, dateEnded, bypassLockdown } = req.body;
+  const skipChecklist = req.body.skipChecklist === true;
 
   const changes: Changeset = {};
 
@@ -1866,11 +1870,17 @@ export async function postExperimentStatus(
     changes.phases = phases;
   }
   // Starting an experiment from draft
-  else if (
-    experiment.status === "draft" &&
-    status === "running" &&
-    phases?.length > 0
-  ) {
+  else if (experiment.status === "draft" && status === "running") {
+    // A plain status write would skip every start check and never publish values.
+    if (!phases.length) {
+      res.status(400).json({
+        status: 400,
+        message:
+          "Add a phase with targeting and traffic before starting this experiment.",
+      });
+      return;
+    }
+
     const adminBypass =
       !!bypassLockdown &&
       context.permissions.canBypassFlagApprovalChecks(experiment, "feature");
@@ -1881,11 +1891,10 @@ export async function postExperimentStatus(
       changes: { status: "running" },
     });
 
-    const { updated } = await startExperiment({
+    const { updated, checklistItems } = await startExperiment({
       context,
       experimentId: id,
-      // Internal status endpoint preserves existing behavior by not enforcing checklist at the server boundary.
-      skipChecklist: true,
+      skipChecklist,
       bypassLockdown: adminBypass,
     });
 
@@ -1895,7 +1904,15 @@ export async function postExperimentStatus(
         object: "experiment",
         id: experiment.id,
       },
-      details: auditDetailsUpdate(experiment, updated),
+      details: auditDetailsUpdate(
+        experiment,
+        updated,
+        getStartAcknowledgment({
+          checklistItems,
+          skipChecklist,
+          bypassLockdown: adminBypass,
+        }),
+      ),
     });
 
     res.status(200).json({
@@ -1984,18 +2001,20 @@ export async function postExperimentStatus(
 }
 
 export async function postApproveScheduledExperimentStart(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<{ skipChecklist?: boolean } | null, { id: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
+  const skipChecklist = req.body?.skipChecklist === true;
 
   try {
-    const { experiment, updated } = await approveScheduledExperimentStart({
-      context,
-      experimentId: id,
-      skipChecklist: true,
-    });
+    const { experiment, updated, checklistItems } =
+      await approveScheduledExperimentStart({
+        context,
+        experimentId: id,
+        skipChecklist,
+      });
 
     await req.audit({
       event: "experiment.update",
@@ -2003,7 +2022,15 @@ export async function postApproveScheduledExperimentStart(
         object: "experiment",
         id: experiment.id,
       },
-      details: auditDetailsUpdate(experiment, updated),
+      details: auditDetailsUpdate(
+        experiment,
+        updated,
+        getStartAcknowledgment({
+          checklistItems,
+          skipChecklist,
+          bypassLockdown: false,
+        }),
+      ),
     });
 
     res.status(200).json({
@@ -2011,7 +2038,9 @@ export async function postApproveScheduledExperimentStart(
       experiment: updated,
     });
   } catch (e) {
-    if (e instanceof SoftWarningError) throw e;
+    // Keeps the refused items' code and details for the page to show.
+    if (e instanceof SoftWarningError || e instanceof ChecklistIncompleteError)
+      throw e;
     res.status(400).json({
       status: 400,
       message: e.message || "Failed to approve scheduled experiment start",
@@ -2554,6 +2583,16 @@ export async function postExperimentPhase(
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
+    });
+    return;
+  }
+  // Only a holdout starts by adding its first phase; anything else would skip
+  // the start's checklist and never publish its linked drafts.
+  if (experiment.status === "draft" && experiment.type !== "holdout") {
+    res.status(400).json({
+      status: 400,
+      message:
+        "Draft experiments can't start by adding a phase. Set up targeting, then start the experiment.",
     });
     return;
   }

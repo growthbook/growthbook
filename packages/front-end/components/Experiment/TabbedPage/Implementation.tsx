@@ -10,6 +10,7 @@ import {
 } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FaArrowRight } from "react-icons/fa";
 import {
   HoldoutInterfaceStringDates,
   type ImplementationType,
@@ -54,6 +55,8 @@ import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable"
 import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
 import Link from "@/ui/Link";
+import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
@@ -147,6 +150,8 @@ export interface Props {
   envs: string[];
   visualChangesetEnvStates?: LinkedChangeEnvStates;
   urlRedirectEnvStates?: LinkedChangeEnvStates;
+  /** Opens the review of the Values flag's unpublished draft. */
+  managedHandoff?: { label: string; open: () => void } | null;
 }
 
 export default function Implementation({
@@ -173,6 +178,7 @@ export default function Implementation({
   envs,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
+  managedHandoff = null,
 }: Props) {
   const stagedType = implementationTypeDraft?.value?.type;
   const managedId =
@@ -717,6 +723,21 @@ export default function Implementation({
             phaseIndex={getActivePhaseIndex(experiment)}
           />
         )}
+        {managedHandoff ? (
+          <Flex justify="end" mt="3">
+            <Tooltip content={editsBlocked} enabled={!!editsBlocked}>
+              <Button
+                icon={<FaArrowRight />}
+                iconPosition="right"
+                onClick={managedHandoff.open}
+                disabled={!!editsBlocked}
+                style={{ whiteSpace: "nowrap" }}
+              >
+                {managedHandoff.label}
+              </Button>
+            </Tooltip>
+          </Flex>
+        ) : null}
         {isHoldout && holdout ? (
           <HoldoutEnvironments
             editEnvironments={() => setShowEditEnvironmentsModal(true)}

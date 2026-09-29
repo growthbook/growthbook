@@ -482,6 +482,14 @@ export async function planExperimentUpdate(
     }
   });
 
+  // A start runs its checklist and publishes linked drafts; a field write
+  // would skip both.
+  if (experiment.status === "draft" && changes.status === "running") {
+    throw new BadRequestError(
+      "Start this experiment instead of setting its status to running.",
+    );
+  }
+
   normalizeStatusUpdateScheduleChanges(
     experiment,
     changes,

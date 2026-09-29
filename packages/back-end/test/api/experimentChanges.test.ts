@@ -21,6 +21,7 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
 import { applyExperimentChanges } from "back-end/src/services/experimentChanges/applyExperimentChanges";
+import { planExperimentUpdate } from "back-end/src/services/experimentChanges/planExperimentUpdate";
 import { setupApp } from "./api.setup";
 
 // Stands in for the experiment write; `write` runs the real one.
@@ -202,6 +203,15 @@ describe("applyExperimentChanges", () => {
 
   afterEach(() => {
     mockWriteExperiment = null;
+  });
+
+  it("refuses to start a draft through a plain field write", async () => {
+    await seed({ withDraft: false });
+    const experiment = await getExperimentById(context, EXP);
+    if (!experiment) throw new Error("missing experiment");
+    await expect(
+      planExperimentUpdate(context, experiment, { status: "running" }),
+    ).rejects.toThrow("Start this experiment instead");
   });
 
   it("writes the flag draft and then the experiment", async () => {

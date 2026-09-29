@@ -176,8 +176,15 @@ export default function MetricName({
     if (!metricGroup) {
       return <>{id}</>;
     }
-    const allJoinable = metrics?.every((m) => m.joinable) ?? true;
-    const allNonConversionWindow = metrics?.every(
+    // Callers that know joinability pass it; otherwise list the group's own.
+    const groupMetrics =
+      metrics ??
+      metricGroup.metrics.map((metricId) => ({
+        metric: getExperimentMetricById(metricId),
+        joinable: true,
+      }));
+    const allJoinable = groupMetrics.every((m) => m.joinable);
+    const allNonConversionWindow = groupMetrics.every(
       (m) => m?.metric?.windowSettings?.type !== "conversion",
     );
 
@@ -223,11 +230,11 @@ export default function MetricName({
                     </HelperText>
                   </div>
                 ) : null}
-                {metrics && metrics.length > 0 ? (
+                {groupMetrics.length > 0 ? (
                   <>
                     <div>Metrics in group:</div>
                     <ul className="ml-0 pl-3 mb-0">
-                      {metrics.map((m, i) => (
+                      {groupMetrics.map((m, i) => (
                         <li
                           key={i}
                           className={clsx({

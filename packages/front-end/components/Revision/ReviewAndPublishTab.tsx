@@ -1,11 +1,4 @@
-import {
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   Revision,
@@ -56,6 +49,7 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
 import ApprovalStatusBand from "@/components/Reviews/ApprovalStatusBand";
+import CardHeader from "@/components/Reviews/CardHeader";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import {
@@ -120,33 +114,6 @@ function stripNullish<T>(obj: T): T {
     out[k] = v;
   }
   return out as T;
-}
-
-// The 40px header band shared by the actions column and the revision-description
-// card — one source of truth for the px/border/min-height styling.
-function CardHeader({
-  children,
-  background,
-  gap,
-}: {
-  children: ReactNode;
-  background?: string;
-  gap?: "1" | "2" | "3" | "4";
-}) {
-  return (
-    <Flex
-      align="center"
-      gap={gap}
-      px="4"
-      style={{
-        background,
-        borderBottom: "1px solid var(--gray-a4)",
-        minHeight: 40,
-      }}
-    >
-      {children}
-    </Flex>
-  );
 }
 
 export interface ReviewAndPublishTabProps<T> {

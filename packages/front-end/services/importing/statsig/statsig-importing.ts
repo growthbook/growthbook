@@ -1908,12 +1908,20 @@ export async function runImport(options: RunImportOptions) {
           // Create or update the experiment
           let experimentRes: { experiment: ExperimentInterfaceStringDates };
           if (isUpdate && existingExperiment) {
-            // Use POST to update existing experiment (POST /experiment/:id)
+            // Use POST to update existing experiment (POST /experiment/:id).
+            // A draft starts from its review, so it stays a draft here.
+            const { status: importedStatus, ...withoutStatus } =
+              transformedExperiment;
             experimentRes = await apiCall(
               `/experiment/${existingExperiment.id}`,
               {
                 method: "POST",
-                body: JSON.stringify(transformedExperiment),
+                body: JSON.stringify(
+                  existingExperiment.status === "draft" &&
+                    importedStatus === "running"
+                    ? withoutStatus
+                    : transformedExperiment,
+                ),
               },
             );
           } else {

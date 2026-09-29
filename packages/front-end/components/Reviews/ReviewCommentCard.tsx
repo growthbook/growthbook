@@ -42,14 +42,19 @@ export function reviewCommentsFromLog(
     }));
 }
 
-/** One entry of a review conversation, as the review panel shows it. */
+/**
+ * One entry of a review conversation: compact in a popover, or `md` as the
+ * feature review's timeline shows it.
+ */
 export default function ReviewCommentCard({
   log,
   uncoveredReason,
   actions,
   body,
+  size = "sm",
 }: {
   log: ReviewComment;
+  size?: "sm" | "md";
   /** Set when an approval stands but can't sanction the publish. */
   uncoveredReason?: string;
   actions?: ReactNode;
@@ -72,7 +77,7 @@ export default function ReviewCommentCard({
       leading={
         verdict ? (
           <Avatar
-            size="sm"
+            size={size}
             color={verdict}
             variant={uncoveredReason ? "soft" : "solid"}
             ring={!!uncoveredReason}
@@ -81,8 +86,8 @@ export default function ReviewCommentCard({
           </Avatar>
         ) : undefined
       }
-      avatarSize="sm"
-      compact
+      avatarSize={size}
+      compact={size === "sm"}
       actions={actions}
       body={
         body ??

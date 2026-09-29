@@ -23,6 +23,7 @@ import { DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import styles from "./RedirectLinkedChanges.module.scss";
 import { redirectDestinationParts } from "./redirectDestination";
 
 function RedirectDestination({ from, to }: { from: string; to: string }) {
@@ -31,7 +32,7 @@ function RedirectDestination({ from, to }: { from: string; to: string }) {
     <>
       {parts.elided ? "…" : null}
       {parts.kept}
-      <b>{parts.changed}</b>
+      {parts.changed}
     </>
   ) : (
     to
@@ -41,7 +42,10 @@ function RedirectDestination({ from, to }: { from: string; to: string }) {
       href={to}
       external
       color="dark"
-      underline="none"
+      // As the Visual Editor's summaries read.
+      weight="regular"
+      underline="hover"
+      className={styles.redirectUrl}
       title={to}
       style={{ overflowWrap: "anywhere" }}
     >

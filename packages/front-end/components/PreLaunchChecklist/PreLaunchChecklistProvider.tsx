@@ -30,8 +30,6 @@ interface PreLaunchChecklistContextValue {
   // null when the viewer can't check tasks off.
   toggleManualItem: ((manualKey: string, checked: boolean) => void) | null;
   toggleError: string | null;
-  /** Opens the managed flag's review modal, when the page has one. */
-  openManagedApproval?: () => void;
 }
 
 const PreLaunchChecklistContext =
@@ -171,7 +169,6 @@ export function PreLaunchChecklistProvider({
       checklistReady: checklistItemsRemaining === 0,
       toggleManualItem: canEdit ? toggle : null,
       toggleError,
-      openManagedApproval,
     }),
     [
       experiment,
@@ -184,7 +181,6 @@ export function PreLaunchChecklistProvider({
       canEdit,
       toggle,
       toggleError,
-      openManagedApproval,
     ],
   );
 

@@ -5,13 +5,13 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined } from "shared/util";
+import { isInReviewCycle } from "shared/enterprise";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
 import { DifferenceType } from "shared/types/stats";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
@@ -34,12 +34,15 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useAuth } from "@/services/auth";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
 import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
@@ -51,7 +54,6 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
-import ManagedFlagApproval from "@/components/Experiment/LinkedChanges/ManagedFlagApproval";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
@@ -64,6 +66,9 @@ import useMediaQuery from "@/hooks/useMediaQuery";
 import { ManagedFlagRenameProvider } from "@/components/Experiment/ManagedFlagRename";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
+import useExperimentReviewRoute from "./useExperimentReviewRoute";
+import useStartExperiment from "./useStartExperiment";
+import ExperimentReview, { scrollToReviewCard } from "./ExperimentReview";
 import ExperimentDetailsPanel, {
   DetailsPanelTab,
 } from "./ExperimentDetailsPanel";
@@ -72,6 +77,7 @@ import {
   experimentFieldChanges,
   HoldoutDraft,
   ImplementationTypeDraft,
+  useEditsBlockedReason,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 import UnsavedEditsBar from "./UnsavedEditsBar";
@@ -158,15 +164,25 @@ function TabbedPageContents({
   visualChangesetEnvStates,
   urlRedirectEnvStates,
 }: Props) {
+  // The URL outranks the stored tab from the first render, so a link to a
+  // sub-path such as the review never renders under another tab.
+  const [initialHash] = useState(() => {
+    const [name, ...path] = window.location.hash.replace(/^#/, "").split("/");
+    return {
+      tab: (experimentTabs as readonly string[]).includes(name)
+        ? (name as ExperimentTabName)
+        : null,
+      path: path.join("/"),
+    };
+  });
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
     "overview",
+    initialHash.tab,
   );
   const tabRef = useRef(tab);
   tabRef.current = tab;
-  const [tabPath, setTabPath] = useState(
-    window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
-  );
+  const [tabPath, setTabPath] = useState(initialHash.path);
 
   const router = useRouter();
 
@@ -186,7 +202,6 @@ function TabbedPageContents({
   );
   // Up here because the panel unmounts whenever it closes.
   const [detailsTab, setDetailsTab] = useState<DetailsPanelTab>("details");
-  const [managedApprovalOpen, setManagedApprovalOpen] = useState(false);
   // The analysis settings modal, which the pre-launch checklist opens too.
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
@@ -241,10 +256,6 @@ function TabbedPageContents({
     ? managedFeature
     : null;
   const managedDraft = managedFlagWithDraft?.pendingDraft;
-  // A draft that vanishes under the open modal must not leave the next one open.
-  useEffect(() => {
-    if (!managedFlagWithDraft) setManagedApprovalOpen(false);
-  }, [managedFlagWithDraft]);
   // Not the revision status: approved can still be short of a team or an env.
   const managedApprovalBlocking =
     !!managedDraft?.pendingApproval &&
@@ -258,7 +269,7 @@ function TabbedPageContents({
   // Both gates together: approval alone publishes nothing on a draft.
   const managedNextStep = managedDraftBlocked
     ? managedDraftBlocked === "conflict"
-      ? "The draft has a merge conflict. Discard it from the review menu, or convert the Feature Flag to unmanaged and resolve it on its page."
+      ? "The draft has a merge conflict. Discard it from the review, or convert the Feature Flag to unmanaged and resolve it on its page."
       : managedDraft?.staleApproval
         ? "The Feature Flag changed after these values were approved. Update them from live and get re-approval."
         : "The Feature Flag changed since these values were drafted. Update them from live before publishing."
@@ -269,12 +280,62 @@ function TabbedPageContents({
       : experiment.status === "draft"
         ? "They go live when the experiment starts."
         : "Publish them to go live.";
+  // The banner is for once the values are with reviewers, or when something's
+  // wrong. Before that, handing them off is the author's call.
+  const managedInReview =
+    !!managedDraft?.pendingApproval && isInReviewCycle(managedDraft.status);
+  const showManagedBanner =
+    !!managedFlagWithDraft && (!!managedDraftBlocked || managedInReview);
+  const reviewBlocked = useEditsBlockedReason();
+  // Holdouts keep their start modal.
+  const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
+  const reviewable =
+    !experiment.archived &&
+    experiment.type !== "holdout" &&
+    (experiment.status === "draft" || !!managedFlagWithDraft);
+  // Only the step into review, or a publish that needs none. Once the values
+  // are with reviewers, the banner leads to the review.
+  const managedHandoffLabel =
+    !managedFlagWithDraft || showManagedBanner || !reviewable
+      ? null
+      : managedDraft?.pendingApproval
+        ? permissionsUtil.canEditFeatureDrafts(managedFlagWithDraft.feature)
+          ? "Request review"
+          : null
+        : experiment.status !== "draft" &&
+            permissionsUtil.canPublishFeature(
+              managedFlagWithDraft.feature,
+              getEnabledEnvironments(
+                managedFlagWithDraft.feature,
+                allEnvironments,
+              ),
+            )
+          ? "Publish changes"
+          : null;
+  const { reviewing, openReview } = useExperimentReviewRoute({
+    tab,
+    tabPath,
+    setTab,
+    setTabPath,
+    reviewable,
+  });
+  const reviewingRef = useRef(reviewing);
+  reviewingRef.current = reviewing;
+
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
   const [showDashboardView, setShowDashboardView] = useState(
-    experiment.defaultDashboardId ? true : false,
+    !!experiment.defaultDashboardId && !reviewing,
   );
-  // Every tab keeps the details rail; the dashboard view is a page of its own.
-  const showDetailsPanel = !showDashboardView;
+  // The review outranks a default dashboard, which would rewrite the hash.
+  const dashboardView = showDashboardView && !reviewing;
+  // Leaving the review lands on Setup, however it was entered.
+  useEffect(() => {
+    if (reviewing) setShowDashboardView(false);
+  }, [reviewing]);
+  // Every tab keeps the details rail; the dashboard view and the review are
+  // pages of their own.
+  const showDetailsPanel = !dashboardView && !reviewing;
 
   // Too narrow for the page and the panel side by side, the panel starts
   // hidden and opens only when asked, over the content. The stored choice is
@@ -373,6 +434,8 @@ function TabbedPageContents({
 
   // If experiment now has a default dashboard, show the dashboard view
   useEffect(() => {
+    // Dashboards that load under the review must not reopen it on the way out.
+    if (reviewingRef.current) return;
     if (!experiment.defaultDashboardId) {
       setShowDashboardView(false);
       return;
@@ -501,6 +564,21 @@ function TabbedPageContents({
     }
   };
 
+  const start = useStartExperiment({
+    experiment,
+    holdout,
+    envs,
+    linkedFeatures,
+    mutate,
+    newPhase,
+    onStarted: () => setTabAndScroll("results"),
+  });
+  const { clearStartFailures } = start;
+  // A failure belongs to the review it was shown in.
+  useEffect(() => {
+    if (reviewing) return clearStartFailures;
+  }, [reviewing, clearStartFailures]);
+
   const persistTabPath = useCallback(
     (path: string) => {
       setTabPath(path);
@@ -592,12 +670,17 @@ function TabbedPageContents({
       editTargeting={editTargeting}
       editSchedule={editSchedule}
       openManagedApproval={
-        managedFlagWithDraft ? () => setManagedApprovalOpen(true) : undefined
+        managedFlagWithDraft && reviewable
+          ? reviewing
+            ? scrollToReviewCard
+            : () => openReview("todo")
+          : undefined
       }
       editVariationValues={() => setTabAndScroll("overview", FLAG_VALUES_ID)}
       openImplementation={() => setTabAndScroll("overview", IMPLEMENTATION_ID)}
       openAnalysisSettings={() => {
-        setTabAndScroll("overview");
+        // The modal belongs to the hidden Setup, so it opens over the review.
+        if (!reviewing) setTabAndScroll("overview");
         setAnalysisSettingsOpen(true);
       }}
     >
@@ -654,6 +737,7 @@ function TabbedPageContents({
             mutate={mutate}
             source={trackSource}
             holdout={holdout}
+            openReview={reviewable ? () => openReview("edit-status") : null}
           />
         )}
         {featureModal && (
@@ -686,13 +770,15 @@ function TabbedPageContents({
           editTargeting={editTargeting}
           detailsOpen={detailsShown}
           setDetailsOpen={showDetailsPanel ? toggleDetailsPanel : undefined}
-          newPhase={newPhase}
+          start={start}
+          reviewing={reviewing}
+          openReview={openReview}
           editPhases={editPhases}
           healthNotificationCount={healthNotificationCount}
           linkedFeatures={linkedFeatures}
           visualChangesets={visualChangesets}
           urlRedirects={urlRedirects}
-          showDashboardView={showDashboardView}
+          showDashboardView={dashboardView}
           editSchedule={editSchedule}
         />
 
@@ -727,15 +813,16 @@ function TabbedPageContents({
             <div
               className={clsx(
                 "container-fluid pagecontents px-4",
-                showDashboardView && "pt-0",
+                dashboardView && "pt-0",
               )}
             >
               {experiment.type !== "holdout" &&
                 tab !== "dashboards" &&
-                !showDashboardView && (
+                !dashboardView &&
+                !reviewing && (
                   <CustomMarkdown page={"experiment"} variables={variables} />
                 )}
-              {managedFlagWithDraft && (
+              {showManagedBanner && !reviewing ? (
                 <Callout
                   // Warning only while approval is holding the publish back.
                   status={
@@ -748,22 +835,19 @@ function TabbedPageContents({
                   mt="3"
                   contentAlign="center"
                   action={
-                    <ManagedFlagApproval
-                      experiment={experiment}
-                      info={managedFlagWithDraft}
-                      mutate={mutate}
-                      open={managedApprovalOpen}
-                      onOpenChange={setManagedApprovalOpen}
-                      // Starting the experiment publishes it, so a draft offers
-                      // review only and everyone gets the same wording. A running
-                      // experiment can really publish, so let the CTA name the
-                      // action this viewer actually has.
-                      ctaLabel={
-                        experiment.status === "draft"
-                          ? "Review changes"
-                          : undefined
-                      }
-                    />
+                    reviewable ? (
+                      <Tooltip
+                        content={reviewBlocked}
+                        enabled={!!reviewBlocked}
+                      >
+                        <Button
+                          onClick={() => openReview("banner")}
+                          disabled={!!reviewBlocked}
+                        >
+                          Review changes
+                        </Button>
+                      </Tooltip>
+                    ) : undefined
                   }
                 >
                   <Flex align="center" gap="2">
@@ -780,7 +864,7 @@ function TabbedPageContents({
                       )}
                   </Flex>
                 </Callout>
-              )}
+              ) : null}
               {showStoppedBanner && (
                 <div className="pt-3">
                   <StoppedExperimentBanner
@@ -809,7 +893,21 @@ function TabbedPageContents({
                   </Callout>
                 )}
 
-              {showDashboardView && (
+              {reviewing ? (
+                <ExperimentReview
+                  experiment={experiment}
+                  linkedFeatures={linkedFeatures}
+                  visualChangesets={visualChangesets}
+                  urlRedirects={urlRedirects}
+                  envs={envs}
+                  mutate={mutate}
+                  valuesDraft={managedFlagWithDraft}
+                  start={start}
+                  exit={() => setTabAndScroll("overview")}
+                  editSchedule={editSchedule ?? null}
+                />
+              ) : null}
+              {dashboardView && (
                 <DashboardsTab
                   experiment={experiment}
                   initialDashboardId={experiment.defaultDashboardId ?? ""}
@@ -825,7 +923,8 @@ function TabbedPageContents({
               <div
                 className={clsx(
                   "pt-2",
-                  tab === "overview" && !showDashboardView
+                  // Hidden, never unmounted: staged edits live in Setup.
+                  tab === "overview" && !dashboardView && !reviewing
                     ? "d-block"
                     : "d-none d-print-block",
                 )}
@@ -862,20 +961,17 @@ function TabbedPageContents({
                   envs={envs}
                   visualChangesetEnvStates={visualChangesetEnvStates}
                   urlRedirectEnvStates={urlRedirectEnvStates}
+                  managedHandoff={
+                    managedHandoffLabel
+                      ? {
+                          label: managedHandoffLabel,
+                          open: () => openReview("implementation"),
+                        }
+                      : null
+                  }
                 />
-                {experiment.status !== "draft" && (
-                  <div className="mt-3 mb-2 text-center d-print-none">
-                    <Button
-                      onClick={() => setTabAndScroll("results")}
-                      size="lg"
-                      icon={<FaChartBar />}
-                    >
-                      View Results
-                    </Button>
-                  </div>
-                )}
               </div>
-              {isBandit && !showDashboardView ? (
+              {isBandit && !dashboardView ? (
                 <div
                   className={
                     // todo: standardize explore & results tabs across experiment types
@@ -897,7 +993,7 @@ function TabbedPageContents({
                 // todo: standardize explore & results tabs across experiment types
                 ((!isBandit && tab === "results") ||
                   (isBandit && tab === "explore")) &&
-                !showDashboardView
+                !dashboardView
                   ? "container-fluid pagecontents px-4 py-4 d-block"
                   : "d-none d-print-block"
               }
@@ -946,14 +1042,15 @@ function TabbedPageContents({
             </div>
             <div
               className={
-                tab === "dashboards" && !showDashboardView
+                tab === "dashboards" && !dashboardView
                   ? "container-fluid pagecontents px-4 py-4 d-block"
                   : "d-none d-print-block"
               }
             >
               <DashboardsTab
                 experiment={experiment}
-                initialDashboardId={tabPath}
+                // The review's path isn't a dashboard id.
+                initialDashboardId={tab === "dashboards" ? tabPath : ""}
                 isTabActive={tab === "dashboards"}
                 mutateExperiment={mutate}
                 updateTabPath={persistTabPath}
@@ -961,7 +1058,7 @@ function TabbedPageContents({
             </div>
             <div
               className={
-                tab === "health" && !showDashboardView
+                tab === "health" && !dashboardView
                   ? "container-fluid pagecontents px-4 py-4 d-block"
                   : "d-none d-print-block"
               }

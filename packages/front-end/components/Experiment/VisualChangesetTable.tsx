@@ -395,7 +395,7 @@ function AppliesTo({
               {rest.map((p, i) => (
                 <span key={i}>
                   {p.include ? "" : "Except "}
-                  <code>{p.pattern}</code>
+                  {p.pattern}
                 </span>
               ))}
             </Flex>

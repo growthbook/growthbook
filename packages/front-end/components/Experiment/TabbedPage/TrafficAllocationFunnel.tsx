@@ -85,7 +85,7 @@ import {
 } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
 import SetupFieldRow from "./SetupFieldRow";
-import useExperimentEditing from "./useExperimentEditing";
+import useExperimentEditing, { valuesAreSetup } from "./useExperimentEditing";
 import {
   experimentFieldChanges,
   FlagEnvironmentsDraft,
@@ -385,7 +385,10 @@ export default function TrafficAllocationFunnel({
   useRegisterExperimentEdit(
     "targeting",
     !!staged,
-    staged && onlyTrafficChanged(staged, targetingDefaults)
+    // With no phase yet there's nothing to patch; targeting creates the first.
+    staged &&
+      experiment.phases.length > 0 &&
+      onlyTrafficChanged(staged, targetingDefaults)
       ? {
           ...clearStaged,
           changes: () =>
@@ -539,17 +542,18 @@ export default function TrafficAllocationFunnel({
       ),
     [pickedFeatures],
   );
+  const setup = valuesAreSetup(experiment);
   const { live, setLive } = useLiveView();
-  const preferDraft = hasDraftChanges && !live;
+  const preferDraft = hasDraftChanges && (setup || !live);
   // Live values are what's published, so nothing edits them in place.
-  const viewingLive = hasDraftChanges && live;
+  const viewingLive = hasDraftChanges && live && !setup;
   const canEditExperiment = canEditExperimentHere && !viewingLive;
   const canEditFlagValues = canEditFlagValuesHere && !viewingLive;
   const editInline = editInlineHere && !viewingLive;
   // With nothing unpublished the toggle goes, and the page edits again.
   useEffect(() => {
-    if (!hasDraftChanges && live) setLive(false);
-  }, [hasDraftChanges, live, setLive]);
+    if ((!hasDraftChanges || setup) && live) setLive(false);
+  }, [hasDraftChanges, setup, live, setLive]);
 
   // Mirror the server's publish authority on eject.
   const managedFeature =
@@ -567,7 +571,7 @@ export default function TrafficAllocationFunnel({
   const envStateSource = preferDraft
     ? servedValueFeature?.pendingDraft
     : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
-  const environmentsAreDraft = preferDraft && environmentsDiffer;
+  const environmentsAreDraft = preferDraft && environmentsDiffer && !setup;
 
   // A managed flag has one draft; the count is the others not shown.
   const draftDetail = (() => {
@@ -686,7 +690,7 @@ export default function TrafficAllocationFunnel({
 
   // Beside the section's heading when it offers a place, else atop the box.
   // Only flag values have an unpublished version to show.
-  const actions = hasDraftChanges ? (
+  const actions = setup ? null : hasDraftChanges ? (
     <SegmentedControl
       aria-label="Values shown"
       value={preferDraft ? "draft" : "live"}

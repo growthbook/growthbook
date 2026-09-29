@@ -80,6 +80,10 @@ export default function RuleEnvironmentScopeField({
         value={allEnvironments ? "all" : "specific"}
         setValue={(v) => {
           setAllEnvironments(v === "all");
+          // A list starts from the "all" it replaces, not from nothing.
+          if (v === "specific" && !selectedEnvironments.length) {
+            setSelectedEnvironments(environments.map((e) => e.id));
+          }
         }}
         gap="0"
         disabled={disabled}

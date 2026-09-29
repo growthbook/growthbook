@@ -49,7 +49,6 @@ import {
 } from "back-end/src/services/experiment-feature";
 import {
   discardDraftIfNoop,
-  requestReviewForManagedDraft,
   stageManagedFeatureFields,
   ensureManagedFlagForExperiment,
   getManagedFeatureForExperiment,
@@ -411,13 +410,6 @@ async function writeFlagValues({
       })
     ) {
       version = feature.version;
-    } else {
-      await requestReviewForManagedDraft({
-        context,
-        feature,
-        version: revision.version,
-        eventAudit,
-      });
     }
     // Both write the draft without handing it back.
     compensation.writtenDateUpdated = (

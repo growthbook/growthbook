@@ -8,9 +8,6 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import {
-  experimentHasLiveLinkedChanges,
-  getImplementationType,
-  hasStartReadyManagedFlag,
   getHoldoutStage,
   isManagedByExperiment,
   canMaterializeLinkedChanges,
@@ -47,7 +44,6 @@ import Avatar from "@/ui/Avatar";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useCelebration } from "@/hooks/useCelebration";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -75,9 +71,7 @@ import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import ScheduledEndPassedBanner from "@/components/Experiment/TabbedPage/ScheduledEndPassedBanner";
-import StartExperimentModal, {
-  PendingDraftFailure,
-} from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
@@ -89,6 +83,8 @@ import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import EditExperimentInfoModal from "./EditExperimentInfoModal";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
+import { StartExperiment } from "./useStartExperiment";
+import { REVIEW_TAB_PATH } from "./useExperimentReviewRoute";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -106,7 +102,11 @@ export interface Props {
   editResult?: () => void;
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
-  newPhase?: (() => void) | null;
+  start: StartExperiment;
+  /** The review is part of Setup: its tab stays selected, and clicking it leaves. */
+  reviewing: boolean;
+  /** Where an experiment starts; holdouts start from a modal. */
+  openReview: (source: string) => void;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
   healthNotificationCount: number;
@@ -167,7 +167,9 @@ export default function ExperimentHeader({
   mutateWatchers,
   editResult,
   editTargeting,
-  newPhase,
+  start,
+  reviewing,
+  openReview,
   editPhases,
   healthNotificationCount,
   linkedFeatures,
@@ -184,7 +186,6 @@ export default function ExperimentHeader({
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
-  const startCelebration = useCelebration();
   const { snapshot, phase, analysis } = useSnapshot();
   const { checklistReady } = usePreLaunchChecklist();
 
@@ -338,12 +339,6 @@ export default function ExperimentHeader({
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  // Structured per-feature failures from the last failed start attempt
-  // (pending_draft_publish_failed) — lets the start modal link each blocked
-  // feature draft instead of only showing the error string.
-  const [pendingDraftFailures, setPendingDraftFailures] = useState<
-    PendingDraftFailure[]
-  >([]);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
@@ -358,14 +353,7 @@ export default function ExperimentHeader({
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
   const [editingName, setEditingName] = useState(false);
   const editsBlocked = useEditsBlockedReason();
-
-  let hasRunExperimentsPermission = true;
-  if (envs.length > 0) {
-    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
-      hasRunExperimentsPermission = false;
-    }
-  }
-  const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
+  const { canRunExperiment } = start;
   const canCreateTemplate =
     permissionsUtil.canViewExperimentTemplateModal(experiment.project) &&
     hasCommercialFeature("templates");
@@ -375,14 +363,6 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-  const banditImplementationReady =
-    !isBandit ||
-    experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
-    hasStartReadyManagedFlag(experiment.id, linkedFeatures);
-  const banditBlockedReason =
-    getImplementationType(experiment) === "values"
-      ? "Add variation values before starting."
-      : "Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting.";
   const isHoldout = experiment.type === "holdout";
   const holdoutStage = holdout
     ? getHoldoutStage(holdout, experiment)
@@ -438,69 +418,6 @@ export default function ExperimentHeader({
     refreshWatching();
     mutateWatchers();
     setDropdownOpen(false);
-  }
-
-  async function startExperiment(opts?: { bypassApproval?: boolean }) {
-    if (!experiment.phases?.length) {
-      if (newPhase) {
-        newPhase();
-        return;
-      } else {
-        throw new Error("You do not have permission to start this experiment");
-      }
-    }
-
-    setPendingDraftFailures([]);
-    if (isHoldout) {
-      await apiCall(`/holdout/${holdout?.id}/edit-status`, {
-        method: "POST",
-        body: JSON.stringify({
-          status: "running",
-          holdoutRunningStatus: "running",
-        }),
-      });
-    } else {
-      await apiCall(
-        `/experiment/${experiment.id}/status`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            status: "running",
-            bypassLockdown: !!opts?.bypassApproval,
-          }),
-        },
-        (responseData) => {
-          if (
-            responseData?.code === "pending_draft_publish_failed" &&
-            Array.isArray(responseData?.details?.failedFeatureDrafts)
-          ) {
-            setPendingDraftFailures(responseData.details.failedFeatureDrafts);
-          }
-        },
-      );
-    }
-    await mutate();
-    startCelebration();
-
-    track("Start experiment", {
-      source: "experiment-start-banner",
-      action: "main CTA",
-      hasDatasource: !!dataSource,
-      hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
-    });
-    setTab("results");
-  }
-
-  async function approveScheduledExperimentStart() {
-    await apiCall(`/experiment/${experiment.id}/approve-scheduled-start`, {
-      method: "POST",
-    });
-    await mutate();
-
-    track("Approve Scheduled Experiment Start", {
-      source: "experiment-start-banner",
-      action: "main CTA",
-    });
   }
 
   useEffect(() => {
@@ -888,20 +805,11 @@ export default function ExperimentHeader({
           </Box>
         </ModalStandard>
       ) : null}
-      {showStartExperiment && experiment.status === "draft" && (
+      {showStartExperiment && isHoldout && experiment.status === "draft" && (
         <StartExperimentModal
           experiment={experiment}
-          close={() => {
-            setShowStartExperiment(false);
-            setPendingDraftFailures([]);
-          }}
-          startExperiment={startExperiment}
-          pendingDraftFailures={pendingDraftFailures}
-          scheduleExperiment={approveScheduledExperimentStart}
-          isHoldout={isHoldout}
-          linkedFeatures={linkedFeatures}
-          visualChangesets={visualChangesets}
-          urlRedirects={urlRedirects}
+          close={() => setShowStartExperiment(false)}
+          startExperiment={start.startExperiment}
         />
       )}
       {showScheduleModal && !isHoldout ? (
@@ -1041,37 +949,40 @@ export default function ExperimentHeader({
                   <ExperimentActionButtons
                     editResult={canRunExperiment ? editResult : undefined}
                     editTargeting={canRunExperiment ? editTargeting : undefined}
+                    blockedReason={editsBlocked}
                     isBandit={isBandit}
                     runningExperimentStatus={runningExperimentStatus}
                     holdoutStage={holdoutStage}
                   />
                 ) : experiment.status === "draft" && nextScheduledStartDate ? (
-                  <Button
-                    variant="ghost"
-                    disabled={!canRunExperiment}
-                    onClick={() => {
-                      if (editSchedule) setShowScheduleModal(true);
-                    }}
-                  >
-                    Starts{" "}
-                    {format(
-                      nextScheduledStartDate,
-                      "MMM d, yyyy 'at' h:mm a (z)",
-                    )}{" "}
-                    {editSchedule && <PiPencilSimple className="ml-1" />}
-                  </Button>
-                ) : experiment.status === "draft" && canRunExperiment ? (
-                  <Tooltip
-                    // Starting publishes what's stored, not what's staged.
-                    shouldDisplay={!banditImplementationReady || !!editsBlocked}
-                    body={editsBlocked ?? banditBlockedReason}
-                  >
+                  <UITooltip content={editsBlocked} enabled={!!editsBlocked}>
+                    <Button
+                      variant="ghost"
+                      disabled={!canRunExperiment || !!editsBlocked}
+                      onClick={() => {
+                        if (editSchedule) setShowScheduleModal(true);
+                      }}
+                    >
+                      Starts{" "}
+                      {format(
+                        nextScheduledStartDate,
+                        "MMM d, yyyy 'at' h:mm a (z)",
+                      )}{" "}
+                      {editSchedule && <PiPencilSimple className="ml-1" />}
+                    </Button>
+                  </UITooltip>
+                ) : experiment.status === "draft" &&
+                  canRunExperiment &&
+                  !reviewing ? (
+                  <Tooltip shouldDisplay={!!editsBlocked} body={editsBlocked}>
                     <Button
                       variant={checklistReady ? "solid" : "soft"}
-                      onClick={() => {
-                        setShowStartExperiment(true);
-                      }}
-                      disabled={!banditImplementationReady || !!editsBlocked}
+                      onClick={() =>
+                        isHoldout
+                          ? setShowStartExperiment(true)
+                          : openReview("header")
+                      }
+                      disabled={!!editsBlocked}
                       icon={
                         hasExperimentSchedule ? undefined : <MdRocketLaunch />
                       }
@@ -1428,7 +1339,10 @@ export default function ExperimentHeader({
             <div className="position-relative container-fluid pagecontents px-4">
               <div className="d-flex align-items-center header-tabs has-tab-actions">
                 <Tabs
-                  value={tab}
+                  // The review is a tab of its own, so no trigger is active,
+                  // and focus reaching one mustn't leave the review.
+                  value={reviewing ? REVIEW_TAB_PATH : tab}
+                  activationMode={reviewing ? "manual" : "automatic"}
                   onValueChange={setTab}
                   style={{ flex: 1, minWidth: 0 }}
                 >

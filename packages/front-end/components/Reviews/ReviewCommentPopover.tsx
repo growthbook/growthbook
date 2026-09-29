@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
@@ -6,7 +6,7 @@ import LinkButton from "@/components/Button";
 import RadioGroup from "@/ui/RadioGroup";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
-import RichTextEditor from "@/ui/RichTextEditor";
+import RichTextEditor, { RichTextEditorHandle } from "@/ui/RichTextEditor";
 import { useAuth } from "@/services/auth";
 
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
@@ -119,6 +119,7 @@ export default function ReviewCommentPopover({
 }: Props) {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
+  const editorRef = useRef<RichTextEditorHandle>(null);
   const [comment, setComment] = useState<string>(
     () => (storageKey ? readReviewDraft(storageKey)?.comment : "") ?? "",
   );
@@ -212,6 +213,7 @@ export default function ReviewCommentPopover({
       </Heading>
 
       <RichTextEditor
+        ref={editorRef}
         value={comment}
         onChange={setComment}
         placeholder="Leave a comment…"
@@ -304,6 +306,11 @@ export default function ReviewCommentPopover({
       side={side}
       align={align}
       showArrow={false}
+      // Into the text, not a formatting button (whose tooltip would open).
+      onOpenAutoFocus={(e) => {
+        e.preventDefault();
+        editorRef.current?.focus();
+      }}
       contentStyle={{ padding: 16, width: 560, maxWidth: "calc(100vw - 32px)" }}
     />
   );

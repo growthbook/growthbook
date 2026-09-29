@@ -46,7 +46,6 @@ import {
   getManagedFeatureForExperiment,
   getManagedFlagState,
   publishManagedDraft,
-  requestReviewForManagedDraft,
   pendingValueType,
   updateManagedVariationValues,
 } from "back-end/src/services/managedFeatures";
@@ -159,18 +158,12 @@ export const putExperimentVariationValues = createApiRequestHandler(
   }
   if (scope !== undefined) {
     try {
-      const { version } = await updateExperimentRuleEnvironments({
+      await updateExperimentRuleEnvironments({
         context: req.context,
         experiment,
         feature,
         allEnvironments: scope === "all",
         environments: scope === "all" ? [] : scope,
-        eventAudit: req.eventAudit,
-      });
-      await requestReviewForManagedDraft({
-        context: req.context,
-        feature,
-        version,
         eventAudit: req.eventAudit,
       });
     } catch (e) {

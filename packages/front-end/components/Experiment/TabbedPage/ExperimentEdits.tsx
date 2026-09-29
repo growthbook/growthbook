@@ -287,17 +287,15 @@ export function useRegisterExperimentEdit(
   }, [ctx, id]);
 }
 
-export const EDITS_BLOCKED_REASON =
-  "Finish your current edits — save or discard them — before changing these values";
-
 /**
  * Why another editing surface cannot open yet, or null when it can. Controls
  * that would open one disable themselves and say so, rather than opening a
  * second draft over the page's own.
  */
+/** Why a control waits on the page's staged edits, or null when none are. */
 export function useEditsBlockedReason(): string | null {
   const ctx = useContext(ExperimentEditsContext);
-  return ctx?.dirty ? EDITS_BLOCKED_REASON : null;
+  return ctx?.dirty ? "Save or discard your changes first." : null;
 }
 
 /**

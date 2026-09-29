@@ -97,6 +97,7 @@ import {
   variationLabel,
 } from "./variationValues";
 import styles from "./FlagValueRows.module.scss";
+import { valuesAreSetup } from "./useExperimentEditing";
 
 // Tight to each value's bottom-right corner, shown on hover.
 const JSON_ACTIONS: ActionsOverlay = {
@@ -449,10 +450,11 @@ function FlagValueRow({
     () => ({ ...feature, valueType: shownType, defaultValue: shownSparseBase }),
     [feature, shownType, shownSparseBase],
   );
+  const setup = valuesAreSetup(experiment);
   const draftIds = useMemo(
     () =>
       new Set(
-        fromDraft
+        fromDraft && !setup
           ? getVariationValueChanges(
               { ...info, pendingDraft },
               variations.map((v) => v.id),
@@ -461,7 +463,7 @@ function FlagValueRow({
               .map((c) => c.variationId)
           : [],
       ),
-    [info, pendingDraft, variations, fromDraft],
+    [info, pendingDraft, variations, fromDraft, setup],
   );
 
   const lockedBySchedule = fromDraft && pendingDraft.lockedBySchedule;

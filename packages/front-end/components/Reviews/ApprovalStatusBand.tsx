@@ -98,6 +98,7 @@ export default function ApprovalStatusBand({
   onRecallReview,
   coverageMessage,
   subtle,
+  startsExperiment = false,
 }: {
   // draft: review will be required; waiting: review requested, viewer can't
   // review; gated: approved but a publish gate (teams/coverage) is unmet.
@@ -115,6 +116,8 @@ export default function ApprovalStatusBand({
   coverageMessage?: string | null;
   // Passed through to NoticeBanner; see its own note.
   subtle?: boolean;
+  // The approval gates an experiment's start rather than a publish.
+  startsExperiment?: boolean;
 }) {
   const [recalling, setRecalling] = useState(false);
 
@@ -124,23 +127,33 @@ export default function ApprovalStatusBand({
   // A stale/uncovered approval can exist in any phase (e.g. changes were
   // requested after an approval that no longer counts) — always explain it.
   const coverageNote = coverageMessage && <div>{coverageMessage}</div>;
+  // Whether RequirementLine has anything to say, so an empty body isn't drawn.
+  const requires =
+    footprint?.scope === "everywhere" ||
+    (footprint?.scope === "environments" &&
+      (footprint.environments?.length ?? 0) > 0) ||
+    unmet.length > 0 ||
+    (unmetProjects?.length ?? 0) > 0;
+  const hasBody = requires || !!coverageMessage || !!showSelfApprovalNote;
 
   if (phase === "draft") {
     return (
       <NoticeBanner
         icon={<PiUserCheckBold />}
         iconColor="gray"
-        title="Review required to publish"
+        title={`Review required to ${startsExperiment ? "start" : "publish"}`}
         body={
-          <>
-            <RequirementLine
-              footprint={footprint}
-              unmet={unmet}
-              unmetProjects={unmetProjects}
-            />
-            {coverageNote}
-            {selfApprovalNote}
-          </>
+          hasBody ? (
+            <>
+              <RequirementLine
+                footprint={footprint}
+                unmet={unmet}
+                unmetProjects={unmetProjects}
+              />
+              {coverageNote}
+              {selfApprovalNote}
+            </>
+          ) : undefined
         }
       />
     );
@@ -152,16 +165,18 @@ export default function ApprovalStatusBand({
         subtle={subtle}
         icon={<PiWarningBold />}
         iconColor="amber"
-        title="Publishing is blocked"
+        title={`${startsExperiment ? "Starting" : "Publishing"} is blocked`}
         body={
-          <>
-            <RequirementLine
-              footprint={footprint}
-              unmet={unmet}
-              unmetProjects={unmetProjects}
-            />
-            {coverageNote}
-          </>
+          hasBody ? (
+            <>
+              <RequirementLine
+                footprint={footprint}
+                unmet={unmet}
+                unmetProjects={unmetProjects}
+              />
+              {coverageNote}
+            </>
+          ) : undefined
         }
       />
     );
@@ -176,15 +191,17 @@ export default function ApprovalStatusBand({
         iconColor="amber"
         title="Waiting for a reviewer"
         body={
-          <>
-            <RequirementLine
-              footprint={footprint}
-              unmet={unmet}
-              unmetProjects={unmetProjects}
-            />
-            {coverageNote}
-            {selfApprovalNote}
-          </>
+          hasBody ? (
+            <>
+              <RequirementLine
+                footprint={footprint}
+                unmet={unmet}
+                unmetProjects={unmetProjects}
+              />
+              {coverageNote}
+              {selfApprovalNote}
+            </>
+          ) : undefined
         }
       />
       {canRecallReview && onRecallReview && (

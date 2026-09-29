@@ -4,12 +4,18 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { PiArrowSquareOut } from "react-icons/pi";
+import {
+  PiArrowSquareOut,
+  PiCaretDown,
+  PiCaretRight,
+  PiCheckBold,
+} from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { format } from "date-fns-tz";
 import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -47,30 +53,20 @@ export type ChecklistReadyStatus = {
 type ChecklistSize = "sm" | "md";
 
 const TIER_TITLES: Record<ChecklistTier, string> = {
-  blocking: "Must resolve before starting",
+  blocking: "Must resolve",
   recommended: "Recommended",
   optional: "Optional",
 };
 
 function ChecklistActionLink({
   action,
-  wrapAction,
   children,
 }: {
   action: ChecklistAction;
-  wrapAction?: (run: () => void) => void;
   children: ReactNode;
 }) {
   if ("onClick" in action) {
-    return (
-      <Link
-        onClick={() =>
-          wrapAction ? wrapAction(action.onClick) : action.onClick()
-        }
-      >
-        {children}
-      </Link>
-    );
+    return <Link onClick={action.onClick}>{children}</Link>;
   }
   if (!action.external) return <Link href={action.href}>{children}</Link>;
   return (
@@ -87,12 +83,10 @@ function ChecklistRow({
   item,
   size,
   onToggleManual,
-  wrapAction,
 }: {
   item: CheckListItem;
   size: ChecklistSize;
   onToggleManual: ((manualKey: string, checked: boolean) => void) | null;
-  wrapAction?: (run: () => void) => void;
 }) {
   const complete = item.status === "complete";
   const manualKey = item.type === "manual" ? item.manualKey : undefined;
@@ -105,7 +99,7 @@ function ChecklistRow({
     <Checkbox
       size={size}
       labelSize={size}
-      weight={size === "sm" ? "regular" : undefined}
+      weight="regular"
       value={complete}
       setValue={(checked) => toggle?.(checked)}
       readOnly={!toggle}
@@ -125,7 +119,7 @@ function ChecklistRow({
           })}
         >
           {action ? (
-            <ChecklistActionLink action={action} wrapAction={wrapAction}>
+            <ChecklistActionLink action={action}>
               {item.display}
             </ChecklistActionLink>
           ) : (
@@ -140,21 +134,60 @@ function ChecklistRow({
   );
 }
 
-/** The checklist grouped by what each item means for starting. */
+// Done items, folded away behind their count.
+function CompletedItems({
+  items,
+  size,
+  onToggleManual,
+}: {
+  items: CheckListItem[];
+  size: ChecklistSize;
+  onToggleManual: ((manualKey: string, checked: boolean) => void) | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <Flex direction="column" gap="2" align="start">
+      {/* Inline, since an underline doesn't reach into a flex box. */}
+      <Link onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
+        {expanded ? (
+          <PiCaretDown style={{ verticalAlign: "-0.125em", marginRight: 4 }} />
+        ) : (
+          <PiCaretRight style={{ verticalAlign: "-0.125em", marginRight: 4 }} />
+        )}
+        {items.length} completed
+      </Link>
+      {expanded
+        ? items.map((item) => (
+            <ChecklistRow
+              key={item.key}
+              item={item}
+              size={size}
+              onToggleManual={onToggleManual}
+            />
+          ))
+        : null}
+    </Flex>
+  );
+}
+
+/**
+ * The checklist grouped by what each item means for starting: stacked under
+ * titles, or as `rows` with each group's name in the page's label column.
+ */
 export function ChecklistItems({
   summary,
   size,
+  layout = "stacked",
   showCompleted = false,
   onToggleManual = null,
-  wrapAction,
 }: {
   summary: ChecklistSummary;
   size: ChecklistSize;
+  layout?: "stacked" | "rows";
+  // Stacked only; rows fold the done items into their own row.
   showCompleted?: boolean;
   // null when the viewer can't check tasks off.
   onToggleManual?: ((manualKey: string, checked: boolean) => void) | null;
-  // Runs in-page fixes, e.g. after closing the modal they were opened from.
-  wrapAction?: (run: () => void) => void;
 }) {
   const sections: { key: string; title: string; items: CheckListItem[] }[] =
     CHECKLIST_TIERS.map((tier) => ({
@@ -165,6 +198,41 @@ export function ChecklistItems({
         ...summary.flagged.filter((item) => getChecklistTier(item) === tier),
       ],
     }));
+  if (layout === "rows") {
+    return (
+      <Box>
+        {sections
+          .filter((section) => section.items.length > 0)
+          .map((section) => (
+            <SetupFieldRow
+              key={section.key}
+              label={section.title}
+              content="text"
+            >
+              <Flex direction="column" gap="2">
+                {section.items.map((item) => (
+                  <ChecklistRow
+                    key={item.key}
+                    item={item}
+                    size={size}
+                    onToggleManual={onToggleManual}
+                  />
+                ))}
+              </Flex>
+            </SetupFieldRow>
+          ))}
+        {summary.complete.length > 0 ? (
+          <SetupFieldRow label="Completed" content="text">
+            <CompletedItems
+              items={summary.complete}
+              size={size}
+              onToggleManual={onToggleManual}
+            />
+          </SetupFieldRow>
+        ) : null}
+      </Box>
+    );
+  }
   if (showCompleted) {
     sections.push({
       key: "completed",
@@ -179,27 +247,15 @@ export function ChecklistItems({
         .filter((section) => section.items.length > 0)
         .map((section) => (
           <Flex key={section.key} direction="column" gap="2">
-            {size === "sm" ? (
-              <Text
-                size="sm"
-                weight="medium"
-                color="text-low"
-                textTransform="uppercase"
-              >
-                {section.title}
-              </Text>
-            ) : (
-              <Text size="sm" weight="semibold" color="text-high">
-                {section.title}
-              </Text>
-            )}
+            <Text size="sm" weight="semibold" color="text-high">
+              {section.title}
+            </Text>
             {section.items.map((item) => (
               <ChecklistRow
                 key={item.key}
                 item={item}
                 size={size}
                 onToggleManual={onToggleManual}
-                wrapAction={wrapAction}
               />
             ))}
           </Flex>
@@ -228,17 +284,28 @@ export function ChecklistCountBadge({
   );
 }
 
-/** The details rail's To Do tab. */
-export function PreLaunchChecklistPanel() {
+/** The details rail's To Do tab, or the review's To Do section. */
+export function PreLaunchChecklistPanel({
+  size = "sm",
+  layout = "stacked",
+  omit,
+}: {
+  size?: ChecklistSize;
+  layout?: "stacked" | "rows";
+  // Rows the surface already covers, e.g. the review's own approval.
+  omit?: (item: CheckListItem) => boolean;
+}) {
   const {
     experiment,
-    summary,
+    checklist,
+    summary: fullSummary,
     loading,
     loadError,
     toggleManualItem,
     toggleError,
   } = usePreLaunchChecklist();
   const [showCompleted, setShowCompleted] = useState(false);
+  const summary = omit ? summarizeChecklist(checklist, omit) : fullSummary;
 
   if (loading) return <LoadingSpinner />;
 
@@ -250,37 +317,42 @@ export function PreLaunchChecklistPanel() {
 
   return (
     <>
-      {summary.complete.length > 0 ? (
+      {summary.complete.length > 0 && layout === "stacked" ? (
         <Switch
-          size="sm"
+          size={size}
           value={showCompleted}
           onChange={setShowCompleted}
           label="Show completed"
+          weight="regular"
         />
       ) : null}
       {scheduledStart ? (
-        <Callout status="info" size="sm">
+        <Callout status="info" size={size}>
           Scheduled to start{" "}
           {format(scheduledStart, "MMM d, yyyy 'at' h:mm a (z)")}. Editing the
           schedule clears this approval.
         </Callout>
       ) : loadError ? (
-        <HelperText status="warning" size="sm">
+        <HelperText status="warning" size={size}>
           Couldn&apos;t load the custom checklist. Built-in items are shown.
         </HelperText>
       ) : summary.remaining === 0 ? (
-        <Callout status="success" size="sm">
-          All items are complete.
+        <Callout status="success" size="sm" icon={<PiCheckBold />}>
+          {/* What's hidden here, e.g. the review's approval, still counts. */}
+          {fullSummary.remaining > 0
+            ? "No other unresolved items remain."
+            : "All items are complete."}
         </Callout>
       ) : null}
       <ChecklistItems
         summary={summary}
-        size="sm"
+        size={size}
+        layout={layout}
         showCompleted={showCompleted}
         onToggleManual={toggleManualItem}
       />
       {toggleError ? (
-        <HelperText status="error" size="sm">
+        <HelperText status="error" size={size}>
           {toggleError}
         </HelperText>
       ) : null}

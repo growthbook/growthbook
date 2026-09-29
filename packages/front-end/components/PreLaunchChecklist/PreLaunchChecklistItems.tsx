@@ -20,6 +20,7 @@ import {
 } from "shared/util";
 import track from "@/services/track";
 import VariationLabel from "@/ui/VariationLabel";
+import { STALE_VALUES_ITEM_PREFIX } from "./checklistSummary";
 
 export type ChecklistAction =
   | { onClick: () => void }
@@ -35,15 +36,16 @@ export type CheckListItem = {
   type: "auto" | "manual";
   required: boolean;
   /**
-   * Items that can't be bypassed via "Start anyway" (merge conflicts, missing
-   * approvals, unrelated draft edits) — auto-publish would fail.
+   * Blocks the start outright (merge conflicts, missing approvals, unrelated
+   * draft edits), since auto-publish would fail. Only an admin's start bypass
+   * waives any: the approval and stale-values rows (isBypassableStartItem).
    */
   hardBlock?: boolean;
   warning?: string;
   description?: string | ReactElement;
   // What a manual task's status is stored under.
   manualKey?: string;
-  // The Feature Flag an approval row waits on.
+  // The Feature Flag an approval or stale-values row waits on.
   featureId?: string;
 };
 
@@ -245,12 +247,34 @@ export function getChecklistItems({
               ? {
                   display:
                     "Resolve the merge conflict in this experiment's variation values",
-                  action: onClick(editVariationValues),
+                  // Resolved by discarding the draft, which only its review offers.
+                  action: onClick(openManagedApproval ?? editVariationValues),
                 }
               : {
                   display: `Resolve the merge conflict in ${f.feature.id}`,
                   action: featureLink(f),
                 }),
+          });
+        });
+
+      // Starting would fail on it; the review is where the values update.
+      linkedFeatures
+        .filter(
+          (f) =>
+            isManaged(f) &&
+            !!f.pendingDraft?.rebaseRequired &&
+            !f.pendingDraft.hasMergeConflict,
+        )
+        .forEach((f) => {
+          items.push({
+            key: `${STALE_VALUES_ITEM_PREFIX}${f.feature.id}`,
+            featureId: f.feature.id,
+            status: "incomplete",
+            type: "auto",
+            required: true,
+            hardBlock: true,
+            display: "Update the variation values from live",
+            action: onClick(openManagedApproval),
           });
         });
 
@@ -277,7 +301,11 @@ export function getChecklistItems({
             hardBlock: true,
             ...(isManaged(f)
               ? {
-                  display: "Review and approve the variation values",
+                  // Nothing reaches reviewers until the author sends it.
+                  display:
+                    f.draftRevisionStatus === "draft"
+                      ? "Request a review of the variation values"
+                      : "Review and approve the variation values",
                   action: onClick(openManagedApproval),
                 }
               : {
@@ -420,6 +448,8 @@ export function getChecklistItems({
     status: hasPhases ? "complete" : "incomplete",
     type: "auto",
     required: true,
+    // The start refuses a draft with no phase to run.
+    hardBlock: !hasPhases,
   });
 
   const verifiedConnections = connections.some((c) => c.connected);

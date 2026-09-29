@@ -10,7 +10,6 @@ import {
   normalizeFeatureRules,
   featureRuleChangeBadges,
   renderEnvironmentToggles,
-  type DiffRenderMode,
   renderPrerequisites,
   renderRevisionMetadata,
   prerequisiteChangeBadges,
@@ -218,12 +217,9 @@ function fillEnabledByInheritance(
 export function useFeatureRevisionDiff({
   current,
   draft,
-  renderMode = "feature",
 }: {
   current: FeatureRevisionDiffInput;
   draft: FeatureRevisionDiffInput;
-  /** See DiffRenderMode. */
-  renderMode?: DiffRenderMode;
 }): FeatureRevisionDiff[] {
   const orgEnvs = useEnvironments();
   const { holdoutsMap } = useHoldouts();
@@ -338,17 +334,12 @@ export function useFeatureRevisionDiff({
     if (toggled.length) {
       const asMap = (side: "from" | "to") =>
         Object.fromEntries(toggled.map((t) => [t.envId, t[side]]));
-      // A managed flag is born with every environment off; the first draft is the flag arriving.
-      const arriving =
-        renderMode === "experiment" && !(current.rules ?? []).length;
       diffs.push({
         key: "environmentsEnabled",
         title: toggled.length === 1 ? "Environment" : "Environments",
         a: JSON.stringify(asMap("from"), null, 2),
         b: JSON.stringify(asMap("to"), null, 2),
-        customRender: renderEnvironmentToggles(toggled, {
-          endStateOnly: arriving,
-        }),
+        customRender: renderEnvironmentToggles(toggled),
         badges: toggled.map(({ envId, to }) => ({
           label: `Toggled ${envId} ${to ? "on" : "off"}`,
           action: `toggle environment ${envId}`,
@@ -394,12 +385,12 @@ export function useFeatureRevisionDiff({
       }
     }
 
-    // A managed flag's default is its control value, stated by the rule below.
+    // 5. Default value
     const currentDefault = current.defaultValue ?? "";
     const draftDefault = draft.defaultValue ?? "";
     const aValue = parseDefaultValue(currentDefault);
     const bValue = parseDefaultValue(draftDefault);
-    if (!isEqual(aValue, bValue) && renderMode !== "experiment") {
+    if (!isEqual(aValue, bValue)) {
       diffs.push({
         key: "defaultValue",
         title: "Default Value",
@@ -449,8 +440,7 @@ export function useFeatureRevisionDiff({
     ) {
       diffs.push({
         key: "rules",
-        // The experiment surface already names its one rule.
-        title: renderMode === "experiment" ? "" : "Rules",
+        title: "Rules",
         a: JSON.stringify(normalizeFeatureRules(currentRulesArr), null, 2),
         b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),
         customRender: renderFeatureRules(currentRulesArr, draftRulesArr, {
@@ -461,14 +451,13 @@ export function useFeatureRevisionDiff({
           // rules list shows Rule #1, #2, … with no holdout row.
           preHasHoldout: holdoutOccupiesRuleSlot(current.holdout, holdoutsMap),
           postHasHoldout: holdoutOccupiesRuleSlot(draft.holdout, holdoutsMap),
-          renderMode,
         }),
         badges: featureRuleChangeBadges(currentRulesArr, draftRulesArr),
       });
     }
 
     return diffs;
-  }, [current, draft, orgEnvs, holdoutsMap, renderMode]);
+  }, [current, draft, orgEnvs, holdoutsMap]);
 }
 
 /**

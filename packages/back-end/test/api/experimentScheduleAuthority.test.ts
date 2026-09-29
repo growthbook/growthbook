@@ -1,13 +1,20 @@
 import request from "supertest";
 import mongoose from "mongoose";
 import type { Job } from "agenda";
+import type { Response } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { updateSingleExperimentStatus } from "back-end/src/jobs/updateExperimentStatus";
+import {
+  postApproveScheduledExperimentStart,
+  postExperimentPhase,
+  postExperimentStatus,
+} from "back-end/src/controllers/experiments";
 import { setupApp } from "./api.setup";
 
 // A staged start or stop fires on the authority of whoever staged it, checked
-// at fire time. This drives the real REST routes, Mongo document, and job.
+// at fire time, and a dashboard start honors its starter's acknowledgment.
+// This drives the real routes and controllers, Mongo document, and job.
 
 const ORG_ID = "org_sched";
 const EXP_ID = "exp_sched";
@@ -159,8 +166,9 @@ const lastStatusAudit = () =>
     { sort: { dateCreated: -1 } },
   );
 
+const { app, setReqContext } = setupApp();
+
 describe("scheduled status changes run as the user who staged them", () => {
-  const { app, setReqContext } = setupApp();
   const auth = (req: request.Test) => req.set("Authorization", "Bearer foo");
   const schedule = { startAt: new Date(Date.now() + HOUR) };
   const stopPlan = {
@@ -309,5 +317,137 @@ describe("scheduled status changes run as the user who staged them", () => {
       type: "stop",
       scheduledBy: "u_owner",
     });
+  });
+});
+
+// The seeded org has no SDK Connection, so its start checklist has an open soft item.
+describe("dashboard starts honor the starter's acknowledgment", () => {
+  function dashboardReq<T>(body: Record<string, unknown>): T {
+    return {
+      params: { id: EXP_ID },
+      body,
+      organization: org,
+      userId: "u_owner",
+      email: "u_owner@test.com",
+      name: "u_owner",
+      query: {},
+      headers: {},
+      audit: jest.fn(),
+    } as unknown as T;
+  }
+  type StatusReq = Parameters<typeof postExperimentStatus>[0];
+  type ApproveReq = Parameters<typeof postApproveScheduledExperimentStart>[0];
+  type PhaseReq = Parameters<typeof postExperimentPhase>[0];
+
+  function resSpy() {
+    const captured: { status?: number; body?: unknown } = {};
+    const res = {
+      status(code: number) {
+        captured.status = code;
+        return this;
+      },
+      json(payload: unknown) {
+        captured.body = payload;
+        return this;
+      },
+    } as unknown as Response;
+    return { res, captured };
+  }
+
+  const auditContext = (req: { audit: unknown }) =>
+    JSON.parse((req.audit as jest.Mock).mock.calls[0][0].details).context;
+
+  const refusedOnSoftItem = {
+    code: "checklist_incomplete",
+    details: {
+      remainingChecklistItems: expect.arrayContaining([
+        expect.objectContaining({ key: "sdkConnection" }),
+      ]),
+    },
+  };
+
+  it("starts only when the starter skips the open items, and records the skip", async () => {
+    await seed("draft");
+
+    await expect(
+      postExperimentStatus(
+        dashboardReq<StatusReq>({ status: "running" }),
+        resSpy().res,
+      ),
+    ).rejects.toMatchObject(refusedOnSoftItem);
+    expect(await status()).toBe("draft");
+
+    const req = dashboardReq<StatusReq>({
+      status: "running",
+      skipChecklist: true,
+    });
+    const { res, captured } = resSpy();
+    await postExperimentStatus(req, res);
+
+    expect(captured.status).toBe(200);
+    expect(await status()).toBe("running");
+    expect(auditContext(req)).toEqual({
+      skipChecklist: true,
+      bypassLockdown: false,
+      skippedChecklistItems: expect.arrayContaining(["sdkConnection"]),
+    });
+  });
+
+  it("refuses to start a draft with no phases", async () => {
+    await seed("draft");
+    await experiments().updateOne({ id: EXP_ID }, { $set: { phases: [] } });
+
+    const { res, captured } = resSpy();
+    await postExperimentStatus(
+      dashboardReq<StatusReq>({ status: "running", skipChecklist: true }),
+      res,
+    );
+
+    expect(captured.status).toBe(400);
+    expect(await status()).toBe("draft");
+  });
+
+  it("won't start a draft by adding a phase", async () => {
+    await seed("draft");
+
+    const { res, captured } = resSpy();
+    await postExperimentPhase(
+      dashboardReq<PhaseReq>({ coverage: 1, variationWeights: [0.5, 0.5] }),
+      res,
+    );
+
+    expect(captured.status).toBe(400);
+    expect(await status()).toBe("draft");
+  });
+
+  it("approves a scheduled start only when the approver skips the open items", async () => {
+    await seed("draft");
+    await experiments().updateOne(
+      { id: EXP_ID },
+      {
+        $set: {
+          statusUpdateSchedule: { startAt: new Date(Date.now() + HOUR) },
+        },
+      },
+    );
+
+    await expect(
+      postApproveScheduledExperimentStart(
+        dashboardReq<ApproveReq>({}),
+        resSpy().res,
+      ),
+    ).rejects.toMatchObject(refusedOnSoftItem);
+    expect(await staged()).toBeFalsy();
+
+    const req = dashboardReq<ApproveReq>({ skipChecklist: true });
+    const { res, captured } = resSpy();
+    await postApproveScheduledExperimentStart(req, res);
+
+    expect(captured.status).toBe(200);
+    expect(await staged()).toMatchObject({
+      type: "start",
+      scheduledBy: "u_owner",
+    });
+    expect(auditContext(req)).toMatchObject({ skipChecklist: true });
   });
 });

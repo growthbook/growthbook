@@ -494,6 +494,25 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           />
         )}
         <div className={styles.editableWrap}>
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                id={id}
+                // Browsers report contenteditable as -1, so a dialog's
+                // autofocus would skip past the text without this.
+                tabIndex={readOnly ? undefined : 0}
+                className={styles.editable}
+                aria-placeholder={placeholder ?? ""}
+                placeholder={
+                  placeholder ? (
+                    <div className={styles.placeholder}>{placeholder}</div>
+                  ) : null
+                }
+              />
+            }
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+          {/* After the text, so a dialog focuses the text rather than this. */}
           {!readOnly && !hideToolbar && collapsibleToolbar ? (
             <Tooltip
               content={toolbarOpen ? "Hide formatting" : "Show formatting"}
@@ -519,21 +538,6 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
               </IconButton>
             </Tooltip>
           ) : null}
-          <RichTextPlugin
-            contentEditable={
-              <ContentEditable
-                id={id}
-                className={styles.editable}
-                aria-placeholder={placeholder ?? ""}
-                placeholder={
-                  placeholder ? (
-                    <div className={styles.placeholder}>{placeholder}</div>
-                  ) : null
-                }
-              />
-            }
-            ErrorBoundary={LexicalErrorBoundary}
-          />
         </div>
         <HistoryPlugin />
         <ListPlugin />
