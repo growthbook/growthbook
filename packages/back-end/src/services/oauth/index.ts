@@ -171,6 +171,7 @@ async function tearDownGrant(
   userId: string,
 ): Promise<void> {
   await context.models.oauthGrants.markRevoked(clientId, userId);
+  await context.models.oauthAuthCodes.consumeAllForGrant(clientId, userId);
   await context.models.oauthRefreshTokens.deleteForGrant(clientId, userId);
   await ApiKeyModel.dangerousDisableOAuthGrant(
     clientId,
@@ -493,12 +494,19 @@ export async function exchangeAuthorizationCode(params: {
   }
   assertClientAllowedInOrg(client, org, "invalid_grant");
 
-  await context.models.oauthGrants.startGrant({
+  const grant = await context.models.oauthGrants.startGrant({
     clientId: authCode.clientId,
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
+    consentedAt: authCode.dateCreated,
   });
+  if (!grant) {
+    throw new OAuthError(
+      "invalid_grant",
+      "Authorization was revoked after this code was issued; sign in again",
+    );
+  }
 
   const tokens = await issueTokenPair(context, {
     clientId: authCode.clientId,

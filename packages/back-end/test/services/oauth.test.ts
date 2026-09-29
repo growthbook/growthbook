@@ -165,6 +165,7 @@ function mockOrgContext(
       },
       oauthAuthCodes: {
         create: jest.fn(),
+        consumeAllForGrant: jest.fn().mockResolvedValue(undefined),
       },
       apiKeys: {
         create: createApiKey,
@@ -777,6 +778,62 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
       "user-1",
       "org-1",
     );
+  });
+
+  it("refuses a code whose consent predates an admin revoke, without issuing tokens", async () => {
+    const verifier = "code-verifier";
+    mockOrgApp();
+    jest.mocked(OAuthAuthCodeModel.dangerousConsumeByHash).mockResolvedValue({
+      codeHash: hashToken("code"),
+      clientId: APP_ID,
+      userId: "user-1",
+      organization: "org-1",
+      redirectUri: "https://mcp.example.com/cb",
+      codeChallenge: crypto
+        .createHash("sha256")
+        .update(verifier, "ascii")
+        .digest("base64url"),
+      codeChallengeMethod: "S256",
+      used: true,
+      expiresAt: new Date(Date.now() + 60_000),
+      dateCreated: new Date(Date.now() - 60_000),
+      dateUpdated: new Date(),
+    } as never);
+    // startGrant returns null when revokedAt is later than the code's consent.
+    const { createApiKey, startGrant } = mockOrgContext({
+      startGrant: jest.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      exchangeAuthorizationCode({
+        code: "code",
+        redirectUri: "https://mcp.example.com/cb",
+        clientId: APP_ID,
+        clientSecret: APP_SECRET,
+        codeVerifier: verifier,
+      }),
+    ).rejects.toMatchObject({ error: "invalid_grant" });
+
+    expect(startGrant).toHaveBeenCalledWith(
+      expect.objectContaining({ consentedAt: expect.any(Date) }),
+    );
+    expect(createApiKey).not.toHaveBeenCalled();
+  });
+
+  it("burns the member's outstanding codes when a grant is torn down", async () => {
+    mockOrgApp();
+    mockRefreshToken(APP_ID);
+    const { context } = mockOrgContext();
+
+    await revokeToken({
+      token: OAUTH_REFRESH_TOKEN_PREFIX + "secret",
+      clientId: APP_ID,
+      clientSecret: APP_SECRET,
+    });
+
+    expect(
+      context.models.oauthAuthCodes.consumeAllForGrant,
+    ).toHaveBeenCalledWith(APP_ID, "user-1");
   });
 });
 

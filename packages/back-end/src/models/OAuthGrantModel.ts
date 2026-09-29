@@ -121,6 +121,7 @@ export class OAuthGrantModel extends BaseClass {
     scope?: string;
     resource?: string;
     revoked: boolean;
+    revokedAt?: Date;
     expiresAt: Date;
   }): Promise<{ grant: OAuthGrantInterface; created: boolean }> {
     const existing = await this.getGrant(props.clientId, props.userId);
@@ -135,13 +136,18 @@ export class OAuthGrantModel extends BaseClass {
     }
   }
 
-  /** Consent: create, or clear `revoked` and refresh scope on re-consent. */
+  /**
+   * Consent: create, or clear `revoked` and refresh scope on re-consent.
+   * Returns null when the grant was revoked after this consent was given, so
+   * a code minted before an admin revoke can't undo it.
+   */
   public async startGrant(params: {
     clientId: string;
     userId: string;
     scope?: string;
     resource?: string;
-  }): Promise<OAuthGrantInterface> {
+    consentedAt: Date;
+  }): Promise<OAuthGrantInterface | null> {
     const { grant, created } = await this.getOrCreateGrant({
       clientId: params.clientId,
       userId: params.userId,
@@ -151,8 +157,16 @@ export class OAuthGrantModel extends BaseClass {
       expiresAt: grantExpiry(),
     });
     if (created) return grant;
+    if (
+      grant.revoked &&
+      grant.revokedAt &&
+      grant.revokedAt > params.consentedAt
+    ) {
+      return null;
+    }
     return this.update(grant, {
       revoked: false,
+      revokedAt: null,
       scope: params.scope,
       resource: params.resource,
       expiresAt: grantExpiry(),
@@ -187,13 +201,19 @@ export class OAuthGrantModel extends BaseClass {
    * post-write re-check still sees `revoked`.
    */
   public async markRevoked(clientId: string, userId: string): Promise<void> {
+    const now = new Date();
     const { grant, created } = await this.getOrCreateGrant({
       clientId,
       userId,
       revoked: true,
-      expiresAt: grantExpiry(),
+      revokedAt: now,
+      expiresAt: grantExpiry(now),
     });
     if (created || grant.revoked) return;
-    await this.update(grant, { revoked: true, expiresAt: grantExpiry() });
+    await this.update(grant, {
+      revoked: true,
+      revokedAt: now,
+      expiresAt: grantExpiry(now),
+    });
   }
 }

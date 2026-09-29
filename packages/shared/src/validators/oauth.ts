@@ -131,6 +131,8 @@ export const oauthGrantValidator = createBaseSchemaWithPrimaryKey({
   scope: z.string().optional(),
   resource: z.string().optional(),
   revoked: z.boolean(),
+  // Set with `revoked`; consent that predates it can't re-arm the grant.
+  revokedAt: z.date().nullable().optional(),
   expiresAt: z.date(),
 });
 
