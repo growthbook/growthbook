@@ -10,7 +10,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import {
   expandDerivedMetricsInMap,
-  getPhaseVariations,
+  getLatestPhaseVariations,
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -165,7 +165,9 @@ export async function recoverStalledSnapshot(
     metricGroups,
   });
 
-  const variationNames = getPhaseVariations(experiment, snapshot.phase).map(
+  // Same source as the live run: snapshot.settings.variations is also built
+  // from the latest phase, and the analysis pairs the two by index.
+  const variationNames = getLatestPhaseVariations(experiment).map(
     (v) => v.name,
   );
 

@@ -299,7 +299,7 @@ describe("recoverStalledSnapshot", () => {
     });
   });
 
-  it("seeds variation names from the snapshot's own phase", async () => {
+  it("seeds variation names from the latest phase, like the live run", async () => {
     (getExperimentById as jest.Mock).mockResolvedValue(
       experiment({
         phases: [
@@ -317,10 +317,7 @@ describe("recoverStalledSnapshot", () => {
     await recoverStalledSnapshot(context, snapshot({ phase: 0 }));
     await recoverStalledSnapshot(context, snapshot({ phase: 1 }));
 
-    expect(seededResultsInputs(0).variationNames).toEqual([
-      "Control",
-      "Treatment",
-    ]);
+    expect(seededResultsInputs(0).variationNames).toEqual(["Control"]);
     expect(seededResultsInputs(1).variationNames).toEqual(["Control"]);
   });
 
