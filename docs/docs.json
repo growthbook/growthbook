@@ -182,7 +182,7 @@
                     "pages": [
                       "features/feature-flag-experiments",
                       {
-                        "group": "Visual Editor",
+                        "group": "AI Visual Editor",
                         "root": "app/visual",
                         "pages": [
                           "app/visual/install-and-connect",
