@@ -4803,7 +4803,7 @@ export function postExperimentApiPayloadToInterface(
 }
 
 // Internal-only: the handler resolves this from assignmentQuery.
-type UpdateExperimentApiPayload = z.infer<
+export type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
 > & {
   assignmentQueryIdentifierType?: string;

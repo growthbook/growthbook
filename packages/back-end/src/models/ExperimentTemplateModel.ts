@@ -1,4 +1,5 @@
 import {
+  ApiAssignmentQueryRefInput,
   ApiExperimentTemplateInterface,
   experimentTemplateInterface,
   ExperimentTemplateInterface,
@@ -27,28 +28,22 @@ import { MakeModelClass } from "./BaseModel";
 
 const ID_PREFIX = "tmplt__";
 
-// The API's grouped exposureQuery supersedes the deprecated exposureQueryId; the
-// model stays flat.
-function normalizeTemplateExposureQueryBody(body: unknown): unknown {
-  if (!body || typeof body !== "object") return body;
-  return flattenExposureQueryInput(
-    body as Parameters<typeof flattenExposureQueryInput>[0],
-  );
-}
+type ApiTemplateBody = {
+  datasource?: string;
+  exposureQuery?: ApiAssignmentQueryRefInput;
+  exposureQueryId?: string;
+};
 
-// Flattens a REST body and stores the identifier a new or changed selection
-// resolves to, so templates written over REST are never left implicit.
-async function toTemplateWriteBody(
+// The API's grouped exposureQuery supersedes the deprecated exposureQueryId; the
+// model stays flat. Stores the identifier a new or changed selection resolves
+// to, so templates written over REST are never left implicit.
+async function toTemplateWriteBody<T extends ApiTemplateBody>(
   context: ReqContext | ApiReqContext,
-  rawBody: unknown,
+  body: T,
   existing: ExperimentTemplateInterface | null,
-): Promise<unknown> {
-  const body = normalizeTemplateExposureQueryBody(rawBody) as {
-    datasource?: string;
-    exposureQueryId?: string;
-    exposureQueryIdentifierType?: string;
-  } | null;
-  if (!body || body.exposureQueryId === undefined) return body;
+) {
+  const flat = flattenExposureQueryInput(body);
+  if (flat.exposureQueryId === undefined) return flat;
   const exposureQueryIdentifierType = await resolveApiAssignmentQueryIdentifier(
     context,
     {
@@ -60,25 +55,28 @@ async function toTemplateWriteBody(
           }
         : null,
       next: {
-        datasource: body.datasource ?? existing?.datasource ?? "",
-        exposureQueryId: body.exposureQueryId,
-        identifierType: body.exposureQueryIdentifierType,
+        datasource: flat.datasource ?? existing?.datasource ?? "",
+        exposureQueryId: flat.exposureQueryId,
+        identifierType: flat.exposureQueryIdentifierType,
       },
-      grouped: !!(rawBody as { exposureQuery?: unknown }).exposureQuery,
+      grouped: !!body.exposureQuery,
       field: "exposureQuery",
     },
   );
   return exposureQueryIdentifierType === undefined
-    ? body
-    : { ...body, exposureQueryIdentifierType };
+    ? flat
+    : { ...flat, exposureQueryIdentifierType };
 }
 
 // Both fields are optional in the API body, so creates must check for one.
-function assertTemplateHasExposureQuery(body: unknown) {
-  const b = body as { exposureQueryId?: string } | null;
-  if ((b?.exposureQueryId ?? null) === null) {
+function withRequiredExposureQuery<T extends { exposureQueryId?: string }>(
+  body: T,
+): T & { exposureQueryId: string } {
+  const { exposureQueryId } = body;
+  if (exposureQueryId === undefined) {
     throw new Error("exposureQuery is required");
   }
+  return { ...body, exposureQueryId };
 }
 
 const BaseClass = MakeModelClass({
@@ -123,11 +121,11 @@ const BaseClass = MakeModelClass({
               ? id
               : `${ID_PREFIX}${id}`;
             const existing = existingById.get(normalizedId);
-            const normalizedData = (await toTemplateWriteBody(
+            const normalizedData = await toTemplateWriteBody(
               req.context,
               data,
               existing ?? null,
-            )) as typeof data;
+            );
             if (existing) {
               await req.context.models.experimentTemplates.update(
                 existing,
@@ -135,15 +133,12 @@ const BaseClass = MakeModelClass({
               );
               updated++;
             } else {
-              assertTemplateHasExposureQuery(normalizedData);
               const created =
                 await req.context.models.experimentTemplates.create({
-                  ...normalizedData,
+                  ...withRequiredExposureQuery(normalizedData),
                   id: normalizedId,
                   owner: "", // Will be inferred in BaseModel if possible
-                } as Parameters<
-                  typeof req.context.models.experimentTemplates.create
-                >[0]);
+                });
               // Keep the map current so duplicate IDs in the same payload update
               // rather than attempting a second create (which would fail on the unique index).
               existingById.set(normalizedId, created);
@@ -206,9 +201,12 @@ export class ExperimentTemplatesModel extends BaseClass {
   }
 
   protected override async processApiCreateBody(rawBody: unknown) {
-    const body = await toTemplateWriteBody(this.context, rawBody, null);
-    assertTemplateHasExposureQuery(body);
-    return super.processApiCreateBody(body);
+    const body = await toTemplateWriteBody(
+      this.context,
+      rawBody as ApiTemplateBody,
+      null,
+    );
+    return super.processApiCreateBody(withRequiredExposureQuery(body));
   }
 
   // Overridden to read the stored query, which processApiUpdateBody can't see.

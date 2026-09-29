@@ -199,9 +199,10 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
   return doc ? toInterface(doc) : null;
 }
 
-// WARNING: bypasses project-read permission. Validation-only: checking a
-// selection the caller may already edit must not depend on them seeing every
-// project the data source spans. Never return the result to the user.
+// WARNING: bypasses project-read permission. Validation-only: a caller who may
+// edit a selection can still lack read access to its data source (reading
+// needs one of its projects), and the selection must be checked anyway. Never
+// return the result to the user.
 export async function dangerouslyGetDataSourceByIdBypassPermission(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -484,6 +485,8 @@ export async function createDataSource(
     false,
     [],
   );
+  // Validation returns a copy; save it, with its generated ids and errors,
+  // not the settings as submitted.
   datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
