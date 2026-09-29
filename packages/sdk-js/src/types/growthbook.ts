@@ -232,8 +232,8 @@ export type CustomEventSubCallback = (
 ) => void;
 
 export type ExperimentViewedSubCallback = (
-  experiment: Readonly<Experiment<any>>,
-  result: Readonly<Result<any>>,
+  experiment: Readonly<Experiment<unknown>>,
+  result: Readonly<Result<unknown>>,
   user: TrackingUserContext,
 ) => void;
 
