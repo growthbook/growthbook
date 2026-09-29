@@ -709,6 +709,31 @@ export async function getFeaturesPage(
     );
 }
 
+/** Keys of the most recently touched readable features — names only, for prompts. */
+export async function getRecentFeatureIds(
+  context: ReqContext | ApiReqContext,
+  limit: number,
+): Promise<string[]> {
+  const docs = await FeatureModel.find(featureListQuery(context.org.id, {}), {
+    _id: 0,
+    id: 1,
+    project: 1,
+    targetingProjects: 1,
+    targetingAllProjects: 1,
+  })
+    .sort({ dateUpdated: -1 })
+    .limit(limit)
+    .lean<
+      Pick<
+        FeatureInterface,
+        "id" | "project" | "targetingProjects" | "targetingAllProjects"
+      >[]
+    >();
+  return docs
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
+    .map((f) => f.id);
+}
+
 export async function countFeatures(
   context: ReqContext | ApiReqContext,
   {
