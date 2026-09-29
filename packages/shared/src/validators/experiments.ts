@@ -456,9 +456,10 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
-  // User who staged it; the job runs the change on their authority, as the
-  // scheduled feature publish runs on its arming user's. Absent for org keys.
+  // Who armed it, for the audit entry: a user, or an org API key. The arm is
+  // the permission gate; the job fires as itself.
   scheduledBy: z.string().optional(),
+  scheduledByApiKey: z.string().optional(),
 });
 
 export const experimentInterface = z

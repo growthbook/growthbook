@@ -2,6 +2,7 @@ import request from "supertest";
 import mongoose from "mongoose";
 import type { Job } from "agenda";
 import type { OrganizationInterface } from "shared/types/organization";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import { ReqContextClass } from "back-end/src/services/context";
 import { updateSingleExperimentStatus } from "back-end/src/jobs/updateExperimentStatus";
 import { setupApp } from "./api.setup";
@@ -41,6 +42,84 @@ const audits = () => mongoose.connection.collection("audits");
 const job = {
   attrs: { data: { experimentId: EXP_ID, organization: ORG_ID } },
 } as unknown as Job<{ experimentId: string; organization: string }>;
+
+// An org key: experimenter everywhere, but only a collaborator in the flag's project.
+function asKey(id: string, projectRoles: ApiKeyInterface["projectRoles"] = []) {
+  const apiKeyData = {
+    id,
+    role: "experimenter",
+    limitAccessByEnvironment: false,
+    environments: [],
+    projectRoles,
+  } as unknown as ApiKeyInterface;
+  const context = new ReqContextClass({
+    org,
+    auditUser: { type: "api_key", apiKey: id, name: "CI" },
+    role: "experimenter",
+    apiKey: id,
+    apiKeyData,
+    teams: [],
+  });
+  context.hasPremiumFeature = () => true;
+  return context;
+}
+
+// A draft on a flag in its own project, published when the experiment starts.
+async function seedPendingDraft() {
+  const now = new Date();
+  const rule = {
+    type: "experiment-ref",
+    id: "fr_draft",
+    experimentId: EXP_ID,
+    enabled: true,
+    allEnvironments: true,
+    variations: [
+      { variationId: "0", value: "false" },
+      { variationId: "1", value: "true" },
+    ],
+  };
+  await mongoose.connection.collection("features").insertOne({
+    id: "feat_draft",
+    organization: ORG_ID,
+    project: "proj_flag",
+    owner: "",
+    valueType: "boolean",
+    defaultValue: "false",
+    version: 1,
+    archived: false,
+    tags: [],
+    environmentSettings: { production: { enabled: true, rules: [] } },
+    dateCreated: now,
+    dateUpdated: now,
+  });
+  const revision = (version: number, rules: object[]) => ({
+    id: `frev_feat_draft_${version}`,
+    organization: ORG_ID,
+    featureId: "feat_draft",
+    version,
+    baseVersion: 1,
+    status: version === 1 ? "published" : "draft",
+    createdBy: { type: "api_key", apiKey: "key_ci" },
+    comment: "",
+    defaultValue: "false",
+    rules,
+    dateCreated: now,
+    dateUpdated: now,
+    ...(version === 1 ? { datePublished: now } : {}),
+  });
+  await mongoose.connection
+    .collection("featurerevisions")
+    .insertMany([revision(1, []), revision(2, [rule])]);
+  await experiments().updateOne(
+    { id: EXP_ID },
+    {
+      $set: {
+        linkedFeatures: [FEATURE_ID, "feat_draft"],
+        pendingFeatureDrafts: [{ featureId: "feat_draft", revisionVersion: 2 }],
+      },
+    },
+  );
+}
 
 function asUser(id: string) {
   const context = new ReqContextClass({
@@ -159,7 +238,7 @@ const lastStatusAudit = () =>
     { sort: { dateCreated: -1 } },
   );
 
-describe("scheduled status changes run as the user who staged them", () => {
+describe("a scheduled status change is gated when armed and fires as the job", () => {
   const { app, setReqContext } = setupApp();
   const auth = (req: request.Test) => req.set("Authorization", "Bearer foo");
   const schedule = { startAt: new Date(Date.now() + HOUR) };
@@ -168,36 +247,38 @@ describe("scheduled status changes run as the user who staged them", () => {
     scheduledStopPlan: { mode: "stop" },
   };
 
-  async function stageStartAs(userId: string) {
-    setReqContext(asUser(userId));
+  async function armStart(context: ReqContextClass) {
+    setReqContext(context);
     const scheduled = await auth(
       request(app)
         .put(`/api/v1/experiments/${EXP_ID}/schedule`)
         .send({ ...schedule, ...stopPlan }),
     );
     expect(scheduled.status).toBe(200);
-    const approved = await auth(
+    return auth(
       request(app)
         .post(`/api/v1/experiments/${EXP_ID}/start`)
         .send({ skipChecklist: true }),
     );
-    expect(approved.status).toBe(200);
-    expect(await staged()).toMatchObject({
-      type: "start",
-      scheduledBy: userId,
-    });
   }
 
-  it("starts and later stops as the scheduler, not the owner", async () => {
+  it("fires a user's start and stop as the job, attributed to them, even after they lost permission", async () => {
     await seed("draft");
-    await stageStartAs("u_exp");
+    expect((await armStart(asUser("u_exp"))).status).toBe(200);
+    expect(await staged()).toMatchObject({
+      type: "start",
+      scheduledBy: "u_exp",
+    });
+    await organizations().updateOne(
+      { id: ORG_ID, "members.id": "u_exp" },
+      { $set: { "members.$.role": "collaborator" } },
+    );
 
     await fireNow();
     await updateSingleExperimentStatus(job);
 
     expect(await status()).toBe("running");
     expect((await lastStatusAudit())?.user).toMatchObject({ id: "u_exp" });
-    // The stop staged by the start carries the same authority.
     expect(await staged()).toMatchObject({
       type: "stop",
       scheduledBy: "u_exp",
@@ -211,74 +292,85 @@ describe("scheduled status changes run as the user who staged them", () => {
     expect((await lastStatusAudit())?.user).toMatchObject({ id: "u_exp" });
   });
 
-  it("gives up when the scheduler has since lost run permission", async () => {
+  it("refuses to arm a key that may run the experiment but not publish its pending draft", async () => {
     await seed("draft");
-    await stageStartAs("u_exp");
-    await organizations().updateOne(
-      { id: ORG_ID, "members.id": "u_exp" },
-      { $set: { "members.$.role": "collaborator" } },
+    await seedPendingDraft();
+    const res = await armStart(
+      asKey("key_ci", [{ project: "proj_flag", role: "collaborator" }]),
     );
-
-    await fireNow();
-    await updateSingleExperimentStatus(job);
-
-    expect(await status()).toBe("draft");
+    expect(res.status).toBe(403);
     expect(await staged()).toBeNull();
   });
 
-  it("keeps retrying while the scheduler cannot be resolved", async () => {
+  it("refuses an immediate start by that key on the same grounds", async () => {
     await seed("draft");
-    await stageStartAs("u_exp");
-    await organizations().updateOne(
-      { id: ORG_ID },
-      { $pull: { members: { id: "u_exp" } } },
+    await seedPendingDraft();
+    setReqContext(
+      asKey("key_ci", [{ project: "proj_flag", role: "collaborator" }]),
     );
+    const res = await auth(
+      request(app)
+        .post(`/api/v1/experiments/${EXP_ID}/start`)
+        .send({ skipChecklist: true }),
+    );
+    expect(res.status).toBe(403);
+    expect(await status()).toBe("draft");
+  });
+
+  it("arms a key that may do both, and fires as the job attributed to the key", async () => {
+    await seed("draft");
+    await seedPendingDraft();
+    await mongoose.connection.collection("apikeys").insertOne({
+      id: "key_ci",
+      organization: ORG_ID,
+      key: "secret_ci",
+      description: "CI",
+      role: "experimenter",
+      dateCreated: new Date(),
+    });
+    expect((await armStart(asKey("key_ci"))).status).toBe(200);
+    expect(await staged()).toMatchObject({
+      type: "start",
+      scheduledByApiKey: "key_ci",
+    });
 
     await fireNow();
     await updateSingleExperimentStatus(job);
 
-    expect(await status()).toBe("draft");
-    expect(await staged()).toMatchObject({
-      type: "start",
-      scheduledBy: "u_exp",
-      failedAttempts: 1,
+    expect(await status()).toBe("running");
+    expect((await lastStatusAudit())?.user).toMatchObject({
+      apiKey: "key_ci",
+      name: "CI",
     });
   });
 
-  it.each([
-    ["admin", "running"],
-    ["collaborator", "draft"],
-  ])(
-    "runs an unstamped pointer as the owner (owner role %s → %s)",
-    async (ownerRole, expected) => {
-      await seed("draft");
-      await organizations().updateOne(
-        { id: ORG_ID, "members.id": "u_owner" },
-        { $set: { "members.$.role": ownerRole } },
-      );
-      await experiments().updateOne(
-        { id: EXP_ID },
-        {
-          $set: {
-            statusUpdateSchedule: schedule,
-            nextScheduledStatusUpdate: {
-              type: "start",
-              date: new Date(Date.now() - 1000),
-            },
+  it("fires an unstamped pointer as the job whatever the owner may do", async () => {
+    await seed("draft");
+    await organizations().updateOne(
+      { id: ORG_ID, "members.id": "u_owner" },
+      { $set: { "members.$.role": "collaborator" } },
+    );
+    await experiments().updateOne(
+      { id: EXP_ID },
+      {
+        $set: {
+          statusUpdateSchedule: schedule,
+          nextScheduledStatusUpdate: {
+            type: "start",
+            date: new Date(Date.now() - 1000),
           },
         },
-      );
+      },
+    );
 
-      await updateSingleExperimentStatus(job);
+    await updateSingleExperimentStatus(job);
 
-      expect(await status()).toBe(expected);
-      if (expected === "running") {
-        expect((await lastStatusAudit())?.user).toMatchObject({
-          id: "u_owner",
-        });
-      }
-    },
-  );
+    expect(await status()).toBe("running");
+    // Nobody to attribute it to: the entry names neither a user nor a key.
+    const audit = await lastStatusAudit();
+    expect(audit).not.toBeNull();
+    expect(audit?.user?.id ?? audit?.user?.apiKey).toBeUndefined();
+  });
 
   it("stamps a stop scheduled on a running experiment through either REST route", async () => {
     await seed("running");

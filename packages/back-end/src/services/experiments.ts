@@ -2479,6 +2479,31 @@ export async function getExperimentAffectedEnvs(
     hasUnreadableFeature = existingFeatures.size > linkedFeatures.length;
   }
 
+  const pendingDrafts = await loadPendingFeatureDrafts(
+    context,
+    experiment,
+    linkedFeatures,
+  );
+
+  return getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    // Passing undefined here makes it return __ALL__ envs.
+    linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
+    pendingDrafts,
+  });
+}
+
+// Run-experiments permission over the affected environments, on the
+// experiment's project and on any additional (e.g. destination) project.
+// The drafts a start publishes, with the features they land on.
+async function loadPendingFeatureDrafts(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  linkedFeatures: FeatureInterface[] = [],
+): Promise<
+  { feature: FeatureInterface; revision: FeatureRevisionInterface }[]
+> {
   const pendingDrafts: {
     feature: FeatureInterface;
     revision: FeatureRevisionInterface;
@@ -2502,18 +2527,34 @@ export async function getExperimentAffectedEnvs(
       pendingDrafts.push({ feature, revision });
     }
   }
-
-  return getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    // Passing undefined here makes it return __ALL__ envs.
-    linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
-    pendingDrafts,
-  });
+  return pendingDrafts;
 }
 
-// Run-experiments permission over the affected environments, on the
-// experiment's project and on any additional (e.g. destination) project.
+// Arming a start is the last permission check before the job publishes the
+// pending drafts as itself, so the armer must be able to publish each one
+// where it lands.
+export async function assertCanPublishPendingFeatureDrafts(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  const orgEnvironments = context.org.settings?.environments || [];
+  for (const draft of await loadPendingFeatureDrafts(context, experiment)) {
+    const envs = getAffectedEnvsForExperiment({
+      experiment: {
+        ...experiment,
+        hasVisualChangesets: false,
+        hasURLRedirects: false,
+      },
+      orgEnvironments,
+      linkedFeatures: [draft.feature],
+      pendingDrafts: [draft],
+    });
+    if (!context.permissions.canPublishFeature(draft.feature, envs)) {
+      context.permissions.throwPermissionError();
+    }
+  }
+}
+
 export async function assertCanRunExperimentInAffectedEnvironments(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -4985,7 +5026,7 @@ function resolveExperimentUpdateVariationsAndPhases(
 export function normalizeStatusUpdateScheduleChanges(
   experiment: ExperimentInterface,
   changes: Changeset,
-  scheduledBy?: string,
+  by?: { userId?: string; apiKey?: string },
 ): void {
   if ("statusUpdateSchedule" in changes) {
     const incoming = changes.statusUpdateSchedule;
@@ -5030,10 +5071,7 @@ export function normalizeStatusUpdateScheduleChanges(
       // Re-stage the single pending action from the new schedule:
       //  - running experiment: (re)stage the stop from the resolved stopAt
       //  - otherwise (draft): clear any staged start; it must be re-approved
-      changes.nextScheduledStatusUpdate = withScheduledBy(
-        stagedStop,
-        scheduledBy,
-      );
+      changes.nextScheduledStatusUpdate = withScheduledBy(stagedStop, by);
     }
   } else if (
     changes.status &&

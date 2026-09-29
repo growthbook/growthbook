@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
-import { isPermissionError } from "shared/util";
+import type { AuditInterface } from "shared/types/audit";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -7,17 +8,13 @@ import {
   getExperimentsWithScheduledStatusUpdate,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { getUserById } from "back-end/src/models/UserModel";
+import { insertAudit } from "back-end/src/models/AuditModel";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import {
-  applyScheduledExperimentStop,
-  getScheduledStatusContext,
-} from "back-end/src/services/experimentScheduling";
-import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
-import {
-  isTerminalPublishError,
-  TerminalPublishError,
-} from "back-end/src/util/errors";
+import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
+import { isTerminalPublishError } from "back-end/src/util/errors";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   notifyScheduledEndDecision,
   notifyScheduledStatusUpdateApplied,
@@ -39,9 +36,11 @@ const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
 // instead of retrying.
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
-// Only the exact update a job processed may be cleared or marked failed; the
-// same action re-staged by someone else runs on their authority, not ours.
-type StagedUpdate = { type: string; date: Date; scheduledBy?: string };
+// Only the exact update a job processed may be cleared or marked failed, not
+// the same action re-staged by someone else meanwhile.
+type StagedUpdate = NonNullable<
+  ExperimentInterface["nextScheduledStatusUpdate"]
+>;
 const sameStagedUpdate = (
   a: StagedUpdate | null | undefined,
   b: StagedUpdate,
@@ -49,7 +48,41 @@ const sameStagedUpdate = (
   !!a &&
   a.type === b.type &&
   a.date.getTime() === b.date.getTime() &&
-  (a.scheduledBy ?? null) === (b.scheduledBy ?? null);
+  (a.scheduledBy ?? null) === (b.scheduledBy ?? null) &&
+  (a.scheduledByApiKey ?? null) === (b.scheduledByApiKey ?? null);
+
+// The change was authorized when it was armed; the job fires as itself and the
+// audit entry names whoever armed it.
+async function armedBy(
+  context: ApiReqContext,
+  staged: StagedUpdate,
+): Promise<AuditInterface["user"]> {
+  if (staged.scheduledBy) {
+    const user = await getUserById(staged.scheduledBy);
+    if (user) return { id: user.id, email: user.email, name: user.name || "" };
+  }
+  if (staged.scheduledByApiKey) {
+    const key = await context.models.apiKeys.getById(staged.scheduledByApiKey);
+    return { apiKey: staged.scheduledByApiKey, name: key?.description || "" };
+  }
+  return { system: true };
+}
+
+async function auditStatusChange(
+  context: ApiReqContext,
+  staged: StagedUpdate,
+  before: ExperimentInterface,
+  after: ExperimentInterface,
+): Promise<void> {
+  await insertAudit({
+    event: "experiment.status",
+    entity: { object: "experiment", id: before.id },
+    details: auditDetailsUpdate(before, after),
+    user: await armedBy(context, staged),
+    organization: context.org.id,
+    dateCreated: new Date(),
+  });
+}
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_STATUS_UPDATES, async () => {
@@ -133,23 +166,6 @@ export const updateSingleExperimentStatus = async (
   try {
     logger.info("Start updating status for experiment " + experiment.id);
 
-    // As with a scheduled publish, the change runs as whoever staged it, checked
-    // now: no run permission means the job does not lend it.
-    const scheduler = await getScheduledStatusContext(context, experiment);
-    if (!scheduler) {
-      throw new Error("scheduling user could not be resolved");
-    }
-    try {
-      await assertCanRunExperimentInAffectedEnvironments(scheduler, experiment);
-    } catch (e) {
-      if (isPermissionError(e)) {
-        throw new TerminalPublishError(
-          `The user who scheduled this ${scheduled.type} may not run the experiment in its environments`,
-        );
-      }
-      throw e;
-    }
-
     switch (scheduled.type) {
       case "start": {
         if (experiment.status !== "draft") {
@@ -164,16 +180,8 @@ export const updateSingleExperimentStatus = async (
           return;
         }
 
-        const experimentBefore = experiment;
-        const { updated } = await executeExperimentStart(scheduler, experiment);
-        await scheduler.auditLog({
-          event: "experiment.status",
-          entity: {
-            object: "experiment",
-            id: experimentBefore.id,
-          },
-          details: auditDetailsUpdate(experimentBefore, updated),
-        });
+        const { updated } = await executeExperimentStart(context, experiment);
+        await auditStatusChange(context, scheduled, experiment, updated);
         await notifyScheduledStatusUpdateApplied({
           context,
           experiment,
@@ -198,7 +206,7 @@ export const updateSingleExperimentStatus = async (
 
         // A stop refreshes the SDK payload as a side effect.
         const outcome = await applyScheduledExperimentStop({
-          context: scheduler,
+          context,
           experiment,
           metricGroups,
         });
@@ -230,17 +238,9 @@ export const updateSingleExperimentStatus = async (
             recommendedVariationId: outcome.recommendedVariationId ?? undefined,
           });
         } else {
-          // The scheduled stop actually changed the experiment (status flipped
-          // to stopped, plus winner/results/releasedVariationId). Record it on
-          // the scheduler like the start above; kept-running changes nothing.
-          await scheduler.auditLog({
-            event: "experiment.status",
-            entity: {
-              object: "experiment",
-              id: experiment.id,
-            },
-            details: auditDetailsUpdate(experiment, latest),
-          });
+          // Kept-running changes nothing; a stop flips status, results and
+          // the released variation.
+          await auditStatusChange(context, scheduled, experiment, latest);
           await notifyScheduledStatusUpdateApplied({
             context,
             experiment: latest,

@@ -29,6 +29,7 @@ import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnect
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentInAffectedEnvironments,
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
@@ -495,9 +496,15 @@ export async function executeExperimentStart(
     experiment,
     changes: {
       ...changes,
+      // A stop the job derives when it fires a start inherits the start's armer.
       nextScheduledStatusUpdate: withScheduledBy(
         nextScheduledStatusUpdate,
-        context.userId || undefined,
+        context.userId || context.apiKey
+          ? context
+          : {
+              userId: experiment.nextScheduledStatusUpdate?.scheduledBy,
+              apiKey: experiment.nextScheduledStatusUpdate?.scheduledByApiKey,
+            },
       ),
     },
   });
@@ -598,6 +605,7 @@ export async function startExperiment({
       await assertFeatureNotLockedByRamp(context, fid);
     }
   }
+  await assertCanPublishPendingFeatureDrafts(context, experiment);
 
   const { updated } = await executeExperimentStart(context, experiment);
 
@@ -661,10 +669,12 @@ export async function approveScheduledExperimentStart({
     }
   }
 
+  await assertCanPublishPendingFeatureDrafts(context, experiment);
+
   const changes: Changeset = {
     nextScheduledStatusUpdate: withScheduledBy(
       { type: "start" as const, date: startAt },
-      context.userId || undefined,
+      context,
     ),
   };
   await validateExperimentChange({ context, experiment, changes });

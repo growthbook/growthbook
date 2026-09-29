@@ -228,10 +228,11 @@ context.permissions.canRunExperiment(experiment, environments);
 // (services/experiments): live linked rules, changesets, AND the drafts a start
 // will publish. A draft experiment is live nowhere, so live-only reach skipped
 // the check at launch. assertCanRunExperimentInAffectedEnvironments wraps it.
-// Deferred actions run as the user who staged them, never as the job: scheduled
-// publishes rebuild the arming user's context (autoPublishOnApproval), scheduled
-// experiment status changes the scheduler's (`nextScheduledStatusUpdate.scheduledBy`,
-// getScheduledStatusContext) and re-run the check at fire time.
+// Arming is the gate for a scheduled experiment status change: the arm checks
+// runExperiments across the reach and publishFeatures on each pending draft
+// (assertCanPublishPendingFeatureDrafts); the job then fires as itself and is
+// audited as the armer (`scheduledBy` / `scheduledByApiKey`). Scheduled feature
+// publishes still rebuild the arming user's context (autoPublishOnApproval).
 
 // Throw error if permission denied
 context.permissions.throwPermissionError();
