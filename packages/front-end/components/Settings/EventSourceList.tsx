@@ -44,8 +44,15 @@ export default function EventSourceList({
     ),
   });
 
+  // Four cards across leaves no room for a title plus a Beta badge.
   const columns =
-    options.length % 3 === 0 ? "3" : options.length % 4 === 0 ? "4" : "3";
+    options.length === 4
+      ? "2"
+      : options.length % 3 === 0
+        ? "3"
+        : options.length % 4 === 0
+          ? "4"
+          : "3";
 
   return (
     <RadioCards
