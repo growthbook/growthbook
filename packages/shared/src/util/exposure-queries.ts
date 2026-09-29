@@ -21,6 +21,19 @@ export function getExposureQueryIdentifierTypes(
 }
 
 /**
+ * For counting a query's units, where any identifier it returns works: the
+ * legacy one so reordering doesn't change the counts, but not once removed.
+ */
+export function getPreferredIdentifierType(
+  query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
+): string {
+  const declared = getExposureQueryIdentifierTypes(query);
+  return declared.includes(query.userIdType)
+    ? query.userIdType
+    : (declared[0] ?? "");
+}
+
+/**
  * The identifier a saved record analyzes on: the stored one, even if its query
  * no longer declares it (analysis then refuses to run), else the query's frozen
  * legacy identifier (`userIdType`). A new record defaults to `userIdTypes[0]`
