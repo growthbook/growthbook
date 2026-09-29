@@ -1002,8 +1002,7 @@ export async function addPendingMemberToOrg({
   await updateOrganization(organization.id, { pendingMembers });
 }
 
-// Automated joins (verified-domain auto-join and SSO) use the org's default
-// role; SCIM passes its own roleInfo to addMemberToOrg. Explicit args come last so stored settings can't override them.
+// Spread the default role first so explicit organization/userId always win.
 export async function addMemberToOrgWithDefaultRole({
   organization,
   userId,
@@ -1316,16 +1315,14 @@ export async function assertCanUpdateDefaultRole(
   }
 
   const current = getDefaultRole(org);
-  // Only gate a change so an existing non-admin default keeps working
   assertRoleChangeAllowed(org, current.role, defaultRole.role);
 
-  // Imports can define environments and role restrictions in the same write.
   assertMemberRoleInfoValid(
     { ...org, settings: { ...org.settings, environments } },
     defaultRole,
   );
-  // Diff against the current rules so a stale deleted-project rule that is
-  // merely round-tripped doesn't block unrelated edits
+  // Only re-check project rules that changed, so a round-tripped stale rule
+  // doesn't block unrelated edits.
   await assertProjectRulesReferenceProjects(
     context,
     current.projectRoles,
@@ -1333,30 +1330,25 @@ export async function assertCanUpdateDefaultRole(
   );
 }
 
-// Generic settings writes (PUT /organization, config import) merge into the
-// org as-is, so the default role gets the same checks as
-// PUT /organization/default-role before that happens.
+// Runs the PUT /organization/default-role checks before a generic settings
+// write (PUT /organization, config import) merges the default role in.
 export async function sanitizeDefaultRoleUpdate(
   context: ReqContext | ApiReqContext,
   settings: OrganizationSettings,
 ) {
   const { defaultRole } = settings;
   if (defaultRole === undefined || defaultRole === null) {
-    // A null would be saved and silently fall back to collaborator
+    // Don't persist null; reads would fall back to collaborator with no check.
     delete settings.defaultRole;
     return;
   }
-  // Exported settings can carry keys from old unvalidated writes; drop them
-  // like getDefaultRole does instead of failing the whole import
   const submitted = pickDefaultRoleFields(defaultRole);
   const stored = context.org.settings?.defaultRole;
   if (stored && sameRoleValue(submitted, pickDefaultRoleFields(stored))) {
-    // Unchanged round-trip: keep it, minus rules for since-deleted roles
     settings.defaultRole = getDefaultRole(context.org);
     return;
   }
-  // A real change is validated as submitted so unknown roles are reported
-  // rather than silently dropped
+  // Validate as submitted so unknown roles error instead of being dropped.
   const parsed = memberRoleWithProjects.safeParse(submitted);
   if (!parsed.success) {
     throw new Error(`Invalid defaultRole: ${errorStringFromZodResult(parsed)}`);

@@ -184,7 +184,6 @@ const ROLE_RULE_FIELDS = [
   "environments",
 ] as const;
 
-// Deep pick of the role fields; drops keys left by unvalidated writes
 export function pickDefaultRoleFields(
   defaultRole: MemberRoleWithProjects,
 ): MemberRoleWithProjects {
@@ -210,7 +209,6 @@ export function pickDefaultRoleFields(
   };
 }
 
-// Same shape getDefaultRole returns: known fields only, with stale roles normalized.
 export function normalizeDefaultRole(
   defaultRole: MemberRoleWithProjects,
   org: Partial<OrganizationInterface>,
@@ -253,7 +251,6 @@ export function getDefaultRole(
     org.settings?.defaultRole?.role &&
     isRoleValid(org.settings.defaultRole.role, org)
   ) {
-    // Settings can hold keys from unvalidated writes; callers spread this result
     return normalizeDefaultRole(org.settings.defaultRole, org);
   }
 
