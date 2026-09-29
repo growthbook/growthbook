@@ -17,6 +17,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  assertClusterExperimentMetricsSupported,
   assertExperimentKeyFormat,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
@@ -323,6 +324,16 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
             throw new Error("Unknown metric: " + metricIds[i]);
           }
         }
+      }
+
+      if (payload.isClusterExperiment) {
+        assertClusterExperimentMetricsSupported({
+          goalMetrics: payload.metrics,
+          secondaryMetrics: payload.secondaryMetrics,
+          guardrailMetrics: payload.guardrailMetrics,
+          metricMap: map,
+          metricGroups,
+        });
       }
     }
     if (payload.variations) {

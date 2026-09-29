@@ -58,6 +58,7 @@ import {
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
   assertCanRunExperimentChanges,
+  assertClusterExperimentMetricsSupported,
   assertExperimentKeyFormat,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
@@ -1403,6 +1404,18 @@ export async function postExperiments(
       }
     }
 
+    if (obj.isClusterExperiment) {
+      const clusterMetricGroups = await context.models.metricGroups.getAll();
+      const clusterMetricMap = await getMetricMap(context);
+      assertClusterExperimentMetricsSupported({
+        goalMetrics: obj.goalMetrics,
+        secondaryMetrics: obj.secondaryMetrics,
+        guardrailMetrics: obj.guardrailMetrics,
+        metricMap: clusterMetricMap,
+        metricGroups: clusterMetricGroups,
+      });
+    }
+
     if (data.precomputedUnitDimensionIds !== undefined) {
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
@@ -2070,6 +2083,14 @@ export async function postExperiment(
       changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
     );
     if (!clusterValidation.ok) throw new Error(clusterValidation.error);
+
+    assertClusterExperimentMetricsSupported({
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      secondaryMetrics: changes.secondaryMetrics ?? experiment.secondaryMetrics,
+      guardrailMetrics: changes.guardrailMetrics ?? experiment.guardrailMetrics,
+      metricMap,
+      metricGroups: allMetricGroups,
+    });
   }
 
   const shouldValidatePrecomputedUnitDimensionIds =

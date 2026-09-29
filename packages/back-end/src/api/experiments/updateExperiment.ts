@@ -16,6 +16,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   assertCanRunExperimentChanges,
+  assertClusterExperimentMetricsSupported,
   assertExperimentKeyFormat,
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
@@ -279,6 +280,16 @@ export const updateExperiment = createApiRequestHandler(
         }
       }
     }
+  }
+
+  if (effectiveIsClusterExperiment) {
+    assertClusterExperimentMetricsSupported({
+      goalMetrics: payload.metrics ?? experiment.goalMetrics,
+      secondaryMetrics: payload.secondaryMetrics ?? experiment.secondaryMetrics,
+      guardrailMetrics: payload.guardrailMetrics ?? experiment.guardrailMetrics,
+      metricMap: map,
+      metricGroups,
+    });
   }
 
   if (payload.variations) {

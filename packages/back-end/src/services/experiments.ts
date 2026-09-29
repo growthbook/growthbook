@@ -54,6 +54,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getClusterExperimentMetricEligibility,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandDerivedMetricsInMap,
@@ -4682,6 +4683,37 @@ export type PostExperimentApiPayload = z.infer<
 > & {
   assignmentQueryIdentifierType?: string;
 };
+
+export function assertClusterExperimentMetricsSupported({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricMap,
+  metricGroups,
+}: {
+  goalMetrics?: string[];
+  secondaryMetrics?: string[];
+  guardrailMetrics?: string[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  metricGroups: MetricGroupInterface[];
+}): void {
+  const metricIds = getAllMetricIdsFromExperiment(
+    { goalMetrics, secondaryMetrics, guardrailMetrics },
+    false,
+    metricGroups,
+  );
+  for (const id of metricIds) {
+    const metric = metricMap.get(id);
+    // Existence/datasource are validated separately; only check known metrics.
+    if (!metric) continue;
+    const eligibility = getClusterExperimentMetricEligibility(metric);
+    if (!eligibility.allowed) {
+      throw new Error(
+        `Metric "${metric.name || id}" cannot be used in a cluster experiment: ${eligibility.reason}`,
+      );
+    }
+  }
+}
 
 export function postExperimentApiPayloadToInterface(
   payload: PostExperimentApiPayload,
