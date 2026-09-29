@@ -1761,9 +1761,6 @@ export async function getContextForAgendaJobByOrgId(
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   apiKeyId: string,
-  {
-    applyProjectRestrictions = true,
-  }: { applyProjectRestrictions?: boolean } = {},
 ): Promise<ApiReqContext | null> {
   const key =
     apiKeyId === SECRET_API_KEY_ID
@@ -1783,9 +1780,9 @@ export async function getContextForApiKeyIdInOrg(
     apiKey: apiKeyId,
     apiKeyData: key,
     teams: await TeamModel.dangerousGetTeamsForOrganization(org.id),
-    restrictedProjects: applyProjectRestrictions
-      ? await ProjectModel.dangerousGetRestrictedProjectIds(org.id)
-      : [],
+    restrictedProjects: await ProjectModel.dangerousGetRestrictedProjectIds(
+      org.id,
+    ),
   });
 }
 
@@ -1809,27 +1806,19 @@ export function isArmingApiKeyId(id: string | undefined): id is string {
 }
 
 // A stored armer id is a user or an org API key; each runs as itself, on the
-// authority it held when it armed (a later project restriction does not strand
-// the publish, as with users).
+// authority it holds now.
 export async function getContextForArmedPublisherInOrg(
   org: OrganizationInterface,
   id: string,
 ): Promise<ReqContext | ApiReqContext | null> {
   return isArmingApiKeyId(id)
-    ? getContextForApiKeyIdInOrg(org, id, { applyProjectRestrictions: false })
-    : getContextForUserIdInOrg(org, id, { applyProjectRestrictions: false });
+    ? getContextForApiKeyIdInOrg(org, id)
+    : getContextForUserIdInOrg(org, id);
 }
 
 export async function getContextForUserIdInOrg(
   org: OrganizationInterface,
   userId: string,
-  {
-    // Deferred and scheduled executions err permissive: they run on the
-    // authority the user held when they enabled the action, so a project
-    // restricting access later must not strand them. Live request contexts
-    // (e.g. OAuth) keep the default and apply restrictions.
-    applyProjectRestrictions = true,
-  }: { applyProjectRestrictions?: boolean } = {},
 ): Promise<ApiReqContext | null> {
   const user = await getUserById(userId);
   if (!user) return null;
@@ -1839,9 +1828,7 @@ export async function getContextForUserIdInOrg(
 
   const [teams, restrictedProjects] = await Promise.all([
     TeamModel.dangerousGetTeamsForOrganization(org.id),
-    applyProjectRestrictions
-      ? ProjectModel.dangerousGetRestrictedProjectIds(org.id)
-      : [],
+    ProjectModel.dangerousGetRestrictedProjectIds(org.id),
   ]);
 
   return new ReqContextClass({

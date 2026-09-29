@@ -139,15 +139,7 @@ export const updateSingleExperimentStatus = async (
 
     // The fire runs as the armer, so the draft publish is judged as it stands
     // now; nobody to run as, or no run permission left, and the job lends nothing.
-    // A stop staged before armers were recorded touches only the experiment,
-    // so the job runs it itself; a start would publish drafts, and gives up.
-    const legacyStop =
-      scheduled.type === "stop" &&
-      !scheduled.scheduledBy &&
-      !scheduled.scheduledByApiKey;
-    const armer = legacyStop
-      ? context
-      : await getScheduledStatusContext(context, experiment);
+    const armer = await getScheduledStatusContext(context, experiment);
     if (!armer) {
       throw new Error(
         "the user or API key that armed this change could not be resolved",

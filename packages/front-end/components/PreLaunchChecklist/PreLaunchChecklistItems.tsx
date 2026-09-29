@@ -275,9 +275,21 @@ export function getChecklistItems({
                   {f.feature.id}
                   <PiArrowSquareOut className="ml-1" />
                 </Link>
-                {armed
-                  ? ". Reschedule the start from an account that can."
-                  : " before this experiment can start"}
+                {armed ? (
+                  <>
+                    .{" "}
+                    {setShowScheduleModal ? (
+                      <Link onClick={() => setShowScheduleModal(true)}>
+                        Reschedule the start
+                      </Link>
+                    ) : (
+                      "Reschedule the start"
+                    )}{" "}
+                    from an account that can.
+                  </>
+                ) : (
+                  " before this experiment can start"
+                )}
               </>
             ),
           });

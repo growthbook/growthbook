@@ -233,7 +233,8 @@ context.permissions.canRunExperiment(experiment, environments);
 // (assertCanPublishPendingFeatureDrafts), and the fire runs as the armer, a
 // user or an org API key (`scheduledBy` / `scheduledByApiKey`,
 // getScheduledStatusContext), so the draft publish is judged as it is then.
-// Never the owner, never the job's own authority.
+// Never the job's own authority; only a stop staged before armers were
+// recorded still runs as the owner.
 
 // Throw error if permission denied
 context.permissions.throwPermissionError();

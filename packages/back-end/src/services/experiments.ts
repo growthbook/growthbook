@@ -2502,7 +2502,7 @@ export async function getExperimentAffectedEnvs(
 // Nobody recorded means nobody to run as.
 export async function getScheduledStatusContext(
   context: ReqContext | ApiReqContext,
-  experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate">,
+  experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate" | "owner">,
 ): Promise<ReqContext | ApiReqContext | null> {
   const staged = experiment.nextScheduledStatusUpdate;
   if (staged?.scheduledBy) {
@@ -2510,6 +2510,11 @@ export async function getScheduledStatusContext(
   }
   if (staged?.scheduledByApiKey) {
     return getContextForApiKeyIdInOrg(context.org, staged.scheduledByApiKey);
+  }
+  // A stop staged before armers were recorded runs as the owner, as it did
+  // then; a start would publish drafts, so it has nobody to run as.
+  if (staged?.type === "stop" && experiment.owner) {
+    return getContextForUserIdInOrg(context.org, experiment.owner);
   }
   return null;
 }
@@ -5696,12 +5701,15 @@ export async function getRefLinkedFeatureInfo({
 export async function getLinkedFeatureInfo(
   context: ReqContext,
   experiment: ExperimentInterface,
+  { publisher }: { publisher?: ReqContext | ApiReqContext } = {},
 ) {
-  // Once a start is armed the drafts publish as the armer, so judge as them.
-  const publisher =
-    experiment.nextScheduledStatusUpdate?.type === "start"
+  // Once a start is armed the drafts publish as the armer, so judge as them;
+  // a caller about to arm replaces the armer and is judged as itself.
+  const judgedAs =
+    publisher ??
+    (experiment.nextScheduledStatusUpdate?.type === "start"
       ? await getScheduledStatusContext(context, experiment)
-      : context;
+      : context);
   return getRefLinkedFeatureInfo({
     context,
     linkedFeatureIds: experiment.linkedFeatures || [],
@@ -5709,7 +5717,7 @@ export async function getLinkedFeatureInfo(
     matchRule: (rule) =>
       rule.type === "experiment-ref" && rule.experimentId === experiment.id,
     pendingFeatureDrafts: experiment.pendingFeatureDrafts,
-    publisher,
+    publisher: judgedAs,
   });
 }
 

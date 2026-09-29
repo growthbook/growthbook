@@ -237,10 +237,10 @@ export default function LinkedFeatureFlag({
           </Callout>
         )}
         {info.state === "draft" && info.cannotPublish && (
-          <Callout status="error" my="4" icon={blockedAutoPublishIcon}>
+          <Callout status="error" my="4">
             {experiment.nextScheduledStatusUpdate?.type === "start"
-              ? "Whoever scheduled this start can no longer publish this feature draft. Reschedule the start from an account that can."
-              : "You don't have permission to publish this feature draft, so it can't be published when the experiment starts."}
+              ? "Whoever scheduled this start can no longer publish this Feature Flag draft. Reschedule the start from an account that can."
+              : "You don't have permission to publish this Feature Flag draft, so it can't be published when the experiment starts."}
           </Callout>
         )}
         {info.state === "draft" &&
@@ -262,7 +262,8 @@ export default function LinkedFeatureFlag({
           )}
         {info.state === "draft" &&
           !info.hasMergeConflict &&
-          !info.hasUnrelatedDraftChanges && (
+          !info.hasUnrelatedDraftChanges &&
+          !info.cannotPublish && (
             <Callout
               status="info"
               my="4"

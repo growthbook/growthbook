@@ -5,7 +5,6 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   assertCanRunExperimentInAffectedEnvironments,
@@ -121,28 +120,6 @@ describe("updateSingleExperimentStatus", () => {
       });
     await updateSingleExperimentStatus(job);
     expect(updateExperiment).not.toHaveBeenCalled();
-    expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
-  });
-
-  it("runs a stop nobody is recorded on as the job itself", async () => {
-    (getScheduledStatusContext as jest.Mock).mockResolvedValue(null);
-    (getExperimentById as jest.Mock).mockResolvedValue({
-      ...draft,
-      status: "running",
-      nextScheduledStatusUpdate: {
-        type: "stop",
-        date: draft.nextScheduledStatusUpdate.date,
-      },
-    });
-    (applyScheduledExperimentStop as jest.Mock).mockResolvedValue({
-      kind: "stopped",
-    });
-    await updateSingleExperimentStatus(job);
-    expect(applyScheduledExperimentStop).toHaveBeenCalledWith(
-      expect.objectContaining({
-        context: expect.objectContaining({ org: { id: "org_1" } }),
-      }),
-    );
     expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
   });
 

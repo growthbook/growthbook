@@ -5,6 +5,7 @@ import type { OrganizationInterface } from "shared/types/organization";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import { ReqContextClass } from "back-end/src/services/context";
 import { updateSingleExperimentStatus } from "back-end/src/jobs/updateExperimentStatus";
+import { approveScheduledExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { setupApp } from "./api.setup";
 
 // A staged start or stop fires on the authority of whoever staged it, checked
@@ -121,9 +122,9 @@ async function seedPendingDraft() {
   );
 }
 
-function asUser(id: string) {
+function asUser(id: string, orgDoc: OrganizationInterface = org) {
   const context = new ReqContextClass({
-    org,
+    org: orgDoc,
     auditUser: { type: "dashboard", id, email: `${id}@test.com`, name: id },
     user: { id, email: `${id}@test.com`, name: id },
     teams: [],
@@ -399,7 +400,7 @@ describe("a scheduled status change is checked when armed and fires as the armer
     expect(await staged()).toBeNull();
   });
 
-  it("stops a running experiment on a pointer nobody is recorded on, as the job", async () => {
+  it("stops a running experiment on a pointer nobody is recorded on as the owner", async () => {
     await seed("running");
     await experiments().updateOne(
       { id: EXP_ID },
@@ -418,6 +419,31 @@ describe("a scheduled status change is checked when armed and fires as the armer
 
     expect(await status()).toBe("stopped");
     expect(await staged()).toBeNull();
+    expect((await lastStatusAudit())?.user).toMatchObject({ id: "u_owner" });
+  });
+
+  it("lets someone else arm a start whose armer can no longer publish the draft", async () => {
+    await seed("draft");
+    await seedPendingDraft();
+    expect((await armStart(asUser("u_exp"))).status).toBe(200);
+    await organizations().updateOne(
+      { id: ORG_ID, "members.id": "u_exp" },
+      { $set: { "members.$.role": "collaborator" } },
+    );
+
+    // The dashboard re-approves an armed start without clearing it first.
+    const demotedOrg = (await organizations().findOne({
+      id: ORG_ID,
+    })) as unknown as OrganizationInterface;
+    await approveScheduledExperimentStart({
+      context: asUser("u_owner", demotedOrg),
+      experimentId: EXP_ID,
+      skipChecklist: true,
+    });
+    expect(await staged()).toMatchObject({
+      type: "start",
+      scheduledBy: "u_owner",
+    });
   });
 
   it("retries a start nobody is recorded on, rather than running as the owner", async () => {

@@ -222,8 +222,13 @@ function isCustomTaskComplete(
 export async function getExperimentStartChecklistStatus(
   context: ReqContext,
   experiment: ExperimentInterface,
+  { arming = false }: { arming?: boolean } = {},
 ): Promise<StartChecklistItemStatus[]> {
-  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+  const linkedFeatures = await getLinkedFeatureInfo(
+    context,
+    experiment,
+    arming ? { publisher: context } : {},
+  );
   const sdkConnections = await findSDKConnectionsByOrganization(context);
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -535,13 +540,16 @@ export async function executeExperimentStart(
 export async function getExperimentStartChecklist({
   context,
   experiment,
+  arming,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
+  arming?: boolean;
 }): Promise<ExperimentStartChecklistResult> {
   const checklistItems = await getExperimentStartChecklistStatus(
     context,
     experiment,
+    { arming },
   );
   const hasIncompleteRequiredItems = checklistItems.some(
     (item) => item.required && item.status === "incomplete",
@@ -592,6 +600,7 @@ export async function startExperiment({
   const { checklistItems, status } = await getExperimentStartChecklist({
     context,
     experiment: loadedExperiment,
+    arming: true,
   });
 
   const experiment = loadedExperiment;
@@ -668,6 +677,7 @@ export async function approveScheduledExperimentStart({
   const checklistItems = await getExperimentStartChecklistStatus(
     context,
     experiment,
+    { arming: true },
   );
 
   assertNoIncompleteHardBlockers(checklistItems);
