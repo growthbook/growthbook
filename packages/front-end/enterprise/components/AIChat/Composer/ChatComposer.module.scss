@@ -56,11 +56,13 @@
     }
 
     // A sentence to read, not a hint: the low-contrast text step, not the placeholder's.
+    // The trailing margin clears the Tab keycap on the last line only.
     p[data-ghost]::after {
       content: attr(data-ghost);
       pointer-events: none;
       color: var(--gray-11);
       white-space: pre-wrap;
+      margin-right: 28px;
     }
   }
 
@@ -205,11 +207,6 @@
   right: calc(100% + var(--space-2));
   top: 50%;
   transform: translateY(-50%);
-}
-
-// Keeps the continuation from running under the keycap.
-.withHint :global(.ProseMirror) {
-  padding-right: 44px;
 }
 
 .sendButton,

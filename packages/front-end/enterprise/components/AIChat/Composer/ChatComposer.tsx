@@ -572,13 +572,7 @@ function ChatComposer(
       )}
       <EditorContent
         editor={editor}
-        className={[
-          styles.editor,
-          loading || disabled ? styles.readOnly : "",
-          ghost ? styles.withHint : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
+        className={`${styles.editor}${loading || disabled ? ` ${styles.readOnly}` : ""}`}
         style={minRows ? { minHeight: minRows * 20 } : undefined}
         onFocus={handleFocus}
         onBlur={handleBlur}
