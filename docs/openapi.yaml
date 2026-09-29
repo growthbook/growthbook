@@ -14988,6 +14988,21 @@ paths:
                     Deprecated: use `assignmentQuery`. Can only be set if a
                     templateId is not provided.
                   type: string
+                isClusterExperiment:
+                  description: >-
+                    Run as a cluster-randomized experiment: randomize on the
+                    assignment query's identifier type (the cluster, e.g.
+                    region_id) while analyzing a nested sub-unit
+                    (clusterSubUnitIdentifier, e.g. user_id). The assignment
+                    query must declare both identifier types.
+                  type: boolean
+                clusterSubUnitIdentifier:
+                  description: >-
+                    The nested sub-unit identifier type analyzed within each
+                    cluster (e.g. user_id). Required when isClusterExperiment is
+                    true; must be declared by the assignment query and differ
+                    from its cluster identifier type.
+                  type: string
                 trackingKey:
                   type: string
                 bypassDuplicateKeyCheck:
@@ -15727,6 +15742,21 @@ paths:
                 assignmentQueryId:
                   deprecated: true
                   description: 'Deprecated: use `assignmentQuery`.'
+                  type: string
+                isClusterExperiment:
+                  description: >-
+                    Run as a cluster-randomized experiment: randomize on the
+                    assignment query's identifier type (the cluster, e.g.
+                    region_id) while analyzing a nested sub-unit
+                    (clusterSubUnitIdentifier, e.g. user_id). The assignment
+                    query must declare both identifier types.
+                  type: boolean
+                clusterSubUnitIdentifier:
+                  description: >-
+                    The nested sub-unit identifier type analyzed within each
+                    cluster (e.g. user_id). Required when isClusterExperiment is
+                    true; must be declared by the assignment query and differ
+                    from its cluster identifier type.
                   type: string
                 trackingKey:
                   type: string
@@ -49786,6 +49816,10 @@ paths:
                   deprecated: true
                   description: 'Deprecated: use `exposureQuery`.'
                   type: string
+                isClusterExperiment:
+                  type: boolean
+                clusterSubUnitIdentifier:
+                  type: string
                 hashAttribute:
                   type: string
                 fallbackAttribute:
@@ -49973,6 +50007,10 @@ paths:
                 exposureQueryId:
                   deprecated: true
                   description: 'Deprecated: use `exposureQuery`.'
+                  type: string
+                isClusterExperiment:
+                  type: boolean
+                clusterSubUnitIdentifier:
                   type: string
                 hashAttribute:
                   type: string
@@ -50212,6 +50250,10 @@ paths:
                           exposureQueryId:
                             deprecated: true
                             description: 'Deprecated: use `exposureQuery`.'
+                            type: string
+                          isClusterExperiment:
+                            type: boolean
+                          clusterSubUnitIdentifier:
                             type: string
                           hashAttribute:
                             type: string
@@ -63426,6 +63468,17 @@ components:
           description: 'Deprecated: use `assignmentQuery`.'
           deprecated: true
           type: string
+        isClusterExperiment:
+          description: >-
+            Whether this is a cluster-randomized experiment (randomized on the
+            assignment query's identifier type, analyzed on
+            clusterSubUnitIdentifier).
+          type: boolean
+        clusterSubUnitIdentifier:
+          description: >-
+            For cluster experiments, the nested sub-unit identifier type
+            analyzed within each cluster (e.g. user_id).
+          type: string
         experimentId:
           type: string
         segmentId:
@@ -74356,6 +74409,10 @@ components:
         exposureQueryId:
           description: 'Deprecated: use `exposureQuery`.'
           deprecated: true
+          type: string
+        isClusterExperiment:
+          type: boolean
+        clusterSubUnitIdentifier:
           type: string
         hashAttribute:
           type: string

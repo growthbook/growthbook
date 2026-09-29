@@ -12,6 +12,7 @@ import {
   reconcileMergeBaselines,
   includeExperimentInPayload,
   parseAssignmentQuerySelection,
+  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -1284,6 +1285,8 @@ export async function postExperiments(
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
     exposureQueryIdentifierType: data.exposureQueryIdentifierType,
+    isClusterExperiment: data.isClusterExperiment,
+    clusterSubUnitIdentifier: data.clusterSubUnitIdentifier,
     userIdType: data.userIdType || "anonymous",
     name: data.name || "",
     phases: data.phases
@@ -1387,6 +1390,17 @@ export async function postExperiments(
       );
       if (!parsed.ok) throw new Error(parsed.error);
       obj.exposureQueryIdentifierType = parsed.identifierType;
+
+      if (obj.isClusterExperiment) {
+        const clusterValidation = validateClusterExperimentIdentifiers(
+          datasource.settings.queries?.exposure?.find(
+            (q) => q.id === obj.exposureQueryId,
+          ),
+          obj.exposureQueryIdentifierType,
+          obj.clusterSubUnitIdentifier,
+        );
+        if (!clusterValidation.ok) throw new Error(clusterValidation.error);
+      }
     }
 
     if (data.precomputedUnitDimensionIds !== undefined) {
@@ -1896,6 +1910,8 @@ export async function postExperiment(
     "datasource",
     "exposureQueryId",
     "exposureQueryIdentifierType",
+    "isClusterExperiment",
+    "clusterSubUnitIdentifier",
     "userIdType",
     "hashAttribute",
     "fallbackAttribute",
@@ -2035,6 +2051,25 @@ export async function postExperiment(
   });
   if (resolvedSelection.changed) {
     changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
+  }
+
+  const effectiveIsClusterExperiment =
+    changes.isClusterExperiment ?? experiment.isClusterExperiment;
+  if (effectiveIsClusterExperiment) {
+    const clusterDatasourceId =
+      changes.datasource ?? experiment.datasource ?? "";
+    const clusterDatasource = clusterDatasourceId
+      ? await getDataSourceById(context, clusterDatasourceId)
+      : null;
+    const clusterValidation = validateClusterExperimentIdentifiers(
+      clusterDatasource?.settings.queries?.exposure?.find(
+        (q) => q.id === (changes.exposureQueryId ?? experiment.exposureQueryId),
+      ),
+      changes.exposureQueryIdentifierType ??
+        experiment.exposureQueryIdentifierType,
+      changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
+    );
+    if (!clusterValidation.ok) throw new Error(clusterValidation.error);
   }
 
   const shouldValidatePrecomputedUnitDimensionIds =

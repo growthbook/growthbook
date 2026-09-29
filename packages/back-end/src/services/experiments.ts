@@ -3409,6 +3409,12 @@ export async function toExperimentApiInterface(
         ),
       ),
       assignmentQueryId: experiment.exposureQueryId || "",
+      ...(experiment.isClusterExperiment !== undefined
+        ? { isClusterExperiment: experiment.isClusterExperiment }
+        : {}),
+      ...(experiment.clusterSubUnitIdentifier
+        ? { clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier }
+        : {}),
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -4779,6 +4785,12 @@ export function postExperimentApiPayloadToInterface(
       "",
     // Parsed by the caller, which has the data source's queries.
     exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
+    ...(payload.isClusterExperiment !== undefined
+      ? { isClusterExperiment: payload.isClusterExperiment }
+      : {}),
+    ...(payload.clusterSubUnitIdentifier !== undefined
+      ? { clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier }
+      : {}),
     name: payload.name || "",
     type: payload.type || "standard",
     phases,
@@ -5109,6 +5121,8 @@ export function updateExperimentApiPayloadToInterface(
     datasourceId,
     assignmentQueryId,
     assignmentQueryIdentifierType,
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
     hashAttribute,
     hashVersion,
     disableStickyBucketing,
@@ -5165,6 +5179,10 @@ export function updateExperimentApiPayloadToInterface(
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
     ...(assignmentQueryIdentifierType !== undefined
       ? { exposureQueryIdentifierType: assignmentQueryIdentifierType }
+      : {}),
+    ...(isClusterExperiment !== undefined ? { isClusterExperiment } : {}),
+    ...(clusterSubUnitIdentifier !== undefined
+      ? { clusterSubUnitIdentifier }
       : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),

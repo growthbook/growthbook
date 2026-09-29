@@ -3,6 +3,7 @@ import {
   resolveAnalysisIdentifierType,
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
+  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
@@ -211,6 +212,23 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         );
       }
       payload.assignmentQueryIdentifierType = parsed.identifierType;
+
+      if (payload.isClusterExperiment) {
+        const clusterValidation = validateClusterExperimentIdentifiers(
+          datasource.settings.queries?.exposure?.find(
+            (q) => q.id === payload.assignmentQueryId,
+          ),
+          payload.assignmentQueryIdentifierType,
+          payload.clusterSubUnitIdentifier,
+        );
+        if (!clusterValidation.ok) {
+          throw new Error(
+            templateId
+              ? `Template "${templateId}": ${clusterValidation.error}`
+              : clusterValidation.error,
+          );
+        }
+      }
     }
 
     await assertExperimentKeyFormat(

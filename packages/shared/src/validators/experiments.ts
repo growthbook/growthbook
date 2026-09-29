@@ -276,6 +276,8 @@ export const experimentAnalysisSettings = z
     datasource: z.string(),
     exposureQueryId: z.string(),
     exposureQueryIdentifierType: z.string().optional(),
+    isClusterExperiment: z.boolean().optional(),
+    clusterSubUnitIdentifier: z.string().optional(),
     goalMetrics: z.array(z.string()),
     secondaryMetrics: z.array(z.string()),
     guardrailMetrics: z.array(z.string()),
@@ -730,6 +732,18 @@ export const apiExperimentAnalysisSettingsValidator = namedSchema(
     .object({
       datasourceId: z.string(),
       ...apiAssignmentQueryResponseFields("assignmentQuery"),
+      isClusterExperiment: z
+        .boolean()
+        .describe(
+          "Whether this is a cluster-randomized experiment (randomized on the assignment query's identifier type, analyzed on clusterSubUnitIdentifier).",
+        )
+        .optional(),
+      clusterSubUnitIdentifier: z
+        .string()
+        .describe(
+          "For cluster experiments, the nested sub-unit identifier type analyzed within each cluster (e.g. user_id).",
+        )
+        .optional(),
       experimentId: z.string(),
       segmentId: z.string(),
       queryFilter: z.string(),
@@ -1433,6 +1447,18 @@ const postExperimentBody = z
       "assignmentQuery",
       "Can only be set if a templateId is not provided.",
     ),
+    isClusterExperiment: z
+      .boolean()
+      .describe(
+        "Run as a cluster-randomized experiment: randomize on the assignment query's identifier type (the cluster, e.g. region_id) while analyzing a nested sub-unit (clusterSubUnitIdentifier, e.g. user_id). The assignment query must declare both identifier types.",
+      )
+      .optional(),
+    clusterSubUnitIdentifier: z
+      .string()
+      .describe(
+        "The nested sub-unit identifier type analyzed within each cluster (e.g. user_id). Required when isClusterExperiment is true; must be declared by the assignment query and differ from its cluster identifier type.",
+      )
+      .optional(),
     trackingKey: z.string(),
     bypassDuplicateKeyCheck: z
       .boolean()
@@ -1568,6 +1594,18 @@ const updateExperimentBody = z
       )
       .optional(),
     ...apiAssignmentQueryInputFields("assignmentQuery"),
+    isClusterExperiment: z
+      .boolean()
+      .describe(
+        "Run as a cluster-randomized experiment: randomize on the assignment query's identifier type (the cluster, e.g. region_id) while analyzing a nested sub-unit (clusterSubUnitIdentifier, e.g. user_id). The assignment query must declare both identifier types.",
+      )
+      .optional(),
+    clusterSubUnitIdentifier: z
+      .string()
+      .describe(
+        "The nested sub-unit identifier type analyzed within each cluster (e.g. user_id). Required when isClusterExperiment is true; must be declared by the assignment query and differ from its cluster identifier type.",
+      )
+      .optional(),
     trackingKey: z.string().optional(),
     bypassDuplicateKeyCheck: z
       .boolean()

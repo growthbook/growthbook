@@ -2,6 +2,7 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
+  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
@@ -139,6 +140,25 @@ export const updateExperiment = createApiRequestHandler(
     );
     if (!resolved.ok) throw new Error(resolved.error);
     payload.assignmentQueryIdentifierType = resolved.identifierType;
+  }
+
+  const effectiveIsClusterExperiment =
+    payload.isClusterExperiment ?? experiment.isClusterExperiment;
+  if (effectiveIsClusterExperiment) {
+    if (!datasource) {
+      throw new Error("Datasource not found.");
+    }
+    const effectiveExposureQueryId =
+      payload.assignmentQueryId ?? experiment.exposureQueryId;
+    const clusterValidation = validateClusterExperimentIdentifiers(
+      datasource.settings.queries?.exposure?.find(
+        (q) => q.id === effectiveExposureQueryId,
+      ),
+      payload.assignmentQueryIdentifierType ??
+        experiment.exposureQueryIdentifierType,
+      payload.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
+    );
+    if (!clusterValidation.ok) throw new Error(clusterValidation.error);
   }
 
   if (
