@@ -6,7 +6,7 @@ import type {
 } from "../GrowthBookClient";
 
 // Tags are `gb.<kind>:<key>=<value>`; `gb.feature:` is reserved for flag evaluations.
-export const TRACING_TAG_PREFIX = "gb.exp";
+export const TRACING_TAG_EXPERIMENT_PREFIX = "gb.exp";
 
 export type TracingAssignment = {
   experimentKey: string;
@@ -53,7 +53,7 @@ export function tracingPlugin(options: TracingPluginOptions = {}) {
           return;
         }
 
-        const tag = `${TRACING_TAG_PREFIX}:${experimentKey}${KEY_VALUE_SEPARATOR}${variationKey}`;
+        const tag = `${TRACING_TAG_EXPERIMENT_PREFIX}:${experimentKey}${KEY_VALUE_SEPARATOR}${variationKey}`;
         // A reassignment replaces the old variation; keeping both would read as a multiple exposure.
         tags.set(experimentKey, tag);
 

@@ -1,7 +1,7 @@
 import { Experiment, GrowthBook, GrowthBookClient } from "../../src";
 import {
   getTracingTags,
-  TRACING_TAG_PREFIX,
+  TRACING_TAG_EXPERIMENT_PREFIX,
   tracingPlugin,
 } from "../../src/plugins/tracing";
 
@@ -19,7 +19,7 @@ describe("tracingPlugin", () => {
 
     const res = gb.run(exp);
 
-    expect(TRACING_TAG_PREFIX).toBe("gb.exp");
+    expect(TRACING_TAG_EXPERIMENT_PREFIX).toBe("gb.exp");
     expect(getTracingTags(gb)).toEqual([`gb.exp:my-experiment=${res.key}`]);
     // Variation key defaults to the variation index
     expect(res.key).toBe(String(res.variationId));
