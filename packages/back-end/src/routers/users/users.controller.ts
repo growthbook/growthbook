@@ -301,7 +301,6 @@ export async function postNpsResponse(
       userId,
       organizationId: org.id,
       score,
-      category: npsCategoryOf(score),
       feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
       respondedAt: new Date().toISOString(),
     }).catch(() => {});

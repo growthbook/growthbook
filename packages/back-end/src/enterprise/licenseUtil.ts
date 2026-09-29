@@ -25,7 +25,6 @@ import {
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
 import { EventForwarderSinkType } from "shared/types/event-forwarder";
-import type { NpsCategory } from "shared/nps";
 import {
   OrganizationInterface,
   OrgMemberInfo,
@@ -431,7 +430,6 @@ export async function postNpsResponseToLicenseServer(response: {
   userId: string;
   organizationId: string;
   score: number;
-  category: NpsCategory;
   feedback: string;
   respondedAt: string;
 }) {
