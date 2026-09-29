@@ -892,7 +892,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
               <>
                 <Box pb="2">
                   <TextField
-                    label="Table"
+                    label="Source Table"
                     value={selectedTable.path.replace(/`/g, "")}
                     readOnly
                     append={<Link onClick={() => setStep(0)}>Change</Link>}
@@ -902,7 +902,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
 
                 <Box pt="2">
                   <SelectField
-                    label="Table type"
+                    label="Type"
                     legacyLabelFormatting={false}
                     value={tableType}
                     onChange={(v) => setTableType(v as FactTableType)}

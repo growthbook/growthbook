@@ -251,7 +251,7 @@ function TablePicker({
   return (
     <Box>
       <Flex align="center" justify="between" mb={ready ? "1" : "2"}>
-        <Text weight="semibold">Table</Text>
+        <Text weight="semibold">Source Table</Text>
         {informationSchema && !building ? (
           <Flex align="center" gap="2">
             <Text size="sm" color="text-low">
@@ -502,9 +502,8 @@ export default function NewFactTableSqlStep({
     </AreaWithHeader>
   );
 
-  const datasourceSelect = (label?: string) => (
+  const datasourceSelect = (
     <Select
-      label={label}
       aria-label="Data Source"
       value={datasourceId}
       setValue={setDatasourceId}
@@ -567,7 +566,7 @@ export default function NewFactTableSqlStep({
         >
           Need joins or complex logic?
         </Callout>
-        {datasourceSelect("Data Source")}
+        {datasourceSelect}
         <TablePicker
           key={datasource.id}
           datasource={datasource}
@@ -626,7 +625,7 @@ export default function NewFactTableSqlStep({
   return (
     <Flex direction="column" gap="2" height="100%">
       <Flex align="center" gap="5">
-        <Box width="320px">{datasourceSelect()}</Box>
+        <Box width="320px">{datasourceSelect}</Box>
         {supportsSchemaBrowser ? (
           <Link onClick={() => setMode("table")}>
             <Flex align="center" gap="1">
