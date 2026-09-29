@@ -45,6 +45,22 @@ export function resolveAnalysisIdentifierType(
 }
 
 /**
+ * The identifier to put in a settings hash: undefined when it's the query's
+ * frozen legacy one, so hashes saved before identifiers were stored stay valid.
+ */
+export function getIdentifierTypeForSettingsHash(
+  exposureQueryId: string,
+  identifierType: string | undefined,
+  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
+): string | undefined {
+  const query = exposureQueries.find((q) => q.id === exposureQueryId);
+  return identifierType &&
+    identifierType !== resolveAnalysisIdentifierType(query, undefined)
+    ? identifierType
+    : undefined;
+}
+
+/**
  * Reads a REST body's grouped assignment query field and its deprecated flat
  * `<field>Id`, which are mutually exclusive.
  */

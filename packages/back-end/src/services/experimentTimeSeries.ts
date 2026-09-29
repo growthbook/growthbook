@@ -36,7 +36,10 @@ import {
   FactTableInterface,
   ColumnRef,
 } from "shared/types/fact-table";
+import { ExposureQuery } from "shared/types/datasource";
+import { getIdentifierTypeForSettingsHash } from "shared/util";
 import { ReqContext } from "back-end/types/request";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
@@ -173,6 +176,10 @@ export async function updateExperimentAnalysisTimeSeries({
     );
   }
   const [dimensionId] = Array.from(dimensionIds);
+  const exposureQueries = await getExposureQueriesForDatasource(
+    context,
+    experimentSnapshot.settings.datasourceId,
+  );
   if (
     dimensionId &&
     !isDimensionPrecomputed(
@@ -231,6 +238,7 @@ export async function updateExperimentAnalysisTimeSeries({
     const experimentHash = getExperimentSettingsHash(
       experimentSnapshot.settings,
       baseAnalysis.settings,
+      exposureQueries,
     );
 
     for (const metricId of allMetricIds) {
@@ -377,6 +385,7 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 function getExperimentSettingsHash(
   snapshotSettings: ExperimentSnapshotSettings,
   snapshotAnalysisSettings: ExperimentSnapshotAnalysisSettings,
+  exposureQueries: ExposureQuery[],
 ): string {
   return hashObject({
     // snapshotSettings
@@ -387,7 +396,11 @@ function getExperimentSettingsHash(
     skipPartialData: snapshotSettings.skipPartialData,
     datasourceId: snapshotSettings.datasourceId,
     exposureQueryId: snapshotSettings.exposureQueryId,
-    exposureQueryIdentifierType: snapshotSettings.exposureQueryIdentifierType,
+    exposureQueryIdentifierType: getIdentifierTypeForSettingsHash(
+      snapshotSettings.exposureQueryId,
+      snapshotSettings.exposureQueryIdentifierType,
+      exposureQueries,
+    ),
     startDate: snapshotSettings.startDate,
     regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
     experimentId: snapshotSettings.experimentId,

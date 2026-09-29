@@ -8,6 +8,7 @@ import {
   parseAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   flattenExposureQueryInput,
+  getIdentifierTypeForSettingsHash,
   withKeptIdentifierType,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
@@ -506,5 +507,34 @@ describe("resolveAssignmentQuerySelectionChange", () => {
         onOmitted: "defaultToFirst",
       }),
     ).toMatchObject({ ok: false });
+  });
+});
+
+describe("getIdentifierTypeForSettingsHash", () => {
+  const reordered = query({
+    id: "eq_1",
+    userIdType: "anonymous_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+
+  it("leaves out the query's legacy identifier so older hashes still match", () => {
+    expect(
+      getIdentifierTypeForSettingsHash("eq_1", "anonymous_id", [reordered]),
+    ).toBeUndefined();
+    expect(
+      getIdentifierTypeForSettingsHash("eq_1", undefined, [reordered]),
+    ).toBeUndefined();
+  });
+
+  it("includes any other identifier", () => {
+    expect(
+      getIdentifierTypeForSettingsHash("eq_1", "user_id", [reordered]),
+    ).toBe("user_id");
+  });
+
+  it("includes the identifier when the query can't be found", () => {
+    expect(
+      getIdentifierTypeForSettingsHash("eq_gone", "anonymous_id", []),
+    ).toBe("anonymous_id");
   });
 });
