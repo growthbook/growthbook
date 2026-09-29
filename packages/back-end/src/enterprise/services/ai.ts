@@ -1003,7 +1003,25 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   const failureTokens = (e: NoObjectGeneratedError | NoOutputGeneratedError) =>
     NoObjectGeneratedError.isInstance(e) ? (e.usage?.totalTokens ?? 0) : 0;
 
+  // Priced per attempt: pooling tokens could cross a long-context tier that no
+  // single request did. Undefined once any attempt can't be priced.
+  const failureSpendUsd = (
+    e: NoObjectGeneratedError | NoOutputGeneratedError,
+  ): number | undefined =>
+    NoObjectGeneratedError.isInstance(e) && e.usage
+      ? estimateAICompletionUsd(model, completionUsageFromSdk(e.usage))
+      : 0;
+  const sumUsd = (a: number | undefined, b: number | undefined) =>
+    a === undefined || b === undefined ? undefined : a + b;
+
   let retriedTokens = 0;
+  let retriedSpendUsd: number | undefined = 0;
+  const recordFailedAttempt = (
+    e: NoObjectGeneratedError | NoOutputGeneratedError,
+  ) => {
+    retriedTokens += failureTokens(e);
+    retriedSpendUsd = sumUsd(retriedSpendUsd, failureSpendUsd(e));
+  };
   const recordFailedAttempts = async () => {
     if (IS_CLOUD && !ownKey && retriedTokens > 0) {
       await updateTokenUsage({
@@ -1018,6 +1036,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       model,
       provider: getProviderFromModel(model),
       numRetriedTokensUsed: retriedTokens,
+      spendUsd: retriedTokens > 0 ? retriedSpendUsd : undefined,
       usedDefaultPrompt: isDefaultPrompt,
       usedOwnKey: ownKey,
       outcome: "error",
@@ -1029,7 +1048,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     response = await generateOnce();
   } catch (err) {
     if (!isGenerationFailure(err)) throw err;
-    retriedTokens += failureTokens(err);
+    recordFailedAttempt(err);
     // Don't stack retries when the caller is already a retry path.
     if (!retryOnNoObject) {
       await recordFailedAttempts();
@@ -1047,7 +1066,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         await recordFailedAttempts();
         throw retryErr;
       }
-      retriedTokens += failureTokens(retryErr);
+      recordFailedAttempt(retryErr);
       const retryDiag = noOutputDiag(retryErr);
       logger.warn(
         { type, model, ...retryDiag },
@@ -1074,7 +1093,10 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }
 
   const usage = completionUsageFromSdk(response.usage);
-  const spendUsd = estimateAICompletionUsd(model, usage);
+  const spendUsd = sumUsd(
+    estimateAICompletionUsd(model, usage),
+    retriedSpendUsd,
+  );
 
   trackAIUsage({
     organizationId: context.org.id,
