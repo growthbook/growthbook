@@ -1,5 +1,5 @@
 /**
- * Finalize a experiment snapshot for which all queries succeeded but
+ * Finalize an experiment snapshot for which all queries succeeded but
  * results were never written, because the process driving it died first.
  * It re-creates the analysis inputs and replays the refresh path over the
  * persisted results, so no new warehouse queries are run.

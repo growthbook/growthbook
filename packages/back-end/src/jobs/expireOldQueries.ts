@@ -392,7 +392,7 @@ async function reapStalledSnapshots() {
             queryIds.every((id) => freshQueryIds.has(id));
 
           // The snapshot changed since the original scan, so our succeeded
-          // statuses describe a stale query set. Skip rather than error
+          // statuses describe a stale query set. Skip rather than error.
           if (!sameQueries) continue;
 
           // Results runners never hold the lock, so a fresh heartbeat means
@@ -420,8 +420,8 @@ async function reapStalledSnapshots() {
           }
         }
       } catch (e) {
-        // Without these checks the runner may still be alive, and the error
-        // write would release its lock to a new refresh. Retry next tick.
+        // The runner may still be alive, and erroring would release its lock
+        // to a new refresh.
         logger.warn(
           e,
           `Skipping stalled snapshot ${snapshot.id} this tick: failed to check whether its runner is still alive`,
