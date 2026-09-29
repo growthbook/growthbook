@@ -139,7 +139,7 @@ WHERE
   {{#if customFields.region}} AND region = {{sqlstring customFields.region}} {{/if}}
 ```
 
-The `1=1` part is a common SQL trick to make appending additional `AND` conditions easier. When the Custom Field is unavailable, the WHERE clause will simple be `WHERE 1=1`, which is always true and does not filter out any data.
+The `1=1` part is a common SQL trick to make appending additional `AND` conditions easier. When the Custom Field is unavailable, the WHERE clause will simply be `WHERE 1=1`, which is always true and does not filter out any data.
 
 <Note>
 

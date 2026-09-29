@@ -1,7 +1,7 @@
 import request from "supertest";
 import { setupApp } from "./api.setup";
 
-describe("environements API", () => {
+describe("environments API", () => {
   const { app, setReqContext } = setupApp();
 
   afterEach(async () => {

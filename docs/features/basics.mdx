@@ -26,6 +26,8 @@ Feature keys must only include letters, numbers, hyphens (-), and underscores (\
 
 Feature flags can be enabled or disabled. When a flag is disabled, GrowthBook excludes the feature from the API response. The feature evaluates to `null` and ignores all targeting and rules. In your app, the SDK will render the feature with the fallback value.
 
+You can enable or disable a flag from the feature page, or automate it (for example, from a deploy script) with the [toggle feature endpoint](/api/features-v2/operation/toggleFeatureV2), which switches a flag on or off in one or more environments.
+
 Here's an example from the JavaScript SDK:
 
 ```js
