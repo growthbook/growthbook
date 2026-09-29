@@ -145,7 +145,7 @@ export function reviewHashForDiffRef(ref: DiffCommentRef): string {
   return `review,changes,${encodeURIComponent(diffRefId(ref))}`;
 }
 
-export function parseDiffRefId(id: string): DiffCommentRef | null {
+function parseDiffRefId(id: string): DiffCommentRef | null {
   const m = /^(.+):([LR])(\d+)$/.exec(id);
   return m
     ? { sectionKey: m[1], side: m[2] as "L" | "R", line: parseInt(m[3], 10) }
@@ -319,6 +319,8 @@ export function scrollToDiffRef(
   tryScroll(0);
 }
 
+const USER_SCROLL_EVENTS = ["wheel", "touchmove", "keydown"] as const;
+
 // The page may still be too short to centre the line when it first renders,
 // and content loading above it moves it. Re-centres for a few seconds, and
 // stops the moment the reader scrolls for themselves.
@@ -343,7 +345,6 @@ function keepCentred(el: Element): void {
   };
   setTimeout(tick, 100);
 }
-const USER_SCROLL_EVENTS = ["wheel", "touchmove", "keydown"] as const;
 
 // The reverse direction: a gutter marker jumps to its comment in the
 // revision timeline (cards carry data-revision-log-id). Same quiet no-op if

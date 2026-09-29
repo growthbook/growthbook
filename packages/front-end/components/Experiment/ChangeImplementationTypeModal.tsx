@@ -42,7 +42,6 @@ export function implementationTypeLockedReason(
       ? [`Revision ${f.pendingRemoval.version} of ${f.feature.id}`]
       : [],
   );
-  // Names what's in the way, so the fix is obvious.
   const blockers = [
     ...(flagIds.length === 1
       ? [`the linked Feature Flag ${flagIds[0]}`]
@@ -78,7 +77,6 @@ export function implementationTypeLockedReason(
  */
 export const ImplementationTypeChooserContext = createContext<{
   choose: ((initialType?: ImplementationType) => void) | null;
-  // Why it can't be changed at all, where saying so beats hiding it.
   unavailableReason: string | null;
 }>({ choose: null, unavailableReason: null });
 
@@ -102,7 +100,7 @@ export default function ChangeImplementationTypeModal({
   managedFeature: LinkedFeatureInfo | null;
   /** Why the type can't change right now; shown in place of the choice. */
   lockedReason?: string | null;
-  /** Preselected, for an action that names the change, such as converting the managed flag. */
+  /** Preselected, for an action that names the change. */
   initialType?: ImplementationType;
   /** Staged for the page's Save, with whatever it does to the managed flag. */
   draft: ImplementationTypeDraft;
@@ -168,8 +166,6 @@ export default function ChangeImplementationTypeModal({
         !blockedReason &&
         (!removesManagedFlag || acknowledged)
       }
-      // The save converts or deletes the managed flag as part of the change;
-      // the checkbox is the acknowledgement it needs before deleting.
       submit={() =>
         draft.set(
           changed && next
@@ -213,7 +209,6 @@ export default function ChangeImplementationTypeModal({
               </Avatar>
             ),
             badge: currentKinds.has(type) ? "Current" : undefined,
-            // A mix is no single choice, so each kind it has shows chosen.
             highlighted: !next && currentKinds.has(type),
           };
         })}

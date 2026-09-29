@@ -162,7 +162,6 @@ router.get("/", indexHandler);
 router.get("/v1/", indexHandler);
 
 export const allRoutes = [
-  // Direct writes to a managed flag are refused on both surfaces.
   ...guardManagedFeatureRoutes(featureRoutes),
   ...guardManagedFeatureRoutes(featureV2Routes),
   ...archetypesRoutes,

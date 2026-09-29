@@ -1,11 +1,10 @@
 import { MetricOverride } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
 
-/** The blue that marks an overridden metric, on its chip and in its card. */
 export const METRIC_OVERRIDE_COLOR = "var(--blue-9)";
 
 /** Which setting a row is about, so an override can stand in for it. */
-export type MetricSettingKey =
+type MetricSettingKey =
   | "window"
   | "delay"
   | "winRisk"
@@ -29,10 +28,7 @@ const cuped = (enabled?: boolean, days?: number) =>
 const prior = (proper?: boolean, mean?: number, stddev?: number) =>
   proper ? `Proper (mean ${mean ?? 0}, sd ${stddev ?? 1})` : "Improper";
 
-/**
- * An experiment's override of one metric, as the rows a person reads. A field
- * left unset keeps the metric's own setting, so it isn't listed.
- */
+/** A field left unset keeps the metric's own setting, so it isn't listed. */
 export function describeMetricOverride(o: MetricOverride): OverrideRow[] {
   const rows: OverrideRow[] = [];
 
@@ -104,8 +100,7 @@ export interface MetricSettingsInput {
 }
 
 /**
- * A metric's settings in this experiment, as rows alongside its overrides:
- * each one the override doesn't already cover. Bayesian-only settings are
+ * The settings the override doesn't already cover. Bayesian-only settings are
  * left out under the frequentist engine, which ignores them.
  */
 export function describeMetricSettings(
@@ -146,7 +141,7 @@ export function describeMetricSettings(
     rows.push({
       key: "cuped",
       label: "CUPED",
-      value: cuped(s.cuped.enabled, s.cuped.enabled ? s.cuped.days : undefined),
+      value: cuped(s.cuped.enabled, s.cuped.days),
     });
   }
   if (bayesian) {

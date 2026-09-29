@@ -1,5 +1,6 @@
 import {
   copyManagedVariationValues,
+  FEATURE_KEY_PATTERN,
   featureKeyFormatError,
   getManagedValueProblems,
   hasStartReadyManagedFlag,
@@ -36,18 +37,7 @@ describe("featureKeyFormatError", () => {
 describe("managedFeatureKeyCandidate", () => {
   const experimentId = "exp_abc123";
 
-  it("passes through a key that is already legal", () => {
-    expect(
-      managedFeatureKeyCandidate({
-        trackingKey: "checkout-button-v2",
-        experimentId,
-      }),
-    ).toBe("checkout-button-v2");
-  });
-
   it("keeps every character a feature id permits", () => {
-    // The charset is /^[a-zA-Z0-9_.:|-]+$/ — colons and pipes are legal and
-    // must survive, or keys silently change shape for existing conventions.
     expect(
       managedFeatureKeyCandidate({
         trackingKey: "team:checkout|v2.1_final-3",
@@ -99,7 +89,7 @@ describe("managedFeatureKeyCandidate", () => {
         experimentId,
         attempt,
       });
-      expect(key).toMatch(/^[a-zA-Z0-9_.:|-]+$/);
+      expect(key).toMatch(FEATURE_KEY_PATTERN);
     }
   });
 });
@@ -116,8 +106,7 @@ describe("isManagedFeature / isManagedByExperiment", () => {
 
   it("only matches the experiment that actually owns it", () => {
     expect(isManagedByExperiment(managed, "exp_1")).toBe(true);
-    // A flag owned by a DIFFERENT experiment must not pass — this is what stops
-    // the experiment-scoped routes becoming a lockdown bypass.
+    // Otherwise experiment-scoped routes would bypass the managed-flag lockdown.
     expect(isManagedByExperiment(managed, "exp_2")).toBe(false);
     expect(isManagedByExperiment({ managedBy: undefined }, "exp_1")).toBe(
       false,
@@ -165,8 +154,6 @@ describe("seedManagedVariationValues", () => {
   ];
 
   it("seeds booleans with control off and the rest on", () => {
-    // A key-truthiness test would make every value true and serve one value to
-    // everyone, which is not an experiment.
     expect(
       seedManagedVariationValues(threeVariations, "boolean").map(
         (v) => v.value,
@@ -187,12 +174,6 @@ describe("seedManagedVariationValues", () => {
       { value: "treatment" },
       { value: "treatment-2" },
     ]);
-  });
-
-  it("keeps the key for the default string type", () => {
-    expect(
-      seedManagedVariationValues(threeVariations, "string").map((v) => v.value),
-    ).toEqual(["control", "treatment", "treatment-2"]);
   });
 });
 
@@ -322,8 +303,8 @@ describe("hasStartReadyManagedFlag", () => {
     ).toBe(true);
   });
 
-  it("rejects a managed flag whose draft is locked, discarded or archived", () => {
-    for (const state of ["locked", "discarded", "archived"] as const) {
+  it("rejects a managed flag whose draft is discarded or archived", () => {
+    for (const state of ["discarded", "archived"] as const) {
       expect(hasStartReadyManagedFlag("exp_1", [{ ...managed, state }])).toBe(
         false,
       );

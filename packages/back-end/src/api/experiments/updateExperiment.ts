@@ -1,5 +1,8 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentInterface,
+  ImplementationType,
+} from "shared/types/experiment";
 import { canChangeImplementationType } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
@@ -428,7 +431,7 @@ export const updateExperiment = createApiRequestHandler(
 
   // Compared against the flag actually managed, not the stored label; the
   // release (eject or delete) waits until every check has passed.
-  let releaseManagedFlagFor: typeof changes.implementationType;
+  let releaseManagedFlagFor: ImplementationType | null = null;
   if (changes.implementationType !== undefined) {
     const managed = await getManagedFeatureForExperiment(
       req.context,

@@ -146,8 +146,6 @@ const DisabledHealthTabTooltip = ({
   );
 };
 
-// NB: Keep in sync with .experiment-tabs top property in global.scss
-
 type ShareLevel = "public" | "organization";
 const SAVE_SETTING_TIMEOUT_MS = 3000;
 
@@ -219,36 +217,34 @@ export default function ExperimentHeader({
     setDeleteAcknowledged(false);
     setLinkedChanges("");
   };
-  const linkageChoice =
-    linkageBlocker === "temporary-rollout" &&
-    (canMaterialize ? (
-      <RadioGroup
-        gap="1"
-        value={linkedChanges}
-        setValue={(v) => setLinkedChanges(v as LinkedChangesResolution)}
-        options={[
-          {
-            value: "materialize",
-            label: "Keep serving the released variation",
-            description:
-              "Each linked Feature Flag gets a permanent rule with this experiment's targeting.",
-          },
-          {
-            value: "remove",
-            label: "Stop serving it",
-            description:
-              "Users go back to the Feature Flags' other rules and defaults.",
-          },
-        ]}
-      />
-    ) : (
-      <Checkbox
-        label="I understand the temporary rollout ends and users go back to the Feature Flags' other rules and defaults"
-        weight="regular"
-        value={deleteAcknowledged}
-        setValue={(v) => setDeleteAcknowledged(!!v)}
-      />
-    ));
+  const linkageChoice = canMaterialize ? (
+    <RadioGroup
+      gap="1"
+      value={linkedChanges}
+      setValue={(v) => setLinkedChanges(v as LinkedChangesResolution)}
+      options={[
+        {
+          value: "materialize",
+          label: "Keep serving the released variation",
+          description:
+            "Each linked Feature Flag gets a permanent rule with this experiment's targeting.",
+        },
+        {
+          value: "remove",
+          label: "Stop serving it",
+          description:
+            "Users go back to the Feature Flags' other rules and defaults.",
+        },
+      ]}
+    />
+  ) : (
+    <Checkbox
+      label="I understand the temporary rollout ends and users go back to the Feature Flags' other rules and defaults"
+      weight="regular"
+      value={deleteAcknowledged}
+      setValue={(v) => setDeleteAcknowledged(!!v)}
+    />
+  );
   // Deleting the experiment archives the flag that existed only for it and
   // strips its rule from every other linked flag.
   const managedFlagToArchive = linkedFeatures.find((f) =>
@@ -399,9 +395,9 @@ export default function ExperimentHeader({
     return () => observer.disconnect();
   }, [shouldHideTabs]);
 
-  // When the tab strip is hidden (e.g. an unstarted draft), the only
-  // reachable view is the overview, so force the active tab there. Once `tab`
-  // is already "overview" this is a no-op, so Back exits cleanly.
+  // When the tab strip is hidden, the only reachable view is the overview, so
+  // force the active tab there. Once `tab` is already "overview" this is a
+  // no-op, so Back exits cleanly.
   useEffect(() => {
     if (shouldHideTabs && tab !== "overview") {
       setTab("overview");
@@ -529,7 +525,6 @@ export default function ExperimentHeader({
   const showAddScheduleButton =
     canEditExperiment &&
     !!editSchedule &&
-    !experiment.archived &&
     (isHoldout
       ? !holdoutHasSchedule && experiment.status !== "stopped"
       : !isBandit &&
@@ -549,6 +544,9 @@ export default function ExperimentHeader({
         decisionCriteria={decisionCriteria}
       />
     ) : null;
+
+  const detailsToggleLabel = detailsOpen ? "Hide details" : "Show details";
+  const DetailsToggleIcon = detailsOpen ? PiSidebarSimpleFill : PiSidebarSimple;
 
   const scheduledEndPassedBanner =
     experiment.status === "running" && !isHoldout && !isBandit ? (
@@ -1397,9 +1395,7 @@ export default function ExperimentHeader({
                   </TabsList>
                 </Tabs>
                 {setDetailsOpen ? (
-                  <UITooltip
-                    content={detailsOpen ? "Hide details" : "Show details"}
-                  >
+                  <UITooltip content={detailsToggleLabel}>
                     <IconButton
                       size="1"
                       variant="ghost"
@@ -1413,21 +1409,14 @@ export default function ExperimentHeader({
                         width: "var(--space-5)",
                         height: "var(--space-5)",
                       }}
-                      aria-label={detailsOpen ? "Hide details" : "Show details"}
+                      aria-label={detailsToggleLabel}
                       onClick={() => setDetailsOpen(!detailsOpen)}
                     >
                       {/* Flipped so the small bar sits on the right, like the panel. */}
-                      {detailsOpen ? (
-                        <PiSidebarSimpleFill
-                          size={16}
-                          style={{ transform: "scaleX(-1)" }}
-                        />
-                      ) : (
-                        <PiSidebarSimple
-                          size={16}
-                          style={{ transform: "scaleX(-1)" }}
-                        />
-                      )}
+                      <DetailsToggleIcon
+                        size={16}
+                        style={{ transform: "scaleX(-1)" }}
+                      />
                     </IconButton>
                   </UITooltip>
                 ) : null}

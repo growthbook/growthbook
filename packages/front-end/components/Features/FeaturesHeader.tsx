@@ -12,6 +12,7 @@ import {
   filterEnvironmentsByFeature,
   isDefined,
   isManagedFeature,
+  managedByExperimentId,
 } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
@@ -224,19 +225,16 @@ export default function FeaturesHeader({
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
-  // Editing an existing flag takes draft authority, not the create gate:
-  // `canViewFeatureModal` answers "may this user create a feature".
   // Managed flags refuse direct writes, so offer no edit/publish/archive/delete.
   const isManagedFlag = isManagedFeature(feature);
-  const managedByExperimentId =
-    feature.managedBy?.type === "experiment"
-      ? feature.managedBy.experimentId
-      : null;
+  const managingExperimentId = managedByExperimentId(feature);
   const { data: managingExperiment } = useApi<{
     experiment: { name: string };
-  }>(`/experiment/${managedByExperimentId}`, {
-    shouldRun: () => !!managedByExperimentId,
+  }>(`/experiment/${managingExperimentId}`, {
+    shouldRun: () => !!managingExperimentId,
   });
+  // Editing an existing flag takes draft authority, not the create gate:
+  // `canViewFeatureModal` answers "may this user create a feature".
   const canEdit =
     !isManagedFlag && permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
@@ -254,15 +252,17 @@ export default function FeaturesHeader({
     baseFeature,
     filterEnvironmentsByFeature(allEnvironments, baseFeature),
   );
-  const canArchive =
-    !isManagedFlag &&
-    permissionsUtil.canDeleteFeature(baseFeature, liveArchiveEnvs);
+  const canArchive = permissionsUtil.canDeleteFeature(
+    baseFeature,
+    liveArchiveEnvs,
+  );
   const canDelete =
     !isManagedFlag &&
     permissionsUtil.canDeleteFeature(baseFeature, NO_ENVIRONMENT_BINDING);
-  const canUnarchive =
-    !isManagedFlag &&
-    permissionsUtil.canPublishFeature(baseFeature, liveArchiveEnvs);
+  const canUnarchive = permissionsUtil.canPublishFeature(
+    baseFeature,
+    liveArchiveEnvs,
+  );
   const canToggleArchive =
     !isManagedFlag &&
     ((isArchived ? canUnarchive : canArchive) ||
@@ -515,13 +515,11 @@ export default function FeaturesHeader({
             {portalHost && createPortal(revisionAndSettingsGroup, portalHost)}
           </Flex>
           <Flex gap="4" align="center">
-            {managedByExperimentId && (
-              // Why the edit/publish controls are missing, visible without
-              // scrolling to the overview callout.
+            {managingExperimentId && (
               <Box>
                 <Text weight="medium">Managed by: </Text>
-                <Link href={`/experiment/${managedByExperimentId}`}>
-                  {managingExperiment?.experiment.name ?? managedByExperimentId}
+                <Link href={`/experiment/${managingExperimentId}`}>
+                  {managingExperiment?.experiment.name ?? managingExperimentId}
                 </Link>
               </Box>
             )}

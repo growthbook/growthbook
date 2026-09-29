@@ -882,9 +882,7 @@ export async function postFeatures(
     ...rest
   } = req.body;
 
-  // Never client-settable: declaring managedBy on the Mongoose schema removed
-  // the implicit strip, so accepting it here would let anyone create a flag
-  // locked to a nonexistent experiment with no way back.
+  // Never client-settable, or a flag could be locked to a nonexistent experiment.
   const otherProps = omit(rest, ["managedBy"]);
 
   if (

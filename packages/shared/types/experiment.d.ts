@@ -381,9 +381,7 @@ export interface LinkedFeatureInfo {
   };
   /** Live rule's variation values — the "before" side of a pending edit. */
   liveValues?: ExperimentRefVariation[];
-  /** Live rule's sparse flag, alongside `liveValues`. */
   liveSparse?: boolean;
-  /** Live rule's `allEnvironments` flag. */
   liveAllEnvironments?: boolean;
   /** Where the live rule runs, keyed the same as `environmentStates`. */
   liveEnvironmentStates?: Record<string, LinkedFeatureEnvState>;

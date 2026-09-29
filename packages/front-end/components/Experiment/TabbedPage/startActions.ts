@@ -47,9 +47,9 @@ export type ServerChecklistItem =
   ApiErrorDetails<"checklist_incomplete">["remainingChecklistItems"][number];
 
 /**
- * The page's counts plus the soft items a refused start named, until the next
- * attempt, since the page may lack them (a custom checklist that didn't load).
- * Every hard item is a row the page builds itself, so its live rows govern.
+ * Adds the soft items a refused start named, which the page may lack (a custom
+ * checklist that didn't load). Hard items are rows the page builds itself, so
+ * its live rows govern.
  */
 export function withServerChecklist(
   checklist: StartChecklist,
@@ -77,7 +77,6 @@ export type StartActions = {
   disabled: boolean;
 };
 
-// Says what the bypass skips: approvals, the To Do items still open, or both.
 function bypassLabel({
   review,
   todo,

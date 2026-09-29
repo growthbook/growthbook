@@ -39,7 +39,7 @@ export default function FlagValuesModal({
   // Set when the control value is the default the others patch onto.
   controlId: string | null;
   configBackingOptionKeys?: string[];
-  focusVariationId: string | null;
+  focusVariationId: string;
   close: () => void;
   apply: (result: FlagValuesResult) => void;
 }) {
@@ -54,7 +54,6 @@ export default function FlagValuesModal({
 
   // The editor mounts lazily, so retry until its input exists.
   useEffect(() => {
-    if (!focusVariationId) return;
     let timer: ReturnType<typeof setTimeout>;
     let tries = 0;
     const tryFocus = () => {

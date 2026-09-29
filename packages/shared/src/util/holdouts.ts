@@ -132,40 +132,35 @@ export function getHoldoutLinkBlocker({
   >;
 }): HoldoutLinkBlocker | null {
   const experimentHoldoutId = experiment.holdoutId || null;
-  if (featureHoldoutId) {
-    if (experimentHoldoutId && experimentHoldoutId !== featureHoldoutId) {
-      return {
-        reason: "different-holdout",
-        featureHoldoutId,
-        experimentHoldoutId,
-      };
-    }
-    if (experimentHoldoutId) return null;
-    if (
-      featureHoldoutProjects &&
-      !isHoldoutAvailableForProject(
-        { projects: featureHoldoutProjects },
-        experiment.project,
-      )
-    ) {
-      return { reason: "holdout-unavailable", featureHoldoutId };
-    }
-    if (experiment.status !== "draft") {
-      return { reason: "not-draft", featureHoldoutId };
-    }
-    // Self-links never count: linkedFeatures is deliberately sticky, so a
-    // discarded draft on this same flag leaves one behind.
-    const hasOtherLinkedChanges =
-      (experiment.linkedFeatures?.some((id) => id !== featureId) ?? false) ||
-      !!experiment.hasURLRedirects ||
-      !!experiment.hasVisualChangesets;
-    if (hasOtherLinkedChanges) {
-      return { reason: "has-linked-changes", featureHoldoutId };
-    }
-    return null;
+  if (!featureHoldoutId) {
+    return experimentHoldoutId
+      ? { reason: "not-in-holdout", experimentHoldoutId }
+      : null;
   }
   if (experimentHoldoutId) {
-    return { reason: "not-in-holdout", experimentHoldoutId };
+    return experimentHoldoutId === featureHoldoutId
+      ? null
+      : { reason: "different-holdout", featureHoldoutId, experimentHoldoutId };
   }
-  return null;
+  if (
+    featureHoldoutProjects &&
+    !isHoldoutAvailableForProject(
+      { projects: featureHoldoutProjects },
+      experiment.project,
+    )
+  ) {
+    return { reason: "holdout-unavailable", featureHoldoutId };
+  }
+  if (experiment.status !== "draft") {
+    return { reason: "not-draft", featureHoldoutId };
+  }
+  // Self-links never count: linkedFeatures is deliberately sticky, so a
+  // discarded draft on this same flag leaves one behind.
+  const hasOtherLinkedChanges =
+    (experiment.linkedFeatures?.some((id) => id !== featureId) ?? false) ||
+    !!experiment.hasURLRedirects ||
+    !!experiment.hasVisualChangesets;
+  return hasOtherLinkedChanges
+    ? { reason: "has-linked-changes", featureHoldoutId }
+    : null;
 }

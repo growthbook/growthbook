@@ -24,8 +24,7 @@ export default function ForceSummary({
   feature: FeatureInterface;
   maxHeight?: number;
   sparse?: boolean;
-  // The word before the value. Surfaces that already name it (a "Serves:"
-  // metadata row) pass null so the label isn't said twice.
+  // null for surfaces that already label the value.
   label?: string | null;
   // Denser type for a cramped surface; defaults are ValueDisplay's own.
   fontSize?: string;

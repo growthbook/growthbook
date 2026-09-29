@@ -5,16 +5,13 @@ import { Flex } from "@radix-ui/themes";
 export default function CardHeader({
   children,
   background,
-  gap,
 }: {
   children: ReactNode;
   background?: string;
-  gap?: "1" | "2" | "3" | "4";
 }) {
   return (
     <Flex
       align="center"
-      gap={gap}
       px="4"
       style={{
         background,

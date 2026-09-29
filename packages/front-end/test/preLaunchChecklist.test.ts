@@ -377,20 +377,22 @@ describe("getChecklistItems", () => {
       stale: false,
     },
   ])("stale-values row for $name", ({ info, stale }) => {
-    const row = find(itemsFor(info), "staleVariationValues:f1");
-    expect(row ? getChecklistTier(row) : null).toBe(stale ? "blocking" : null);
+    const item = find(itemsFor(info), "staleVariationValues:f1");
+    expect(item ? getChecklistTier(item) : null).toBe(
+      stale ? "blocking" : null,
+    );
     if (stale) {
-      expect(row?.action).toEqual({ onClick: openReview });
-      expect(row?.featureId).toBe("f1");
+      expect(item?.action).toEqual({ onClick: openReview });
+      expect(item?.featureId).toBe("f1");
     }
   });
 
   it("sends a managed merge conflict to the review", () => {
-    const row = find(
+    const conflict = find(
       itemsFor(managed({ hasMergeConflict: true })),
       "mergeConflict:f1",
     );
-    expect(row?.action).toEqual({ onClick: openReview });
+    expect(conflict?.action).toEqual({ onClick: openReview });
   });
 
   it("makes an empty Visual Editor changeset optional", () => {

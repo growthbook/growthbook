@@ -78,9 +78,10 @@ export const deleteExperiment = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
   await assertCanChangeServing(req.context, experiment);
+  const restApiBypassesReviews = canUseRestApiBypassSetting(req);
   // Same rule as Feature Flags: archive first, unless the org lets the REST
   // API act on live objects outright.
-  if (!experiment.archived && !canUseRestApiBypassSetting(req)) {
+  if (!experiment.archived && !restApiBypassesReviews) {
     throw new PermissionError(
       "Cannot delete a live experiment via the REST API when 'REST API always bypasses approval requirements' is disabled. Archive the experiment first, or enable the bypass setting in organization settings.",
     );
@@ -92,7 +93,7 @@ export const deleteExperiment = createApiRequestHandler(
     linkedChanges: req.query.linkedChanges,
     eventAudit: req.eventAudit,
     audit: req.audit,
-    restApiBypassesReviews: canUseRestApiBypassSetting(req),
+    restApiBypassesReviews,
   });
   await req.audit({
     event: "experiment.delete",

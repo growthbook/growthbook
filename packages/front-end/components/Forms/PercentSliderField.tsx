@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Flex, Slider } from "@radix-ui/themes";
+import { Box, Slider } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import { decimalToPercent, percentToDecimal } from "@/services/utils";
 import Text from "@/ui/Text";
@@ -23,7 +23,7 @@ export interface Props {
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
-/** The typed half: a percentage in a field that carries its own "%". */
+/** A percentage in a field that carries its own "%". */
 export function PercentField({
   value,
   onChange,
@@ -32,8 +32,8 @@ export function PercentField({
   commitOn = "change",
   step = 1,
 }: Props) {
-  const percent = isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0);
-  // What is being typed, which only becomes the value once the field is left.
+  const percent = isNaN(value) ? "" : decimalToPercent(value);
+  // Only used with commitOn="blur".
   const [typed, setTyped] = useState<string | number>(percent);
   useEffect(() => setTyped(percent), [percent]);
 
@@ -65,11 +65,11 @@ export function PercentField({
   );
 }
 
-/** The dragged half, on the same 0-100 scale. */
+/** The same value as a 0-100 slider. */
 export function PercentSlider({ value, onChange, disabled, ariaLabel }: Props) {
   return (
     <Slider
-      value={[isNaN(value ?? 0) ? 0 : decimalToPercent(value ?? 0)]}
+      value={[isNaN(value) ? 0 : decimalToPercent(value)]}
       min={0}
       max={100}
       step={1}
@@ -77,32 +77,5 @@ export function PercentSlider({ value, onChange, disabled, ariaLabel }: Props) {
       aria-label={ariaLabel}
       onValueChange={(e) => onChange(clamp(e[0] / 100))}
     />
-  );
-}
-
-/** A percentage set either by dragging or by typing, the two kept in step. */
-export default function PercentSliderField({
-  value,
-  onChange,
-  disabled,
-  ariaLabel,
-}: Props) {
-  return (
-    <Flex align="center" gap="3">
-      <Box flexGrow="1">
-        <PercentSlider
-          value={value}
-          onChange={onChange}
-          disabled={disabled}
-          ariaLabel={ariaLabel}
-        />
-      </Box>
-      <PercentField
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        ariaLabel={ariaLabel}
-      />
-    </Flex>
   );
 }

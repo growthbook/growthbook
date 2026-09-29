@@ -3958,10 +3958,11 @@ export async function assertCanControlRampSchedule(
   schedule: RampScheduleInterface,
 ): Promise<void> {
   // A managed flag's rules belong to its experiment; no schedule may reach them.
-  const managed = await getManagedByExperimentForFeatureIds(context, [
+  const [managed] = await getManagedByExperimentForFeatureIds(context, [
     ...new Set((schedule.targets ?? []).map((t) => t.entityId)),
   ]);
-  for (const [featureId, experimentId] of managed) {
+  if (managed) {
+    const [featureId, experimentId] = managed;
     throw new ManagedFeatureError({ featureId, experimentId });
   }
   const scheduleEnvs =

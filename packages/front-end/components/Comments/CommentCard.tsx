@@ -39,10 +39,7 @@ export interface CommentCardProps {
    */
   leading?: React.ReactNode;
   avatarSize?: Size;
-  /**
-   * Tighter chrome for narrow surfaces (popovers, side panels): drops the
-   * email from the header so the name and verb fit on one line.
-   */
+  /** For narrow surfaces: tighter spacing, and the header drops the email. */
   compact?: boolean;
 }
 
@@ -75,7 +72,6 @@ export default function CommentCard({
         style={{
           overflow: "hidden",
           flexGrow: 1,
-          // Radix's own card padding is generous for a card this small.
           ...(compact ? { padding: "var(--space-2)" } : {}),
         }}
       >
@@ -90,16 +86,14 @@ export default function CommentCard({
           }}
         />
         <Box px="1">
-          {/* A header wraps to two lines in any narrow column, and a centred
-              action then drifts down the card — pin it to the first line. */}
+          {/* Start-aligned so the action stays on the first line when the
+              header wraps. */}
           <Flex
             justify="between"
             align="start"
             mb={body ? (compact ? "1" : "2") : "0"}
             gap="2"
           >
-            {/* Row gap only when there is room: `gap` applies to the wrapped
-                line too, which pads the header out in a narrow column. */}
             <Flex
               align="center"
               gapX="2"
@@ -116,8 +110,7 @@ export default function CommentCard({
               </Text>
               {metadataExtra}
             </Flex>
-            {/* Cancels the content inset, so the action sits in the card's
-                own corner rather than 4px inside it. */}
+            {/* Cancels the px="1" inset so the action sits in the corner. */}
             {actions ? <Box mr="-1">{actions}</Box> : null}
           </Flex>
           {body && <Box pt="1">{body}</Box>}

@@ -1,12 +1,10 @@
 import { ReactNode, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
 import { AISuggestionType } from "shared/ai";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Markdown from "@/components/Markdown/Markdown";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import { RichTextEditorHandle } from "@/ui/RichTextEditor";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import {
   experimentFieldChanges,
@@ -27,11 +25,6 @@ export interface Props {
   /** Show the editor rather than the rendered markdown. */
   editable: boolean;
   onSaved?: (next: string) => void;
-  /**
-   * With nothing saved yet, collapse to a "+ {addLabel}" button until the user
-   * asks for the field. Omit to always show the editor.
-   */
-  addLabel?: string;
   aiSuggestFunction?: (type: AISuggestionType) => Promise<string>;
   aiButtonText?: string;
   onAISuggestionReceived?: (result: string) => void;
@@ -50,8 +43,8 @@ export interface Props {
 }
 
 /**
- * A markdown field edited in place on the page — no modal. Saves on blur, and
- * renders read-only markdown once the experiment is past draft.
+ * A markdown field edited in place on the page and written by its Save bar, or
+ * read back as markdown where it isn't editable.
  */
 export default function InlineMarkdownField({
   label,
@@ -60,7 +53,6 @@ export default function InlineMarkdownField({
   placeholder,
   editable: editableHere,
   onSaved,
-  addLabel,
   aiSuggestFunction,
   aiButtonText,
   onAISuggestionReceived,
@@ -75,16 +67,7 @@ export default function InlineMarkdownField({
   const editable = editableHere || editingOnDemand;
   const [value, setValue] = useState(savedValue);
   const editor = useRef<RichTextEditorHandle>(null);
-  const [revealed, setRevealed] = useState(false);
 
-  // State and editor together: the editor holds its own document, so setting
-  // one without the other leaves the two disagreeing.
-  const replaceValue = (next: string) => {
-    setValue(next);
-    editor.current?.setMarkdown(next);
-  };
-
-  // Written by the page's Save bar.
   const dirty = editable && value.trim() !== savedValue.trim();
   useRegisterExperimentEdit(`inline:${field}`, dirty, {
     changes: () =>
@@ -94,31 +77,12 @@ export default function InlineMarkdownField({
       setEditingOnDemand(false);
     },
     discard: () => {
-      replaceValue(savedValue);
+      setValue(savedValue);
+      // The editor holds its own document, so the reset has to reach it too.
+      editor.current?.setMarkdown(savedValue);
       setEditingOnDemand(false);
     },
   });
-
-  if (editable && addLabel && !savedValue && !revealed) {
-    return stacked ? (
-      <Metadata
-        size="sm"
-        stacked
-        label={label}
-        action={labelAction}
-        value={<Link onClick={() => setRevealed(true)}>+Add</Link>}
-      />
-    ) : (
-      <Box py="1">
-        <Link onClick={() => setRevealed(true)}>
-          <Flex align="center" gap="1">
-            <PiPlus size="15" />
-            <Text weight="semibold">{addLabel}</Text>
-          </Flex>
-        </Link>
-      </Box>
-    );
-  }
 
   let body: ReactNode;
   if (!editable) {
@@ -156,7 +120,6 @@ export default function InlineMarkdownField({
         value={value}
         onChange={setValue}
         placeholder={placeholder}
-        autoFocus={revealed}
         height={stacked ? "sm" : "md"}
         aiSuggestFunction={aiSuggestFunction}
         aiButtonText={aiButtonText}

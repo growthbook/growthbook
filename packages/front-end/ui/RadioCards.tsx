@@ -19,7 +19,7 @@ export type RadioOptions = {
   disabled?: boolean;
   badge?: ReactElement | string;
   tooltip?: string;
-  // Looks chosen beside `value`, so several can: a mix of kinds, say.
+  // Drawn as selected alongside `value`, so several can look chosen.
   highlighted?: boolean;
 }[];
 

@@ -1,4 +1,4 @@
-import { CSSProperties, Fragment, ReactNode, useMemo, useState } from "react";
+import { CSSProperties, ReactNode, useMemo, useState } from "react";
 import {
   filterEnvironmentsByFeature,
   parsePlainJSONObject,
@@ -6,7 +6,6 @@ import {
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { LinkedFeatureInfo } from "shared/types/experiment";
-import { RevisionLog } from "shared/types/feature-revision";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { EnvEnabledIndicator } from "@/components/Features/FeatureDiffRenders";
 import {
@@ -37,9 +36,6 @@ import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import { ManagedFlagReview } from "./useManagedFlagReview";
 
-const logUserId = (l: RevisionLog) =>
-  l.user && "id" in l.user ? (l.user as { id: string }).id : null;
-
 /** Each environment the flag can run in, live and as the draft leaves it. */
 function useManagedEnvironments(info: LinkedFeatureInfo) {
   const allEnvironments = useEnvironments();
@@ -65,6 +61,7 @@ const DIFF_TINT = {
   before: { background: "var(--red-a2)", borderColor: "var(--red-a5)" },
   after: { background: "var(--green-a2)", borderColor: "var(--green-a5)" },
 } as const;
+type DiffTint = (typeof DIFF_TINT)[keyof typeof DIFF_TINT];
 
 /**
  * The room a tinted side takes. Labels and headers take it too (`flush` drops
@@ -75,7 +72,7 @@ function DiffInset({
   flush = false,
   children,
 }: {
-  tint?: (typeof DIFF_TINT)[keyof typeof DIFF_TINT];
+  tint?: DiffTint;
   flush?: boolean;
   children: ReactNode;
 }) {
@@ -95,7 +92,6 @@ function DiffInset({
   );
 }
 
-// A column's name, read as a label rather than as content.
 function ColumnLabel({ children }: { children: string }) {
   return (
     <Text size="md" weight="semibold" color="text-low">
@@ -180,7 +176,7 @@ export function ManagedValues({
     value: string | undefined,
     feature: typeof displayFeature,
     isSparse: boolean,
-    tint?: (typeof DIFF_TINT)[keyof typeof DIFF_TINT],
+    tint?: DiffTint,
   ) => (
     <Frame px="3" py="3" mb="0" minWidth="0" style={tint}>
       <Box mb="2">
@@ -416,11 +412,9 @@ export function ManagedFlagReviewers({
           const email = user?.email ?? "";
           // Stale verdicts still count; the icon mutes.
           const stale = r.status.endsWith("-stale");
-          const verdict = stale
-            ? (r.status.replace("-stale", "") as
-                | "approved"
-                | "changes-requested")
-            : (r.status as "approved" | "changes-requested");
+          const verdict = r.status.startsWith("approved")
+            ? "approved"
+            : "changes-requested";
           return (
             <PersonRow
               key={r.userId}
@@ -460,14 +454,15 @@ export function ManagedFlagReviewComments({
   return (
     <Flex direction="column" gap="3">
       {reviewComments.map((l, i) => {
-        const isOwn = !!logUserId(l) && logUserId(l) === userId;
+        const authorId = l.user?.id ?? null;
+        const isOwn = !!authorId && authorId === userId;
         // A row with neither action would open an empty menu.
         const canEditRow = isOwn && !!l.id && !!l.comment;
         const canRetractRow =
           isOwn && !!l.isActiveVerdict && state.canUndoReview;
         const uncoveredReason =
-          l.action === "Approved" && logUserId(l)
-            ? insufficientReasons.get(logUserId(l) as string)
+          l.action === "Approved" && authorId
+            ? insufficientReasons.get(authorId)
             : undefined;
         return (
           <ReviewCommentCard

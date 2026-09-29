@@ -73,8 +73,8 @@ body {
   padding: 15px;
 }
 :root {
-  // Otherwise things start to look odd when very wide. Read from TS too, by
-  // anything that has to size a frame around page content.
+  // Otherwise things look odd when very wide. Also read from TS by anything
+  // that frames page content.
   --page-content-max-width: 1340px;
 }
 .pagecontents {
@@ -512,8 +512,8 @@ pre {
   }
 }
 
-// The page's surface reaches the bottom of the window however short a tab is;
-// the top nav's room is padding inside it, so this adds no scroll.
+// The surface reaches the window's bottom however short a tab is. The top nav's
+// room is padding inside it, so this adds no scroll.
 .main.experiment,
 .main.bandit,
 .main.holdout {
@@ -535,7 +535,7 @@ pre {
   .experiment-tabs {
     // Sticky, so it has to match the page it scrolls over.
     background-color: var(--color-panel-solid);
-    // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
+    // NB: Keep top and height in sync with components/Layout/constants.ts
     // also, make sure shared reports & shared experiments look good
     top: 55px;
     height: 40px;
@@ -2611,9 +2611,6 @@ li.metrics a span img {
   object-position: 50% 50%;
 }
 .carousel {
-  // Bootstrap's controls, restyled to sit with the Radix surfaces around them:
-  // a translucent slate chip that darkens on hover, rather than a flat gray
-  // circle at fixed opacity.
   .carousel-control-next,
   .carousel-control-prev {
     background-color: transparent !important;
@@ -2626,8 +2623,7 @@ li.metrics a span img {
     justify-content: center;
     width: 32px;
     height: 32px;
-    // The control around it is a percentage of the slide, so in a narrow
-    // column it would otherwise squash the circle into an ellipse.
+    // Its control is a percentage of the slide; don't squash the circle.
     flex-shrink: 0;
     border-radius: 50%;
     background-image: none;
@@ -3420,9 +3416,6 @@ select.form-control {
   padding-bottom: 4px;
   font-size: var(--font-size-2);
 }
-// The default floor, for textareas with no size class. Sized textareas each
-// override it below — react-textarea-autosize writes its computed height
-// inline, but min-height beats height, so a stale floor here silently wins.
 textarea.form-control {
   min-height: 36px;
   font-size: var(--font-size-2);
@@ -3438,9 +3431,6 @@ textarea.form-control--sm {
   padding-top: 2px;
   padding-bottom: 2px;
   font-size: var(--font-size-1);
-}
-textarea.form-control--sm {
-  min-height: 28px;
 }
 input.form-control--md,
 select.form-control--md {
@@ -3472,23 +3462,10 @@ textarea.form-control--legacy {
   padding-bottom: 6px;
   font-size: var(--font-size-2);
 }
-// Same idea at md, but pinned rather than approximated, because an md textarea
-// sits inline beside 32px inputs. react-textarea-autosize sets height to
-// `line-height x rows + padding + border`, so one row lands on 32 exactly:
-// 20 + 5 + 5 + 2. Each further row adds a clean 20px.
-textarea.form-control--md {
-  min-height: 32px;
-  line-height: var(--line-height-2);
-  padding-top: 5px;
-  padding-bottom: 5px;
-}
 input.form-control--lg,
 select.form-control--lg {
   height: 40px;
   border-radius: var(--radius-3);
-}
-textarea.form-control--lg {
-  min-height: 40px;
 }
 input.form-control--lg,
 select.form-control--lg,
@@ -3510,6 +3487,7 @@ textarea.form-control--sm {
 }
 textarea.form-control--md {
   min-height: 32px;
+  line-height: var(--line-height-2);
   padding-top: 4px;
   padding-bottom: 4px;
 }

@@ -15,10 +15,7 @@ import LinkedFeatureLabel from "@/components/Experiment/LinkedFeatureLabel";
 import { scopeFromStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import { joinAnd } from "@/services/utils";
 
-/**
- * Picks where the experiment's rule applies; the page's Save stages it on the
- * flag's draft. The flag's project decides which environments it can run in.
- */
+/** Picks where the experiment's rule applies, from the environments its flag's project allows. */
 export default function EditExperimentEnvironmentsModal({
   info,
   stagedScope,

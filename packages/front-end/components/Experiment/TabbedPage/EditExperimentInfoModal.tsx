@@ -55,7 +55,7 @@ interface Props {
   focusSelector?: FocusSelector;
   section?: InfoSection;
   /** With the customFields section, just this one field. */
-  customFieldId?: string;
+  customFieldId?: string | null;
 }
 
 export default function EditExperimentInfoModal({

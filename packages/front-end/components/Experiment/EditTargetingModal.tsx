@@ -35,10 +35,7 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
-  /**
-   * Hands the confirmed targeting to the page's pending edits rather than
-   * writing it. The page's save bar owns the write from then on.
-   */
+  /** Stages the confirmed change instead of writing it. */
   stageChanges?: (value: ExperimentTargetingData) => void;
   /** Targeting already staged, which the form opens on. */
   draft?: ExperimentTargetingData | null;

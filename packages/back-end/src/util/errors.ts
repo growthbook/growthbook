@@ -137,13 +137,11 @@ export class PlanDoesNotAllowError extends Error {
   }
 }
 
-// 403 rather than a permission error: no grant makes this allowed — ejecting
-// the flag is what makes it possible.
 export type ManagedFeatureErrorSurface = "app" | "rest";
 
+// 403 rather than a permission error: no grant makes this allowed — ejecting
+// the flag is what makes it possible.
 export class ManagedFeatureError extends ApiError<"feature_managed_by_experiment"> {
-  readonly featureId: string;
-  readonly experimentId: string;
   constructor({
     featureId,
     experimentId,
@@ -161,8 +159,6 @@ export class ManagedFeatureError extends ApiError<"feature_managed_by_experiment
       { featureId, experimentId },
     );
     this.name = "ManagedFeatureError";
-    this.featureId = featureId;
-    this.experimentId = experimentId;
   }
 }
 

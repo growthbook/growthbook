@@ -15,7 +15,7 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
-  /** Stages the confirmed change instead of writing it, as targeting does. */
+  /** Stages the confirmed change instead of writing it. */
   stageChanges?: (value: ExperimentTargetingData) => void;
   /** Targeting already staged, which the form opens on. */
   draft?: ExperimentTargetingData | null;

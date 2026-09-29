@@ -66,21 +66,18 @@ export function ImplementationTypeIcon({
   type,
   title,
   description,
-  className,
   style,
 }: {
   type: ImplementationType;
   /** Override for surfaces that read from the other side, e.g. a flag's row. */
   title?: string;
   description?: string;
-  className?: string;
   style?: CSSProperties;
 }) {
   const option = IMPLEMENTATION_TYPE_OPTIONS[type];
   return (
     <Tooltip
       flipTheme={false}
-      className={className}
       style={style}
       body={
         <>
@@ -102,7 +99,7 @@ export function ImplementationTypeIcon({
   );
 }
 
-export function ImplementationTypeLabel({
+function ImplementationTypeLabel({
   type,
   compact,
 }: {
@@ -136,19 +133,13 @@ export function ImplementationTypeLabel({
 export default function ImplementationTypeSelect({
   value,
   setValue,
-  label = "Implementation",
-  disabled,
-  lockedReason,
 }: {
   value: ImplementationType | undefined;
   setValue: (value: ImplementationType) => void;
-  label?: string;
-  disabled?: boolean;
-  lockedReason?: string;
 }) {
-  const select = (
+  return (
     <SelectField
-      label={label}
+      label="Implementation"
       value={value ?? ""}
       onChange={(v) => setValue(v as ImplementationType)}
       // The current value stays visible even when it is not offered.
@@ -160,12 +151,8 @@ export default function ImplementationTypeSelect({
       ].map((type) => ({
         value: type,
         label: IMPLEMENTATION_TYPE_OPTIONS[type].header,
+        isDisabled: !SELECTABLE_IMPLEMENTATION_TYPES.includes(type),
       }))}
-      isOptionDisabled={(o) =>
-        !SELECTABLE_IMPLEMENTATION_TYPES.includes(
-          (o as { value: string }).value as ImplementationType,
-        )
-      }
       formatOptionLabel={(option, { context }) => (
         <ImplementationTypeLabel
           type={option.value as ImplementationType}
@@ -174,13 +161,7 @@ export default function ImplementationTypeSelect({
       )}
       isSearchable={false}
       sort={false}
-      disabled={disabled}
       placeholder="Choose how this experiment reaches users"
     />
-  );
-  return disabled && lockedReason ? (
-    <Tooltip body={lockedReason}>{select}</Tooltip>
-  ) : (
-    select
   );
 }

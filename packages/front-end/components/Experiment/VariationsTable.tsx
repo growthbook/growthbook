@@ -32,17 +32,11 @@ export const MAX_VARIATION_WIDTH = 336;
 const NO_IMAGE_SIZE = 42;
 const MAX_IMAGE_HEIGHT = 150;
 
-// Radix Themes breakpoints (px), mirroring `@radix-ui/themes` `--xs`/`--sm`.
-
 /** Narrower than this and a card has no room for a name beside its controls. */
 const MIN_VARIATION_WIDTH = 220;
 export const VARIATION_GRID_GAP_PX = 16;
 
-/**
- * Wraps on the space the grid actually has rather than on the viewport: with
- * the details panel docked the content column is far narrower than the window,
- * and breakpoints would still promise three columns.
- */
+/** Wraps on the grid's own width, not the viewport's, so a docked details panel narrows it. */
 export const VARIATION_GRID_COLUMNS = `repeat(auto-fit, minmax(min(100%, ${MIN_VARIATION_WIDTH}px), 1fr))`;
 
 /** How many columns `VARIATION_GRID_COLUMNS` lays `count` cards into at `width`. */
@@ -378,8 +372,7 @@ export function VariationBox({
                 <Box flexGrow="1" minWidth="0" mt="2">
                   {descriptionSnippet}
                 </Box>
-                {/* The upload wrapper is the flex item, not the box inside it,
-                    so it is the one that has to hold its width. */}
+                {/* The upload wrapper is the flex item, so it holds the width. */}
                 <Box flexShrink="0" width={NO_IMAGE_SIZE + "px"}>
                   {canEdit && !blockFileUploads ? (
                     <ScreenshotUpload
@@ -526,9 +519,7 @@ const VariationsTable: FC<Props> = ({
                 <Box
                   style={{
                     position: "absolute",
-                    // Off the card's corner, but inside the frame: the room
-                    // past the last card is narrower than this button, so the
-                    // grid's own gap would put it over the frame's edge.
+                    // Tighter than the grid gap, so it stays inside the frame.
                     left: "calc(100% + var(--space-2))",
                     top: "50%",
                     transform: "translateY(-50%)",

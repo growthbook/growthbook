@@ -38,6 +38,15 @@ function expect(ok, note) {
   if (!ok) throw new Verdict("FAIL", note);
 }
 
+function isJson(value) {
+  try {
+    JSON.parse(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function refused(promise) {
   try {
     await promise;
@@ -218,13 +227,10 @@ const CASES = {
       return;
     }
     const { drafts } = await flagState(exp.id, featureId);
-    let valid = true;
-    try {
-      JSON.parse(drafts[0].values[1]);
-    } catch {
-      valid = false;
-    }
-    expect(valid, `stored malformed JSON: ${drafts[0].values[1]}`);
+    expect(
+      isJson(drafts[0].values[1]),
+      `stored malformed JSON: ${drafts[0].values[1]}`,
+    );
   },
 
   async "malformed-json-managed"() {
@@ -239,13 +245,10 @@ const CASES = {
     );
     if (why) return;
     const [draft] = (await flagState(exp.id, featureId)).drafts;
-    let valid = true;
-    try {
-      JSON.parse(draft.values[1]);
-    } catch {
-      valid = false;
-    }
-    expect(valid, `stored malformed JSON: ${draft.values[1]}`);
+    expect(
+      isJson(draft.values[1]),
+      `stored malformed JSON: ${draft.values[1]}`,
+    );
   },
 
   async "config-backed-override"() {

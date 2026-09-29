@@ -36,8 +36,7 @@ export default forwardRef<
     style?: React.CSSProperties;
     icon?: ReactNode | null;
     action?: ReactNode;
-    // "center" centres icon, body and action against each other rather than
-    // pinning them to the first text line.
+    // "center" aligns icon, body and action on the middle, not the first line.
     contentAlign?: "start" | "center";
     role?: string;
   } & (DismissibleProps | UndismissibleProps) &
@@ -78,6 +77,8 @@ export default forwardRef<
     return <RadixStatusIcon status={status} size={size} />;
   })();
 
+  const slotClass =
+    contentAlign === "center" ? styles.centeredSlot : styles.firstLineSlot;
   const lineHeight =
     size === "sm" ? "var(--line-height-1)" : "var(--line-height-2)";
 
@@ -132,26 +133,10 @@ export default forwardRef<
         >
           {children}
         </Text>
-        {action ? (
-          <Box
-            className={
-              contentAlign === "center"
-                ? styles.centeredSlot
-                : styles.firstLineSlot
-            }
-          >
-            {action}
-          </Box>
-        ) : null}
+        {action ? <Box className={slotClass}>{action}</Box> : null}
       </Flex>
       {dismissible && id ? (
-        <Box
-          className={
-            contentAlign === "center"
-              ? styles.centeredSlot
-              : styles.firstLineSlot
-          }
-        >
+        <Box className={slotClass}>
           <Tooltip content="Dismiss">
             <IconButton
               variant="ghost"

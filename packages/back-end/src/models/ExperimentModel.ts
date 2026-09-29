@@ -1881,7 +1881,6 @@ async function unlinkFeatureFromExperimentDoc(
   experiment: ExperimentInterface,
   featureId: string,
 ) {
-  const experimentId = experiment.id;
   const newExperiment = {
     ...experiment,
     linkedFeatures: (experiment.linkedFeatures || []).filter(
@@ -1898,7 +1897,7 @@ async function unlinkFeatureFromExperimentDoc(
     implementationTypeAfterUnlink(newExperiment);
 
   await ExperimentModel.updateOne(
-    { id: experimentId, organization: context.org.id },
+    { id: experiment.id, organization: context.org.id },
     {
       $pull: {
         linkedFeatures: featureId,

@@ -64,6 +64,7 @@ import {
 } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { ManagedFlagRenameProvider } from "@/components/Experiment/ManagedFlagRename";
+import { draftApprovalSatisfied } from "@/components/Experiment/LinkedChanges/useManagedFlagReview";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
 import useExperimentReviewRoute from "./useExperimentReviewRoute";
@@ -189,9 +190,7 @@ function TabbedPageContents({
   const { apiCall } = useAuth();
 
   const [compareModal, setCompareModal] = useState(false);
-  // Per experiment, like the tab above: every experiment opens showing the
-  // details it is set up from, and closing the panel is remembered for that
-  // experiment alone. The width is a layout preference, so it stays global.
+  // Open state is remembered per experiment; width is a global preference.
   const [detailsOpen, setDetailsOpen] = useLocalStorage(
     `experiment-details-panel-open__${experiment.id}`,
     true,
@@ -245,7 +244,6 @@ function TabbedPageContents({
     set: setStagedHoldout,
   };
 
-  // Page-level, not buried in the implementation card.
   const { managedFeature } = useManagedExperimentFlags({
     experiment,
     linkedFeatures,
@@ -256,10 +254,8 @@ function TabbedPageContents({
     ? managedFeature
     : null;
   const managedDraft = managedFlagWithDraft?.pendingDraft;
-  // Not the revision status: approved can still be short of a team or an env.
   const managedApprovalBlocking =
-    !!managedDraft?.pendingApproval &&
-    !(managedDraft.approval?.satisfied ?? managedDraft.status === "approved");
+    !!managedDraft?.pendingApproval && !draftApprovalSatisfied(managedDraft);
   // Auto-publish refuses these outright, so they outrank the approval state.
   const managedDraftBlocked = managedDraft?.hasMergeConflict
     ? "conflict"
@@ -287,9 +283,9 @@ function TabbedPageContents({
   const showManagedBanner =
     !!managedFlagWithDraft && (!!managedDraftBlocked || managedInReview);
   const reviewBlocked = useEditsBlockedReason();
-  // Holdouts keep their start modal.
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
+  // Holdouts keep their start modal.
   const reviewable =
     !experiment.archived &&
     experiment.type !== "holdout" &&
@@ -824,9 +820,8 @@ function TabbedPageContents({
                 )}
               {showManagedBanner && !reviewing ? (
                 <Callout
-                  // Warning only while approval is holding the publish back.
                   status={
-                    managedDraftBlocked && managedDraftBlocked !== "stale"
+                    managedDraftBlocked === "conflict"
                       ? "error"
                       : managedDraftBlocked || managedApprovalBlocking
                         ? "warning"
@@ -854,8 +849,7 @@ function TabbedPageContents({
                     This experiment has unpublished variation values.{" "}
                     {managedNextStep}
                     {managedDraft?.pendingApproval &&
-                      (!managedDraftBlocked ||
-                        managedDraftBlocked === "stale") && (
+                      managedDraftBlocked !== "conflict" && (
                         <Badge
                           label={revisionStatusLabel(managedDraft.status)}
                           color={revisionStatusColor(managedDraft.status)}
@@ -917,9 +911,6 @@ function TabbedPageContents({
                   updateTabPath={persistTabPath}
                 />
               )}
-              {/* A little room under the tab bar, on top of the first field's
-                own row: enough to clear it without dropping far below the
-                details panel's tabs. */}
               <div
                 className={clsx(
                   "pt-2",

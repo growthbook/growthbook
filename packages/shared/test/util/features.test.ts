@@ -2185,6 +2185,7 @@ describe("validateFeatureValue", () => {
       validateFeatureValue({ valueType: "json" }, "   ", "Variation 2"),
     ).toThrow("Variation 2: A JSON value is required");
   });
+
   describe("boolean values", () => {
     it('returns "true" and "false" unchanged', () => {
       expect(validateFeatureValue(feature, "true", "testVal")).toEqual("true");

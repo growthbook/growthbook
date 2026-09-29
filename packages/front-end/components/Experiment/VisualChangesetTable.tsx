@@ -68,10 +68,8 @@ function normalizeVisualEditorUrl(url: string): string {
   return trimmed;
 }
 
-// Count of distinct change units in a VisualChange (each DOM mutation +
-// non-empty CSS + non-empty JS). Drives the variation-row summary.
-function visualChangeCount(change?: VisualChange): number {
-  if (!change) return 0;
+// Each DOM mutation, plus non-empty CSS and JS.
+function visualChangeCount(change: VisualChange): number {
   return (
     (change.css?.trim() ? 1 : 0) +
     (change.js?.trim() ? 1 : 0) +
@@ -314,41 +312,32 @@ type ChangeListRow = {
 type ChangeHandlers = {
   onDeleteDomMutation: (args: {
     shown: ShownVisualChangeset;
-    visualChangeIndex: number;
+    change: VisualChange;
     mutationIndex: number;
   }) => void;
   onClearGlobal: (args: {
     shown: ShownVisualChangeset;
-    visualChangeIndex: number;
+    change: VisualChange;
     kind: "css" | "js";
   }) => void;
 };
 
-// One row per DOM mutation, then the global CSS and JS. Keyed by the
-// mutation's identity rather than its index, so a row's open state stays put
-// when another is removed.
+// One row per DOM mutation, then the global CSS and JS.
 function changeRowsFor(
   shown: ShownVisualChangeset,
   variationId: string,
   canEdit: boolean,
   { onDeleteDomMutation, onClearGlobal }: ChangeHandlers,
 ): ChangeListRow[] {
-  const vc = shown.changeset;
-  const changeIdx = vc.visualChanges.findIndex(
+  const change = shown.changeset.visualChanges.find(
     (c) => c.variation === variationId,
   );
-  const change = vc.visualChanges[changeIdx];
   if (!change) return [];
   const rows: ChangeListRow[] = (change.domMutations || []).map((m, i) => ({
     key: `mut:${m.selector}|${m.attribute}|${m.action}|${i}`,
     humanized: humanizeMutation(m),
     onDelete: canEdit
-      ? () =>
-          onDeleteDomMutation({
-            shown,
-            visualChangeIndex: changeIdx,
-            mutationIndex: i,
-          })
+      ? () => onDeleteDomMutation({ shown, change, mutationIndex: i })
       : undefined,
   }));
   (["css", "js"] as const).forEach((kind) => {
@@ -358,12 +347,7 @@ function changeRowsFor(
       key: `global:${kind}`,
       humanized: humanizeGlobalBlock({ kind, value }),
       onDelete: canEdit
-        ? () =>
-            onClearGlobal({
-              shown,
-              visualChangeIndex: changeIdx,
-              kind,
-            })
+        ? () => onClearGlobal({ shown, change, kind })
         : undefined,
     });
   });
@@ -412,7 +396,6 @@ function AppliesTo({
   );
 }
 
-// A variation's changes in full, with its preview.
 function VariationChangesModal({
   vc,
   experiment,
@@ -425,12 +408,11 @@ function VariationChangesModal({
   experiment: ExperimentInterfaceStringDates;
   variation: ShownVariation;
   rows: ChangeListRow[];
-  // Absent when the changes can't be edited.
   onEdit: (() => void) | null;
   close: () => void;
 }) {
-  // Forces this variation through the experiment's key, by its saved index;
-  // one only staged has none yet.
+  // Previews force the variation by its saved index; a staged-only variation
+  // has none yet.
   const base = normalizeVisualEditorUrl(vc.editorUrl);
   const savedIndex = getLatestPhaseVariations(experiment).findIndex(
     (v) => v.id === variation.id,
@@ -524,16 +506,17 @@ function VisualChangesetCard({
   const vc = shown.changeset;
   const removed = shown.staged === "removed";
   const editable = canEdit && !removed;
+  const canChange = editable && !lockedReason;
   const [viewing, setViewing] = useState<string | null>(null);
   const rowsByVariation = useMemo(
     () =>
       new Map(
         variations.map((v) => [
           v.id,
-          changeRowsFor(shown, v.id, editable && !lockedReason, handlers),
+          changeRowsFor(shown, v.id, canChange, handlers),
         ]),
       ),
-    [variations, shown, editable, lockedReason, handlers],
+    [variations, shown, canChange, handlers],
   );
   const hasChanges = vc.visualChanges.some((c) => visualChangeCount(c) > 0);
   const viewed = variations.find((v) => v.id === viewing);
@@ -559,9 +542,7 @@ function VisualChangesetCard({
           variation={viewed}
           rows={rowsByVariation.get(viewed.id) ?? []}
           onEdit={
-            editable &&
-            !lockedReason &&
-            vc.visualChanges.some((c) => c.variation === viewed.id)
+            canChange && vc.visualChanges.some((c) => c.variation === viewed.id)
               ? () => {
                   setViewing(null);
                   onEditChanges(viewed.id);
@@ -748,12 +729,10 @@ export default function VisualEditorRows({
   // The row for the variation stays, empty: the editor expects one each.
   const handlers: ChangeHandlers = useMemo(
     () => ({
-      onDeleteDomMutation: ({ shown, visualChangeIndex, mutationIndex }) => {
-        const existing = shown.changeset.visualChanges[visualChangeIndex];
-        if (!existing) return;
+      onDeleteDomMutation: ({ shown, change, mutationIndex }) => {
         onStageChange(shown.stored, {
-          ...existing,
-          domMutations: existing.domMutations.filter(
+          ...change,
+          domMutations: change.domMutations.filter(
             (_, i) => i !== mutationIndex,
           ),
         });
@@ -762,10 +741,8 @@ export default function VisualEditorRows({
           kind: "mutation",
         });
       },
-      onClearGlobal: ({ shown, visualChangeIndex, kind }) => {
-        const existing = shown.changeset.visualChanges[visualChangeIndex];
-        if (!existing) return;
-        onStageChange(shown.stored, { ...existing, [kind]: "" });
+      onClearGlobal: ({ shown, change, kind }) => {
+        onStageChange(shown.stored, { ...change, [kind]: "" });
         track("Delete visual change", {
           source: "visual-editor-ui",
           kind: kind === "css" ? "globalCss" : "globalJs",
@@ -779,9 +756,7 @@ export default function VisualEditorRows({
     <ImplementationSection
       cols={Math.min(variations.length, 3)}
       heading={
-        <ImplementationHeading inList>
-          Visual Editor Changes
-        </ImplementationHeading>
+        <ImplementationHeading>Visual Editor Changes</ImplementationHeading>
       }
       add={
         onAdd ? (

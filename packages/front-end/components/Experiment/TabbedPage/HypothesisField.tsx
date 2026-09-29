@@ -27,8 +27,8 @@ export default function HypothesisField({
   const gb = useGrowthBook<AppFeatures>();
   const aiSuggestion = useRef<string | null>(null);
 
-  // The same suggestion the edit modal asked for. MarkdownInput owns the
-  // opt-in, premium and try-again states around it.
+  // Throws on failure: the field shows the error, and owns the opt-in and
+  // premium gates.
   const suggestHypothesis = async (type: AISuggestionType) => {
     const temperature =
       gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;

@@ -434,8 +434,8 @@ export function nonContributingApproverIds({
   org: { members?: { id: string; teams?: string[] }[] };
   teams: { id: string; name: string }[];
 }): string[] {
+  if (requiredTeamsSatisfied || !enforcedTeamIds.length) return [];
   const ruleTeams = enforcedTeamIds.map((ids) => new Set(ids));
-  if (requiredTeamsSatisfied || !ruleTeams.length) return [];
   return approvedIds.filter((id) => {
     const mine = teamsForMember(id, org, teams).map((t) => t.id);
     return !ruleTeams.some((ids) => mine.some((teamId) => ids.has(teamId)));

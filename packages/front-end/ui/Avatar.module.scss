@@ -6,9 +6,8 @@
   }
 }
 
-// Radix stops at size 1 (24px). xs is that step shrunk, with the fallback's
-// own type scaled with it: Radix sizes the fallback, not the root, so leaving
-// it alone spills the initials out of the circle.
+// Radix stops at 24px. It sizes the fallback's type, not the root's, so scale
+// that too or the initials spill out of the circle.
 .xs {
   width: 16px;
   height: 16px;

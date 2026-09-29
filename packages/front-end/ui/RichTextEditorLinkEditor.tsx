@@ -39,9 +39,9 @@ const URL_LIKE = /^(https?:\/\/\S+|(www\.)?[\w-]+(\.[\w-]+)+([/?#]\S*)?)$/i;
  * Treats a link-shaped selection as the destination, so selecting an address
  * and reaching for the link button fills the URL in rather than asking twice.
  */
-export function urlFromText(text: string): string {
+function urlFromText(text: string): string {
   const trimmed = text.trim();
-  if (!trimmed || /\s/.test(trimmed) || !URL_LIKE.test(trimmed)) return "";
+  if (!URL_LIKE.test(trimmed)) return "";
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
@@ -67,9 +67,9 @@ export function useLinkTarget() {
         rect,
         mode: "edit",
         selection: selection.clone(),
-        node: $isLinkNode(link) ? link : null,
-        url: $isLinkNode(link) ? link.getURL() : urlFromText(selected),
-        title: $isLinkNode(link) ? link.getTextContent() : selected,
+        node: link,
+        url: link ? link.getURL() : urlFromText(selected),
+        title: link ? link.getTextContent() : selected,
       };
     });
     return target;
@@ -83,7 +83,7 @@ export function useLinkTarget() {
     editor.read(() => {
       const node = $getNearestNodeFromDOMNode(element);
       const link = node && $findMatchingParent(node, $isLinkNode);
-      if (!$isLinkNode(link)) return;
+      if (!link) return;
       target = {
         rect: element.getBoundingClientRect(),
         mode,
@@ -117,9 +117,8 @@ export default function RichTextEditorLinkEditor({
   const [url, setUrl] = useState(target.url);
   const editing = target.mode === "edit";
 
-  // Apply through a ref so dismissing always commits the latest values,
-  // whatever re-rendered in between.
-  const commit = useRef(() => undefined as void);
+  // A ref, so dismissing always commits the latest values.
+  const commit = useRef<() => void>(() => undefined);
   commit.current = () => {
     const nextUrl = url.trim();
     if (!nextUrl || (nextUrl === target.url && title.trim() === target.title)) {
@@ -139,8 +138,8 @@ export default function RichTextEditorLinkEditor({
       if (target.selection) $setSelection(target.selection.clone());
       const selection = $getSelection();
       if (!$isRangeSelection(selection)) return;
-      // Type the title in, then link what was typed. Building a link node and
-      // inserting it duplicated its text, whichever insert was used.
+      // Insert the title as text, then link it: inserting a built link node
+      // duplicated its text.
       selection.insertText(nextTitle);
       const caret = selection.anchor;
       selection.anchor.set(
@@ -150,6 +149,16 @@ export default function RichTextEditorLinkEditor({
       );
       $toggleLink(nextUrl);
     });
+  };
+
+  // Enter and the popover's own dismissal both close the card, and applying
+  // twice would insert the link twice.
+  const finished = useRef(false);
+  const close = (commitFirst: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    if (commitFirst) commit.current();
+    onClose();
   };
 
   const remove = () => {
@@ -162,16 +171,6 @@ export default function RichTextEditorLinkEditor({
     });
     onClose();
     editor.focus();
-  };
-
-  // Enter and the popover's own dismissal both close the card, and applying
-  // twice would insert the link twice.
-  const finished = useRef(false);
-  const close = (commitFirst: boolean) => {
-    if (finished.current) return;
-    finished.current = true;
-    if (commitFirst) commit.current();
-    onClose();
   };
 
   const onFieldKeyDown = (e: React.KeyboardEvent) => {
@@ -236,7 +235,6 @@ export default function RichTextEditorLinkEditor({
             {target.node ? (
               <>
                 <Separator size="4" />
-                {/* A quiet secondary action, not a peer of the fields above. */}
                 <Flex justify="start">
                   <Button
                     size="sm"

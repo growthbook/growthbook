@@ -317,7 +317,7 @@ export function validateJSONFeatureValue(
 // Unwraps the `{ "value": X }` envelope `castFeatureValue` writes.
 function unwrapCastEnvelope(value: string): string {
   try {
-    const parsed = JSON.parse(value);
+    const parsed: unknown = JSON.parse(value);
     if (typeof parsed === "string") return parsed;
     if (
       parsed === null ||
@@ -328,14 +328,13 @@ function unwrapCastEnvelope(value: string): string {
     ) {
       return value;
     }
-    const inner = (parsed as { value: unknown }).value;
+    const inner = parsed.value;
     return typeof inner === "string" ? inner : JSON.stringify(inner);
   } catch (e) {
     return value;
   }
 }
 
-/** The value shape `validateFeatureValue` accepts for a number. */
 const NUMBER_VALUE_PATTERN = /^-?[0-9]+(\.[0-9]+)?$/;
 
 // The text as a JSON document when it already reads as an object or array.
@@ -351,7 +350,7 @@ function asJsonDocument(plain: string): string | null {
   }
 }
 
-/** A JSON literal for `value`, quoting whatever would not parse on its own. */
+// A JSON literal for `plain`, quoting whatever would not parse on its own.
 function asJsonLiteral(plain: string, from: FeatureValueType): string {
   if (from === "string") return JSON.stringify(plain);
   try {
@@ -362,7 +361,8 @@ function asJsonLiteral(plain: string, from: FeatureValueType): string {
   }
 }
 
-// Re-expresses a value under another type; `index` only when nothing survives (booleans: control off, rest on).
+// Re-expresses a value under another type. `index` decides the result only when
+// nothing of the value survives (booleans: control off, the rest on).
 export function castFeatureValue({
   value,
   from,
@@ -387,21 +387,16 @@ export function castFeatureValue({
     }
     case "number": {
       const trimmed = plain.trim();
-      const n = Number(trimmed);
-      const candidate = String(n);
-      return trimmed !== "" &&
-        Number.isFinite(n) &&
-        NUMBER_VALUE_PATTERN.test(candidate)
+      const candidate = String(Number(trimmed));
+      return trimmed !== "" && NUMBER_VALUE_PATTERN.test(candidate)
         ? candidate
         : String(index);
     }
-    case "json": {
-      // Text that already reads as an object or array is the value.
+    case "json":
       return (
         asJsonDocument(plain) ??
         `{\n  "value": ${asJsonLiteral(plain, from)}\n}`
       );
-    }
     case "string":
       return plain;
   }
@@ -428,7 +423,7 @@ export function validateFeatureValue(
       throw new Error(prefix + 'Must be "true" or "false"');
     }
   } else if (type === "number") {
-    if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
+    if (!value.match(NUMBER_VALUE_PATTERN)) {
       throw new Error(prefix + "Must be a valid number");
     }
     const { valid, errors } = validateJSONFeatureValue(

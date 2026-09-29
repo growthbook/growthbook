@@ -16,7 +16,7 @@ describe("stripUnknownRuleFields", () => {
       hashVersion: 2,
       disableStickyBucketing: false,
       coverage: 1,
-    } as never) as Record<string, unknown>;
+    });
     expect(out.hashVersion).toBeUndefined();
     expect(out.disableStickyBucketing).toBeUndefined();
     expect(out.coverage).toBeUndefined();
@@ -37,13 +37,13 @@ describe("stripUnknownRuleFields", () => {
       coverage: 0.5,
       hashAttribute: "id",
       hashVersion: 2,
-    } as never) as Record<string, unknown>;
+    });
     expect(out.coverage).toBe(0.5);
     expect(out.hashVersion).toBe(2);
   });
 
   it("leaves an unrecognised type alone", () => {
-    const rule = { type: "nope", weird: 1 } as never;
+    const rule = { type: "nope", weird: 1 };
     expect(stripUnknownRuleFields(rule)).toBe(rule);
   });
 });

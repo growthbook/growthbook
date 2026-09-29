@@ -66,8 +66,6 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
 
-  // Managed-flag ownership lives on the Feature Flag, not the row, so it is
-  // fetched just-in-time for the page being rendered.
   const { fetchSome, getManagedFlag } = useManagedExperimentFlagStates();
   const visibleIdsKey = useMemo(
     () =>

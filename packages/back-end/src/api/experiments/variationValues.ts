@@ -14,7 +14,6 @@ import {
   putExperimentVariationValuesValidator,
 } from "shared/validators";
 import { ANY_REVIEW_FOOTPRINT } from "shared/util";
-import { EventUser } from "shared/types/events/event-types";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FeatureValueType } from "shared/types/feature";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
@@ -186,11 +185,10 @@ export const putExperimentVariationValues = createApiRequestHandler(
 async function requirePendingDraft(
   context: ApiReqContext,
   feature: FeatureInterface,
+  message = "There are no pending variation values.",
 ): Promise<FeatureRevisionInterface> {
   const draft = await getActiveDraft(context, feature);
-  if (!draft) {
-    throw new BadRequestError("There are no pending variation values.");
-  }
+  if (!draft) throw new BadRequestError(message);
   return draft;
 }
 
@@ -210,41 +208,6 @@ async function reloadRevision(
   );
 }
 
-async function submitManagedReview({
-  context,
-  experimentId,
-  review,
-  comment,
-  eventAudit,
-}: {
-  context: ApiReqContext;
-  experimentId: string;
-  review: ReviewSubmittedType;
-  comment: string;
-  eventAudit: EventUser;
-}) {
-  const experiment = await requireExperiment(context, experimentId);
-  const feature = await requireManagedFlag(context, experiment);
-
-  const draft = await getActiveDraft(context, feature);
-  if (!draft) {
-    throw new BadRequestError(
-      "There are no pending variation values to review.",
-    );
-  }
-
-  await submitFeatureRevisionReview({
-    context,
-    feature,
-    version: draft.version,
-    review,
-    comment,
-    eventAudit,
-  });
-
-  return respond(context, experiment);
-}
-
 const REVIEW_BY_ACTION: Record<
   "approve" | "request-changes" | "comment",
   ReviewSubmittedType
@@ -256,14 +219,24 @@ const REVIEW_BY_ACTION: Record<
 
 export const postExperimentVariationValuesSubmitReview =
   createApiRequestHandler(postExperimentVariationValuesSubmitReviewValidator)(
-    async (req) =>
-      submitManagedReview({
+    async (req) => {
+      const experiment = await requireExperiment(req.context, req.params.id);
+      const feature = await requireManagedFlag(req.context, experiment);
+      const draft = await requirePendingDraft(
+        req.context,
+        feature,
+        "There are no pending variation values to review.",
+      );
+      await submitFeatureRevisionReview({
         context: req.context,
-        experimentId: req.params.id,
+        feature,
+        version: draft.version,
         review: REVIEW_BY_ACTION[req.body.action],
         comment: req.body.comment ?? "",
         eventAudit: req.eventAudit,
-      }),
+      });
+      return respond(req.context, experiment);
+    },
   );
 
 export const postExperimentVariationValuesPublish = createApiRequestHandler(

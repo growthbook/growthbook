@@ -42,7 +42,7 @@ type RequestRevisionItem = z.infer<typeof publishRevisionsItem>;
 // The union arms are strict and disjoint, so plain `in` checks narrow them.
 const itemField = (
   item: RequestRevisionItem,
-  field: "id" | "key" | "version" | "revisionId" | "experimentId",
+  field: "id" | "key" | "version" | "revisionId",
 ): string | number | undefined =>
   field in item
     ? (item as unknown as Record<typeof field, string | number>)[field]
@@ -65,10 +65,7 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   const callerIdByInternal = new Map<string, string>();
   // Managed flags publish as ordinary feature revisions but are addressed, and
   // answered, as their experiment.
-  const managedByInternal = new Map<
-    string,
-    { experimentId: string; featureId: string; version: number }
-  >();
+  const managedExperimentIdByInternal = new Map<string, string>();
   for (const item of req.body.revisions as RequestRevisionItem[]) {
     if (item.entityType === "managed-feature") {
       const experiment = await getExperimentById(
@@ -105,11 +102,7 @@ export const postReleasePublishRevisions = createApiRequestHandler(
       }
       const version = item.version ?? draft.version;
       callerIdByInternal.set(`feature:${feature.id}`, experiment.id);
-      managedByInternal.set(`feature:${feature.id}`, {
-        experimentId: experiment.id,
-        featureId: feature.id,
-        version,
-      });
+      managedExperimentIdByInternal.set(`feature:${feature.id}`, experiment.id);
       refs.push({
         entityType: "feature",
         entityId: feature.id,
@@ -151,16 +144,17 @@ export const postReleasePublishRevisions = createApiRequestHandler(
             req.organization.id,
             revisionId,
           ));
-        // A tuple id names the flag's id when it was minted; a renamed flag
-        // answers to it through its previous ids.
-        if (coords && !(await featureIdExists(req.context, coords.featureId))) {
-          coords.featureId =
-            (await getFeatureIdByPreviousId(req.context, coords.featureId)) ??
-            coords.featureId;
-        }
         if (coords) {
-          callerId = coords.featureId;
-          entityId = coords.featureId;
+          // A tuple id names the flag's id when it was minted; a renamed flag
+          // answers to it through its previous ids.
+          let featureId = coords.featureId;
+          if (!(await featureIdExists(req.context, featureId))) {
+            featureId =
+              (await getFeatureIdByPreviousId(req.context, featureId)) ??
+              featureId;
+          }
+          callerId = featureId;
+          entityId = featureId;
           version = coords.version;
         }
       } else {
@@ -213,20 +207,20 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     entityType: BulkPublishItemRef["entityType"],
     entityId: string,
   ): BulkPublishItemRef["entityType"] | "managed-feature" =>
-    managedByInternal.has(`${entityType}:${entityId}`)
+    managedExperimentIdByInternal.has(`${entityType}:${entityId}`)
       ? "managed-feature"
       : entityType;
   // A managed flag's own routes refuse writes, so its gates must point at the
   // experiment's routes instead. Actions without a counterpart there get none.
   const managedResolution = (
-    managed: { experimentId: string },
+    experimentId: string,
     resolution: BulkPublishGate["resolution"],
   ): BulkPublishGate["resolution"] => {
     if (!resolution) return null;
     if (!["rebase", "request-review"].includes(resolution.action)) return null;
     return {
       ...resolution,
-      path: `/experiments/${managed.experimentId}/variation-values/${resolution.action}`,
+      path: `/experiments/${experimentId}/variation-values/${resolution.action}`,
     };
   };
 
@@ -248,13 +242,15 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   // Spread the gate so a PublishGate field change flows through untouched;
   // only the internal entityId is swapped for the caller's identifier.
   const serializeGate = ({ entityId, ...gate }: BulkPublishGate) => {
-    const managed = managedByInternal.get(`${gate.entityType}:${entityId}`);
+    const managedExperimentId = managedExperimentIdByInternal.get(
+      `${gate.entityType}:${entityId}`,
+    );
     return {
       ...gate,
       entityType: callerTypeFor(gate.entityType, entityId),
       id: callerIdFor(gate.entityType, entityId),
-      resolution: managed
-        ? managedResolution(managed, gate.resolution)
+      resolution: managedExperimentId
+        ? managedResolution(managedExperimentId, gate.resolution)
         : gate.resolution,
     };
   };

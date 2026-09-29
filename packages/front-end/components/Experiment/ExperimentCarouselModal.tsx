@@ -11,8 +11,8 @@ import VariationLabel from "@/ui/VariationLabel";
 import VisuallyHidden from "@/ui/VisuallyHidden";
 import styles from "./ExperimentCarouselModal.module.scss";
 
-// Wide enough for the Close button, and reserved on both sides so the
-// thumbnail strip sits in the middle of the footer.
+// Wide enough for the Close button; reserved on both sides so the thumbnail
+// strip centres on the footer.
 const CLOSE_SLOT = "72px";
 
 const ExperimentCarouselModal: FC<{
@@ -172,8 +172,8 @@ const ExperimentCarouselModal: FC<{
   if (!variant || !screenshot) return null;
 
   return (
-    // Radix-based so it can open from inside another Radix dialog; the legacy
-    // modal portals underneath one and the image would render behind it.
+    // Radix, so it can open above another Radix dialog; the legacy modal
+    // renders behind one.
     <Modal.Root
       open={true}
       onOpenChange={(open) => {
@@ -271,8 +271,6 @@ const ExperimentCarouselModal: FC<{
         </Flex>
       </Flex>
       <Modal.Footer justify="between" align="center">
-        {/* Mirrors the Close slot, so the strip centres on the footer rather
-            than on whatever space is left beside the button. */}
         <Box width={CLOSE_SLOT} flexShrink="0" />
         <Flex
           gap="4"
@@ -306,9 +304,6 @@ const ExperimentCarouselModal: FC<{
                       style={{
                         borderRadius: "4px",
                         overflow: "hidden",
-                        // Not the variation colour: the ring already says which
-                        // thumbnail is selected, and a tinted mat behind a
-                        // screenshot reads as part of the image.
                         background: "var(--slate-a3)",
                       }}
                     >

@@ -19,7 +19,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   // production change. An empty map means "no current envs to union", which keeps
   // these cases measuring exactly the patch footprint they were written for.
   getFeatureRuleEnvironmentsByIds: jest.fn(async () => new Map()),
-  // No managed flags among these targets; the lockdown is exercised elsewhere.
+  // No managed flags among these targets.
   getManagedByExperimentForFeatureIds: jest.fn(async () => new Map()),
 }));
 // The gate itself lives here now (shared with the REST handlers), so keep the

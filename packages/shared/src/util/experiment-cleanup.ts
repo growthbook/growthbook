@@ -1,8 +1,9 @@
+import { z } from "zod";
 import type { LinkedFeatureInfo } from "shared/types/experiment";
+import type { linkedChangesResolution } from "../validators/experiments";
 
 /** What to do with a linked Feature Flag that would otherwise be left serving nothing. */
-export type LinkedChangesResolution = "materialize" | "remove";
-export const linkedChangesResolutions = ["materialize", "remove"] as const;
+export type LinkedChangesResolution = z.infer<typeof linkedChangesResolution>;
 
 export type ExperimentLinkageBlocker = "temporary-rollout" | "running";
 

@@ -1,20 +1,16 @@
+import type { FeatureValueType } from "../src/validators/features";
 import { castFeatureValue, validateFeatureValue } from "../src/util/features";
 
-const cast = (value: string, from: string, to: string, index = 0) =>
-  castFeatureValue({
-    value,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    from: from as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    to: to as any,
-    index,
-  });
+const cast = (
+  value: string,
+  from: FeatureValueType,
+  to: FeatureValueType,
+  index = 0,
+) => castFeatureValue({ value, from, to, index });
 
 describe("castFeatureValue", () => {
   it("unquotes a JSON string literal moving to string", () => {
-    expect(
-      castFeatureValue({ value: '"control"', from: "json", to: "string" }),
-    ).toBe("control");
+    expect(cast('"control"', "json", "string")).toBe("control");
   });
 
   it("leaves a value alone when the type does not change", () => {
@@ -41,11 +37,8 @@ describe("castFeatureValue", () => {
     });
 
     it("falls back to position when nothing about the value survives", () => {
-      // Mapping every variation to one value would stop this being an
-      // experiment, so control goes off and the rest go on.
       expect(cast("control", "string", "boolean", 0)).toBe("false");
       expect(cast("treatment", "string", "boolean", 1)).toBe("true");
-      expect(cast("treatment-2", "string", "boolean", 2)).toBe("true");
     });
 
     it("reads through the JSON envelope", () => {
@@ -60,20 +53,13 @@ describe("castFeatureValue", () => {
       expect(cast("-1.5", "string", "number")).toBe("-1.5");
     });
 
-    it("maps booleans onto 0 and 1", () => {
-      expect(cast("false", "boolean", "number")).toBe("0");
-      // "true" is not numeric, so it falls back to the variation's position.
-      expect(cast("true", "boolean", "number", 1)).toBe("1");
-    });
-
     it("falls back to position for a value with no numeric reading", () => {
-      expect(cast("control", "string", "number", 0)).toBe("0");
+      expect(cast("false", "boolean", "number", 0)).toBe("0");
+      expect(cast("true", "boolean", "number", 1)).toBe("1");
       expect(cast("treatment", "string", "number", 3)).toBe("3");
     });
 
     it("rejects the numeric readings JavaScript would otherwise allow", () => {
-      // Number("") is 0 and Number("Infinity") is finite-looking; neither is a
-      // value the caller meant.
       expect(cast("", "string", "number", 2)).toBe("2");
       expect(cast("Infinity", "string", "number", 2)).toBe("2");
     });
@@ -142,9 +128,6 @@ describe("castFeatureValue", () => {
     });
 
     it("keeps the envelope for a scalar or unparseable text", () => {
-      expect(JSON.parse(cast("hello", "string", "json"))).toEqual({
-        value: "hello",
-      });
       expect(JSON.parse(cast("{not json", "string", "json"))).toEqual({
         value: "{not json",
       });

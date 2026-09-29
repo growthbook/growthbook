@@ -1498,8 +1498,7 @@ export function formatSectionTitle(title: string): string {
 // (FeatureRevisionDiff) and the generic (DiffItem-derived) flows produce this,
 // so FormattedChanges is entity-agnostic and shared across both surfaces.
 export type FormattedChangeItem = {
-  // Empty when the surface already names the section — the card renders its
-  // content without a heading rather than repeating the page.
+  // Empty when the surface already names the section: no heading is drawn.
   title: string;
   a: string;
   b: string;

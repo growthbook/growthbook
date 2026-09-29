@@ -415,6 +415,7 @@ export function useFeatureRevisionDiff({
     // footprint is empty (`environments: []`, pending) or universal
     // (`allEnvironments: true`) — all of which were invisible in the old
     // per-env projection layout.
+
     // Fields the rule type never declared would diff as changes nobody made.
     const draftRulesArr = (Array.isArray(draft.rules) ? draft.rules : []).map(
       stripUnknownRuleFields,

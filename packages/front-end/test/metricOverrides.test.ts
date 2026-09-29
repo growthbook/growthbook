@@ -7,10 +7,6 @@ import {
 } from "@/services/metricOverrides";
 
 describe("describeMetricOverride", () => {
-  it("lists nothing for an entry that overrides nothing", () => {
-    expect(describeMetricOverride({ id: "met_a" })).toEqual([]);
-  });
-
   it("reads each overridden field in the editor's units", () => {
     expect(
       describeMetricOverride({

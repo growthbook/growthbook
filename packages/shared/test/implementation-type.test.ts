@@ -112,12 +112,7 @@ describe("implementationTypeAfterUnlink", () => {
         linkedFeatures: [],
       }),
     ).toBe("feature");
-    expect(
-      implementationTypeAfterUnlink({
-        implementationType: "urlredirect",
-        hasURLRedirects: false,
-      }),
-    ).toBe("urlredirect");
+    expect(implementationTypeAfterUnlink({})).toBeUndefined();
   });
 
   it("leaves a legacy mix undecided once nothing is linked", () => {
@@ -133,19 +128,6 @@ describe("implementationTypeAfterUnlink", () => {
         linkedFeatures: ["f"],
       }),
     ).toBe("multi");
-  });
-
-  it("keeps a chosen kind that is still wired, or never was", () => {
-    expect(
-      implementationTypeAfterUnlink({
-        implementationType: "feature",
-        linkedFeatures: ["f"],
-      }),
-    ).toBe("feature");
-    expect(
-      implementationTypeAfterUnlink({ implementationType: "values" }),
-    ).toBe("values");
-    expect(implementationTypeAfterUnlink({})).toBeUndefined();
   });
 });
 

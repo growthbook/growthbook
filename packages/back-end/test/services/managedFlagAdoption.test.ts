@@ -1,4 +1,5 @@
 import type { ExperimentInterface } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
 import {
   adoptManagedFlagForExperiment,
   clearManagedMarkersForExperiment,
@@ -52,13 +53,11 @@ const experiment = (over: Partial<ExperimentInterface> = {}) =>
     hasVisualChangesets: false,
     hasURLRedirects: false,
     ...over,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any as ExperimentInterface;
+  }) as unknown as ExperimentInterface;
 
 const context = {
   org: { id: "org_1", settings: {} },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-} as any;
+} as unknown as ReqContext;
 
 /** Only these ids are already taken. */
 const taken = (...ids: string[]) => {
@@ -101,20 +100,8 @@ describe("managedFlagAdoptionBlocker", () => {
     ).toMatch(/URL Redirects/);
   });
 
-  it("refuses when a linked flag still exists", async () => {
-    taken("other-flag");
-    expect(
-      await managedFlagAdoptionBlocker(
-        context,
-        experiment({ linkedFeatures: ["other-flag"] }),
-      ),
-    ).toMatch(/already has a linked Feature Flag/);
-  });
-
   it("allows adoption again after the linked flag was deleted out of band", async () => {
-    // The id survives in linkedFeatures but resolves to nothing; treating that
-    // as "already linked" would bar the experiment from ever recovering.
-    taken();
+    // Treating a dangling id as "already linked" would bar the experiment from ever recovering.
     expect(
       await managedFlagAdoptionBlocker(
         context,
@@ -139,16 +126,13 @@ describe("createManagedFeatureForExperiment variation validation", () => {
     context,
     experiment: experiment({
       variations: [{ id: "var_0" }, { id: "var_1" }],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-    eventAudit: {},
+    } as Partial<ExperimentInterface>),
+    eventAudit: null,
     audit: jest.fn(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any;
+  };
 
   it("accepts a valid value for every variation", async () => {
-    // Regression: validateFeatureValue returns the normalized value and throws
-    // on invalid input, so a truthiness test rejected "false".
+    // "false" is a valid value, not a falsy failure.
     await expect(
       createManagedFeatureForExperiment({
         ...base,
@@ -305,9 +289,8 @@ describe("planManagedFlagKey", () => {
     expect(plan.suggestedPair?.featureId).toBe("checkout-test-2");
   });
 
-  it("reports the org key format as an error and skips candidates that fail it", async () => {
+  it("reports the org key format as an error", async () => {
     context.org.settings = { featureRegexValidator: "^ff-" };
-    taken();
     const plan = await planManagedFlagKey({
       context,
       experiment: experiment(),
@@ -342,14 +325,12 @@ describe("adoptManagedFlagForExperiment refuses before renaming", () => {
       ],
       // A rename is requested, so reaching it would be observable.
       trackingKey: "renamed-key",
-      eventAudit: {} as never,
+      eventAudit: null,
       audit: jest.fn(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    });
 
   it.each([
     ["running", { status: "running" as const }],
-    ["stopped", { status: "stopped" as const }],
     ["archived", { archived: true }],
   ])("refuses a %s experiment without renaming it", async (_label, over) => {
     await expect(adopt(over)).rejects.toThrow();

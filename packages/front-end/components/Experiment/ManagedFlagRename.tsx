@@ -102,7 +102,7 @@ export function ManagedFlagRenameProvider({
       storedId: feature.id,
       featureId: staged ?? feature.id,
       staged: !!staged,
-      // From the Values menu, which the Live view keeps too.
+      // The Values menu shows in the read-only Live view too.
       edit: renamable
         ? () => {
             setLive(false);
@@ -170,7 +170,6 @@ function RenameManagedFlagModal({
           if (cancelled) return;
           setCheck(result);
           setCheckedKey(trimmed);
-          setCheckError(null);
         })
         .catch((e) => {
           if (!cancelled) setCheckError(e.message || "Could not check the key");
@@ -235,8 +234,8 @@ function RenameManagedFlagModal({
         />
         {derivedIdBlocker ? (
           <Callout status="info" size="sm">
-            This Feature Flag can&apos;t use <strong>{check?.derivedId}</strong>
-            , the key the experiment key derives. {derivedIdBlocker.message}
+            This Feature Flag can&apos;t use <strong>{derivedId}</strong>, the
+            key the experiment key derives. {derivedIdBlocker.message}
           </Callout>
         ) : null}
         {offerDerived ? (

@@ -181,8 +181,7 @@ const ExperimentsPage = (): React.ReactElement => {
   );
 
   return (
-    // Provided here rather than app-wide: only these lists need the managed
-    // lookup, and the cache should not outlive the page.
+    // Page-scoped, so the managed-flag cache doesn't outlive the page.
     <ManagedExperimentFlagsProvider>
       <div className="contents experiments container-fluid pagecontents">
         <div className="my-3">

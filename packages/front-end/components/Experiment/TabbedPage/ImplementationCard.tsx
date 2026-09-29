@@ -69,7 +69,6 @@ export function ImplementationCardHeader({
   // Beside the title: a status or a warning.
   meta?: ReactNode;
   actions?: ReactNode;
-  // The card's own menu items.
   menu?: ReactNode;
   menuLabel: string;
 }) {

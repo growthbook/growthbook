@@ -1,5 +1,4 @@
 import { Fragment, ReactNode, useState } from "react";
-import { format } from "date-fns-tz";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   PiArrowLeft,
@@ -58,6 +57,7 @@ import {
   TABS_HEADER_HEIGHT_PX,
 } from "@/components/Layout/constants";
 import useManagedFlagReview, {
+  draftApprovalSatisfied,
   ManagedFlagReview,
 } from "@/components/Experiment/LinkedChanges/useManagedFlagReview";
 import {
@@ -67,6 +67,7 @@ import {
 } from "@/components/Experiment/LinkedChanges/ManagedFlagReviewParts";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
+import { scheduledTime } from "./RunningScheduleLink";
 import {
   LinkedChangesSummary,
   StartChecklistFailures,
@@ -101,9 +102,6 @@ const CARD_TOP_PX = TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX + 16;
 
 // getAffectedEnvsForExperiment's answer for "every environment".
 const ALL_ENVIRONMENTS = "__ALL__";
-
-const scheduledTime = (value: string | Date) =>
-  format(new Date(value), "MMM d, yyyy 'at' h:mm a (z)");
 
 type StartGate = ReturnType<typeof useStartGate>;
 type SummaryRow = Pick<StartSummaryRow, "key" | "label" | "value">;
@@ -187,8 +185,7 @@ function Section({
   );
 }
 
-// A size up from the row labels under it, and spaced wider above than the
-// rows are apart, so a group reads as their heading.
+// Sized and spaced to read as the heading of the rows under it.
 function GroupTitle({ children }: { children: string }) {
   return (
     <Text as="div" size="lg" weight="semibold" color="text-high" mt="5" mb="1">
@@ -303,7 +300,7 @@ function ReviewPage({
       ),
     });
   }
-  if (values && review) {
+  if (values) {
     sections.push({
       key: "values",
       node: (
@@ -340,17 +337,17 @@ function ReviewPage({
       ),
     });
   }
-  if (values && review) {
+  if (values) {
     sections.push({
       key: "comments",
       node: (
         <Section icon={<PiChatCircle />} title="Comments">
           <Flex direction="column" gap="4">
-            <ManagedFlagReviewComments review={review} />
+            <ManagedFlagReviewComments review={values.review} />
             <AddReviewComment
               experimentId={experiment.id}
               info={values.info}
-              review={review}
+              review={values.review}
             />
           </Flex>
         </Section>
@@ -622,8 +619,7 @@ function getCardActions({
   const showStart =
     canStart && (!gate.awaitingApproval || gate.actions.waivesApproval);
   const valuesAwaitApproval =
-    !!review?.requireReviews &&
-    !(review.approval?.satisfied ?? review.status === "approved");
+    !!review?.requireReviews && !draftApprovalSatisfied(review);
   const requestReview =
     review?.submit?.action === "request-review" ? review.submit : null;
   const publish = review?.submit?.action === "publish" ? review.submit : null;
@@ -790,7 +786,6 @@ function ReviewCard({
               onSuccess={() => review.refresh()}
               trigger={
                 <Button
-                  // Outline once starting or publishing is the next step.
                   variant={primary && !primary.disabled ? "outline" : "solid"}
                   style={{ width: "100%" }}
                   icon={<PiCaretDownBold />}
@@ -864,7 +859,7 @@ function ReviewCard({
               }
             />
           ) : null}
-          {canDiscard && review ? (
+          {canDiscard ? (
             <Text size="sm" color="text-mid">
               <Link onClick={() => setDiscardConfirm(true)}>
                 Discard the draft

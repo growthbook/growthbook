@@ -1,5 +1,4 @@
-// Lexical ships no styles. Everything the editor renders is themed here, so it
-// reads as one of the Radix surfaces around it rather than a bolted-on editor.
+// Lexical ships no styles; everything the editor renders is themed here.
 
 .wrapper {
   position: relative;
@@ -73,7 +72,6 @@
   font-family: var(--default-font-family);
   tab-size: 2;
 
-  // The caret needs somewhere to sit before the first keystroke.
   > :first-child {
     margin-top: 0;
   }

@@ -7,10 +7,6 @@ import {
   resolveManagedFlagParams,
 } from "back-end/src/services/managedFeatures";
 
-/**
- * Managed-flag actions addressed by experiment. The review routes hand off to
- * the ordinary feature controllers so the lifecycle can't drift.
- */
 const router = express.Router({ mergeParams: true });
 const experimentsController = wrapController(rawExperimentsController);
 const featuresController = wrapController(rawFeaturesController);
@@ -34,6 +30,7 @@ router.post("/", experimentsController.postExperimentManagedFlag);
 router.post("/eject", experimentsController.postExperimentManagedFlagEject);
 router.post("/remove", experimentsController.postExperimentManagedFlagRemove);
 
+// Review routes reuse the feature controllers so the lifecycle can't drift.
 router.post(
   "/request-review",
   stripPublishArming,
@@ -55,8 +52,6 @@ router.post(
   resolveManagedFlagParams,
   featuresController.postFeatureRecallReview,
 );
-// The Feature Flag page refuses every write on a managed flag, so a diverged or
-// unwanted draft can only be rebased or discarded from here.
 router.post(
   "/rebase",
   resolveManagedFlagParams,
@@ -67,11 +62,9 @@ router.post(
   resolveManagedFlagParams,
   featuresController.postFeatureDiscard,
 );
-// Not postFeaturePublish: it wants a mergeResultSerialized this surface has no
-// diff view to compute, so this merges server-side instead.
+// Merges server-side; postFeaturePublish needs a client-computed mergeResultSerialized.
 router.post("/publish", experimentsController.postExperimentManagedFlagPublish);
-// Comments are conversation, not flag content, so they stay editable. Their own
-// revision is addressed explicitly so an edit survives publishing.
+// Comments stay editable; addressing their own revision lets an edit survive publishing.
 router.put(
   "/log/:logId",
   resolveManagedFlagCommentParams,

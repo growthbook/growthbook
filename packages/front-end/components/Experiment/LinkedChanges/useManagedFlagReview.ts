@@ -37,6 +37,14 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 
 export type ManagedFlagReview = ReturnType<typeof useManagedFlagReview>;
 
+/** The publish gate's answer when there is one; "approved" can still be short of a team or an environment. */
+export function draftApprovalSatisfied(draft: {
+  approval?: { satisfied: boolean } | null;
+  status: string;
+}): boolean {
+  return draft.approval?.satisfied ?? draft.status === "approved";
+}
+
 /** The review state and actions of an experiment's Values flag draft. */
 export default function useManagedFlagReview({
   experiment,
@@ -83,11 +91,11 @@ export default function useManagedFlagReview({
     void mutateRevisions();
     void mutateLog();
   }, [draftStamp, mutateRevisions, mutateLog]);
-  // Retracted verdicts stay in the thread with a badge.
   const sortedLog = useMemo(
     () => sortRevisionLog(logData?.log ?? []),
     [logData],
   );
+  // Retracted verdicts stay in the thread with a badge.
   const retractions = useMemo(
     () => scanVerdictRetractions(sortedLog, userId),
     [sortedLog, userId],
@@ -110,6 +118,10 @@ export default function useManagedFlagReview({
   const approvalGateUnmet = requireReviews && !!approval && !approval.satisfied;
   const reviews = revision?.reviews ?? [];
   const isReviewer = reviews.some((r) => r.userId === userId);
+  const isDraftOwner = revision?.createdBy?.id === userId;
+  const isContributor = (revision?.contributors ?? []).includes(userId ?? "");
+  const mergeSuccess = !info.pendingDraft?.hasMergeConflict;
+  const hasChanges = info.pendingDraft?.hasChanges ?? true;
 
   // Starting the experiment is the publish, so a draft runs review only.
   const publishIsLaunch = experiment.status === "draft";
@@ -133,7 +145,7 @@ export default function useManagedFlagReview({
 
   const [rebasing, setRebasing] = useState(false);
   const updateFromLive = async () => {
-    if (!revision || !mergeResult?.success) return;
+    if (!mergeResult?.success) return;
     setRebasing(true);
     setError(null);
     try {
@@ -157,7 +169,7 @@ export default function useManagedFlagReview({
         revisionStatus: revision.status,
         baseVersion: revision.baseVersion,
         liveVersion: info.feature.version,
-        mergeSuccess: !info.pendingDraft?.hasMergeConflict,
+        mergeSuccess,
         liveChanges: [],
         approvedBaseVersion: revision.approvedBaseVersion ?? null,
         requireRebaseBeforePublish: requireFreshBaseForPublish({
@@ -171,23 +183,29 @@ export default function useManagedFlagReview({
     ? getReviewSetting(settings.requireReviews, info.feature)
     : undefined;
   const isBlockedContributor =
-    !!reviewSetting?.blockSelfApproval &&
-    (revision?.contributors ?? []).some((id) => id === userId);
+    !!reviewSetting?.blockSelfApproval && isContributor;
 
   // `getReviewAndPublishState` carries no authority; gate here too.
   const canPublish = permissionsUtil.canPublishFeature(
     info.feature,
     getEnabledEnvironments(info.feature, allEnvironments),
   );
+  const canManage = permissionsUtil.canEditFeatureDrafts(info.feature);
+  // The exact footprint needs live and base revisions this hook doesn't load;
+  // the server recomputes it.
+  const hasReviewPermission = permissionsUtil.canReviewFeatureDrafts(
+    info.feature,
+    ANY_REVIEW_FOOTPRINT,
+  );
   // An explicit per-publish opt-in, not a standing privilege, and only for
   // someone the publish would then let through.
   const adminBypassAvailable =
     !publishIsLaunch &&
     requireReviews &&
-    (!(approval?.satisfied ?? status === "approved") ||
+    (!draftApprovalSatisfied({ approval, status }) ||
       !!governance?.rebaseRequired) &&
-    !info.pendingDraft?.hasMergeConflict &&
-    (info.pendingDraft?.hasChanges ?? true) &&
+    mergeSuccess &&
+    hasChanges &&
     canPublish &&
     permissionsUtil.canBypassFlagApprovalChecks(info.feature, "feature");
 
@@ -204,16 +222,13 @@ export default function useManagedFlagReview({
   const stateInput = {
     requireReviews,
     status,
-    mergeSuccess: !info.pendingDraft?.hasMergeConflict,
-    hasChanges: info.pendingDraft?.hasChanges ?? true,
-    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
-      info.feature,
-      ANY_REVIEW_FOOTPRINT,
-    ),
-    canManageDraft: permissionsUtil.canEditFeatureDrafts(info.feature),
-    isReviewRequester: revision?.createdBy?.id === userId,
-    isContributor: (revision?.contributors ?? []).includes(userId ?? ""),
-    isDraftOwner: revision?.createdBy?.id === userId,
+    mergeSuccess,
+    hasChanges,
+    hasReviewPermission,
+    canManageDraft: canManage,
+    isReviewRequester: isDraftOwner,
+    isContributor,
+    isDraftOwner,
     isReviewer,
     // The experiment's own start runs the pre-launch checklist.
     hasSelectedExperiments: false,
@@ -236,20 +251,15 @@ export default function useManagedFlagReview({
     ? getReviewAndPublishState({ ...stateInput, adminPublish: true })
     : baseState;
 
-  // The exact footprint needs live and base revisions this hook doesn't load; the server recomputes it.
   const canReview =
     requireReviews &&
-    permissionsUtil.canReviewFeatureDrafts(
-      info.feature,
-      ANY_REVIEW_FOOTPRINT,
-    ) &&
+    hasReviewPermission &&
     isInReviewCycle(status) &&
     !!revision &&
-    revision.createdBy?.id !== userId;
+    !isDraftOwner;
 
-  const canManage = permissionsUtil.canEditFeatureDrafts(info.feature);
-
-  // Only publish is launch-gated; request-review must stay reachable after a recall or change request.
+  // Only publish is launch-gated; request-review must stay reachable after a
+  // recall or change request.
   const submitAction =
     state.submitAction === "publish" &&
     (publishIsLaunch || (approvalGateUnmet && !adminOverride))

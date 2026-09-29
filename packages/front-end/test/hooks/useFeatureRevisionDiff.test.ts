@@ -230,15 +230,11 @@ describe("useFeatureRevisionDiff", () => {
     );
     expect(toggleDiffs).toHaveLength(1);
     expect(toggleDiffs[0].title).toBe("Environment");
-    // The section carries every toggle it covers, so the raw view reads as a
-    // map even when only one environment moved.
     expect(JSON.parse(toggleDiffs[0].a)).toEqual({ production: false });
     expect(JSON.parse(toggleDiffs[0].b)).toEqual({ production: true });
   });
 
   it("ignores rule fields the rule type does not declare", () => {
-    // A rule that picked up widget-only fields from the old rule form: they
-    // are not in the experiment-ref schema, so they are not a change.
     const rule = {
       type: "experiment-ref",
       id: "r1",
@@ -289,7 +285,6 @@ describe("useFeatureRevisionDiff", () => {
     );
     expect(toggleDiffs).toHaveLength(1);
     expect(toggleDiffs[0].title).toBe("Environments");
-    // dev didn't move, so it stays out of the section entirely.
     expect(JSON.parse(toggleDiffs[0].a)).toEqual({
       production: false,
       staging: true,

@@ -1912,8 +1912,7 @@ export function renderPrerequisites(
   return renderPrerequisiteList(current, draft);
 }
 
-// Text "On"/"Off" indicator for an environment toggle.
-// `tone` "muted" is the before half of a diff: same glyph, faded.
+// On/off icon for an environment toggle. "muted" is the before half of a diff.
 export function EnvEnabledIndicator({
   enabled,
   tone = "state",
@@ -1940,10 +1939,8 @@ export function EnvEnabledIndicator({
   );
 }
 
-// A wrapping grid, so twenty environments don't bury the diff.
 export function renderEnvironmentToggles(
   toggles: { envId: string; from: boolean; to: boolean }[],
-  { endStateOnly = false }: { endStateOnly?: boolean } = {},
 ): ReactNode {
   if (!toggles.length) return null;
   return (
@@ -1963,12 +1960,8 @@ export function renderEnvironmentToggles(
             </Text>
           </Box>
           <Flex align="center" gap="2">
-            {!endStateOnly && from !== to && (
-              <>
-                <EnvEnabledIndicator enabled={from} tone="muted" />
-                <span className="font-weight-bold text-success">→</span>
-              </>
-            )}
+            <EnvEnabledIndicator enabled={from} tone="muted" />
+            <span className="font-weight-bold text-success">→</span>
             <EnvEnabledIndicator enabled={to} />
           </Flex>
         </Box>

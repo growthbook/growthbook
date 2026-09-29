@@ -275,7 +275,6 @@ featureSchema.index(
 );
 featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
-// Partial: managed flags only.
 featureSchema.index(
   { organization: 1, "managedBy.experimentId": 1 },
   { partialFilterExpression: { "managedBy.type": "experiment" } },
@@ -880,20 +879,26 @@ export async function claimFeatureRename(
   return { from: feature.id, to, claimedAt: stamp };
 }
 
+function renamingFilter(
+  context: ReqContext | ApiReqContext,
+  { from, to }: { from: string; to: string },
+) {
+  return {
+    organization: context.org.id,
+    id: to,
+    "renaming.from": from,
+    "renaming.to": to,
+  };
+}
+
 /** Records that the new id's leftovers are gone, so a resume won't clear again. */
 export async function markFeatureRenameCleaned(
   context: ReqContext | ApiReqContext,
-  { from, to }: { from: string; to: string },
+  rename: { from: string; to: string },
 ): Promise<void> {
-  await FeatureModel.collection.updateOne(
-    {
-      organization: context.org.id,
-      id: to,
-      "renaming.from": from,
-      "renaming.to": to,
-    },
-    { $set: { "renaming.cleaned": true } },
-  );
+  await FeatureModel.collection.updateOne(renamingFilter(context, rename), {
+    $set: { "renaming.cleaned": true },
+  });
 }
 
 /**
@@ -902,18 +907,13 @@ export async function markFeatureRenameCleaned(
  */
 export async function finishFeatureRename(
   context: ReqContext | ApiReqContext,
-  { from, to }: { from: string; to: string },
+  rename: { from: string; to: string },
 ): Promise<void> {
-  await FeatureModel.collection.updateOne(
-    {
-      organization: context.org.id,
-      id: to,
-      "renaming.from": from,
-      "renaming.to": to,
-    },
-    { $unset: { renaming: "" }, $pull: { previousIds: to } },
-  );
-  await releasePreviousId(context.org.id, to);
+  await FeatureModel.collection.updateOne(renamingFilter(context, rename), {
+    $unset: { renaming: "" },
+    $pull: { previousIds: rename.to },
+  });
+  await releasePreviousId(context.org.id, rename.to);
 }
 
 export async function migrateDraft(

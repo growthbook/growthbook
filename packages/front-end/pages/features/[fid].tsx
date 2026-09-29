@@ -148,7 +148,7 @@ export default function FeaturePage() {
   const isManagedFlag = !!baseFeature && isManagedFeature(baseFeature);
   useEffect(() => {
     if (isManagedFlag && tab === "review") setTab("overview");
-  }, [isManagedFlag, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isManagedFlag, tab, setTab]);
 
   const dependents =
     (dependentsData?.features.length ?? 0) +

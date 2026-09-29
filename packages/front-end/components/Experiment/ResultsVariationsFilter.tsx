@@ -33,8 +33,8 @@ export default function ResultsVariationsFilter({
 }) {
   const [filterVariations, setFilterVariations] =
     useState<FilterVariations>("all");
-  // Portal target that keeps the Select dropdown inside the popover, so
-  // picking an option doesn't count as an outside click and dismiss it.
+  // Portals the Select into the popover, so picking an option isn't an
+  // outside click that dismisses it.
   const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(

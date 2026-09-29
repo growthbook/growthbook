@@ -68,7 +68,6 @@ interface PublicExperimentPageProps {
   ssrData: ExperimentReportSSRData | null;
 }
 
-
 export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   const { userId, organization: userOrganization, superAdmin} = useUser();
   const {

@@ -1,6 +1,7 @@
 import { getValidDate } from "shared/dates";
 import {
   canChangeImplementationType,
+  experimentHasLinkedChanges,
   includeExperimentInPayload,
 } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
@@ -153,6 +154,51 @@ const DEEP_COMPARED_KEYS = new Set<keyof ExperimentInterface>([
   "precomputedUnitDimensionIds",
 ]);
 
+// Judged against the flag actually managed, not the stored label. Returns the
+// type to release the managed flag for; the release waits until every check passes.
+async function planImplementationTypeChange(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  data: Pick<ExperimentUpdateInput, "implementationType" | "trackingKey">,
+): Promise<ExperimentInterface["implementationType"]> {
+  const next = data.implementationType;
+  if (next === undefined) return undefined;
+  const managed = await getManagedFeatureForExperiment(context, experiment);
+  const current = managed ? "values" : experiment.implementationType;
+  if (next === current) return undefined;
+
+  const afterRelease =
+    managed && next !== "feature"
+      ? {
+          ...experiment,
+          linkedFeatures: (experiment.linkedFeatures ?? []).filter(
+            (id) => id !== managed.id,
+          ),
+        }
+      : experiment;
+  if (!canChangeImplementationType(afterRelease, next)) {
+    throw new BadRequestError(
+      "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
+    );
+  }
+  if (managed) return next;
+
+  // The flag is created once the update lands, and only on a draft; otherwise
+  // the Values label would stand alone.
+  if (next === "values") {
+    if (experiment.status !== "draft" || experiment.archived) {
+      throw new BadRequestError(
+        "Only a draft experiment can switch to Values. Set the experiment's status back to Draft first.",
+      );
+    }
+    assertManagedFlagKeyFormat(context, {
+      trackingKey: data.trackingKey ?? experiment.trackingKey,
+      id: experiment.id,
+    });
+  }
+  return undefined;
+}
+
 // Every gate an experiment update must pass, with no writes; `applyExperimentUpdatePlan` performs them.
 export async function planExperimentUpdate(
   context: ReqContext,
@@ -175,42 +221,11 @@ export async function planExperimentUpdate(
   if (data.implementationType === "multi") {
     throw new BadRequestError("implementationType cannot be set to multi");
   }
-  // Against the flag actually managed, not the stored label; the release waits until every check passes.
-  let releaseManagedFlagFor: ExperimentInterface["implementationType"];
-  if (data.implementationType !== undefined) {
-    const managed = await getManagedFeatureForExperiment(context, experiment);
-    const current = managed ? "values" : experiment.implementationType;
-    if (data.implementationType !== current) {
-      const afterRelease =
-        managed && data.implementationType !== "feature"
-          ? {
-              ...experiment,
-              linkedFeatures: (experiment.linkedFeatures ?? []).filter(
-                (id) => id !== managed.id,
-              ),
-            }
-          : experiment;
-      if (!canChangeImplementationType(afterRelease, data.implementationType)) {
-        throw new BadRequestError(
-          "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
-        );
-      }
-      if (managed) releaseManagedFlagFor = data.implementationType;
-      // Switching to Values creates the flag once the update lands.
-      if (data.implementationType === "values" && !managed) {
-        // Its flag is created on a draft only; otherwise the label would stand alone.
-        if (experiment.status !== "draft" || experiment.archived) {
-          throw new BadRequestError(
-            "Only a draft experiment can switch to Values. Set the experiment's status back to Draft first.",
-          );
-        }
-        assertManagedFlagKeyFormat(context, {
-          trackingKey: data.trackingKey ?? experiment.trackingKey,
-          id: experiment.id,
-        });
-      }
-    }
-  }
+  const releaseManagedFlagFor = await planImplementationTypeChange(
+    context,
+    experiment,
+    data,
+  );
 
   const attributeScope = lazyAttributeScope(() =>
     getExperimentAttributeScopeProjects(context, {
@@ -429,10 +444,6 @@ export async function planExperimentUpdate(
 
   // TODO(holdouts): allow changing holdout if the experiment is not linked to a feature
   // in the live! feature revision
-  const experimentHasLinkedChanges =
-    experiment.hasURLRedirects ||
-    experiment.hasVisualChangesets ||
-    (experiment.linkedFeatures && experiment.linkedFeatures.length > 0);
   const holdout: ExperimentUpdatePlan["holdout"] = { remove: null, add: null };
   // Changing or clearing ("") the holdout drops the current one.
   if (
@@ -440,7 +451,10 @@ export async function planExperimentUpdate(
     data.holdoutId !== experiment.holdoutId &&
     experiment.holdoutId
   ) {
-    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
+    if (
+      experiment.status !== "draft" ||
+      experimentHasLinkedChanges(experiment)
+    ) {
       throw new BadRequestError(
         data.holdoutId
           ? "Cannot change holdout after experiment has been run or linked changes have been added"

@@ -138,7 +138,7 @@ export default function DecisionPlan({
           "The rules that turn results into a recommendation to ship, roll back or review.",
           "criteria",
           <Text color="text-high">
-            {/* Anyone can read the rules; editing them is the pencil's. */}
+            {/* Editors open the rules from the pencil; anyone else from the name. */}
             {editable ? (
               decisionCriteria.name
             ) : (

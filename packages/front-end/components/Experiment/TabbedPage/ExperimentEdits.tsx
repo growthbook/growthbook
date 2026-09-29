@@ -287,11 +287,6 @@ export function useRegisterExperimentEdit(
   }, [ctx, id]);
 }
 
-/**
- * Why another editing surface cannot open yet, or null when it can. Controls
- * that would open one disable themselves and say so, rather than opening a
- * second draft over the page's own.
- */
 /** Why a control waits on the page's staged edits, or null when none are. */
 export function useEditsBlockedReason(): string | null {
   const ctx = useContext(ExperimentEditsContext);

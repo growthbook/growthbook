@@ -17,15 +17,12 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import styles from "./ExperimentSplitVisual.module.scss";
 
-/** How tall the connector is, where its horizontal run sits, and how softly
- * it turns onto and off that run. */
+// px: total height, the horizontal run's y, and its corner radius.
 const CONNECTOR = { height: 20, bus: 10, radius: 6 };
 
 /**
- * A stem dropping onto a horizontal run, which drops again over each segment's
- * midpoint. Drawn in pixels rather than percentages, so it keeps its shape
- * whatever the bar's width: the widths come in as percentages, and the element
- * measures itself to place them.
+ * A stem branching into one arm per segment midpoint. Drawn in measured pixels
+ * rather than percentages so the corners keep their shape at any bar width.
  */
 function SegmentConnector({ centers }: { centers: number[] }) {
   const box = useRef<HTMLDivElement>(null);
@@ -44,8 +41,7 @@ function SegmentConnector({ centers }: { centers: number[] }) {
   const { height, bus, radius } = CONNECTOR;
   const midX = width / 2;
 
-  // One path for the lot, arms and all: the stem is retraced by every arm, and
-  // separate elements would stack their alpha where they overlap.
+  // One path: every arm retraces the stem, so separate paths would stack alpha.
   const d = centers
     .map((center) => {
       const x = (center / 100) * width;
@@ -72,11 +68,8 @@ function SegmentConnector({ centers }: { centers: number[] }) {
   );
 }
 
-/**
- * The stem a percentage lands on its segment with, head and all in one shape:
- * a CSS line and an icon either side of it round to different pixels.
- * Proportioned to match the caret the funnel's other connectors end on.
- */
+// Stem and arrowhead in one path: a CSS line beside an icon rounds to
+// different pixels.
 function SegmentStem() {
   return (
     <span className={styles.segmentStem}>
@@ -110,10 +103,7 @@ export interface Props {
   showPercentages?: boolean;
   /** A bare bar with its percentages above it, and no heading. */
   slim?: boolean;
-  /**
-   * Draw a connector above the labels, branching from a single stem into an
-   * arrow per segment. Slim mode only, where the labels sit on top.
-   */
+  /** Slim only: a connector branching from one stem into an arrow per label. */
   connector?: boolean;
   /** Slim only: px the segments reach past the bar's clipped ends. */
   overhang?: number;
@@ -147,9 +137,8 @@ export default function ExperimentSplitVisual({
   const inset = slim ? overhang - bleed : 0;
   const showConnector = connector && slim && showPercentages;
 
-  // Geometry shared by the bar and the label row beneath it. A segment's left
-  // edge is the running total of the raw weights in both modes: a stacked
-  // segment plus its gap spans weight * coverage + weight * (1 - coverage).
+  // A segment's left edge is the running total of raw weights in both modes: a
+  // stacked segment plus its gap spans the whole weight.
   let runningLeft = 0;
   const segments = values.map((val, i) => {
     const left = runningLeft;

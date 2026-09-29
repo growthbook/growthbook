@@ -19,7 +19,7 @@ type VisualChangesetEdit = NonNullable<
 >[number];
 
 /** The parts of a visual change the page edits. */
-export type StagedVisualChange = NonNullable<
+type StagedVisualChange = NonNullable<
   VisualChangesetEdit["changes"]["visualChanges"]
 >[number];
 
@@ -58,7 +58,7 @@ export const EMPTY_LINKED_CHANGES: LinkedChangesDraft = {
   removedVisual: [],
 };
 
-export type StagedMark = "added" | "edited" | "removed" | null;
+type StagedMark = "added" | "edited" | "removed" | null;
 
 export type ShownRedirect = RedirectFields & {
   key: string;

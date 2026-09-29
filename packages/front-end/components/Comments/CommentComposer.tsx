@@ -30,8 +30,7 @@ export interface CommentComposerProps {
  * Shared comment composer used by `DiscussionThread` (via `CommentForm`) and
  * `ReviewAndPublish`. Wraps the rich text editor in a form with internal
  * value/loading/error state. The caller only needs to provide the network
- * call via `onSubmit`. Formatting starts out of the way: most comments are a
- * sentence, so the ribbon waits behind its button.
+ * call via `onSubmit`.
  */
 export default function CommentComposer({
   onSubmit,

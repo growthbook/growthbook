@@ -213,13 +213,15 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     const remaining = await this.findByExperiment(doc.experiment);
     if (remaining.length === 0) {
       if (experiment.hasURLRedirects) {
-        const after = { ...experiment, hasURLRedirects: false };
         await updateExperiment({
           context: this.context,
           experiment,
           changes: {
             hasURLRedirects: false,
-            implementationType: implementationTypeAfterUnlink(after),
+            implementationType: implementationTypeAfterUnlink({
+              ...experiment,
+              hasURLRedirects: false,
+            }),
           },
           bypassWebhooks: true,
         });

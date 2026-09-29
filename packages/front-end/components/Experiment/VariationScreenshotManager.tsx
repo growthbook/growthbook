@@ -24,12 +24,10 @@ import AuthorizedImage from "@/components/AuthorizedImage";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import Tooltip from "@/ui/Tooltip";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
-// The same placeholder treatment the variation card uses, hover states included.
 import placeholderStyles from "@/components/Experiment/VariationsTable.module.scss";
 import useSortableItem from "@/hooks/useSortableItem";
 import styles from "./VariationScreenshotManager.module.scss";
 
-// Square, so a row of thumbnails reads as a grid rather than a filmstrip.
 const TILE_ASPECT = "1 / 1";
 
 // Shared so a reorder doesn't re-request every signed URL.
@@ -76,8 +74,7 @@ function ScreenshotTile({
           display: "block",
         }}
       />
-      {/* Always mounted, revealed by CSS on hover or focus: unmounting it left
-          touch and keyboard users with no way to remove a screenshot. */}
+      {/* Always mounted so touch and keyboard users can reach it. */}
       <Box position="absolute" top="2" right="2" className={styles.deleteSlot}>
         <Tooltip content="Remove image" side="top">
           <IconButton
@@ -127,8 +124,8 @@ export default function VariationScreenshotManager({
     }),
     useSensor(KeyboardSensor, {}),
   );
-  // The viewer reads its list off the experiment, which still holds what was
-  // saved; hand it the staged screenshots so the right image opens.
+  // The viewer reads screenshots off the experiment, which still holds the
+  // saved ones.
   const variation = experiment.variations[variationIndex];
   const stagedExperiment = useMemo(
     () => ({
@@ -143,7 +140,6 @@ export default function VariationScreenshotManager({
 
   return (
     <Box>
-      {/* Matches the fields above, which render a plain bold label. */}
       <label style={{ fontWeight: 600 }}>Screenshots</label>
       <DndContext
         sensors={sensors}

@@ -11,6 +11,14 @@ import styles from "./UnsavedEditsBar.module.scss";
  */
 export const SAVE_BAR_RESIZE_EVENT = "gb:save-bar-resize";
 
+function publishHeight(px: number) {
+  document.documentElement.style.setProperty(
+    "--experiment-save-bar-height",
+    `${px}px`,
+  );
+  window.dispatchEvent(new Event(SAVE_BAR_RESIZE_EVENT));
+}
+
 /** Appears once something on the page is edited, and is the only way to write it. */
 export default function UnsavedEditsBar() {
   const edits = useExperimentEdits();
@@ -20,27 +28,19 @@ export default function UnsavedEditsBar() {
   // Anything anchored to the bottom of the page sits above this bar, so its
   // height is published rather than guessed.
   useEffect(() => {
-    const root = document.documentElement;
     const el = bar.current;
     if (!shown || !el) {
-      root.style.setProperty("--experiment-save-bar-height", "0px");
-      window.dispatchEvent(new Event(SAVE_BAR_RESIZE_EVENT));
+      publishHeight(0);
       return;
     }
-    const publish = () => {
-      root.style.setProperty(
-        "--experiment-save-bar-height",
-        `${Math.round(el.getBoundingClientRect().height)}px`,
-      );
-      window.dispatchEvent(new Event(SAVE_BAR_RESIZE_EVENT));
-    };
+    const publish = () =>
+      publishHeight(Math.round(el.getBoundingClientRect().height));
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(el);
     return () => {
       observer.disconnect();
-      root.style.setProperty("--experiment-save-bar-height", "0px");
-      window.dispatchEvent(new Event(SAVE_BAR_RESIZE_EVENT));
+      publishHeight(0);
     };
   }, [shown]);
 

@@ -1,4 +1,7 @@
-/** Height of the fixed page header that sticky tab bars sit below. */
+/**
+ * Height of the fixed page header that sticky tab bars sit below. Keep in sync
+ * with `.experiment-tabs` `top` in global.scss.
+ */
 export const TABS_HEADER_HEIGHT_PX = 55;
 
 /** Height of a page's sticky tab bar. Keep in sync with `.experiment-tabs`. */

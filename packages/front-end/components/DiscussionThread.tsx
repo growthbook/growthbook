@@ -29,10 +29,7 @@ const DiscussionThread: FC<{
   title?: string;
   /** Slim chrome for a narrow column: see `CommentCard`. */
   compact?: boolean;
-  /**
-   * Fill the height given, with the thread scrolling and the composer held at
-   * the bottom of the column, clear of the page's save bar.
-   */
+  /** Fill the given height: the thread scrolls above a pinned composer. */
   fillHeight?: boolean;
 }> = ({
   type,
@@ -118,8 +115,7 @@ const DiscussionThread: FC<{
                                     radius="full"
                                     size="1"
                                     highContrast
-                                    // Ghost buttons carry a negative margin, which
-                                    // pulls this one out of the card's corner.
+                                    // Undo the ghost variant's negative margin.
                                     style={{ margin: 0 }}
                                   >
                                     <BsThreeDotsVertical size={14} />
@@ -151,8 +147,6 @@ const DiscussionThread: FC<{
                             )
                       }
                       body={
-                        // Editing swaps only the comment's text: who wrote it, and when,
-                        // stay where they were.
                         edit === i ? (
                           <CommentForm
                             cta="Save"

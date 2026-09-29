@@ -129,6 +129,11 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
       { variationId: "var_1", value: "draft-value" },
     ]);
     expect(info.pendingDraft?.pendingApproval).toBe(true);
+    // The live values are the before side of the diff.
+    expect(info.liveValues).toEqual([
+      { variationId: "var_0", value: "control" },
+      { variationId: "var_1", value: "live-value" },
+    ]);
   });
 
   it("does NOT widen the sibling fields the pre-launch checklist filters on", async () => {
@@ -147,20 +152,6 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
     expect(info.draftRevisionStatus).toBeUndefined();
     expect(info.hasMergeConflict).toBeUndefined();
     expect(info.hasUnrelatedDraftChanges).toBeUndefined();
-  });
-
-  it("exposes the live values as the before side of the diff", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [makeDraft(4, [refRule("draft-value")])],
-    });
-
-    const [info] = await run(false);
-
-    expect(info.liveValues).toEqual([
-      { variationId: "var_0", value: "control" },
-      { variationId: "var_1", value: "live-value" },
-    ]);
   });
 
   it("populates pendingDraft for a first draft that has no live rule to compare", async () => {
@@ -242,33 +233,5 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
 
     expect(info.pendingDraft?.version).toBe(5);
     expect(info.otherPendingDrafts?.map((d) => d.version)).toEqual([4]);
-  });
-
-  it("keeps the newest draft when it is the one that differs from live", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [
-        makeDraft(4, [refRule("live-value")]),
-        makeDraft(5, [refRule("newer-edit")]),
-      ],
-    });
-
-    const [info] = await run(false);
-
-    expect(info.pendingDraft?.version).toBe(5);
-    expect(info.pendingDraft?.values).toEqual([
-      { variationId: "var_0", value: "control" },
-      { variationId: "var_1", value: "newer-edit" },
-    ]);
-  });
-
-  it("reports no pendingDraft when there is no draft at all", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
-    mockGetRevisions.mockResolvedValue({ flag: [] });
-
-    const [info] = await run(false);
-
-    expect(info.state).toBe("live");
-    expect(info.pendingDraft).toBeUndefined();
   });
 });

@@ -69,7 +69,7 @@ function AddImplementationItem({
   type,
   experiment,
   onClick,
-  blockedReason = null,
+  blockedReason,
 }: {
   type: AddableKind;
   experiment: ExperimentInterfaceStringDates;

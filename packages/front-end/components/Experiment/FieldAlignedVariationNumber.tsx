@@ -6,8 +6,7 @@ import VariationNumber from "@/ui/VariationNumber";
 // than the label rendered above it.
 const FIELD_INPUT_HEIGHT = "36px";
 
-// The badge itself (see VariationNumber.module.scss). Exported so a layout can
-// reserve the same width on the opposite side and stay symmetric.
+// Matches the badge width in VariationNumber.module.scss.
 export const VARIATION_NUMBER_WIDTH = "16px";
 
 /**

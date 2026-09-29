@@ -53,8 +53,7 @@ const AIRichTextField = forwardRef<RichTextEditorHandle, Props>(
     );
     const [aiError, setAiError] = useState<string | null>(null);
 
-    // State and editor together: the editor holds its own document, so setting
-    // one without the other leaves the two disagreeing.
+    // The editor keeps its own document, so update both.
     const replaceValue = (next: string) => {
       onChange(next);
       editor.current?.setMarkdown(next);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiSpinnerGap, PiUserCheckBold, PiWarningBold } from "react-icons/pi";
 import Link from "@/ui/Link";
@@ -44,16 +44,12 @@ function describeProjects(projects: UnmetProjects) {
 }
 
 // What a publish will take: what the draft reaches, and who must sign off.
-// Both halves are voiced whenever they apply.
-function RequirementLine({
-  footprint,
-  unmet,
-  unmetProjects = [],
-}: {
-  footprint?: ReviewFootprint;
-  unmet: UnmetTeams;
-  unmetProjects?: UnmetProjects;
-}) {
+// Both halves are voiced whenever they apply; null when neither does.
+function describeRequirement(
+  footprint: ReviewFootprint | undefined,
+  unmet: UnmetTeams,
+  unmetProjects: UnmetProjects = [],
+) {
   const envs =
     footprint?.scope === "environments" ? (footprint.environments ?? []) : null;
   const who = [
@@ -97,7 +93,6 @@ export default function ApprovalStatusBand({
   recallDisabled,
   onRecallReview,
   coverageMessage,
-  subtle,
   startsExperiment = false,
 }: {
   // draft: review will be required; waiting: review requested, viewer can't
@@ -114,8 +109,6 @@ export default function ApprovalStatusBand({
   recallDisabled?: boolean;
   onRecallReview?: () => Promise<void> | void;
   coverageMessage?: string | null;
-  // Passed through to NoticeBanner; see its own note.
-  subtle?: boolean;
   // The approval gates an experiment's start rather than a publish.
   startsExperiment?: boolean;
 }) {
@@ -127,14 +120,15 @@ export default function ApprovalStatusBand({
   // A stale/uncovered approval can exist in any phase (e.g. changes were
   // requested after an approval that no longer counts) — always explain it.
   const coverageNote = coverageMessage && <div>{coverageMessage}</div>;
-  // Whether RequirementLine has anything to say, so an empty body isn't drawn.
-  const requires =
-    footprint?.scope === "everywhere" ||
-    (footprint?.scope === "environments" &&
-      (footprint.environments?.length ?? 0) > 0) ||
-    unmet.length > 0 ||
-    (unmetProjects?.length ?? 0) > 0;
-  const hasBody = requires || !!coverageMessage || !!showSelfApprovalNote;
+  const requirement = describeRequirement(footprint, unmet, unmetProjects);
+  const body = (selfNote: ReactNode) =>
+    requirement || coverageNote || selfNote ? (
+      <>
+        {requirement}
+        {coverageNote}
+        {selfNote}
+      </>
+    ) : undefined;
 
   if (phase === "draft") {
     return (
@@ -142,19 +136,7 @@ export default function ApprovalStatusBand({
         icon={<PiUserCheckBold />}
         iconColor="gray"
         title={`Review required to ${startsExperiment ? "start" : "publish"}`}
-        body={
-          hasBody ? (
-            <>
-              <RequirementLine
-                footprint={footprint}
-                unmet={unmet}
-                unmetProjects={unmetProjects}
-              />
-              {coverageNote}
-              {selfApprovalNote}
-            </>
-          ) : undefined
-        }
+        body={body(selfApprovalNote)}
       />
     );
   }
@@ -162,22 +144,10 @@ export default function ApprovalStatusBand({
   if (phase === "gated") {
     return (
       <NoticeBanner
-        subtle={subtle}
         icon={<PiWarningBold />}
         iconColor="amber"
         title={`${startsExperiment ? "Starting" : "Publishing"} is blocked`}
-        body={
-          hasBody ? (
-            <>
-              <RequirementLine
-                footprint={footprint}
-                unmet={unmet}
-                unmetProjects={unmetProjects}
-              />
-              {coverageNote}
-            </>
-          ) : undefined
-        }
+        body={body(null)}
       />
     );
   }
@@ -186,23 +156,10 @@ export default function ApprovalStatusBand({
   return (
     <>
       <NoticeBanner
-        subtle={subtle}
         icon={<PiSpinnerGap />}
         iconColor="amber"
         title="Waiting for a reviewer"
-        body={
-          hasBody ? (
-            <>
-              <RequirementLine
-                footprint={footprint}
-                unmet={unmet}
-                unmetProjects={unmetProjects}
-              />
-              {coverageNote}
-              {selfApprovalNote}
-            </>
-          ) : undefined
-        }
+        body={body(selfApprovalNote)}
       />
       {canRecallReview && onRecallReview && (
         <Flex justify="center" mt="3">

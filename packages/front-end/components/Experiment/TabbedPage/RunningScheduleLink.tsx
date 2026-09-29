@@ -5,6 +5,14 @@ import { format } from "date-fns-tz";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 
+export const scheduledTime = (value: string | Date) =>
+  format(new Date(value), "MMM d, yyyy 'at' h:mm a (z)");
+
+export const hasStatusSchedule = (experiment: ExperimentInterfaceStringDates) =>
+  Object.values(experiment.statusUpdateSchedule ?? {}).some(
+    (value) => value !== null,
+  );
+
 /**
  * A running experiment's scheduled end, or the way to add one. The start is
  * already past, and any relative stopAfter resolved to a stopAt when it began.
@@ -17,16 +25,15 @@ export default function RunningScheduleLink({
   editSchedule: () => void;
 }) {
   const schedule = experiment.statusUpdateSchedule;
-  const hasSchedule =
-    !!schedule && Object.values(schedule).some((value) => value !== null);
+  const hasSchedule = hasStatusSchedule(experiment);
   // A passed end means a notify-mode end already fired and deliberately kept
   // the experiment running, so it says so rather than implying a future stop.
   const endPassed =
     !!schedule?.stopAt && new Date(schedule.stopAt) <= new Date();
   const endSummary = schedule?.stopAt
     ? endPassed
-      ? `Ended ${format(new Date(schedule.stopAt), "MMM d, yyyy 'at' h:mm a (z)")} — kept running`
-      : `Ends ${format(new Date(schedule.stopAt), "MMM d, yyyy 'at' h:mm a (z)")}`
+      ? `Ended ${scheduledTime(schedule.stopAt)} — kept running`
+      : `Ends ${scheduledTime(schedule.stopAt)}`
     : schedule?.stopAfter
       ? `Ends ${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
       : null;

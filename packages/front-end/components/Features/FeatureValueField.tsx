@@ -102,11 +102,9 @@ export interface Props {
   /** Number fields fill their container rather than sitting at a fixed width. */
   fullWidth?: boolean;
   // Renders the "Insert constant" picker as a compact square IconButton beside
-  // the field (top-aligned) instead of on a label row above it, and hides the
-  // copy button. Used by the inline config field editor.
+  // the field instead of on a label row above it, and hides the copy button
+  // unless `actionsOverlay` places it.
   inlineConstantButton?: boolean;
-  /** Pins the inline constant button to the first line of a tall field. */
-  inlineConstantButtonAlign?: "center" | "start";
   inlineConstantButtonSize?: "1" | "2";
   /** Size for the inner text fields; defaults to `Field`'s. */
   size?: ComponentProps<typeof Field>["size"];
@@ -162,7 +160,6 @@ export default function FeatureValueField({
   outlineStyle,
   fullWidth = false,
   inlineConstantButton = false,
-  inlineConstantButtonAlign = "center",
   inlineConstantButtonSize,
   size,
   sparse,
@@ -638,7 +635,6 @@ export default function FeatureValueField({
         />
       ) : null;
 
-    // Only where sparse is a per-value choice.
     const sparseHeader = showSparseToggle ? (
       <Flex
         align="center"
@@ -699,7 +695,6 @@ export default function FeatureValueField({
             placeholder={placeholder}
             disabled={disabled}
             defaultHeight={codeInputDefaultHeight}
-            showInlineLabel={false}
             condensed={condensed}
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
             usedConstantTags={usedConstantTags}
@@ -1035,27 +1030,16 @@ export default function FeatureValueField({
       field
     );
 
-  // Pinned centres on the first line (32px at size="md").
-  const pinned = inlineConstantButtonAlign === "start";
   if (inlineConstantButton && stringInsertButton) {
     return (
       <>
         <Flex
-          align={pinned ? "start" : "center"}
+          align="center"
           gap={inlineConstantButtonSize === "1" ? "1" : "2"}
           width="100%"
         >
           <Box style={{ flex: 1, minWidth: 0 }}>{overlaidField}</Box>
-          <Box
-            style={{
-              flexShrink: 0,
-              ...(pinned
-                ? { minHeight: 32, display: "flex", alignItems: "center" }
-                : {}),
-            }}
-          >
-            {stringInsertButton}
-          </Box>
+          <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
         </Flex>
         {emptyStringConfirmField}
       </>

@@ -58,9 +58,6 @@ type MetricOption = {
   disabledReason?: string;
 };
 
-/**
- * Adds every metric carrying a tag, from inside the select's own indicator row.
- */
 function MetricTagPicker({
   tagCounts,
   onSelect,
@@ -187,9 +184,8 @@ const MetricsSelector: FC<{
   };
   requireDatasource?: boolean;
   /**
-   * The experiment's metric overrides. Given, each selected metric gets a hover
-   * card listing its own, and an overridden one (or a group holding one) is
-   * outlined.
+   * Given, each chosen metric gets a hover card, and a chip holding an
+   * overridden metric is outlined.
    */
   metricOverrides?: MetricOverride[];
   /** Opens an override editor on the metrics a card was opened for. */
@@ -231,8 +227,8 @@ const MetricsSelector: FC<{
     getMetricGroupById,
     mutateDefinitions,
   } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
 
-  // A chip is outlined when it, or any metric in its group, is overridden.
   const overriddenChips = useMemo(() => {
     const overridden = getOverriddenMetricIds(metricOverrides);
     return new Set(
@@ -243,7 +239,6 @@ const MetricsSelector: FC<{
       ),
     );
   }, [metricOverrides, selected, getMetricGroupById]);
-  const { hasCommercialFeature } = useUser();
 
   const metricListContainsGroup = selected.some((metric) =>
     isMetricGroupId(metric),
@@ -550,8 +545,7 @@ const MetricsSelector: FC<{
       const metricsWithJoinableStatus = isGroup
         ? groupMetricsJoinableMap.get(value) || []
         : [];
-      // A chosen metric's card lists what its own tooltip would, so the card
-      // replaces it rather than opening on top of it.
+      // The card replaces the group tooltip rather than opening on top of it.
       const withCard = context === "value" && !!metricOverrides;
       const name = (
         <MetricName

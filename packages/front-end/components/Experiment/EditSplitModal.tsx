@@ -15,26 +15,21 @@ export interface Props {
   close: () => void;
   /** Takes the weights as decimals, in variation order. */
   onConfirm: (weights: number[]) => void;
-  /** `Confirm` where the page writes later, `Save` where this modal does. */
-  staged?: boolean;
   /** The variation whose field opens focused, for a pill that was clicked. */
   focusIndex?: number | null;
 }
 
-/** Whole percentages only, so a split can't carry more precision than it shows. */
 const total = (weights: number[]) =>
   floatRound(
     weights.reduce((sum, w) => sum + w, 0),
     4,
   );
 
-/** Moves traffic between variations, and nothing else. */
 export default function EditSplitModal({
   variations,
   weights: savedWeights,
   close,
   onConfirm,
-  staged,
   focusIndex,
 }: Props) {
   const [weights, setWeights] = useState(savedWeights);
@@ -60,7 +55,7 @@ export default function EditSplitModal({
       close={close}
       header="Edit Split"
       subheader="How the included traffic divides between variations."
-      cta={staged ? "Confirm" : "Save"}
+      cta="Confirm"
       ctaEnabled={addsUp}
       submit={async () => onConfirm(weights)}
       size="md"
@@ -71,9 +66,7 @@ export default function EditSplitModal({
             <VariationLabel number={i} name={v.name ?? `Variation ${i}`} />
             <PercentField
               value={weights[i] ?? 0}
-              // Held until the field is left, as the variations table does:
-              // the rest of the split moves under the pointer otherwise. The
-              // rest then absorbs the change, fractions and all.
+              // Otherwise the rest of the split rebalances mid-keystroke.
               commitOn="blur"
               step="any"
               onChange={(weight) => setWeights(rebalance(weights, i, weight))}

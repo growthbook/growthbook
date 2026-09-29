@@ -271,7 +271,7 @@ function FunnelConnector({ label }: { label?: ReactNode }) {
   );
 }
 
-function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
+function VariationFork({ count }: { count: number }) {
   const cols = Math.min(count, 3);
   // One arrow per column the cards below actually take once they wrap, or a
   // wrapped arrow's bus points off the edge.
@@ -290,14 +290,6 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
 
   return (
     <Box>
-      {label ? (
-        <Flex direction="column" align="center" justify="center" mb="1">
-          <Box className={styles.connectorLine} height="12px" />
-          <Text size="sm" color="text-low">
-            {label}
-          </Text>
-        </Flex>
-      ) : null}
       {/* Stem down to the horizontal bus */}
       <Flex direction="column" align="center">
         <Box className={styles.connectorLine} height="12px" />
@@ -416,7 +408,6 @@ export default function TrafficAllocationFunnel({
 
   const [editingSplit, setEditingSplit] = useState<number | null>(null);
 
-  // Staged like any other edit; the split evens out unless weights are given.
   const stageVariationList = (
     variations: Variation[],
     weights = getEqualWeights(variations.length, 4),
@@ -429,28 +420,22 @@ export default function TrafficAllocationFunnel({
     });
   };
   const [reordering, setReordering] = useState(false);
-  const removeVariation = (index: number) =>
-    stageVariationList(
-      getLatestPhaseVariations(experiment)
-        .filter((_, i) => i !== index)
-        .map(({ id, key, name, description, screenshots }) => ({
-          id,
-          key,
-          name,
-          description,
-          screenshots,
-        })),
-    );
-  const addVariation = () => {
-    const current = getLatestPhaseVariations(experiment);
-    const variations = [
-      ...current.map(({ id, key, name, description, screenshots }) => ({
+  const storedVariations = () =>
+    getLatestPhaseVariations(experiment).map(
+      ({ id, key, name, description, screenshots }): Variation => ({
         id,
         key,
         name,
         description,
         screenshots,
-      })),
+      }),
+    );
+  const removeVariation = (index: number) =>
+    stageVariationList(storedVariations().filter((_, i) => i !== index));
+  const addVariation = () => {
+    const current = storedVariations();
+    const variations = [
+      ...current,
       {
         id: generateVariationId(),
         key: String(current.length),
@@ -519,7 +504,6 @@ export default function TrafficAllocationFunnel({
     [storedServedValueFeature, draftPickValue, experiment.id],
   );
 
-  // Each readout asks about itself.
   const liveRule = servedValueFeature?.liveHasMatchingRule
     ? servedValueFeature
     : undefined;
@@ -555,7 +539,6 @@ export default function TrafficAllocationFunnel({
     if ((!hasDraftChanges || setup) && live) setLive(false);
   }, [hasDraftChanges, setup, live, setLive]);
 
-  // Mirror the server's publish authority on eject.
   const managedFeature =
     servedValueFeature &&
     isManagedByExperiment(servedValueFeature.feature, experiment.id)
@@ -663,9 +646,8 @@ export default function TrafficAllocationFunnel({
   const stageHoldout = (id: string) =>
     holdoutDraft?.set(id === (experiment.holdoutId ?? "") ? null : id);
 
-  const hasConfiguredTargeting = hasTargetingConfigured(phase);
   // Environment scope has its own line above, so the audience is attributes alone.
-  const targetsEveryone = !hasConfiguredTargeting;
+  const targetsEveryone = !hasTargetingConfigured(phase);
   const hasCondition = hasAttributeCondition(phase?.condition);
   const hasSavedGroups = !!phase?.savedGroups?.length;
   const hasPrerequisites = !!phase?.prerequisites?.length && !isHoldout;
@@ -685,8 +667,8 @@ export default function TrafficAllocationFunnel({
     : undefined;
   const phaseVariations = getLatestPhaseVariations(experiment);
   const numVariations = phaseVariations.length;
-  const variationWeights =
-    staged?.variationWeights ?? storedPhase?.variationWeights ?? [];
+  const variationWeights = phase.variationWeights ?? [];
+  const coverage = phase.coverage ?? 1;
 
   // Beside the section's heading when it offers a place, else atop the box.
   // Only flag values have an unpublished version to show.
@@ -917,14 +899,12 @@ export default function TrafficAllocationFunnel({
                 >
                   {editInline ? (
                     <PercentField
-                      value={phase.coverage ?? 1}
-                      onChange={(coverage) => stagePatch({ coverage })}
+                      value={coverage}
+                      onChange={(next) => stagePatch({ coverage: next })}
                       ariaLabel="Included %"
                     />
                   ) : (
-                    <Text color="text-mid">
-                      {Math.round((phase.coverage ?? 1) * 100)}%
-                    </Text>
+                    <Text color="text-mid">{Math.round(coverage * 100)}%</Text>
                   )}
                 </SetupFieldRow>
                 {/* The bar keeps its place while a draft is edited: the
@@ -932,8 +912,8 @@ export default function TrafficAllocationFunnel({
                 <Box mt="1">
                   {editInline ? (
                     <PercentSlider
-                      value={phase.coverage ?? 1}
-                      onChange={(coverage) => stagePatch({ coverage })}
+                      value={coverage}
+                      onChange={(next) => stagePatch({ coverage: next })}
                       ariaLabel="Included %"
                     />
                   ) : (
@@ -947,7 +927,7 @@ export default function TrafficAllocationFunnel({
                     >
                       <Box
                         style={{
-                          width: `${Math.min(100, Math.max(0, (phase.coverage ?? 1) * 100))}%`,
+                          width: `${Math.min(100, Math.max(0, coverage * 100))}%`,
                           height: "100%",
                           backgroundColor: "var(--violet-9)",
                         }}
@@ -1033,7 +1013,7 @@ export default function TrafficAllocationFunnel({
                     }
                     values={phaseVariations.map((v, i) => ({
                       value: v.key,
-                      weight: phase?.variationWeights?.[i] ?? 0,
+                      weight: variationWeights[i] ?? 0,
                       name: v.name,
                     }))}
                   />
@@ -1045,7 +1025,6 @@ export default function TrafficAllocationFunnel({
               <EditSplitModal
                 variations={phaseVariations}
                 weights={variationWeights}
-                staged
                 focusIndex={editingSplit}
                 close={() => setEditingSplit(null)}
                 onConfirm={(weights) => {

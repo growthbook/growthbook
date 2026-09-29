@@ -41,9 +41,7 @@ export function gridColumns({
   hideValueField?: boolean;
   showDescription?: boolean;
   hideSplit?: boolean;
-  // JSON values get a code editor in the cell, which needs the room.
   isJson?: boolean;
-  // The reorder gutter, present only while the table is editable.
   showDragHandle?: boolean;
 }): string {
   return [
@@ -57,8 +55,7 @@ export function gridColumns({
     "minmax(160px, 1fr)",
     showDescription ? "minmax(140px, 1fr)" : undefined,
     hideSplit ? undefined : "100px",
-    // Wider than the row menu needs: the header's Advanced switch is absolutely
-    // positioned in this column and would otherwise reach the Split label.
+    // Room for the header's absolutely positioned Advanced switch.
     "48px",
   ]
     .filter(Boolean)
@@ -152,7 +149,13 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       });
     };
 
-    const isJson = valueType === "json";
+    const move = (to: number) => {
+      if (!setVariations) return;
+      const newValues = [...variations];
+      const [row] = newValues.splice(i, 1);
+      newValues.splice(to, 0, row);
+      setVariations(newValues);
+    };
 
     return (
       <Box
@@ -175,7 +178,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
             hideValueField,
             showDescription,
             hideSplit,
-            isJson,
+            isJson: valueType === "json",
             showDragHandle,
           })}
           gapX="4"
@@ -327,23 +330,13 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                 {/* Weights follow their variation, so a reorder never rebalances. */}
                 <DropdownMenuItem
                   disabled={i === 0}
-                  onClick={() => {
-                    const newValues = [...variations];
-                    const [row] = newValues.splice(i, 1);
-                    newValues.splice(i - 1, 0, row);
-                    setVariations(newValues);
-                  }}
+                  onClick={() => move(i - 1)}
                 >
                   <PiCaretUp /> Move up
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={i === variations.length - 1}
-                  onClick={() => {
-                    const newValues = [...variations];
-                    const [row] = newValues.splice(i, 1);
-                    newValues.splice(i + 1, 0, row);
-                    setVariations(newValues);
-                  }}
+                  onClick={() => move(i + 1)}
                 >
                   <PiCaretDown /> Move down
                 </DropdownMenuItem>

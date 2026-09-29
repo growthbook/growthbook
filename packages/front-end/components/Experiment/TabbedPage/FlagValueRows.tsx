@@ -79,6 +79,7 @@ import {
   VALUE_TYPE_LABELS,
 } from "@/components/Features/valueTypes";
 import cornerStyles from "@/components/Features/CornerActions.module.scss";
+import { draftApprovalSatisfied } from "@/components/Experiment/LinkedChanges/useManagedFlagReview";
 import {
   FlagEnvironmentsDraft,
   useLiveView,
@@ -99,7 +100,6 @@ import {
 import styles from "./FlagValueRows.module.scss";
 import { valuesAreSetup } from "./useExperimentEditing";
 
-// Tight to each value's bottom-right corner, shown on hover.
 const JSON_ACTIONS: ActionsOverlay = {
   revealOnHover: true,
   style: { bottom: -9, right: 2, gap: "var(--space-2)" },
@@ -250,7 +250,6 @@ export default function FlagValueRows({
       width="100%"
       style={{ maxWidth: variationGridMaxWidth(cols) }}
     >
-      {/* Values first: the experiment's own flag, then linked ones. */}
       {managedFlags.map((info) => (
         <FlagValueRow
           key={info.feature.id}
@@ -266,12 +265,12 @@ export default function FlagValueRows({
         />
       ))}
       {headingOnly && implementationType === "values" ? (
-        <ImplementationHeading inList>Values</ImplementationHeading>
+        <ImplementationHeading>Values</ImplementationHeading>
       ) : null}
       {linkedFlags.length ||
       onAddFlag ||
       (headingOnly && implementationType === "feature") ? (
-        <ImplementationHeading inList>Feature Flags</ImplementationHeading>
+        <ImplementationHeading>Feature Flags</ImplementationHeading>
       ) : null}
       {linkedFlags.map((info) => (
         <FlagValueRow
@@ -327,7 +326,6 @@ function FlagValueRow({
   const { configs } = useDefinitions();
   const variations = getLatestPhaseVariations(experiment);
   const { feature } = info;
-  // Every open draft that changes this experiment's rule, newest first.
   const pick = draftPicks.value[feature.id];
   const {
     drafts,
@@ -404,8 +402,8 @@ function FlagValueRow({
     setStaged(null);
     flagEnvironments?.set(feature.id, null);
   };
-  // The variation to focus when the values editor opens; undefined = closed.
-  const [editingValues, setEditingValues] = useState<string | null>();
+  // The variation to focus when the values editor opens.
+  const [editingValues, setEditingValues] = useState<string | null>(null);
   const storedValue = (variationId: string) =>
     values.find((v) => v.variationId === variationId)?.value;
   const valueFor = (variationId: string) =>
@@ -423,14 +421,16 @@ function FlagValueRow({
   // A managed flag's default is its control value, so that is what the other
   // variations patch onto.
   const controlId = variations[0]?.id;
-  const sparseBase =
-    (managed && controlId ? valueFor(controlId) : undefined) ??
-    storedDefault ??
+  const baseOf = (
+    valueOf: (variationId: string) => string | undefined,
+    defaultValue: string | undefined,
+  ) =>
+    (managed && controlId ? valueOf(controlId) : undefined) ??
+    defaultValue ??
     "";
+  const sparseBase = baseOf(valueFor, storedDefault);
   const shownSparseBase = showLive
-    ? ((managed && controlId ? shownValueFor(controlId) : undefined) ??
-      feature.defaultValue ??
-      "")
+    ? baseOf(shownValueFor, feature.defaultValue)
     : sparseBase;
   const configKey = getFeatureBaseConfigKey(feature);
   const configBackingOptionKeys = useMemo(
@@ -724,7 +724,7 @@ function FlagValueRow({
     ? "Merge conflict"
     : shownDraft?.rebaseRequired
       ? "Needs rebase"
-      : shownDraft?.hasUnrelatedDraftChanges
+      : draftLaunches && shownDraft?.hasUnrelatedDraftChanges
         ? "Changes beyond this experiment"
         : info.state === "discarded"
           ? "Rule missing"
@@ -732,8 +732,7 @@ function FlagValueRow({
             ? "Archived"
             : null;
   const needsApproval =
-    !!shownDraft?.pendingApproval &&
-    !(shownDraft.approval?.satisfied ?? shownDraft.status === "approved");
+    !!shownDraft?.pendingApproval && !draftApprovalSatisfied(shownDraft);
   const reviewHref = (version: number) =>
     `/features/${feature.id}?v=${version}#review`;
   const draftHref = shownDraft
@@ -810,12 +809,11 @@ function FlagValueRow({
         text: "Live has moved on since this draft. Update it from live before it can publish.",
         action: draftLink("Review draft"),
       });
-    } else if (shownDraft?.hasUnrelatedDraftChanges) {
+    } else if (draftLaunches && shownDraft?.hasUnrelatedDraftChanges) {
+      // Only the start publishes a draft from here, so only it is blocked.
       notices.push({
         status: "error",
-        text: draftLaunches
-          ? "This draft also changes things outside this experiment, so the experiment can't start. Remove those edits, or publish the draft from the Feature Flag."
-          : "This draft also changes things outside this experiment. Publish it from the Feature Flag.",
+        text: "This draft also changes things outside this experiment, so the experiment can't start. Remove those edits, or publish the draft from the Feature Flag.",
         action: draftLink("Review draft"),
       });
     } else if (shownDraft && !lockedBySchedule) {
@@ -920,7 +918,6 @@ function FlagValueRow({
           : "Takes effect when it's published."
       }`;
 
-  // What Save does with the staged link action.
   const linkActionNote =
     linkAction === "keep"
       ? `Kept in this experiment when you save. The rule goes back into Revision ${pendingRemoval?.version}.`
@@ -980,7 +977,6 @@ function FlagValueRow({
     <>
       {managed ? (
         <ImplementationHeading
-          inList
           action={
             // Baseline, so the trigger's hover border doesn't lift its text.
             <Flex align="baseline" gap="1">
@@ -1016,7 +1012,7 @@ function FlagValueRow({
         className={managed ? undefined : "appbox mb-0"}
         py={managed ? "0" : "3"}
       >
-        {editingValues !== undefined ? (
+        {editingValues !== null ? (
           <FlagValuesModal
             feature={displayFeature}
             variations={variations}
@@ -1028,11 +1024,11 @@ function FlagValueRow({
             baseDefault={storedDefault ?? ""}
             controlId={managed ? (controlId ?? null) : null}
             configBackingOptionKeys={configBackingOptionKeys}
-            close={() => setEditingValues(undefined)}
+            close={() => setEditingValues(null)}
             focusVariationId={editingValues}
             apply={({ values: next, sparse: nextSparse }) => {
               stage({ values: next, sparse: nextSparse });
-              setEditingValues(undefined);
+              setEditingValues(null);
             }}
           />
         ) : null}

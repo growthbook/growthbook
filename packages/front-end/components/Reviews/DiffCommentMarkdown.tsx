@@ -10,10 +10,6 @@ import {
   splitDiffRefSegments,
 } from "@/components/Reviews/diffCommentRefs";
 
-// Boxed rendering of a `diff-ref` block inside a comment: a mini before/after
-// diff snapshot captured when the comment was written (removed lines red,
-// added lines green, anchored line highlighted), plus a click-through that
-// scrolls back to the referenced line in the live diff.
 /**
  * Where a ref's diff lives when it isn't on this page, such as a comment read
  * in a popover. The widget then opens it there, in a new tab.
@@ -22,6 +18,10 @@ export const DiffRefHrefContext = createContext<
   ((ref: DiffCommentRef) => string) | null
 >(null);
 
+// Boxed rendering of a `diff-ref` block inside a comment: a mini before/after
+// diff snapshot captured when the comment was written (removed lines red,
+// added lines green, anchored line highlighted), plus a click-through that
+// scrolls back to the referenced line in the live diff.
 function DiffRefWidget({
   refObj,
   snapshot,

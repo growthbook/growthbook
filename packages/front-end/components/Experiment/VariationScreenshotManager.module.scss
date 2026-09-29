@@ -1,18 +1,14 @@
-// The shared drop target hugs its content for the card's small placeholder;
-// in the grid it is a cell like any other.
+// The shared drop target hugs its content; in the grid it fills its cell.
 .gridUpload {
   width: 100%;
   height: 100%;
   margin-left: 0;
 }
 
-// Radix's solid hover is one step (red-9 -> red-10), too subtle over a photo.
 .tile {
   position: relative;
 }
 
-// Reveal-on-hover, but reachable: the button stays mounted so focus can land
-// on it. Absolutely positioned, so opacity costs no layout.
 .deleteSlot {
   opacity: 0;
   pointer-events: none;
@@ -25,6 +21,7 @@
   }
 }
 
+// Radix's solid hover is one step (red-9 -> red-10), too subtle over a photo.
 .deleteButton {
   transition: background-color 100ms ease;
 
@@ -37,8 +34,7 @@
   position: relative;
 }
 
-// The hover hint and drag prompt share a spot and a treatment. The prompt's
-// class doubles up to outrank the base `.message` rule.
+// The doubled class outranks ScreenshotUpload's base `.message` rule.
 .uploadHint,
 .gridUploadMessage.gridUploadMessage {
   top: 75%;
@@ -54,7 +50,6 @@
   color: var(--violet-11);
 }
 
-// Named on hover rather than always, so the tile stays a quiet placeholder.
 .uploadHint {
   position: absolute;
   opacity: 0;
@@ -66,8 +61,8 @@
   opacity: 1;
 }
 
-// While dropping, the prompt is the only thing that should speak. The `:hover`
-// in each selector is what outranks the hover rules; without it, both render.
+// While dropping only the prompt shows; the `:hover` selectors outrank the
+// hover rules above.
 :global(.screenshot-dropping) {
   .uploadTile,
   .uploadTile:hover {

@@ -15,14 +15,9 @@ import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "./InAppHelp.module.scss";
 
-/**
- * How much of the bottom-right corner the chat bubble takes when Pylon owns it.
- * Its widget is an iframe of someone else's, so this is the one measurement we
- * cannot take ourselves.
- */
+/** Pylon's launcher is a third-party iframe, so its footprint can't be measured. */
 const PYLON_CLEARANCE_PX = 76;
 
-/** The launcher's box, whichever face it is showing. */
 const LAUNCHER_SIZE_PX = 56;
 
 export default function InAppHelp() {
@@ -59,9 +54,7 @@ export default function InAppHelp() {
     }
   }, [config, commercialFeatures]);
 
-  // Whatever ends in the bottom-right corner — a comment box, a survey card —
-  // needs to keep clear of whichever launcher is running. Publish the room it
-  // takes rather than have each of them carry its own guess.
+  // Publish the launcher's footprint so bottom-right overlays can clear it.
   useEffect(() => {
     const root = document.documentElement;
     const publish = (px: number) =>
@@ -117,8 +110,7 @@ export default function InAppHelp() {
         triggerAsChild
         side="top"
         align="end"
-        // Off the launcher's own edges, which the chat mark's tail makes look
-        // further out than they are.
+        // The chat mark's tail makes the launcher's edges look further out.
         sideOffset={5}
         alignOffset={5}
         showArrow={false}
@@ -152,8 +144,7 @@ export default function InAppHelp() {
               gap="2"
               px="4"
               py="3"
-              // The heading takes its colour from here: on the violet bar it is
-              // white, and `Heading` styles its own only for the text scales.
+              // Heading inherits this colour.
               style={{ background: "var(--violet-9)", color: "white" }}
             >
               <img

@@ -30,6 +30,7 @@ import {
   StagedTargetingScope,
   TargetingScopedEntity,
 } from "./features";
+import { hasImplementationLinkages } from "./implementation-type";
 
 export * from "./strings";
 export * from "./units-query-settings";
@@ -55,6 +56,8 @@ export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./holdouts";
+export * from "./implementation-type";
+export * from "./experiment-cleanup";
 export * from "./sortObjectKeys";
 export * from "./diffFormats";
 export * from "./format-json";
@@ -65,8 +68,8 @@ export * from "./event-forwarder-warehouse-queries";
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
 // URL Redirects and Visual Editor changes serve in every environment, so a
-// write to one, the experiment's first included, needs run permission in all
-// of them. Never empty, which would pass a permission check vacuously.
+// write to one needs run permission in all of them. Never empty, which would
+// pass a permission check vacuously.
 export function getLinkedChangeEnvs(): string[] {
   return ["__ALL__"];
 }
@@ -235,10 +238,7 @@ export function experimentHasLinkedChanges(
     "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
   >,
 ): boolean {
-  if (exp.hasVisualChangesets) return true;
-  if (exp.hasURLRedirects) return true;
-  if (exp.linkedFeatures && exp.linkedFeatures.length > 0) return true;
-  return false;
+  return hasImplementationLinkages(exp);
 }
 
 /**
@@ -868,5 +868,3 @@ export {
   NON_PRODUCTION_ENV_PATTERNS,
   isEnvironmentDevLike,
 } from "./environments";
-export * from "./implementation-type";
-export * from "./experiment-cleanup";

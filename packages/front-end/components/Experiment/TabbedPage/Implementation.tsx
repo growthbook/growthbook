@@ -139,8 +139,8 @@ export interface Props {
   mutate: () => void;
   editTargeting?: (() => void) | null;
   targetingDraft?: TargetingDraft;
-  analysisSettingsOpen?: boolean;
-  setAnalysisSettingsOpen?: (open: boolean) => void;
+  analysisSettingsOpen: boolean;
+  setAnalysisSettingsOpen: (open: boolean) => void;
   editTraffic?: (() => void) | null;
   canAddVariation?: boolean;
   editNamespace?: (() => void) | null;
@@ -498,7 +498,6 @@ export default function Implementation({
     settingUp &&
     isSetUpFor(experiment, linkedFeatures.length, kind) &&
     (canAdd(kind) || !!chooseType);
-  const shownType = getImplementationType(experiment);
   // The Live view shows what's stored, and edits nothing.
   const shownLinked = viewingLive ? EMPTY_LINKED_CHANGES : stagedLinked;
   const shownRedirects = shownUrlRedirects(shownLinked, urlRedirects);
@@ -567,10 +566,12 @@ export default function Implementation({
         />
       ) : null}
       {/* Until a kind is chosen, choosing one takes their place. */}
-      {settingUp && chooseType && (!shownType || shownType === "none") ? (
+      {settingUp &&
+      chooseType &&
+      (!implementationType || implementationType === "none") ? (
         <ImplementationSection cols={Math.min(shownVariations.length, 3)}>
           <ImplementationTypePrompt
-            analysisOnly={shownType === "none"}
+            analysisOnly={implementationType === "none"}
             onChooseType={() => chooseType()}
           />
         </ImplementationSection>
@@ -589,6 +590,7 @@ export default function Implementation({
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const safeToEdit = canEditDeliveryInPlace(experiment);
+  const canEditSettings = !!editTargeting && !pendingScheduledStart;
 
   // Temporary check while we test the new traffic funnel
   // TODO: Remove this once we're ready to support holdouts in the new traffic funnel UI.
@@ -838,8 +840,8 @@ export default function Implementation({
               : "The implementation, traffic, and targeting may be managed by an external system."}
           </Callout>
         ) : null}
-        {/* Bandits and holdouts keep the old card: their analysis is a decision
-            metric and a schedule, not this plan. */}
+        {/* Bandits and holdouts analyse by a decision metric and a schedule,
+            not this plan. */}
         {!isHoldout && !isBandit ? (
           <AnalysisPlan
             experiment={experiment}
@@ -854,7 +856,7 @@ export default function Implementation({
             experiment={experiment}
             mutate={mutate}
             envs={envs}
-            canEdit={!!editTargeting && !pendingScheduledStart}
+            canEdit={canEditSettings}
             settingsOpen={analysisSettingsOpen}
             setSettingsOpen={setAnalysisSettingsOpen}
           />
@@ -862,7 +864,7 @@ export default function Implementation({
         <DecisionPlan
           experiment={experiment}
           mutate={mutate}
-          canEdit={!!editTargeting && !pendingScheduledStart}
+          canEdit={canEditSettings}
           envs={envs}
         />
       </div>

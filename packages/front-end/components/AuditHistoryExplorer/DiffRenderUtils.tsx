@@ -29,8 +29,6 @@ export function ChangeField({
   oldNode,
   newNode,
 }: {
-  // A node, so a caller can label a row with a component (e.g. VariationLabel)
-  // rather than restating the same thing as plain text.
   label?: ReactNode;
   changed: boolean;
   oldNode: ReactNode;

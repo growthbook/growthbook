@@ -44,27 +44,14 @@ describe("assertLoadedFeatureNotManaged", () => {
       expect((e as ManagedFeatureError).message).toContain("exp_1");
     }
   });
-
-  it("passes an unmanaged flag through", () => {
-    expect(() => assertLoadedFeatureNotManaged(feature(false))).not.toThrow();
-  });
 });
 
 describe("assertFeatureNotManaged", () => {
   it("stays silent when the flag cannot be read, leaving the 404 to the handler", async () => {
     mockGetFeature.mockResolvedValue(null);
     await expect(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      assertFeatureNotManaged({} as any, "missing"),
+      assertFeatureNotManaged({} as never, "missing"),
     ).resolves.toBeUndefined();
-  });
-
-  it("throws for a managed flag", async () => {
-    mockGetFeature.mockResolvedValue(feature(true));
-    await expect(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      assertFeatureNotManaged({} as any, "flag"),
-    ).rejects.toBeInstanceOf(ManagedFeatureError);
   });
 });
 
@@ -72,10 +59,8 @@ describe("blockManagedFeatureWrites", () => {
   const run = (method: string, path: string, id?: string) =>
     new Promise<unknown>((resolve) => {
       blockManagedFeatureWrites(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { method, path, params: id ? { id } : {} } as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        {} as any,
+        { method, path, params: id ? { id } : {} } as never,
+        {} as never,
         resolve as () => void,
       );
     });
@@ -111,15 +96,13 @@ describe("guardManagedFeatureRoutes", () => {
       method,
       path: "/features/:id",
       rawHandler: jest.fn(async () => ({ ok: true })),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any;
+    }) as unknown as OpenApiRoute;
 
   it("guards the rawHandler the agent dispatcher calls directly", async () => {
     mockGetFeature.mockResolvedValue(feature(true));
     const [guarded] = guardManagedFeatureRoutes([route("post")]);
     await expect(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      guarded.rawHandler({ params: { id: "flag" }, context: {} } as any),
+      guarded.rawHandler({ params: { id: "flag" }, context: {} } as never),
     ).rejects.toBeInstanceOf(ManagedFeatureError);
   });
 
@@ -134,8 +117,7 @@ describe("guardManagedFeatureRoutes", () => {
     const original = route("delete");
     const [guarded] = guardManagedFeatureRoutes([original]);
     await expect(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      guarded.rawHandler({ params: { id: "flag" }, context: {} } as any),
+      guarded.rawHandler({ params: { id: "flag" }, context: {} } as never),
     ).resolves.toEqual({ ok: true });
     expect(original.rawHandler).toHaveBeenCalled();
   });

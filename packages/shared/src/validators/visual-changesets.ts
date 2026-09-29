@@ -23,7 +23,7 @@ export const visualChangesetUrlPatternValidator = z
   .strict();
 
 // The parts of one visual change the Setup page edits; the rest is kept.
-export const stagedVisualChange = z
+const stagedVisualChange = z
   .object({
     id: z.string(),
     css: z.string(),

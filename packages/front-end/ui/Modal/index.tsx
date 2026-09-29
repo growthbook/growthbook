@@ -120,11 +120,7 @@ type RootProps = TrackingEventModalProps & {
   // Radix's corner close, for a composition with no other way out.
   showCloseButton?: boolean;
   hasDescription?: boolean;
-  /**
-   * Radix focuses the first focusable element (usually the close button) once
-   * the dialog opens. A modal that places focus itself passes this and calls
-   * `e.preventDefault()`, otherwise its own focus is stolen on mount.
-   */
+  /** For a modal that places focus itself: call `e.preventDefault()`. */
   onOpenAutoFocus?: ComponentProps<typeof Dialog.Content>["onOpenAutoFocus"];
   children: ReactNode;
 };
@@ -318,23 +314,13 @@ function Description({ children }: { children: ReactNode }) {
 // so ModalForm consumers get error handling for free.
 // ---------------------------------------------------------------------------
 
-function Body({
-  children,
-  // The default clears the header; a modal without one starts at the top.
-  mt = "5",
-  // Space before the footer's separator.
-  mb = "3",
-}: {
-  children: ReactNode;
-  mt?: "0" | "5";
-  mb?: "0" | "3";
-}) {
+function Body({ children }: { children: ReactNode }) {
   const { bodyRef, error } = useModalContext();
   return (
     <ScrollArea
       type="auto"
-      mt={mt}
-      mb={mb}
+      mt="5"
+      mb="3"
       ml="-1"
       ref={bodyRef}
       scrollbars="vertical"

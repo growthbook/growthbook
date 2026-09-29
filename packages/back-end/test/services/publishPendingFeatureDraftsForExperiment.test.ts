@@ -110,6 +110,12 @@ const ctx = {
 // newest queued draft of a feature is the one that launches.
 let draftsCarryingRuleUnchanged = new Set<string>();
 let queue: { featureId: string; revisionVersion: number }[] = [];
+const experimentRule = (value: string) => ({
+  id: "fr_exp",
+  type: "experiment-ref",
+  experimentId: "exp_1",
+  variations: [{ variationId: "v1", value }],
+});
 
 function makeExperiment(
   drafts: { featureId: string; revisionVersion: number }[],
@@ -145,34 +151,14 @@ beforeEach(() => {
       .map(({ revisionVersion: version }) => ({
         version,
         rules: [
-          {
-            id: "fr_exp",
-            type: "experiment-ref",
-            experimentId: "exp_1",
-            variations: [
-              {
-                variationId: "v1",
-                value: draftsCarryingRuleUnchanged.has(
-                  `${featureId}@${version}`,
-                )
-                  ? "live"
-                  : `v${version}`,
-              },
-            ],
-          },
+          experimentRule(
+            draftsCarryingRuleUnchanged.has(`${featureId}@${version}`)
+              ? "live"
+              : `v${version}`,
+          ),
         ],
       })) as never,
-    liveRevision: {
-      version: 1,
-      rules: [
-        {
-          id: "fr_exp",
-          type: "experiment-ref",
-          experimentId: "exp_1",
-          variations: [{ variationId: "v1", value: "live" }],
-        },
-      ],
-    } as never,
+    liveRevision: { version: 1, rules: [experimentRule("live")] } as never,
   }));
 });
 

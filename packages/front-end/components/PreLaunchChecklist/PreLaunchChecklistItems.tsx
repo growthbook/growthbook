@@ -49,6 +49,18 @@ export type CheckListItem = {
   featureId?: string;
 };
 
+// Opens the flag in a new tab, at its draft unless `draft` is false.
+export function linkedFeatureAction(
+  f: LinkedFeatureInfo,
+  draft = true,
+): ChecklistAction {
+  const version = draft ? (f.draftRevisionVersion ?? null) : null;
+  return {
+    href: `/features/${f.feature.id}${version !== null ? `?v=${version}` : ""}`,
+    external: true,
+  };
+}
+
 export function getChecklistItems({
   experiment,
   linkedFeatures,
@@ -89,13 +101,6 @@ export function getChecklistItems({
   const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
   const onClick = (fn?: (() => void) | null): ChecklistAction | undefined =>
     fn && !startApproved ? { onClick: fn } : undefined;
-  const featureLink = (
-    f: LinkedFeatureInfo,
-    draft = true,
-  ): ChecklistAction => ({
-    href: `/features/${f.feature.id}${draft && (f.draftRevisionVersion ?? null) !== null ? `?v=${f.draftRevisionVersion}` : ""}`,
-    external: true,
-  });
 
   function isChecklistItemComplete(
     // Some items we check completion for automatically, others require users to manually check an item as complete
@@ -252,7 +257,7 @@ export function getChecklistItems({
                 }
               : {
                   display: `Resolve the merge conflict in ${f.feature.id}`,
-                  action: featureLink(f),
+                  action: linkedFeatureAction(f),
                 }),
           });
         });
@@ -310,7 +315,7 @@ export function getChecklistItems({
                 }
               : {
                   display: `Approve the Feature Flag draft for ${f.feature.id}`,
-                  action: featureLink(f),
+                  action: linkedFeatureAction(f),
                 }),
           });
         });
@@ -333,7 +338,7 @@ export function getChecklistItems({
             display: `The ${f.feature.id} draft has changes unrelated to this experiment`,
             description:
               "Remove them from the draft to auto-publish the Feature Flag, or publish the draft manually.",
-            action: featureLink(f),
+            action: linkedFeatureAction(f),
           });
         });
 
@@ -409,7 +414,7 @@ export function getChecklistItems({
               type: "auto",
               required: true,
               display: `Fill in missing variation values for ${f.feature.id}`,
-              action: featureLink(f, false),
+              action: linkedFeatureAction(f, false),
             });
           }
         });

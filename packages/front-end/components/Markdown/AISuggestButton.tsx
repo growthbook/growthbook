@@ -19,7 +19,6 @@ export interface Props {
   onSuggestion: (suggestion: string) => void;
   label?: string;
   trackingSource?: string;
-  disabled?: boolean;
   /** Pass to show failures yourself, e.g. below the editor rather than beside the button. */
   onError?: (message: string | null) => void;
 }
@@ -33,7 +32,6 @@ export default function AISuggestButton({
   onSuggestion,
   label = "Get AI Suggestion",
   trackingSource,
-  disabled,
   onError,
 }: Props) {
   const { hasCommercialFeature } = useUser();
@@ -73,12 +71,7 @@ export default function AISuggestButton({
       </Button>
     </PremiumTooltip>
   ) : aiAgreedTo && aiEnabled ? (
-    <Button
-      size="sm"
-      variant="outline"
-      disabled={disabled || loading}
-      onClick={run}
-    >
+    <Button size="sm" variant="outline" disabled={loading} onClick={run}>
       <BsStars /> {loading ? "Generating..." : label}
     </Button>
   ) : (

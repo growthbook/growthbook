@@ -41,17 +41,12 @@ export interface MetricSettingsScope {
   statsEngine: StatsEngine;
 }
 
-/** A group member as the selector sees it: whether it can join the query. */
-export interface GroupMemberStatus {
+interface GroupMemberStatus {
   metric: ExperimentMetricDefinition | null;
   joinable: boolean;
 }
 
-/**
- * Settings as rows under a heading, lighter than the metric names. Nothing
- * when there are none. `nested` under a group's member, set in a step so the
- * members' names still lead down the card.
- */
+/** `nested` indents it under a group member so the members' names still lead. */
 function RowsBlock({
   heading,
   color,
@@ -59,7 +54,6 @@ function RowsBlock({
   nested = false,
 }: {
   heading: string;
-  /** A metric's overrides take the blue the chip is outlined in. */
   color?: string;
   rows: OverrideRow[];
   nested?: boolean;
@@ -84,11 +78,7 @@ function RowsBlock({
   );
 }
 
-/**
- * A selected metric's hover card: where it lives, and what this experiment
- * changes about it. A group lists every metric in it, each with its own
- * type and overrides, linked to its own page.
- */
+/** A group lists each of its metrics with its own type, overrides and link. */
 export function MetricOverrideTooltipContent({
   id,
   overrides,
@@ -105,10 +95,7 @@ export function MetricOverrideTooltipContent({
   members?: GroupMemberStatus[];
   /** Whether a conversion window counts against a metric here. */
   filterConversionWindowMetrics?: boolean;
-  /**
-   * The experiment as it's being edited, and its engine: with them, a metric
-   * also lists the settings it's analysed with that aren't overridden.
-   */
+  /** Given, a metric also lists the settings it isn't overriding. */
   settingsScope?: MetricSettingsScope;
 }) {
   const {
@@ -180,7 +167,6 @@ export function MetricOverrideTooltipContent({
       subtitle={metric ? metricTypeLabel(metric) : undefined}
       titleColor="dark"
     >
-      {/* Clamped short, so it can sit with the name it describes. */}
       {metric ? (
         <OptionTooltipDescription description={metric.description} />
       ) : null}
@@ -202,7 +188,7 @@ export function MetricOverrideTooltipContent({
             {memberIds.map((mid, i) => {
               const member = getExperimentMetricById(mid);
               const status = members?.find((m) => m.metric?.id === mid);
-              const notJoinable = status ? !status.joinable : false;
+              const notJoinable = status?.joinable === false;
               const conversionWindow =
                 !!filterConversionWindowMetrics &&
                 member?.windowSettings?.type === "conversion";

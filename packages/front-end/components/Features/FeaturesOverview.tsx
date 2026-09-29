@@ -528,15 +528,12 @@ export default function FeaturesOverview({
     approvalsEngaged &&
     featureReviewConfig?.featureRequireMetadataReview !== false;
 
-  // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
-  // projection, so a draft staging a project move judged the wrong project.
-  // Managed flags refuse every direct write server-side, so fold that into the
-  // atoms the page's controls key off. Not in `permissionsClass`: the
-  // experiment-side components ask the same questions and must keep working,
-  // and a caller passing a bare `{project}` literal would skip the check.
+  // Managed flags refuse every direct write server-side. Folded in here rather
+  // than in `permissionsClass`, which the experiment-side components share and
+  // where a bare `{project}` caller would skip the check.
   const isManagedFlag = isManagedFeature(baseFeature);
   const managedExperimentId = managedByExperimentId(baseFeature) ?? "";
-  // Same authority the eject asks for: publish on the flag, and edit on the
+  // The eject endpoint's authority: publish on the flag, and edit on the
   // experiment, whose project the managed flag shares.
   const canEjectManaged =
     isManagedFlag &&
@@ -550,6 +547,8 @@ export default function FeaturesOverview({
     setEjectConfirm(false);
     await mutate();
   };
+  // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
+  // projection, so a draft staging a project move judged the wrong project.
   const canEditDrafts =
     !isManagedFlag && permissionsUtil.canEditFeatureDrafts(baseFeature);
   // An env change can be staged in a draft or published straight out. Offer the

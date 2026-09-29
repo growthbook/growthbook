@@ -101,8 +101,7 @@ const EditVariationMetadataModal: FC<Props> = ({
             mutate={mutate}
           />
         </Flex>
-        {/* Mirrors the badge's gutter so the fields sit centred in the modal
-            rather than pushed right by it. */}
+        {/* Balances the badge's gutter so the fields stay centred. */}
         <Box width={VARIATION_NUMBER_WIDTH} flexShrink="0" />
       </Flex>
     </ModalStandard>

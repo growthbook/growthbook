@@ -1,5 +1,4 @@
-// A black shadow reads as nothing on a dark surface, so each theme names its
-// own edge colour, the way the other bars here do.
+// A black shadow vanishes on a dark surface.
 :global(.light-theme) {
   --panel-handle-edge: var(--black-a3);
 }
@@ -8,8 +7,7 @@
   --panel-handle-edge: var(--white-a4);
 }
 
-// The handle straddles the panel's left border, so the hover cue sits at its
-// centre: a hairline falling onto the content the panel sits over.
+// The handle straddles the panel's left border, so the cue sits at its centre.
 .dragHandle::before {
   content: "";
   position: absolute;

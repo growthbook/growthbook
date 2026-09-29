@@ -28,7 +28,6 @@ import {
   $isListNode,
   INSERT_ORDERED_LIST_COMMAND,
   INSERT_UNORDERED_LIST_COMMAND,
-  ListNode,
   REMOVE_LIST_COMMAND,
 } from "@lexical/list";
 import { $isLinkNode } from "@lexical/link";
@@ -115,11 +114,8 @@ export default function RichTextEditorToolbar({
     const selection = $getSelection();
     if (!$isRangeSelection(selection)) return;
 
-    const formats = new Set<TextFormatType>();
-    (["bold", "italic", "strikethrough", "code"] as TextFormatType[]).forEach(
-      (f) => {
-        if (selection.hasFormat(f)) formats.add(f);
-      },
+    const formats = new Set(
+      TEXT_FORMATS.map((f) => f.format).filter((f) => selection.hasFormat(f)),
     );
 
     const anchorNode = selection.anchor.getNode();
@@ -135,16 +131,13 @@ export default function RichTextEditorToolbar({
     if ($isHeadingNode(block)) blockType = block.getTag();
     else if ($isQuoteNode(block)) blockType = "quote";
     else if ($isListNode(block)) {
-      blockType = (block as ListNode).getListType() === "number" ? "ol" : "ul";
+      blockType = block.getListType() === "number" ? "ol" : "ul";
     }
 
     setActive({
       formats,
       block: blockType,
-      linkUrl: (() => {
-        const link = $findMatchingParent(anchorNode, $isLinkNode);
-        return link && $isLinkNode(link) ? link.getURL() : null;
-      })(),
+      linkUrl: $findMatchingParent(anchorNode, $isLinkNode)?.getURL() ?? null,
     });
   }, []);
 
@@ -258,8 +251,7 @@ export default function RichTextEditorToolbar({
   ) => (
     <Tooltip key={key} content={label}>
       <IconButton
-        // Inside a form an untyped button submits it: pressing Bold would
-        // post the comment.
+        // Untyped, it would submit the surrounding form.
         type="button"
         size="1"
         variant={on ? "soft" : "ghost"}

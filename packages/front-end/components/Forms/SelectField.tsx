@@ -87,20 +87,12 @@ export type SelectFieldProps = Omit<
   legacyLabelFormatting?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
-  /**
-   * The shared t-shirt ladder, plus `legacy` for the un-migrated default.
-   * `md` is 32px, matching `Field size="md"` — the old `small` in disguise. The
-   * old `medium` (40px) is now `lg`.
-   */
   size?: SelectFieldSize;
   errorLevel?: "error" | "warning";
 };
 
-/**
- * `legacy` is the un-migrated default and is deliberately outside the shared
- * ladder; everything else follows `@/ui/sizes`.
- */
-export type SelectFieldSize = Size<"xs" | "sm" | "md" | "lg"> | "legacy";
+/** The shared ladder, plus `legacy` for the un-migrated default. */
+type SelectFieldSize = Size<"xs" | "sm" | "md" | "lg"> | "legacy";
 
 export function useSelectOptions(
   options: (SingleValue | GroupedValue)[],
@@ -191,9 +183,8 @@ export const ReactSelectProps = {
         backgroundColor: "var(--surface-background-color)",
       };
     },
-    // react-select portals the menu at z-index 1, which page content sitting in
-    // its own stacking context paints straight over: the menu still opens, but
-    // the options stop taking the mouse.
+    // react-select's default z-index of 1 lets page content in its own stacking
+    // context paint over the portalled menu and swallow its clicks.
     menuPortal: (styles) => {
       return { ...styles, zIndex: 1000 };
     },
@@ -210,9 +201,8 @@ export const ReactSelectProps = {
               color: isFocused
                 ? "var(--text-hover-color)"
                 : "var(--text-color-main)",
-              // react-select tracks the pointer in JS, which an option that
-              // re-renders under it — the ones carrying a hover popover do —
-              // can miss entirely. CSS does not depend on that.
+              // react-select's JS focus tracking can miss an option that
+              // re-renders under the pointer (one with a hover popover).
               "&:hover": {
                 backgroundColor: "var(--violet-a3)",
                 color: "var(--text-hover-color)",
@@ -315,7 +305,7 @@ const SelectField: FC<SelectFieldProps> = ({
   legacyLabelFormatting = true,
   labelSize,
   labelWeight = "semibold",
-  size = "legacy" as SelectFieldSize,
+  size = "legacy",
   errorLevel = "error",
   ...otherProps
 }) => {

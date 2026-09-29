@@ -125,8 +125,7 @@ export function OptionTooltipTags({ tags }: { tags?: string[] }) {
   );
 }
 
-// A long description is cut short with an ellipsis: the card is a glance, and
-// the full text is a click away on the item's own page.
+// The full text is a click away on the item's own page.
 const DESCRIPTION_MAX_LINES = 6;
 
 export function OptionTooltipDescription({
@@ -137,7 +136,6 @@ export function OptionTooltipDescription({
   if (!description) return null;
   return (
     <div>
-      {/* Lighter than the text it labels, so the description reads first. */}
       <Text size="sm" as="div" color="text-low">
         Description:
       </Text>

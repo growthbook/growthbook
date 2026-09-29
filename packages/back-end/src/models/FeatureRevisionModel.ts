@@ -532,29 +532,17 @@ export async function getLinkageSyncRevisionSummaries(
       }).select("version rules metadata")
     : [];
   const basesByVersion = new Map(baseDocs.map((d) => [d.version, d]));
+  const summarize = (d: LinkageRevisionSummary): LinkageRevisionSummary => ({
+    version: d.version,
+    rules: d.rules,
+    metadata: d.metadata,
+  });
   return {
     openDrafts: openDraftDocs.map((d) => {
       const base = basesByVersion.get(d.baseVersion);
-      return {
-        version: d.version,
-        rules: d.rules,
-        metadata: d.metadata,
-        ...(base && {
-          base: {
-            version: base.version,
-            rules: base.rules,
-            metadata: base.metadata,
-          },
-        }),
-      };
+      return { ...summarize(d), ...(base && { base: summarize(base) }) };
     }),
-    liveRevision: liveDoc
-      ? {
-          version: liveDoc.version,
-          rules: liveDoc.rules,
-          metadata: liveDoc.metadata,
-        }
-      : null,
+    liveRevision: liveDoc ? summarize(liveDoc) : null,
   };
 }
 

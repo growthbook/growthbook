@@ -28,9 +28,9 @@ import {
 } from "@/components/Experiment/LinkedChanges/constants";
 import StartModalSection from "@/components/Experiment/StartModalSection";
 import { ChecklistItems } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
-import type {
-  ChecklistAction,
-  CheckListItem,
+import {
+  linkedFeatureAction,
+  type CheckListItem,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import { summarizeChecklist } from "@/components/PreLaunchChecklist/checklistSummary";
 
@@ -46,13 +46,6 @@ function getChecklistItems(
   linkedFeatures: LinkedFeatureInfo[],
 ): CheckListItem[] {
   const items: CheckListItem[] = [];
-  const featureLink = (
-    f: LinkedFeatureInfo,
-    draft = true,
-  ): ChecklistAction => ({
-    href: `/features/${f.feature.id}${draft && (f.draftRevisionVersion ?? null) !== null ? `?v=${f.draftRevisionVersion}` : ""}`,
-    external: true,
-  });
   const blocker = (
     item: Pick<CheckListItem, "key" | "display" | "action" | "description">,
   ): CheckListItem => ({
@@ -79,7 +72,7 @@ function getChecklistItems(
         blocker({
           key: `merge-${f.feature.id}`,
           display: `Resolve the merge conflict in ${f.feature.id}`,
-          action: featureLink(f),
+          action: linkedFeatureAction(f),
         }),
       );
     });
@@ -96,7 +89,7 @@ function getChecklistItems(
         blocker({
           key: `approve-${f.feature.id}`,
           display: `Approve the Feature Flag draft for ${f.feature.id}`,
-          action: featureLink(f),
+          action: linkedFeatureAction(f),
           description: f.draftRevisionStatus ? (
             <Badge
               label={revisionStatusLabel(f.draftRevisionStatus)}
@@ -120,7 +113,7 @@ function getChecklistItems(
         blocker({
           key: `unrelated-${f.feature.id}`,
           display: `The ${f.feature.id} draft has changes unrelated to this Contextual Bandit`,
-          action: featureLink(f),
+          action: linkedFeatureAction(f),
         }),
       );
     });
@@ -141,7 +134,7 @@ function getChecklistItems(
           type: "auto",
           required: true,
           display: `Fill in missing variation values for ${f.feature.id}`,
-          action: featureLink(f, false),
+          action: linkedFeatureAction(f, false),
         });
       }
     });

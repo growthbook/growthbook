@@ -41,21 +41,15 @@ import SetupFieldRow from "./SetupFieldRow";
 type MetricField = "goalMetrics" | "secondaryMetrics" | "guardrailMetrics";
 type PlanField = "datasource" | "exposureQueryId" | MetricField;
 
-const ASSIGNMENT_QUERY_HELP =
-  "Defines who is in the experiment and how they are identified.";
-
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   canEdit: boolean;
   /** Passed through to the advanced settings modal. */
   envs: string[];
-  /**
-   * The settings modal's open state, when something else on the page opens it
-   * too. Owned here otherwise.
-   */
-  settingsOpen?: boolean;
-  setSettingsOpen?: (open: boolean) => void;
+  /** The settings modal's open state; other parts of the page open it too. */
+  settingsOpen: boolean;
+  setSettingsOpen: (open: boolean) => void;
 }
 
 /**
@@ -82,21 +76,15 @@ export default function AnalysisPlan({
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
 
-  const [ownAdvancedOpen, setOwnAdvancedOpen] = useState(false);
-  const advancedOpen = settingsOpen ?? ownAdvancedOpen;
-  const setAdvancedOpen = setSettingsOpen ?? setOwnAdvancedOpen;
-  // What the settings modal handed over, waiting on the page's save bar with
-  // everything else. The fields this section shows are held in their own state
-  // so the page keeps reading as one draft.
+  // What the settings modal staged, beyond the fields this section holds in its
+  // own state.
   const [advanced, setAdvanced] =
     useState<ExperimentAnalysisSettingsDraft | null>(null);
 
-  // The overrides as the page holds them: a staged edit reads before the save.
   const metricOverrides =
     (advanced && "metricOverrides" in advanced
       ? advanced.metricOverrides
       : experiment.metricOverrides) ?? [];
-  // The engine as the page holds it, a staged change included.
   const statsEngine = getScopedSettings({
     organization,
     project: getProjectById(experiment.project || "") ?? undefined,
@@ -105,12 +93,10 @@ export default function AnalysisPlan({
         ? { ...experiment, statsEngine: advanced.statsEngine }
         : experiment,
   }).settings.statsEngine.value;
-  // What a metric's card resolves its settings against: the page's draft.
   const settingsScope = useMemo(
     () => ({ experiment: { ...experiment, ...advanced }, statsEngine }),
     [experiment, advanced, statsEngine],
   );
-  // Which metrics the overrides editor opened for, or null while it is shut.
   const [overridesFor, setOverridesFor] = useState<string[] | null>(null);
 
   const suggestedDatasource = useMemo(
@@ -226,7 +212,6 @@ export default function AnalysisPlan({
   const exposureQueries = selectedDatasource?.settings?.queries?.exposure ?? [];
   const exposureQuery = exposureQueries.find((q) => q.id === exposureQueryId);
 
-  // What the experiment buckets on decides which queries can analyse it.
   const hashAttribute = experiment.hashAttribute || "";
   const { matching, other, linked } = useMemo(
     () =>
@@ -340,9 +325,9 @@ export default function AnalysisPlan({
           }}
         />
       ) : null}
-      {advancedOpen ? (
+      {settingsOpen ? (
         <AnalysisForm
-          cancel={() => setAdvancedOpen(false)}
+          cancel={() => setSettingsOpen(false)}
           // Opens on the page's draft, so confirming hands back what it shows.
           experiment={{ ...settingsScope.experiment, ...current }}
           mutate={mutate}
@@ -384,7 +369,7 @@ export default function AnalysisPlan({
               setGuardrailMetrics(nextGuardrailMetrics);
             }
             setAdvanced((prev) => ({ ...(prev ?? {}), ...rest }));
-            setAdvancedOpen(false);
+            setSettingsOpen(false);
           }}
         />
       ) : null}
@@ -438,7 +423,7 @@ export default function AnalysisPlan({
               <Button
                 variant="ghost"
                 icon={<PiPencilSimple />}
-                onClick={() => setAdvancedOpen(true)}
+                onClick={() => setSettingsOpen(true)}
               >
                 Additional settings
               </Button>
@@ -446,7 +431,10 @@ export default function AnalysisPlan({
           </Flex>
         </Flex>
 
-        <SetupFieldRow label="Assignment Query" tooltip={ASSIGNMENT_QUERY_HELP}>
+        <SetupFieldRow
+          label="Assignment Query"
+          tooltip="Defines who is in the experiment and how they are identified."
+        >
           <SelectField
             value={exposureQueryId}
             onChange={(value) => {

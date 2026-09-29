@@ -11,9 +11,10 @@ import {
 } from "shared/validators";
 import DiscussionThread from "@/components/DiscussionThread";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import ProjectTagBar from "@/components/Experiment/TabbedPage/ProjectTagBar";
+import ProjectTagBar, {
+  QuickEditField,
+} from "@/components/Experiment/TabbedPage/ProjectTagBar";
 import EditExperimentInfoModal, {
-  FocusSelector,
   InfoSection,
 } from "@/components/Experiment/TabbedPage/EditExperimentInfoModal";
 import { useCustomFields } from "@/hooks/useCustomFields";
@@ -22,7 +23,7 @@ import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldoutInfoModal";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
-import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionField";
+import InlineMarkdownField from "@/components/Experiment/TabbedPage/InlineMarkdownField";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
@@ -74,18 +75,13 @@ export default function ExperimentDetailsPanel({
   // Another editing surface cannot open over the page's own unsaved edits, so
   // the controls that would open one say why instead.
   const editsBlocked = useEditsBlockedReason();
-  const [focusSelector, setFocusSelector] = useState<FocusSelector>("name");
+  const { canEdit } = useExperimentEditing(experiment, disableEditing);
   const [infoSection, setInfoSection] = useState<InfoSection>("all");
-  const [customFieldId, setCustomFieldId] = useState<string | undefined>();
-  const editSection = (section: InfoSection) => {
+  const [customFieldId, setCustomFieldId] = useState<string | null>(null);
+  const editSection = (section: InfoSection, fieldId: string | null = null) => {
     setInfoSection(section);
-    setFocusSelector("name");
-    setCustomFieldId(undefined);
+    setCustomFieldId(fieldId);
     setShowEditInfoModal(true);
-  };
-  const editCustomField = (id: string) => {
-    editSection("customFields");
-    setCustomFieldId(id);
   };
 
   const { hasCommercialFeature } = useUser();
@@ -106,15 +102,12 @@ export default function ExperimentDetailsPanel({
       />
     ) : null;
 
-  // Each field of the General block opens its own quick editor. The key only
-  // changes while nothing is serving it.
-  const fieldAction = (field: QuickField) => {
+  // The key only changes while nothing is serving it.
+  const fieldAction = (field: QuickEditField) => {
     if (field === "trackingKey" && experiment.status !== "draft") return null;
     return pencil(QUICK_FIELD_LABELS[field], () => editSection(field));
   };
   const isHoldout = experiment.type === "holdout";
-  // The panel shows these fields in two places: who and what the experiment
-  // is, with its description, and how it is set up further down.
   const tagBar = (panel: "about" | "details") => (
     <ProjectTagBar
       panel={panel}
@@ -127,7 +120,6 @@ export default function ExperimentDetailsPanel({
       editSchedule={canEdit ? editSchedule : null}
     />
   );
-  const { canEdit } = useExperimentEditing(experiment, disableEditing);
   const {
     active: checklistActive,
     checklistItemsRemaining,
@@ -142,7 +134,9 @@ export default function ExperimentDetailsPanel({
       <CustomFieldDisplay
         rows
         rowAction={(field) =>
-          pencil(`Edit ${field.name}`, () => editCustomField(field.id))
+          pencil(`Edit ${field.name}`, () =>
+            editSection("customFields", field.id),
+          )
         }
         target={experiment}
         canEdit={false}
@@ -159,7 +153,6 @@ export default function ExperimentDetailsPanel({
           experiment={experiment}
           setShowEditInfoModal={setShowEditInfoModal}
           mutate={mutate}
-          focusSelector={focusSelector}
           section={infoSection}
           customFieldId={customFieldId}
         />
@@ -170,7 +163,6 @@ export default function ExperimentDetailsPanel({
           holdout={holdout}
           setShowEditInfoModal={setShowEditInfoModal}
           mutate={mutate}
-          focusSelector={focusSelector}
         />
       ) : null}
       <Tabs
@@ -207,7 +199,9 @@ export default function ExperimentDetailsPanel({
           <Flex px="5" py="4" direction="column" gap="4">
             <Flex direction="column" gap="3">
               {!isHoldout && (
-                <DescriptionField
+                <InlineMarkdownField
+                  label="Description"
+                  field="description"
                   stacked
                   experiment={experiment}
                   editable={false}
@@ -278,9 +272,7 @@ export default function ExperimentDetailsPanel({
   );
 }
 
-type QuickField = "project" | "trackingKey" | "owner" | "tags";
-
-const QUICK_FIELD_LABELS: Record<QuickField, string> = {
+const QUICK_FIELD_LABELS: Record<QuickEditField, string> = {
   project: "Edit project",
   trackingKey: "Edit experiment key",
   owner: "Edit owner",

@@ -22,7 +22,6 @@ import {
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { maybeAutoPublishFeatureRevision } from "back-end/src/api/features/autoPublishOnApproval";
 
-// Shared by the internal and managed-flag routes.
 export async function submitFeatureRevisionReview({
   context,
   feature,
@@ -60,13 +59,15 @@ export async function submitFeatureRevisionReview({
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    version,
-  });
+  const loadRevision = () =>
+    getRevision({
+      context,
+      organization: context.org.id,
+      featureId: feature.id,
+      feature,
+      version,
+    });
+  const revision = await loadRevision();
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -94,7 +95,7 @@ export async function submitFeatureRevisionReview({
 
   // `mayBeRevisionAuthor`: an identityless principal must not approve its own authorless draft.
   const creatorId =
-    revision.createdBy != null && "id" in revision.createdBy
+    revision.createdBy && "id" in revision.createdBy
       ? revision.createdBy.id
       : "";
   if (review !== "Comment" && mayBeRevisionAuthor(creatorId, context.userId)) {
@@ -115,7 +116,6 @@ export async function submitFeatureRevisionReview({
       throw new Error("You cannot approve a draft you contributed to.");
     }
   }
-  // dont allow review unless you are adding a comment
   if (
     !(
       revision.status === "changes-requested" ||
@@ -144,14 +144,7 @@ export async function submitFeatureRevisionReview({
     );
   }
 
-  const updatedRevision = await getRevision({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    version,
-  });
-  const finalRevision = updatedRevision ?? revision;
+  const finalRevision = (await loadRevision()) ?? revision;
 
   const auditUser = context.auditUser;
   const reviewer =

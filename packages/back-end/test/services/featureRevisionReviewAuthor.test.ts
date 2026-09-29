@@ -24,8 +24,7 @@ const feature = {
   organization: "org_1",
   project: "",
   version: 4,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-} as any as FeatureInterface;
+} as unknown as FeatureInterface;
 
 /** `userId` is "" for an API key, and a real id for a dashboard session. */
 const contextFor = (userId: string) =>
@@ -42,8 +41,7 @@ const contextFor = (userId: string) =>
         throw new Error("permission error");
       },
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any;
+  }) as never;
 
 /** `createdBy` has no `id` when an API key opened the draft. */
 const revisionCreatedBy = (createdBy: unknown) => ({
@@ -61,8 +59,7 @@ const approve = (userId: string, createdBy: unknown) => {
     version: 3,
     review: "Approved",
     comment: "",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    eventAudit: { type: "api_key", apiKey: "key_1" } as any,
+    eventAudit: { type: "api_key", apiKey: "key_1" },
   });
 };
 

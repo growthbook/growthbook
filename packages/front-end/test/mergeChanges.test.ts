@@ -51,7 +51,6 @@ const listLengths = (body: ExperimentChangesBody) =>
 
 describe("mergeChanges", () => {
   it("keeps every key an edit can send", () => {
-    // `dryRun` is the caller's to add, not an edit's.
     const editKeys = Object.keys(experimentChangesBody.shape).filter(
       (key) => key !== "dryRun",
     );

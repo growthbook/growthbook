@@ -118,8 +118,7 @@ const ScreenshotUpload = ({
         tabIndex={0}
         className={clsx(styles.droparea, className, {
           [styles.dragging]: isDragActive,
-          // Stable name so a caller's own stylesheet can react to the drag
-          // without reaching into this module's hashed class.
+          // Unhashed, so a caller's stylesheet can react to the drag.
           "screenshot-dropping": isDragActive,
         })}
       >

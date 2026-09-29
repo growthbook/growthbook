@@ -91,7 +91,6 @@ export type ExperimentChangesResult = {
 type FlagValuesPlan = ExperimentFeatureUpdatePlan & {
   update: ExperimentLinkedFeatureValueUpdate;
   managed: boolean;
-  // The rule's environment re-scope, when the save carries one.
   scope: ReturnType<typeof planExperimentRuleEnvironments> | null;
 };
 
@@ -326,31 +325,24 @@ async function writeFlagValues({
   const { feature, existingRevision, matchingRules, update, managed, scope } =
     plan;
 
-  let revision: FeatureRevisionInterface;
-  let compensation: Compensation;
+  let snapshot: RevisionSnapshot | null = null;
   if (existingRevision) {
-    const snapshot = await getRevisionSnapshot(
+    snapshot = await getRevisionSnapshot(
       feature.organization,
       feature.id,
       existingRevision.version,
     );
     if (!snapshot) throw changedSinceLoaded(`Feature Flag ${feature.id}`);
-    revision = existingRevision;
-    compensation = {
-      featureId: feature.id,
-      version: revision.version,
-      snapshot,
-      writtenDateUpdated: revision.dateUpdated,
-    };
-  } else {
-    revision = await getDraftRevision(context, feature, feature.version);
-    compensation = {
-      featureId: feature.id,
-      version: revision.version,
-      snapshot: null,
-      writtenDateUpdated: revision.dateUpdated,
-    };
   }
+  let revision: FeatureRevisionInterface =
+    existingRevision ??
+    (await getDraftRevision(context, feature, feature.version));
+  const compensation: Compensation = {
+    featureId: feature.id,
+    version: revision.version,
+    snapshot,
+    writtenDateUpdated: revision.dateUpdated,
+  };
   compensations.push(compensation);
 
   if (managed) {
@@ -710,20 +702,27 @@ async function finishFlags({
     audit,
   });
   if (!body.renameManagedFlag) return healed;
-  const feature = await getManagedFeatureForExperiment(context, healed);
+  await renameManagedFlag({
+    context,
+    experiment: healed,
+    feature: await getManagedFeatureToRename(context, healed),
+    to: body.renameManagedFlag.to,
+    audit,
+  });
+  return (await getExperimentById(context, healed.id)) ?? healed;
+}
+
+async function getManagedFeatureToRename(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+) {
+  const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) {
     throw new BadRequestError(
       "This experiment does not manage a Feature Flag.",
     );
   }
-  await renameManagedFlag({
-    context,
-    experiment: healed,
-    feature,
-    to: body.renameManagedFlag.to,
-    audit,
-  });
-  return (await getExperimentById(context, healed.id)) ?? healed;
+  return feature;
 }
 
 // Refuses before anything is written; the rename itself checks again.
@@ -733,12 +732,7 @@ async function assertManagedFlagRenamableUpFront(
   body: ExperimentChangesBody,
   to: string,
 ) {
-  const feature = await getManagedFeatureForExperiment(context, experiment);
-  if (!feature) {
-    throw new BadRequestError(
-      "This experiment does not manage a Feature Flag.",
-    );
-  }
+  const feature = await getManagedFeatureToRename(context, experiment);
   if (to === feature.id) return;
   if (body.unlinkFeatures?.includes(feature.id)) {
     throw new BadRequestError(

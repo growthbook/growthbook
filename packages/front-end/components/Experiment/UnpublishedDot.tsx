@@ -4,10 +4,7 @@ import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 
-/**
- * Marks a readout as describing an unpublished draft rather than what is live.
- * Shared so every surface on the overview uses the same mark.
- */
+/** Marks a readout as describing an unpublished draft rather than what is live. */
 export default function UnpublishedDot({
   tooltip,
   note,

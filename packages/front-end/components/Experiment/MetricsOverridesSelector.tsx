@@ -48,6 +48,11 @@ const defaultFieldMap = {
   metricOverrides: "metricOverrides",
 };
 
+const SELECT_WIDTH = 190;
+
+const withDefault = (label: string, isDefault: boolean) =>
+  isDefault ? `${label} (default)` : label;
+
 export default function MetricsOverridesSelector({
   experiment,
   form,
@@ -62,11 +67,7 @@ export default function MetricsOverridesSelector({
   form: UseFormReturn<any>;
   disabled: boolean;
   fieldMap?: typeof defaultFieldMap;
-  /**
-   * The data source the metrics are picked from. Defaults to the stored one;
-   * pass the unsaved one when it may have changed, or its metrics can't be
-   * picked.
-   */
+  /** Defaults to the stored one; pass the unsaved one when it may have changed. */
   datasource?: string;
   /** The engine the experiment will be analysed with, as currently edited. */
   statsEngine: StatsEngine;
@@ -126,32 +127,28 @@ export default function MetricsOverridesSelector({
   return (
     <Flex direction="column" gap="3">
       {!disabled &&
-        metricOverrides.fields.map((_, i) => (
-          <OverrideCard
-            key={i}
-            path={`${fieldMap["metricOverrides"]}.${i}`}
-            form={form}
-            metricDefinition={
-              allMetricDefinitions.find(
-                (md) =>
-                  md.id ===
-                  form.watch(`${fieldMap["metricOverrides"]}.${i}.id`),
-              ) ?? null
-            }
-            allMetricDefinitions={allMetricDefinitions}
-            highlighted={
-              !!highlightMetricId &&
-              form.watch(`${fieldMap["metricOverrides"]}.${i}.id`) ===
-                highlightMetricId
-            }
-            settings={settings}
-            hasRegressionAdjustmentFeature={hasCommercialFeature(
-              "regression-adjustment",
-            )}
-            bayesian={statsEngine === "bayesian"}
-            onRemove={() => metricOverrides.remove(i)}
-          />
-        ))}
+        metricOverrides.fields.map((_, i) => {
+          const path = `${fieldMap["metricOverrides"]}.${i}`;
+          const id = form.watch(`${path}.id`);
+          return (
+            <OverrideCard
+              key={i}
+              path={path}
+              form={form}
+              metricDefinition={
+                allMetricDefinitions.find((md) => md.id === id) ?? null
+              }
+              allMetricDefinitions={allMetricDefinitions}
+              highlighted={!!highlightMetricId && id === highlightMetricId}
+              settings={settings}
+              hasRegressionAdjustmentFeature={hasCommercialFeature(
+                "regression-adjustment",
+              )}
+              bayesian={statsEngine === "bayesian"}
+              onRemove={() => metricOverrides.remove(i)}
+            />
+          );
+        })}
       {unusedMetrics.length > 0 ? (
         <MetricSelector
           size="md"
@@ -160,7 +157,6 @@ export default function MetricsOverridesSelector({
           project={experiment.project}
           includeFacts={true}
           value=""
-          // Picking a metric is the whole gesture: it lands as a new card.
           onChange={(m) => m && addOverride(m)}
           placeholder="Override another metric..."
           disabled={disabled}
@@ -187,10 +183,7 @@ export default function MetricsOverridesSelector({
   );
 }
 
-/**
- * One overridden metric. Each setting it overrides is a row, always open;
- * the rest wait behind a link apiece until they're overridden too.
- */
+/** Each overridden setting is a row; the rest are offered in a select below. */
 function OverrideCard({
   path,
   form,
@@ -210,7 +203,6 @@ function OverrideCard({
   highlighted: boolean;
   settings: OrganizationSettings;
   hasRegressionAdjustmentFeature: boolean;
-  /** Priors only apply under the Bayesian engine. */
   bayesian: boolean;
   onRemove: () => void;
 }) {
@@ -224,13 +216,12 @@ function OverrideCard({
   const minWindow =
     metricDefinition && isFactMetric(metricDefinition) ? 0 : 0.125;
 
-  // Window: the metric's own unless one is chosen here.
   const metricWindowType = metricDefinition?.windowSettings?.type || "none";
   // Delay or window hours alone, as older overrides and REST store them,
   // override the metric's own window too.
   const windowType: string | undefined =
-    mo?.windowType ??
-    (mo?.delayHours !== undefined || mo?.windowHours !== undefined
+    mo.windowType ??
+    (mo.delayHours !== undefined || mo.windowHours !== undefined
       ? metricWindowType
       : undefined);
   const windowOverridden = windowType !== undefined;
@@ -243,7 +234,6 @@ function OverrideCard({
       ? `Default ${getMetricWindowHours(metricDefinition.windowSettings)}`
       : "Required";
 
-  // Prior: from the metric where it sets one, the org otherwise.
   const defaultPrior = metricDefinition?.priorSettings.override
     ? metricDefinition.priorSettings
     : (settings.metricDefaults?.priorSettings ?? {
@@ -252,9 +242,8 @@ function OverrideCard({
         mean: 0,
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       });
-  const priorOverridden = !!mo?.properPriorOverride;
+  const priorOverridden = !!mo.properPriorOverride;
 
-  // CUPED: some metrics can't take it at all.
   let cupedUnavailable: string | null = null;
   if (metricDefinition?.denominator) {
     const denominator = allMetricDefinitions.find(
@@ -281,8 +270,8 @@ function OverrideCard({
   const cupedDefaultDays = metricDefinition?.regressionAdjustmentOverride
     ? metricDefinition.regressionAdjustmentDays
     : (settings.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS);
-  const cupedOverridden = !!mo?.regressionAdjustmentOverride;
-  const days: number | undefined = mo?.regressionAdjustmentDays;
+  const cupedOverridden = !!mo.regressionAdjustmentOverride;
+  const days: number | undefined = mo.regressionAdjustmentDays;
   const daysWarning =
     !isUndefined(days) && days > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
@@ -455,7 +444,7 @@ function OverrideCard({
               choice={
                 <Select
                   disabled={!bayesian || !hasRegressionAdjustmentFeature}
-                  value={mo?.properPriorEnabled ? "proper" : "improper"}
+                  value={mo.properPriorEnabled ? "proper" : "improper"}
                   setValue={(value) =>
                     set({ properPriorEnabled: value === "proper" })
                   }
@@ -469,7 +458,7 @@ function OverrideCard({
                 </Select>
               }
             >
-              {mo?.properPriorEnabled ? (
+              {mo.properPriorEnabled ? (
                 <>
                   {numberField(
                     "properPriorMean",
@@ -496,7 +485,7 @@ function OverrideCard({
               label="CUPED"
               onClear={clearCuped}
               help={
-                !cupedUnavailable && mo?.regressionAdjustmentEnabled
+                !cupedUnavailable && mo.regressionAdjustmentEnabled
                   ? daysWarning
                   : null
               }
@@ -504,7 +493,7 @@ function OverrideCard({
                 cupedUnavailable ? null : (
                   <Select
                     disabled={!hasRegressionAdjustmentFeature}
-                    value={mo?.regressionAdjustmentEnabled ? "on" : "off"}
+                    value={mo.regressionAdjustmentEnabled ? "on" : "off"}
                     setValue={(value) =>
                       set({ regressionAdjustmentEnabled: value === "on" })
                     }
@@ -523,7 +512,7 @@ function OverrideCard({
                 <Text size="sm" color="text-low">
                   {cupedUnavailable}
                 </Text>
-              ) : mo?.regressionAdjustmentEnabled ? (
+              ) : mo.regressionAdjustmentEnabled ? (
                 numberField(
                   "regressionAdjustmentDays",
                   "Pre-exposure lookback",
@@ -567,16 +556,7 @@ function OverrideCard({
   );
 }
 
-const SELECT_WIDTH = 190;
-
-const withDefault = (label: string, isDefault: boolean) =>
-  isDefault ? `${label} (default)` : label;
-
-/**
- * A row for a setting a metric overrides: its choice, labelled with the
- * setting, then its details and a reset. Details share two even slots, so they
- * line up from one row to the next.
- */
+/** Details share two even slots, so they line up from one row to the next. */
 function OverrideRow({
   label,
   tooltip,
@@ -594,6 +574,7 @@ function OverrideRow({
   help?: string | null;
   children?: ReactNode;
 }) {
+  const clearLabel = `Stop overriding ${label}`;
   const heading = (
     <Flex align="center" gap="1" mb="2">
       <Text as="label" weight="semibold" mb="0">
@@ -627,10 +608,19 @@ function OverrideRow({
             </Grid>
           ) : null}
           <Box pb="6px">
-            <RemoveButton
-              label={`Stop overriding ${label}`}
-              onClick={onClear}
-            />
+            <Tooltip content={clearLabel}>
+              <IconButton
+                type="button"
+                color="gray"
+                variant="ghost"
+                radius="full"
+                size="1"
+                aria-label={clearLabel}
+                onClick={onClear}
+              >
+                <PiXBold size={16} />
+              </IconButton>
+            </Tooltip>
           </Box>
         </Flex>
         {help ? (
@@ -640,29 +630,5 @@ function OverrideRow({
         ) : null}
       </TableCell>
     </TableRow>
-  );
-}
-
-function RemoveButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Tooltip content={label}>
-      <IconButton
-        type="button"
-        color="gray"
-        variant="ghost"
-        radius="full"
-        size="1"
-        aria-label={label}
-        onClick={onClick}
-      >
-        <PiXBold size={16} />
-      </IconButton>
-    </Tooltip>
   );
 }

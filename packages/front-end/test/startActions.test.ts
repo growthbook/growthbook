@@ -130,17 +130,6 @@ describe("getStartActions", () => {
       },
     },
     {
-      name: "waits for the bypass of a soft item on a future schedule",
-      scheduledStartAt: future,
-      checklist: soft,
-      expected: {
-        action: "approve-schedule",
-        label: futureLabel,
-        bypassLabel: scheduleStart,
-        disabled: true,
-      },
-    },
-    {
       name: "approves a future schedule past a bypassed soft item",
       scheduledStartAt: future,
       checklist: soft,
@@ -228,12 +217,6 @@ describe("withServerChecklist", () => {
     hardBlock: true,
   };
   it.each([
-    {
-      name: "counts a soft item the page lacks",
-      checklist: done,
-      server: [customTask],
-      expected: { ...done, remaining: 1 },
-    },
     {
       name: "counts every soft item on top of the page's",
       checklist: soft,

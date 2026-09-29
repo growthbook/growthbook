@@ -48,8 +48,6 @@ const CompletedExperimentList = ({
   const { getOwnerDisplay } = useUser();
   const { getMetricById, getFactMetricById } = useDefinitions();
 
-  // Same just-in-time fetch the running list does: ownership lives on the
-  // Feature Flag, not the experiment row.
   const { fetchSome, getManagedFlag } = useManagedExperimentFlagStates();
   const managedLookupKey = useMemo(
     () =>

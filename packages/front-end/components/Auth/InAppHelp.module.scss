@@ -1,5 +1,4 @@
-// The chat mark is the button: no box around it, so its click area is the glyph
-// itself and its hover outline follows the bubble, not a box around it.
+// The glyph is the button, so its hover outline traces the bubble.
 .chatLauncher {
   position: fixed;
   right: 10px;
@@ -14,10 +13,8 @@
   cursor: pointer;
   transition: filter 100ms ease;
 
-  // An outline the filter traces from the glyph's own alpha, so it follows the
-  // bubble instead of boxing it. Hard shadows at eight angles rather than one
-  // blurred pass: a blur fades out into a smudge, these stop at their edge.
-  // Translucent, so the ring reads as an outline and not as a heavier icon.
+  // Hard shadows at eight angles trace the glyph's alpha as a crisp outline;
+  // a single blurred shadow would smudge.
   &:hover,
   &:focus-visible {
     outline: none;
@@ -32,9 +29,8 @@
   }
 }
 
-// The close button keeps the chat mark's footprint, so the launcher does not
-// move when it opens, and its circle matches the bubble's: Phosphor draws that
-// circle at r=104 in a 256 viewBox, which is 81.25% of the icon's box.
+// Keeps the chat mark's footprint so the launcher doesn't move when opened.
+// Phosphor draws the bubble at r=104 in a 256 viewBox: 81.25% of the box.
 .closeLauncher {
   composes: chatLauncher;
   display: flex;
@@ -53,9 +49,8 @@
   justify-content: center;
 }
 
-// The mark is two glyphs: the chat bubble, and the question sitting inside it.
-// Phosphor centres that bubble on the icon's box — only its tail hangs below —
-// so the question sits dead centre too.
+// Phosphor centres the bubble on the icon's box (only its tail hangs below),
+// so the question glyph sits dead centre.
 .chatMark {
   position: relative;
   display: block;

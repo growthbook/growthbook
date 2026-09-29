@@ -918,7 +918,7 @@ app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
 // Holdouts
 app.use("/holdout", holdoutRouter);
 
-// Mounted under /experiment, outside the /feature/* lockdown.
+// Outside the /feature/* managed-flag lockdown.
 app.use("/experiment/:id/managed-flag", managedFlagRouter);
 app.use("/experiment/:id/changes", experimentChangesRouter);
 
@@ -1393,8 +1393,7 @@ const errorHandler: ErrorRequestHandler = (
     body.code = err.code;
     body.details = err.details;
   }
-  // Same shape the REST handler gives a blocked publish. Warnings only when
-  // some gate is actually clearable, or the client offers an empty "Save anyway".
+  // Empty warnings would still make the client offer "Save anyway".
   if (err instanceof PublishBlockedError) {
     body.gates = err.gates;
     if (err.warnings.length) body.warnings = err.warnings;

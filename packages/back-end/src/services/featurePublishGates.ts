@@ -227,12 +227,8 @@ export async function assessRevisionApproval({
     teams: context.teams,
   });
 
-  const approvedIds = (revision.reviews ?? [])
-    .filter((r) => r.status === "approved")
-    .map((r) => r.userId)
-    .filter((id): id is string => !!id);
   const nonContributing = nonContributingApproverIds({
-    approvedIds,
+    approvedIds: approvers.map((a) => a.id),
     enforcedTeamIds: requiredTeams.enforcedTeamIds,
     requiredTeamsSatisfied: requiredTeams.satisfied,
     org: context.org,

@@ -40,20 +40,26 @@ export type ManagedFlagKeyCheck = {
   stateBlocker: ManagedFlagRenameBlocker | null;
 };
 
+/** The experiment that manages this flag, or null when nothing does. */
+export function managedByExperimentId(
+  feature: Pick<FeatureInterface, "managedBy">,
+): string | null {
+  return feature.managedBy?.type === "experiment"
+    ? feature.managedBy.experimentId
+    : null;
+}
+
 export function isManagedFeature(
   feature: Pick<FeatureInterface, "managedBy">,
 ): boolean {
-  return feature.managedBy?.type === "experiment";
+  return managedByExperimentId(feature) !== null;
 }
 
 export function isManagedByExperiment(
   feature: Pick<FeatureInterface, "managedBy">,
   experimentId: string,
 ): boolean {
-  return (
-    feature.managedBy?.type === "experiment" &&
-    feature.managedBy.experimentId === experimentId
-  );
+  return managedByExperimentId(feature) === experimentId;
 }
 
 // A managed draft publishes at start, so it counts as a live linked change.
@@ -129,15 +135,6 @@ export function getManagedValueProblems({
     }
   });
   return problems;
-}
-
-/** The experiment that manages this flag, or null when nothing does. */
-export function managedByExperimentId(
-  feature: Pick<FeatureInterface, "managedBy">,
-): string | null {
-  return feature.managedBy?.type === "experiment"
-    ? feature.managedBy.experimentId
-    : null;
 }
 
 // A candidate, not a reservation.
@@ -233,7 +230,7 @@ export function requireFreshBaseForPublish({
   reviewRequired,
   orgSetting,
 }: {
-  feature: Parameters<typeof isManagedFeature>[0];
+  feature: Pick<FeatureInterface, "managedBy">;
   reviewRequired: boolean;
   orgSetting: boolean;
 }): boolean {

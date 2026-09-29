@@ -174,6 +174,7 @@ import {
   planManagedFlagKey,
   publishManagedDraft,
   removeManagedFeatureForExperiment,
+  requireManagedFeature,
 } from "back-end/src/services/managedFeatures";
 import {
   canRenameManagedFlag,
@@ -216,7 +217,7 @@ export async function getManagedExperiments(
   res: Response<{ status: 200; managed: Record<string, string> }>,
 ) {
   const context = getContextFromReq(req);
-  const ids = (req.query?.ids || "")
+  const ids = (req.query.ids ?? "")
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
@@ -1194,7 +1195,6 @@ export async function getSnapshots(
  */
 export async function postExperiments(
   req: AuthRequest<
-    // Creation-time instruction; ownership lives on the flag.
     Partial<ExperimentInterfaceStringDates>,
     unknown,
     {
@@ -1287,11 +1287,15 @@ export async function postExperiments(
     });
     return;
   }
+  const originalExperiment = req.query.originalId
+    ? await getExperimentById(context, req.query.originalId)
+    : null;
   // Some entry points choose for the user: a flag rule, an import, a duplicate's source.
   if (!data.implementationType) {
     if (req.query.originalId) {
-      const original = await getExperimentById(context, req.query.originalId);
-      const inherited = original ? getImplementationType(original) : undefined;
+      const inherited = originalExperiment
+        ? getImplementationType(originalExperiment)
+        : undefined;
       if (inherited && inherited !== "multi") {
         data.implementationType = inherited;
       }
@@ -1579,9 +1583,6 @@ export async function postExperiments(
     });
 
     // A duplicate copies its source's flag; any other Values experiment gets its own.
-    const originalExperiment = req.query.originalId
-      ? await getExperimentById(context, req.query.originalId)
-      : null;
     const sourceManaged = originalExperiment
       ? await getManagedFeatureForExperiment(context, originalExperiment)
       : null;
@@ -3669,10 +3670,7 @@ export async function getExperimentManagedFlagKeyCheck(
   if (!experiment) {
     throw new NotFoundError("Experiment not found");
   }
-  const feature = await getManagedFeatureForExperiment(context, experiment);
-  if (!feature) {
-    throw new NotFoundError("This experiment does not manage a Feature Flag.");
-  }
+  const feature = await requireManagedFeature(context, experiment);
   const derivedId = managedFeatureKeyCandidate({
     trackingKey: experiment.trackingKey,
     experimentId: experiment.id,
@@ -3806,10 +3804,7 @@ export async function postExperimentManagedFlagEject(
     context.permissions.throwPermissionError();
   }
 
-  const managed = await getManagedFeatureForExperiment(context, experiment);
-  if (!managed) {
-    throw new Error("This experiment does not manage a Feature Flag.");
-  }
+  const managed = await requireManagedFeature(context, experiment);
 
   const feature = await ejectManagedFeature({
     context,

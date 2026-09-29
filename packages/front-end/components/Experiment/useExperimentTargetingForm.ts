@@ -32,10 +32,7 @@ export interface UseExperimentTargetingFormResult {
   prerequisiteTargetingSdkIssues: boolean;
   setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
   canSubmit: boolean;
-  /**
-   * Writes the form. Pass `stage` to hand the validated payload to the page's
-   * pending edits instead, so nothing is written until the page is saved.
-   */
+  /** Writes the form, or hands the validated payload to `stage` instead. */
   onSubmit: (
     mutate: () => void,
     scope?: ChangeType,
@@ -44,11 +41,10 @@ export interface UseExperimentTargetingFormResult {
 }
 
 /**
- * What the experiment currently targets, in the shape the endpoint takes. Any
- * surface staging a targeting change starts from this, so a field edited on
- * its own still posts a whole, current payload.
+ * What the experiment currently targets, in the shape the endpoint takes, so a
+ * field staged on its own still posts a whole payload.
  */
-export function getTargetingDefaults(
+function getTargetingDefaults(
   experiment: ExperimentInterfaceStringDates,
   hashVersionFallback: 1 | 2,
 ): ExperimentTargetingData {
@@ -86,9 +82,6 @@ export function getTargetingDefaults(
         return { ...omit(saved, "range"), ranges: [saved.range] };
       }
       return saved;
-      // A namespace nobody has enabled matches neither stored format: it is
-      // the shape NamespaceSelector writes, kept so a mount cannot look like
-      // an edit.
     })() as ExperimentTargetingData["namespace"],
     seed: lastPhase?.seed ?? "",
     trackingKey: experiment.trackingKey || "",
@@ -124,10 +117,7 @@ export function useTargetingDefaults(
 export function useExperimentTargetingForm(
   experiment: ExperimentInterfaceStringDates,
   attributeScopeProjects?: string[] | null,
-  /**
-   * Targeting already staged on the page. The form opens on it, so reopening a
-   * modal picks up what was confirmed rather than what is stored.
-   */
+  /** Targeting already staged on the page, which the form opens on. */
   draft?: ExperimentTargetingData | null,
 ): UseExperimentTargetingFormResult {
   const { apiCall } = useAuth();

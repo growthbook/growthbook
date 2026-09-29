@@ -41,8 +41,7 @@ const ExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  // Targeting the user has confirmed in the modal or changed on the page, held
-  // here beside the modal and written by the setup tab's save bar.
+  // Staged targeting edits, saved by the setup tab's save bar.
   const [targetingDraft, setTargetingDraft] =
     useState<ExperimentTargetingData | null>(null);
   const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
@@ -76,9 +75,7 @@ const ExperimentPage = (): ReactElement => {
     }
     if (data?.experiment?.type === "holdout") {
       const holdoutId = experimentToHoldoutsMap.get(data.experiment.id)?.id;
-      // The holdouts list often lands after the experiment, and redirecting
-      // without it sends the user to /holdout/undefined. This effect reruns
-      // when the list arrives.
+      // Wait for the holdouts list, or this redirects to /holdout/undefined.
       if (!holdoutId) return;
       const base = window.location.href.replace(
         /(.*)\/experiment\/.*/,

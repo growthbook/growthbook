@@ -18,10 +18,8 @@ const valueFor = (
 ) => values?.find((v) => v.variationId === variationId)?.value;
 
 /**
- * The draft's values against live, per variation. A draft differs from live
- * across its whole rule, so callers that ask about values specifically —
- * whether to render a diff, whether to mark a readout unpublished — have to
- * compare here rather than trust that a draft exists.
+ * The draft's values against live, per variation. A draft can change its rule
+ * without moving a value, so ask here rather than trusting that a draft exists.
  */
 export function getVariationValueChanges(
   info: Pick<LinkedFeatureInfo, "values" | "liveValues" | "pendingDraft">,

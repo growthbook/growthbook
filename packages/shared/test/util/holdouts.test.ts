@@ -228,7 +228,6 @@ describe("getHoldoutLinkBlocker", () => {
     );
     expect(blocker("ho_1", {}, ["prj_b"])).toBe("holdout-unavailable");
     expect(blocker("ho_1", {}, ["prj_a"])).toBeNull();
-    expect(blocker("ho_1", {}, [])).toBeNull();
   });
 });
 

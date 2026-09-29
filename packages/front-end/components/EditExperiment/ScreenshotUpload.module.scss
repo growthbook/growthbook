@@ -1,15 +1,13 @@
 @import "../../styles/colors.scss";
 
 .droparea {
-  // Only needs to sit above its own card's content: anything higher paints
-  // over the page's docked panels.
+  // Anything higher paints over the page's docked panels.
   z-index: 1;
   position: relative;
   box-sizing: border-box;
   border: 1px solid transparent;
   overflow: hidden;
-  // Hugs the placeholder it wraps, so only that box is clickable rather than
-  // the whole row. The auto margin keeps it right-aligned in the card column.
+  // Hugs the placeholder so only it is clickable, right-aligned in the card.
   width: fit-content;
   height: fit-content;
   margin-left: auto;

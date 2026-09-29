@@ -31,7 +31,6 @@
   display: block;
 }
 
-// Not a control, but it has a tooltip, so it reads as one on hover.
 // One unbroken line under the whole label, which text-decoration can't give
 // across the inline-block revision number.
 .revisionLabel,
@@ -40,6 +39,7 @@
   border-bottom: 1px solid transparent;
 }
 
+// Not a control, but it has a tooltip, so it reads as one on hover.
 .revisionLabel {
   cursor: default;
 

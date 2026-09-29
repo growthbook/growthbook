@@ -11,7 +11,6 @@ import CodeTextArea, {
   TEN_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
 import Button from "@/ui/Button";
-import Text from "@/ui/Text";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { SparsePatchIndicator } from "@/components/Features/SparsePatchToggle";
 
@@ -27,7 +26,6 @@ export default function SparseTabbedEditor({
   placeholder,
   disabled = false,
   defaultHeight,
-  showInlineLabel = true,
   condensed = false,
   fontSize,
   headerLeft,
@@ -44,17 +42,12 @@ export default function SparseTabbedEditor({
   placeholder?: string;
   disabled?: boolean;
   defaultHeight?: number;
-  // Render the label above the tabs. Set false when a parent already shows it
-  // (e.g. the force/rollout toggle header row).
-  showInlineLabel?: boolean;
   // Tighter layout for embedded contexts like ramp step editors: smaller tabs
   // and a shorter default editor height.
   condensed?: boolean;
-  // Editor type size, so the Edit tab matches the plain code editor this
-  // replaces and the Preview tab matches the Edit tab.
+  // Code font size for both tabs.
   fontSize?: string;
-  // Rendered on the tab row, so a label and a constant picker share it rather
-  // than stacking above the tabs.
+  // Rendered on the tab row, either side of the tabs.
   headerLeft?: ReactNode;
   headerRight?: ReactNode;
   // Exposes the Edit-tab Ace editor so a parent's constant picker can insert at
@@ -227,12 +220,6 @@ export default function SparseTabbedEditor({
           {label ? <Box className="font-weight-bold">{label}</Box> : null}
           <SparsePatchIndicator />
         </Flex>
-      ) : showInlineLabel && label ? (
-        <Box mb="1">
-          <Text as="label" weight="semibold" mb="0">
-            {label}
-          </Text>
-        </Box>
       ) : null}
       {tabs}
     </div>

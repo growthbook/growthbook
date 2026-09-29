@@ -3,15 +3,14 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import DataList from "@/ui/DataList";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import Metadata from "@/ui/Metadata";
 import {
   customFieldDataListItems,
@@ -31,11 +30,6 @@ const CustomFieldDisplay: FC<{
   mt?: "1" | "2" | "3" | "4" | "5" | "6";
   /** When provided, the edit modal shows a draft callout and "Save to Draft" CTA. */
   draftInfo?: CustomFieldDraftInfo;
-  /**
-   * With every field empty, collapse to a "+ {label}" button. A required field
-   * is always shown, so it can't be missed behind the button.
-   */
-  collapseWhenEmpty?: boolean;
   /** A metadata row per field, to sit alongside other metadata in a narrow column. */
   rows?: boolean;
   /** In rows mode, the edit button a field's row reveals on hover. */
@@ -49,7 +43,6 @@ const CustomFieldDisplay: FC<{
   target,
   mt,
   draftInfo,
-  collapseWhenEmpty,
   rows,
   rowAction,
 }) => {
@@ -73,46 +66,41 @@ const CustomFieldDisplay: FC<{
     customFields,
     currentCustomFields,
   );
-  const currentValueMap = new Map(
-    Object.entries(currentCustomFields ?? {}).map(([fid, cValue]) => [
-      fid,
-      cValue ?? "",
-    ]),
-  );
-  const hasAnyValue = customFields.some((v) => {
-    const cValue = currentValueMap.get(v.id);
-    return typeof cValue === "boolean" ? true : !!String(cValue ?? "").trim();
-  });
-  // Rows mode gives every field its own metadata row, edited from whatever
-  // owns the column, so there is nothing to collapse behind a button.
-  const showAddButton =
-    !rows &&
-    !!collapseWhenEmpty &&
-    !hasAnyValue &&
-    !customFields.some((v) => v.required);
 
-  if (showAddButton) {
-    return canEdit ? (
-      <>
-        {editModal && (
-          <CustomFieldEditModal
-            section={section}
-            target={target}
-            close={() => setEditModal(false)}
-            mutate={mutate}
-            draftInfo={draftInfo}
-          />
-        )}
-        <Box py="1">
-          <Link onClick={() => setEditModal(true)}>
-            <Flex align="center" gap="1">
-              <PiPlus size="15" />
-              <Text weight="semibold">{label}</Text>
-            </Flex>
-          </Link>
-        </Box>
-      </>
-    ) : null;
+  if (rows) {
+    return (
+      <Flex direction="column" gap="3">
+        {customFields.map((field) => {
+          const value = currentCustomFields[field.id] ?? "";
+          return (
+            <Metadata
+              size="sm"
+              stacked
+              key={field.id}
+              label={field.name}
+              actionPlacement="value"
+              action={rowAction?.(field)}
+              value={
+                value === "" ? (
+                  <Text
+                    weight="regular"
+                    color="text-mid"
+                    size="sm"
+                    fontStyle="italic"
+                  >
+                    None
+                  </Text>
+                ) : (
+                  <Box style={{ fontSize: "var(--font-size-1)" }}>
+                    {renderCustomFieldValue(field, value)}
+                  </Box>
+                )
+              }
+            />
+          );
+        })}
+      </Flex>
+    );
   }
 
   const editLink = canEdit ? (
@@ -120,55 +108,6 @@ const CustomFieldDisplay: FC<{
       <Text weight="semibold">Edit</Text>
     </Link>
   ) : null;
-
-  const editModalNode = editModal ? (
-    <CustomFieldEditModal
-      section={section}
-      target={target}
-      close={() => setEditModal(false)}
-      mutate={mutate}
-      draftInfo={draftInfo}
-    />
-  ) : null;
-
-  if (rows) {
-    return (
-      <>
-        {editModalNode}
-        <Flex direction="column" gap="3">
-          {customFields.map((field) => {
-            const value = currentValueMap.get(field.id) ?? "";
-            return (
-              <Metadata
-                size="sm"
-                stacked
-                key={field.id}
-                label={field.name}
-                actionPlacement="value"
-                action={rowAction?.(field)}
-                value={
-                  value === "" ? (
-                    <Text
-                      weight="regular"
-                      color="text-mid"
-                      size="sm"
-                      fontStyle="italic"
-                    >
-                      None
-                    </Text>
-                  ) : (
-                    <Box style={{ fontSize: "var(--font-size-1)" }}>
-                      {renderCustomFieldValue(field, value)}
-                    </Box>
-                  )
-                }
-              />
-            );
-          })}
-        </Flex>
-      </>
-    );
-  }
 
   return (
     <>

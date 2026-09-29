@@ -75,11 +75,7 @@ const AnalysisForm: FC<{
   editDates?: boolean;
   editMetrics?: boolean;
   source?: string;
-  /**
-   * Hands the analysis settings over instead of writing them, for a page that
-   * holds its own draft and writes everything together. Only the analysis
-   * settings cross over — see `experimentAnalysisSettingsDraft`.
-   */
+  /** Stages the analysis settings on the page's draft instead of writing them. */
   stageChanges?: (changes: ExperimentAnalysisSettingsDraft) => void;
 }> = ({
   experiment,
@@ -515,8 +511,7 @@ const AnalysisForm: FC<{
         }
 
         if (stageChanges) {
-          // Validated on the way out, so a draft cannot carry anything the
-          // page is not entitled to write.
+          // Strips anything outside the analysis settings.
           stageChanges(experimentAnalysisSettingsDraft.parse(body));
           return;
         }
@@ -527,8 +522,6 @@ const AnalysisForm: FC<{
         });
         mutate();
       })}
-      // Staged changes are not written until the page is saved, so the modal
-      // does not claim to have saved them.
       cta={stageChanges ? "Confirm" : "Save"}
     >
       <Box>

@@ -1,6 +1,6 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
 import {
   PiArrowsClockwise,
@@ -117,26 +117,20 @@ export default function FeatureVariationsInput({
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
-  // Leaving advanced mode drops what only it can author: bespoke ids fall back
-  // to the index. Descriptions are not advanced-only here — `showDescriptions`
-  // is the caller's call — so they are left alone.
+  // Leaving advanced mode resets bespoke ids to their index. Descriptions stay:
+  // `showDescriptions` is the caller's call, not advanced mode's.
   const exitAdvancedMode = () => {
     setEditingIds(false);
     if (!variations || !setVariations) return;
     setVariations(variations.map((v, i) => ({ ...v, value: i + "" })));
   };
 
-  // editingIds already encodes the notion of having bespoke IDs, so if it is false
-  // it is probably safe to renormalize variation keys on sort
-  // The reorder gutter only earns its space while rows can actually be moved.
   const showDragHandle =
     !!setVariations &&
     !disableVariations &&
     !onlySafeToEditVariationMetadata &&
     (variations?.length ?? 0) > 1;
 
-  // Mirrors the Advanced switch's own condition: no warning about a control
-  // that isn't there.
   const canToggleAdvanced =
     !hideVariationIds &&
     !startEditingIndexes &&
@@ -145,6 +139,8 @@ export default function FeatureVariationsInput({
     !onlySafeToEditVariationMetadata &&
     !!setVariations;
 
+  // editingIds already encodes the notion of having bespoke IDs, so if it is false
+  // it is probably safe to renormalize variation keys on sort
   const forceRenormalizeVariationKeysOnSort =
     !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
 
@@ -155,17 +151,16 @@ export default function FeatureVariationsInput({
     });
   };
 
-  const addVariation = useCallback((): string | null => {
-    if (!variations || !setVariations) return null;
+  const addVariation = () => {
+    if (!variations || !setVariations) return;
     const newWeights = distributeWeights([...weights, 0], editingSplits);
-    const newId = generateVariationId();
     const newValues = [
       ...variations,
       {
         value: getDefaultVariationValue(defaultValue),
         name: `Variation ${variations.length}`,
         weight: 0,
-        id: newId,
+        id: generateVariationId(),
       },
     ];
     newValues.forEach((v, i) => {
@@ -175,18 +170,7 @@ export default function FeatureVariationsInput({
     if (isEqualWeights && setWeight) {
       getEqualWeights(newValues.length).forEach((w, i) => setWeight(i, w));
     }
-    return newId;
-  }, [
-    variations,
-    setVariations,
-    setWeight,
-    weights,
-    editingSplits,
-    isEqualWeights,
-    defaultValue,
-  ]);
-
-  const focusVariationId = autoFocusVariationId ?? null;
+  };
 
   const label = _label
     ? _label
@@ -399,191 +383,170 @@ export default function FeatureVariationsInput({
                 pt="3"
                 pb="2"
               >
-                <>
-                  {showDragHandle && <span />}
-                  {!hideVariationIds && (
-                    <Text size="md" weight="semibold">
-                      {!valueAsId && editingIds ? "#" : "Key"}
-                    </Text>
-                  )}
-                  {editingIds && (
-                    <Text size="md" weight="semibold">
-                      {valueIsKey ? "Key" : "Value to Force"}
-                    </Text>
-                  )}
+                {showDragHandle && <span />}
+                {!hideVariationIds && (
                   <Text size="md" weight="semibold">
-                    Variation Name
+                    {!valueAsId && editingIds ? "#" : "Key"}
                   </Text>
-                  {showDescriptions && (
-                    <Text size="md" weight="semibold">
-                      Description
-                    </Text>
-                  )}
-                  {!hideSplits && (
-                    <Text size="md" weight="semibold">
-                      <Flex direction="column" gap="1" align="start">
-                        <Flex align="center" gap="1">
-                          <span>Split</span>
-                          {!disableVariations &&
-                            !disableCustomSplit &&
-                            !editingSplits &&
-                            !onlySafeToEditVariationMetadata && (
-                              <Tooltip content="Customize split" side="top">
-                                <IconButton
-                                  variant="ghost"
-                                  color="violet"
-                                  radius="full"
-                                  size="1"
-                                  style={{ margin: 0 }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setEditingSplits(true);
-                                  }}
-                                  aria-label="Customize split"
-                                >
-                                  <PiPencilSimpleFill size={14} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                        </Flex>
-                        {editingSplits &&
-                          !isEqualWeights &&
+                )}
+                {editingIds && (
+                  <Text size="md" weight="semibold">
+                    {valueIsKey ? "Key" : "Value to Force"}
+                  </Text>
+                )}
+                <Text size="md" weight="semibold">
+                  Variation Name
+                </Text>
+                {showDescriptions && (
+                  <Text size="md" weight="semibold">
+                    Description
+                  </Text>
+                )}
+                {!hideSplits && (
+                  <Text size="md" weight="semibold">
+                    <Flex direction="column" gap="1" align="start">
+                      <Flex align="center" gap="1">
+                        <span>Split</span>
+                        {!disableVariations &&
                           !disableCustomSplit &&
-                          !hideSplits && (
-                            <Tooltip
-                              content="Assign equal weights to all variations"
-                              side="top"
-                            >
-                              <Link
+                          !editingSplits &&
+                          !onlySafeToEditVariationMetadata && (
+                            <Tooltip content="Customize split" side="top">
+                              <IconButton
+                                variant="ghost"
+                                color="violet"
+                                radius="full"
+                                size="1"
+                                style={{ margin: 0 }}
                                 onClick={(e) => {
                                   e.preventDefault();
-                                  setEqualWeights();
+                                  setEditingSplits(true);
                                 }}
-                                aria-label="Set equal weights"
+                                aria-label="Customize split"
                               >
-                                <Flex align="center" gap="1">
-                                  <PiArrowsClockwise size={12} />
-                                  <Box as="span" style={{ fontSize: "11px" }}>
-                                    set equal
-                                  </Box>
-                                </Flex>
-                              </Link>
+                                <PiPencilSimpleFill size={14} />
+                              </IconButton>
                             </Tooltip>
                           )}
                       </Flex>
-                    </Text>
-                  )}
-                  {canToggleAdvanced ? (
-                    <Box position="relative">
-                      <Box
-                        style={{
-                          position: "absolute",
-                          right: -8,
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        <Switch
-                          size="sm"
-                          label="Advanced"
-                          value={editingIds}
-                          onChange={(on) => {
-                            if (on) {
-                              setEditingIds(true);
-                            } else {
-                              exitAdvancedMode();
-                            }
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                  ) : (
-                    <span />
-                  )}
-                </>
-              </Grid>
-              <div>
-                {variations && (
-                  <SortableVariationsList
-                    valuesAsIds={idsMatchIndexes}
-                    forceRenormalizeVariationKeysOnSort={
-                      forceRenormalizeVariationKeysOnSort
-                    }
-                    variations={variations}
-                    setVariations={
-                      !disableVariations ? setVariations : undefined
-                    }
-                  >
-                    {variations.map((variation, i) => (
-                      <SortableFeatureVariationRow
-                        i={i}
-                        key={variation.id}
-                        variation={variation}
-                        variations={variations}
-                        setVariations={
-                          !disableVariations ? setVariations : undefined
-                        }
-                        setWeight={!disableVariations ? setWeight : undefined}
-                        onlySafeToEditVariationMetadata={
-                          onlySafeToEditVariationMetadata
-                        }
-                        customSplit={editingSplits}
-                        valueType={valueType}
-                        valueAsId={valueAsId}
-                        valueIsKey={valueIsKey}
-                        hideVariationIds={hideVariationIds}
-                        hideValueField={!editingIds}
-                        hideSplit={hideSplits}
-                        feature={feature}
-                        showDescription={showDescriptions}
-                        showDragHandle={showDragHandle}
-                        autoFocusName={
-                          focusVariationId !== null &&
-                          variation.id === focusVariationId
-                        }
-                        sparse={sparse}
-                      />
-                    ))}
-                  </SortableVariationsList>
-                )}
-              </div>
-              <div>
-                {!disableVariations &&
-                  variations &&
-                  setWeight &&
-                  !onlySafeToEditVariationMetadata && (
-                    <Box my="4">
-                      <Box>
-                        {valueType !== "boolean" && setVariations && (
-                          <Button
-                            variant="ghost"
-                            icon={<PiPlusBold />}
-                            onClick={() => {
-                              addVariation();
-                            }}
-                          >
-                            Add variation
-                          </Button>
-                        )}
-                        {valueType === "boolean" && (
+                      {editingSplits &&
+                        !isEqualWeights &&
+                        !disableCustomSplit &&
+                        !hideSplits && (
                           <Tooltip
-                            content="Boolean features can only have two variations. Use a different feature type to add multiple variations."
+                            content="Assign equal weights to all variations"
                             side="top"
                           >
-                            <Button
-                              variant="ghost"
-                              icon={<PiPlusBold />}
-                              disabled
+                            <Link
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setEqualWeights();
+                              }}
+                              aria-label="Set equal weights"
                             >
-                              Add variation
-                            </Button>
+                              <Flex align="center" gap="1">
+                                <PiArrowsClockwise size={12} />
+                                <Box as="span" style={{ fontSize: "11px" }}>
+                                  set equal
+                                </Box>
+                              </Flex>
+                            </Link>
                           </Tooltip>
                         )}
-                      </Box>
+                    </Flex>
+                  </Text>
+                )}
+                {canToggleAdvanced ? (
+                  <Box position="relative">
+                    <Box
+                      style={{
+                        position: "absolute",
+                        right: -8,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <Switch
+                        size="sm"
+                        label="Advanced"
+                        value={editingIds}
+                        onChange={(on) =>
+                          on ? setEditingIds(true) : exitAdvancedMode()
+                        }
+                      />
                     </Box>
-                  )}
-              </div>
+                  </Box>
+                ) : (
+                  <span />
+                )}
+              </Grid>
+              {variations && (
+                <SortableVariationsList
+                  valuesAsIds={idsMatchIndexes}
+                  forceRenormalizeVariationKeysOnSort={
+                    forceRenormalizeVariationKeysOnSort
+                  }
+                  variations={variations}
+                  setVariations={!disableVariations ? setVariations : undefined}
+                >
+                  {variations.map((variation, i) => (
+                    <SortableFeatureVariationRow
+                      i={i}
+                      key={variation.id}
+                      variation={variation}
+                      variations={variations}
+                      setVariations={
+                        !disableVariations ? setVariations : undefined
+                      }
+                      setWeight={!disableVariations ? setWeight : undefined}
+                      onlySafeToEditVariationMetadata={
+                        onlySafeToEditVariationMetadata
+                      }
+                      customSplit={editingSplits}
+                      valueType={valueType}
+                      valueAsId={valueAsId}
+                      valueIsKey={valueIsKey}
+                      hideVariationIds={hideVariationIds}
+                      hideValueField={!editingIds}
+                      hideSplit={hideSplits}
+                      feature={feature}
+                      showDescription={showDescriptions}
+                      showDragHandle={showDragHandle}
+                      autoFocusName={variation.id === autoFocusVariationId}
+                      sparse={sparse}
+                    />
+                  ))}
+                </SortableVariationsList>
+              )}
+              {!disableVariations &&
+                variations &&
+                setWeight &&
+                !onlySafeToEditVariationMetadata && (
+                  <Box my="4">
+                    {valueType !== "boolean" && setVariations && (
+                      <Button
+                        variant="ghost"
+                        icon={<PiPlusBold />}
+                        onClick={() => {
+                          addVariation();
+                        }}
+                      >
+                        Add variation
+                      </Button>
+                    )}
+                    {valueType === "boolean" && (
+                      <Tooltip
+                        content="Boolean features can only have two variations. Use a different feature type to add multiple variations."
+                        side="top"
+                      >
+                        <Button variant="ghost" icon={<PiPlusBold />} disabled>
+                          Add variation
+                        </Button>
+                      </Tooltip>
+                    )}
+                  </Box>
+                )}
             </Box>
           )}
         </>

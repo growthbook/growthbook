@@ -1,5 +1,4 @@
-// The card an editor was opened for, outlined for a moment so it's clear
-// which metric is about to change. The outline follows the table's corners.
+// The radius makes the outline follow the table's corners.
 .highlight {
   border-radius: var(--radius-4);
   animation: override-highlight 1.6s ease-out 1;

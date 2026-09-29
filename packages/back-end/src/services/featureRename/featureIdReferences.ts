@@ -113,13 +113,11 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 type FieldRewrite = (
   value: unknown,
-  doc: Document,
-  ref: RenameRef,
-  field: string,
+  at: RenameRef & { doc: Document; field: string },
 ) => { value: unknown; changed: boolean };
 
 // Walked from the document so a top-level `prerequisites` field is seen as one.
-const prerequisites: FieldRewrite = (value, _doc, { from, to }, field) => {
+const prerequisites: FieldRewrite = (value, { from, to, field }) => {
   const result = renamePrerequisites({ [field]: value }, from, to);
   return {
     value: (result.value as Record<string, unknown>)[field],
@@ -127,7 +125,7 @@ const prerequisites: FieldRewrite = (value, _doc, { from, to }, field) => {
   };
 };
 
-const idList: FieldRewrite = (value, _doc, { from, to }) =>
+const idList: FieldRewrite = (value, { from, to }) =>
   Array.isArray(value) && value.includes(from)
     ? {
         value: [...new Set(value.map((id) => (id === from ? to : id)))],
@@ -135,10 +133,10 @@ const idList: FieldRewrite = (value, _doc, { from, to }) =>
       }
     : { value, changed: false };
 
-const exactId: FieldRewrite = (value, _doc, { from, to }) =>
+const exactId: FieldRewrite = (value, { from, to }) =>
   value === from ? { value: to, changed: true } : { value, changed: false };
 
-const draftFeatureIds: FieldRewrite = (value, _doc, { from, to }) =>
+const draftFeatureIds: FieldRewrite = (value, { from, to }) =>
   Array.isArray(value) &&
   value.some((draft) => isPlainObject(draft) && draft.featureId === from)
     ? {
@@ -152,9 +150,9 @@ const draftFeatureIds: FieldRewrite = (value, _doc, { from, to }) =>
     : { value, changed: false };
 
 function whenEntityIsFeature(typeField: string): FieldRewrite {
-  return (value, doc, ref, field) =>
-    doc[typeField] === "feature"
-      ? exactId(value, doc, ref, field)
+  return (value, at) =>
+    at.doc[typeField] === "feature"
+      ? exactId(value, at)
       : { value, changed: false };
 }
 
@@ -166,7 +164,7 @@ function rewriteFields(
     const set: Record<string, unknown> = {};
     for (const [field, rewrite] of Object.entries(fields)) {
       if (doc[field] === undefined) continue;
-      const result = rewrite(doc[field], doc, ref, field);
+      const result = rewrite(doc[field], { ...ref, doc, field });
       if (result.changed) set[field] = result.value;
     }
     return Object.keys(set).length ? set : null;
@@ -209,16 +207,10 @@ export const FEATURE_ID_REFERENCES: FeatureIdReference[] = [
       prerequisites,
       rules: prerequisites,
       environmentSettings: prerequisites,
-      legacyDraft: (value, doc, ref) => {
-        const renamed = renamePrerequisites(value, ref.from, ref.to);
-        if (
-          isPlainObject(renamed.value) &&
-          renamed.value.featureId === ref.from
-        ) {
-          return {
-            value: { ...renamed.value, featureId: ref.to },
-            changed: true,
-          };
+      legacyDraft: (value, { from, to }) => {
+        const renamed = renamePrerequisites(value, from, to);
+        if (isPlainObject(renamed.value) && renamed.value.featureId === from) {
+          return { value: { ...renamed.value, featureId: to }, changed: true };
         }
         return renamed;
       },
@@ -248,7 +240,7 @@ export const FEATURE_ID_REFERENCES: FeatureIdReference[] = [
         from,
       ),
     rewrite: rewriteFields({
-      id: (value, doc, { from, to }) =>
+      id: (value, { from, to, doc }) =>
         typeof doc.version === "number" &&
         value === featureRevisionId(from, doc.version)
           ? { value: featureRevisionId(to, doc.version), changed: true }
@@ -322,7 +314,7 @@ export const FEATURE_ID_REFERENCES: FeatureIdReference[] = [
     filter: () => ({}),
     rewrite: rewriteFields({
       // Built from entries so ids like "__proto__" stay plain keys.
-      linkedFeatures: (value, _doc, { from, to }) => {
+      linkedFeatures: (value, { from, to }) => {
         if (
           !isPlainObject(value) ||
           !Object.prototype.hasOwnProperty.call(value, from)
@@ -365,7 +357,7 @@ export const FEATURE_ID_REFERENCES: FeatureIdReference[] = [
     }),
     rewrite: rewriteFields({
       entityId: whenEntityIsFeature("entityType"),
-      targets: (value, _doc, { from, to }) =>
+      targets: (value, { from, to }) =>
         Array.isArray(value) &&
         value.some(
           (t) =>

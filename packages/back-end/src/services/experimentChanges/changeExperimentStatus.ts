@@ -669,10 +669,10 @@ export async function startExperiment({
     context,
     experimentId,
   );
-  const { checklistItems } = await getExperimentStartChecklist({
+  const checklistItems = await getExperimentStartChecklistStatus(
     context,
-    experiment: loadedExperiment,
-  });
+    loadedExperiment,
+  );
 
   const experiment = loadedExperiment;
   if (experiment.status !== "draft") {

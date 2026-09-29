@@ -29,47 +29,46 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
   },
   ref,
 ) {
-  const valueNode =
-    typeof value === "string" ? (
-      <Text weight="regular" color="text-high" size={size}>
-        {value}
-      </Text>
-    ) : (
-      value
-    );
-
   if (stacked) {
+    const labelNode = (
+      <Text weight="regular" color="text-low" size={size}>
+        {label}
+      </Text>
+    );
+    const valueNode =
+      typeof value === "string" ? (
+        <Text weight="regular" color="text-high" size={size}>
+          {value}
+        </Text>
+      ) : (
+        value
+      );
+    const withAction = (
+      node: React.ReactNode,
+      placement: typeof actionPlacement,
+    ) =>
+      action && actionPlacement === placement ? (
+        <Flex align="center" gap="1">
+          {node}
+          {action}
+        </Flex>
+      ) : (
+        node
+      );
+
     return (
       <Flex
         direction="column"
         gap="1"
         align="start"
         style={style}
-        // Where a row's action lives, hovering the row is what reveals it.
+        // Hovering the row reveals its action.
         data-reveals-action={action ? "" : undefined}
         {...props}
         ref={ref}
       >
-        {action && actionPlacement === "label" ? (
-          <Flex align="center" gap="1">
-            <Text weight="regular" color="text-low" size={size}>
-              {label}
-            </Text>
-            {action}
-          </Flex>
-        ) : (
-          <Text weight="regular" color="text-low" size={size}>
-            {label}
-          </Text>
-        )}
-        {action && actionPlacement === "value" ? (
-          <Flex align="center" gap="1">
-            {valueNode}
-            {action}
-          </Flex>
-        ) : (
-          valueNode
-        )}
+        {withAction(labelNode, "label")}
+        {withAction(valueNode, "value")}
       </Flex>
     );
   }

@@ -51,10 +51,7 @@ import {
   type RenameRef,
 } from "back-end/src/services/featureRename/featureIdReferences";
 
-/**
- * Why the experiment's managed flag can't take `to`, or null when it can.
- * Shared by the key check and the rename itself.
- */
+/** Why the experiment's managed flag can't take `to`, or null when it can. */
 export async function managedFlagRenameBlocker(
   context: ReqContext,
   experiment: ExperimentInterface,

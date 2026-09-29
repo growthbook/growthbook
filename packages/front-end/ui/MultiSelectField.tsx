@@ -78,7 +78,7 @@ const SortableMultiValueLabel = (
   const { title: showTitle, ...style } = useContext(
     MultiValueLabelStyleContext,
   );
-  // Off, a chip leaves hovering to whatever its label renders, such as a card.
+  // With valueTitles off, the label's own content (e.g. a hover card) owns hover.
   const tooltip = showTitle ? props.data?.tooltip : undefined;
   const innerProps =
     showTitle && !tooltip

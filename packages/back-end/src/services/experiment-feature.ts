@@ -265,34 +265,16 @@ export async function linkFeatureToExperiment({
     effectiveHoldout,
   });
 
-  // One-way: a footprint env that is off flips on; we never turn one off.
-  const baseEnvEnabled: Record<string, boolean> = {
-    ...Object.fromEntries(
-      environments.map((e) => [
-        e,
-        feature.environmentSettings?.[e]?.enabled ?? false,
-      ]),
-    ),
-    ...(revision.environmentsEnabled ?? {}),
-  };
-  const envToggles: Record<string, boolean> = {};
-  for (const envId of ruleEnvFootprint) {
-    if (!environments.includes(envId)) continue;
-    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
-  }
-
-  const existingRules = cloneDeep(revision.rules ?? []);
-  const nextRules = [...existingRules, scopedRule];
-
+  const environmentsEnabled = enableFootprintEnvironments(
+    feature,
+    revision,
+    environments,
+    ruleEnvFootprint,
+  );
   const combinedChanges: Partial<FeatureRevisionInterface> = {
-    rules: nextRules,
+    rules: [...cloneDeep(revision.rules ?? []), scopedRule],
+    ...(environmentsEnabled && { environmentsEnabled }),
   };
-  if (Object.keys(envToggles).length > 0) {
-    combinedChanges.environmentsEnabled = {
-      ...(revision.environmentsEnabled ?? {}),
-      ...envToggles,
-    };
-  }
   // Title fresh drafts only — don't clobber a user's title on an existing draft.
   const bundlingIntoExistingDraft =
     !!draftVersion && !forceNewDraft && !autoPublish;
@@ -320,38 +302,16 @@ export async function linkFeatureToExperiment({
   let published = false;
   if (autoPublish) {
     await assertCanAutoPublish(context, feature, updatedRevision);
-    const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    const updatedFeature = await mergeAndPublishRevision({
       context,
       feature,
       revision: updatedRevision,
-    });
-    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-      feature,
-      live,
-      base,
-    );
-    const mergeResult = autoMerge(
-      mergeLive,
-      mergeBase,
-      updatedRevision,
-      environments,
-      {},
-    );
-    if (!mergeResult.success) {
-      throw new Error(
-        `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
-      );
-    }
-    const updatedFeature = await publishRevision({
-      context,
-      feature,
-      revision: updatedRevision,
-      result: mergeResult.result,
       comment: `Add experiment rule for "${experiment.name}"`,
       bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
         feature,
         "feature",
       ),
+      conflictMessage: `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
     });
     await audit({
       event: "feature.publish",
@@ -387,6 +347,75 @@ export async function linkFeatureToExperiment({
     published,
     ruleId: scopedRule.id,
   };
+}
+
+// One-way: a footprint environment that is off switches on; none switches off.
+function enableFootprintEnvironments(
+  feature: FeatureInterface,
+  revision: Pick<FeatureRevisionInterface, "environmentsEnabled">,
+  orgEnvironments: string[],
+  footprint: string[],
+): Record<string, boolean> | null {
+  const enabled: Record<string, boolean> = {
+    ...Object.fromEntries(
+      orgEnvironments.map((e) => [
+        e,
+        feature.environmentSettings?.[e]?.enabled ?? false,
+      ]),
+    ),
+    ...(revision.environmentsEnabled ?? {}),
+  };
+  const toggles = Object.fromEntries(
+    footprint
+      .filter((e) => orgEnvironments.includes(e) && !enabled[e])
+      .map((e) => [e, true]),
+  );
+  return Object.keys(toggles).length
+    ? { ...(revision.environmentsEnabled ?? {}), ...toggles }
+    : null;
+}
+
+async function mergeAndPublishRevision({
+  context,
+  feature,
+  revision,
+  comment,
+  bypassLockdown,
+  conflictMessage,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  comment: string;
+  bypassLockdown: boolean;
+  conflictMessage: string;
+}) {
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+    feature,
+    live,
+    base,
+  );
+  const mergeResult = autoMerge(
+    mergeLive,
+    mergeBase,
+    revision,
+    context.environments,
+    {},
+  );
+  if (!mergeResult.success) throw new Error(conflictMessage);
+  return publishRevision({
+    context,
+    feature,
+    revision,
+    result: mergeResult.result,
+    comment,
+    bypassLockdown,
+  });
 }
 
 export type ExperimentFeatureUpdatePlan = {
@@ -1229,9 +1258,8 @@ export async function publishPendingFeatureDraftsForContextualBandit(
 
 /**
  * What re-scoping an experiment's rule changes on a revision: the rule's own
- * environment fields, and the flag environments it switches on. Enablement
- * follows one way: entering the footprint switches on, leaving only loses the
- * rule.
+ * environment fields, and the flag environments it switches on. Leaving the
+ * footprint only loses the rule.
  */
 export function planExperimentRuleEnvironments({
   feature,
@@ -1262,27 +1290,18 @@ export function planExperimentRuleEnvironments({
       `No experiment rule found on "${feature.id}" to re-scope. It may have been removed; set variation values first to recreate it.`,
     );
   }
-  const baseEnvEnabled: Record<string, boolean> = {
-    ...Object.fromEntries(
-      orgEnvironments.map((e) => [
-        e,
-        feature.environmentSettings?.[e]?.enabled ?? false,
-      ]),
-    ),
-    ...(revision.environmentsEnabled ?? {}),
-  };
-  const toggles = Object.fromEntries(
-    scopedEnvironments.filter((e) => !baseEnvEnabled[e]).map((e) => [e, true]),
-  );
   return {
     scopedEnvironments,
     // Strips any stale environments[], as linking does.
     ruleUpdate: scope.allEnvironments
       ? { allEnvironments: true, environments: undefined }
       : { allEnvironments: false, environments: scopedEnvironments },
-    environmentsEnabled: Object.keys(toggles).length
-      ? { ...(revision.environmentsEnabled ?? {}), ...toggles }
-      : null,
+    environmentsEnabled: enableFootprintEnvironments(
+      feature,
+      revision,
+      orgEnvironments,
+      scopedEnvironments,
+    ),
   };
 }
 
@@ -1702,12 +1721,7 @@ async function resolveRulesForExperiment({
       const next = replacement(r);
       return next ? [next] : [];
     });
-  const logEntry = (touched: FeatureRule[]) => ({
-    user: eventAudit,
-    action,
-    subject: `for experiment "${experiment.name}"`,
-    value: JSON.stringify(touched),
-  });
+  const logEntry = removalLog(experiment, eventAudit, action);
 
   // Append-only for history, but a deleted experiment has none to show.
   const unlink = async (current: FeatureInterface) => {
@@ -1775,33 +1789,13 @@ async function resolveRulesForExperiment({
             { rules: rewrite(cleanupDraft.rules ?? []), title: comment },
             logEntry(liveTouched),
           )) ?? cleanupDraft;
-        const { live, base } = await getLiveAndBaseRevisionsForFeature({
+        current = await mergeAndPublishRevision({
           context,
           feature,
           revision: updated,
-        });
-        const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-          feature,
-          live,
-          base,
-        );
-        const mergeResult = autoMerge(
-          mergeLive,
-          mergeBase,
-          updated,
-          context.environments,
-          {},
-        );
-        if (!mergeResult.success) {
-          throw new Error("the change did not merge cleanly onto live");
-        }
-        current = await publishRevision({
-          context,
-          feature,
-          revision: updated,
-          result: mergeResult.result,
           comment,
           bypassLockdown: bypass,
+          conflictMessage: "the change did not merge cleanly onto live",
         });
         cleanupDraft = null;
         await audit({

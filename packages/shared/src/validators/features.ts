@@ -32,7 +32,6 @@ import {
 } from "./ramp-schedule";
 
 import { featureManagedByValidator } from "./managed-by";
-
 import { namedSchema } from "./openapi-helpers";
 import {
   experimentAnalysisSettingsDraft,
@@ -290,8 +289,8 @@ export type FeatureRule = z.infer<typeof featureRule>;
 export function stripUnknownRuleFields<T extends { type?: string }>(
   rule: T,
 ): T {
-  const schema = featureRule.options.find((o) =>
-    o.shape.type._def.values.includes(rule.type as never),
+  const schema = featureRule.options.find(
+    (o) => o.shape.type.safeParse(rule.type).success,
   );
   if (!schema) return rule;
   const allowed = new Set(Object.keys(schema.shape));
@@ -834,17 +833,15 @@ export const featureInterface = z
         value: z.string(),
       })
       .optional(),
-    // Set when this flag exists only to deliver one experiment and is edited
-    // exclusively from that experiment's page. Every direct write path refuses
-    // while it's set; see `assertFeatureNotManaged`.
+    // An experiment owns the flag; every direct write path refuses while it's
+    // set (`assertFeatureNotManaged`).
     managedBy: featureManagedByValidator.optional(),
     // Keys this flag was known by before a rename, oldest first. Only managed
     // flags can be renamed; history and code refs still find the old keys.
     previousIds: z.array(z.string()).optional(),
-    // Present while a rename's cascade is still rewriting references to
-    // `from`; the next rename of this flag finishes it first.
-    // Set by a rename until every reference has moved; `cleaned` once the
-    // new id's leftovers from a deleted flag are gone.
+    // Set until a rename's cascade has moved every reference off `from`; the
+    // next rename finishes it first. `cleaned` once the new id's leftovers
+    // from a deleted flag are gone.
     renaming: z
       .object({
         from: z.string(),
@@ -2203,7 +2200,7 @@ export type GetFeatureStaleResponse = z.infer<
 
 export type FeatureStaleEntry = GetFeatureStaleResponse["features"][string];
 
-export const experimentRuleEnvironments = z
+const experimentRuleEnvironments = z
   .object({
     allEnvironments: z.boolean(),
     environments: z.array(z.string()),
@@ -2213,7 +2210,7 @@ export type ExperimentRuleEnvironments = z.infer<
   typeof experimentRuleEnvironments
 >;
 
-export const experimentChangesFields = experimentAnalysisSettingsDraft
+const experimentChangesFields = experimentAnalysisSettingsDraft
   .extend({
     name: z.string().min(1),
     description: z.string(),

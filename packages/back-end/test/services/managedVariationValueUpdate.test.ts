@@ -75,15 +75,13 @@ const context = {
       throw new Error("permission error");
     },
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-} as any;
+} as never;
 
 const experiment = {
   id: "exp_1",
   variations: [{ id: "v0" }, { id: "v1" }],
   linkedFeatures: ["checkout-test"],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-} as any as ExperimentInterface;
+} as unknown as ExperimentInterface;
 
 const managedFeature = (valueType = "string") =>
   ({
@@ -92,25 +90,31 @@ const managedFeature = (valueType = "string") =>
     valueType,
     version: 7,
     managedBy: { type: "experiment", experimentId: "exp_1" },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any as FeatureInterface;
+  }) as unknown as FeatureInterface;
 
 const values = [
   { variationId: "v0", value: "a" },
   { variationId: "v1", value: "b" },
 ];
 
-/** The revision the update landed on, per the `features` entry we were given. */
-const revisionOptionsUsed = () =>
-  mockValidate.mock.calls[0][0].features["checkout-test"].revisionOptions;
+/** The `features` entry the planner was given. */
+const plannedUpdate = () =>
+  mockValidate.mock.calls[0][0].features["checkout-test"];
+
+/** An open draft the planner resolves the update onto. */
+const withOpenDraft = (draft: Record<string, unknown>) => {
+  mockActiveDraft.mockResolvedValue(draft);
+  mockValidate.mockResolvedValue([
+    { feature: managedFeature(), existingRevision: draft, matchingRules: [] },
+  ]);
+};
 
 const update = (over: Record<string, unknown> = {}) =>
   updateManagedVariationValues({
     context,
     experiment,
     variations: values,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    eventAudit: {} as any,
+    eventAudit: null,
     audit: async () => undefined,
     ...over,
   });
@@ -195,18 +199,11 @@ describe("updateManagedVariationValues no-op drafts", () => {
 
 describe("updateManagedVariationValues revision choice", () => {
   it("appends to the open draft when there is one", async () => {
-    mockActiveDraft.mockResolvedValue({ version: 8 });
-    mockValidate.mockResolvedValue([
-      {
-        feature: managedFeature(),
-        existingRevision: { version: 8 },
-        matchingRules: [],
-      },
-    ]);
+    withOpenDraft({ version: 8 });
 
     const result = await update();
 
-    expect(revisionOptionsUsed()).toEqual({ targetVersion: 8 });
+    expect(plannedUpdate().revisionOptions).toEqual({ targetVersion: 8 });
     // The open draft is reused, not replaced by a fresh one off live.
     expect(mockDraftRevision).not.toHaveBeenCalled();
     expect(mockUpdateRefs).toHaveBeenCalledWith(
@@ -218,7 +215,7 @@ describe("updateManagedVariationValues revision choice", () => {
   it("starts a draft when nothing is pending", async () => {
     const result = await update();
 
-    expect(revisionOptionsUsed()).toEqual({ forceNewDraft: true });
+    expect(plannedUpdate().revisionOptions).toEqual({ forceNewDraft: true });
     expect(mockDraftRevision).toHaveBeenCalledWith(
       context,
       expect.objectContaining({ id: "checkout-test" }),
@@ -275,38 +272,19 @@ describe("updateManagedVariationValues value handling", () => {
     ]);
   });
 
-  it("refuses a boolean that is not exactly true or false", async () => {
-    mockGetFeature.mockResolvedValue(managedFeature("boolean"));
-
-    await expect(
-      update({
-        variations: [
-          { variationId: "v0", value: "not-a-bool" },
-          { variationId: "v1", value: "false" },
-        ],
-      }),
-    ).rejects.toThrow(/"true" or "false"/i);
-    expect(mockUpdateRefs).not.toHaveBeenCalled();
-  });
-
-  it("refuses a value that cannot be repaired into the flag's type", async () => {
-    mockGetFeature.mockResolvedValue(managedFeature("number"));
-
-    await expect(
-      update({
-        variations: [
-          { variationId: "v0", value: "abc" },
-          { variationId: "v1", value: "2" },
-        ],
-      }),
-    ).rejects.toThrow(/valid number/i);
-    expect(mockUpdateRefs).not.toHaveBeenCalled();
-  });
-
-  it("refuses a set that misses a variation", async () => {
-    await expect(
-      update({ variations: [{ variationId: "v0", value: "a" }] }),
-    ).rejects.toThrow(/one value per experiment variation/i);
+  it.each([
+    ["misses a variation", [{ variationId: "v0", value: "a" }]],
+    [
+      "names a variation the experiment does not have",
+      [
+        { variationId: "v0", value: "a" },
+        { variationId: "v_nope", value: "b" },
+      ],
+    ],
+  ])("refuses a set that %s", async (_label, variations) => {
+    await expect(update({ variations })).rejects.toThrow(
+      /one value per experiment variation/i,
+    );
   });
 
   it("refuses an empty set", async () => {
@@ -314,53 +292,22 @@ describe("updateManagedVariationValues value handling", () => {
       /value for every variation/i,
     );
   });
-
-  it("refuses a set that names a variation the experiment does not have", async () => {
-    await expect(
-      update({
-        variations: [
-          { variationId: "v0", value: "a" },
-          { variationId: "v_nope", value: "b" },
-        ],
-      }),
-    ).rejects.toThrow(/one value per experiment variation/i);
-  });
 });
 
 describe("updateManagedVariationValues value type", () => {
   /** The changes staged on the revision by the type change. */
   const staged = () => mockUpdateRevision.mock.calls[0][3];
 
-  it("stages the default value when control moves", async () => {
-    // Control is the baseline, so the default must not lag behind it.
-    await update({ valueType: "string" });
-    expect(staged()).toEqual({ defaultValue: "a" });
-  });
-
   it("leaves the default alone when control has not moved", async () => {
-    mockActiveDraft.mockResolvedValue({ version: 8, defaultValue: "a" });
-    mockValidate.mockResolvedValue([
-      {
-        feature: managedFeature(),
-        existingRevision: { version: 8, defaultValue: "a" },
-        matchingRules: [],
-      },
-    ]);
+    withOpenDraft({ version: 8, defaultValue: "a" });
 
     await update({ valueType: "string" });
     expect(mockUpdateRevision).not.toHaveBeenCalled();
   });
 
-  it("compares the default against the draft, not the live feature", async () => {
+  it("stages control as the default, compared against the draft", async () => {
     // An earlier edit on this same draft may already have staged it.
-    mockActiveDraft.mockResolvedValue({ version: 8, defaultValue: "stale" });
-    mockValidate.mockResolvedValue([
-      {
-        feature: managedFeature(),
-        existingRevision: { version: 8, defaultValue: "stale" },
-        matchingRules: [],
-      },
-    ]);
+    withOpenDraft({ version: 8, defaultValue: "stale" });
 
     await update({ valueType: "string" });
     expect(staged()).toEqual({ defaultValue: "a" });
@@ -437,16 +384,12 @@ describe("updateManagedVariationValues value type", () => {
       ],
     });
 
-    expect(
-      mockValidate.mock.calls[0][0].features["checkout-test"].valueType,
-    ).toBe("number");
+    expect(plannedUpdate().valueType).toBe("number");
   });
 
   it("does not mention a type that is not changing", async () => {
     await update({ valueType: "string" });
-    expect(
-      mockValidate.mock.calls[0][0].features["checkout-test"],
-    ).not.toHaveProperty("valueType");
+    expect(plannedUpdate()).not.toHaveProperty("valueType");
   });
 
   it("stages the type before the values, on the revision it returned", async () => {

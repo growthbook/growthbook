@@ -22,8 +22,8 @@ interface UseManagedExperimentFlagStatesReturn {
 const ManagedFlagsContext =
   createContext<UseManagedExperimentFlagStatesReturn | null>(null);
 
-// Ownership lives on the flag, so a list row must ask. Follows
-// `FeatureStaleStatesProvider`: the caller passes the rows on screen.
+// Ownership lives on the flag, so list rows ask for the ids on screen, as with
+// `FeatureHealthStatesProvider`.
 export function ManagedExperimentFlagsProvider({
   children,
 }: {
@@ -73,12 +73,12 @@ export function ManagedExperimentFlagsProvider({
   );
 }
 
-/** Returns a no-op outside the provider, so lists can opt in without coupling. */
 const NOOP: UseManagedExperimentFlagStatesReturn = {
   fetchSome: async () => {},
   getManagedFlag: () => undefined,
 };
 
+/** A no-op outside the provider, so lists can opt in without coupling. */
 export function useManagedExperimentFlagStates(): UseManagedExperimentFlagStatesReturn {
   return useContext(ManagedFlagsContext) ?? NOOP;
 }

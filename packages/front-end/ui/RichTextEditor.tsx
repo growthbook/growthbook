@@ -71,8 +71,6 @@ export interface Props {
   /** Markdown in, markdown out: the stored format never changes. */
   value: string;
   onChange?: (markdown: string) => void;
-  /** Fired with the current markdown once focus leaves, for save-on-blur. */
-  onBlur?: (markdown: string) => void;
   placeholder?: string;
   size?: Size<"sm" | "md">;
   /** Resting height of the whole control, and its minimum when `autoGrow` is set. */
@@ -80,15 +78,11 @@ export interface Props {
   /** Grow past `height` with the content, up to `maxHeight`, instead of scrolling. */
   autoGrow?: boolean;
   /** Where growing stops and the content scrolls. Only applies with `autoGrow`. */
-  maxHeight?: RichTextHeight | "none";
+  maxHeight?: RichTextHeight;
   readOnly?: boolean;
   autoFocus?: boolean;
-  /** Drop or paste images to upload them. Off where uploads make no sense. */
-  allowImageUpload?: boolean;
   /** Rendered under the editable area, for a caller's own controls. */
   footer?: ReactNode;
-  /** Hide the formatting ribbon, e.g. for a one-line note. */
-  hideToolbar?: boolean;
   /** The short ribbon: no headings, no strikethrough. */
   simpleToolbar?: boolean;
   /**
@@ -98,8 +92,6 @@ export interface Props {
   collapsibleToolbar?: boolean;
   /** Put the caret after the value rather than before it. */
   autoFocusAtEnd?: boolean;
-  className?: string;
-  id?: string;
 }
 
 /**
@@ -107,7 +99,7 @@ export interface Props {
  * One ladder serves both the resting height and the cap, so a field cannot be
  * given a mismatched pair.
  */
-export const RICH_TEXT_HEIGHTS = {
+const RICH_TEXT_HEIGHTS = {
   sm: 110,
   md: 150,
   lg: 220,
@@ -373,16 +365,13 @@ function ValueSync({
 }
 
 /**
- * A rich text field that reads and writes markdown.
- *
- * Lexical ships no styles, so everything here is ours: the surface, the node
- * classes in THEME, and the toolbar, which callers supply themselves.
+ * A rich text field that reads and writes markdown. Lexical ships no styles, so
+ * the surface, node classes (THEME) and toolbar are all ours.
  */
 export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
   {
     value,
     onChange,
-    onBlur,
     placeholder,
     size = "md",
     height = "md",
@@ -390,27 +379,23 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     maxHeight = "lg",
     readOnly = false,
     autoFocus = false,
-    allowImageUpload = true,
     footer,
-    hideToolbar = false,
     simpleToolbar = false,
     collapsibleToolbar = false,
     autoFocusAtEnd = false,
-    className,
-    id,
   },
   ref,
 ) {
   // A collapsed toolbar opens on content that already uses it, so editing
   // formatted text starts with the formatting in reach.
   const [toolbarOpen, setToolbarOpen] = useState(
-    () => !collapsibleToolbar || hasMarkdownFormatting(value ?? ""),
+    () => !collapsibleToolbar || hasMarkdownFormatting(value),
   );
   // What the editor last held, so a value we emitted doesn't loop back in.
   const lastMarkdown = useRef(value);
   const [uploading, setUploading] = useState(false);
   const { blockFileUploads } = useOrgSettings();
-  const allowImages = allowImageUpload && !readOnly && !blockFileUploads;
+  const allowImages = !readOnly && !blockFileUploads;
 
   // The dropzone sits outside the composer, so it reaches the upload handler
   // through a ref rather than the editor context.
@@ -443,14 +428,10 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     [onChange],
   );
 
-  const handleBlur = useCallback(() => {
-    onBlur?.(lastMarkdown.current);
-  }, [onBlur]);
-
   return (
     <LexicalComposer
       initialConfig={{
-        namespace: id || "rich-text-editor",
+        namespace: "rich-text-editor",
         nodes: NODES,
         theme: THEME,
         editable: !readOnly,
@@ -473,20 +454,15 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           styles.wrapper,
           styles[size],
           readOnly && styles.readOnly,
-          className,
         )}
         style={{
           height: autoGrow ? undefined : RICH_TEXT_HEIGHTS[height],
           minHeight: autoGrow ? RICH_TEXT_HEIGHTS[height] : undefined,
-          maxHeight:
-            autoGrow && maxHeight !== "none"
-              ? RICH_TEXT_HEIGHTS[maxHeight]
-              : undefined,
+          maxHeight: autoGrow ? RICH_TEXT_HEIGHTS[maxHeight] : undefined,
         }}
-        onBlur={handleBlur}
       >
         {allowImages ? <input {...getInputProps()} /> : null}
-        {readOnly || hideToolbar || !toolbarOpen ? null : (
+        {readOnly || !toolbarOpen ? null : (
           <RichTextEditorToolbar
             onPickImage={allowImages ? openFilePicker : undefined}
             simple={simpleToolbar}
@@ -497,7 +473,6 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           <RichTextPlugin
             contentEditable={
               <ContentEditable
-                id={id}
                 // Browsers report contenteditable as -1, so a dialog's
                 // autofocus would skip past the text without this.
                 tabIndex={readOnly ? undefined : 0}
@@ -513,7 +488,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
             ErrorBoundary={LexicalErrorBoundary}
           />
           {/* After the text, so a dialog focuses the text rather than this. */}
-          {!readOnly && !hideToolbar && collapsibleToolbar ? (
+          {!readOnly && collapsibleToolbar ? (
             <Tooltip
               content={toolbarOpen ? "Hide formatting" : "Show formatting"}
             >
@@ -559,9 +534,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           autoFocusAtEnd={autoFocusAtEnd}
           lastMarkdown={lastMarkdown}
         />
-        {uploading ? (
-          <div className={styles.uploading}>Uploading\u2026</div>
-        ) : null}
+        {uploading ? <div className={styles.uploading}>Uploading…</div> : null}
         {footer}
       </div>
     </LexicalComposer>

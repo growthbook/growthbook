@@ -239,11 +239,7 @@ export default function InsertConstantButton({
   excludeKeys?: string[];
   // Compact icon-only trigger for inline (beside-the-field) layouts.
   iconOnly?: boolean;
-  /**
-   * Top margin on the icon trigger. Defaults to the offset that lines it up
-   * under a field's label row; pass "0" when the button sits beside a field
-   * with no label above it, where that offset reads as misalignment.
-   */
+  /** The default lines it up under a field's label; "0" beside an unlabeled field. */
   iconMt?: ComponentProps<typeof IconButton>["mt"];
   iconSize?: "1" | "2";
 }) {

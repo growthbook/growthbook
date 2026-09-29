@@ -1,40 +1,5 @@
 @import "../../styles/colors.scss";
 
-.dragging {
-  z-index: 100 !important;
-  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
-  background-color: var(--color-panel-solid);
-}
-.thead {
-  tr th {
-    padding-bottom: 8px;
-  }
-}
-.tr {
-  position: relative;
-  td {
-    padding-top: 12px;
-    padding-bottom: 12px;
-    vertical-align: top;
-    border-top: none;
-    border-bottom: 1px solid var(--border-color-100);
-  }
-}
-.tr:last-of-type td {
-  border-bottom: none !important;
-}
-
-.colorMarker {
-  width: 4px;
-  position: absolute;
-  top: 12px;
-  left: 0;
-  height: calc(100% - 24px);
-}
-
-.percentInput {
-  width: 7em;
-}
 .percentInputWrap {
   span {
     position: absolute;
@@ -45,8 +10,7 @@
   }
 }
 
-// The grid rows pair an md field with a fixed-width column, so the input fills
-// the column and the "%" centres on it, rather than the 7em/36px pairing above.
+// An md field filling a fixed-width grid column.
 .percentInputWrapMd {
   input {
     width: 100%;
@@ -75,17 +39,13 @@
   }
 }
 
-// A value cell in a grid row: the row's own padding separates it from the next
-// row, so the field's trailing margin (Bootstrap's .form-group, or the code
-// editor's wrapper) just pads the row out.
+// The grid row's padding already separates rows, so drop the field's margin.
 .tightValueCell {
   > :global(.rt-Box),
   :global(.form-group) {
     margin-bottom: 0;
   }
 
-  // The column is sized for this field, so it fills it rather than leaving a
-  // gap before the next one.
   input {
     width: 100%;
   }

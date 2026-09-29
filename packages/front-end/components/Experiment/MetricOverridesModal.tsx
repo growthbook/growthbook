@@ -16,11 +16,7 @@ import {
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
 
-/**
- * The experiment's metric overrides and nothing else: the part of analysis
- * settings a metric's hover card offers, without the rest of that modal.
- * Confirming hands the overrides to the page's draft rather than writing them.
- */
+/** Confirming stages the overrides on the page's draft rather than saving them. */
 export default function MetricOverridesModal({
   experiment,
   datasource,
@@ -32,20 +28,15 @@ export default function MetricOverridesModal({
   stageChanges,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  /** The data source as the page currently has it, which may be unsaved. */
+  // The page's current values for these, which may be unsaved.
   datasource: string;
-  /** The engine as the page currently has it, which may be unsaved. */
   statsEngine: StatsEngine;
-  /** The metrics as the page currently has them, which may be unsaved. */
   metrics: Pick<
     EditMetricsFormInterface,
     "goalMetrics" | "secondaryMetrics" | "guardrailMetrics" | "activationMetric"
   >;
   overrides: MetricOverride[];
-  /**
-   * The metrics it was opened for. Just one, and its card starts focused so
-   * the edit lands on the metric that was clicked.
-   */
+  /** With just one, that metric's card opens focused. */
   focusMetricIds?: string[];
   close: () => void;
   stageChanges: (overrides: MetricOverride[]) => void;
@@ -54,7 +45,7 @@ export default function MetricOverridesModal({
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   // Incremental refresh reuses earlier results, which an override would
-  // silently contradict, so the full settings modal locks overrides there too.
+  // silently contradict.
   const incremental = getIsExperimentIncludedInIncrementalRefresh(
     getDatasourceById(datasource) ?? undefined,
     experiment.id,
@@ -63,8 +54,6 @@ export default function MetricOverridesModal({
   const hasFeature = hasCommercialFeature("override-metrics");
   const canOverride = hasFeature && !incremental;
 
-  // The one metric it was opened for, settled once: its card starts focused
-  // and outlined. Opened for a group, it points at none of them.
   const [targetId] = useState(() => {
     const id = focusMetricIds?.length === 1 ? focusMetricIds[0] : null;
     return id && overrides.some((o) => o.id === id) ? id : null;
@@ -108,7 +97,7 @@ export default function MetricOverridesModal({
       ctaEnabled={canOverride}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const next = [...(value.metricOverrides ?? [])];
+        const next = value.metricOverrides ?? [];
         fixMetricOverridesBeforeSaving(next);
         stageChanges(next);
       })}

@@ -23,7 +23,7 @@ import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 
-export type EnvironmentState = {
+type EnvironmentState = {
   env: string;
   state: string;
   isActive: boolean;
@@ -31,16 +31,15 @@ export type EnvironmentState = {
 };
 
 // The flag's environment toggle AND the rule's presence and enablement.
-// Shared so every surface explains a state with the same words.
-// Why a state is not yet true: not started, or shown from an unpublished draft.
-export type FeatureEnvironmentState = EnvironmentState & {
+type FeatureEnvironmentState = EnvironmentState & {
   state: LinkedFeatureEnvState;
 };
 
-// false: a running experiment's live states. "rule" and "rule-published":
-// the rule as it stands or will once published, for an experiment that
-// publishing alone won't make active.
-export type EnvironmentStateTense =
+// Why a state is not yet true: not started, or shown from an unpublished
+// draft. false: a running experiment's live states. "rule" and
+// "rule-published": the rule as it stands or will once published, for an
+// experiment that publishing alone won't make active.
+type EnvironmentStateTense =
   | false
   | "started"
   | "published"
@@ -187,7 +186,7 @@ export function scopeFromStates(
     : { allEnvironments: false, environments: covered };
 }
 
-export const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {
+const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {
   active: "Active",
   "disabled-env": "Off",
   "disabled-rule": "Off",
@@ -195,7 +194,7 @@ export const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {
 };
 
 /** Whether the experiment is active in an environment. */
-export function EnvironmentStateIcon({ isActive }: { isActive: boolean }) {
+function EnvironmentStateIcon({ isActive }: { isActive: boolean }) {
   return (
     <Box
       flexShrink="0"
@@ -339,6 +338,25 @@ function EnvironmentSetting({
   );
 }
 
+function EnvironmentName({
+  env,
+  isActive,
+}: {
+  env: string;
+  isActive: boolean;
+}) {
+  return (
+    <span
+      style={{
+        color: isActive ? undefined : "var(--gray-8)",
+        fontWeight: isActive ? 500 : 300,
+      }}
+    >
+      {env}
+    </span>
+  );
+}
+
 /**
  * "Environments n/m", opening on hover to the settings behind each state: the
  * flag's environment toggle and the experiment rule's.
@@ -394,14 +412,7 @@ export function EnvironmentInputsPopover({
             const input = environmentInputs?.[env];
             return (
               <Fragment key={env}>
-                <span
-                  style={{
-                    color: isActive ? undefined : "var(--gray-8)",
-                    fontWeight: isActive ? 500 : 300,
-                  }}
-                >
-                  {env}
-                </span>
+                <EnvironmentName env={env} isActive={isActive} />
                 <EnvironmentSetting
                   value={input ? input.flagEnabled : null}
                   moved={!!changed[env]?.flag}
@@ -509,14 +520,7 @@ export function SdkConnectionEnvironmentsPopover({
               const isActive = state === "active";
               return (
                 <Fragment key={env}>
-                  <span
-                    style={{
-                      color: isActive ? undefined : "var(--gray-8)",
-                      fontWeight: isActive ? 500 : 300,
-                    }}
-                  >
-                    {env}
-                  </span>
+                  <EnvironmentName env={env} isActive={isActive} />
                   <Flex align="center" gap="1">
                     <EnvironmentStateIcon isActive={isActive} />
                     <Text size="sm" weight="medium">

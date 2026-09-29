@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import Text, { TextProps } from "@/ui/Text";
+import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import {
   useImplementationTypeChooser,
@@ -14,19 +14,12 @@ export default function ImplementationHeading({
   children,
   action,
   menu,
-  inList = false,
-  mt = "4",
-  mb = "2",
 }: {
   children: ReactNode;
   // Right-aligned on the heading's line.
   action?: ReactNode;
   // This heading's own menu items, above the page's "Change implementation type".
   menu?: ReactNode;
-  // In a list whose gap already spaces it: pulled up under that gap instead.
-  inList?: boolean;
-  mt?: TextProps["mt"];
-  mb?: TextProps["mb"];
 }) {
   const chooseType = useImplementationTypeChooser();
   const unavailableReason = useImplementationTypeUnavailableReason();
@@ -36,8 +29,9 @@ export default function ImplementationHeading({
       align="center"
       justify="between"
       gap="3"
-      mt={inList ? "2" : mt}
-      mb={inList ? "-2" : mb}
+      // Pulled up under the gap of the list it sits in.
+      mt="2"
+      mb="-2"
     >
       <Text as="div" weight="medium" color="text-low" textTransform="uppercase">
         {children}

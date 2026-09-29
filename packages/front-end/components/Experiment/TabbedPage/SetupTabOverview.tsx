@@ -30,8 +30,10 @@ export default function SetupTabOverview({
   editSchedule,
 }: Props) {
   const { apiCall } = useAuth();
-  const { canEdit: canEditExperiment, editInline: editingInline } =
-    useExperimentEditing(experiment, disableEditing);
+  const { canEdit: canEditExperiment, editInline } = useExperimentEditing(
+    experiment,
+    disableEditing,
+  );
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
@@ -118,7 +120,7 @@ export default function SetupTabOverview({
       {!isBandit && !isHoldout && (
         <HypothesisField
           experiment={experiment}
-          editable={editingInline}
+          editable={editInline}
           canEdit={canEditExperiment}
         />
       )}

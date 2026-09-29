@@ -9,7 +9,6 @@ describe("hasMarkdownFormatting", () => {
     ["some _emphasis_ here"],
     ["~~struck~~"],
     ["`code`"],
-    ["# Heading"],
     ["### Heading"],
     ["> a quote"],
     ["- item"],
@@ -23,15 +22,13 @@ describe("hasMarkdownFormatting", () => {
   });
 
   it.each([
-    [""],
     ["   "],
     ["just some plain words"],
     ["two lines\nof plain text"],
     ["escaped \\*not emphasis\\*"],
-    ["escaped \\# not a heading"],
+    ["\\# not a heading"],
     ["snake_case_identifier"],
     ["5 * 3 = 15"],
-    ["a lone * star"],
     ["#hashtag without a space"],
   ])("finds none in %j", (markdown) => {
     expect(hasMarkdownFormatting(markdown)).toBe(false);

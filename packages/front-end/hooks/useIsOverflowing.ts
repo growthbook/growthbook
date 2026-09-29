@@ -1,9 +1,8 @@
 import { RefObject, useEffect, useState } from "react";
 
 /**
- * Whether an element's content runs taller than `maxHeight`, rechecked as the
- * content resizes. For clamping a block and offering the rest only when there
- * is a rest.
+ * Whether an element's content runs taller than `maxHeight`, rechecked as it
+ * resizes.
  */
 export default function useIsOverflowing(
   ref: RefObject<HTMLElement>,

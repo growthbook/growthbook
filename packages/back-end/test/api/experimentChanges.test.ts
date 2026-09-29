@@ -65,6 +65,18 @@ const variation = (id: string, i: number) => ({
   screenshots: [],
 });
 const seededVariations = () => [variation("v0", 0), variation("v1", 1)];
+const seededPhases = (dateStarted: Date) => [
+  {
+    name: "Main",
+    dateStarted,
+    coverage: 1,
+    variationWeights: [0.5, 0.5],
+    variations: [
+      { id: "v0", status: "active" },
+      { id: "v1", status: "active" },
+    ],
+  },
+];
 const collection = (name: string) => mongoose.connection.collection(name);
 const arms = (a: string, b: string) => [
   { variationId: "v0", value: a },
@@ -94,18 +106,7 @@ async function seed({ withDraft }: { withDraft: boolean }) {
     status: "draft",
     archived: false,
     variations: seededVariations(),
-    phases: [
-      {
-        name: "Main",
-        dateStarted: date,
-        coverage: 1,
-        variationWeights: [0.5, 0.5],
-        variations: [
-          { id: "v0", status: "active" },
-          { id: "v1", status: "active" },
-        ],
-      },
-    ],
+    phases: seededPhases(date),
     linkedFeatures: [FLAG],
     dateCreated: date,
     dateUpdated: date,
@@ -128,22 +129,37 @@ async function seed({ withDraft }: { withDraft: boolean }) {
     dateUpdated: date,
   });
   for (const version of withDraft ? [1, 2] : [1]) {
-    await collection("featurerevisions").insertOne({
-      id: `frev_${version}`,
-      organization: ORG_ID,
-      featureId: FLAG,
-      version,
-      baseVersion: version - 1,
-      status: version === 1 ? "published" : "draft",
-      createdBy: { type: "api_key", apiKey: "key" },
-      comment: "",
-      defaultValue: "a",
-      rules: [expRule(version === 1 ? arms("a", "b") : arms("a", "draft"))],
-      dateCreated: date,
-      dateUpdated: date,
-      ...(version === 1 ? { datePublished: date } : {}),
-    });
+    await collection("featurerevisions").insertOne(revisionDoc(version, date));
   }
+}
+
+function revisionDoc(version: number, date: Date) {
+  return {
+    id: `frev_${version}`,
+    organization: ORG_ID,
+    featureId: FLAG,
+    version,
+    baseVersion: version - 1,
+    status: version === 1 ? "published" : "draft",
+    createdBy: { type: "api_key", apiKey: "key" },
+    comment: "",
+    defaultValue: "a",
+    rules: [expRule(version === 1 ? arms("a", "b") : arms("a", "draft"))],
+    dateCreated: date,
+    dateUpdated: date,
+    ...(version === 1 ? { datePublished: date } : {}),
+  };
+}
+
+async function makeFlagManaged() {
+  await collection("experiments").updateOne(
+    { id: EXP },
+    { $set: { implementationType: "values" } },
+  );
+  await collection("features").updateOne(
+    { id: FLAG },
+    { $set: { managedBy: { type: "experiment", experimentId: EXP } } },
+  );
 }
 
 const LOADED = "2026-01-01T00:00:00.000Z";
@@ -394,20 +410,9 @@ describe("applyExperimentChanges", () => {
     await expect(run(body)).rejects.toThrow("lost race");
     expect(await revisionRules(2)).toBeNull();
 
-    await collection("featurerevisions").insertOne({
-      id: "frev_2",
-      organization: ORG_ID,
-      featureId: FLAG,
-      version: 2,
-      baseVersion: 1,
-      status: "draft",
-      createdBy: { type: "api_key", apiKey: "key" },
-      comment: "",
-      defaultValue: "a",
-      rules: [expRule(arms("a", "draft"))],
-      dateCreated: new Date(LOADED),
-      dateUpdated: new Date(LOADED),
-    });
+    await collection("featurerevisions").insertOne(
+      revisionDoc(2, new Date(LOADED)),
+    );
     await expect(
       run({
         ...body,
@@ -614,25 +619,8 @@ describe("applyExperimentChanges", () => {
       description: "",
       status: "draft",
       archived: false,
-      variations: ["v0", "v1"].map((id, i) => ({
-        id,
-        key: String(i),
-        name: id,
-        description: "",
-        screenshots: [],
-      })),
-      phases: [
-        {
-          name: "Main",
-          dateStarted: date,
-          coverage: 1,
-          variationWeights: [0.5, 0.5],
-          variations: [
-            { id: "v0", status: "active" },
-            { id: "v1", status: "active" },
-          ],
-        },
-      ],
+      variations: seededVariations(),
+      phases: seededPhases(date),
       linkedFeatures: [],
       dateCreated: date,
       dateUpdated: date,
@@ -687,10 +675,7 @@ describe("applyExperimentChanges", () => {
     await seed({ withDraft: false });
     const stored = await getExperimentById(context, EXP);
     if (!stored) throw new Error("missing experiment");
-    const variations = [
-      ...stored.variations,
-      { id: "v2", key: "2", name: "v2", description: "", screenshots: [] },
-    ];
+    const variations = [...stored.variations, variation("v2", 2)];
 
     await run({
       experiment: {
@@ -744,14 +729,7 @@ describe("applyExperimentChanges", () => {
 
   it("converts a Values experiment's flag to unmanaged alongside another edit", async () => {
     await seed({ withDraft: false });
-    await collection("experiments").updateOne(
-      { id: EXP },
-      { $set: { implementationType: "values" } },
-    );
-    await collection("features").updateOne(
-      { id: FLAG },
-      { $set: { managedBy: { type: "experiment", experimentId: EXP } } },
-    );
+    await makeFlagManaged();
 
     const result = await run({
       experiment: {
@@ -771,14 +749,7 @@ describe("applyExperimentChanges", () => {
 
     async function seedManaged() {
       await seed({ withDraft: true });
-      await collection("experiments").updateOne(
-        { id: EXP },
-        { $set: { implementationType: "values" } },
-      );
-      await collection("features").updateOne(
-        { id: FLAG },
-        { $set: { managedBy: { type: "experiment", experimentId: EXP } } },
-      );
+      await makeFlagManaged();
       // A legacy revision whose id is built from the flag's id.
       await collection("featurerevisions").updateOne(
         { featureId: FLAG, version: 1 },
@@ -995,6 +966,7 @@ describe("applyExperimentChanges", () => {
       expect(await collection("features").findOne({ id: NEW })).toBeNull();
     });
   });
+
   describe("URL Redirects and Visual Editor changes", () => {
     const A = "https://a.example.com";
     const B = "https://b.example.com";

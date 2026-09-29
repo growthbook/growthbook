@@ -15,15 +15,6 @@ const LABEL_OFFSET: Record<LabelSize, string> = { md: "10px", lg: "6px" };
 
 type LabelSize = "md" | "lg";
 
-/** Whether the row holds a control, which is taller than its own text, or text. */
-type RowContent = "control" | "text";
-
-/**
- * Where the label sits against its field: level with the first line, or
- * centred on the control — which only reads right for a control of one line.
- */
-type LabelAlign = "top" | "center";
-
 /**
  * One field on the setup tab: its name on the left, the control on the right.
  * Anything explaining the field belongs in `tooltip`, not under the label.
@@ -42,9 +33,9 @@ export default function SetupFieldRow({
   labelSize?: LabelSize;
   tooltip?: string;
   /** `text` for a row that only reads a value back, which needs no offset. */
-  content?: RowContent;
+  content?: "control" | "text";
   /** `center` for a row whose control is a single line, such as a select. */
-  labelAlign?: LabelAlign;
+  labelAlign?: "top" | "center";
   /**
    * The width a control keeps, for one that has no business filling the row.
    * It is also the point the row wraps at, in place of the usual threshold.

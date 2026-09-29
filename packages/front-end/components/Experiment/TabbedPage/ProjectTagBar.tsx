@@ -8,7 +8,6 @@ import {
   PiWarning,
   PiWarningFill,
 } from "react-icons/pi";
-import { format } from "date-fns-tz";
 import {
   HoldoutInterfaceStringDates,
   ImplementationType,
@@ -22,7 +21,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
-import RunningScheduleLink from "@/components/Experiment/TabbedPage/RunningScheduleLink";
+import RunningScheduleLink, {
+  hasStatusSchedule,
+  scheduledTime,
+} from "@/components/Experiment/TabbedPage/RunningScheduleLink";
 import Link from "@/ui/Link";
 import { ManagedFlagLink } from "@/components/Experiment/ManagedFlagName";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -30,6 +32,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { getHealthStateFromDetailedStatus } from "@/services/experiments";
 import ProjectBadges from "@/components/ProjectBadges";
+
+export type QuickEditField = "project" | "trackingKey" | "owner" | "tags";
 
 export interface Props {
   /** The managed Feature Flag the experiment owns, if any. */
@@ -48,9 +52,7 @@ export interface Props {
    */
   panel: "about" | "details";
   /** The quick-edit button for one field's row, where that field is editable. */
-  fieldAction?: (
-    field: "project" | "trackingKey" | "owner" | "tags",
-  ) => ReactNode;
+  fieldAction?: (field: QuickEditField) => ReactNode;
 }
 
 const toUTCDate = (dateValue: string | Date) => date(dateValue, "UTC");
@@ -97,11 +99,9 @@ export default function ProjectTagBar({
     : statusIndicator.detailedStatus;
   const isHoldout = experiment.type === "holdout";
   // Experiments adopted before the type was stored only carry the flag's marker.
-  const implementationType = stagedImplementationType
-    ? stagedImplementationType
-    : managedFlagId
-      ? "values"
-      : getImplementationType(experiment);
+  const implementationType =
+    stagedImplementationType ||
+    (managedFlagId ? "values" : getImplementationType(experiment));
 
   if (panel === "details") {
     return (
@@ -307,9 +307,6 @@ export default function ProjectTagBar({
   );
 }
 
-const scheduledTime = (value: string | Date) =>
-  format(new Date(value), "MMM d, yyyy 'at' h:mm a (z)");
-
 /** A draft's scheduled start and end, with the way to set them. */
 function DraftSchedule({
   experiment,
@@ -319,8 +316,7 @@ function DraftSchedule({
   editSchedule: (() => void) | null;
 }) {
   const schedule = experiment.statusUpdateSchedule;
-  const hasSchedule =
-    !!schedule && Object.values(schedule).some((value) => value !== null);
+  const hasSchedule = hasStatusSchedule(experiment);
   const startPassed =
     !!schedule?.startAt && new Date(schedule.startAt) < new Date();
   const end = schedule?.stopAt
@@ -368,11 +364,8 @@ function DraftSchedule({
 }
 
 /**
- * When the experiment ran, as far as it has: created while a draft, started
- * while running, and the whole span once stopped (or just the start, where an
- * old stopped experiment never recorded its end). A holdout counts from its
- * first phase; anything else from its latest, and says so when it has had
- * more than one.
+ * When the experiment ran, as far as it has. A holdout counts from its first
+ * phase; anything else from its latest.
  */
 function ExperimentDates({
   experiment,

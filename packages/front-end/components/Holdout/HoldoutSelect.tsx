@@ -20,14 +20,14 @@ export function selectableHoldouts<H extends HoldoutInterface>(
   project: string | undefined,
 ): H[] {
   return holdouts.filter((h) => {
-    if (!project && h.projects.length > 0) return false;
+    const openToProject =
+      h.projects.length === 0 || (!!project && h.projects.includes(project));
     const experiment = experimentsMap.get(h.experimentId);
-    if (!experiment || getHoldoutStage(h, experiment) !== "running") {
-      return false;
-    }
-    return project
-      ? h.projects.length === 0 || h.projects.includes(project)
-      : true;
+    return (
+      openToProject &&
+      !!experiment &&
+      getHoldoutStage(h, experiment) === "running"
+    );
   });
 }
 

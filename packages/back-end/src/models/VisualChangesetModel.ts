@@ -589,13 +589,15 @@ export const deleteVisualChangesetById = async ({
   );
   if (remainingVisualChangesets.length === 0) {
     if (experiment && experiment.hasVisualChangesets) {
-      const after = { ...experiment, hasVisualChangesets: false };
       await updateExperiment({
         context,
         experiment,
         changes: {
           hasVisualChangesets: false,
-          implementationType: implementationTypeAfterUnlink(after),
+          implementationType: implementationTypeAfterUnlink({
+            ...experiment,
+            hasVisualChangesets: false,
+          }),
         },
         bypassWebhooks: true,
       });

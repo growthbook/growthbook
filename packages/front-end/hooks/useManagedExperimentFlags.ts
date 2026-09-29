@@ -4,10 +4,7 @@ import {
 } from "shared/types/experiment";
 import { isManagedByExperiment } from "shared/util";
 
-/**
- * Managed mode is a fact, not a preference: it is read off `feature.managedBy`
- * for the experiment's own linked flag.
- */
+/** Read off `feature.managedBy` of the experiment's own linked flag. */
 export function useManagedExperimentFlags({
   experiment,
   linkedFeatures,

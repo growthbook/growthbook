@@ -80,8 +80,8 @@ export function AttributeOptionProjectsLabel({
 }
 
 /**
- * The label renderer, with the side its popover takes over the closed control
- * open to override: a narrow control has no room for the popover above it.
+ * `valueSide` moves the closed control's popover, for a control too narrow to
+ * fit it above.
  */
 export function attributeOptionLabelFormatter(valueSide?: OptionPopoverSide) {
   return (o: { label: string }, meta: { context: string }) =>

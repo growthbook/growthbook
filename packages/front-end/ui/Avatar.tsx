@@ -5,8 +5,7 @@ import { forwardRef, ReactNode } from "react";
 import { radixSize, Size as SharedSize } from "@/ui/sizes";
 import styles from "./Avatar.module.scss";
 
-// xs has no Radix step of its own, the way Badge's does not: it is Radix "1"
-// shrunk in Avatar.module.scss so it can sit beside small text.
+// xs is Radix "1" shrunk in Avatar.module.scss.
 export type Size = SharedSize<"xs" | "sm" | "md" | "lg">;
 
 export type Props = {

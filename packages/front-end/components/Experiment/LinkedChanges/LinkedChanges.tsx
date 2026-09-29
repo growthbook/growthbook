@@ -31,12 +31,10 @@ export default function LinkedChanges({
   urlRedirects: URLRedirectInterface[];
   experiment: ExperimentInterfaceStringDates;
 }) {
-  const managedFeature =
-    linkedFeatures.find((f) =>
-      isManagedByExperiment(f.feature, experiment.id),
-    ) ?? null;
-
-  const effectiveType = managedFeature
+  const hasManagedFlag = linkedFeatures.some((f) =>
+    isManagedByExperiment(f.feature, experiment.id),
+  );
+  const effectiveType = hasManagedFlag
     ? "values"
     : getImplementationType(experiment);
   const valuesMode = effectiveType === "values";
@@ -57,22 +55,20 @@ export default function LinkedChanges({
 
   return (
     <Frame>
-      <Flex justify="between" align="center" mb="4" gap="3">
-        <Flex align="center" gap="1">
-          <Heading color="text-high" as="h4" size="sm" mb="0">
-            {boxTitle}
-          </Heading>
-          {valuesMode && (
-            <Tooltip
-              content="This experiment owns this Feature Flag and serves its variation values through it."
-              side="top"
-            >
-              <Flex align="center" style={{ color: "var(--color-text-low)" }}>
-                <PiInfo />
-              </Flex>
-            </Tooltip>
-          )}
-        </Flex>
+      <Flex align="center" gap="1" mb="4">
+        <Heading color="text-high" as="h4" size="sm" mb="0">
+          {boxTitle}
+        </Heading>
+        {valuesMode && (
+          <Tooltip
+            content="This experiment owns this Feature Flag and serves its variation values through it."
+            side="top"
+          >
+            <Flex align="center" style={{ color: "var(--color-text-low)" }}>
+              <PiInfo />
+            </Flex>
+          </Tooltip>
+        )}
       </Flex>
 
       <Flex direction="column" gap="3" mx="1" mb="2" mt="4">

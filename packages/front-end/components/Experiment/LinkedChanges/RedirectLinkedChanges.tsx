@@ -1,4 +1,3 @@
-import { ReactNode } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
@@ -28,7 +27,7 @@ import { redirectDestinationParts } from "./redirectDestination";
 
 function RedirectDestination({ from, to }: { from: string; to: string }) {
   const parts = redirectDestinationParts(from, to);
-  const shown: ReactNode = parts ? (
+  const shown = parts ? (
     <>
       {parts.elided ? "…" : null}
       {parts.kept}
@@ -207,9 +206,7 @@ export default function UrlRedirectRows({
   return (
     <ImplementationSection
       cols={Math.min(variations.length, 3)}
-      heading={
-        <ImplementationHeading inList>URL Redirects</ImplementationHeading>
-      }
+      heading={<ImplementationHeading>URL Redirects</ImplementationHeading>}
       add={
         onAdd ? (
           <AddImplementationButton

@@ -69,12 +69,11 @@ function resolveRuleRefs(
   return node;
 }
 
-// mongrule's object/array equality is JSON.stringify comparison, so both sides
-// are key-sorted before evaluation to make object equality order-insensitive.
 // Evaluate a config's cross-field invariants against its resolved value. A rule
 // is SATISFIED when its mongo condition matches the value, a VIOLATION when it
 // doesn't. A malformed rule is surfaced as a violation rather than thrown, so it
-// can never crash the save path.
+// can never crash the save path. Both sides are key-sorted because mongrule
+// compares objects by JSON.stringify.
 export function evaluateInvariants(
   value: Record<string, unknown>,
   invariants?: ConfigInvariant[] | null,

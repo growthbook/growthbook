@@ -21,7 +21,6 @@ export function writeManifest(run, data) {
   );
 }
 
-// A revision's rule for the experiment.
 export const findRefRule = (revision, experimentId) =>
   (revision?.rules ?? []).find(
     (r) => r.type === "experiment-ref" && r.experimentId === experimentId,

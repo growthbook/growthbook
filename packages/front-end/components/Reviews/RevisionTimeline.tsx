@@ -138,8 +138,6 @@ function auditVerb(action: string): string {
   );
 }
 
-// Icons and colors mirror RevisionStatusBadge so the timeline and the
-// actions-column header speak the same visual language.
 /** A verdict's colour; null for anything that isn't one. */
 export function verdictColor(action: string): "green" | "red" | null {
   return action === "Approved"
@@ -165,6 +163,8 @@ export function sortRevisionLog<T extends { timestamp: unknown }>(log: T[]) {
   );
 }
 
+// Icons and colors mirror RevisionStatusBadge so the timeline and the
+// actions-column header speak the same visual language.
 export function rowVisual(action: string): RowVisual {
   switch (action) {
     case "Comment":
@@ -602,13 +602,6 @@ export function scanVerdictRetractions(
   sorted: RevisionLog[],
   userId?: string | null,
 ): WeakMap<RevisionLog, VerdictRetraction> {
-  // A verdict (Approved / Requested Changes) is invalidated by the FIRST
-  // of the following events to appear after it:
-  //   - same-user `Undo Review`           → "Retracted"
-  //   - any-user `Recall Review`          → "Discarded by {recaller}"
-  //   - same-user new verdict             → superseded (no badge)
-  // A subsequent `Review Requested` resets the window — verdicts after
-  // that point are fresh decisions on the re-requested review.
   const retractions = new WeakMap<RevisionLog, VerdictRetraction>();
   for (let i = 0; i < sorted.length; i++) {
     const entry = sorted[i];
@@ -732,11 +725,7 @@ export default function RevisionTimeline({
     useMemo(() => {
       // Chronological (newest at the bottom) — the comment composer sits
       // below the timeline, where new entries append.
-      const sorted = [...logs].sort((a, b) =>
-        (a.timestamp as unknown as string).localeCompare(
-          b.timestamp as unknown as string,
-        ),
-      );
+      const sorted = sortRevisionLog(logs);
       const retractions = scanVerdictRetractions(sorted, userId);
       const activeVerdict = findActiveVerdict(sorted, userId, retractions);
       return {

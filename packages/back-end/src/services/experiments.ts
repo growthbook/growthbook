@@ -20,14 +20,10 @@ import {
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
   getImplementationType,
-  evaluatePublishGovernance,
-  requireFreshBaseForPublish,
-  autoMerge,
   mergeResultHasChanges,
   draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
   findAnalysisComputeFailure,
-  fillRevisionFromFeature,
   generateVariationId,
   getAffectedEnvsForExperiment,
   getExperimentAttributeScopeProjectIds,
@@ -210,6 +206,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   assessRevisionApprovalForAutoPublish,
   featureReviewRequired,
+  mergeDraftForAutoPublish,
 } from "back-end/src/services/experiment-feature";
 import type { RevisionApprovalState } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
@@ -5626,37 +5623,17 @@ export async function getRefLinkedFeatureInfo({
             feature,
             revision,
           });
-          const filledLive = liveRevisionFromFeature(live, feature);
-          const mergeResult = autoMerge(
-            filledLive,
-            fillRevisionFromFeature(base, feature),
-            revision,
-            environments,
-            {},
-          );
+          const { mergeResult, rebaseRequired, staleApproval } =
+            mergeDraftForAutoPublish(context, feature, revision, live, base);
           draftHasChanges = mergeResultHasChanges(mergeResult);
-          const governance = evaluatePublishGovernance({
-            revisionStatus: revision.status,
-            baseVersion: revision.baseVersion,
-            liveVersion: live.version,
-            mergeSuccess: mergeResult.success,
-            liveChanges: [],
-            approvedBaseVersion: revision.approvedBaseVersion ?? null,
-            requireRebaseBeforePublish: requireFreshBaseForPublish({
-              feature,
-              reviewRequired,
-              orgSetting: !!context.org.settings?.requireRebaseBeforePublish,
-            }),
-          });
-          draftRebaseRequired =
-            mergeResult.success && governance.rebaseRequired;
-          draftStaleApproval = governance.staleApproval;
+          draftRebaseRequired = rebaseRequired;
+          draftStaleApproval = staleApproval;
           if (!mergeResult.success) {
             draftHasMergeConflict = true;
           } else {
             draftChangesOutsideRef = draftHasChangesOutsideTargetRef(
               revision,
-              filledLive,
+              liveRevisionFromFeature(live, feature),
               matchRule,
             );
           }

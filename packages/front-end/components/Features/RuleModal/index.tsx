@@ -1672,10 +1672,7 @@ export default function RuleModal({
       });
       // The form carries widget-only fields for every rule type; drop the ones
       // this type doesn't store, or they read as changes in every later diff.
-      const stored = stripUnknownRuleFields(values);
-      for (const key of Object.keys(values)) {
-        if (!(key in stored)) delete (values as Record<string, unknown>)[key];
-      }
+      values = stripUnknownRuleFields(values);
       let res: { version: number } | undefined;
 
       if (mode === "edit") {

@@ -164,14 +164,12 @@ export const attributionModel = [
 ] as const;
 export type AttributionModel = (typeof attributionModel)[number];
 
-/** @deprecated The old `implementation` field; always "code" today. */
-export const legacyImplementation = [
+const legacyImplementation = [
   "visual",
   "code",
   "configuration",
   "custom",
 ] as const;
-export type LegacyImplementation = (typeof legacyImplementation)[number];
 
 // How the experiment reaches users. "multi" is derived for legacy experiments
 // with several kinds; "none" is deliberate; absent means undecided.
@@ -309,10 +307,8 @@ export type ExperimentAnalysisSettings = z.infer<
 >;
 
 /**
- * What a page may hold as an unsaved analysis draft before writing it. Every
- * field is optional, since a draft carries only what was touched, and anything
- * outside the analysis settings is dropped rather than carried along to the
- * write: a draft is not a way to edit the rest of the experiment.
+ * An unsaved analysis draft: only the touched fields, with anything outside the
+ * analysis settings stripped so a draft can't edit the rest of the experiment.
  */
 export const experimentAnalysisSettingsDraft = experimentAnalysisSettings
   .partial()
@@ -1453,6 +1449,13 @@ const apiPhaseInput = z.object({
     .optional(),
 });
 
+const implementationTypeBodyField = z
+  .enum(["values", "feature", "urlredirect", "visual", "none"])
+  .describe(
+    'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked. Changing a Values experiment: "feature" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag, and must be acknowledged with `ignoreWarnings: true` (without it the call returns 422 naming the flag).',
+  )
+  .optional();
+
 // PostExperimentPayload.yaml
 const postExperimentBody = z
   .object({
@@ -1477,12 +1480,7 @@ const postExperimentBody = z
       .optional(),
     name: z.string().describe("Name of the experiment"),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
-    implementationType: z
-      .enum(["values", "feature", "urlredirect", "visual", "none"])
-      .describe(
-        'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked. Changing a Values experiment: "feature" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag, and must be acknowledged with `ignoreWarnings: true` (without it the call returns 422 naming the flag).',
-      )
-      .optional(),
+    implementationType: implementationTypeBodyField,
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1618,12 +1616,7 @@ const updateExperimentBody = z
       .optional(),
     name: z.string().describe("Name of the experiment").optional(),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
-    implementationType: z
-      .enum(["values", "feature", "urlredirect", "visual", "none"])
-      .describe(
-        'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked. Changing a Values experiment: "feature" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag, and must be acknowledged with `ignoreWarnings: true` (without it the call returns 422 naming the flag).',
-      )
-      .optional(),
+    implementationType: implementationTypeBodyField,
     bypassApproval: bypassApprovalPublishBodyField,
     project: z
       .string()
@@ -2065,8 +2058,9 @@ export const getExperimentNamesValidator = {
   path: "/experiment-names",
 };
 
-const linkedChangesField = z
-  .enum(["materialize", "remove"])
+export const linkedChangesResolution = z.enum(["materialize", "remove"]);
+
+const linkedChangesField = linkedChangesResolution
   .optional()
   .describe(
     'Required while the experiment still serves through linked changes. "materialize" keeps a stopped experiment\'s released variation as a permanent force rule on each linked Feature Flag; "remove" acknowledges that the linked changes stop serving.',
@@ -2666,12 +2660,10 @@ export const getExperimentSnapshotValidator = {
   path: "/snapshots/:id",
 };
 
-// region Experiment variation values (the automatic implementation)
+// region Experiment variation values
 //
-// Deliberately flat and unversioned: an experiment manages one Feature Flag with
-// one pending change at a time, so there is nothing to address by version. Kept
-// clear of revision vocabulary so a future experiment revision system can own
-// `/experiments/:id/revisions/...` without colliding with this.
+// Flat and unversioned: one managed flag with one pending change at a time.
+// Clear of revision vocabulary so `/experiments/:id/revisions` stays free.
 
 const apiVariationValue = namedSchema(
   "ExperimentVariationValue",
