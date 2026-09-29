@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/services/auth";
 
 const DEBOUNCE_MS = 400;
-const MIN_CHARS = 3;
+// "I want" says little; three words is about where a continuation stops being a guess.
+const MIN_WORDS = 3;
 // ponytail: flat back-off after any failure; per-status handling if 429s get common.
 const RETRY_AFTER_ERROR_MS = 60_000;
 
@@ -33,7 +34,7 @@ export function useAutocomplete({
   text: string;
   enabled: boolean;
   conversationId?: string;
-}): { ghost: string; dismiss: () => void } {
+}): { ghost: string; accept: () => void; dismiss: () => void } {
   const { apiCall } = useAuth();
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const pausedUntil = useRef(0);
@@ -46,7 +47,7 @@ export function useAutocomplete({
       !enabled ||
       ghost ||
       text === current?.base ||
-      text.trim().length < MIN_CHARS
+      text.trim().split(/\s+/).length < MIN_WORDS
     ) {
       return;
     }
@@ -82,9 +83,12 @@ export function useAutocomplete({
     };
   }, [text, enabled, conversationId, ghost, current?.base, apiCall]);
 
+  // Both mark the draft as answered so it isn't refetched until the user types
+  // again. After an accept that stops suggestions chaining off each other.
   return {
     ghost,
-    // Remember the draft as answered so the same text doesn't refetch.
+    accept: () =>
+      setSuggestion({ base: text + ghost, completion: "", conversationId }),
     dismiss: () =>
       setSuggestion({ base: text, completion: "", conversationId }),
   };

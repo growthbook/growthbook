@@ -191,10 +191,25 @@
   line-height: 0;
 }
 
-// Sits beside the 30px buttons; the margin roughly centers it on them.
-.ghostHint {
+.buttonRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
-  margin-bottom: 5px;
+}
+
+// Out of the flow, so Dictate and Send don't slide when a suggestion appears.
+.ghostHint {
+  position: absolute;
+  right: calc(100% + var(--space-2));
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+// Keeps the continuation from running under the keycap.
+.withHint :global(.ProseMirror) {
+  padding-right: 44px;
 }
 
 .sendButton,

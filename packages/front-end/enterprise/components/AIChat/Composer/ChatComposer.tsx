@@ -20,6 +20,7 @@ import type { AIChatMention } from "shared/ai-chat";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
+import Tooltip from "@/ui/Tooltip";
 import {
   collectMentions,
   collectSkills,
@@ -162,12 +163,20 @@ function ChatComposer(
   const rows = suggestion ? toRows(suggestion) : [];
   const suggestionVisible = suggestion !== null;
   const suggestionOpen = rows.length > 0;
-  const { ghost: ghostText, dismiss: dismissGhost } = useAutocomplete({
+  // The ghost is only drawn for an empty caret at the end, so the hint, the
+  // shortcut and the fetch follow the same condition.
+  const [caretAtEnd, setCaretAtEnd] = useState(true);
+  const {
+    ghost: ghostText,
+    accept: acceptGhost,
+    dismiss: dismissGhost,
+  } = useAutocomplete({
     text: value,
-    enabled: autocomplete && !loading && !disabled && !suggestionVisible,
+    enabled:
+      autocomplete && caretAtEnd && !loading && !disabled && !suggestionVisible,
     conversationId,
   });
-  const ghost = suggestionVisible ? "" : ghostText;
+  const ghost = suggestionVisible || !caretAtEnd ? "" : ghostText;
   const ghostId = useId();
 
   const hideCardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -365,6 +374,7 @@ function ChatComposer(
           // Same condition the ghost is drawn under: a caret at the very end.
           if (selection.empty && selection.to === end) {
             view.dispatch(view.state.tr.insertText(ghost, end));
+            acceptGhost();
             return true;
           }
         }
@@ -383,6 +393,10 @@ function ChatComposer(
       },
     },
     onUpdate: ({ editor: e }) => onChange(editorToText(e)),
+    onSelectionUpdate: ({ editor: e }) => {
+      const { selection, doc } = e.state;
+      setCaretAtEnd(selection.empty && selection.to === docEnd(doc));
+    },
   });
 
   useImperativeHandle(
@@ -495,20 +509,17 @@ function ChatComposer(
     <DictationButton dictation={dictation} disabled={loading || disabled} />
   );
   const buttons = (
-    <>
+    <div className={styles.buttonRow}>
       {ghost && (
-        <Kbd
-          size="1"
-          className={styles.ghostHint}
-          title="Accept suggestion"
-          aria-hidden="true"
-        >
-          Tab
-        </Kbd>
+        <Tooltip content="Accept suggestion">
+          <Kbd size="1" className={styles.ghostHint} aria-hidden="true">
+            Tab
+          </Kbd>
+        </Tooltip>
       )}
       {dictateButton}
       {sendButton}
-    </>
+    </div>
   );
 
   const boxClasses = [
@@ -533,10 +544,12 @@ function ChatComposer(
     >
       <TokenHoverCard hovered={hoveredToken} cardRef={cardRef} />
       {ghost && (
-        <VisuallyHidden id={ghostId} role="status">
-          Suggestion: {ghost}. Press Tab to accept.
-        </VisuallyHidden>
+        <VisuallyHidden id={ghostId}>Suggestion: {ghost}</VisuallyHidden>
       )}
+      {/* Static text, always mounted: announced once when a suggestion appears, not on every keystroke. */}
+      <VisuallyHidden role="status">
+        {ghost ? "Suggestion available. Press Tab to accept." : ""}
+      </VisuallyHidden>
       {suggestionVisible && suggestion && (
         <SuggestionList
           items={rows}
@@ -559,7 +572,13 @@ function ChatComposer(
       )}
       <EditorContent
         editor={editor}
-        className={`${styles.editor}${loading || disabled ? ` ${styles.readOnly}` : ""}`}
+        className={[
+          styles.editor,
+          loading || disabled ? styles.readOnly : "",
+          ghost ? styles.withHint : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         style={minRows ? { minHeight: minRows * 20 } : undefined}
         onFocus={handleFocus}
         onBlur={handleBlur}
