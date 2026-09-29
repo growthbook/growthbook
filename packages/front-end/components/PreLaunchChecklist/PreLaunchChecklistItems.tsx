@@ -285,7 +285,8 @@ export function getChecklistItems({
                     ) : (
                       "Reschedule"
                     )}{" "}
-                    and approve the start again from an account that can.
+                    or unschedule it, then approve the start again from an
+                    account that can.
                   </>
                 ) : (
                   " before this experiment can start"
