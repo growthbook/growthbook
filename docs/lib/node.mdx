@@ -95,7 +95,7 @@ Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
 
 ### Tracing
 
-The tracing plugin records every experiment assignment as a tag of the form `gb:<experimentKey>:<variationKey>` so you can attach it to an LLM trace in Langfuse, Arize Phoenix, or any OpenTelemetry-based tool. GrowthBook's Langfuse and Phoenix data source integrations read the tags back out of the trace to compute exposures. See [Experimenting on LLM Features](/integrations/llm-tracing) for the full setup and the plugin options in the [JavaScript SDK docs](/lib/js#tracing).
+The tracing plugin records every experiment assignment as a tag of the form `gb.exp:<experimentKey>=<variationKey>` so you can attach it to an LLM trace in Langfuse, Arize Phoenix, or any OpenTelemetry-based tool. GrowthBook's Langfuse and Phoenix data source integrations read the tags back out of the trace to compute exposures. See [Experimenting on LLM Features](/integrations/llm-tracing) for the full setup and the plugin options in the [JavaScript SDK docs](/lib/js#tracing).
 
 Pass the plugin in the `GrowthBookClient` options. The shared client has no assignments of its own, so the plugin runs for each `createScopedInstance()` call and every scoped instance keeps its own tag set. Read the tags off the scoped instance with `getTracingTags()`.
 
@@ -117,7 +117,7 @@ app.post("/chat", async (req, res) => {
 
   // Evaluate flags first so the tags exist before the trace starts
   const promptLabel = scoped.getFeatureValue("support-prompt", "production");
-  const tags = getTracingTags(scoped); // e.g. ["gb:support-prompt:prod-b"]
+  const tags = getTracingTags(scoped); // e.g. ["gb.exp:support-prompt=prod-b"]
 
   // Hand `tags` (and req.user.id as the user id) to your tracing SDK
 });

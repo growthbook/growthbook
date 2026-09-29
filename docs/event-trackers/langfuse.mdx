@@ -19,7 +19,7 @@ The Langfuse event tracker is in beta. It queries Langfuse's own ClickHouse data
 
 ## Exposure Tracking
 
-There is no separate exposure event. Instead, each Langfuse trace is tagged with the GrowthBook assignment in the form `gb:<experimentKey>:<variationKey>`, and the exposure query reads those tags straight from the `traces` table.
+There is no separate exposure event. Instead, each Langfuse trace is tagged with the GrowthBook assignment in the form `gb.exp:<experimentKey>=<variationKey>`, and the exposure query reads those tags straight from the `traces` table.
 
 In JavaScript, the [`tracing` plugin](/lib/js#tracing) collects these tags for you. Attach them, together with the user id, at the top of the traced request:
 
@@ -48,7 +48,7 @@ await startActiveObservation("support-reply", async () => {
 Two things must hold for the join to work:
 
 - The Langfuse `userId` (and `sessionId`, if used) must equal the value of the GrowthBook attribute the experiment hashes on.
-- Experiment and variation keys must not contain `:`.
+- Experiment keys must not contain `=`.
 
 Evaluate flags before starting the trace so the tags exist when it is created. For Python and plain OpenTelemetry examples, see [Stamping the trace](/integrations/llm-tracing#stamping-the-trace).
 
