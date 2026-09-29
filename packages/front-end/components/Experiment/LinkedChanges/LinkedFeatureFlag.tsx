@@ -239,7 +239,7 @@ export default function LinkedFeatureFlag({
         {info.state === "draft" && info.cannotPublish && (
           <Callout status="error" my="4">
             {experiment.nextScheduledStatusUpdate?.type === "start"
-              ? "Whoever scheduled this start can no longer publish this Feature Flag draft. Unschedule or reschedule it, then approve the start again from an account that can."
+              ? "Whoever scheduled this start can no longer publish this Feature Flag draft. Unschedule or reschedule the start, then approve it again from an account that can."
               : "You don't have permission to publish this Feature Flag draft, so it can't be published when the experiment starts."}{" "}
             <Link
               href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}

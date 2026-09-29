@@ -271,7 +271,10 @@ export function getChecklistItems({
                 {armed
                   ? "Whoever scheduled this start can no longer publish "
                   : "You need permission to publish "}
-                <Link href={`/features/${f.feature.id}`} target="_blank">
+                <Link
+                  href={`/features/${f.feature.id}${f.draftRevisionVersion != null ? `?v=${f.draftRevisionVersion}` : ""}`}
+                  target="_blank"
+                >
                   {f.feature.id}
                   <PiArrowSquareOut className="ml-1" />
                 </Link>
@@ -285,7 +288,7 @@ export function getChecklistItems({
                     ) : (
                       "Reschedule"
                     )}{" "}
-                    or unschedule it, then approve the start again from an
+                    or unschedule the start, then approve it again from an
                     account that can.
                   </>
                 ) : (
