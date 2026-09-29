@@ -1136,8 +1136,9 @@ export async function maybeAutoPublishRevision(
     return revision;
   }
 
-  // Publish with the authority of whoever armed auto-publish; fall back to
-  // the author for revisions armed before `autoPublishEnabledBy` existed.
+  // Publish as whoever armed auto-publish, user or org API key. Revisions armed
+  // before the stamp existed fall back to the author, always a dashboard user
+  // (an org key authors nobody), as the feature twin does.
   const enablerId = revision.autoPublishEnabledBy ?? revision.authorId;
   if (!enablerId) {
     logger.warn(
