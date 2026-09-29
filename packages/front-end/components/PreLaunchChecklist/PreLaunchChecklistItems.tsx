@@ -280,12 +280,12 @@ export function getChecklistItems({
                     .{" "}
                     {setShowScheduleModal ? (
                       <Link onClick={() => setShowScheduleModal(true)}>
-                        Reschedule the start
+                        Reschedule
                       </Link>
                     ) : (
-                      "Reschedule the start"
+                      "Reschedule"
                     )}{" "}
-                    from an account that can.
+                    and approve the start again from an account that can.
                   </>
                 ) : (
                   " before this experiment can start"
