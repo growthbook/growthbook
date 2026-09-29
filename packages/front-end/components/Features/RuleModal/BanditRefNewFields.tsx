@@ -12,6 +12,7 @@ import { Box, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import SelectField from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import HashVersionSelector, {
@@ -177,6 +178,9 @@ export default function BanditRefNewFields({
   );
 
   const settings = useOrgSettings();
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+  );
   const { namespaces } = useOrgSettings();
 
   return (
@@ -196,6 +200,7 @@ export default function BanditRefNewFields({
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
+            {...trackingKeyFormatProps}
             helpText="Unique identifier for this Bandit, used to track impressions and analyze results"
           />
 

@@ -40,7 +40,7 @@ Here are a number of important data structures in GrowthBook SDKs, listed alphab
 
 ### BucketRange
 
-A tuple that describes a range of the numberline between `0` and `1`.
+A tuple that describes a range of the number line between `0` and `1`.
 
 The tuple has 2 parts, both floats - the start of the range and the end. For example:
 
@@ -123,7 +123,7 @@ Defines a single **Experiment**. Has a number of properties:
 - **name** (`string`) - Human-readable name for the experiment
 - **phase** (`string`) - Id of the current experiment phase
 - **disableStickyBucketing** (`boolean`) - If true, sticky bucketing will be disabled for this experiment. (Note: sticky bucketing is only available if a StickyBucketingService is provided in the Context)
-- **bucketVersion** (`integer`) - An sticky bucket version number that can be used to force a re-bucketing of users (default to `0`)
+- **bucketVersion** (`integer`) - A sticky bucket version number that can be used to force a re-bucketing of users (default to `0`)
 - **minBucketVersion** (`integer`) - Any users with a sticky bucket version less than this will be excluded from the experiment
 
 The only required properties are `key` and `variations`. Everything else is optional.
@@ -344,7 +344,7 @@ It's ok if the sum is slightly off due to rounding. So a sum of `0.9999999` is f
 
 ### getBucketRanges(numVariations: integer, coverage: float, weights: float[]): BucketRange[]
 
-This converts and experiment's coverage and variation weights into an array of bucket ranges.
+This converts an experiment's coverage and variation weights into an array of bucket ranges.
 
 `numVariations` is an integer, `coverage` is a float, and `weights` is an array of floats.
 
@@ -1005,7 +1005,7 @@ For strongly typed languages, you can use generics (if supported) for `getFeatur
 
 When the Context contains a `clientKey`, the SDK should fetch and cache features automatically.
 
-If `apiHost` is not specified, default to `https://cdn.growthbook.io`. Make sure to strip and trailing slashes on user-entered hosts (e.g. `http://example.com/` becomes `http://example.com`).
+If `apiHost` is not specified, default to `https://cdn.growthbook.io`. Make sure to strip any trailing slashes on user-entered hosts (e.g. `http://example.com/` becomes `http://example.com`).
 
 Features should be fetched from `{apiHost}/api/features/{clientKey}` and all errors should be handled gracefully. A network error while fetching features should never be a fatal error that stops execution.
 

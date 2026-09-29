@@ -15,6 +15,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   assertCanRunExperimentChanges,
+  assertExperimentKeyFormat,
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   getExperimentAttributeScopeProjects,
@@ -138,6 +139,17 @@ export const updateExperiment = createApiRequestHandler(
     );
     if (!resolved.ok) throw new Error(resolved.error);
     payload.assignmentQueryIdentifierType = resolved.identifierType;
+  }
+
+  if (
+    req.body.trackingKey !== undefined &&
+    req.body.trackingKey !== experiment.trackingKey
+  ) {
+    await assertExperimentKeyFormat(
+      req.context,
+      req.body.trackingKey,
+      datasourceId,
+    );
   }
 
   // check if tracking key is unique
@@ -380,7 +392,11 @@ export const updateExperiment = createApiRequestHandler(
     req.organization,
   );
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes);
+  normalizeStatusUpdateScheduleChanges(
+    experiment,
+    changes,
+    req.context.userId || undefined,
+  );
 
   // canUpdateExperiment (above) is the analysis-level check. Fields that reach
   // SDK payloads additionally need run-experiments permission in the

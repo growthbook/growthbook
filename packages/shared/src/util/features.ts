@@ -45,7 +45,7 @@ import {
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
-  expandNestedSavedGroups,
+  createV1SavedGroupsOperatorHandler,
   EXTENDS_KEY,
 } from "../sdk-versioning";
 import {
@@ -2497,7 +2497,10 @@ export function validateCondition(
     }
 
     const scrubbed = cloneDeep(res);
-    recursiveWalk(scrubbed, expandNestedSavedGroups(groupMap || new Map()));
+    recursiveWalk(
+      scrubbed,
+      createV1SavedGroupsOperatorHandler(groupMap || new Map()),
+    );
     if (conditionHasSavedGroupErrors(scrubbed, skipSavedGroupCycleCheck)) {
       return {
         success: false,
@@ -2989,7 +2992,7 @@ export function getDependentExperiments(
   });
 }
 
-// Simplified version of getParsedCondition() from: back-end/src/util/features.ts
+// Simplified version of mergeConditionAndSavedGroups() from: back-end/src/util/features.ts
 export function getParsedPrereqCondition(condition: string) {
   if (condition && condition !== "{}") {
     try {

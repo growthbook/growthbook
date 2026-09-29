@@ -26,6 +26,7 @@ import {
   usesBackslashStringEscapes,
 } from "shared/sql";
 import { TemplateVariables, SqlDialect } from "shared/types/sql";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   MetricValueParams,
   ExperimentMetricQueryParams,
@@ -296,7 +297,13 @@ export default abstract class SqlIntegration
     setExternalId: ExternalIdCallback | undefined,
     metadata: RunQueryMetadata,
   ): Promise<QueryResponse>;
-  abstract getSqlDialect(): SqlDialect;
+  getSqlDialect(): SqlDialect {
+    const dialect = getDataSourceSqlDialect(this.datasource.type);
+    if (!dialect) {
+      throw new Error(`${this.datasource.type} is not a SQL Data Source`);
+    }
+    return dialect;
+  }
 
   constructor(context: ReqContextClass, datasource: DataSourceInterface) {
     this.wrapRunQuery();

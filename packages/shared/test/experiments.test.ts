@@ -31,6 +31,7 @@ import {
   parseSliceMetricId,
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
+  isAutoSnapshotScheduled,
   ExperimentMetricInterface,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
@@ -3006,5 +3007,30 @@ describe("conditional inline filter prompts", () => {
         reconcileInlineFilterPrompts(factTable, [pageView], [pageView]),
       ).toEqual([pageView]);
     });
+  });
+});
+
+describe("isAutoSnapshotScheduled", () => {
+  const on = {
+    autoSnapshots: true,
+    disableAutoSnapshots: false,
+    archived: false,
+  };
+
+  it("is scheduled only when every flag allows it", () => {
+    expect(isAutoSnapshotScheduled(on)).toBe(true);
+    expect(isAutoSnapshotScheduled({ ...on, autoSnapshots: false })).toBe(
+      false,
+    );
+    expect(isAutoSnapshotScheduled({ ...on, disableAutoSnapshots: true })).toBe(
+      false,
+    );
+    expect(isAutoSnapshotScheduled({ ...on, archived: true })).toBe(false);
+  });
+
+  it("treats a missing user override as not disabled", () => {
+    expect(
+      isAutoSnapshotScheduled({ autoSnapshots: true, archived: false }),
+    ).toBe(true);
   });
 });

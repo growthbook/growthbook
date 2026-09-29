@@ -117,6 +117,7 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
 
   bigquery: {
     authType: "public",
+    apiEndpoint: "public",
     projectId: "public",
     clientEmail: "public",
     privateKey: "secret",
@@ -190,6 +191,7 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
     authMethod: "public",
     privateKey: "secret",
     privateKeyPassword: "secret",
+    workloadIdentityProvider: "public",
   },
 
   mixpanel: {
@@ -308,7 +310,18 @@ export function mergeDataSourceParams(
   existing: unknown,
   updates: unknown,
 ): unknown {
-  return mergeRecord(existing, updates, DATA_SOURCE_PARAM_SENSITIVITY[type]);
+  const merged = mergeRecord(
+    existing,
+    updates,
+    DATA_SOURCE_PARAM_SENSITIVITY[type],
+  );
+  // Blank secrets mean "keep existing", so a switch to workload identity must drop them explicitly.
+  if (type === "snowflake" && merged.authMethod === "workload-identity") {
+    delete merged.password;
+    delete merged.privateKey;
+    delete merged.privateKeyPassword;
+  }
+  return merged;
 }
 
 function secretKeysOf(classification: object): string[] {

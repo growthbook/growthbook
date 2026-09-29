@@ -22,6 +22,8 @@ See the [REST API reference](/api) for the full schema of each resource.
 
 A Contextual Bandit needs a query that defines the assignment SQL and the targeting-attribute columns it splits on. `targetingAttributeColumns` is required and must be non-empty — a bandit with no context to split on is not a contextual bandit. Each column name must be a valid SQL identifier and match a non-archived targeting attribute in your organization (Settings → Attributes), otherwise the request fails with a 400. Each column must also be selected by the query; this is not validated on create, but the snapshot will fail at run time if it is missing. The query should also select the `leaf_id`, `bandit_version`, and `variation_weights` columns logged by your [tracking callback](/bandits/contextual-config#3-update-your-tracking-callback) — without them the SRM health check is skipped.
 
+Create the query with [`POST /v1/contextual-bandit-queries`](/api/ContextualBanditQueries/operation/createContextualBanditQuery):
+
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
   -H 'Authorization: Bearer YOUR_API_KEY' \
@@ -35,11 +37,16 @@ curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
   }'
 ```
 
-The response includes the new query id (`cbq_…`). You can manage queries with the standard CRUD endpoints (`GET /v1/contextual-bandit-queries`, `GET/PUT/DELETE /v1/contextual-bandit-queries/:id`); pass `?datasourceId=ds_abc` on the list endpoint to scope by datasource.
+The response includes the new query id (`cbq_…`). You can manage queries with these endpoints:
+
+- [`GET /v1/contextual-bandit-queries`](/api/ContextualBanditQueries/operation/listContextualBanditQueries) — list queries. Pass `?datasourceId=ds_abc` to scope by datasource.
+- [`GET /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/getContextualBanditQuery) — get one query.
+- [`PUT /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/updateContextualBanditQuery) — update a query.
+- [`DELETE /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/deleteContextualBanditQuery) — delete a query.
 
 ## 2. Create the Contextual Bandit
 
-Reference the query from the previous step via `contextualBanditQueryId`.
+Reference the query from the previous step via `contextualBanditQueryId`. The full request schema is in the [create Contextual Bandit reference](/api/ContextualBandits/operation/createContextualBandit).
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
@@ -66,7 +73,7 @@ The response includes the new Contextual Bandit id (`cb_…`). The CB is provisi
 
 ## 3. Link a Feature Flag
 
-A Contextual Bandit serves its variations through a `contextual-bandit-ref` rule on a Feature Flag, and it needs at least one linked Feature Flag before it can start. Create the flag first with [`POST /v2/features`](/api/features-v2/operation/postFeatureV2), then link it to the contextual bandit:
+A Contextual Bandit serves its variations through a `contextual-bandit-ref` rule on a Feature Flag, and it needs at least one linked Feature Flag before it can start. Create the flag first with [`POST /v2/features`](/api/features-v2/operation/postFeatureV2), then [link it to the contextual bandit](/api/ContextualBandits/operation/addContextualBanditLinkedFeature):
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/linked-feature/homepage-cta' \
@@ -97,12 +104,12 @@ Response:
 
 Two companion endpoints round this out:
 
-- `GET /v1/contextual-bandits/:id/linked-features` — the linked flags enriched with live/draft state, per-environment rule state, and variation values (the same payload the CB detail page renders).
-- `DELETE /v1/contextual-bandits/:id/linked-feature/:featureId` — removes every `contextual-bandit-ref` rule pointing at this bandit from the flag and drops the linkage. Like the POST, the removal lands in a draft unless you pass `?autoPublish=true`. When the flag has no such rule left, only the linkage is cleared.
+- [`GET /v1/contextual-bandits/:id/linked-features`](/api/ContextualBandits/operation/getContextualBanditLinkedFeatures) — the linked flags enriched with live/draft state, per-environment rule state, and variation values (the same payload the CB detail page renders).
+- [`DELETE /v1/contextual-bandits/:id/linked-feature/:featureId`](/api/ContextualBandits/operation/deleteContextualBanditLinkedFeature) — removes every `contextual-bandit-ref` rule pointing at this bandit from the flag and drops the linkage. Like the POST, the removal lands in a draft unless you pass `?autoPublish=true`. When the flag has no such rule left, only the linkage is cleared.
 
 ## 4. Start the Contextual Bandit
 
-Move the CB out of `draft` (to `status: "running"`) so it is eligible for refresh:
+Move the CB out of `draft` (to `status: "running"`) so it is eligible for refresh with [`POST /v1/contextual-bandits/:id/start`](/api/ContextualBandits/operation/startContextualBandit):
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/start' \
@@ -113,7 +120,7 @@ The response returns the updated CB: `{ "contextualBandit": { … } }`.
 
 ## 5. Refresh — run a snapshot
 
-Triggers the contextual bandit update. Each update runs the warehouse query and the stats engine and updates weights. Each successful update that changes weights increments the CB's `banditVersion`.
+[`POST /v1/contextual-bandits/:id/refresh`](/api/ContextualBandits/operation/refreshContextualBandit) triggers the contextual bandit update. Each update runs the warehouse query and the stats engine and updates weights. Each successful update that changes weights increments the CB's `banditVersion`.
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/refresh' \
@@ -128,7 +135,7 @@ Response shape:
 
 ## 6. Read the latest results
 
-Returns the same payload the GrowthBook UI uses to render the CB results table — the latest stats engine output plus a snapshot-status summary.
+[`GET /v1/contextual-bandits/:id/results`](/api/ContextualBandits/operation/getContextualBanditResults) returns the same payload the GrowthBook UI uses to render the CB results table — the latest stats engine output plus a snapshot-status summary.
 
 ```bash
 curl 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/results' \
@@ -169,11 +176,11 @@ Response (abbreviated; `contextualBanditSnapshot` and `latest` are each `null` u
 
 Use the companion endpoints for finer-grained inspection:
 
-- `GET /v1/contextual-bandits/:id/snapshots` — list recent snapshot runs (optional `?limit=`, max 100).
-- `GET /v1/contextual-bandits/:id/snapshots/:snapshotId` — single snapshot status.
-- `GET /v1/contextual-bandits/:id/events` — list bandit event outputs, one per successful snapshot (optional `?limit=`, max 100).
-- `GET /v1/contextual-bandits/:id/events/:eventId` — single contextual bandit event.
-- `GET /v1/contextual-bandits/:id/current` — current root-level `currentLeafWeights` plus the latest event object (`latestEvent`, or `null`).
+- [`GET /v1/contextual-bandits/:id/snapshots`](/api/ContextualBandits/operation/listContextualBanditSnapshots) — list recent snapshot runs (optional `?limit=`, max 100).
+- [`GET /v1/contextual-bandits/:id/snapshots/:snapshotId`](/api/ContextualBandits/operation/getContextualBanditSnapshot) — single snapshot status.
+- [`GET /v1/contextual-bandits/:id/events`](/api/ContextualBandits/operation/listContextualBanditEvents) — list bandit event outputs, one per successful snapshot (optional `?limit=`, max 100).
+- [`GET /v1/contextual-bandits/:id/events/:eventId`](/api/ContextualBandits/operation/getContextualBanditEvent) — single contextual bandit event.
+- [`GET /v1/contextual-bandits/:id/current`](/api/ContextualBandits/operation/getContextualBanditCurrentWeights) — current root-level `currentLeafWeights` plus the latest event object (`latestEvent`, or `null`).
 
 The `/current` response looks like:
 
@@ -218,7 +225,7 @@ The `/current` response looks like:
 
 ## 7. Stop the Contextual Bandit
 
-When you're done, stop the CB:
+When you're done, stop the CB with [`POST /v1/contextual-bandits/:id/stop`](/api/ContextualBandits/operation/stopContextualBandit):
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/stop' \
@@ -231,8 +238,16 @@ Like `start`, this returns the updated CB under `contextualBandit`.
 
 Both resources also expose the default CRUD endpoints:
 
-- `GET /v1/contextual-bandits` (filter with `?projectId=`, `?datasourceId=`, or `?trackingKey=`), `GET /v1/contextual-bandits/:id`, `POST /v1/contextual-bandits`, `PUT /v1/contextual-bandits/:id`, `DELETE /v1/contextual-bandits/:id`.
-- `GET /v1/contextual-bandit-queries` (filter with `?datasourceId=`), `GET /v1/contextual-bandit-queries/:id`, `POST /v1/contextual-bandit-queries`, `PUT /v1/contextual-bandit-queries/:id`, `DELETE /v1/contextual-bandit-queries/:id`.
+- [`GET /v1/contextual-bandits`](/api/ContextualBandits/operation/listContextualBandits) — filter with `?projectId=`, `?datasourceId=`, or `?trackingKey=`.
+- [`GET /v1/contextual-bandits/:id`](/api/ContextualBandits/operation/getContextualBandit)
+- [`POST /v1/contextual-bandits`](/api/ContextualBandits/operation/createContextualBandit)
+- [`PUT /v1/contextual-bandits/:id`](/api/ContextualBandits/operation/updateContextualBandit)
+- `DELETE /v1/contextual-bandits/:id`
+- [`GET /v1/contextual-bandit-queries`](/api/ContextualBanditQueries/operation/listContextualBanditQueries) — filter with `?datasourceId=`.
+- [`GET /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/getContextualBanditQuery)
+- [`POST /v1/contextual-bandit-queries`](/api/ContextualBanditQueries/operation/createContextualBanditQuery)
+- [`PUT /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/updateContextualBanditQuery)
+- [`DELETE /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/deleteContextualBanditQuery)
 
 ## Permissions cheat sheet
 

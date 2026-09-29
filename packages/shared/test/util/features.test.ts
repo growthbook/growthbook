@@ -1959,7 +1959,7 @@ describe("inferSimpleSchemaFromValue", () => {
       fields: [],
     });
   });
-  it("Inferes a primitive array", () => {
+  it("Infers a primitive array", () => {
     expect(
       inferSimpleSchemaFromValue(JSON.stringify(["test", "test2"])),
     ).toEqual({
@@ -2856,7 +2856,7 @@ describe("getRequireRegisteredAttributesSettings", () => {
   });
 });
 
-describe("check enviroments match", () => {
+describe("check environments match", () => {
   it("should find a environment match", () => {
     const environments = ["prod", "staging"];
     const reviewSetting = {
@@ -3332,6 +3332,15 @@ describe("ruleFootprint", () => {
       allEnvironments: false,
       environments: [],
     } as FeatureRule;
+    expect(ruleFootprint(rule, applicable)).toEqual([]);
+  });
+
+  it("a stored null list applies nowhere rather than throwing", () => {
+    const rule = {
+      ...baseRule,
+      allEnvironments: false,
+      environments: null,
+    } as unknown as FeatureRule;
     expect(ruleFootprint(rule, applicable)).toEqual([]);
   });
 

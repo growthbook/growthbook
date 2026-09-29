@@ -101,6 +101,7 @@ describe("incremental refresh statistics query with skipPartialData", () => {
     jest.useFakeTimers().setSystemTime(NOW);
     // @ts-expect-error -- context not needed for this unit test
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: { queries: { exposure: [exposureQuery] } },
     });
   });

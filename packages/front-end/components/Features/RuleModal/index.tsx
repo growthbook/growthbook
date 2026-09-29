@@ -1449,7 +1449,9 @@ export default function RuleModal({
           owner: "",
           status: "draft",
           tags: feature.tags || [],
-          trackingKey: values.trackingKey || feature.id,
+          trackingKey:
+            values.trackingKey ||
+            (settings.experimentKeyRegexValidator ? "" : feature.id),
           description: values.description,
           hypothesis: values.hypothesis,
           linkedFeatures: [feature.id],

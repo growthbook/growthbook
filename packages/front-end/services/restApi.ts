@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import useSWR, { SWRConfiguration } from "swr";
 import { z, ZodTypeAny } from "zod";
 import type { ApiEndpointSpec } from "shared/api-spec";
 import { useAuth, appendIgnoreWarnings } from "@/services/auth";
@@ -35,6 +36,45 @@ type CallArgs<T extends AnyEndpointSpec> =
     ? [args?: ArgsFor<T>]
     : [args: ArgsFor<T>];
 
+type RequestArgs = {
+  params?: Record<string, unknown>;
+  body?: unknown;
+  query?: Record<string, unknown>;
+};
+
+function getRestApiUrl(
+  spec: AnyEndpointSpec,
+  { params, query }: RequestArgs,
+): string {
+  const paramsObj = params
+    ? Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))
+    : {};
+
+  let url = `/api/v1${spec.path.replace(/:(\w+)/g, (_, p) => {
+    const value = paramsObj[p];
+    if (value === undefined || value === "") {
+      throw new Error(`Missing required path parameter: ${p}`);
+    }
+    return encodeURIComponent(value);
+  })}`;
+
+  if (query && Object.keys(query).length > 0) {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(query)) {
+      if (v === undefined || v === null) continue;
+      if (Array.isArray(v)) {
+        v.forEach((item) => qs.append(k, String(item)));
+      } else {
+        qs.set(k, String(v));
+      }
+    }
+    const qsStr = qs.toString();
+    if (qsStr) url += `?${qsStr}`;
+  }
+
+  return url;
+}
+
 /**
  * Typed helper for calling the public REST API (`/api/v1/*`) from the
  * front-end. Pass a validator from `shared/validators` plus params/body/query;
@@ -51,38 +91,9 @@ export function useRestApiCall() {
       spec: T & { responseSchema: ResponseSchema },
       ...rest: CallArgs<T>
     ): Promise<z.infer<ResponseSchema>> => {
-      const { params, body, query } = (rest[0] ?? {}) as {
-        params?: Record<string, unknown>;
-        body?: unknown;
-        query?: Record<string, unknown>;
-      };
-      const paramsObj = params
-        ? Object.fromEntries(
-            Object.entries(params).map(([k, v]) => [k, String(v)]),
-          )
-        : {};
-
-      let url = `/api/v1${spec.path.replace(/:(\w+)/g, (_, p) => {
-        const value = paramsObj[p];
-        if (value === undefined || value === "") {
-          throw new Error(`Missing required path parameter: ${p}`);
-        }
-        return encodeURIComponent(value);
-      })}`;
-
-      if (query && Object.keys(query).length > 0) {
-        const qs = new URLSearchParams();
-        for (const [k, v] of Object.entries(query)) {
-          if (v === undefined || v === null) continue;
-          if (Array.isArray(v)) {
-            v.forEach((item) => qs.append(k, String(item)));
-          } else {
-            qs.set(k, String(v));
-          }
-        }
-        const qsStr = qs.toString();
-        if (qsStr) url += `?${qsStr}`;
-      }
+      const args = (rest[0] ?? {}) as RequestArgs;
+      const url = getRestApiUrl(spec, args);
+      const { body } = args;
 
       const headers: Record<string, string> = {};
       if (ssoConnectionId) {
@@ -139,5 +150,32 @@ export function useRestApiCall() {
       }
     },
     [fetchRaw, ssoConnectionId, confirmIgnoreWarnings],
+  );
+}
+
+/**
+ * SWR wrapper around `useRestApiCall` for GET endpoints: the read counterpart
+ * of `useApi` for `/api/v1/*`. Pass `null` as `args` to skip fetching.
+ */
+export function useRestApi<
+  T extends AnyEndpointSpec & { method: "get" },
+  ResponseSchema extends ZodTypeAny,
+>(
+  spec: T & { responseSchema: ResponseSchema },
+  args: ArgsFor<T> | null,
+  config?: SWRConfiguration,
+) {
+  const { orgId } = useAuth();
+  const restApiCall = useRestApiCall();
+
+  const key =
+    args === null
+      ? null
+      : `${orgId}::${getRestApiUrl(spec, args as RequestArgs)}`;
+
+  return useSWR<z.infer<ResponseSchema>, Error>(
+    key,
+    () => restApiCall<T, ResponseSchema>(spec, ...([args] as CallArgs<T>)),
+    config,
   );
 }
