@@ -47,6 +47,16 @@ export function addCompletionUsage(
   };
 }
 
+// Undefined is "unknown", so it wins over any known amount.
+export function addUsd(
+  a: number | undefined,
+  b: number | undefined,
+): number | undefined {
+  return a === undefined || b === undefined ? undefined : a + b;
+}
+
+const unpricedModelsWarned = new Set<string>();
+
 export function estimateAICompletionUsd(
   model: string,
   usage: AICompletionUsage,
@@ -57,10 +67,7 @@ export function estimateAICompletionUsd(
     return undefined;
   }
 
-  const provider =
-    getProviderForAIModel("text", model) ??
-    getProviderForAIModel("image", model) ??
-    getProviderForAIModel("embedding", model);
+  const provider = getProviderForAIModel("text", model);
   if (!provider) return undefined;
 
   try {
@@ -75,7 +82,10 @@ export function estimateAICompletionUsd(
       { providerId: provider },
     );
     if (!price) {
-      logger.warn({ model, provider }, "No genai-prices entry for AI model");
+      if (!unpricedModelsWarned.has(model)) {
+        unpricedModelsWarned.add(model);
+        logger.warn({ model, provider }, "No genai-prices entry for AI model");
+      }
       return undefined;
     }
     return price.total_price;
@@ -83,4 +93,21 @@ export function estimateAICompletionUsd(
     logger.warn({ err: error, model }, "Could not estimate AI completion USD");
     return undefined;
   }
+}
+
+// Each step is its own provider request, so it's priced on its own. Pricing
+// the pooled total could cross a long-context tier that no single request did.
+export function estimateAIStepsUsd(
+  model: string,
+  steps: ReadonlyArray<{ usage?: LanguageModelUsageLike }>,
+): number | undefined {
+  if (steps.length === 0) return undefined;
+  return steps.reduce<number | undefined>(
+    (total, step) =>
+      addUsd(
+        total,
+        estimateAICompletionUsd(model, completionUsageFromSdk(step.usage)),
+      ),
+    0,
+  );
 }

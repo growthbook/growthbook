@@ -60,8 +60,10 @@ import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClick
 import { AIUsageOutcome, trackAIUsage } from "back-end/src/services/growthbook";
 import {
   addCompletionUsage,
+  addUsd,
   completionUsageFromSdk,
   estimateAICompletionUsd,
+  estimateAIStepsUsd,
 } from "back-end/src/services/aiCost";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
@@ -555,14 +557,15 @@ export const streamingChatCompletion = async ({
   const recordUsage = async ({
     usage,
     totalTokens,
+    spendUsd,
     outcome,
   }: {
     usage?: ReturnType<typeof completionUsageFromSdk>;
     totalTokens?: number;
+    spendUsd?: number;
     outcome: AIUsageOutcome;
   }) => {
     const buckets = usage ?? {};
-    const spendUsd = estimateAICompletionUsd(model, buckets);
     trackAIUsage({
       organizationId: context.org.id,
       userId: context.userId,
@@ -605,6 +608,7 @@ export const streamingChatCompletion = async ({
   type TerminalUsage = {
     usage?: ReturnType<typeof completionUsageFromSdk>;
     totalTokens?: number;
+    spendUsd?: number;
     outcome: AIUsageOutcome;
   };
   let terminalUsage: TerminalUsage | undefined;
@@ -649,12 +653,13 @@ export const streamingChatCompletion = async ({
         }
       : {}),
     ...(abortSignal ? { abortSignal } : {}),
-    onFinish: ({ totalUsage }) => {
+    onFinish: ({ totalUsage, steps }) => {
       // onFinish's `usage` is only the last step; totalUsage covers the run.
       if (terminalUsage?.outcome !== "aborted") {
         terminalUsage = {
           usage: completionUsageFromSdk(totalUsage),
           totalTokens: totalUsage.totalTokens,
+          spendUsd: estimateAIStepsUsd(model, steps),
           outcome: streamErrored ? "error" : "success",
         };
       }
@@ -672,7 +677,12 @@ export const streamingChatCompletion = async ({
         (sum, step) => sum + (step.usage?.totalTokens ?? 0),
         0,
       );
-      terminalUsage = { usage, totalTokens, outcome: "aborted" };
+      terminalUsage = {
+        usage,
+        totalTokens,
+        spendUsd: estimateAIStepsUsd(model, steps),
+        outcome: "aborted",
+      };
     },
     onError: ({ error }) => {
       logger.error(error, "streamingChatCompletion: stream error");
@@ -866,6 +876,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // Outcome fields only: a result's payload can be another experiment's content.
   let toolTrace: Array<{ tool: string; input: string; out: string }> = [];
   let lastFinishReason: string | undefined;
+  // Every step of the current attempt. Generation errors only carry the last
+  // step's usage (or none), so failed attempts are priced from this instead.
+  let attemptSteps: Array<{ usage?: LanguageModelUsage }> = [];
   const remainingSteps = Math.max(1, maxSteps - stepsAlreadyUsed);
   const brief = (v: unknown, n: number) => {
     try {
@@ -884,6 +897,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     toolsCalled = [];
     toolTrace = [];
     lastFinishReason = undefined;
+    attemptSteps = [];
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
@@ -911,6 +925,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         : {}),
       onStepFinish: (step) => {
         stepsUsed++;
+        attemptSteps.push({ usage: step.usage });
         lastFinishReason = step.finishReason;
         for (const call of step.toolCalls ?? [])
           toolsCalled.push(call.toolName);
@@ -1006,24 +1021,17 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   const failureTokens = (e: NoObjectGeneratedError | NoOutputGeneratedError) =>
     NoObjectGeneratedError.isInstance(e) ? (e.usage?.totalTokens ?? 0) : 0;
 
-  // Priced per attempt: pooling tokens could cross a long-context tier that no
-  // single request did. Undefined once any attempt can't be priced.
-  const failureSpendUsd = (
-    e: NoObjectGeneratedError | NoOutputGeneratedError,
-  ): number | undefined =>
-    NoObjectGeneratedError.isInstance(e) && e.usage
-      ? estimateAICompletionUsd(model, completionUsageFromSdk(e.usage))
-      : 0;
-  const sumUsd = (a: number | undefined, b: number | undefined) =>
-    a === undefined || b === undefined ? undefined : a + b;
-
   let retriedTokens = 0;
+  // Undefined once any attempt can't be priced.
   let retriedSpendUsd: number | undefined = 0;
   const recordFailedAttempt = (
     e: NoObjectGeneratedError | NoOutputGeneratedError,
   ) => {
     retriedTokens += failureTokens(e);
-    retriedSpendUsd = sumUsd(retriedSpendUsd, failureSpendUsd(e));
+    retriedSpendUsd = addUsd(
+      retriedSpendUsd,
+      estimateAIStepsUsd(model, attemptSteps),
+    );
   };
   const recordFailedAttempts = async () => {
     if (IS_CLOUD && !ownKey && retriedTokens > 0) {
@@ -1039,7 +1047,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       model,
       provider: getProviderFromModel(model),
       numRetriedTokensUsed: retriedTokens,
-      spendUsd: retriedTokens > 0 ? retriedSpendUsd : undefined,
+      spendUsd: retriedSpendUsd,
       usedDefaultPrompt: isDefaultPrompt,
       usedOwnKey: ownKey,
       outcome: "error",
@@ -1096,8 +1104,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }
 
   const usage = completionUsageFromSdk(response.usage);
-  const spendUsd = sumUsd(
-    estimateAICompletionUsd(model, usage),
+  const spendUsd = addUsd(
+    estimateAIStepsUsd(model, attemptSteps),
     retriedSpendUsd,
   );
 
