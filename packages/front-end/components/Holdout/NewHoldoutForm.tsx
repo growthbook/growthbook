@@ -29,7 +29,9 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  AssignmentQueryCopySource,
   getCopiedAssignmentQueryNotice,
+  getCopySourceIdentifierType,
   getExposureQuery,
 } from "@/services/datasources";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
@@ -260,6 +262,15 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       throw new Error("Name must not be empty");
     }
 
+    // A copy whose identifier no query declares is left for the user to pick.
+    if (
+      assignmentQueryCopySource &&
+      value.exposureQueryId &&
+      !value.exposureQueryIdentifierType
+    ) {
+      throw new Error("Choose an identifier type for the assignment query");
+    }
+
     const phase = value.phases?.[0];
 
     validateSavedGroupTargeting(phase?.savedGroups);
@@ -341,7 +352,16 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       form.setValue("exposureQueryIdentifierType", value),
     [form],
   );
+  // A duplicate, or a holdout started from an experiment.
+  const assignmentQueryCopySource: AssignmentQueryCopySource | null =
+    initialExperiment?.exposureQueryId
+      ? { kind: "copy", ...initialExperiment }
+      : null;
   const assignmentQuerySelection = useAssignmentQuerySelection({
+    copiedIdentifierType: getCopySourceIdentifierType(
+      datasource ?? null,
+      assignmentQueryCopySource,
+    ),
     datasource,
     hashAttribute: form.watch("hashAttribute"),
     exposureQueryId,
@@ -638,7 +658,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   size="legacy"
                   notice={getCopiedAssignmentQueryNotice(
                     datasource ?? null,
-                    initialExperiment ?? null,
+                    assignmentQueryCopySource,
                     {
                       exposureQueryId,
                       identifierType: exposureQueryIdentifierType,

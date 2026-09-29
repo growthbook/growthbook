@@ -9,6 +9,7 @@ import {
   getAutoDatasourceId,
   getAutoExposureQueryId,
   getAutoExposureQueryIdentifierType,
+  resolveTemplateAssignment,
 } from "@/components/Experiment/SimpleNewExperimentForm";
 
 // ---------------------------------------------------------------------------
@@ -327,6 +328,58 @@ describe("getAutoExposureQueryId", () => {
         hashAttribute: "some_non_identifier",
       }),
     ).toBe("");
+  });
+});
+
+describe("resolveTemplateAssignment", () => {
+  const dropped = {
+    ...makeExposureQuery("eq_dropped", "anonymous_id"),
+    userIdTypes: ["user_id"],
+  };
+  const other = makeExposureQuery("eq_other", "anonymous_id");
+
+  it("keeps the template's selection while its query declares it", () => {
+    expect(
+      resolveTemplateAssignment({
+        datasource: makeDatasourceWithSettings(makeSettings([other])),
+        templateExposureQueryId: "eq_other",
+      }),
+    ).toEqual({
+      kind: "selected",
+      exposureQueryId: "eq_other",
+      identifierType: "anonymous_id",
+    });
+  });
+
+  it("moves to another query declaring the template's identifier", () => {
+    expect(
+      resolveTemplateAssignment({
+        datasource: makeDatasourceWithSettings(makeSettings([dropped, other])),
+        templateExposureQueryId: "eq_dropped",
+      }),
+    ).toEqual({
+      kind: "selected",
+      exposureQueryId: "eq_other",
+      identifierType: "anonymous_id",
+    });
+  });
+
+  it("is unavailable when no query declares it, rather than picking another", () => {
+    expect(
+      resolveTemplateAssignment({
+        datasource: makeDatasourceWithSettings(makeSettings([dropped])),
+        templateExposureQueryId: "eq_dropped",
+      }),
+    ).toEqual({ kind: "unavailable", identifierType: "anonymous_id" });
+  });
+
+  it("is null without a template query", () => {
+    expect(
+      resolveTemplateAssignment({
+        datasource: makeDatasourceWithSettings(makeSettings([other])),
+        templateExposureQueryId: "eq_gone",
+      }),
+    ).toBeNull();
   });
 });
 

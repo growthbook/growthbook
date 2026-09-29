@@ -315,7 +315,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                       ", ",
                     )} won't be able to update results until they're switched to another identifier.${
                     removesLegacyIdentifierType
-                      ? ` This includes experiments, reports, and safe rollouts created before this query declared multiple identifiers, which analyze on "${exposureQuery?.userIdType}". Adding it back restores them.`
+                      ? ` Experiments, reports, and safe rollouts created before this query declared multiple identifiers also analyze on "${exposureQuery?.userIdType}". Adding it back restores them.`
                       : ""
                   }`}
                 </Callout>

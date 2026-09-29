@@ -3,6 +3,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import { PiWarningFill } from "react-icons/pi";
 import {
+  AssignmentQueryNotice,
   getAssignmentQueryDrift,
   getDefaultIdentifierType,
   getGroupedIdentifierTypeOptions,
@@ -38,6 +39,7 @@ export function useAssignmentQuerySelection({
   setIdentifierType,
   autoRepair = true,
   keepCurrentSelection = false,
+  copiedIdentifierType,
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
   hashAttribute: string | undefined;
@@ -50,6 +52,10 @@ export function useAssignmentQuerySelection({
   autoRepair?: boolean;
   // Keep a drifted selection listed so existing records show what they use.
   keepCurrentSelection?: boolean;
+  // A copy's source identifier. Repair keeps it when some query declares it,
+  // else leaves the identifier for the user to choose instead of defaulting,
+  // since a different identifier measures different units.
+  copiedIdentifierType?: string;
 }): Selection {
   const keptQueryId = keepCurrentSelection ? exposureQueryId : undefined;
   const exposureQueries = useMemo(
@@ -149,6 +155,13 @@ export function useAssignmentQuerySelection({
   useEffect(() => {
     if (!autoRepair) return;
     if (!identifierType || !identifierTypes.includes(identifierType)) {
+      if (copiedIdentifierType !== undefined) {
+        const kept = identifierTypes.includes(copiedIdentifierType)
+          ? copiedIdentifierType
+          : undefined;
+        if (kept !== identifierType) setIdentifierType(kept);
+        return;
+      }
       setIdentifierType(
         getDefaultIdentifierType({
           identifierTypes,
@@ -173,6 +186,7 @@ export function useAssignmentQuerySelection({
     hashAttribute,
     setExposureQueryId,
     setIdentifierType,
+    copiedIdentifierType,
   ]);
 
   return {
@@ -242,7 +256,7 @@ export default function AssignmentQueryFields({
   placeholder?: string;
   size?: "legacy";
   disabled?: boolean;
-  notice?: string | null;
+  notice?: AssignmentQueryNotice | null;
 }) {
   const {
     exposureQueryId,
@@ -257,8 +271,8 @@ export default function AssignmentQueryFields({
     <>
       <AssignmentQueryDriftWarning selection={selection} />
       {notice ? (
-        <Callout status="info" mb="3">
-          {notice}
+        <Callout status={notice.status} mb="3">
+          {notice.message}
         </Callout>
       ) : null}
       <SelectField

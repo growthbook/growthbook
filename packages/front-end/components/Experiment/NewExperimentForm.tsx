@@ -32,7 +32,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  getCopiedAssignmentQueryNotice,
+  AssignmentQueryCopySource,
   getExposureQuery,
   getDefaultIdentifierTypeForQuery,
 } from "@/services/datasources";
@@ -542,6 +542,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     const data = { ...value };
 
+    // A copy whose identifier no query declares is left for the user to pick,
+    // and the fields may be on a step that isn't showing.
+    if (
+      assignmentQueryCopySource &&
+      data.exposureQueryId &&
+      !data.exposureQueryIdentifierType
+    ) {
+      throw new Error("Choose an identifier type for the assignment query");
+    }
+
     if (data.status !== "stopped" && data.phases?.[0]) {
       data.phases[0].dateEnded = "";
     }
@@ -714,6 +724,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       form.setValue("exposureQueryIdentifierType", value),
     [form],
   );
+  const selectedTemplateId = form.watch("templateId");
+  const selectedTemplate = selectedTemplateId
+    ? templatesMap.get(selectedTemplateId)
+    : undefined;
+  const assignmentQueryCopySource: AssignmentQueryCopySource | null =
+    duplicate && initialValue
+      ? { kind: "copy", ...initialValue }
+      : selectedTemplate
+        ? { kind: "template", ...convertTemplateToExperiment(selectedTemplate) }
+        : null;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
     hashAttribute: selectedHashAttribute,
@@ -721,6 +741,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     identifierType: exposureQueryIdentifierType,
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
+    // New and duplicate flows render the fields (and repair) in
+    // ExperimentRefNewFields/BanditRefNewFields; two repairs would fight.
+    autoRepair: !(isNewExperiment || duplicate),
   });
   const status = form.watch("status");
   const type = form.watch("type");
@@ -1327,6 +1350,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <ExperimentRefNewFields
                       step={i}
                       source="experiment"
+                      assignmentQueryCopySource={assignmentQueryCopySource}
                       project={selectedProject}
                       attributeProjects={effectiveAttributeProjects}
                       attributeSelectIndicator={attributeScopeToggle}
@@ -1382,6 +1406,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <BanditRefNewFields
                       step={i}
                       source="experiment"
+                      assignmentQueryCopySource={assignmentQueryCopySource}
                       project={selectedProject}
                       attributeProjects={effectiveAttributeProjects}
                       attributeSelectIndicator={attributeScopeToggle}
@@ -1576,14 +1601,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <AssignmentQueryFields
                   selection={assignmentQuerySelection}
                   initialOption="Choose..."
-                  notice={getCopiedAssignmentQueryNotice(
-                    datasource ?? null,
-                    initialValue ?? null,
-                    {
-                      exposureQueryId,
-                      identifierType: exposureQueryIdentifierType,
-                    },
-                  )}
                 />
               )}
 

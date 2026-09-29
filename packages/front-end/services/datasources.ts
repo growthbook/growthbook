@@ -834,51 +834,95 @@ export function getAssignmentQueryDrift(
   };
 }
 
+// The record a new one copies its assignment selection from: a duplicated
+// experiment or holdout, or a template.
+export type AssignmentQueryCopySource = {
+  kind: "copy" | "template";
+  datasource?: string;
+  exposureQueryId?: string;
+  exposureQueryIdentifierType?: string;
+};
+
+export type AssignmentQueryNotice = {
+  status: "info" | "warning";
+  message: string;
+};
+
+function getCopySourceQuery(
+  datasource: Pick<DataSourceInterfaceWithParams, "id" | "settings"> | null,
+  source: AssignmentQueryCopySource | null,
+): ExposureQuery | undefined {
+  if (!datasource || !source?.exposureQueryId) return undefined;
+  if (source.datasource !== datasource.id) return undefined;
+  return datasource.settings?.queries?.exposure?.find(
+    (q) => q.id === source.exposureQueryId,
+  );
+}
+
+// What a copy's source analyzes on, which the copy keeps rather than taking a
+// default. Undefined when there's no source query to resolve it against.
+export function getCopySourceIdentifierType(
+  datasource: Pick<DataSourceInterfaceWithParams, "id" | "settings"> | null,
+  source: AssignmentQueryCopySource | null,
+): string | undefined {
+  const query = getCopySourceQuery(datasource, source);
+  return query
+    ? getAnalysisIdentifierType(query, source?.exposureQueryIdentifierType) ||
+        undefined
+    : undefined;
+}
+
 /**
- * New-record forms silently repair a selection the query no longer allows, so
- * when a copy's source analyzed on an identifier its query dropped, explain
- * what the copy uses instead. Null when the source's selection still works.
+ * Explains a copy's selection when its source analyzed on an identifier its
+ * query no longer declares: another query was chosen, or the identifier was
+ * left for the user to pick. Null when the source's selection still works.
  */
 export function getCopiedAssignmentQueryNotice(
   datasource: Pick<DataSourceInterfaceWithParams, "id" | "settings"> | null,
-  source: {
-    datasource?: string;
-    exposureQueryId?: string;
-    exposureQueryIdentifierType?: string;
-  } | null,
+  source: AssignmentQueryCopySource | null,
   selection: { exposureQueryId?: string; identifierType?: string },
-): string | null {
-  if (!datasource || !source?.exposureQueryId) return null;
-  if (source.datasource !== datasource.id) return null;
-  const queries = datasource.settings?.queries?.exposure ?? [];
-  const sourceQuery = queries.find((q) => q.id === source.exposureQueryId);
-  if (!sourceQuery) return null;
-  const sourceIdentifierType = getAnalysisIdentifierType(
-    sourceQuery,
-    source.exposureQueryIdentifierType,
-  );
+): AssignmentQueryNotice | null {
+  const sourceQuery = getCopySourceQuery(datasource, source);
+  const sourceIdentifierType = getCopySourceIdentifierType(datasource, source);
   if (
+    !sourceQuery ||
     !sourceIdentifierType ||
     getExposureQueryIdentifierTypes(sourceQuery).includes(sourceIdentifierType)
   ) {
     return null;
   }
+  const from = source?.kind === "template" ? "the template" : "the source";
+  const to = source?.kind === "template" ? "this experiment" : "this copy";
   const sourceQueryName = sourceQuery.name || sourceQuery.id;
+  if (!selection.identifierType) {
+    return {
+      status: "warning",
+      message: `${capitalize(from)} analyzed on "${sourceIdentifierType}", which no assignment query here declares. Choose an identifier type for ${to}.`,
+    };
+  }
+  if (selection.identifierType !== sourceIdentifierType) {
+    return {
+      status: "warning",
+      message: `${capitalize(from)} analyzed on "${sourceIdentifierType}", which "${sourceQueryName}" no longer declares. ${capitalize(to)} analyzes on "${selection.identifierType}" instead, so it measures different units than ${from}.`,
+    };
+  }
   if (
-    selection.identifierType === sourceIdentifierType &&
     selection.exposureQueryId &&
     selection.exposureQueryId !== sourceQuery.id
   ) {
-    const query = queries.find((q) => q.id === selection.exposureQueryId);
-    return `"${sourceQueryName}" no longer declares the "${sourceIdentifierType}" identifier type the source analyzed on, so this copy uses "${query?.name || selection.exposureQueryId}", which does.`;
-  }
-  if (
-    selection.identifierType &&
-    selection.identifierType !== sourceIdentifierType
-  ) {
-    return `The source analyzed on "${sourceIdentifierType}", which "${sourceQueryName}" no longer declares. This copy analyzes on "${selection.identifierType}" instead, so it measures different units than the source.`;
+    const query = datasource?.settings?.queries?.exposure?.find(
+      (q) => q.id === selection.exposureQueryId,
+    );
+    return {
+      status: "info",
+      message: `"${sourceQueryName}" no longer declares the "${sourceIdentifierType}" identifier type ${from} analyzed on, so ${to} uses "${query?.name || selection.exposureQueryId}", which does.`,
+    };
   }
   return null;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /**

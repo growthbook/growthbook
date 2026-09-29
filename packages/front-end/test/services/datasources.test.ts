@@ -6,6 +6,7 @@ import {
   getIdentifierTypeForHashAttribute,
   getAssignmentQueryDrift,
   getCopiedAssignmentQueryNotice,
+  getCopySourceIdentifierType,
   getDefaultIdentifierTypeForQuery,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
@@ -277,27 +278,59 @@ describe("getCopiedAssignmentQueryNotice", () => {
     id: "ds_1",
     settings: { queries: { exposure: [dropped, other] } },
   };
-  const legacySource = { datasource: "ds_1", exposureQueryId: "exq_dropped" };
+  const legacyCopy = {
+    kind: "copy" as const,
+    datasource: "ds_1",
+    exposureQueryId: "exq_dropped",
+  };
 
   it("explains a switch to another query declaring the source's identifier", () => {
     expect(
-      getCopiedAssignmentQueryNotice(datasource, legacySource, {
+      getCopiedAssignmentQueryNotice(datasource, legacyCopy, {
         exposureQueryId: "exq_other",
         identifierType: "anonymous_id",
       }),
-    ).toBe(
-      '"Dropped" no longer declares the "anonymous_id" identifier type the source analyzed on, so this copy uses "Other", which does.',
-    );
+    ).toEqual({
+      status: "info",
+      message:
+        '"Dropped" no longer declares the "anonymous_id" identifier type the source analyzed on, so this copy uses "Other", which does.',
+    });
   });
 
-  it("explains a switch to a different identifier", () => {
+  it("asks for an identifier when the copy's was left unset", () => {
     expect(
-      getCopiedAssignmentQueryNotice(datasource, legacySource, {
+      getCopiedAssignmentQueryNotice(datasource, legacyCopy, {
+        exposureQueryId: "exq_dropped",
+      }),
+    ).toEqual({
+      status: "warning",
+      message:
+        'The source analyzed on "anonymous_id", which no assignment query here declares. Choose an identifier type for this copy.',
+    });
+  });
+
+  it("warns when the copy measures different units than its source", () => {
+    expect(
+      getCopiedAssignmentQueryNotice(datasource, legacyCopy, {
         exposureQueryId: "exq_dropped",
         identifierType: "user_id",
       }),
+    ).toEqual({
+      status: "warning",
+      message:
+        'The source analyzed on "anonymous_id", which "Dropped" no longer declares. This copy analyzes on "user_id" instead, so it measures different units than the source.',
+    });
+  });
+
+  it("words a template's notice for the new experiment", () => {
+    expect(
+      getCopiedAssignmentQueryNotice(
+        datasource,
+        { ...legacyCopy, kind: "template" },
+        { exposureQueryId: "exq_dropped" },
+      )?.message,
     ).toBe(
-      'The source analyzed on "anonymous_id", which "Dropped" no longer declares. This copy analyzes on "user_id" instead, so it measures different units than the source.',
+      'The template analyzed on "anonymous_id", which no assignment query here declares. Choose an identifier type for this experiment.',
     );
   });
 
@@ -305,7 +338,7 @@ describe("getCopiedAssignmentQueryNotice", () => {
     expect(
       getCopiedAssignmentQueryNotice(
         datasource,
-        { datasource: "ds_1", exposureQueryId: "exq_other" },
+        { kind: "copy", datasource: "ds_1", exposureQueryId: "exq_other" },
         { exposureQueryId: "exq_dropped", identifierType: "user_id" },
       ),
     ).toBeNull();
@@ -321,10 +354,42 @@ describe("getCopiedAssignmentQueryNotice", () => {
     expect(
       getCopiedAssignmentQueryNotice(
         datasource,
-        { ...legacySource, datasource: "ds_2" },
+        { ...legacyCopy, datasource: "ds_2" },
         { exposureQueryId: "exq_other", identifierType: "anonymous_id" },
       ),
     ).toBeNull();
+  });
+});
+
+describe("getCopySourceIdentifierType", () => {
+  const reordered = makeExposureQuery({
+    id: "exq_1",
+    userIdType: "anonymous_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+  const datasource = {
+    id: "ds_1",
+    settings: { queries: { exposure: [reordered] } },
+  };
+
+  it("resolves a legacy source to its query's legacy identifier", () => {
+    expect(
+      getCopySourceIdentifierType(datasource, {
+        kind: "template",
+        datasource: "ds_1",
+        exposureQueryId: "exq_1",
+      }),
+    ).toBe("anonymous_id");
+  });
+
+  it("is undefined without a source query", () => {
+    expect(
+      getCopySourceIdentifierType(datasource, {
+        kind: "copy",
+        datasource: "ds_1",
+        exposureQueryId: "exq_gone",
+      }),
+    ).toBeUndefined();
   });
 });
 

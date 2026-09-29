@@ -50,6 +50,11 @@ import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector"
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import {
+  AssignmentQueryCopySource,
+  getCopiedAssignmentQueryNotice,
+  getCopySourceIdentifierType,
+} from "@/services/datasources";
 import AssignmentQueryFields, {
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -111,6 +116,7 @@ export default function ExperimentRefNewFields({
   envScope,
   projectScope,
   onRuleCyclicChange,
+  assignmentQueryCopySource,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -152,6 +158,9 @@ export default function ExperimentRefNewFields({
   envScope?: EnvScopeProps;
   projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
+  // When duplicating or creating from a template: keeps its identifier and
+  // explains a change.
+  assignmentQueryCopySource?: AssignmentQueryCopySource | null;
 }) {
   const form = useFormContext();
 
@@ -212,6 +221,10 @@ export default function ExperimentRefNewFields({
     identifierType: exposureQueryIdentifierType,
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
+    copiedIdentifierType: getCopySourceIdentifierType(
+      datasource ?? null,
+      assignmentQueryCopySource ?? null,
+    ),
     autoRepair: !!datasourceProperties?.exposureQueries,
   });
 
@@ -573,7 +586,17 @@ export default function ExperimentRefNewFields({
             />
 
             {datasourceProperties?.exposureQueries ? (
-              <AssignmentQueryFields selection={assignmentQuerySelection} />
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
+                notice={getCopiedAssignmentQueryNotice(
+                  datasource ?? null,
+                  assignmentQueryCopySource ?? null,
+                  {
+                    exposureQueryId,
+                    identifierType: exposureQueryIdentifierType,
+                  },
+                )}
+              />
             ) : null}
           </div>
 
