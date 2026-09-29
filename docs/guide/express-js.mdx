@@ -93,7 +93,7 @@ bun add @growthbook/growthbook
 
 </CodeGroup>
 
-Lets now modify the top of `index.js` file and create a **GrowthBookClient** instance:
+Let's now modify the top of `index.js` file and create a **GrowthBookClient** instance:
 
 ```js
 const express = require('express')
@@ -112,7 +112,7 @@ client.init().then((status) => {
 });
 ```
 
-Lets also add a middleware to `index.js` that creates a user-scoped instance for every request. Make sure to place this above the route handlers:
+Let's also add a middleware to `index.js` that creates a user-scoped instance for every request. Make sure to place this above the route handlers:
 
 ```js
 app.use((req, res, next) => {
@@ -131,7 +131,7 @@ app.use((req, res, next) => {
 });
 ```
 
-Lets re-start the Node process and make sure you see the "GrowthBook initialized" message in the console and the status is successful. Since we are using a `.env` file, we need to modify the command to tell Node.js to load it.
+Let's re-start the Node process and make sure you see the "GrowthBook initialized" message in the console and the status is successful. Since we are using a `.env` file, we need to modify the command to tell Node.js to load it.
 
 ```bash
 node --env-file=.env index.js

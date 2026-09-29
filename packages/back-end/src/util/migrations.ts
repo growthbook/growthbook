@@ -607,7 +607,7 @@ export function upgradeOrganizationDoc(
       DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT;
   }
 
-  // Migrate Arroval Flow Settings
+  // Migrate Approval Flow Settings
   if (
     org.settings?.requireReviews === true ||
     org.settings?.requireReviews === false

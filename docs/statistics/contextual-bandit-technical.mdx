@@ -11,7 +11,7 @@ Here we document the technical details behind GrowthBook's contextual bandit var
 
 Suppose we have $K$ variations, and we want to update the variation weights for a given context.  
 For the $k$-th variation, define its mean as $\mu_k$, k = 1, ..., K.
-Denote the probabiity that $\mu_{k}$ is larger than the other means as as $w_k$.  
+Denote the probability that $\mu_{k}$ is larger than the other means as $w_k$.  
 Under Thompson Sampling, $w_k$ is the variation weight for the $k$-th variation.
 Define the posterior mean of $\mu_k$ as $m_k$ and its posterior variance as $v_k^2$.  
 Define its posterior standard deviation as $s_k = \sqrt{v_k^2}$.

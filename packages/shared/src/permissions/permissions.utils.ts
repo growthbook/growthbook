@@ -264,7 +264,7 @@ export const userHasPermission = (
       // add all of the projects the user has project-level roles for
       checkProjects.push(...Object.keys(userPermissions.projects));
     }
-    // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
+    // Read only type permissions grant permission if the user has the permission globally or in at least 1 project
     return checkProjects.some((p) =>
       hasPermission(userPermissions, permission, p, envs),
     );

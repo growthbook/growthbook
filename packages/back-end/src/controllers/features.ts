@@ -1391,7 +1391,7 @@ export async function postFeatureRequestReview(
     context.permissions.throwPermissionError();
   }
   if (revision.status !== "draft") {
-    throw new Error("Can only request review if is a draft");
+    throw new Error("Can only request review if it is a draft");
   }
   const enableAutoPublish =
     !!autoPublishOnApproval &&
@@ -1554,7 +1554,7 @@ export async function postFeatureReviewOrComment(
   }
 
   if (createdByUser?.id === context.userId && review !== "Comment") {
-    throw Error("cannot submit a review for your self");
+    throw Error("cannot submit a review for yourself");
   }
 
   // Block contributors from self-approving when the org setting is enabled.
@@ -5804,7 +5804,7 @@ export async function putFeature(
 
   // FIXME: We skip validation because project is updated in a different place than where
   // we define custom fields, and that would prevent the user from doing either update.
-  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
+  // Ideally we validate custom fields every time, but we need to update our UI to support that.
   if (
     shouldValidateCustomFieldsOnUpdate({
       existingCustomFieldValues: feature.customFields,
