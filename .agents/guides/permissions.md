@@ -228,11 +228,12 @@ context.permissions.canRunExperiment(experiment, environments);
 // (services/experiments): live linked rules, changesets, AND the drafts a start
 // will publish. A draft experiment is live nowhere, so live-only reach skipped
 // the check at launch. assertCanRunExperimentInAffectedEnvironments wraps it.
-// Arming is the gate for a scheduled experiment status change: the arm checks
+// A scheduled experiment status change is checked twice: arming checks
 // runExperiments across the reach and publishFeatures on each pending draft
-// (assertCanPublishPendingFeatureDrafts); the job then fires as itself and is
-// audited as the armer (`scheduledBy` / `scheduledByApiKey`). Scheduled feature
-// publishes still rebuild the arming user's context (autoPublishOnApproval).
+// (assertCanPublishPendingFeatureDrafts), and the fire runs as the armer, a
+// user or an org API key (`scheduledBy` / `scheduledByApiKey`,
+// getScheduledStatusContext), so the draft publish is judged as it is then.
+// Never the owner, never the job's own authority.
 
 // Throw error if permission denied
 context.permissions.throwPermissionError();

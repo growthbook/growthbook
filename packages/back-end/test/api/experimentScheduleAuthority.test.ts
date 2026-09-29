@@ -224,7 +224,8 @@ async function seed(status: "draft" | "running") {
 }
 
 const staged = async () =>
-  (await experiments().findOne({ id: EXP_ID }))?.nextScheduledStatusUpdate;
+  (await experiments().findOne({ id: EXP_ID }))?.nextScheduledStatusUpdate ??
+  null;
 const status = async () =>
   (await experiments().findOne({ id: EXP_ID }))?.status;
 const fireNow = () =>
@@ -238,7 +239,7 @@ const lastStatusAudit = () =>
     { sort: { dateCreated: -1 } },
   );
 
-describe("a scheduled status change is gated when armed and fires as the job", () => {
+describe("a scheduled status change is checked when armed and fires as the armer", () => {
   const { app, setReqContext } = setupApp();
   const auth = (req: request.Test) => req.set("Authorization", "Bearer foo");
   const schedule = { startAt: new Date(Date.now() + HOUR) };
@@ -246,6 +247,16 @@ describe("a scheduled status change is gated when armed and fires as the job", (
     stopAt: new Date(Date.now() + 2 * HOUR),
     scheduledStopPlan: { mode: "stop" },
   };
+  const keyDoc = (role: string) => ({
+    id: "key_ci",
+    organization: ORG_ID,
+    key: "secret_ci",
+    secret: true,
+    description: "CI",
+    role,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  });
 
   async function armStart(context: ReqContextClass) {
     setReqContext(context);
@@ -262,17 +273,13 @@ describe("a scheduled status change is gated when armed and fires as the job", (
     );
   }
 
-  it("fires a user's start and stop as the job, attributed to them, even after they lost permission", async () => {
+  it("fires a user's start and the stop it derives as that user, never the owner", async () => {
     await seed("draft");
     expect((await armStart(asUser("u_exp"))).status).toBe(200);
     expect(await staged()).toMatchObject({
       type: "start",
       scheduledBy: "u_exp",
     });
-    await organizations().updateOne(
-      { id: ORG_ID, "members.id": "u_exp" },
-      { $set: { "members.$.role": "collaborator" } },
-    );
 
     await fireNow();
     await updateSingleExperimentStatus(job);
@@ -292,42 +299,65 @@ describe("a scheduled status change is gated when armed and fires as the job", (
     expect((await lastStatusAudit())?.user).toMatchObject({ id: "u_exp" });
   });
 
-  it("refuses to arm a key that may run the experiment but not publish its pending draft", async () => {
+  it("gives up when the armer has since lost run permission", async () => {
+    await seed("draft");
+    expect((await armStart(asUser("u_exp"))).status).toBe(200);
+    await organizations().updateOne(
+      { id: ORG_ID, "members.id": "u_exp" },
+      { $set: { "members.$.role": "collaborator" } },
+    );
+
+    await fireNow();
+    await updateSingleExperimentStatus(job);
+
+    expect(await status()).toBe("draft");
+    expect(await staged()).toBeNull();
+  });
+
+  it.each([
+    ["scheduled", true],
+    ["immediate", false],
+  ])(
+    "refuses a %s start by a key that may run the experiment but not publish its pending draft",
+    async (_kind, viaSchedule) => {
+      await seed("draft");
+      await seedPendingDraft();
+      const key = asKey("key_ci", [
+        { project: "proj_flag", role: "collaborator" },
+      ]);
+      let res;
+      if (viaSchedule) {
+        res = await armStart(key);
+      } else {
+        setReqContext(key);
+        res = await auth(
+          request(app)
+            .post(`/api/v1/experiments/${EXP_ID}/start`)
+            .send({ skipChecklist: true }),
+        );
+      }
+      expect(res.status).toBe(403);
+      expect(await status()).toBe("draft");
+      expect(await staged()).toBeNull();
+    },
+  );
+
+  it("refuses to arm a key that cannot even read the flag a pending draft is on", async () => {
     await seed("draft");
     await seedPendingDraft();
     const res = await armStart(
-      asKey("key_ci", [{ project: "proj_flag", role: "collaborator" }]),
+      asKey("key_ci", [{ project: "proj_flag", role: "noaccess" }]),
     );
     expect(res.status).toBe(403);
     expect(await staged()).toBeNull();
   });
 
-  it("refuses an immediate start by that key on the same grounds", async () => {
+  it("arms a key that may do both, and fires as the key", async () => {
     await seed("draft");
     await seedPendingDraft();
-    setReqContext(
-      asKey("key_ci", [{ project: "proj_flag", role: "collaborator" }]),
-    );
-    const res = await auth(
-      request(app)
-        .post(`/api/v1/experiments/${EXP_ID}/start`)
-        .send({ skipChecklist: true }),
-    );
-    expect(res.status).toBe(403);
-    expect(await status()).toBe("draft");
-  });
-
-  it("arms a key that may do both, and fires as the job attributed to the key", async () => {
-    await seed("draft");
-    await seedPendingDraft();
-    await mongoose.connection.collection("apikeys").insertOne({
-      id: "key_ci",
-      organization: ORG_ID,
-      key: "secret_ci",
-      description: "CI",
-      role: "experimenter",
-      dateCreated: new Date(),
-    });
+    await mongoose.connection
+      .collection("apikeys")
+      .insertOne(keyDoc("experimenter"));
     expect((await armStart(asKey("key_ci"))).status).toBe(200);
     expect(await staged()).toMatchObject({
       type: "start",
@@ -344,12 +374,23 @@ describe("a scheduled status change is gated when armed and fires as the job", (
     });
   });
 
-  it("fires an unstamped pointer as the job whatever the owner may do", async () => {
+  it("gives up when the key that armed a start has since been narrowed", async () => {
     await seed("draft");
-    await organizations().updateOne(
-      { id: ORG_ID, "members.id": "u_owner" },
-      { $set: { "members.$.role": "collaborator" } },
-    );
+    await seedPendingDraft();
+    await mongoose.connection
+      .collection("apikeys")
+      .insertOne(keyDoc("collaborator"));
+    expect((await armStart(asKey("key_ci"))).status).toBe(200);
+
+    await fireNow();
+    await updateSingleExperimentStatus(job);
+
+    expect(await status()).toBe("draft");
+    expect(await staged()).toBeNull();
+  });
+
+  it("retries a pointer nobody is recorded on, rather than running as the owner", async () => {
+    await seed("draft");
     await experiments().updateOne(
       { id: EXP_ID },
       {
@@ -365,11 +406,8 @@ describe("a scheduled status change is gated when armed and fires as the job", (
 
     await updateSingleExperimentStatus(job);
 
-    expect(await status()).toBe("running");
-    // Nobody to attribute it to: the entry names neither a user nor a key.
-    const audit = await lastStatusAudit();
-    expect(audit).not.toBeNull();
-    expect(audit?.user?.id ?? audit?.user?.apiKey).toBeUndefined();
+    expect(await status()).toBe("draft");
+    expect(await staged()).toMatchObject({ type: "start", failedAttempts: 1 });
   });
 
   it("stamps a stop scheduled on a running experiment through either REST route", async () => {

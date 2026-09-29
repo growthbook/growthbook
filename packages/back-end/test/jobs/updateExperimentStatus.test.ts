@@ -1,22 +1,22 @@
 import type { Job } from "agenda";
+import { PermissionError } from "shared/util";
 import { updateSingleExperimentStatus } from "back-end/src/jobs/updateExperimentStatus";
 import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getUserById } from "back-end/src/models/UserModel";
-import { insertAudit } from "back-end/src/models/AuditModel";
+import { getScheduledStatusContext } from "back-end/src/services/experimentScheduling";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
 import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
 
-// A staged status change was authorized when it was armed. The job fires it as
-// itself and records whoever armed it, user or API key.
+// A staged status change fires as whoever armed it, user or API key, checked
+// again at fire time. Nobody to run as, or no authority, and the job does not
+// lend its own.
 
-const getApiKey = jest.fn();
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgId: jest.fn(async () => ({
     org: { id: "org_1" },
-    models: { apiKeys: { getById: getApiKey } },
   })),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -27,10 +27,9 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
     ...changes,
   })),
 }));
-jest.mock("back-end/src/models/UserModel", () => ({ getUserById: jest.fn() }));
-jest.mock("back-end/src/models/AuditModel", () => ({ insertAudit: jest.fn() }));
 jest.mock("back-end/src/services/experimentScheduling", () => ({
   applyScheduledExperimentStop: jest.fn(),
+  getScheduledStatusContext: jest.fn(),
 }));
 jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
@@ -40,6 +39,9 @@ jest.mock(
     })),
   }),
 );
+jest.mock("back-end/src/services/experiments", () => ({
+  assertCanRunExperimentInAffectedEnvironments: jest.fn(),
+}));
 jest.mock("back-end/src/services/experimentNotifications", () => ({
   notifyScheduledEndDecision: jest.fn(),
   notifyScheduledStatusUpdateApplied: jest.fn(),
@@ -53,69 +55,71 @@ const job = {
   attrs: { data: { experimentId: "exp_1", organization: "org_1" } },
 } as unknown as Job<{ experimentId: string; organization: string }>;
 
-const staged = { type: "start", date: new Date(Date.now() - 1000) };
-const draft = (by: Record<string, string>) => ({
+const draft = {
   id: "exp_1",
   status: "draft",
   owner: "u_owner",
-  nextScheduledStatusUpdate: { ...staged, ...by },
-});
+  nextScheduledStatusUpdate: {
+    type: "start",
+    date: new Date(Date.now() - 1000),
+    scheduledByApiKey: "key_ci",
+  },
+};
+const armer = { org: { id: "org_1" }, auditLog: jest.fn() };
 
 describe("updateSingleExperimentStatus", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (getUserById as jest.Mock).mockResolvedValue({
-      id: "u_analyst",
-      email: "a@test.com",
-      name: "Analyst",
-    });
-    getApiKey.mockResolvedValue({ description: "CI" });
+    (getExperimentById as jest.Mock).mockResolvedValue(draft);
+    (getScheduledStatusContext as jest.Mock).mockResolvedValue(armer);
   });
 
-  it.each([
-    ["a user", { scheduledBy: "u_analyst" }, { id: "u_analyst" }],
-    [
-      "an API key",
-      { scheduledByApiKey: "key_ci" },
-      { apiKey: "key_ci", name: "CI" },
-    ],
-    ["nobody (legacy pointer)", {}, { system: true }],
-  ])("fires as the job and audits the start as %s", async (_who, by, user) => {
-    (getExperimentById as jest.Mock).mockResolvedValue(draft(by));
+  it("starts the experiment as whoever armed it and audits through them", async () => {
     await updateSingleExperimentStatus(job);
-    expect(executeExperimentStart).toHaveBeenCalledWith(
-      expect.objectContaining({ org: { id: "org_1" } }),
-      expect.objectContaining({ id: "exp_1" }),
+    expect(assertCanRunExperimentInAffectedEnvironments).toHaveBeenCalledWith(
+      armer,
+      draft,
     );
-    expect(insertAudit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: "experiment.status",
-        user: expect.objectContaining(user),
-      }),
-    );
+    expect(executeExperimentStart).toHaveBeenCalledWith(armer, draft);
+    expect(armer.auditLog).toHaveBeenCalled();
     expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
   });
 
-  it("leaves a schedule re-staged meanwhile alone, even the same action by someone else", async () => {
-    (executeExperimentStart as jest.Mock).mockRejectedValueOnce(
-      new Error("boom"),
+  it("gives up at once when the armer may no longer run the experiment", async () => {
+    (
+      assertCanRunExperimentInAffectedEnvironments as jest.Mock
+    ).mockRejectedValue(new PermissionError("nope"));
+    await updateSingleExperimentStatus(job);
+    expect(executeExperimentStart).not.toHaveBeenCalled();
+    expect(updateExperiment).toHaveBeenCalledWith(
+      expect.objectContaining({ changes: { nextScheduledStatusUpdate: null } }),
     );
+    expect(notifyScheduledStatusUpdateFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ willRetry: false }),
+    );
+  });
+
+  it("leaves a schedule re-armed meanwhile alone, even the same action by someone else", async () => {
+    (getScheduledStatusContext as jest.Mock).mockResolvedValue(null);
     (getExperimentById as jest.Mock)
-      .mockResolvedValueOnce(draft({ scheduledBy: "u_analyst" }))
-      .mockResolvedValueOnce(draft({ scheduledByApiKey: "key_ci" }));
+      .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce({
+        ...draft,
+        nextScheduledStatusUpdate: {
+          ...draft.nextScheduledStatusUpdate,
+          scheduledByApiKey: undefined,
+          scheduledBy: "u_other",
+        },
+      });
     await updateSingleExperimentStatus(job);
     expect(updateExperiment).not.toHaveBeenCalled();
     expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
   });
 
-  it("retries a failed fire and keeps the stamp", async () => {
-    (executeExperimentStart as jest.Mock).mockRejectedValueOnce(
-      new Error("boom"),
-    );
-    (getExperimentById as jest.Mock).mockResolvedValue(
-      draft({ scheduledByApiKey: "key_ci" }),
-    );
+  it("retries when the armer cannot be resolved yet, keeping the stamp", async () => {
+    (getScheduledStatusContext as jest.Mock).mockResolvedValue(null);
     await updateSingleExperimentStatus(job);
+    expect(executeExperimentStart).not.toHaveBeenCalled();
     expect(updateExperiment).toHaveBeenCalledWith(
       expect.objectContaining({
         changes: {

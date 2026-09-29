@@ -260,6 +260,7 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import {
+  getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
   getSignificanceSettingsForProject,
@@ -2530,15 +2531,20 @@ async function loadPendingFeatureDrafts(
   return pendingDrafts;
 }
 
-// Arming a start is the last permission check before the job publishes the
-// pending drafts as itself, so the armer must be able to publish each one
-// where it lands.
+// Arming a start says up front whether the fire, which publishes the pending
+// drafts as the armer, can succeed: the armer must be able to publish each one
+// where it lands. Drafts are loaded org-wide, so one the armer cannot even read
+// is refused rather than skipped.
 export async function assertCanPublishPendingFeatureDrafts(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ): Promise<void> {
   const orgEnvironments = context.org.settings?.environments || [];
-  for (const draft of await loadPendingFeatureDrafts(context, experiment)) {
+  const drafts = await loadPendingFeatureDrafts(
+    getContextForAgendaJobByOrgObject(context.org),
+    experiment,
+  );
+  for (const draft of drafts) {
     const envs = getAffectedEnvsForExperiment({
       experiment: {
         ...experiment,

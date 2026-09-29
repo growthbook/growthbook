@@ -16,6 +16,12 @@ import {
   resolveScheduledShipDecision,
 } from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
+import {
+  getContextForApiKeyIdInOrg,
+  getContextForUserIdInOrg,
+} from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
@@ -526,6 +532,24 @@ function validateScheduledStopPlan(
 // Full-replace of an experiment's schedule and scheduled-stop plan in a single
 // write; the arguments are the complete desired state, so anything left
 // undefined/null is cleared. Hard config errors throw; soft issues are warnings.
+// The principal a staged status change runs as: whoever armed it, user or org
+// API key. Nobody recorded means nobody to run as.
+export async function getScheduledStatusContext(
+  context: Context,
+  experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate">,
+): Promise<ReqContext | ApiReqContext | null> {
+  const staged = experiment.nextScheduledStatusUpdate;
+  if (staged?.scheduledBy) {
+    return getContextForUserIdInOrg(context.org, staged.scheduledBy, {
+      applyProjectRestrictions: false,
+    });
+  }
+  if (staged?.scheduledByApiKey) {
+    return getContextForApiKeyIdInOrg(context.org, staged.scheduledByApiKey);
+  }
+  return null;
+}
+
 export async function setExperimentSchedule({
   context,
   experiment,

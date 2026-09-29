@@ -1939,10 +1939,16 @@ export async function markRevisionAsReviewRequested(
     );
   }
 
-  // The auto-publish later runs with the arming user's authority, so record
-  // who that was. Actors without a user ID (e.g. API keys) can still arm —
-  // the publish then falls back to `createdBy`.
-  const enabledBy = armed && user && "id" in user ? user.id : null;
+  // The auto-publish later runs with the armer's authority, so record who that
+  // was: a user as themselves, an org API key as itself, never the author.
+  const enabledBy =
+    !armed || !user
+      ? null
+      : "id" in user && user.id
+        ? user.id
+        : "apiKey" in user
+          ? user.apiKey
+          : null;
 
   const unset: Record<string, 1> = {};
   if (enabledBy === null) unset.autoPublishEnabledBy = 1;

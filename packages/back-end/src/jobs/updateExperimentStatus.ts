@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import type { AuditInterface } from "shared/types/audit";
+import { isPermissionError } from "shared/util";
 import type { ExperimentInterface } from "shared/types/experiment";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
@@ -8,13 +8,17 @@ import {
   getExperimentsWithScheduledStatusUpdate,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getUserById } from "back-end/src/models/UserModel";
-import { insertAudit } from "back-end/src/models/AuditModel";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
-import { isTerminalPublishError } from "back-end/src/util/errors";
+import {
+  applyScheduledExperimentStop,
+  getScheduledStatusContext,
+} from "back-end/src/services/experimentScheduling";
+import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
+import {
+  isTerminalPublishError,
+  TerminalPublishError,
+} from "back-end/src/util/errors";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import type { ApiReqContext } from "back-end/types/api";
 import {
   notifyScheduledEndDecision,
   notifyScheduledStatusUpdateApplied,
@@ -50,39 +54,6 @@ const sameStagedUpdate = (
   a.date.getTime() === b.date.getTime() &&
   (a.scheduledBy ?? null) === (b.scheduledBy ?? null) &&
   (a.scheduledByApiKey ?? null) === (b.scheduledByApiKey ?? null);
-
-// The change was authorized when it was armed; the job fires as itself and the
-// audit entry names whoever armed it.
-async function armedBy(
-  context: ApiReqContext,
-  staged: StagedUpdate,
-): Promise<AuditInterface["user"]> {
-  if (staged.scheduledBy) {
-    const user = await getUserById(staged.scheduledBy);
-    if (user) return { id: user.id, email: user.email, name: user.name || "" };
-  }
-  if (staged.scheduledByApiKey) {
-    const key = await context.models.apiKeys.getById(staged.scheduledByApiKey);
-    return { apiKey: staged.scheduledByApiKey, name: key?.description || "" };
-  }
-  return { system: true };
-}
-
-async function auditStatusChange(
-  context: ApiReqContext,
-  staged: StagedUpdate,
-  before: ExperimentInterface,
-  after: ExperimentInterface,
-): Promise<void> {
-  await insertAudit({
-    event: "experiment.status",
-    entity: { object: "experiment", id: before.id },
-    details: auditDetailsUpdate(before, after),
-    user: await armedBy(context, staged),
-    organization: context.org.id,
-    dateCreated: new Date(),
-  });
-}
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_STATUS_UPDATES, async () => {
@@ -166,6 +137,26 @@ export const updateSingleExperimentStatus = async (
   try {
     logger.info("Start updating status for experiment " + experiment.id);
 
+    // The arm checked the armer's rights; the fire runs as them too, so the
+    // draft publish is judged as it is at publish time. Nobody to run as, or
+    // no run permission any more, and the job does not lend its own.
+    const armer = await getScheduledStatusContext(context, experiment);
+    if (!armer) {
+      throw new Error(
+        "the user or API key that armed this change could not be resolved",
+      );
+    }
+    try {
+      await assertCanRunExperimentInAffectedEnvironments(armer, experiment);
+    } catch (e) {
+      if (isPermissionError(e)) {
+        throw new TerminalPublishError(
+          `Whoever armed this ${scheduled.type} may not run the experiment in its environments`,
+        );
+      }
+      throw e;
+    }
+
     switch (scheduled.type) {
       case "start": {
         if (experiment.status !== "draft") {
@@ -180,8 +171,12 @@ export const updateSingleExperimentStatus = async (
           return;
         }
 
-        const { updated } = await executeExperimentStart(context, experiment);
-        await auditStatusChange(context, scheduled, experiment, updated);
+        const { updated } = await executeExperimentStart(armer, experiment);
+        await armer.auditLog({
+          event: "experiment.status",
+          entity: { object: "experiment", id: experiment.id },
+          details: auditDetailsUpdate(experiment, updated),
+        });
         await notifyScheduledStatusUpdateApplied({
           context,
           experiment,
@@ -206,7 +201,7 @@ export const updateSingleExperimentStatus = async (
 
         // A stop refreshes the SDK payload as a side effect.
         const outcome = await applyScheduledExperimentStop({
-          context,
+          context: armer,
           experiment,
           metricGroups,
         });
@@ -240,7 +235,11 @@ export const updateSingleExperimentStatus = async (
         } else {
           // Kept-running changes nothing; a stop flips status, results and
           // the released variation.
-          await auditStatusChange(context, scheduled, experiment, latest);
+          await armer.auditLog({
+            event: "experiment.status",
+            entity: { object: "experiment", id: experiment.id },
+            details: auditDetailsUpdate(experiment, latest),
+          });
           await notifyScheduledStatusUpdateApplied({
             context,
             experiment: latest,

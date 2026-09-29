@@ -300,6 +300,28 @@ describe("feature revision status guards", () => {
     expect((await stored())?.defaultValue).toBe("edited");
   });
 
+  it.each([
+    ["a user", user, "u_author"],
+    [
+      "an org API key",
+      { type: "api_key", apiKey: "key_ci", name: "CI" },
+      "key_ci",
+    ],
+  ])(
+    "records %s as the armer of a scheduled publish",
+    async (_who, actor, armer) => {
+      await seed("draft");
+      await markRevisionAsReviewRequested(
+        context,
+        asRead("draft"),
+        actor as typeof user,
+        "go",
+        { scheduledPublishAt: new Date(Date.now() + 3_600_000) },
+      );
+      expect((await stored())?.autoPublishEnabledBy).toBe(armer);
+    },
+  );
+
   /**
    * The positive half. Without these, deleting the whole method body would pass the
    * four cases above, and a guard that refuses everything would look correct.

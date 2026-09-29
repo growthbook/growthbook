@@ -1752,6 +1752,42 @@ export async function getContextForAgendaJobByOrgId(
   return getContextForAgendaJobByOrgObject(organization);
 }
 
+// An org API key as a principal: its own role, environment limits and project
+// roles, the way the request middleware builds it. Null when the key is gone,
+// disabled or user-bound (those are stamped as their user).
+export async function getContextForApiKeyIdInOrg(
+  org: OrganizationInterface,
+  apiKeyId: string,
+): Promise<ApiReqContext | null> {
+  const key =
+    await getContextForAgendaJobByOrgObject(org).models.apiKeys.getById(
+      apiKeyId,
+    );
+  if (!key || key.disabled || key.userId || !key.role) return null;
+  return new ReqContextClass({
+    org,
+    auditUser: {
+      type: "api_key",
+      apiKey: apiKeyId,
+      name: key.description || "",
+    },
+    role: key.role,
+    apiKey: apiKeyId,
+    apiKeyData: key,
+    teams: await TeamModel.dangerousGetTeamsForOrganization(org.id),
+  });
+}
+
+// A stored armer id is a user or an org API key; each runs as itself.
+export async function getContextForArmedPublisherInOrg(
+  org: OrganizationInterface,
+  id: string,
+): Promise<ReqContext | ApiReqContext | null> {
+  return id.startsWith("key_")
+    ? getContextForApiKeyIdInOrg(org, id)
+    : getContextForUserIdInOrg(org, id, { applyProjectRestrictions: false });
+}
+
 export async function getContextForUserIdInOrg(
   org: OrganizationInterface,
   userId: string,

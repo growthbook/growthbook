@@ -52,7 +52,7 @@ import {
   isTerminalPublishError,
   getErrorMessage,
 } from "back-end/src/util/errors";
-import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
+import { getContextForArmedPublisherInOrg } from "back-end/src/services/organizations";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import {
   isArchiveTransition,
@@ -1154,12 +1154,9 @@ export async function maybeAutoPublishRevision(
   // Resolved BEFORE the try: the catch below deliberately swallows publish
   // failures to leave the draft approved for a manual publish, which would also
   // swallow this and let the caller believe the publish ran.
-  const enablerContext = await getContextForUserIdInOrg(
+  const enablerContext = await getContextForArmedPublisherInOrg(
     context.org,
     enablerId,
-    {
-      applyProjectRestrictions: false,
-    },
   );
   if (!enablerContext) {
     logger.warn(
@@ -1312,12 +1309,9 @@ export async function maybePublishScheduledRevision(
   }
 
   try {
-    const enablerContext = await getContextForUserIdInOrg(
+    const enablerContext = await getContextForArmedPublisherInOrg(
       context.org,
       enablerId,
-      {
-        applyProjectRestrictions: false,
-      },
     );
     if (!enablerContext) {
       // Transient: the user may resolve on a later tick.
