@@ -33,14 +33,14 @@ The tracing tool keeps doing what it is good at: recording every trace and scori
 The only link between GrowthBook and the trace is a tag on the trace of the form:
 
 ```text
-gb:<experimentKey>:<variationKey>
+gb.exp:<experimentKey>=<variationKey>
 ```
 
-For example `gb:support-prompt:prod-b`. The [`tracing` plugin](/lib/js#tracing) in the JavaScript SDK builds these tags for you every time an experiment is evaluated; you attach them to the trace with your tracing SDK. The generated exposure queries in GrowthBook then split the tag on `:` to recover the experiment and variation for each trace.
+For example `gb.exp:support-prompt=prod-b`. The [`tracing` plugin](/lib/js#tracing) in the JavaScript SDK builds these tags for you every time an experiment is evaluated; you attach them to the trace with your tracing SDK. The generated exposure queries in GrowthBook then split the tag on the first `=` to recover the experiment and variation for each trace.
 
 Two rules follow from that:
 
-- Experiment keys and variation keys must not contain `:`. The plugin skips any assignment whose keys contain the separator, so such experiments would silently record no exposures.
+- Experiment keys must not contain `=`. The plugin skips any assignment whose experiment key contains it, so such experiments would silently record no exposures.
 - Evaluate your flags and attach the tags **at the top of the traced request**, before any child spans are created. The exposure query reads tags from the trace (Langfuse) or the root span (Phoenix); tags set only on a nested span are not seen.
 
 ### Identifiers must match
@@ -175,7 +175,7 @@ const gb = new GrowthBook({
         trace
           .getActiveSpan()
           ?.setAttribute("growthbook.experiment." + a.experimentKey, a.variationKey);
-        // a.tag is the "gb:<experimentKey>:<variationKey>" string if you
+        // a.tag is the "gb.exp:<experimentKey>=<variationKey>" string if you
         // prefer to push it into a tags list
       },
     }),
@@ -183,7 +183,7 @@ const gb = new GrowthBook({
 });
 ```
 
-The generated exposure queries look for the `gb:` tag, so if you rely on span attributes instead you will need to edit the exposure SQL to read your attribute.
+The generated exposure queries look for the `gb.exp:` tag, so if you rely on span attributes instead you will need to edit the exposure SQL to read your attribute.
 
 ### Server-side Node.js with `GrowthBookClient`
 
@@ -225,9 +225,9 @@ from growthbook import GrowthBook
 tags: list[str] = []
 
 def on_experiment_viewed(experiment, result, user_context):
-    if ":" in experiment.key or ":" in result.key:
-        return  # the exposure SQL splits on ":", so skip unsafe keys
-    tags.append(f"gb:{experiment.key}:{result.key}")
+    if "=" in experiment.key:
+        return  # the exposure SQL splits on the first "=", so skip unsafe keys
+    tags.append(f"gb.exp:{experiment.key}={result.key}")
 
 gb = GrowthBook(
     api_host="https://cdn.growthbook.io",
@@ -294,7 +294,7 @@ Full tracker reference: [Arize Phoenix event tracker](/event-trackers/phoenix).
 For either tracker the wizard generates:
 
 - **Identifier types** `user_id`, `session_id`, and `trace_id`.
-- **Exposure queries** for each identifier type, parsing the `gb:` tag. Langfuse exposures expose `trace_name`, `release`, and `version` as experiment dimensions; Phoenix exposures expose `trace_name`.
+- **Exposure queries** for each identifier type, parsing the `gb.exp:` tag. Langfuse exposures expose `trace_name`, `release`, and `version` as experiment dimensions; Phoenix exposures expose `trace_name`.
 - **An identifier join** between `user_id` and `session_id`.
 - **Three fact tables** with filters and six starter metrics.
 

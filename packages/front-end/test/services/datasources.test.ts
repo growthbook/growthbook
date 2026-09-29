@@ -194,7 +194,8 @@ describe("getInitialSettings", () => {
         ]),
       ).not.toThrow();
       expect(q.query).toContain("ARRAY JOIN");
-      expect(q.query).toContain("startsWith(tag, 'gb:')");
+      expect(q.query).toContain("startsWith(tag, 'gb.exp:')");
+      expect(q.query).toContain("substring(splitByChar('=', tag)[1], 8)");
       expect(q.query).toContain("project_id = 'proj_1'");
     }
     expect(settings.queries.identityJoins).toHaveLength(1);
@@ -228,7 +229,8 @@ describe("getInitialSettings", () => {
         ]),
       ).not.toThrow();
       expect(q.query).toContain("jsonb_array_elements_text");
-      expect(q.query).toContain("split_part(gb_tags.tag, ':', 2)");
+      expect(q.query).toContain("LIKE 'gb.exp:%'");
+      expect(q.query).toContain("substr(split_part(gb_tags.tag, '=', 1), 8)");
       expect(q.query).toContain("public.traces");
       expect(q.query).toContain("root.parent_id IS NULL");
       expect(q.query).toContain("p.name = 'default'");
