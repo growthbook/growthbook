@@ -49,6 +49,8 @@ export const GhostText = Extension.create<
                   el.setAttribute("aria-hidden", "true");
                   el.textContent = storage.text;
                   const kbd = document.createElement("kbd");
+                  // Radix Kbd size 1, by class: the app's keycap, built outside React.
+                  kbd.className = "rt-Kbd rt-r-size-1";
                   kbd.textContent = "Tab";
                   el.appendChild(kbd);
                   return el;
