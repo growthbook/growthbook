@@ -1,7 +1,7 @@
 import { createLikeMatchFns } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
-import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
-import { eligibleTopValueExpr } from "back-end/src/integrations/sql/clauses/approx-top-values";
+import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
+import { eligibleTopValueExpr } from "./clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const clickHouseEscapeStringLiteral = (value: string) =>
@@ -51,8 +51,8 @@ export const clickHouseDialect: SqlDialect = {
   ifElse: (condition: string, ifTrue: string, ifFalse: string) =>
     `if(${condition}, ${ifTrue}, ${ifFalse})`,
   castToDate: (col: string) => {
-    const columType = col === "NULL" ? "Nullable(DATE)" : "DATE";
-    return `CAST(${col} AS ${columType})`;
+    const columnType = col === "NULL" ? "Nullable(DATE)" : "DATE";
+    return `CAST(${col} AS ${columnType})`;
   },
   castToTimestamp: (col: string) => {
     // CH demands `Nullable(...)` to hold NULL; `DateTime` alone rejects it.

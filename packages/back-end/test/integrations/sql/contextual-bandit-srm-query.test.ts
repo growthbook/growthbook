@@ -1,5 +1,5 @@
 import type { ExperimentUnitsQuerySettings } from "shared/types/integrations";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { postgresDialect } from "shared/dialects";
 import { getContextualBanditSrmQuery } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 
 const defaultExposureQuery = {

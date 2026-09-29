@@ -11,7 +11,7 @@ through the different ways of running experiments on GrowthBook.
 ## Server Side and Mobile Experiments
 
 Server-side A/B testing, also known as backend or server-side experimentation, is a technique used in software
-development and web applications to test measure the impact of any code changes or new features. The changes may impact
+development and web applications to test and measure the impact of any code changes or new features. The changes may impact
 both the user interface and the backend of the application, but the decision about what version to serve a user is
 decided on the server. This has a number of advantages over client side experiments, specifically, that it allows you to
 run very complex tests that may involve a lot of different parts of the code, and span multiple parts of your
@@ -68,7 +68,7 @@ changes. Our visual editor uses the same client-side SDK used for feature flags 
 
 ## API / ML Experiments
 
-GrowthBook's SDKs works well with anywhere code can run, and as such you can use it in the API or when running machine
+GrowthBook's SDKs work well with anywhere code can run, and as such you can use it in the API or when running machine
 learning models. And, with our deterministic hashing method for assignment, you can even be sure users get assigned the
 same variation across your platform without needing to store state from GrowthBook.
 
@@ -102,7 +102,7 @@ This is a subset of some of the information you can find about running experimen
 
 An A/A test is the same as an A/B test, but each variation has no actual difference in the application. This lets you
 test out that your systems are working correctly, as you should see no significant differences between the variations.
-We suggest that you first an A/A test to validate your experimentation implementation is correctly splitting traffic, and
+We suggest that you first run an A/A test to validate your experimentation implementation is correctly splitting traffic, and
 producing statistically valid results.
 
 ### When to Expose Users to Experiments
@@ -146,13 +146,13 @@ Monday, you may not get a complete picture of the impact your changes have to yo
 Typical test durations are 1 to 2 weeks, and usually care needs to be taken over holidays.
 You may also find that a test would need to run for a month or more to get the power required for the
 experiment. Very long running tests can be hard to justify as you have to keep the variations of the
-experiment unchanged for duration, and this may limit your team's velocity towards potentially higher
+experiment unchanged for the duration, and this may limit your team's velocity towards potentially higher
 impact changes.
 
 ### Interaction Effects and Mutual Exclusion
 
 When you start having the ability to run a lot of A/B tests, you may start worrying about how tests running in parallel
-may interact and effect the other results. For example you may want to test a change in the CTA
+may interact and affect the other results. For example you may want to test a change in the CTA
 button on your purchase page, and also test changing the price. It can be difficult to figure out if any
 two tests will meaningfully interact, and many will run the tests in serial in an abundance of caution.
 
@@ -163,7 +163,7 @@ you can use GrowthBook’s namespace feature. Ensure all experiments within the 
 
 ### Experimentation Frequency
 
-Having a high frequency of A/B testing is important for running a success experimentation program.
+Having a high frequency of A/B testing is important for running a successful experimentation program.
 The main reasons why experimentation frequency is important are:
 
 - **Maximizing chances**: Since success rates are typically low for any given experiment, and large changes
