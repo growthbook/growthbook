@@ -132,11 +132,13 @@ export const postAutocomplete = async (
 
   const { text, conversationId, currentPage } = req.body;
   // getById is owner-scoped, so another user's conversation reads as missing.
-  const [conversation, orgContext] = await Promise.all([
+  const [conversation, orgContext, orgPrompt] = await Promise.all([
     conversationId
       ? context.models.aiConversations.getById(conversationId)
       : null,
     orgContextForAutocomplete(context),
+    // Settings: an optional fast model, plus any org text to append.
+    context.models.aiPrompts.getAIPrompt("chat-autocomplete"),
   ]);
   const history = (conversation?.messages ?? [])
     .filter(
@@ -155,11 +157,14 @@ export const postAutocomplete = async (
   const raw = await simpleCompletion({
     context,
     type: "chat-autocomplete",
-    isDefaultPrompt: true,
+    isDefaultPrompt: orgPrompt.isDefaultPrompt,
+    overrideModel: orgPrompt.overrideModel,
     temperature: 0.2,
     // Draft echo plus one short sentence; anything longer is the model rambling.
     maxOutputTokens: 120,
-    instructions: AUTOCOMPLETE_INSTRUCTIONS,
+    instructions: orgPrompt.prompt
+      ? `${AUTOCOMPLETE_INSTRUCTIONS}\n${orgPrompt.prompt}`
+      : AUTOCOMPLETE_INSTRUCTIONS,
     prompt: `Assistant skills:\n${skills}\n\nThis organization has:\n${orgContext}\n\nCurrent page: ${currentPage?.trim() || "(unknown)"}\n\nRecent conversation:\n${history || "(none)"}\n\nDraft:\n${text}`,
   });
 
