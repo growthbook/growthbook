@@ -61,7 +61,7 @@ function AnalysisSettingInfo({
     >
       <Box as="span" display="inline-block" tabIndex={0} aria-label={ariaLabel}>
         <UIText color="text-low">
-          <PiQuestion size={12} style={{ display: "block" }} aria-hidden />
+          <PiQuestion size={16} style={{ display: "block" }} aria-hidden />
         </UIText>
       </Box>
     </UITooltip>
@@ -282,7 +282,7 @@ export default function ResultsTab({
                 {priorUsed ? (
                   <AnalysisSettingInfo
                     ariaLabel="How a Bayesian prior affects results"
-                    description="A Bayesian prior shrinks metric estimates towards the prior mean."
+                    description="A Bayesian prior shrinks the metric estimate towards the prior mean."
                   />
                 ) : null}
               </Flex>
