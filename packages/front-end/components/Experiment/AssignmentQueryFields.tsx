@@ -4,7 +4,7 @@ import { getExposureQueryIdentifierTypes } from "shared/util";
 import { PiWarningFill } from "react-icons/pi";
 import {
   AssignmentQueryNotice,
-  getAssignmentQueryDrift,
+  isIdentifierUndeclared,
   getDefaultIdentifierType,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
@@ -65,7 +65,7 @@ export function useAssignmentQuerySelection({
   const keptQuery = keptQueryId
     ? exposureQueries.find((q) => q.id === keptQueryId)
     : undefined;
-  const { identifierUndeclared } = getAssignmentQueryDrift(
+  const identifierUndeclared = isIdentifierUndeclared(
     keptQuery,
     identifierType,
   );
@@ -225,7 +225,6 @@ function getAssignmentQueryDriftMessage({
   return null;
 }
 
-// Shown wherever a saved selection is edited, including collapsed summaries.
 export function AssignmentQueryDriftWarning({
   selection,
 }: {
@@ -240,7 +239,6 @@ export function AssignmentQueryDriftWarning({
   );
 }
 
-// Compact form for read-only displays of a saved selection.
 export function AssignmentQueryDriftIcon({
   selection,
 }: {

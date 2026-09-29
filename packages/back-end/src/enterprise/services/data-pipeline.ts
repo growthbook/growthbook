@@ -126,10 +126,8 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     settingsForHash[field] = snapshotSettings[field];
   }
 
-  // Units tables built before queries had several identifiers used the query's
-  // frozen legacy identifier, so only hash a different one to keep those
-  // tables' hashes stable. The legacy identifier never changes, so reordering a
-  // query's identifiers doesn't re-key anything.
+  // Existing units tables were built on the query's frozen legacy identifier,
+  // so only hash a different one to keep their hashes stable.
   const identifierType = snapshotSettings.exposureQueryIdentifierType;
   const query = exposureQueries.find(
     (q) => q.id === snapshotSettings.exposureQueryId,

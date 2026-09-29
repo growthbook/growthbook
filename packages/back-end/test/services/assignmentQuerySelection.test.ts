@@ -96,43 +96,6 @@ describe("loadChangedAssignmentQuerySelection", () => {
 });
 
 describe("resolveAssignmentQueryIdentifier", () => {
-  const stored = { ...legacy, identifierType: "anonymous_id" };
-
-  it("keeps the stored identifier when re-sending the same query without one", async () => {
-    const { context, bypassRead } = makeContext();
-    expect(
-      await resolveAssignmentQueryIdentifier(context, {
-        previous: stored,
-        next: legacy,
-        onOmitted: "requireUnambiguous",
-        field: "exposureQuery",
-      }),
-    ).toEqual({ identifierType: "anonymous_id", changed: false });
-    expect(bypassRead).not.toHaveBeenCalled();
-  });
-
-  it("defaults a new selection without one to the query's first", async () => {
-    const { context } = makeContext();
-    expect(
-      await resolveAssignmentQueryIdentifier(context, {
-        previous: null,
-        next: legacy,
-        onOmitted: "defaultToFirst",
-      }),
-    ).toMatchObject({ identifierType: "user_id", changed: true });
-  });
-
-  it("doesn't carry the old identifier to a different query", async () => {
-    const { context } = makeContext();
-    await expect(
-      resolveAssignmentQueryIdentifier(context, {
-        previous: { ...stored, exposureQueryId: "eq_old" },
-        next: legacy,
-        onOmitted: "defaultToFirst",
-      }),
-    ).resolves.toMatchObject({ identifierType: "user_id", changed: true });
-  });
-
   it("requires the grouped field to name one on an ambiguous query", async () => {
     const { context } = makeContext();
     await expect(

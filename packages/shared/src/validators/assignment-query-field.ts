@@ -41,7 +41,6 @@ type ResponseFields<F extends AssignmentQueryField> = {
   [K in F]: typeof apiAssignmentQueryRef;
 } & { [K in `${F}Id`]: z.ZodString };
 
-// Response schemas: the grouped field and its deprecated flat ID.
 export function apiAssignmentQueryResponseFields<
   F extends AssignmentQueryField,
 >(field: F): ResponseFields<F> {

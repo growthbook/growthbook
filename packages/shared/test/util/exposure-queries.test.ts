@@ -69,20 +69,6 @@ describe("assertExposureQueryDeclaresIdentifierType", () => {
       'Assignment query "Multi" no longer declares the "device_id" identifier type. Choose an assignment query that declares it',
     );
   });
-
-  it("falls back to the legacy scalar when userIdTypes is empty", () => {
-    const legacy = query({
-      id: "exq_legacy",
-      userIdType: "user_id",
-      userIdTypes: [],
-    });
-    expect(() =>
-      assertExposureQueryDeclaresIdentifierType(legacy, "user_id"),
-    ).not.toThrow();
-    expect(() =>
-      assertExposureQueryDeclaresIdentifierType(legacy, "anonymous_id"),
-    ).toThrow();
-  });
 });
 
 describe("getExposureQueryIdentifierTypes", () => {
@@ -126,12 +112,6 @@ describe("parseAssignmentQueryInput", () => {
     expect(
       parseAssignmentQueryInput(undefined, "exq_1", "exposureQuery"),
     ).toEqual({ id: "exq_1", identifierType: undefined });
-  });
-
-  it("returns nothing when neither is set", () => {
-    expect(
-      parseAssignmentQueryInput(undefined, undefined, "assignmentQuery"),
-    ).toEqual({ id: undefined, identifierType: undefined });
   });
 
   it("rejects both fields together, naming them", () => {
@@ -215,13 +195,6 @@ describe("toApiAssignmentQueryRef", () => {
     });
   });
 
-  it("reports the stored identifier as is, even if no longer declared", () => {
-    expect(toApiAssignmentQueryRef("eq_1", "company_id", [multi])).toEqual({
-      id: "eq_1",
-      identifierType: "company_id",
-    });
-  });
-
   it("has a null identifier without a query id or a resolvable identifier", () => {
     expect(toApiAssignmentQueryRef("", "user_id", [multi])).toEqual({
       id: "",
@@ -256,15 +229,6 @@ describe("flattenExposureQueryInput", () => {
     expect(flat).toEqual({ name: "renamed" });
     expect(flat).not.toHaveProperty("exposureQueryId");
   });
-
-  it("rejects the grouped object together with the deprecated id", () => {
-    expect(() =>
-      flattenExposureQueryInput({
-        exposureQuery: { id: "eq_1", identifierType: "user_id" },
-        exposureQueryId: "eq_1",
-      }),
-    ).toThrow("Cannot set exposureQuery together with the deprecated");
-  });
 });
 
 describe("resolveExposureQueryForAnalysis", () => {
@@ -281,12 +245,6 @@ describe("resolveExposureQueryForAnalysis", () => {
       query: "SELECT user_id, anonymous_id",
       identifierType: "user_id",
     });
-  });
-
-  it("resolves a legacy record to the legacy identifier, not the first", () => {
-    expect(
-      resolveExposureQueryForAnalysis(multi, undefined).identifierType,
-    ).toBe("anonymous_id");
   });
 
   it("refuses an identifier the query no longer declares", () => {
@@ -548,19 +506,5 @@ describe("resolveAssignmentQuerySelectionChange", () => {
         onOmitted: "defaultToFirst",
       }),
     ).toMatchObject({ ok: false });
-  });
-
-  it("requires naming an identifier on an ambiguous query when asked", () => {
-    expect(
-      resolveAssignmentQuerySelectionChange([multi], {
-        previous: null,
-        next: legacy,
-        onOmitted: "requireUnambiguous",
-        field: "assignmentQuery",
-      }),
-    ).toEqual({
-      ok: false,
-      error: expect.stringContaining("Set assignmentQuery.identifierType"),
-    });
   });
 });

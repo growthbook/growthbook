@@ -8,6 +8,7 @@ import {
 } from "shared/types/datasource";
 import { MetricType } from "shared/types/metric";
 import {
+  capitalizeFirstCharacter,
   resolveAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
 } from "shared/util";
@@ -1008,17 +1009,15 @@ export function getDefaultIdentifierTypeForQuery(
     : (identifierTypes[0] ?? exposureQuery.userIdType);
 }
 
-// How a saved selection drifted from what its query now allows.
-export function getAssignmentQueryDrift(
+export function isIdentifierUndeclared(
   query: ExposureQuery | undefined,
   identifierType: string | undefined,
-): { identifierUndeclared: boolean } {
-  return {
-    identifierUndeclared:
-      !!query &&
-      !!identifierType &&
-      !getExposureQueryIdentifierTypes(query).includes(identifierType),
-  };
+): boolean {
+  return (
+    !!query &&
+    !!identifierType &&
+    !getExposureQueryIdentifierTypes(query).includes(identifierType)
+  );
 }
 
 // The record a new one copies its assignment selection from: a duplicated
@@ -1086,13 +1085,13 @@ export function getCopiedAssignmentQueryNotice(
   if (!selection.identifierType) {
     return {
       status: "warning",
-      message: `${capitalize(from)} analyzed on "${sourceIdentifierType}", which no assignment query here declares. Choose an identifier type for ${to}.`,
+      message: `${capitalizeFirstCharacter(from)} analyzed on "${sourceIdentifierType}", which no assignment query here declares. Choose an identifier type for ${to}.`,
     };
   }
   if (selection.identifierType !== sourceIdentifierType) {
     return {
       status: "warning",
-      message: `${capitalize(from)} analyzed on "${sourceIdentifierType}", which "${sourceQueryName}" no longer declares. ${capitalize(to)} analyzes on "${selection.identifierType}" instead, so it measures different units than ${from}.`,
+      message: `${capitalizeFirstCharacter(from)} analyzed on "${sourceIdentifierType}", which "${sourceQueryName}" no longer declares. ${capitalizeFirstCharacter(to)} analyzes on "${selection.identifierType}" instead, so it measures different units than ${from}.`,
     };
   }
   if (
@@ -1108,10 +1107,6 @@ export function getCopiedAssignmentQueryNotice(
     };
   }
   return null;
-}
-
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /**

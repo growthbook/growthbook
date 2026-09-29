@@ -282,8 +282,6 @@ export function apiMonitoringConfigToInternal<
   };
 }
 
-// For REST writes: the stored monitoring config, with the identifier a new or
-// changed selection resolves to, so it's never left implicit.
 export async function resolveApiMonitoringConfig<
   T extends {
     datasourceId: string;
@@ -510,7 +508,6 @@ function assertTargetsAnchored(
 }
 
 export class RampScheduleModel extends BaseClass {
-  // The monitoring data source is nested, so BaseModel wouldn't cache it.
   protected override getForeignKeys(doc: RampScheduleInterface) {
     return withMonitoringDatasourceKey(
       super.getForeignKeys(doc),

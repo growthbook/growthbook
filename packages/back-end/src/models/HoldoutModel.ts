@@ -219,7 +219,6 @@ const LINKAGE_FIELDS = ["linkedFeatures", "linkedExperiments"] as const;
 export function toApiHoldout(
   holdout: HoldoutInterface,
   experiment: ExperimentInterface,
-  // The experiment's data source queries, to resolve a legacy identifier.
   exposureQueries: ExposureQuery[],
 ): ApiHoldoutInterface {
   const activePhase = getActivePhase(experiment);

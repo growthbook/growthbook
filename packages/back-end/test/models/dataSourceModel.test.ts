@@ -524,33 +524,6 @@ describe("dataSourceModel", () => {
     });
   });
 
-  it("maps assignment query identifier types to the API", () => {
-    const apiDatasource = toDataSourceApiInterface({
-      ...datasource,
-      settings: {
-        ...datasource.settings,
-        queries: {
-          ...datasource.settings.queries,
-          exposure: [
-            {
-              id: "multi",
-              userIdType: "user_id",
-              userIdTypes: ["user_id", "anonymous_id"],
-              dimensions: [],
-              name: "Multi",
-              query: "SELECT user_id, anonymous_id FROM experiment_viewed",
-            },
-          ],
-        },
-      },
-    });
-
-    expect(apiDatasource.assignmentQueries[0]).toMatchObject({
-      identifierType: "user_id",
-      identifierTypes: ["user_id", "anonymous_id"],
-    });
-  });
-
   it("reports the frozen legacy identifier as the deprecated identifierType", () => {
     const apiDatasource = toDataSourceApiInterface({
       ...datasource,

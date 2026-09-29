@@ -21,9 +21,7 @@ import {
   resolveApiMonitoringConfig,
 } from "./RampScheduleModel";
 
-// Translates the API's grouped monitoringConfig.exposureQuery to the flat
-// stored shape, resolving its identifier; `null` (clear) and absent pass
-// through.
+// `null` (clear) and absent monitoring configs pass through.
 async function withInternalMonitoringConfig<
   T extends { monitoringConfig?: ApiRampMonitoringConfigInput | null },
 >(

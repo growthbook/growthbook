@@ -551,7 +551,7 @@ export async function validateExposureQueriesAndAddMissingIds(
           );
         }
         // The legacy identifier is frozen once the query exists, so ignore
-        // whatever the client echoes back. Before any comparison below.
+        // whatever the client echoes back.
         exposure.userIdType =
           storedExposureQueries.find((q) => q.id === exposure.id)?.userIdType ||
           exposure.userIdTypes[0];

@@ -3573,7 +3573,6 @@ export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
-  // The experiment's data source queries, to resolve a legacy identifier.
   exposureQueries: ExposureQuery[],
 ): ApiExperimentResults {
   const dimension = toApiDimension(snapshot.dimension);

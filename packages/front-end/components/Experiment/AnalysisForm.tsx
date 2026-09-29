@@ -340,7 +340,6 @@ const AnalysisForm: FC<{
     },
     [form, dimensions],
   );
-  // Saved settings must not be rewritten on load.
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
     hashAttribute: experiment.hashAttribute,

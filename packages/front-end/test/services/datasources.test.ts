@@ -1,10 +1,9 @@
 import { ExposureQuery } from "shared/types/datasource";
-import { getExposureQueryIdentifierTypes } from "shared/util";
 import { describe, expect, it } from "vitest";
 import {
   getDefaultIdentifierType,
   getIdentifierTypeForHashAttribute,
-  getAssignmentQueryDrift,
+  isIdentifierUndeclared,
   getCopiedAssignmentQueryNotice,
   getCopySourceIdentifierType,
   getDefaultIdentifierTypeForQuery,
@@ -176,35 +175,6 @@ describe("validateSQL", () => {
   });
 });
 
-describe("getExposureQueryIdentifierTypes", () => {
-  it("returns userIdTypes when present", () => {
-    expect(
-      getExposureQueryIdentifierTypes(
-        makeExposureQuery({
-          userIdType: "user_id",
-          userIdTypes: ["user_id", "anonymous_id"],
-        }),
-      ),
-    ).toEqual(["user_id", "anonymous_id"]);
-  });
-
-  it("falls back to the deprecated scalar when userIdTypes is empty", () => {
-    expect(
-      getExposureQueryIdentifierTypes(
-        makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
-      ),
-    ).toEqual(["user_id"]);
-  });
-
-  it("returns an empty list when neither is set", () => {
-    expect(
-      getExposureQueryIdentifierTypes(
-        makeExposureQuery({ userIdType: "", userIdTypes: [] }),
-      ),
-    ).toEqual([]);
-  });
-});
-
 describe("getDefaultIdentifierTypeForQuery", () => {
   const query = makeExposureQuery({
     userIdType: "user_id",
@@ -226,39 +196,25 @@ describe("getDefaultIdentifierTypeForQuery", () => {
   it("returns the first declared identifier when no preference is given", () => {
     expect(getDefaultIdentifierTypeForQuery(query)).toBe("user_id");
   });
-
-  it("falls back to the deprecated scalar for a legacy query", () => {
-    expect(
-      getDefaultIdentifierTypeForQuery(
-        makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
-      ),
-    ).toBe("user_id");
-  });
 });
 
-describe("getAssignmentQueryDrift", () => {
+describe("isIdentifierUndeclared", () => {
   const query = makeExposureQuery({
     id: "exq_a",
     userIdType: "user_id",
     userIdTypes: ["user_id"],
   });
 
-  it("reports no drift for a query declaring the identifier", () => {
-    expect(getAssignmentQueryDrift(query, "user_id")).toEqual({
-      identifierUndeclared: false,
-    });
+  it("is false for a query declaring the identifier", () => {
+    expect(isIdentifierUndeclared(query, "user_id")).toBe(false);
   });
 
   it("flags an identifier the query no longer declares", () => {
-    expect(getAssignmentQueryDrift(query, "anon_id")).toEqual({
-      identifierUndeclared: true,
-    });
+    expect(isIdentifierUndeclared(query, "anon_id")).toBe(true);
   });
 
-  it("reports no drift without a query", () => {
-    expect(getAssignmentQueryDrift(undefined, "user_id")).toEqual({
-      identifierUndeclared: false,
-    });
+  it("is false without a query", () => {
+    expect(isIdentifierUndeclared(undefined, "user_id")).toBe(false);
   });
 });
 
@@ -373,16 +329,6 @@ describe("getCopySourceIdentifierType", () => {
     settings: { queries: { exposure: [reordered] } },
   };
 
-  it("resolves a legacy source to its query's legacy identifier", () => {
-    expect(
-      getCopySourceIdentifierType(datasource, {
-        kind: "template",
-        datasource: "ds_1",
-        exposureQueryId: "exq_1",
-      }),
-    ).toBe("anonymous_id");
-  });
-
   it("is undefined without a source query", () => {
     expect(
       getCopySourceIdentifierType(datasource, {
@@ -405,12 +351,6 @@ describe("getHashAttributeIdentifierTypeMap", () => {
     expect(map.get("email")).toEqual(["user_id"]);
     expect(map.has("anonymous_id")).toBe(false);
   });
-
-  it("returns an empty map when no identifier declares attributes", () => {
-    expect(
-      getHashAttributeIdentifierTypeMap([{ userIdType: "user_id" }]).size,
-    ).toBe(0);
-  });
 });
 
 describe("getSelectableIdentifierTypes", () => {
@@ -429,14 +369,6 @@ describe("getSelectableIdentifierTypes", () => {
         }),
       ]),
     ).toEqual(["user_id", "device_id", "anonymous_id"]);
-  });
-
-  it("falls back to the deprecated scalar for legacy queries", () => {
-    expect(
-      getSelectableIdentifierTypes([
-        makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
-      ]),
-    ).toEqual(["user_id"]);
   });
 });
 

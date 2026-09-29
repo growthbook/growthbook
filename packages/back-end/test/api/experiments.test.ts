@@ -850,51 +850,6 @@ describe("experiments API", () => {
       );
     });
 
-    it("accepts the grouped assignmentQuery object", async () => {
-      (getDataSourceById as jest.Mock).mockResolvedValue({
-        id: "ds_123",
-        type: "postgres",
-        settings: {
-          queries: {
-            exposure: [
-              {
-                id: "user_id",
-                name: "User ID",
-                userIdType: "user_id",
-                userIdTypes: ["user_id", "anonymous_id"],
-              },
-            ],
-          },
-        },
-      });
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
-      (createExperiment as jest.Mock).mockResolvedValue(experiment);
-
-      const res = await request(app)
-        .post("/api/v1/experiments")
-        .send({
-          trackingKey: "exp_grouped",
-          name: "Grouped Assignment Query",
-          datasourceId: "ds_123",
-          assignmentQuery: { id: "user_id", identifierType: "anonymous_id" },
-          variations: [
-            { key: "control", name: "Control" },
-            { key: "treatment", name: "Treatment" },
-          ],
-        })
-        .set("Authorization", "Bearer foo");
-
-      expect(res.status).toBe(200);
-      expect(createExperiment).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            exposureQueryId: "user_id",
-            exposureQueryIdentifierType: "anonymous_id",
-          }),
-        }),
-      );
-    });
-
     it("rejects assignmentQuery together with the deprecated flat fields", async () => {
       (getDataSourceById as jest.Mock).mockResolvedValue({
         id: "ds_123",

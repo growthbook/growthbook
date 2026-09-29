@@ -446,8 +446,6 @@ type ReportAssignmentQuerySelection = {
   exposureQueryIdentifierType?: string;
 };
 
-// Validates a changed selection and stores its parsed identifier on `next`, so
-// it's never left implicit. An unchanged one is left alone, even if drifted.
 async function applyReportAssignmentQuery(
   context: ReqContext,
   previous: ReportAssignmentQuerySelection,

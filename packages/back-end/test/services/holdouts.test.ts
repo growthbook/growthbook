@@ -1,5 +1,4 @@
 import type { ExperimentInterface } from "shared/types/experiment";
-import type { DataSourceInterface } from "shared/types/datasource";
 import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
 import { holdoutSizeToCoverage } from "shared/util";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -11,7 +10,6 @@ import {
   assertCanUpdateHoldout,
   assertValidHoldoutEnvironments,
   assertValidHoldoutSchedule,
-  parseHoldoutAssignmentQuery,
   getNextScheduledStatusUpdateForStage,
   isHoldoutExperiment,
   normalizeHoldoutScheduleUpdates,
@@ -927,67 +925,5 @@ describe("assertCanUpdateHoldout", () => {
         isRunning: false,
       }),
     ).toThrow("permission denied");
-  });
-});
-
-describe("parseHoldoutAssignmentQuery", () => {
-  const datasource = {
-    settings: {
-      queries: {
-        exposure: [
-          {
-            id: "exq_multi",
-            name: "Multi",
-            userIdType: "anonymous_id",
-            userIdTypes: ["user_id", "anonymous_id"],
-            query: "SELECT 1",
-            dimensions: [],
-          },
-        ],
-      },
-    },
-  } as unknown as DataSourceInterface;
-
-  it("returns a declared identifier", () => {
-    expect(
-      parseHoldoutAssignmentQuery(datasource, "exq_multi", "anonymous_id"),
-    ).toBe("anonymous_id");
-  });
-
-  it("defaults an omitted identifier to the query's first", () => {
-    expect(
-      parseHoldoutAssignmentQuery(datasource, "exq_multi", undefined),
-    ).toBe("user_id");
-  });
-
-  it("requires an identifier on an ambiguous query when asked to", () => {
-    expect(() =>
-      parseHoldoutAssignmentQuery(
-        datasource,
-        "exq_multi",
-        undefined,
-        "requireUnambiguous",
-      ),
-    ).toThrow("Set assignmentQuery.identifierType to choose one");
-  });
-
-  it("returns undefined when no query id is given", () => {
-    expect(
-      parseHoldoutAssignmentQuery(datasource, undefined, undefined),
-    ).toBeUndefined();
-  });
-
-  it("throws for an unknown query", () => {
-    expect(() =>
-      parseHoldoutAssignmentQuery(datasource, "exq_missing", undefined),
-    ).toThrow('Assignment query "exq_missing" doesn\'t exist');
-  });
-
-  it("throws for an identifier the query does not declare", () => {
-    expect(() =>
-      parseHoldoutAssignmentQuery(datasource, "exq_multi", "device_id"),
-    ).toThrow(
-      'Assignment query "Multi" doesn\'t declare the "device_id" identifier type',
-    );
   });
 });

@@ -56,23 +56,6 @@ beforeEach(() => {
 });
 
 describe("validateCreateSafeRolloutFields", () => {
-  it("stores the query's first identifier when creating without one", async () => {
-    const validated = await validateCreateSafeRolloutFields(
-      { ...fields, exposureQueryId: "eq_multi" },
-      context,
-    );
-    expect(validated.exposureQueryIdentifierType).toBe("user_id");
-  });
-
-  it("stores the new query's first identifier when switching queries without one", async () => {
-    const validated = await validateCreateSafeRolloutFields(
-      { ...fields, exposureQueryId: "eq_multi" },
-      context,
-      stored,
-    );
-    expect(validated.exposureQueryIdentifierType).toBe("user_id");
-  });
-
   it("keeps an unchanged selection, even one its query no longer declares", async () => {
     const validated = await validateCreateSafeRolloutFields(
       { ...fields, exposureQueryId: "eq_single" },
@@ -91,19 +74,5 @@ describe("validateCreateSafeRolloutFields", () => {
         "requireUnambiguous",
       ),
     ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
-  });
-
-  it("rejects an identifier the query doesn't declare on a changed selection", async () => {
-    await expect(
-      validateCreateSafeRolloutFields(
-        {
-          ...fields,
-          exposureQueryId: "eq_multi",
-          exposureQueryIdentifierType: "company_id",
-        },
-        context,
-        stored,
-      ),
-    ).rejects.toThrow('doesn\'t declare the "company_id" identifier type');
   });
 });

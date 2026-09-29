@@ -1542,8 +1542,6 @@ function sameStringArray(
   return left.length === right.length && left.every((v, i) => v === right[i]);
 }
 
-// Shared by both ramp models, which store the assignment selection nested in
-// the monitoring config.
 export function toMonitoringSelection(
   mc: Pick<
     RampMonitoringConfig,

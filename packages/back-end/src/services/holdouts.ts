@@ -358,28 +358,6 @@ export async function resolveHoldoutExperimentToLink({
   }
 }
 
-// Validates a holdout's assignment query selection and returns the identifier
-// to store; undefined when there's no query to select.
-export function parseHoldoutAssignmentQuery(
-  datasource: DataSourceInterface | null,
-  assignmentQueryId: string | undefined,
-  identifierType: string | undefined,
-  onOmitted: "defaultToFirst" | "requireUnambiguous" = "defaultToFirst",
-): string | undefined {
-  if (!assignmentQueryId) return undefined;
-  const parsed = parseAssignmentQuerySelection(
-    datasource?.settings?.queries?.exposure ?? [],
-    {
-      exposureQueryId: assignmentQueryId,
-      identifierType,
-      onOmitted,
-      field: "assignmentQuery",
-    },
-  );
-  if (!parsed.ok) throw new Error(parsed.error);
-  return parsed.identifierType;
-}
-
 export async function createHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
   data: CreateHoldoutInput,
@@ -401,12 +379,20 @@ export async function createHoldoutWithExperiment(
     secondaryMetrics: data.secondaryMetrics,
   });
 
-  const exposureQueryIdentifierType = parseHoldoutAssignmentQuery(
-    datasource,
-    data.assignmentQueryId,
-    data.assignmentQueryIdentifierType,
-    onOmitted,
-  );
+  let exposureQueryIdentifierType: string | undefined;
+  if (data.assignmentQueryId) {
+    const parsed = parseAssignmentQuerySelection(
+      datasource?.settings?.queries?.exposure ?? [],
+      {
+        exposureQueryId: data.assignmentQueryId,
+        identifierType: data.assignmentQueryIdentifierType,
+        onOmitted,
+        field: "assignmentQuery",
+      },
+    );
+    if (!parsed.ok) throw new Error(parsed.error);
+    exposureQueryIdentifierType = parsed.identifierType;
+  }
 
   const conditionResult = validateCondition(data.targetingCondition);
   if (!conditionResult.success) {
@@ -710,7 +696,6 @@ export async function updateHoldoutWithExperiment(
     });
 
     const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
-    // No query selected means no identifier to store.
     if (!effectiveQueryId) {
       assignmentQueryIdentifierType = undefined;
     } else {

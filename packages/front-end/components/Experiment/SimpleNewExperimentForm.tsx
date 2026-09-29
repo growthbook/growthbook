@@ -176,10 +176,7 @@ export function resolveTemplateAssignment({
     : { kind: "unavailable", identifierType };
 }
 
-// The identifier to analyze the auto-selected query on, in order: the
-// template's, one linked to the hash attribute, then the query's first. Each
-// must be declared by the query.
-export function getAutoExposureQueryIdentifierType({
+function getAutoExposureQueryIdentifierType({
   datasource,
   hashAttribute,
   exposureQueryId,

@@ -261,7 +261,6 @@ export function toExperimentSnapshotBulkResultsApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
-  // The snapshot's data source queries, to resolve a legacy identifier.
   exposureQueries: ExposureQuery[],
 ): ApiExperimentBulkResult[] {
   const defaultAnalysis = snapshot.analyses[0];

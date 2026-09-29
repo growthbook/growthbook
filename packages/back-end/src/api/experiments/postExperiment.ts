@@ -197,7 +197,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         {
           exposureQueryId: payload.assignmentQueryId,
           identifierType: payload.assignmentQueryIdentifierType,
-          // Only the grouped field must name an identifier when it's ambiguous.
           onOmitted: req.body.assignmentQuery
             ? "requireUnambiguous"
             : "defaultToFirst",
@@ -205,7 +204,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         },
       );
       if (!parsed.ok) {
-        // Template callers can't override the assignment query, so point them at the template.
         throw new Error(
           templateId
             ? `Template "${templateId}": ${parsed.error}. Update the template's assignment settings.`

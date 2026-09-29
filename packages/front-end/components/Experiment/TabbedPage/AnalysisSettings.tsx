@@ -18,7 +18,7 @@ import Text from "@/ui/Text";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
-import { getAssignmentQueryDrift } from "@/services/datasources";
+import { isIdentifierUndeclared } from "@/services/datasources";
 import { AssignmentQueryDriftIcon } from "@/components/Experiment/AssignmentQueryFields";
 
 export interface Props {
@@ -64,10 +64,6 @@ export default function AnalysisSettings({
   const identifierType = resolveAnalysisIdentifierType(
     assignmentQuery,
     experiment.exposureQueryIdentifierType,
-  );
-  const assignmentQueryDrift = getAssignmentQueryDrift(
-    assignmentQuery,
-    identifierType,
   );
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
@@ -200,7 +196,10 @@ export default function AnalysisSettings({
                 </Text>{" "}
                 <AssignmentQueryDriftIcon
                   selection={{
-                    ...assignmentQueryDrift,
+                    identifierUndeclared: isIdentifierUndeclared(
+                      assignmentQuery,
+                      identifierType,
+                    ),
                     identifierType,
                   }}
                 />

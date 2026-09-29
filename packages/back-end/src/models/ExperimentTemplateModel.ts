@@ -35,8 +35,7 @@ type ApiTemplateBody = {
 };
 
 // The API's grouped exposureQuery supersedes the deprecated exposureQueryId; the
-// model stays flat. Stores the identifier a new or changed selection resolves
-// to, so templates written over REST are never left implicit.
+// model stays flat.
 async function toTemplateWriteBody<T extends ApiTemplateBody>(
   context: ReqContext | ApiReqContext,
   body: T,

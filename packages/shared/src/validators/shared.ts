@@ -35,7 +35,6 @@ export const featurePrerequisite = z
   .strict();
 export type FeaturePrerequisite = z.infer<typeof featurePrerequisite>;
 
-// Groups an assignment query id with the identifier type analyzed on.
 export const savedGroupTargeting = z
   .object({
     match: z.enum(["all", "none", "any"]),

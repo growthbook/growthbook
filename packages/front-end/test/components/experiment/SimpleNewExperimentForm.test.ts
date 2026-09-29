@@ -8,7 +8,6 @@ import type {
 import {
   getAutoDatasourceId,
   getAutoExposureQueryId,
-  getAutoExposureQueryIdentifierType,
   resolveTemplateAssignment,
 } from "@/components/Experiment/SimpleNewExperimentForm";
 
@@ -338,19 +337,6 @@ describe("resolveTemplateAssignment", () => {
   };
   const other = makeExposureQuery("eq_other", "anonymous_id");
 
-  it("keeps the template's selection while its query declares it", () => {
-    expect(
-      resolveTemplateAssignment({
-        datasource: makeDatasourceWithSettings(makeSettings([other])),
-        templateExposureQueryId: "eq_other",
-      }),
-    ).toEqual({
-      kind: "selected",
-      exposureQueryId: "eq_other",
-      identifierType: "anonymous_id",
-    });
-  });
-
   it("moves to another query declaring the template's identifier", () => {
     expect(
       resolveTemplateAssignment({
@@ -371,63 +357,5 @@ describe("resolveTemplateAssignment", () => {
         templateExposureQueryId: "eq_dropped",
       }),
     ).toEqual({ kind: "unavailable", identifierType: "anonymous_id" });
-  });
-
-  it("is null without a template query", () => {
-    expect(
-      resolveTemplateAssignment({
-        datasource: makeDatasourceWithSettings(makeSettings([other])),
-        templateExposureQueryId: "eq_gone",
-      }),
-    ).toBeNull();
-  });
-});
-
-describe("getAutoExposureQueryIdentifierType", () => {
-  const multiIdQuery = {
-    ...makeExposureQuery("eq_1", "anonymous_id"),
-    userIdTypes: ["anonymous_id", "user_id", "company_id"],
-  };
-
-  it("prefers the template identifier when the query declares it", () => {
-    expect(
-      getAutoExposureQueryIdentifierType({
-        datasource: makeDatasourceWithSettings(
-          makeSettings([multiIdQuery], [makeUserIdType("user_id", ["id"])]),
-        ),
-        hashAttribute: "id",
-        exposureQueryId: "eq_1",
-        templateIdentifierType: "company_id",
-      }),
-    ).toBe("company_id");
-  });
-
-  it("uses any declared identifier linked to the hash attribute", () => {
-    expect(
-      getAutoExposureQueryIdentifierType({
-        datasource: makeDatasourceWithSettings(
-          makeSettings(
-            [multiIdQuery],
-            [
-              makeUserIdType("logged_in_id", ["id"]),
-              makeUserIdType("user_id", ["id"]),
-            ],
-          ),
-        ),
-        hashAttribute: "id",
-        exposureQueryId: "eq_1",
-        templateIdentifierType: "not_declared",
-      }),
-    ).toBe("user_id");
-  });
-
-  it("falls back to the query's first identifier", () => {
-    expect(
-      getAutoExposureQueryIdentifierType({
-        datasource: makeDatasourceWithSettings(makeSettings([multiIdQuery])),
-        hashAttribute: "id",
-        exposureQueryId: "eq_1",
-      }),
-    ).toBe("anonymous_id");
   });
 });

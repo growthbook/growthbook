@@ -2017,8 +2017,6 @@ export async function postExperiment(
     };
   }
 
-  // Drift on an unchanged selection is flagged by the form, not blocked here. A
-  // changed one stores its parsed identifier, so it's never left implicit.
   const nextSelection = {
     datasource: changes.datasource ?? experiment.datasource ?? "",
     exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
