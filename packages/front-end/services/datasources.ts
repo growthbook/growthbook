@@ -731,8 +731,6 @@ const LangfuseSchema: SchemaInterface = {
   userIdTypes: ["user_id", "session_id", "trace_id"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const idCol = LANGFUSE_ID_COLUMNS[userId] || LANGFUSE_ID_COLUMNS.user_id;
-    // No FINAL here: duplicate trace versions yield identical exposure rows,
-    // which GrowthBook's per-unit dedupe already collapses.
     return `SELECT
   ${idCol} AS ${userId},
   t.timestamp AS timestamp,
@@ -741,7 +739,7 @@ const LangfuseSchema: SchemaInterface = {
   t.name AS trace_name,
   t.release AS release,
   t.version AS version
-FROM ${tablePrefix}${LANGFUSE_TABLES.traces} AS t
+FROM ${tablePrefix}${LANGFUSE_TABLES.traces} AS t FINAL
 ARRAY JOIN t.tags AS tag
 WHERE
   startsWith(tag, '${TRACING_TAG_PREFIX}:')
@@ -757,7 +755,7 @@ WHERE
       query: `SELECT DISTINCT
   user_id,
   session_id
-FROM ${tablePrefix}${LANGFUSE_TABLES.traces}
+FROM ${tablePrefix}${LANGFUSE_TABLES.traces} FINAL
 WHERE
   is_deleted = 0
   AND user_id IS NOT NULL

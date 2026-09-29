@@ -3,17 +3,17 @@ import {
   SchemaFormat,
 } from "shared/types/datasource";
 import { ChangeEventHandler } from "react";
-import Field from "@/components/Forms/Field";
+import { Flex } from "@radix-ui/themes";
+import TextField from "@/ui/TextField";
 import { eventSchemas } from "@/services/eventSchema";
 
-// Only schemas whose options feed generated resources (fact tables, metrics)
-// are editable after creation. Options that only shape the initial SQL
-// (e.g. Segment's exposure table name) are baked in at creation time.
-const EDITABLE_OPTION_SCHEMAS: SchemaFormat[] = [
-  "amplitude",
-  "langfuse",
-  "phoenix",
-];
+// Only options that feed generated resources (fact tables, metrics) are
+// editable after creation; the rest only shape the initial exposure SQL.
+const EDITABLE_OPTIONS: Partial<Record<SchemaFormat, string[]>> = {
+  amplitude: ["projectId"],
+  langfuse: ["projectId"],
+  phoenix: ["projectName"],
+};
 
 export interface Props {
   datasource: Partial<DataSourceInterfaceWithParams>;
@@ -46,22 +46,20 @@ export default function EditSchemaOptions({
   };
 
   const schemaFormat = datasource.settings?.schemaFormat;
-  if (!schemaFormat || !EDITABLE_OPTION_SCHEMAS.includes(schemaFormat)) {
-    return null;
-  }
-  const schema = eventSchemas.find((s) => s.value === schemaFormat);
-  if (!schema?.options?.length) {
+  const editable = schemaFormat ? EDITABLE_OPTIONS[schemaFormat] : undefined;
+  const options = (
+    eventSchemas.find((s) => s.value === schemaFormat)?.options ?? []
+  ).filter((o) => editable?.includes(o.name));
+  if (!options.length) {
     return null;
   }
 
   return (
-    <div>
-      {schema.options.map(({ name, label, type, helpText }) => (
-        <Field
+    <Flex direction="column" gap="3">
+      {options.map(({ name, label, type, helpText }) => (
+        <TextField
           key={name}
-          size="legacy"
-          type={type}
-          className="form-control"
+          type={type === "number" ? "number" : "text"}
           name={name}
           label={label}
           helpText={helpText}
@@ -69,6 +67,6 @@ export default function EditSchemaOptions({
           onChange={onParamChange}
         />
       ))}
-    </div>
+    </Flex>
   );
 }

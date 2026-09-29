@@ -52,6 +52,24 @@ describe("tracingPlugin", () => {
     gb.destroy();
   });
 
+  it("replaces the tag when the same experiment is reassigned", () => {
+    const gb = new GrowthBook({
+      plugins: [tracingPlugin()],
+      attributes: { id: "123" },
+    });
+
+    const first = gb.run(exp);
+    let second = first;
+    for (let i = 0; second.key === first.key; i++) {
+      gb.setAttributes({ id: `other-${i}` });
+      second = gb.run(exp);
+    }
+
+    expect(getTracingTags(gb)).toEqual([`gb:my-experiment:${second.key}`]);
+
+    gb.destroy();
+  });
+
   it("returns tags sorted and copies them", () => {
     const gb = new GrowthBook({
       plugins: [tracingPlugin()],

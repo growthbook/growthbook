@@ -164,7 +164,6 @@ export const eventSchemas: eventSchema[] = [
       "databricks",
     ],
     logo: "/images/3rd-party-logos/fullstory.png",
-    beta: true,
     popular: true,
     helpLink:
       "https://help.fullstory.com/hc/en-us/articles/6295300682903-Data-Destinations",
@@ -337,11 +336,11 @@ export const eventSchemas: eventSchema[] = [
     options: [
       {
         name: "projectId",
-        label: "Langfuse project id",
+        label: "Langfuse project ID",
         defaultValue: "",
         type: "text",
         helpText:
-          "Found in Langfuse under Project Settings. Leave blank to include every project in the database.",
+          "Found in Langfuse under project settings. Leave blank to include every project in the database.",
       },
     ],
   },
@@ -357,7 +356,7 @@ export const eventSchemas: eventSchema[] = [
       {
         name: "projectName",
         label: "Phoenix project name",
-        defaultValue: "default",
+        defaultValue: "",
         type: "text",
         helpText:
           "The Phoenix project your traces are sent to. Leave blank to include every project.",

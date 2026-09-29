@@ -28,9 +28,9 @@ export type TracingPluginOptions = {
 
 const TAG_SEPARATOR = ":";
 
-// Tags recorded per instance. WeakMap so a destroyed or garbage-collected
-// instance does not pin its tag set in memory.
-const tagsByInstance = new WeakMap<object, Set<string>>();
+// Latest tag per experiment key, per instance. WeakMap so a destroyed or
+// garbage-collected instance does not pin its tags in memory.
+const tagsByInstance = new WeakMap<object, Map<string, string>>();
 
 export function tracingPlugin(options: TracingPluginOptions = {}) {
   const prefix = options.tagPrefix || TRACING_TAG_PREFIX;
@@ -42,7 +42,7 @@ export function tracingPlugin(options: TracingPluginOptions = {}) {
       return;
     }
 
-    const tags = new Set<string>();
+    const tags = new Map<string, string>();
     tagsByInstance.set(gb, tags);
 
     const unsubscribe = gb._subscribeExperimentViewed(
@@ -60,7 +60,8 @@ export function tracingPlugin(options: TracingPluginOptions = {}) {
         }
 
         const tag = [prefix, experimentKey, variationKey].join(TAG_SEPARATOR);
-        tags.add(tag);
+        // A reassignment replaces the old variation; keeping both would read as a multiple exposure.
+        tags.set(experimentKey, tag);
 
         if (options.onAssignment) {
           try {
@@ -90,10 +91,10 @@ export function tracingPlugin(options: TracingPluginOptions = {}) {
   };
 }
 
-// Sorted copy of every tag recorded for this instance so far.
+// Sorted current tag for each experiment this instance has assigned.
 export function getTracingTags(
   gb: GrowthBook | UserScopedGrowthBook,
 ): string[] {
   const tags = tagsByInstance.get(gb);
-  return tags ? Array.from(tags).sort() : [];
+  return tags ? Array.from(tags.values()).sort() : [];
 }
