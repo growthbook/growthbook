@@ -498,7 +498,7 @@ ul.sidebar-group > li[data-title="GrowthBook Guide"] {
 
 /* Mintlify markdown tables ship [&_td]:min-w-[150px] on every cell, which
    wraps identifier columns, making them unseemly. */
-table[class*="[&_td]:min-w-[150px]"] td:first-child {
+table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   max-width: 25%;
   overflow: hidden;
   text-overflow: ellipsis;
