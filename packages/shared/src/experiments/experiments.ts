@@ -2715,6 +2715,19 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
   );
 }
 
+export function isAutoSnapshotScheduled(
+  experiment: Pick<
+    ExperimentInterface,
+    "autoSnapshots" | "disableAutoSnapshots" | "archived"
+  >,
+): boolean {
+  return (
+    !!experiment.autoSnapshots &&
+    !experiment.disableAutoSnapshots &&
+    !experiment.archived
+  );
+}
+
 export async function generateTrackingKey<
   T = ExperimentInterface | ExperimentInterfaceStringDates,
 >(
