@@ -268,7 +268,9 @@ export function trackAIUsage({
       numRetriedTokensUsed,
       numCacheReadTokens,
       numCacheWriteTokens,
-      spendUsd,
+      // Rounded for readable analytics; float noise from summing prices is far below a cent.
+      spendUsd:
+        spendUsd === undefined ? undefined : Math.round(spendUsd * 1e8) / 1e8,
       usedDefaultPrompt,
       usedOwnKey,
       outcome,

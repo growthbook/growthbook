@@ -660,6 +660,9 @@ export const streamingChatCompletion = async ({
       }
     },
     onAbort: ({ steps }) => {
+      // Only finished steps report usage. The step cut off by the abort is
+      // still billed by the provider but isn't counted, so aborted spend is a
+      // lower bound.
       const usage = steps.reduce(
         (acc, step) =>
           addCompletionUsage(acc, completionUsageFromSdk(step.usage)),

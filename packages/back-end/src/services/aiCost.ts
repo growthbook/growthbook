@@ -51,6 +51,12 @@ export function estimateAICompletionUsd(
   model: string,
   usage: AICompletionUsage,
 ): number | undefined {
+  // No reported usage means unknown spend, not zero: an abort before the first
+  // step finishes is still billed for the tokens the provider processed.
+  if (usage.inputTokens === undefined && usage.outputTokens === undefined) {
+    return undefined;
+  }
+
   const provider =
     getProviderForAIModel("text", model) ??
     getProviderForAIModel("image", model) ??
