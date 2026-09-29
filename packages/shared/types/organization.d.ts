@@ -283,6 +283,8 @@ export interface OrganizationSettings {
   srmThreshold?: number;
   aiEnabled?: boolean;
   aiAskDataEnabled?: boolean;
+  // AI Assistant skill names turned off for this org, so new skills start enabled.
+  disabledAgentSkills?: string[];
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
   // Voice dictation. Unset resolves in getAISettingsForOrg.

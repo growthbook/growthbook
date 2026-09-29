@@ -374,7 +374,7 @@ describe("applyPatchToRule", () => {
     expect(result.enabled).toBe(true);
   });
 
-  it("does not overwrite unpatchd fields", () => {
+  it("does not overwrite unpatched fields", () => {
     const result = applyPatchToRule(base, { coverage: 0.9 });
     expect(result.condition).toBe(base.condition);
     expect(result.enabled).toBe(base.enabled);

@@ -1959,7 +1959,7 @@ describe("inferSimpleSchemaFromValue", () => {
       fields: [],
     });
   });
-  it("Inferes a primitive array", () => {
+  it("Infers a primitive array", () => {
     expect(
       inferSimpleSchemaFromValue(JSON.stringify(["test", "test2"])),
     ).toEqual({
@@ -2856,7 +2856,7 @@ describe("getRequireRegisteredAttributesSettings", () => {
   });
 });
 
-describe("check enviroments match", () => {
+describe("check environments match", () => {
   it("should find a environment match", () => {
     const environments = ["prod", "staging"];
     const reviewSetting = {

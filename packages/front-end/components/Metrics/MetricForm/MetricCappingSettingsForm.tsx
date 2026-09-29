@@ -27,14 +27,12 @@ function getCappingMode(cappingSettings: { type?: CappingType }): CappingMode {
 function LegacyMetricCappingSettingsFormContent({
   form,
   datasourceType,
-  metricType,
 }: {
   form: {
     watch: (path: string) => unknown;
     setValue: (path: string, value: unknown) => void;
   };
   datasourceType?: string;
-  metricType: string;
 }) {
   const cappingSettings = form.watch("cappingSettings") as
     | { type?: CappingType; value?: number; ignoreZeros?: boolean }
@@ -49,9 +47,7 @@ function LegacyMetricCappingSettingsFormContent({
 
   const cappingOptions = [
     { value: "", label: "No" },
-    ...(metricType !== "ratio" || mode === "absolute"
-      ? [{ value: "absolute", label: "Absolute capping" }]
-      : []),
+    { value: "absolute", label: "Absolute capping" },
     ...(datasourceType !== "mixpanel"
       ? [{ value: "percentile", label: "Percentile capping" }]
       : []),
@@ -165,6 +161,36 @@ function LegacyMetricCappingSettingsFormContent({
   );
 }
 
+// Ratio metrics cap the numerator and denominator independently, never the ratio.
+function getTailValueHelpText({
+  isLower,
+  isRatio,
+  cappingType,
+}: {
+  isLower: boolean;
+  isRatio: boolean;
+  cappingType: "absolute" | "percentile";
+}): string {
+  if (cappingType === "absolute") {
+    if (isLower) {
+      return isRatio
+        ? "Same floor for each user's aggregated numerator and denominator. Must be less than the ceiling when both use absolute capping. Does not cap the ratio."
+        : "Values below this are raised to this floor. Must be less than the ceiling when both use absolute capping.";
+    }
+    return isRatio
+      ? "Same maximum for each user's aggregated numerator and denominator. Does not cap the ratio."
+      : "Maximum aggregated value per user.";
+  }
+  if (isLower) {
+    return isRatio
+      ? "Quantile for the floor (e.g. 0.05), computed separately for the numerator and the denominator. Must be less than the upper percentile when both use percentile capping."
+      : "Quantile for the floor (e.g. 0.05). Must be less than the upper percentile when both use percentile capping.";
+  }
+  return isRatio
+    ? "Quantile for the ceiling (e.g. 0.99), computed separately for the numerator and the denominator."
+    : "Quantile for the ceiling (e.g. 0.99).";
+}
+
 /**
  * A single independent capping tail (upper or lower) for Fact Metrics. Each
  * tail has its own type selector and value, writing to its own settings object
@@ -195,9 +221,7 @@ function FactCappingTailEditor({
 
   const cappingOptions = [
     { value: "", label: "No" },
-    ...(metricType !== "ratio" || mode === "absolute"
-      ? [{ value: "absolute", label: "Absolute capping" }]
-      : []),
+    { value: "absolute", label: "Absolute capping" },
     ...(datasourceType !== "mixpanel"
       ? [{ value: "percentile", label: "Percentile capping" }]
       : []),
@@ -269,13 +293,11 @@ function FactCappingTailEditor({
       ? "Upper tail (ceiling)"
       : "Upper tail (ceiling percentile)";
 
-  const valueHelpText = isLower
-    ? mode === "absolute"
-      ? "Values below this are raised to this floor. Must be less than the ceiling when both use absolute capping."
-      : "Quantile for the floor (e.g. 0.05). Must be less than the upper percentile when both use percentile capping."
-    : mode === "absolute"
-      ? "Maximum aggregated value per user."
-      : "Quantile for the ceiling (e.g. 0.99).";
+  const valueHelpText = getTailValueHelpText({
+    isLower,
+    isRatio: metricType === "ratio",
+    cappingType: mode === "absolute" ? "absolute" : "percentile",
+  });
 
   const selectHelpText = isLower
     ? "Lower-tail winsorization: raise extreme low aggregated user values."
@@ -376,8 +398,8 @@ function FactMetricCappingSettingsFormContent({
 
 export function MetricCappingSettingsForm({
   form,
-  datasourceType,
   metricType,
+  datasourceType,
   /** Lower-tail winsorization is supported for Fact Metrics (SQL) only, not Legacy or Mixpanel. */
   allowLowerTailCapping = false,
 }: {
@@ -386,8 +408,8 @@ export function MetricCappingSettingsForm({
     getValues?: (path: string) => unknown;
     setValue: (path: string, value: unknown) => void;
   };
-  datasourceType?: string;
   metricType: string;
+  datasourceType?: string;
   allowLowerTailCapping?: boolean;
 }) {
   if (allowLowerTailCapping) {
@@ -400,8 +422,8 @@ export function MetricCappingSettingsForm({
             setValue: (path: string, value: unknown) => void;
           }
         }
-        datasourceType={datasourceType}
         metricType={metricType}
+        datasourceType={datasourceType}
       />
     );
   }
@@ -409,7 +431,6 @@ export function MetricCappingSettingsForm({
     <LegacyMetricCappingSettingsFormContent
       form={form}
       datasourceType={datasourceType}
-      metricType={metricType}
     />
   );
 }

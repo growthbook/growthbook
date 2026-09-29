@@ -1,11 +1,11 @@
-import type { DataType } from "shared/types/integrations";
 import { createLikeMatchFns } from "shared/sql";
+import type { DataType } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
-import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
 import {
   approxTopKCapacity,
   eligibleTopValueExpr,
-} from "back-end/src/integrations/sql/clauses/approx-top-values";
+} from "./clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const databricksEscapeStringLiteral = (value: string) =>
