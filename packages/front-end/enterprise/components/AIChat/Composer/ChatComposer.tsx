@@ -90,8 +90,6 @@ export interface ChatComposerProps {
   autocomplete?: boolean;
   /** Recent turns steer the continuation. */
   conversationId?: string;
-  /** Path the user is on, so suggestions can name the entity on screen. */
-  currentPage?: string;
 }
 
 type ActiveSuggestion =
@@ -152,7 +150,6 @@ function ChatComposer(
     skillItems,
     autocomplete = false,
     conversationId,
-    currentPage,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
 ) {
@@ -177,7 +174,6 @@ function ChatComposer(
     enabled:
       autocomplete && caretAtEnd && !loading && !disabled && !suggestionVisible,
     conversationId,
-    currentPage,
   });
   const ghost = suggestionVisible || !caretAtEnd ? "" : ghostText;
   const ghostId = useId();

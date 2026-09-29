@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";
 
 const DEBOUNCE_MS = 300;
@@ -30,15 +31,14 @@ export function useAutocomplete({
   text,
   enabled,
   conversationId,
-  currentPage,
 }: {
   text: string;
   enabled: boolean;
   conversationId?: string;
-  /** App path the user is on; lets "this experiment" resolve to a real one. */
-  currentPage?: string;
 }): { ghost: string; accept: () => void; dismiss: () => void } {
   const { apiCall } = useAuth();
+  // Same page hint the chat sends, so "this experiment" resolves to the one on screen.
+  const currentPage = useRouter().asPath.slice(0, 2048);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const pausedUntil = useRef(0);
   const current =
