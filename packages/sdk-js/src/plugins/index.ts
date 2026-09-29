@@ -1,6 +1,7 @@
 export { autoAttributesPlugin } from "./auto-attributes";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
+export { tracingPlugin, getTracingTags, TRACING_TAG_PREFIX } from "./tracing";
 export {
   devtoolsPlugin,
   devtoolsNextjsPlugin,
@@ -17,6 +18,7 @@ export type {
   TrackingTransport,
 } from "./growthbook-tracking";
 export type { Trackers } from "./third-party-tracking";
+export type { TracingAssignment, TracingPluginOptions } from "./tracing";
 export type {
   DevtoolsState,
   ExpressRequestCompat,

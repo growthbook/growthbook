@@ -94,6 +94,36 @@ GrowthBook comes with a number of built-in plugins that add additional functiona
 
 Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
 
+### Tracing
+
+The tracing plugin records every experiment assignment as a tag of the form `gb:<experimentKey>:<variationKey>` so you can attach it to an LLM trace in Langfuse, Arize Phoenix, or any OpenTelemetry-based tool. GrowthBook's Langfuse and Phoenix data source integrations read the tags back out of the trace to compute exposures. See [Experimenting on LLM Features](/integrations/llm-tracing) for the full setup and the plugin options in the [JavaScript SDK docs](/lib/js#tracing).
+
+Pass the plugin in the `GrowthBookClient` options. The shared client has no assignments of its own, so the plugin runs for each `createScopedInstance()` call and every scoped instance keeps its own tag set. Read the tags off the scoped instance with `getTracingTags()`.
+
+```js
+import { GrowthBookClient } from "@growthbook/growthbook";
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+
+const gbClient = new GrowthBookClient({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [tracingPlugin()],
+});
+await gbClient.init();
+
+app.post("/chat", async (req, res) => {
+  const scoped = gbClient.createScopedInstance({
+    attributes: { user_id: req.user.id },
+  });
+
+  // Evaluate flags first so the tags exist before the trace starts
+  const promptLabel = scoped.getFeatureValue("support-prompt", "production");
+  const tags = getTracingTags(scoped); // e.g. ["gb:support-prompt:prod-b"]
+
+  // Hand `tags` (and req.user.id as the user id) to your tracing SDK
+});
+```
+
 ### DevTools for back-end
 
 The [GrowthBook DevTools Browser Extension](/tools/chrome-extension) now supports debugging back-end environments. This includes sending overrides (attribute, feature, and experiment) from the browser extension to the back end, and also displaying back-end logged events (feature evaluations, experiment exposure events).

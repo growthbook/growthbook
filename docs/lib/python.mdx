@@ -920,6 +920,21 @@ client = GrowthBookClient(
 # Both the legacy callback and plugin will be triggered
 ```
 
+#### LLM tracing tags
+
+To run experiments on prompts or models and analyze them with Langfuse or Arize Phoenix data, tag each trace with the assignment in the form `gb:<experimentKey>:<variationKey>`. The Python SDK does not have a tracing plugin yet, so build the tag in your `on_experiment_viewed` callback and pass it to your tracing SDK (Langfuse `propagate_attributes(tags=...)` or OpenInference `using_attributes(tags=...)`) at the top of the traced request. Skip keys that contain `:`, since GrowthBook's exposure SQL splits the tag on that character.
+
+```python
+tags: list[str] = []
+
+def on_experiment_viewed(experiment, result, user_context):
+    if ":" in experiment.key or ":" in result.key:
+        return
+    tags.append(f"gb:{experiment.key}:{result.key}")
+```
+
+Keep the `tags` list scoped to a single request so one user's assignments do not leak onto another user's trace. See [Experimenting on LLM Features](/integrations/llm-tracing) for the full setup, including matching the tracer's user id to the GrowthBook hash attribute.
+
 ## Using Features
 
 There are 3 main methods for interacting with features.
