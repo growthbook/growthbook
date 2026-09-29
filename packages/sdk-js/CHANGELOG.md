@@ -3,6 +3,7 @@
 ## **1.7.1** - Unreleased
 
 - Add an option to disable feature usage events in the GrowthBook tracking plugin
+- New `tracing` plugin that records experiment assignments as `gb:<experiment>:<variation>` tags for LLM tracing tools (Langfuse, Arize Phoenix, OpenTelemetry), plus an internal experiment-viewed subscription stream for plugins
 
 ## **1.7.0** - Aug 7, 2026
 
