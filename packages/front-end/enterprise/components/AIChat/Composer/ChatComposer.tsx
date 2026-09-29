@@ -2,6 +2,7 @@ import React, {
   forwardRef,
   useCallback,
   useEffect,
+  useId,
   useImperativeHandle,
   useRef,
   useState,
@@ -12,7 +13,7 @@ import Paragraph from "@tiptap/extension-paragraph";
 import TextNode from "@tiptap/extension-text";
 import HardBreak from "@tiptap/extension-hard-break";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Kbd, VisuallyHidden } from "@radix-ui/themes";
 import { PiArrowRightBold, PiStop } from "react-icons/pi";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention } from "shared/ai-chat";
@@ -167,6 +168,7 @@ function ChatComposer(
     conversationId,
   });
   const ghost = suggestionVisible ? "" : ghostText;
+  const ghostId = useId();
 
   const hideCardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Read by the editor's Enter handler, which is configured before dictation exists.
@@ -318,6 +320,9 @@ function ChatComposer(
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": "Chat message",
+        ...(ghost
+          ? { "aria-describedby": ghostId, "aria-keyshortcuts": "Tab" }
+          : {}),
         ...(suggestionVisible
           ? {
               "aria-expanded": "true",
@@ -346,7 +351,15 @@ function ChatComposer(
           }
           return false;
         }
-        if (ghost && event.key === "Tab") {
+        // Plain Tab only: Shift+Tab and modifier combos keep moving focus.
+        if (
+          ghost &&
+          event.key === "Tab" &&
+          !event.shiftKey &&
+          !event.ctrlKey &&
+          !event.altKey &&
+          !event.metaKey
+        ) {
           const { selection, doc } = view.state;
           const end = docEnd(doc);
           // Same condition the ghost is drawn under: a caret at the very end.
@@ -483,6 +496,16 @@ function ChatComposer(
   );
   const buttons = (
     <>
+      {ghost && (
+        <Kbd
+          size="1"
+          className={styles.ghostHint}
+          title="Accept suggestion"
+          aria-hidden="true"
+        >
+          Tab
+        </Kbd>
+      )}
       {dictateButton}
       {sendButton}
     </>
@@ -509,6 +532,11 @@ function ChatComposer(
       onMouseLeave={scheduleHideCard}
     >
       <TokenHoverCard hovered={hoveredToken} cardRef={cardRef} />
+      {ghost && (
+        <VisuallyHidden id={ghostId} role="status">
+          Suggestion: {ghost}. Press Tab to accept.
+        </VisuallyHidden>
+      )}
       {suggestionVisible && suggestion && (
         <SuggestionList
           items={rows}

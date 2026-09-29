@@ -55,10 +55,11 @@
       color: var(--gray-a9);
     }
 
+    // A sentence to read, not a hint: the low-contrast text step, not the placeholder's.
     p[data-ghost]::after {
       content: attr(data-ghost);
       pointer-events: none;
-      color: var(--gray-a9);
+      color: var(--gray-11);
       white-space: pre-wrap;
     }
   }
@@ -188,6 +189,12 @@
   display: flex;
   align-items: center;
   line-height: 0;
+}
+
+// Sits beside the 30px buttons; the margin roughly centers it on them.
+.ghostHint {
+  flex-shrink: 0;
+  margin-bottom: 5px;
 }
 
 .sendButton,
