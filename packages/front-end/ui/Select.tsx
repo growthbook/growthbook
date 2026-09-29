@@ -74,7 +74,10 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         size={radixSize(size)}
         disabled={disabled}
         value={value}
-        onValueChange={setValue}
+        // Radix's hidden form <select> reports "" when a value beats its option
+        onValueChange={(v) => {
+          if (v) setValue(v);
+        }}
       >
         <RadixSelect.Trigger
           autoFocus={autoFocus}

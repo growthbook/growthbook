@@ -11,7 +11,6 @@ describe("mapDatabaseTypeToEnum", () => {
     expect(mapDatabaseTypeToEnum(input)).toBe(expected);
   });
 
-  // Their inner types would otherwise read as a number or string
   it.each([
     "STRUCT<category STRING, time_zone_offset_seconds INT64>",
     "ARRAY<STRUCT<key STRING, value STRUCT<int_value INT64>>>",

@@ -1,7 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiArrowLeft, PiPlus, PiX } from "react-icons/pi";
+import {
+  PiArrowLeft,
+  PiCaretDown,
+  PiCaretUp,
+  PiClockBold,
+  PiColumnsBold,
+  PiFunnelBold,
+  PiMagnifyingGlass,
+  PiPlus,
+  PiUserBold,
+  PiX,
+} from "react-icons/pi";
 import {
   CreateFactTableProps,
   DetectedFactTableColumn,
@@ -24,6 +42,7 @@ import {
   columnTypesToColumnSource,
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
+import SelectField from "@/components/Forms/SelectField";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
@@ -34,10 +53,10 @@ import {
   getDefaultTimestampColumn,
   getNewFactTableProjects,
   getPartitionFilterColumn,
-  getPickerSelectionError,
-  getPickerTableError,
+  getPickerTableColumns,
   getPickerTableName,
   getPickerTableSql,
+  isGA4EventsTable,
   isIdentifierCandidate,
   isTimestampCandidate,
 } from "@/services/factTables";
@@ -49,6 +68,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import TextField from "@/ui/TextField";
 import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
+import { Popover } from "@/ui/Popover";
 import RadioGroup from "@/ui/RadioGroup";
 import { Select, SelectItem } from "@/ui/Select";
 import Table, { TableBody, TableCell, TableRow } from "@/ui/Table";
@@ -68,16 +89,44 @@ const INLINE_FILTER_CANDIDATES = [
   "se_action",
 ];
 
+const TABLE_TYPES: {
+  value: FactTableType;
+  label: string;
+  description?: string;
+}[] = [
+  {
+    value: "model",
+    label: "Model",
+    description:
+      "Table for one specific object type: orders, signups, sessions, etc.",
+  },
+  {
+    value: "event",
+    label: "Event stream",
+    description: "Many event types differentiated by a column like event_name",
+  },
+  {
+    value: "rollup",
+    label: "Daily rollup",
+    description: "Pre-aggregated, one row per user per day",
+  },
+  { value: "other", label: "Other / unknown" },
+];
+
+const MANY_COLUMNS = 50;
+
 const validColumn = (options: DetectedFactTableColumn[], column: string) =>
   options.some((c) => c.column === column) ? column : "";
 
 function MappingRow({
+  icon,
   label,
   value,
   options,
   setValue,
   onRemove,
 }: {
+  icon: ReactNode;
   label: string;
   value: string;
   options: DetectedFactTableColumn[];
@@ -89,10 +138,13 @@ function MappingRow({
 
   return (
     <TableRow align="center">
-      <TableCell style={{ width: "50%" }}>
-        <Text size="sm" weight="medium">
-          {label}
-        </Text>
+      <TableCell style={{ width: "40%" }}>
+        <Flex align="center" gap="2">
+          {icon}
+          <Text size="sm" weight="medium">
+            {label}
+          </Text>
+        </Flex>
       </TableCell>
       {selected || adding || !onRemove ? (
         <>
@@ -148,6 +200,202 @@ function MappingRow({
   );
 }
 
+function AdditionalColumnsRow({
+  value,
+  setValue,
+  options,
+  columnTypes,
+}: {
+  value: string[];
+  setValue: (value: string[]) => void;
+  options: string[];
+  columnTypes: Record<string, string>;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [search, setSearch] = useState("");
+  const removed = options.filter((c) => !value.includes(c));
+  const query = search.trim().toLowerCase();
+  const shown = removed.filter((c) => c.toLowerCase().includes(query));
+  const open = adding && removed.length > 0;
+  const count = removed.length
+    ? `${value.length} of ${options.length} columns`
+    : `${options.length} columns`;
+  const add = (columns: string[]) => {
+    setValue(options.filter((c) => value.includes(c) || columns.includes(c)));
+    setSearch("");
+    if (columns.length === removed.length) setAdding(false);
+  };
+
+  return (
+    <TableRow align="start">
+      <TableCell>
+        <Flex align="center" gap="2" height="24px">
+          <PiColumnsBold />
+          <Text size="sm" weight="medium">
+            additional columns
+          </Text>
+        </Flex>
+      </TableCell>
+      <TableCell>
+        <Flex direction="column" gap="2">
+          <Flex
+            wrap="wrap"
+            gap="1"
+            p="1"
+            style={{
+              maxHeight: 168,
+              overflowY: "auto",
+              border: "1px solid var(--gray-a7)",
+              borderRadius: "var(--radius-2)",
+            }}
+          >
+            {value.length ? (
+              value.map((c) => (
+                <Badge
+                  key={c}
+                  size="xs"
+                  variant="soft"
+                  label={
+                    <Flex align="center" gap="1">
+                      {c}
+                      <IconButton
+                        type="button"
+                        variant="ghost"
+                        size="1"
+                        aria-label={`Remove ${c}`}
+                        onClick={() => setValue(value.filter((v) => v !== c))}
+                        style={{
+                          margin: 0,
+                          width: 12,
+                          height: 12,
+                          padding: "2px 0",
+                        }}
+                      >
+                        <PiX size={10} />
+                      </IconButton>
+                    </Flex>
+                  }
+                />
+              ))
+            ) : (
+              <Text size="sm" color="text-low" fontStyle="italic">
+                none
+              </Text>
+            )}
+          </Flex>
+          <Flex align="center" justify="between" gap="2">
+            {removed.length ? (
+              <Popover
+                open={open}
+                onOpenChange={(next) => {
+                  setAdding(next);
+                  setSearch("");
+                }}
+                side="bottom"
+                align="start"
+                showArrow={false}
+                contentStyle={{ padding: 0, width: 320 }}
+                trigger={
+                  <Link size="sm">
+                    <Flex align="center" gap="1">
+                      {count}
+                      {open ? <PiCaretUp /> : <PiCaretDown />}
+                    </Flex>
+                  </Link>
+                }
+                content={
+                  <>
+                    <Box
+                      p="2"
+                      style={{ borderBottom: "1px solid var(--gray-a4)" }}
+                    >
+                      <TextField
+                        size="sm"
+                        type="search"
+                        aria-label="Filter removed columns"
+                        placeholder={
+                          value.length
+                            ? "Filter removed columns"
+                            : `Filter ${options.length} columns`
+                        }
+                        prepend={<PiMagnifyingGlass />}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        autoFocus
+                      />
+                    </Box>
+                    <Flex
+                      direction="column"
+                      p="1"
+                      style={{ maxHeight: 216, overflowY: "auto" }}
+                    >
+                      {shown.length ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={<PiPlus />}
+                            m="0"
+                            style={{ justifyContent: "flex-start" }}
+                            onClick={() => add(shown)}
+                          >
+                            {query
+                              ? `Add all ${shown.length} matching "${search.trim()}"`
+                              : `Add all ${shown.length}${value.length ? " back" : ""}`}
+                          </Button>
+                          {shown.map((c) => (
+                            <Button
+                              key={c}
+                              variant="ghost"
+                              color="gray"
+                              size="sm"
+                              m="0"
+                              style={{ justifyContent: "space-between" }}
+                              icon={
+                                <Text size="sm" color="text-low">
+                                  {columnTypes[c]}
+                                </Text>
+                              }
+                              iconPosition="right"
+                              onClick={() => add([c])}
+                            >
+                              {c}
+                            </Button>
+                          ))}
+                        </>
+                      ) : (
+                        <Text size="sm" color="text-low" align="center" my="2">
+                          No columns match &quot;{search.trim()}&quot;
+                        </Text>
+                      )}
+                    </Flex>
+                  </>
+                }
+              />
+            ) : (
+              <Text size="sm" color="text-low">
+                {count}
+              </Text>
+            )}
+            {value.length ? (
+              <Link
+                size="sm"
+                onClick={() => {
+                  setValue([]);
+                  setAdding(false);
+                }}
+              >
+                Remove all
+              </Link>
+            ) : null}
+          </Flex>
+        </Flex>
+      </TableCell>
+      <TableCell style={{ width: "40px" }} />
+    </TableRow>
+  );
+}
+
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
 export default function NewFactTableModal({ close }: { close: () => void }) {
@@ -165,13 +413,12 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
         .datasource,
   );
   const [sql, setSql] = useState("");
-  const [mode, setMode] = useState<FactTableSqlMode>("table");
+  const [preferredMode, setMode] = useState<FactTableSqlMode>("table");
   const [selectedTable, setSelectedTable] = useState<SchemaBrowserTable | null>(
     null,
   );
   const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
-  // Empty selects every column
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [removedColumns, setRemovedColumns] = useState<string[]>([]);
 
   const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
     null,
@@ -186,8 +433,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   const [tableType, setTableType] = useState<FactTableType>("event");
 
   const validateSql = useRef<(() => Promise<void>) | null>(null);
-  // Last name filled in from a table, so a typed name is never replaced
-  const autoName = useRef("");
 
   // Keyed off a ref so a background definitions refresh can't wipe user edits.
   const seededDatasource = useRef<string | null>(null);
@@ -199,25 +444,30 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     setSql(getInitialFactTableQuery(datasource).sql);
     setSelectedTable(null);
     setRowFilters([]);
-    setSelectedColumns([]);
+    setRemovedColumns([]);
   }, [datasourceId, getDatasourceById]);
 
   const datasource = getDatasourceById(datasourceId);
-  const canPickTable = !!datasource?.properties?.supportsInformationSchema;
-  const sqlMode = canPickTable ? mode : "sql";
+  const mode = datasource?.properties?.supportsInformationSchema
+    ? preferredMode
+    : "sql";
 
   const selectTable = (table: SchemaBrowserTable) => {
     if (table.id === selectedTable?.id) return;
-    const tableName = getPickerTableName(table);
+    if (
+      !name ||
+      (selectedTable && name === getPickerTableName(selectedTable))
+    ) {
+      setName(getPickerTableName(table));
+    }
     setSelectedTable(table);
     setRowFilters([]);
-    setSelectedColumns([]);
-    // Otherwise handleColumnsDetected keeps the last table's mappings
+    setRemovedColumns([]);
+    // Otherwise the previous table's mappings carry over
     setDetected(null);
     setTimestampColumn("");
     setUserIdColumns({});
-    setName((prev) => (!prev || prev === autoName.current ? tableName : prev));
-    autoName.current = tableName;
+    setInlineFilterColumn("");
   };
   const identifierTypes = (datasource?.settings?.userIdTypes || []).map(
     (t) => t.userIdType,
@@ -244,7 +494,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     });
 
   const handleColumnsDetected = useCallback(
-    (columns: DetectedFactTableColumn[], ranSql: string) => {
+    (columns: DetectedFactTableColumn[], ranSql: string | null) => {
       setDetectedSql(ranSql);
       setDetected(columns);
 
@@ -283,6 +533,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           }),
         ),
       );
+      if (exists(inlineFilterColumn)) return;
       const eventTypeColumn =
         INLINE_FILTER_CANDIDATES.find((candidate) =>
           columns.some(
@@ -292,7 +543,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       setInlineFilterColumn(eventTypeColumn);
       setTableType(eventTypeColumn ? "event" : "model");
     },
-    [detected, datasource],
+    [detected, datasource, inlineFilterColumn],
   );
 
   const { data: tableData, error: tableDataError } = useApi<{
@@ -301,7 +552,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     shouldRun: () => !!selectedTable,
   });
   const tableColumns = tableData?.table.columns ?? null;
-  const tableColumnsLoading = !!selectedTable && !tableData && !tableDataError;
 
   const columnTypes = useMemo(
     () =>
@@ -313,12 +563,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       ),
     [tableColumns],
   );
-  const columnNames = useMemo(
-    () => tableColumns?.map((c) => c.columnName) ?? null,
-    [tableColumns],
-  );
-  // Complex types (STRUCT, ARRAY, JSON) can't be compared with a literal, so
-  // filters only offer primitive columns. A SQL filter covers the rest.
+  // Complex types can't be compared with a literal, so filters leave them out
   const columnSource = useMemo(
     () =>
       tableColumns
@@ -330,6 +575,37 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
         : null,
     [tableColumns, columnTypes],
   );
+
+  // Table mode reads columns from the information schema instead of querying
+  const pickerColumns = useMemo(
+    () =>
+      selectedTable && tableColumns
+        ? getPickerTableColumns(selectedTable, tableColumns)
+        : null,
+    [selectedTable, tableColumns],
+  );
+  useEffect(() => {
+    if (mode === "table" && pickerColumns) {
+      handleColumnsDetected(pickerColumns, null);
+    }
+  }, [mode, pickerColumns, handleColumnsDetected]);
+
+  const columnNames = (tableColumns ?? []).map((c) => c.columnName);
+  const mappedColumns = [
+    timestampColumn,
+    tableType === "event" ? inlineFilterColumn : "",
+    ...Object.values(userIdColumns),
+  ].filter(Boolean);
+  const otherColumns = columnNames.filter((c) => !mappedColumns.includes(c));
+  const additionalColumns = otherColumns.filter(
+    (c) => !removedColumns.includes(c),
+  );
+  const sqlColumns =
+    additionalColumns.length === otherColumns.length
+      ? []
+      : columnNames.filter(
+          (c) => mappedColumns.includes(c) || additionalColumns.includes(c),
+        );
 
   const dialect = datasource ? getDataSourceSqlDialect(datasource.type) : null;
   const compileRowFilters = (filters: RowFilter[]) => {
@@ -375,7 +651,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           partitionColumn: getPartitionFilterColumn(tableColumns ?? []),
           datasourceType: datasource?.type,
           identifierQuote: dialect?.identifierQuote,
-          columns: selectedColumns,
+          columns: sqlColumns,
           rowFilterWhere: where,
         })
       : "";
@@ -393,7 +669,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     });
     return { ...res, where };
   };
-  const factTableSql = sqlMode === "table" ? tableSql : sql;
+  const factTableSql = mode === "table" ? tableSql : sql;
 
   const changeMode = (next: FactTableSqlMode) => {
     if (next === "sql" && selectedTable) setSql(tableSql);
@@ -402,16 +678,13 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
 
   const hasFreshResults = detectedSql === factTableSql && !!detected?.length;
   const columnError =
-    hasFreshResults && detected
-      ? getColumnMappingError(detected, sqlMode === "table")
-      : sqlMode === "table" && selectedTable && tableColumns
-        ? getPickerTableError(selectedTable, tableColumns)
+    mode === "table"
+      ? pickerColumns
+        ? getColumnMappingError(pickerColumns, true)
+        : null
+      : hasFreshResults && detected
+        ? getColumnMappingError(detected)
         : null;
-  // Shown under the column selector rather than with the table's errors
-  const selectionError =
-    sqlMode === "table" && selectedTable && tableColumns
-      ? getPickerSelectionError(selectedTable, tableColumns, selectedColumns)
-      : null;
 
   async function submit() {
     if (!detected) throw new Error("Test your SQL first");
@@ -441,6 +714,11 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
         .map((t) => [t, userIdColumns[t]]),
     );
 
+    const columns =
+      mode === "table" && sqlColumns.length
+        ? detected.filter((c) => sqlColumns.includes(c.column))
+        : detected;
+
     const body: CreateFactTableProps = {
       name,
       description: "",
@@ -458,15 +736,13 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       userIdTypes,
       ...(Object.keys(remapped).length ? { userIdColumns: remapped } : {}),
       timestampColumn: timestamp,
-      columns: detected.map((col) => ({
+      columns: columns.map((col) => ({
         column: col.column,
         datatype: col.datatype,
         ...(col.jsonFields ? { jsonFields: col.jsonFields } : {}),
         ...(col.column === inlineFilter ? { alwaysInlineFilter: true } : {}),
       })),
-      // Types here come from a handful of sample rows. A background refresh
-      // fills in anything we couldn't detect, plus the top values that power
-      // inline filter dropdowns.
+      // A background refresh re-detects types and loads inline filter values
       columnRefreshPending: true,
     };
 
@@ -484,6 +760,67 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     router.push(`/fact-tables/${factTable.id}`);
   }
 
+  const nameField = (
+    <TextField
+      label="Fact Table name"
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      required
+      autoFocus
+    />
+  );
+
+  const rollupWarning = (
+    <Callout status="warning" size="sm">
+      Pre-aggregated tables require some trade-offs.{" "}
+      <DocLink docSection="preAggregatedTables">View docs</DocLink>
+    </Callout>
+  );
+
+  const mappingTable = (additionalRow?: ReactNode) => (
+    <Table size="sm" variant="surface" layout="fixed" mb="2">
+      <TableBody>
+        <MappingRow
+          icon={<PiClockBold />}
+          label="timestamp"
+          value={timestampColumn}
+          options={timestampOptions}
+          setValue={setTimestampColumn}
+        />
+        {tableType === "event" ? (
+          <MappingRow
+            icon={<PiFunnelBold />}
+            label="event_name"
+            value={inlineFilterColumn}
+            options={inlineFilterOptions}
+            setValue={setInlineFilterColumn}
+            onRemove={() => setInlineFilterColumn("")}
+          />
+        ) : null}
+        {identifierTypes.map((idType) => (
+          <MappingRow
+            key={idType}
+            icon={<PiUserBold />}
+            label={idType}
+            value={userIdColumns[idType] || ""}
+            options={identifierOptions}
+            setValue={(v) => {
+              setUserIdColumns((prev) => ({
+                ...prev,
+                [idType]: v,
+              }));
+              if (v === inlineFilterColumn) setInlineFilterColumn("");
+            }}
+            onRemove={() => removeIdentifier(idType)}
+          />
+        ))}
+        {additionalRow}
+      </TableBody>
+    </Table>
+  );
+
+  const isGA4 = !!selectedTable && isGA4EventsTable(selectedTable);
+
   return (
     <PagedModal
       trackingEventModalType="new-fact-table"
@@ -493,17 +830,11 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       submit={submit}
       close={close}
       cta="Create Fact Table"
-      size={step === 0 && sqlMode === "sql" ? "max" : "md"}
-      // Table mode waits for columns, since they can add the partition filter,
-      // and for complete row filters
+      size={step === 0 && mode === "sql" ? "max" : "md"}
       ctaEnabled={
         step > 0 ||
         (!columnError &&
-          !selectionError &&
-          (sqlMode === "sql" ||
-            (!!selectedTable &&
-              !tableColumnsLoading &&
-              rowFilterWhere !== null)))
+          (mode === "sql" || (!!pickerColumns && rowFilterWhere !== null)))
       }
       overflowAuto={false}
       autoFocusSelector=""
@@ -519,9 +850,14 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       >
         <Box
           p="2"
-          style={sqlMode === "sql" ? { height: BODY_HEIGHT } : undefined}
+          style={
+            mode === "sql"
+              ? { height: BODY_HEIGHT }
+              : { maxHeight: BODY_HEIGHT, overflowY: "auto" }
+          }
         >
           <NewFactTableSqlStep
+            key={mode}
             datasourceId={datasourceId}
             setDatasourceId={setDatasourceId}
             sql={factTableSql}
@@ -530,21 +866,17 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
             hasFreshResults={hasFreshResults}
             onColumnsDetected={handleColumnsDetected}
             validateRef={validateSql}
-            mode={sqlMode}
+            mode={mode}
             setMode={changeMode}
             columnError={columnError}
-            selectionError={selectionError}
             selectedTable={selectedTable}
             onSelectTable={selectTable}
             tableColumnsError={tableDataError?.message ?? null}
             rowFilters={rowFilters}
             setRowFilters={setRowFilters}
             columnSource={columnSource}
-            columnNames={columnNames}
             testRowFilters={testRowFilters}
             rowFilterError={rowFilterError}
-            selectedColumns={selectedColumns}
-            setSelectedColumns={setSelectedColumns}
           />
         </Box>
       </Page>
@@ -556,128 +888,149 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           style={{ maxHeight: BODY_HEIGHT, overflowY: "auto" }}
         >
           <Flex direction="column" gap="2">
-            {sqlMode === "table" && selectedTable ? (
-              <Box pb="2">
-                <TextField
-                  label="Table"
-                  value={`${selectedTable.schemaName}.${selectedTable.tableName}`}
-                  readOnly
-                  append={<Link onClick={() => setStep(0)}>Change</Link>}
-                />
-              </Box>
-            ) : (
-              <Code
-                language="sql"
-                code={factTableSql}
-                expandable
-                collapsedLines={3}
-                filename={
-                  <Link onClick={() => setStep(0)}>
-                    <Flex align="center" gap="1">
-                      <PiArrowLeft /> Edit SQL
-                    </Flex>
-                  </Link>
-                }
-              />
-            )}
-            <TextField
-              label="Fact Table name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              autoFocus
-            />
-
-            <Box pt="2">
-              <Text as="div" weight="semibold" mb="2">
-                Table type
-              </Text>
-              <RadioGroup
-                value={tableType}
-                setValue={(v) => setTableType(v as FactTableType)}
-                gap="1"
-                mb="2"
-                options={[
-                  {
-                    value: "model",
-                    label: "Model",
-                    description:
-                      "Table for one specific object type: orders, signups, sessions, etc.",
-                  },
-                  {
-                    value: "event",
-                    label: "Event stream",
-                    description: (
-                      <>
-                        Many event types differentiated by a column like{" "}
-                        <strong>event_name</strong>
-                      </>
-                    ),
-                  },
-                  {
-                    value: "rollup",
-                    label: "Daily rollup",
-                    description: "Pre-aggregated, one row per user per day",
-                    renderOutsideItem: true,
-                    renderOnSelect: (
-                      <Box ml="5" mb="1">
-                        <Callout status="warning" size="sm">
-                          Pre-aggregated tables require some trade-offs.{" "}
-                          <DocLink docSection="preAggregatedTables">
-                            View docs
-                          </DocLink>
-                        </Callout>
-                      </Box>
-                    ),
-                  },
-                  {
-                    value: "other",
-                    label: "Other / unknown",
-                  },
-                ]}
-              />
-            </Box>
-
-            <Box>
-              <Text as="div" weight="semibold" mb="2">
-                Column mapping
-              </Text>
-              <Table size="sm" variant="surface" layout="fixed" mb="2">
-                <TableBody>
-                  <MappingRow
-                    label="timestamp"
-                    value={timestampColumn}
-                    options={timestampOptions}
-                    setValue={setTimestampColumn}
+            {mode === "table" && selectedTable ? (
+              <>
+                <Box pb="2">
+                  <TextField
+                    label="Table"
+                    value={selectedTable.path.replace(/`/g, "")}
+                    readOnly
+                    append={<Link onClick={() => setStep(0)}>Change</Link>}
                   />
-                  {tableType === "event" ? (
-                    <MappingRow
-                      label="event_name"
-                      value={inlineFilterColumn}
-                      options={inlineFilterOptions}
-                      setValue={setInlineFilterColumn}
-                      onRemove={() => setInlineFilterColumn("")}
-                    />
+                </Box>
+                {nameField}
+
+                <Box pt="2">
+                  <SelectField
+                    label="Table type"
+                    legacyLabelFormatting={false}
+                    value={tableType}
+                    onChange={(v) => setTableType(v as FactTableType)}
+                    options={TABLE_TYPES}
+                    formatOptionLabel={({ value, label }, { context }) => {
+                      const description = TABLE_TYPES.find(
+                        (t) => t.value === value,
+                      )?.description;
+                      return (
+                        <Box py={context === "value" ? "1" : undefined}>
+                          <Text as="div">{label}</Text>
+                          {description ? (
+                            <Text as="div" size="sm" color="text-low">
+                              {description}
+                            </Text>
+                          ) : null}
+                        </Box>
+                      );
+                    }}
+                    size="small"
+                    sort={false}
+                    isSearchable={false}
+                  />
+                </Box>
+                {tableType === "rollup" ? rollupWarning : null}
+
+                <Box pt="2">
+                  <Text as="div" weight="semibold" mb="2">
+                    Column mapping
+                  </Text>
+                  {mappingTable(
+                    isGA4 ? null : (
+                      <AdditionalColumnsRow
+                        value={additionalColumns}
+                        setValue={(kept) =>
+                          setRemovedColumns(
+                            otherColumns.filter((c) => !kept.includes(c)),
+                          )
+                        }
+                        options={otherColumns}
+                        columnTypes={columnTypes}
+                      />
+                    ),
+                  )}
+                  {isGA4 ? (
+                    <Callout status="info" size="sm">
+                      GA4 events table detected. Common columns were selected
+                      automatically.
+                    </Callout>
+                  ) : !sqlColumns.length &&
+                    otherColumns.length > MANY_COLUMNS ? (
+                    <Callout status="info" size="sm">
+                      For the best experience, only select the specific columns
+                      that you need.
+                    </Callout>
                   ) : null}
-                  {identifierTypes.map((idType) => (
-                    <MappingRow
-                      key={idType}
-                      label={idType}
-                      value={userIdColumns[idType] || ""}
-                      options={identifierOptions}
-                      setValue={(v) => {
-                        setUserIdColumns((prev) => ({
-                          ...prev,
-                          [idType]: v,
-                        }));
-                        if (v === inlineFilterColumn) setInlineFilterColumn("");
-                      }}
-                      onRemove={() => removeIdentifier(idType)}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
+                </Box>
+              </>
+            ) : (
+              <>
+                <Code
+                  language="sql"
+                  code={factTableSql}
+                  expandable
+                  collapsedLines={3}
+                  filename={
+                    <Link onClick={() => setStep(0)}>
+                      <Flex align="center" gap="1">
+                        <PiArrowLeft /> Edit SQL
+                      </Flex>
+                    </Link>
+                  }
+                />
+                {nameField}
+
+                <Box pt="2">
+                  <Text as="div" weight="semibold" mb="2">
+                    Table type
+                  </Text>
+                  <RadioGroup
+                    value={tableType}
+                    setValue={(v) => setTableType(v as FactTableType)}
+                    gap="1"
+                    mb="2"
+                    options={[
+                      {
+                        value: "model",
+                        label: "Model",
+                        description:
+                          "Table for one specific object type: orders, signups, sessions, etc.",
+                      },
+                      {
+                        value: "event",
+                        label: "Event stream",
+                        description: (
+                          <>
+                            Many event types differentiated by a column like{" "}
+                            <strong>event_name</strong>
+                          </>
+                        ),
+                      },
+                      {
+                        value: "rollup",
+                        label: "Daily rollup",
+                        description: "Pre-aggregated, one row per user per day",
+                        renderOutsideItem: true,
+                        renderOnSelect: (
+                          <Box ml="5" mb="1">
+                            {rollupWarning}
+                          </Box>
+                        ),
+                      },
+                      {
+                        value: "other",
+                        label: "Other / unknown",
+                      },
+                    ]}
+                  />
+                </Box>
+
+                <Box>
+                  <Text as="div" weight="semibold" mb="2">
+                    Column mapping
+                  </Text>
+                  {mappingTable()}
+                </Box>
+              </>
+            )}
           </Flex>
         </Box>
       </Page>

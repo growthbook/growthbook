@@ -4,8 +4,7 @@ import {
   getColumnMappingError,
   getDefaultTimestampColumn,
   getPartitionFilterColumn,
-  getPickerSelectionError,
-  getPickerTableError,
+  getPickerTableColumns,
   getPickerTableName,
   getPickerTableSql,
 } from "@/services/factTables";
@@ -199,41 +198,38 @@ describe("getPartitionFilterColumn", () => {
   });
 });
 
-describe("getPickerTableError", () => {
-  it("rules a table out only on known types", () => {
-    expect(
-      getPickerTableError(tracks, [
-        col("user_id", "STRING"),
-        col("amount", "NUMERIC"),
-      ]),
-    ).toBe("Selected table does not have a timestamp column.");
-    expect(
-      getPickerTableError(tracks, [
-        col("user_id", "STRING"),
-        col("ts", "SOME_CUSTOM_TYPE"),
-      ]),
-    ).toBeNull();
+describe("getPickerTableColumns", () => {
+  it("lists every column GA4's query returns, in order", () => {
+    const [events] = getSchemaBrowserTables(GA4, true);
+    const selected = getPickerTableSql(events)
+      .split("\nFROM")[0]
+      .split(",\n")
+      .map((line) => line.trim().match(/(\w+)$/)?.[1]);
+    expect(getPickerTableColumns(events, []).map((c) => c.column)).toEqual(
+      selected,
+    );
   });
 
-  it("checks the selected columns once the table itself is usable", () => {
-    const columns = [col("user_id", "STRING"), col("ts", "TIMESTAMP")];
-    expect(getPickerSelectionError(tracks, columns, ["user_id"])).toMatch(
-      /^Selected columns must include/,
+  it("maps a plain table's information schema types", () => {
+    expect(
+      getPickerTableColumns(tracks, [
+        col("ts", "TIMESTAMP"),
+        col("user_id", "STRING"),
+      ]),
+    ).toEqual([
+      { column: "ts", datatype: "date" },
+      { column: "user_id", datatype: "string" },
+    ]);
+  });
+
+  it("rules a table out only on known types", () => {
+    const error = (...columns: ReturnType<typeof col>[]) =>
+      getColumnMappingError(getPickerTableColumns(tracks, columns), true);
+    expect(error(col("user_id", "STRING"), col("amount", "NUMERIC"))).toBe(
+      "Selected table does not have a timestamp column.",
     );
     expect(
-      getPickerSelectionError(tracks, columns, ["ts", "user_id"]),
-    ).toBeNull();
-    expect(getPickerSelectionError(tracks, columns, [])).toBeNull();
-    // An unusable table reports its own error instead
-    expect(
-      getPickerSelectionError(tracks, [col("user_id", "STRING")], ["user_id"]),
-    ).toBeNull();
-  });
-
-  it("skips the check for GA4, whose query builds its own columns", () => {
-    const [events] = getSchemaBrowserTables(GA4, true);
-    expect(
-      getPickerTableError(events, [col("event_timestamp", "INT64")]),
+      error(col("user_id", "STRING"), col("ts", "SOME_CUSTOM_TYPE")),
     ).toBeNull();
   });
 });

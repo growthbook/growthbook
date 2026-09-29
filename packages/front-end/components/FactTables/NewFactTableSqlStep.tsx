@@ -3,7 +3,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import {
@@ -34,7 +33,7 @@ import {
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import { getColumnMappingError, isGA4EventsTable } from "@/services/factTables";
+import { getColumnMappingError } from "@/services/factTables";
 import {
   getSchemaBrowserTables,
   SchemaBrowserTable,
@@ -71,13 +70,10 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
-import MultiSelectField from "@/ui/MultiSelectField";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
 export const SAMPLE_ROW_LIMIT = 20;
-// Warn when a selected table has too many columns
-const MANY_COLUMNS = 50;
 
 export type FactTableSqlMode = "table" | "sql";
 
@@ -114,8 +110,7 @@ function TablePicker({
   const informationSchema = data?.informationSchema;
 
   const [error, setError] = useState<string | null>(null);
-  // Builds run in a background job, so fetches can return the old schema
-  // for a moment. Treat it as building until the schema changes.
+  // Builds run in the background, so treat it as building until the schema changes
   const snapshot = `${informationSchema?.status}:${informationSchema?.dateUpdated}:${informationSchema?.error?.message}`;
   const [queuedFrom, setQueuedFrom] = useState<string | null>(null);
   const building =
@@ -138,16 +133,18 @@ function TablePicker({
     const databases = informationSchema?.databases ?? [];
     return databases.flatMap((database) =>
       database.schemas.map((schema) => ({
-        label:
-          databases.length > 1
-            ? `${database.databaseName}.${schema.schemaName}`
-            : schema.schemaName,
+        label: schema.path.replace(/`/g, "") || schema.schemaName,
         tables: getSchemaBrowserTables(schema, datasource.type === "bigquery"),
       })),
     );
   }, [informationSchema, datasource.type]);
   const tablesById = useMemo(
-    () => new Map(groups.flatMap((g) => g.tables.map((t) => [t.id, t]))),
+    () =>
+      new Map(
+        groups.flatMap((g) =>
+          g.tables.map((t) => [t.id, { table: t, group: g.label }]),
+        ),
+      ),
     [groups],
   );
 
@@ -203,8 +200,8 @@ function TablePicker({
         <SelectField
           value={selectedTable?.id ?? ""}
           onChange={(id) => {
-            const table = tablesById.get(id);
-            if (table) onSelectTable(table);
+            const entry = tablesById.get(id);
+            if (entry) onSelectTable(entry.table);
           }}
           options={groups.map((g) => ({
             label: g.label,
@@ -215,17 +212,32 @@ function TablePicker({
                 : t.tableName,
             })),
           }))}
-          formatOptionLabel={({ value, label }) => (
-            <Flex justify="between" align="center" gap="3">
-              <span>{label}</span>
-              <Text size="sm" color="text-low">
-                {tablesById.get(value)?.numOfColumns} columns
-              </Text>
-            </Flex>
-          )}
+          formatOptionLabel={({ value, label }, { context }) => {
+            const entry = tablesById.get(value);
+            return (
+              <Flex
+                justify="between"
+                align="center"
+                gap="3"
+                py={context === "value" ? "1" : undefined}
+              >
+                <Flex direction="column" minWidth="0">
+                  <Text as="div" size="md" truncate>
+                    {label}
+                  </Text>
+                  <Text as="div" size="sm" color="text-low" truncate>
+                    {entry?.group}
+                  </Text>
+                </Flex>
+                <Text size="sm" color="text-low" whiteSpace="nowrap">
+                  {entry?.table.numOfColumns} columns
+                </Text>
+              </Flex>
+            );
+          }}
           placeholder="Search tables..."
           size="small"
-          autoFocus={!selectedTable}
+          autoFocus
         />
         {error ? (
           <Callout status="error" size="sm" mt="2">
@@ -295,15 +307,11 @@ export default function NewFactTableSqlStep({
   onSelectTable,
   tableColumnsError,
   columnError,
-  selectionError,
   rowFilters,
   setRowFilters,
   columnSource,
-  columnNames,
   testRowFilters,
   rowFilterError,
-  selectedColumns,
-  setSelectedColumns,
 }: {
   datasourceId: string;
   setDatasourceId: (id: string) => void;
@@ -319,18 +327,11 @@ export default function NewFactTableSqlStep({
   onSelectTable: (table: SchemaBrowserTable) => void;
   tableColumnsError: string | null;
   columnError: string | null;
-  selectionError: string | null;
   rowFilters: RowFilter[];
   setRowFilters: (rowFilters: RowFilter[]) => void;
-  // Null until the selected table's columns load
   columnSource: FilterColumnSource | null;
-  // Every column, including the complex ones filters leave out
-  columnNames: string[] | null;
   testRowFilters: (rowFilters: RowFilter[]) => Promise<RowFilterTestResults>;
   rowFilterError: string | null;
-  // Empty selects every column
-  selectedColumns: string[];
-  setSelectedColumns: (columns: string[]) => void;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById, datasources, project } = useDefinitions();
@@ -358,20 +359,13 @@ export default function NewFactTableSqlStep({
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
-  const columnCount = columnNames?.length ?? 0;
 
   const validDatasources = datasources
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql");
 
-  // Bumped per picked table and mode switch so a slow query can't apply
-  // results to the next one
-  const tableGeneration = useRef(0);
-
   const runQuery = useCallback(
     async (limit: number): Promise<TestQueryResults> => {
-      const generation = tableGeneration.current;
-      const isStale = () => generation !== tableGeneration.current;
       setTestingQuery(true);
       try {
         validateSQL(sql, []);
@@ -385,7 +379,6 @@ export default function NewFactTableSqlStep({
           }),
         });
         const results = { ...res, error: res.error || "" };
-        if (isStale()) return results;
         // A `LIMIT 0` validation run has no rows to show, and the pane's
         // contents belong to the SQL the user just edited away from.
         setTestQueryResults(limit || results.error ? results : null);
@@ -395,7 +388,7 @@ export default function NewFactTableSqlStep({
         return results;
       } catch (e) {
         const results = { sql, error: e.message };
-        if (!isStale()) setTestQueryResults(results);
+        setTestQueryResults(results);
         return results;
       } finally {
         setTestingQuery(false);
@@ -406,47 +399,20 @@ export default function NewFactTableSqlStep({
 
   useEffect(() => {
     validateRef.current = async () => {
+      if (mode === "table") return;
       if (hasFreshResults) {
         if (columnError) throw new Error(columnError);
         return;
       }
       const results = await runQuery(0);
       if (results.error || !results.columns?.length) throw new Error("");
-      const error = getColumnMappingError(results.columns, mode === "table");
+      const error = getColumnMappingError(results.columns);
       if (error) throw new Error(error);
     };
     return () => {
       validateRef.current = null;
     };
   }, [validateRef, hasFreshResults, columnError, runQuery, mode]);
-
-  // Results belong to one table in one mode; a SQL test shouldn't linger in
-  // table mode, where only validation errors render
-  useEffect(() => {
-    tableGeneration.current++;
-    setTestQueryResults(null);
-  }, [selectedTable?.id, mode]);
-
-  const testButton = (label: string) => (
-    <Tooltip
-      body={
-        canRunQueries
-          ? `Runs a LIMIT ${SAMPLE_ROW_LIMIT} query, which may trigger a full table scan`
-          : "You do not have permission to run test queries"
-      }
-    >
-      <Button
-        size="md"
-        variant="soft"
-        icon={<PiPlay />}
-        onClick={() => runQuery(SAMPLE_ROW_LIMIT)}
-        loading={testingQuery}
-        disabled={!canRunQueries || !sql}
-      >
-        {label}
-      </Button>
-    </Tooltip>
-  );
 
   const sqlEditor = (
     <AreaWithHeader
@@ -479,7 +445,24 @@ export default function NewFactTableSqlStep({
                 Format
               </Button>
             ) : null}
-            {testButton("Test Query")}
+            <Tooltip
+              body={
+                canRunQueries
+                  ? `Runs a LIMIT ${SAMPLE_ROW_LIMIT} query, which may trigger a full table scan`
+                  : "You do not have permission to run test queries"
+              }
+            >
+              <Button
+                size="md"
+                variant="soft"
+                icon={<PiPlay />}
+                onClick={() => runQuery(SAMPLE_ROW_LIMIT)}
+                loading={testingQuery}
+                disabled={!canRunQueries || !sql}
+              >
+                Test Query
+              </Button>
+            </Tooltip>
             <DropdownMenu
               trigger={
                 <IconButton variant="ghost" color="gray" radius="full" size="3">
@@ -597,53 +580,9 @@ export default function NewFactTableSqlStep({
             {tableColumnsError}
           </Callout>
         ) : null}
-        {/* Holds the fields' space so picking a table doesn't resize the modal */}
-        <Flex
-          direction="column"
-          gap="4"
-          style={{ visibility: selectedTable ? "visible" : "hidden" }}
-        >
+        {selectedTable ? (
           <Flex direction="column" gap="2">
-            <Text weight="semibold">Selected columns</Text>
-            {selectedTable && isGA4EventsTable(selectedTable) ? (
-              <Callout status="info" size="sm">
-                GA4 events table detected. Common columns were selected
-                automatically.
-              </Callout>
-            ) : (
-              <>
-                <MultiSelectField
-                  value={selectedColumns}
-                  onChange={setSelectedColumns}
-                  options={(columnNames ?? []).map((c) => ({
-                    label: c,
-                    value: c,
-                  }))}
-                  placeholder={
-                    columnNames
-                      ? `All ${columnNames.length} columns`
-                      : "All columns"
-                  }
-                  size="md"
-                  sort={false}
-                  disabled={!columnNames}
-                />
-                {selectionError ? (
-                  <Callout status="error" size="sm">
-                    {selectionError}
-                  </Callout>
-                ) : null}
-                {!selectedColumns.length && columnCount > MANY_COLUMNS ? (
-                  <Callout status="info" size="sm">
-                    For the best experience, only select the specific columns
-                    that you need.
-                  </Callout>
-                ) : null}
-              </>
-            )}
-          </Flex>
-          <Flex direction="column" gap="2">
-            <Text weight="semibold">Filters</Text>
+            {rowFilters.length ? <Text weight="semibold">Filters</Text> : null}
             {columnSource ? (
               <RowFilterEditorRows
                 value={rowFilters}
@@ -662,8 +601,13 @@ export default function NewFactTableSqlStep({
                 !!columnSource && rowFilters.every(isRowFilterComplete)
               }
             />
+            {rowFilterError ? (
+              <Callout status="error" size="sm">
+                {rowFilterError}
+              </Callout>
+            ) : null}
           </Flex>
-        </Flex>
+        ) : null}
         {sampleRowsOpen && selectedTable ? (
           <RowFilterSampleRowsModal
             title={`${selectedTable.schemaName}.${selectedTable.tableName}`}
@@ -673,16 +617,6 @@ export default function NewFactTableSqlStep({
             setRowFilters={setRowFilters}
             close={() => setSampleRowsOpen(false)}
           />
-        ) : null}
-        {rowFilterError ? (
-          <Callout status="error" size="sm">
-            {rowFilterError}
-          </Callout>
-        ) : null}
-        {resultsTable ? (
-          <Flex direction="column" style={{ maxHeight: 300 }}>
-            {resultsTable}
-          </Flex>
         ) : null}
         {callouts}
       </Flex>

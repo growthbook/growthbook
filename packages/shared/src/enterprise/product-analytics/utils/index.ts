@@ -33,8 +33,7 @@ export function mapColumnTypeToExplorationType(
   }
 }
 
-// Nested and semi-structured types. Checked first, since their inner types
-// (`STRUCT<id INT64>`, `ARRAY<STRING>`) would otherwise match a primitive.
+// Checked first, since inner types like `ARRAY<INT64>` would match a primitive
 const COMPLEX_TYPE =
   /^(struct|array|map|jsonb?|variant|object|tuple|row|record|super|nested|vector|range)\b/;
 

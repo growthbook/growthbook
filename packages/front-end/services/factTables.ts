@@ -109,34 +109,34 @@ export const isGA4EventsTable = (table: SchemaBrowserTable) =>
   table.tableName === "events_*" &&
   table.schemaName.startsWith("analytics_");
 
-const toDetectedColumns = (columns: Column[]) =>
-  columns.map((c) => ({
-    column: c.columnName,
-    datatype: mapDatabaseTypeToEnum(c.dataType),
-  }));
+// Output of getGA4EventsSql, typed by the GA4 export schema
+const GA4_EVENTS_COLUMNS: DetectedFactTableColumn[] = [
+  { column: "timestamp", datatype: "date" },
+  { column: "user_id", datatype: "string" },
+  { column: "anonymous_id", datatype: "string" },
+  { column: "event_name", datatype: "string" },
+  { column: "country", datatype: "string" },
+  { column: "device_category", datatype: "string" },
+  { column: "source", datatype: "string" },
+  { column: "medium", datatype: "string" },
+  { column: "campaign", datatype: "string" },
+  { column: "page_path", datatype: "string" },
+  { column: "session_engaged", datatype: "string" },
+  { column: "event_value_in_usd", datatype: "number" },
+  { column: "session_id", datatype: "string" },
+  { column: "engagement_time", datatype: "number" },
+];
 
-export function getPickerTableError(
+export function getPickerTableColumns(
   table: SchemaBrowserTable,
   columns: Column[],
-): string | null {
-  // GA4's query builds its own timestamp and identifier columns
-  if (isGA4EventsTable(table)) return null;
-  return getColumnMappingError(toDetectedColumns(columns), true);
-}
-
-// Null when every column is selected, or when the table itself is unusable,
-// which getPickerTableError reports instead
-export function getPickerSelectionError(
-  table: SchemaBrowserTable,
-  columns: Column[],
-  selected: string[],
-): string | null {
-  if (!selected.length || getPickerTableError(table, columns)) return null;
-  return getColumnMappingError(
-    toDetectedColumns(columns).filter((c) => selected.includes(c.column)),
-  )
-    ? "Selected columns must include a timestamp column and a separate identifier column."
-    : null;
+): DetectedFactTableColumn[] {
+  return isGA4EventsTable(table)
+    ? GA4_EVENTS_COLUMNS
+    : columns.map((c) => ({
+        column: c.columnName,
+        datatype: mapDatabaseTypeToEnum(c.dataType),
+      }));
 }
 
 // String partitions (Hive-style `dt`) can be any format; only dates are safe
@@ -169,8 +169,7 @@ export function getPickerTableSql(
     rowFilterWhere?: string;
   } = {},
 ): string {
-  // Hand-written, so it picks its own columns. Its WHERE reads the raw export
-  // columns, which are the ones the filters offer.
+  // GA4 picks its own columns; row filters read the raw export columns
   if (isGA4EventsTable(table)) {
     const sql = getGA4EventsSql(table.path);
     return rowFilterWhere ? `${sql}\n  AND ${rowFilterWhere}` : sql;
