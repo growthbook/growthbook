@@ -255,9 +255,9 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     return updatedRow ?? row;
   }, [allRows, metric.id, row]);
 
-  // Compute family-wide adjusted p-values (ignored for slice metrics).
+  // Exclude all child rows (slices and funnel steps).
   const goalRows = useMemo(
-    () => allRows.filter((r) => r.resultGroup === "goal" && !r.isSliceRow),
+    () => allRows.filter((r) => r.resultGroup === "goal" && !r.isChildRow),
     [allRows],
   );
 

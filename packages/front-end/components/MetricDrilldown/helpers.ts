@@ -107,13 +107,16 @@ function classifyPair({
   altLift,
   primarySignificant,
   altSignificant,
+  compareSignificance = true,
 }: {
   primaryLift: number;
   altLift: number;
   primarySignificant: boolean;
   altSignificant: boolean;
+  compareSignificance?: boolean;
 }): AdjustmentClassification {
-  const significanceChanged = primarySignificant !== altSignificant;
+  const significanceChanged =
+    compareSignificance && primarySignificant !== altSignificant;
 
   const denominator = Math.max(Math.abs(primaryLift), Math.abs(altLift));
   const relativeChange =
@@ -283,12 +286,26 @@ export function classifyAdjustmentImpact({
 
     const altAdjusted = altAdjustedPValues?.get(`${row.metric.id}:${index}`);
 
+    // Is the displayed primary result's significance driven by a
+    // multiple-testing-corrected p-value.
+    const primaryIsCorrected = primaryStats.pValueAdjusted !== undefined;
+
     let primaryForSignificance: SnapshotMetric;
     let altForSignificance: SnapshotMetric;
+    let compareSignificance = true;
     if (altAdjusted !== undefined) {
+      // Adjusted-vs-adjusted: both sides use family-wide corrected p-values.
       primaryForSignificance = primaryStats;
       altForSignificance = { ...altStats, pValueAdjusted: altAdjusted };
+    } else if (primaryIsCorrected) {
+      // The displayed result is corrected, but we could not recompute the
+      // counterfactual's family-wide adjusted p-value.
+      primaryForSignificance = primaryStats;
+      altForSignificance = altStats;
+      compareSignificance = false;
     } else {
+      // No multiple-testing correction on the displayed result; the raw
+      // p-values are the displayed basis, so compare them directly.
       primaryForSignificance = { ...primaryStats, pValueAdjusted: undefined };
       altForSignificance = { ...altStats, pValueAdjusted: undefined };
     }
@@ -309,6 +326,7 @@ export function classifyAdjustmentImpact({
       altLift: altStats.expected ?? 0,
       primarySignificant,
       altSignificant,
+      compareSignificance,
     });
 
     if (!worst || isMoreSevere(classification, worst)) {
