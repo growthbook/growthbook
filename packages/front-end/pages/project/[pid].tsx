@@ -139,15 +139,24 @@ const ProjectPage: FC = () => {
 
   const [savingDashboard, setSavingDashboard] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [dashboardSaved, setDashboardSaved] = useState(false);
+  // Shown while the save is in flight so the controlled select doesn't snap
+  // back to the old value until definitions refresh.
+  const [pendingDashboardId, setPendingDashboardId] = useState<string | null>(
+    null,
+  );
   const setDefaultDashboard = async (dashboardId: string) => {
     setSavingDashboard(true);
+    setPendingDashboardId(dashboardId);
     setDashboardError(null);
+    setDashboardSaved(false);
     try {
       await apiCall(`/projects/${pid}/default-dashboard`, {
         method: "PUT",
         body: JSON.stringify({ defaultDashboardId: dashboardId || null }),
       });
       await mutateDefinitions();
+      setDashboardSaved(true);
     } catch (error) {
       setDashboardError(
         error instanceof Error
@@ -156,6 +165,7 @@ const ProjectPage: FC = () => {
       );
     } finally {
       setSavingDashboard(false);
+      setPendingDashboardId(null);
     }
   };
 
@@ -507,19 +517,25 @@ const ProjectPage: FC = () => {
                         </Heading>
                       </Box>
                       <Flex align="start" direction="column" flexGrow="1">
-                        <Box mb="3" width="100%">
+                        <Flex direction="column" gap="3" mb="3" width="100%">
                           <Heading as="h5" size="sm">
                             Default Dashboard
                           </Heading>
-                          <Text as="p" mt="2">
-                            Members of this project see this dashboard on their
+                          <Text as="p">
+                            Members of this Project see this dashboard on their
                             home page by default. They can still pick a
-                            different one for themselves.
+                            different one for themselves. Changes save
+                            immediately.
                           </Text>
                           {dashboardError && (
                             <Callout status="error">{dashboardError}</Callout>
                           )}
-                          {dashboardsLoading ? null : noProjectDashboards ? (
+                          {dashboardSaved && (
+                            <TempMessage close={() => setDashboardSaved(false)}>
+                              Default dashboard saved
+                            </TempMessage>
+                          )}
+                          {noProjectDashboards ? (
                             <Callout status="info">
                               No dashboards are available for this Project yet.{" "}
                               <Link href="/product-analytics/dashboards/new">
@@ -531,14 +547,18 @@ const ProjectPage: FC = () => {
                           ) : (
                             <DashboardSelector
                               dashboards={projectDashboards}
-                              value={settings?.defaultDashboardId || ""}
+                              value={
+                                pendingDashboardId ??
+                                settings?.defaultDashboardId ??
+                                ""
+                              }
                               setValue={setDefaultDashboard}
-                              disabled={savingDashboard}
+                              disabled={savingDashboard || dashboardsLoading}
                               allowClear
                               clearLabel="No default"
                             />
                           )}
-                        </Box>
+                        </Flex>
                       </Flex>
                     </Flex>
                   </Frame>

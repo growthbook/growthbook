@@ -39,13 +39,16 @@ export default function DashboardCard() {
     getProjectById(project)?.settings?.defaultDashboardId;
   const selectedDashboardId = picks[project] ?? "";
 
-  const resolvedDashboard = useMemo(() => {
-    const byId = (id?: string) =>
-      id ? projectDashboards.find((d) => d.id === id) : undefined;
-    return (
-      byId(selectedDashboardId) ?? byId(projectDefaultDashboardId) ?? undefined
-    );
-  }, [selectedDashboardId, projectDefaultDashboardId, projectDashboards]);
+  const projectDefaultDashboard = useMemo(
+    () => projectDashboards.find((d) => d.id === projectDefaultDashboardId),
+    [projectDashboards, projectDefaultDashboardId],
+  );
+  const resolvedDashboard = useMemo(
+    () =>
+      projectDashboards.find((d) => d.id === selectedDashboardId) ??
+      projectDefaultDashboard,
+    [selectedDashboardId, projectDefaultDashboard, projectDashboards],
+  );
 
   if (!canViewDashboards || loading || projectDashboards.length === 0) {
     return null;
@@ -59,9 +62,12 @@ export default function DashboardCard() {
         </Heading>
         <DashboardSelector
           dashboards={projectDashboards}
+          defaultDashboard={projectDefaultDashboard}
           value={resolvedDashboard?.id ?? ""}
           allowClear={!!selectedDashboardId}
-          clearLabel="Clear personal default"
+          clearLabel={
+            projectDefaultDashboard ? "Use Project default" : "Clear selection"
+          }
           setValue={(id) => {
             setPicks((prev) => {
               const next = { ...prev };
