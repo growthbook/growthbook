@@ -678,9 +678,12 @@ function sqlStringLiteral(value: string | number): string {
 }
 
 // GrowthBook assignments are stamped on LLM traces as tags shaped
-// `gb:<experimentKey>:<variationKey>` (emitted by the SDK `tracing` plugin).
-// The exposure queries below parse that tag positionally on ":".
-export const TRACING_TAG_PREFIX = "gb";
+// `gb.exp:<experimentKey>=<variationKey>` (emitted by the SDK `tracing` plugin).
+// Experiment keys may contain ":", so the queries split on the first "=".
+export const TRACING_TAG_PREFIX = "gb.exp";
+const TRACING_TAG_START = `${TRACING_TAG_PREFIX}:`;
+// 1-indexed SQL position of the first character of the experiment key.
+const TRACING_KEY_POS = TRACING_TAG_START.length + 1;
 
 // Langfuse v3 self-hosted ClickHouse tables. Kept in one place because
 // Langfuse v4 collapses these into a single `events` table.
@@ -734,16 +737,17 @@ const LangfuseSchema: SchemaInterface = {
     return `SELECT
   ${idCol} AS ${userId},
   t.timestamp AS timestamp,
-  splitByChar(':', tag)[2] AS experiment_id,
-  splitByChar(':', tag)[3] AS variation_id,
+  substring(splitByChar('=', tag)[1], ${TRACING_KEY_POS}) AS experiment_id,
+  substring(tag, position(tag, '=') + 1) AS variation_id,
   t.name AS trace_name,
   t.release AS release,
   t.version AS version
 FROM ${tablePrefix}${LANGFUSE_TABLES.traces} AS t FINAL
 ARRAY JOIN t.tags AS tag
 WHERE
-  startsWith(tag, '${TRACING_TAG_PREFIX}:')
-  AND length(splitByChar(':', tag)) = 3
+  startsWith(tag, '${TRACING_TAG_START}')
+  AND position(tag, '=') > ${TRACING_KEY_POS}
+  AND position(tag, '=') < length(tag)
   AND t.is_deleted = 0
   AND ${idCol} IS NOT NULL${langfuseProjectClause("t.", options?.projectId)}
   AND t.timestamp >= toDateTime('{{startDate}}', 'UTC')
@@ -808,8 +812,8 @@ const PhoenixSchema: SchemaInterface = {
     return `SELECT
   ${idCol} AS ${userId},
   t.start_time AS timestamp,
-  split_part(gb_tags.tag, ':', 2) AS experiment_id,
-  split_part(gb_tags.tag, ':', 3) AS variation_id,
+  substr(split_part(gb_tags.tag, '=', 1), ${TRACING_KEY_POS}) AS experiment_id,
+  substr(gb_tags.tag, strpos(gb_tags.tag, '=') + 1) AS variation_id,
   root.name AS trace_name
 FROM ${tablePrefix}${PHOENIX_TABLES.traces} t
 ${phoenixTraceJoins(tablePrefix)}
@@ -817,8 +821,9 @@ CROSS JOIN LATERAL jsonb_array_elements_text(
     ${PHOENIX_ROOT_TAGS_EXPR}
   ) AS gb_tags(tag)
 WHERE
-  gb_tags.tag LIKE '${TRACING_TAG_PREFIX}:%'
-  AND split_part(gb_tags.tag, ':', 3) <> ''
+  gb_tags.tag LIKE '${TRACING_TAG_START}%'
+  AND strpos(gb_tags.tag, '=') > ${TRACING_KEY_POS}
+  AND strpos(gb_tags.tag, '=') < length(gb_tags.tag)
   AND ${idCol} IS NOT NULL${phoenixProjectClause("p.", options?.projectName)}
   AND t.start_time >= '{{startDate}}'
   AND t.start_time <= '{{endDate}}'`;

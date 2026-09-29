@@ -5,14 +5,15 @@ import type {
   UserScopedGrowthBook,
 } from "../GrowthBookClient";
 
-export const TRACING_TAG_PREFIX = "gb";
+// Tags are `gb.<kind>:<key>=<value>`; `gb.feature:` is reserved for flag evaluations.
+export const TRACING_TAG_PREFIX = "gb.exp";
 
 export type TracingAssignment = {
   experimentKey: string;
   variationKey: string;
   hashAttribute: string;
   hashValue: string;
-  // `${prefix}:${experimentKey}:${variationKey}`
+  // `gb.exp:${experimentKey}=${variationKey}`
   tag: string;
 };
 
@@ -23,18 +24,15 @@ export type TracingPluginOptions = {
     assignment: TracingAssignment,
     user: TrackingUserContext,
   ) => void;
-  tagPrefix?: string;
 };
 
-const TAG_SEPARATOR = ":";
+const KEY_VALUE_SEPARATOR = "=";
 
 // Latest tag per experiment key, per instance. WeakMap so a destroyed or
 // garbage-collected instance does not pin its tags in memory.
 const tagsByInstance = new WeakMap<object, Map<string, string>>();
 
 export function tracingPlugin(options: TracingPluginOptions = {}) {
-  const prefix = options.tagPrefix || TRACING_TAG_PREFIX;
-
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     // A bare multi-user client has no assignments of its own. The same plugin
     // is re-run by each UserScopedGrowthBook it creates, which is what we want.
@@ -50,16 +48,12 @@ export function tracingPlugin(options: TracingPluginOptions = {}) {
         const experimentKey = experiment.key;
         const variationKey = result.key;
 
-        // The warehouse SQL splits tags positionally on ":", so a key
-        // containing the separator would be parsed incorrectly. Skip it.
-        if (
-          experimentKey.includes(TAG_SEPARATOR) ||
-          variationKey.includes(TAG_SEPARATOR)
-        ) {
+        // The warehouse SQL splits on the first "=", so only the experiment key must avoid it.
+        if (experimentKey.includes(KEY_VALUE_SEPARATOR)) {
           return;
         }
 
-        const tag = [prefix, experimentKey, variationKey].join(TAG_SEPARATOR);
+        const tag = `${TRACING_TAG_PREFIX}:${experimentKey}${KEY_VALUE_SEPARATOR}${variationKey}`;
         // A reassignment replaces the old variation; keeping both would read as a multiple exposure.
         tags.set(experimentKey, tag);
 
