@@ -11,7 +11,7 @@ import { eventSchemas } from "@/services/eventSchema";
 // editable after creation; the rest only shape the initial exposure SQL.
 const EDITABLE_OPTIONS: Partial<Record<SchemaFormat, string[]>> = {
   amplitude: ["projectId"],
-  langfuse: ["projectId"],
+  langfuse: ["langfuseVersion", "projectId"],
   phoenix: ["projectName"],
 };
 

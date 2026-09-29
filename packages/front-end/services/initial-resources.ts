@@ -24,6 +24,7 @@ import {
 import { ApiCallType } from "@/services/auth";
 import {
   getTablePrefix,
+  isLangfuseV3,
   LANGFUSE_TABLES,
   langfuseProjectClause,
   PHOENIX_SESSION_ID_EXPR,
@@ -742,7 +743,207 @@ function getLlmCallMetrics(
   ];
 }
 
-function getLangfuseResources(
+const LANGFUSE_TRACE_COLUMNS: Record<string, Partial<ColumnInterface>> = {
+  trace_id: { datatype: "string" },
+  user_id: { datatype: "string" },
+  session_id: { datatype: "string" },
+  timestamp: { datatype: "date" },
+  trace_name: { datatype: "string", alwaysInlineFilter: true },
+  release: { datatype: "string" },
+  version: { datatype: "string" },
+  tag_count: { datatype: "number" },
+};
+
+const LANGFUSE_OBSERVATION_COLUMNS: Record<string, Partial<ColumnInterface>> = {
+  observation_id: { datatype: "string" },
+  trace_id: { datatype: "string" },
+  user_id: { datatype: "string" },
+  session_id: { datatype: "string" },
+  timestamp: { datatype: "date" },
+  observation_type: { datatype: "string" },
+  observation_name: { datatype: "string", alwaysInlineFilter: true },
+  trace_name: { datatype: "string" },
+  model: { datatype: "string", alwaysInlineFilter: true },
+  level: { datatype: "string" },
+  latency_ms: { datatype: "number", numberFormat: "time:milliseconds" },
+  time_to_first_token_ms: {
+    datatype: "number",
+    numberFormat: "time:milliseconds",
+  },
+  input_tokens: { datatype: "number" },
+  output_tokens: { datatype: "number" },
+  total_tokens: { datatype: "number" },
+  total_cost: { datatype: "number", numberFormat: "currency" },
+  prompt_name: { datatype: "string" },
+  prompt_version: { datatype: "number" },
+};
+
+const LANGFUSE_SCORE_COLUMNS: Record<string, Partial<ColumnInterface>> = {
+  score_id: { datatype: "string" },
+  trace_id: { datatype: "string" },
+  observation_id: { datatype: "string" },
+  user_id: { datatype: "string" },
+  session_id: { datatype: "string" },
+  timestamp: { datatype: "date" },
+  score_name: { datatype: "string", alwaysInlineFilter: true },
+  score_value: { datatype: "number" },
+  score_string_value: { datatype: "string" },
+  score_data_type: { datatype: "string" },
+  score_source: { datatype: "string" },
+  trace_name: { datatype: "string" },
+};
+
+const LANGFUSE_OBSERVATION_FILTERS: CreateFactFilterProps[] = [
+  {
+    name: "LLM Generations",
+    description: "Observations that are model calls",
+    value: `observation_type = 'GENERATION'`,
+  },
+  {
+    name: "Errors",
+    description: "Observations logged at the ERROR level",
+    value: `level = 'ERROR'`,
+  },
+];
+
+const LANGFUSE_TRACE_METRICS: InitialDatasourceResources["factTables"][number]["metrics"] =
+  [
+    {
+      name: "Traces per user",
+      metricType: "mean",
+      numerator: { factTableId: "", column: "$$count" },
+    },
+  ];
+
+const langfuseDateClause = (
+  col: string,
+) => `${col} >= toDateTime('{{startDate}}', 'UTC')
+  AND ${col} <= toDateTime('{{endDate}}', 'UTC')`;
+
+// Langfuse 4: one `events_full` row per span, already carrying the trace-level
+// user/session ids, so only scores need a join back to the root span.
+function getLangfuseV4Resources(
+  datasource: DataSourceInterfaceWithParams,
+): InitialDatasourceResources {
+  const tablePrefix = getTablePrefix(datasource.params);
+  const projectId = datasource.settings.schemaOptions?.projectId;
+  const projectClause = (alias: string) =>
+    langfuseProjectClause(alias, projectId);
+  const events = `${tablePrefix}${LANGFUSE_TABLES.events}`;
+
+  const rootSpansSubquery = `(
+    SELECT trace_id, user_id, session_id, if(trace_name != '', trace_name, name) AS name
+    FROM ${events} FINAL
+    WHERE is_deleted = 0 AND parent_span_id = ''${projectClause("")}
+  ) t`;
+
+  return {
+    factTables: [
+      {
+        factTable: {
+          name: "Langfuse Traces",
+          description: "One row per Langfuse trace (an LLM request)",
+          sql: `SELECT
+  e.trace_id AS trace_id,
+  e.user_id AS user_id,
+  e.session_id AS session_id,
+  e.start_time AS timestamp,
+  if(e.trace_name != '', e.trace_name, e.name) AS trace_name,
+  e.release AS release,
+  e.version AS version,
+  e.environment AS environment,
+  length(e.tags) AS tag_count
+FROM ${events} AS e FINAL
+WHERE
+  e.is_deleted = 0
+  AND e.parent_span_id = ''
+  AND ${langfuseDateClause("e.start_time")}${projectClause("e.")}`,
+          eventName: "",
+          userIdTypes: LLM_TRACE_USER_ID_TYPES,
+          columns: generateColumns({
+            ...LANGFUSE_TRACE_COLUMNS,
+            environment: { datatype: "string" },
+          }),
+        },
+        filters: [],
+        metrics: LANGFUSE_TRACE_METRICS,
+      },
+      {
+        factTable: {
+          name: "Langfuse Observations",
+          description:
+            "One row per Langfuse observation (generation, span, or event) with latency, token, and cost details",
+          sql: `SELECT
+  e.span_id AS observation_id,
+  e.trace_id AS trace_id,
+  e.user_id AS user_id,
+  e.session_id AS session_id,
+  e.start_time AS timestamp,
+  e.type AS observation_type,
+  e.name AS observation_name,
+  e.trace_name AS trace_name,
+  e.provided_model_name AS model,
+  e.level AS level,
+  dateDiff('millisecond', e.start_time, e.end_time) AS latency_ms,
+  dateDiff('millisecond', e.start_time, e.completion_start_time) AS time_to_first_token_ms,
+  e.usage_details['input'] AS input_tokens,
+  e.usage_details['output'] AS output_tokens,
+  e.usage_details['total'] AS total_tokens,
+  toFloat64(e.cost_details['total']) AS total_cost,
+  e.prompt_name AS prompt_name,
+  e.prompt_version AS prompt_version,
+  e.environment AS environment
+FROM ${events} AS e FINAL
+WHERE
+  e.is_deleted = 0
+  AND ${langfuseDateClause("e.start_time")}${projectClause("e.")}`,
+          eventName: "",
+          userIdTypes: LLM_TRACE_USER_ID_TYPES,
+          columns: generateColumns({
+            ...LANGFUSE_OBSERVATION_COLUMNS,
+            environment: { datatype: "string" },
+          }),
+        },
+        filters: LANGFUSE_OBSERVATION_FILTERS,
+        metrics: getLlmCallMetrics("LLM Generations", "Errors"),
+      },
+      {
+        factTable: {
+          name: "Langfuse Scores",
+          description:
+            "One row per Langfuse score (evaluations, annotations, and user feedback)",
+          sql: `SELECT
+  s.id AS score_id,
+  s.trace_id AS trace_id,
+  s.observation_id AS observation_id,
+  t.user_id AS user_id,
+  t.session_id AS session_id,
+  s.timestamp AS timestamp,
+  s.name AS score_name,
+  s.value AS score_value,
+  s.string_value AS score_string_value,
+  s.data_type AS score_data_type,
+  s.source AS score_source,
+  t.name AS trace_name
+FROM ${tablePrefix}${LANGFUSE_TABLES.scores} AS s FINAL
+JOIN ${rootSpansSubquery} ON t.trace_id = s.trace_id
+WHERE
+  s.is_deleted = 0
+  AND ${langfuseDateClause("s.timestamp")}${projectClause("s.")}`,
+          eventName: "",
+          userIdTypes: LLM_TRACE_USER_ID_TYPES,
+          columns: generateColumns(LANGFUSE_SCORE_COLUMNS),
+        },
+        filters: [],
+        metrics: [],
+      },
+    ],
+  };
+}
+
+// Langfuse 3: `traces` + `observations` tables; neither observations nor
+// scores carry user/session ids, so both join back to the deduped traces.
+function getLangfuseV3Resources(
   datasource: DataSourceInterfaceWithParams,
 ): InitialDatasourceResources {
   const tablePrefix = getTablePrefix(datasource.params);
@@ -750,18 +951,11 @@ function getLangfuseResources(
   const projectClause = (alias: string) =>
     langfuseProjectClause(alias, projectId);
 
-  // Observations and scores carry no user/session id in Langfuse v3, so join
-  // back to the (deduped) traces table for them.
   const tracesSubquery = `(
     SELECT id, project_id, user_id, session_id, name
     FROM ${tablePrefix}${LANGFUSE_TABLES.traces} FINAL
     WHERE is_deleted = 0${projectClause("")}
   ) t`;
-
-  const dateClause = (
-    col: string,
-  ) => `${col} >= toDateTime('{{startDate}}', 'UTC')
-  AND ${col} <= toDateTime('{{endDate}}', 'UTC')`;
 
   return {
     factTables: [
@@ -781,28 +975,13 @@ function getLangfuseResources(
 FROM ${tablePrefix}${LANGFUSE_TABLES.traces} t FINAL
 WHERE
   t.is_deleted = 0
-  AND ${dateClause("t.timestamp")}${projectClause("t.")}`,
+  AND ${langfuseDateClause("t.timestamp")}${projectClause("t.")}`,
           eventName: "",
           userIdTypes: LLM_TRACE_USER_ID_TYPES,
-          columns: generateColumns({
-            trace_id: { datatype: "string" },
-            user_id: { datatype: "string" },
-            session_id: { datatype: "string" },
-            timestamp: { datatype: "date" },
-            trace_name: { datatype: "string", alwaysInlineFilter: true },
-            release: { datatype: "string" },
-            version: { datatype: "string" },
-            tag_count: { datatype: "number" },
-          }),
+          columns: generateColumns(LANGFUSE_TRACE_COLUMNS),
         },
         filters: [],
-        metrics: [
-          {
-            name: "Traces per user",
-            metricType: "mean",
-            numerator: { factTableId: "", column: "$$count" },
-          },
-        ],
+        metrics: LANGFUSE_TRACE_METRICS,
       },
       {
         factTable: {
@@ -832,48 +1011,12 @@ FROM ${tablePrefix}${LANGFUSE_TABLES.observations} o FINAL
 JOIN ${tracesSubquery} ON t.id = o.trace_id AND t.project_id = o.project_id
 WHERE
   o.is_deleted = 0
-  AND ${dateClause("o.start_time")}${projectClause("o.")}`,
+  AND ${langfuseDateClause("o.start_time")}${projectClause("o.")}`,
           eventName: "",
           userIdTypes: LLM_TRACE_USER_ID_TYPES,
-          columns: generateColumns({
-            observation_id: { datatype: "string" },
-            trace_id: { datatype: "string" },
-            user_id: { datatype: "string" },
-            session_id: { datatype: "string" },
-            timestamp: { datatype: "date" },
-            observation_type: { datatype: "string" },
-            observation_name: { datatype: "string", alwaysInlineFilter: true },
-            trace_name: { datatype: "string" },
-            model: { datatype: "string", alwaysInlineFilter: true },
-            level: { datatype: "string" },
-            latency_ms: {
-              datatype: "number",
-              numberFormat: "time:milliseconds",
-            },
-            time_to_first_token_ms: {
-              datatype: "number",
-              numberFormat: "time:milliseconds",
-            },
-            input_tokens: { datatype: "number" },
-            output_tokens: { datatype: "number" },
-            total_tokens: { datatype: "number" },
-            total_cost: { datatype: "number", numberFormat: "currency" },
-            prompt_name: { datatype: "string" },
-            prompt_version: { datatype: "number" },
-          }),
+          columns: generateColumns(LANGFUSE_OBSERVATION_COLUMNS),
         },
-        filters: [
-          {
-            name: "LLM Generations",
-            description: "Observations that are model calls",
-            value: `observation_type = 'GENERATION'`,
-          },
-          {
-            name: "Errors",
-            description: "Observations logged at the ERROR level",
-            value: `level = 'ERROR'`,
-          },
-        ],
+        filters: LANGFUSE_OBSERVATION_FILTERS,
         metrics: getLlmCallMetrics("LLM Generations", "Errors"),
       },
       {
@@ -898,29 +1041,24 @@ FROM ${tablePrefix}${LANGFUSE_TABLES.scores} s FINAL
 JOIN ${tracesSubquery} ON t.id = s.trace_id AND t.project_id = s.project_id
 WHERE
   s.is_deleted = 0
-  AND ${dateClause("s.timestamp")}${projectClause("s.")}`,
+  AND ${langfuseDateClause("s.timestamp")}${projectClause("s.")}`,
           eventName: "",
           userIdTypes: LLM_TRACE_USER_ID_TYPES,
-          columns: generateColumns({
-            score_id: { datatype: "string" },
-            trace_id: { datatype: "string" },
-            observation_id: { datatype: "string" },
-            user_id: { datatype: "string" },
-            session_id: { datatype: "string" },
-            timestamp: { datatype: "date" },
-            score_name: { datatype: "string", alwaysInlineFilter: true },
-            score_value: { datatype: "number" },
-            score_string_value: { datatype: "string" },
-            score_data_type: { datatype: "string" },
-            score_source: { datatype: "string" },
-            trace_name: { datatype: "string" },
-          }),
+          columns: generateColumns(LANGFUSE_SCORE_COLUMNS),
         },
         filters: [],
         metrics: [],
       },
     ],
   };
+}
+
+function getLangfuseResources(
+  datasource: DataSourceInterfaceWithParams,
+): InitialDatasourceResources {
+  return isLangfuseV3(datasource.settings.schemaOptions)
+    ? getLangfuseV3Resources(datasource)
+    : getLangfuseV4Resources(datasource);
 }
 
 function getPhoenixResources(

@@ -9,14 +9,20 @@ vi.mock("@/services/metrics", () => ({
   getDefaultFactMetricProps: vi.fn(),
 }));
 
-function langfuseDatasource(projectId?: string): DataSourceInterfaceWithParams {
+function langfuseDatasource(
+  projectId?: string,
+  langfuseVersion?: string,
+): DataSourceInterfaceWithParams {
   return {
     id: "ds_langfuse",
     type: "clickhouse",
     params: { url: "http://localhost:8123", database: "default" },
     settings: {
       schemaFormat: "langfuse",
-      schemaOptions: projectId === undefined ? {} : { projectId },
+      schemaOptions: {
+        ...(projectId === undefined ? {} : { projectId }),
+        ...(langfuseVersion === undefined ? {} : { langfuseVersion }),
+      },
     },
   } as unknown as DataSourceInterfaceWithParams;
 }
@@ -92,10 +98,16 @@ describe("getInitialDatasourceResources", () => {
         "Langfuse Scores",
       ]);
 
+      // Langfuse 4 layout by default: single events table, no join for observations
       const observations = factTables[1];
       expect(observations.factTable.sql).toContain("FINAL");
+      expect(observations.factTable.sql).toContain("events_full");
+      expect(observations.factTable.sql).not.toContain("JOIN");
       expect(observations.factTable.sql).toContain("project_id = 'proj_1'");
       expect(observations.factTable.sql).toContain("usage_details['total']");
+      expect(observations.factTable.sql).toContain("cost_details['total']");
+      expect(factTables[0].factTable.sql).toContain("parent_span_id = ''");
+      expect(factTables[2].factTable.sql).toContain("JOIN");
       expect(observations.metrics.map((m) => m.name)).toEqual([
         "LLM calls per user",
         "LLM cost per user",
@@ -103,6 +115,17 @@ describe("getInitialDatasourceResources", () => {
         "p95 LLM latency",
         "Tokens per LLM call",
       ]);
+    });
+
+    it("targets the legacy traces and observations tables for Langfuse 3", () => {
+      const factTables = assertResourcesAreConsistent(
+        langfuseDatasource("proj_1", "3"),
+      );
+      const observations = factTables[1];
+      expect(observations.factTable.sql).not.toContain("events_full");
+      expect(observations.factTable.sql).toContain("FROM observations o FINAL");
+      expect(observations.factTable.sql).toContain("FROM traces FINAL");
+      expect(factTables[0].factTable.sql).toContain("FROM traces t FINAL");
     });
 
     it("omits the project filter when no project id is configured", () => {

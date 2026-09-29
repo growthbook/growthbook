@@ -682,13 +682,22 @@ function sqlStringLiteral(value: string | number): string {
 // The exposure queries below parse that tag positionally on ":".
 export const TRACING_TAG_PREFIX = "gb";
 
-// Langfuse v3 self-hosted ClickHouse tables. Kept in one place because
-// Langfuse v4 collapses these into a single `events` table.
+// Langfuse ClickHouse tables. Langfuse 4 writes every span to the single
+// `events_full` table (the legacy tables stop receiving data after the v4
+// cutover); Langfuse 3 uses `traces` + `observations`. Both keep `scores`.
 export const LANGFUSE_TABLES = {
+  events: "events_full",
   traces: "traces",
   observations: "observations",
   scores: "scores",
 } as const;
+
+// Langfuse 4 is the default layout; only an explicit "3" selects the legacy one.
+export function isLangfuseV3(options?: {
+  langfuseVersion?: string | number;
+}): boolean {
+  return String(options?.langfuseVersion ?? "").trim() === "3";
+}
 
 export const PHOENIX_TABLES = {
   projects: "projects",
@@ -720,18 +729,35 @@ export function phoenixProjectClause(
     : "";
 }
 
-const LANGFUSE_ID_COLUMNS: Record<string, string> = {
+// Langfuse 3: identifiers live on the `traces` table and are Nullable.
+const LANGFUSE_V3_ID_COLUMNS: Record<string, string> = {
   user_id: "t.user_id",
   session_id: "t.session_id",
   trace_id: "t.id",
 };
 
+// Langfuse 4: every row of `events_full` carries the trace-level identifiers
+// as non-null strings ('' when unset). The root span (parent_span_id = '')
+// stands in for the trace.
+const LANGFUSE_V4_ID_COLUMNS: Record<string, string> = {
+  user_id: "e.user_id",
+  session_id: "e.session_id",
+  trace_id: "e.trace_id",
+};
+
+const LANGFUSE_TAG_FILTER = `startsWith(tag, '${TRACING_TAG_PREFIX}:')
+  AND length(splitByChar(':', tag)) = 3`;
+
 const LangfuseSchema: SchemaInterface = {
   experimentDimensions: ["trace_name", "release", "version"],
   userIdTypes: ["user_id", "session_id", "trace_id"],
   getExperimentSQL: (tablePrefix, userId, options) => {
-    const idCol = LANGFUSE_ID_COLUMNS[userId] || LANGFUSE_ID_COLUMNS.user_id;
-    return `SELECT
+    // FINAL so an updated or soft-deleted trace cannot leave a stale version
+    // behind that exposes the unit to a variation it no longer has.
+    if (isLangfuseV3(options)) {
+      const idCol =
+        LANGFUSE_V3_ID_COLUMNS[userId] || LANGFUSE_V3_ID_COLUMNS.user_id;
+      return `SELECT
   ${idCol} AS ${userId},
   t.timestamp AS timestamp,
   splitByChar(':', tag)[2] AS experiment_id,
@@ -742,24 +768,54 @@ const LangfuseSchema: SchemaInterface = {
 FROM ${tablePrefix}${LANGFUSE_TABLES.traces} AS t FINAL
 ARRAY JOIN t.tags AS tag
 WHERE
-  startsWith(tag, '${TRACING_TAG_PREFIX}:')
-  AND length(splitByChar(':', tag)) = 3
+  ${LANGFUSE_TAG_FILTER}
   AND t.is_deleted = 0
   AND ${idCol} IS NOT NULL${langfuseProjectClause("t.", options?.projectId)}
   AND t.timestamp >= toDateTime('{{startDate}}', 'UTC')
   AND t.timestamp <= toDateTime('{{endDate}}', 'UTC')`;
+    }
+
+    const idCol =
+      LANGFUSE_V4_ID_COLUMNS[userId] || LANGFUSE_V4_ID_COLUMNS.user_id;
+    return `SELECT
+  ${idCol} AS ${userId},
+  e.start_time AS timestamp,
+  splitByChar(':', tag)[2] AS experiment_id,
+  splitByChar(':', tag)[3] AS variation_id,
+  if(e.trace_name != '', e.trace_name, e.name) AS trace_name,
+  e.release AS release,
+  e.version AS version
+FROM ${tablePrefix}${LANGFUSE_TABLES.events} AS e FINAL
+ARRAY JOIN e.tags AS tag
+WHERE
+  ${LANGFUSE_TAG_FILTER}
+  AND e.is_deleted = 0
+  AND e.parent_span_id = ''
+  AND ${idCol} != ''${langfuseProjectClause("e.", options?.projectId)}
+  AND e.start_time >= toDateTime('{{startDate}}', 'UTC')
+  AND e.start_time <= toDateTime('{{endDate}}', 'UTC')`;
   },
   getIdentitySQL: (tablePrefix, options) => [
     {
       ids: ["user_id", "session_id"],
-      query: `SELECT DISTINCT
+      query: isLangfuseV3(options)
+        ? `SELECT DISTINCT
   user_id,
   session_id
 FROM ${tablePrefix}${LANGFUSE_TABLES.traces} FINAL
 WHERE
   is_deleted = 0
   AND user_id IS NOT NULL
-  AND session_id IS NOT NULL${langfuseProjectClause("", options?.projectId)}`,
+  AND session_id IS NOT NULL${langfuseProjectClause("", options?.projectId)}`
+        : `SELECT DISTINCT
+  user_id,
+  session_id
+FROM ${tablePrefix}${LANGFUSE_TABLES.events} FINAL
+WHERE
+  is_deleted = 0
+  AND parent_span_id = ''
+  AND user_id != ''
+  AND session_id != ''${langfuseProjectClause("", options?.projectId)}`,
     },
   ],
   // Legacy templates; fact tables for this schema come from initial-resources.ts

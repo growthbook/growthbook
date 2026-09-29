@@ -271,11 +271,12 @@ Once traces carry the tag, add the tracing tool's database as a GrowthBook data 
 
 ### Langfuse
 
-Works with self-hosted Langfuse v3, which stores traces in ClickHouse.
+Works with self-hosted Langfuse, which stores traces in ClickHouse. Langfuse 4 is the default; Langfuse 3 is supported through an option.
 
 1. Choose the **Langfuse** event tracker (marked Beta).
-2. Connection type is **ClickHouse**. Point it at the Langfuse ClickHouse database (the one with `traces`, `observations`, and `scores` tables). Create a read-only ClickHouse user for GrowthBook.
-3. Option `Langfuse project id` — found in Langfuse under Project Settings. Leave blank to include every project in the database, which is what a single-project self-host usually wants.
+2. Connection type is **ClickHouse**. Point it at the Langfuse ClickHouse database (the one with the `events_full` and `scores` tables, or `traces`, `observations`, and `scores` on Langfuse 3). Create a read-only ClickHouse user for GrowthBook.
+3. Option `Langfuse major version` — defaults to `4`. Enter `3` for an install that still uses the `traces` and `observations` tables.
+4. Option `Langfuse project ID` — found in Langfuse under Project Settings. Leave blank to include every project in the database, which is what a single-project self-host usually wants.
 
 Full tracker reference: [Langfuse event tracker](/event-trackers/langfuse).
 
@@ -352,10 +353,10 @@ Nothing extra is needed to run a [bandit](/bandits/overview) or [contextual band
 
 These trackers are in beta and read from databases that were not designed as public interfaces.
 
-- **Langfuse's ClickHouse schema is not a stable API.** Langfuse v4 moves traces, observations, and scores into a single `events` table. Re-validate the generated SQL after any Langfuse upgrade; the generated fact tables target the v3 `traces`, `observations`, and `scores` tables.
+- **Langfuse's ClickHouse schema is not a stable API.** GrowthBook targets the Langfuse 4 `events_full` table by default, and the Langfuse 3 `traces` and `observations` tables when the version option is `3`. After upgrading a Langfuse 3 install to 4, the legacy tables stop receiving data: switch the option to `4` and regenerate the resources. Re-validate the generated SQL after any Langfuse upgrade.
 - **Langfuse Cloud has no ClickHouse access.** Use Langfuse's scheduled [blob storage export](https://langfuse.com/docs/api-and-data-platform/features/blob-storage-export-fields) (Parquet or JSONL to S3, GCS, or Azure) into your own warehouse, connect that warehouse as a custom data source, and adapt the fact table SQL. The exported `observations` rows already carry `user_id`, `session_id`, `tags`, `metadata`, `latency`, `total_cost`, and `usage_details`, so the joins back to `traces` are not needed there.
 - **`FINAL` on large Langfuse installs.** The Langfuse fact tables use `FINAL` to deduplicate ReplacingMergeTree rows. On very large tables, replace it with `ORDER BY event_ts DESC LIMIT 1 BY id` for better performance.
-- **Langfuse `environment` column.** It is omitted from the generated SQL because older installs lack it. Add it to the fact table SQL by hand if you want to slice by environment.
+- **Langfuse `environment` column.** Included for Langfuse 4. Omitted for Langfuse 3 because older installs lack it; add it to the fact table SQL by hand if you want to slice by environment there.
 - **Phoenix's Postgres schema is likewise unversioned.** The `span_costs` table only exists on newer Phoenix versions; on older installs remove the `LEFT JOIN ... span_costs` and the `total_cost` column from the `Phoenix Spans` fact table. `trace_annotations` are not included yet, only `span_annotations`.
 - **Phoenix tags arrive in two shapes.** The Python SDK writes `tag.tags` as a JSON array and the JavaScript SDK writes it as a JSON-encoded string. The generated SQL normalizes both, so no action is needed, but keep this in mind if you write your own queries.
 - **Editing the tracker option later** (in the data source settings) only changes the stored option. It does not rewrite SQL that has already been generated. Regenerate the resources or edit the existing SQL by hand.

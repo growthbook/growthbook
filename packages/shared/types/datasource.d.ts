@@ -84,6 +84,7 @@ type GetExperimentSqlOptions = {
   eventType?: string;
   projectId?: string;
   projectName?: string;
+  langfuseVersion?: string | number;
   tablePrefix?: string;
   actionPrefix?: string;
   siteId?: string | number;

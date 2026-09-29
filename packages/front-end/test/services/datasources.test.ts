@@ -196,6 +196,9 @@ describe("getInitialSettings", () => {
       expect(q.query).toContain("ARRAY JOIN");
       expect(q.query).toContain("startsWith(tag, 'gb:')");
       expect(q.query).toContain("project_id = 'proj_1'");
+      // Langfuse 4 layout by default
+      expect(q.query).toContain("events_full AS e FINAL");
+      expect(q.query).toContain("parent_span_id = ''");
     }
     expect(settings.queries.identityJoins).toHaveLength(1);
     expect(settings.queries.identityJoins[0].ids).toEqual([
@@ -205,6 +208,28 @@ describe("getInitialSettings", () => {
     for (const t of settings.userIdTypes) {
       expect(t.description).not.toEqual("");
     }
+  });
+
+  it("builds langfuse exposure queries against the legacy tables for version 3", () => {
+    // @ts-expect-error minimal params for the test
+    const settings = getInitialSettings("langfuse", clickhouseParams, {
+      projectId: "proj_1",
+      langfuseVersion: "3",
+    });
+    for (const q of settings.queries.exposure) {
+      expect(() =>
+        validateSQL(q.query, [
+          q.userIdType,
+          "timestamp",
+          "experiment_id",
+          "variation_id",
+          ...q.dimensions,
+        ]),
+      ).not.toThrow();
+      expect(q.query).toContain("traces AS t FINAL");
+      expect(q.query).not.toContain("events_full");
+    }
+    expect(settings.queries.identityJoins[0].query).toContain("traces FINAL");
   });
 
   it("builds phoenix exposure queries against the root span", () => {

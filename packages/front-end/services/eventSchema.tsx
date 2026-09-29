@@ -335,6 +335,14 @@ export const eventSchemas: eventSchema[] = [
     helpLink: "https://docs.growthbook.io/event-trackers/langfuse",
     options: [
       {
+        name: "langfuseVersion",
+        label: "Langfuse major version",
+        defaultValue: "4",
+        type: "text",
+        helpText:
+          "Langfuse 4 stores traces in the events_full table. Enter 3 for a Langfuse 3 install that still uses the traces and observations tables.",
+      },
+      {
         name: "projectId",
         label: "Langfuse project ID",
         defaultValue: "",

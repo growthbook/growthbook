@@ -20,7 +20,7 @@ The Langfuse event tracker is in beta. It queries Langfuse's own ClickHouse data
 
 ## Exposure Tracking
 
-There is no separate exposure event. Instead, each Langfuse trace is tagged with the GrowthBook assignment in the form `gb:<experimentKey>:<variationKey>`, and the exposure query reads those tags straight from the `traces` table.
+There is no separate exposure event. Instead, each Langfuse trace is tagged with the GrowthBook assignment in the form `gb:<experimentKey>:<variationKey>`, and the exposure query reads those tags from the root span of each trace: the `events_full` table on Langfuse 4, or the `traces` table on Langfuse 3.
 
 In JavaScript, the [`tracing` plugin](/lib/js#tracing) collects these tags for you. Attach them, together with the user id, at the top of the traced request:
 
@@ -55,9 +55,10 @@ Evaluate flags before starting the trace so the tags exist when it is created. F
 
 ## Integrating with Langfuse Data
 
-This tracker works with self-hosted Langfuse v3, which stores traces in ClickHouse.
+This tracker works with self-hosted Langfuse, which stores traces in ClickHouse. Langfuse 4 (the default) writes every span to the `events_full` table; Langfuse 3 uses the `traces` and `observations` tables. Both versions keep `scores`.
 
-- Connection type: **ClickHouse**, pointed at the Langfuse ClickHouse database that holds the `traces`, `observations`, and `scores` tables. Use a read-only ClickHouse user.
+- Connection type: **ClickHouse**, pointed at the Langfuse ClickHouse database that holds the `events_full` and `scores` tables (or `traces`, `observations`, and `scores` on Langfuse 3). Use a read-only ClickHouse user.
+- Option `Langfuse major version` — defaults to `4`. Enter `3` for an install that has not been upgraded to Langfuse 4, so the generated SQL targets the legacy tables.
 - Option `Langfuse project ID` — found in Langfuse under project settings. Leave blank to include every project in the database.
 
 When you connect, GrowthBook generates:
@@ -70,9 +71,9 @@ When you connect, GrowthBook generates:
 Caveats specific to Langfuse:
 
 - **Langfuse Cloud** does not expose ClickHouse. Use Langfuse's [blob storage export](https://langfuse.com/docs/api-and-data-platform/features/blob-storage-export-fields) into your own warehouse and adapt the fact table SQL; the exported `observations` rows already include `user_id`, `session_id`, `tags`, `latency`, `total_cost`, and `usage_details`.
-- **Langfuse v4** collapses these tables into a single `events` table. The generated SQL targets the v3 schema.
+- **Upgrading Langfuse 3 to 4.** After the v4 cutover the legacy `traces` and `observations` tables stop receiving data. If you connected a Langfuse 3 install and later upgrade, set the version option to `4` and regenerate the data source resources, or edit the SQL by hand.
 - The fact tables use `FINAL` to deduplicate ReplacingMergeTree rows. On very large installs replace it with `ORDER BY event_ts DESC LIMIT 1 BY id`.
-- The `environment` column is omitted because older installs lack it; add it to the SQL by hand if you want it.
+- The `environment` column is included for Langfuse 4 but omitted for Langfuse 3, where older installs lack it; add it to the SQL by hand if you want it there.
 - Changing the project ID later in the data source settings does not rewrite SQL that was already generated.
 
 <DefaultInstructions eventTracker="Langfuse" slug="langfuse" />
