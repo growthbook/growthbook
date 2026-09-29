@@ -10,6 +10,7 @@ import {
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -792,7 +793,8 @@ export function toDataSourceApiInterface(
         name: q.name,
         description: q.description || "",
         identifierTypes,
-        identifierType: identifierTypes[0] ?? q.userIdType,
+        // What records without a stored identifier analyze on, as before.
+        identifierType: resolveAnalysisIdentifierType(q, undefined),
         sql: q.query,
         includesNameColumns: !!q.hasNameCol,
         dimensionColumns: q.dimensions,

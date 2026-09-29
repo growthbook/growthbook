@@ -551,6 +551,33 @@ describe("dataSourceModel", () => {
     });
   });
 
+  it("reports the frozen legacy identifier as the deprecated identifierType", () => {
+    const apiDatasource = toDataSourceApiInterface({
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        queries: {
+          ...datasource.settings.queries,
+          exposure: [
+            {
+              id: "reordered",
+              userIdType: "user_id",
+              userIdTypes: ["anonymous_id", "user_id"],
+              dimensions: [],
+              name: "Reordered",
+              query: "SELECT user_id, anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(apiDatasource.assignmentQueries[0]).toMatchObject({
+      identifierType: "user_id",
+      identifierTypes: ["anonymous_id", "user_id"],
+    });
+  });
+
   describe("updateDataSource", () => {
     it("should throw an error if data sources are managed by config.yml", async () => {
       mockedUsingFileConfig.mockReturnValue(true);
