@@ -748,13 +748,10 @@ describe("productAnalytics", () => {
     expect(matches.length).toBe(2);
   });
 
-  it("falls back to the 'other' bucket for a dynamic dimension unresolvable on a cross-table ratio metric's denominator", () => {
-    // Counterpart to the static-dimension regression tests above, for the
-    // "dynamic" (breakdown) dimension type: unlike a pinned filter, a
-    // breakdown should still account for the denominator's rows rather than
-    // dropping them, so an unresolvable column here degrades into the same
-    // 'other' bucket already used for top-N truncation — not a raw,
-    // unresolvable "props.plan" reference that would fail at the warehouse.
+  it("throws for a dynamic dimension unresolvable on a cross-table ratio metric's denominator", () => {
+    // Bucketing the denominator's rows anywhere (e.g. 'other') would split
+    // them from the numerator's real buckets and silently produce wrong
+    // ratios, so this must fail loudly instead.
     const jsonFactTableMap = new Map<string, FactTableInterface>([
       [
         "orders",
@@ -849,24 +846,15 @@ describe("productAnalytics", () => {
       },
     };
 
-    const { sql } = generateProductAnalyticsSQL(
-      config,
-      jsonFactTableMap,
-      crossTableRatioMetricMap,
-      helpers,
-      datasource,
-    );
-
-    // The numerator's CTE (which has "props" as a JSON column) still buckets
-    // by the top-values CASE expression...
-    expect(sql).toMatch(
-      /WHEN props:'plan'::text IN \(SELECT value FROM _dimension0_top\) THEN props:'plan'::text/,
-    );
-    // ...while the denominator's CTE (whose fact table has no "props" at
-    // all) buckets every row directly into 'other', with no reference to
-    // the unresolvable column.
-    expect(sql).toContain("'other' AS dimension0");
-    expect(sql).not.toContain("props.plan");
+    expect(() =>
+      generateProductAnalyticsSQL(
+        config,
+        jsonFactTableMap,
+        crossTableRatioMetricMap,
+        helpers,
+        datasource,
+      ),
+    ).toThrow(`Can't break down by "props.plan"`);
   });
 
   it("generates SQL for fact tables with mix of filtered and unfiltered values", () => {

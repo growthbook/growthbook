@@ -1975,22 +1975,25 @@ export function generateProductAnalyticsSQL(
     // denominator can resolve a column differently, or not at all. Static
     // dimensions become NULL (getStaticDimensionFilters excludes such a
     // group's rows entirely, since a pinned filter can't be evaluated at
-    // all). Dynamic dimensions fall into the same 'other' bucket already
-    // used for top-N truncation, since a breakdown should still account for
-    // this group's rows rather than dropping them or emitting an
-    // unresolvable column reference.
+    // all). Dynamic dimensions throw: bucketing this group's rows anywhere
+    // (e.g. 'other') would split them from the other groups' buckets and
+    // silently produce wrong ratios. getAvailableDimensionColumns keeps these
+    // out of the picker, so this only catches stale configs and API callers.
     const groupDimensions: DimensionData[] = config.dimensions.map((d, di) => {
-      const unresolvable =
-        (d.dimensionType === "static" &&
-          !factTableHasResolvableColumn(factTableGroup.factTable, d.column)) ||
-        (d.dimensionType === "dynamic" &&
-          d.column !== null &&
-          !factTableHasResolvableColumn(factTableGroup.factTable, d.column));
-      if (unresolvable) {
-        return {
-          alias: `dimension${di}`,
-          valueExpr: d.dimensionType === "static" ? "NULL" : "'other'",
-        };
+      if (
+        d.dimensionType === "dynamic" &&
+        d.column !== null &&
+        !factTableHasResolvableColumn(factTableGroup.factTable, d.column)
+      ) {
+        throw new Error(
+          `Can't break down by "${d.column}": not every fact table in this exploration has that column`,
+        );
+      }
+      if (
+        d.dimensionType === "static" &&
+        !factTableHasResolvableColumn(factTableGroup.factTable, d.column)
+      ) {
+        return { alias: `dimension${di}`, valueExpr: "NULL" };
       }
       return {
         alias: `dimension${di}`,
