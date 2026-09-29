@@ -14,7 +14,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
-import { FaQuestionCircle } from "react-icons/fa";
+import { PiQuestion } from "react-icons/pi";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -33,25 +33,38 @@ import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import UIText from "@/ui/Text";
+import UITooltip from "@/ui/Tooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
-function AnalysisSettingInfo({ description }: { description: string }) {
+function AnalysisSettingInfo({
+  ariaLabel,
+  description,
+}: {
+  ariaLabel: string;
+  description: string;
+}) {
   return (
-    <Tooltip
-      className="text-muted"
-      body={
-        <div className="text-left">
-          <div>{description}</div>
-          <div className="mt-2">
+    <UITooltip
+      content={
+        <Flex direction="column" gap="2" align="start">
+          <UIText as="p" size="sm">
+            {description}
+          </UIText>
+          <UIText as="p" size="sm">
             Click in the table to drill down and see the impact.
-          </div>
-        </div>
+          </UIText>
+        </Flex>
       }
     >
-      <FaQuestionCircle size={12} style={{ display: "block" }} />
-    </Tooltip>
+      <Box as="span" display="inline-block" tabIndex={0} aria-label={ariaLabel}>
+        <UIText color="text-low">
+          <PiQuestion size={12} style={{ display: "block" }} aria-hidden />
+        </UIText>
+      </Box>
+    </UITooltip>
   );
 }
 
@@ -267,7 +280,10 @@ export default function ResultsTab({
                   }
                 />
                 {priorUsed ? (
-                  <AnalysisSettingInfo description="A Bayesian prior shrinks metric estimates towards the prior mean." />
+                  <AnalysisSettingInfo
+                    ariaLabel="How a Bayesian prior affects results"
+                    description="A Bayesian prior shrinks metric estimates towards the prior mean."
+                  />
                 ) : null}
               </Flex>
               <Flex align="center" gap="1">
@@ -280,7 +296,10 @@ export default function ResultsTab({
                   }
                 />
                 {cupedUsed ? (
-                  <AnalysisSettingInfo description="CUPED adjusts for pre-exposure mean imbalances across variations to reduce variance." />
+                  <AnalysisSettingInfo
+                    ariaLabel="How CUPED affects results"
+                    description="CUPED adjusts for pre-exposure mean imbalances across variations to reduce variance."
+                  />
                 ) : null}
               </Flex>
               {!organization?.settings?.disablePrecomputedDimensions ? (
@@ -294,7 +313,10 @@ export default function ResultsTab({
                     }
                   />
                   {postStratificationUsed ? (
-                    <AnalysisSettingInfo description="Post-stratification adjusts for within-dimension imbalances to reduce variance." />
+                    <AnalysisSettingInfo
+                      ariaLabel="How post-stratification affects results"
+                      description="Post-stratification adjusts for within-dimension imbalances to reduce variance."
+                    />
                   ) : null}
                 </Flex>
               ) : null}
