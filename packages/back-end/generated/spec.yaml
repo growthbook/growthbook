@@ -1493,10 +1493,6 @@ paths:
                                   description: >-
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
-                                exposureQueryIdentifierType:
-                                  description: >-
-                                    Read-only; ignored on write. Accepted so a
-                                    GET response can be posted back unchanged.
                                 goalMetrics:
                                   description: >-
                                     Read-only; ignored on write. Accepted so a
@@ -2165,11 +2161,6 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     exposureQueryId:
-                                      description: >-
-                                        Read-only; ignored on write. Accepted so
-                                        a GET response can be posted back
-                                        unchanged.
-                                    exposureQueryIdentifierType:
                                       description: >-
                                         Read-only; ignored on write. Accepted so
                                         a GET response can be posted back
@@ -3046,10 +3037,6 @@ paths:
                                   description: >-
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
-                                exposureQueryIdentifierType:
-                                  description: >-
-                                    Read-only; ignored on write. Accepted so a
-                                    GET response can be posted back unchanged.
                                 goalMetrics:
                                   description: >-
                                     Read-only; ignored on write. Accepted so a
@@ -3718,11 +3705,6 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     exposureQueryId:
-                                      description: >-
-                                        Read-only; ignored on write. Accepted so
-                                        a GET response can be posted back
-                                        unchanged.
-                                    exposureQueryIdentifierType:
                                       description: >-
                                         Read-only; ignored on write. Accepted so
                                         a GET response can be posted back
@@ -78711,8 +78693,6 @@ components:
                   datasource:
                     type: string
                   exposureQueryId:
-                    type: string
-                  exposureQueryIdentifierType:
                     type: string
                   goalMetrics:
                     type: array
