@@ -68,7 +68,7 @@ type MyType = z.infer<typeof mySchema>;
 
 - **Format**: `pnpm pretty` (writes), `pnpm pretty:check` (verifies)
 - **Lint**: `pnpm lint` (auto-fixes lint issues), `pnpm lint:ci` (verifies)
-- **Docs frontmatter**: `node scripts/check-docs-frontmatter.mjs` (quotes YAML values that contain `: `; warns on inert `slug:`)
+- **Docs frontmatter**: `node scripts/check-docs-frontmatter.mjs` (quotes YAML values that contain `: `; rejects inert `slug:`)
 - **Type check**: `pnpm type-check` (all packages)
 - **Everything CI runs**: `pnpm ci`
 

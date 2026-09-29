@@ -3,7 +3,7 @@
  * Fail if MDX/MD YAML frontmatter uses an unquoted scalar that contains
  * `: ` (colon + space) or ` #`. YAML treats those as a nested mapping or
  * a comment, so titles like `AI Mode: Generate…` must be quoted.
- * Also warns (without failing) on inert top-level `slug:` keys.
+ * Also fail on top-level `slug:` keys, which Mintlify ignores.
  */
 
 import { readdir, readFile } from "node:fs/promises";
@@ -114,16 +114,6 @@ function selfTest() {
   }
 }
 
-function reportSlugWarning(rel, lineNo) {
-  if (process.env.GITHUB_ACTIONS === "true") {
-    process.stdout.write(
-      `::warning file=${rel},line=${lineNo},title=Inert slug frontmatter::${SLUG_MESSAGE}\n`,
-    );
-  } else {
-    process.stderr.write(`warning: ${rel}:${lineNo}: ${SLUG_MESSAGE}\n`);
-  }
-}
-
 async function main() {
   selfTest();
 
@@ -134,7 +124,9 @@ async function main() {
     if (!frontmatter) continue;
     const rel = path.relative(REPO_ROOT, file);
     for (const index of findSlugKeys(frontmatter.lines)) {
-      reportSlugWarning(rel, frontmatter.startLine + index);
+      errors.push(
+        `${rel}:${frontmatter.startLine + index}: ${SLUG_MESSAGE}\n  ${frontmatter.lines[index].trimEnd()}`,
+      );
     }
     for (const issue of findUnquotedYamlIssues(frontmatter.lines)) {
       const lineNo = frontmatter.startLine + issue.index;
@@ -146,7 +138,7 @@ async function main() {
 
   if (errors.length > 0) {
     process.stderr.write(
-      `Found ${errors.length} unquoted YAML frontmatter value${errors.length === 1 ? "" : "s"}:\n\n`,
+      `Found ${errors.length} frontmatter problem${errors.length === 1 ? "" : "s"}:\n\n`,
     );
     for (const error of errors) {
       process.stderr.write(`${error}\n\n`);
