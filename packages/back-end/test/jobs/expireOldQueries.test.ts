@@ -520,6 +520,52 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     expect(releaseLock).not.toHaveBeenCalled();
   });
 
+  it("stops trusting the heartbeat an hour after the last query finished", async () => {
+    mockStalledSnapshot([
+      {
+        id: "qry_1",
+        status: "succeeded",
+        finishedAt: new Date(Date.now() - 61 * 60 * 1000),
+      },
+    ]);
+    hasFreshLockHeartbeat.mockResolvedValue(true);
+    (recoverStalledSnapshot as jest.Mock).mockResolvedValue({
+      kind: "recovered",
+    });
+
+    await runJob();
+
+    // A hung runner keeps beating, so past the cap it is treated as dead.
+    expect(recoverStalledSnapshot).toHaveBeenCalled();
+    expect(releaseLock).toHaveBeenCalledWith("exp_1", "snp_1");
+  });
+
+  it.each([
+    {
+      guard: "the fresh read",
+      failGuard: () =>
+        (findSnapshotById as jest.Mock).mockRejectedValue(new Error("timeout")),
+    },
+    {
+      guard: "the heartbeat check",
+      failGuard: () =>
+        hasFreshLockHeartbeat.mockRejectedValue(new Error("timeout")),
+    },
+  ])(
+    "leaves an all-succeeded snapshot for the next tick when $guard throws",
+    async ({ failGuard }) => {
+      mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
+      failGuard();
+
+      await runJob();
+
+      // The runner may still be alive, so neither error it nor free its lock.
+      expect(recoverStalledSnapshot).not.toHaveBeenCalled();
+      expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+      expect(releaseLock).not.toHaveBeenCalled();
+    },
+  );
+
   it("still errors a stalled snapshot with a mixed succeeded/failed roster", async () => {
     mockStalledSnapshot([
       { id: "qry_1", status: "succeeded" },

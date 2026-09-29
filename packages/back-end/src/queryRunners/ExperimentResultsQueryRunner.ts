@@ -662,6 +662,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       { queries: this.model.queries, error },
       "unknown",
       { concludedBy: this.concludedBy },
+      this.experimentUpdateExecutionLogger,
     );
   }
 

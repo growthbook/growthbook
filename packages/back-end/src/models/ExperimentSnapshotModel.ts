@@ -1074,6 +1074,9 @@ export async function errorSnapshotIfStillRunning(
   updates: Partial<ExperimentSnapshotInterface>,
   failureCause: QueryRunnerFailureCause,
   conclusion: SnapshotConclusion,
+  // A runner ending its own snapshot passes its logger so the line keeps the
+  // plan and timings.
+  executionLogger: ExperimentUpdateExecutionLogger | null = null,
 ): Promise<boolean> {
   const updated = await ExperimentSnapshotModel.findOneAndUpdate(
     {
@@ -1090,7 +1093,7 @@ export async function errorSnapshotIfStillRunning(
     snapshot,
     snapshotStatus: "error",
     conclusion,
-    executionLogger: null,
+    executionLogger,
   });
   await notifySnapshotUpdateFailure({ context, snapshot, failureCause });
   return true;

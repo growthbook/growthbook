@@ -1021,6 +1021,40 @@ describe("ExperimentSnapshotModel", () => {
       ]);
     });
 
+    it("keeps the runner's plan and timings when it errors its own snapshot", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_runner_shutdown");
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      await errorSnapshotIfStillRunning(
+        context,
+        snapshot.id,
+        { error: "Too many refresh failures" },
+        "unknown",
+        { concludedBy: "runner" },
+        new ExperimentUpdateExecutionLogger(
+          {
+            runnerKind: "incremental-update",
+            incrementalFallbackReason: null,
+            useCache: true,
+            fullRefresh: false,
+            fullRefreshReason: null,
+          },
+          { datasource: { id: "ds_1", type: "bigquery" } as never },
+        ),
+      );
+
+      expect(experimentUpdatedLines(context)).toEqual([
+        expect.objectContaining({
+          concludedBy: "runner",
+          datasourceType: "bigquery",
+          runnerKind: "incremental-update",
+          plannedFullRefresh: false,
+          timingsMs: expect.objectContaining({ total: expect.any(Number) }),
+        }),
+      ]);
+    });
+
     it("passes populated chunked analyses to post-success side effects", async () => {
       const context = getSnapshotUpdateContext();
       const experimentId = "exp_chunked_results";

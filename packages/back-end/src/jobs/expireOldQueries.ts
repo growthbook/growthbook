@@ -1,5 +1,6 @@
 import Agenda from "agenda";
 import { Queries, QueryInterface } from "shared/types/query";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
@@ -49,6 +50,10 @@ const JOB_NAME = "expireOldQueries";
 const STALLED_SNAPSHOT_THRESHOLD_MS = 60 * 60 * 1000;
 // The allowable time between the last query finishing and the snapshot being finalized
 const STALLED_FINALIZE_GRACE_MS = 10 * 60 * 1000;
+// How long after the last query finished a fresh incremental lock heartbeat
+// still defers the reaper. The heartbeat is a timer, so it proves the process
+// is alive, not that the run is progressing.
+const STALLED_HEARTBEAT_DEFER_CAP_MS = 60 * 60 * 1000;
 // The runner beats every queued query doc it owns every 30 seconds; 5 minutes
 // without a beat is ten missed beats, enough to consider it stalled
 const QUEUED_HEARTBEAT_STALE_MS = 5 * 60 * 1000;
@@ -375,8 +380,9 @@ async function reapStalledSnapshots() {
       ? "orphaned"
       : "not-finalized";
     if (queryStatuses.every((q) => q.status === "succeeded")) {
+      let freshSnapshot: ExperimentSnapshotInterface | null;
       try {
-        const freshSnapshot = await findSnapshotById(context, snapshot.id);
+        freshSnapshot = await findSnapshotById(context, snapshot.id);
         if (freshSnapshot?.status === "running") {
           const freshQueryIds = new Set(
             freshSnapshot.queries.map((q) => q.query),
@@ -398,12 +404,33 @@ async function reapStalledSnapshots() {
               snapshot.id,
             )
           ) {
-            logger.info(
-              `Deferring stalled snapshot ${snapshot.id}: its runner is still heartbeating the incremental refresh lock`,
+            const lastFinishedAt = Math.max(
+              0,
+              ...queryStatuses.map((q) => q.finishedAt?.getTime() ?? 0),
             );
-            continue;
+            if (now - lastFinishedAt < STALLED_HEARTBEAT_DEFER_CAP_MS) {
+              logger.info(
+                `Deferring stalled snapshot ${snapshot.id}: its runner is still heartbeating the incremental refresh lock`,
+              );
+              continue;
+            }
+            logger.warn(
+              `Reaping stalled snapshot ${snapshot.id} despite a fresh incremental refresh lock heartbeat: its last query finished over ${STALLED_HEARTBEAT_DEFER_CAP_MS / 60000} minutes ago, so the runner looks hung`,
+            );
           }
+        }
+      } catch (e) {
+        // Without these checks the runner may still be alive, and the error
+        // write would release its lock to a new refresh. Retry next tick.
+        logger.warn(
+          e,
+          `Skipping stalled snapshot ${snapshot.id} this tick: failed to check whether its runner is still alive`,
+        );
+        continue;
+      }
 
+      if (freshSnapshot?.status === "running") {
+        try {
           const recovery = await recoverStalledSnapshot(context, freshSnapshot);
           if (recovery.kind === "recovered") {
             logger.warn(
@@ -417,16 +444,16 @@ async function reapStalledSnapshots() {
             recovery.kind === "declined"
               ? `recovery-declined:${recovery.reason}`
               : "recovery-failed";
+        } catch (e) {
+          // A failed finalize must still leave the snapshot terminal, so fall
+          // through to the error write below instead of retrying every tick.
+          recoverError = getErrorMessage(e);
+          reason = "recovery-failed";
+          logger.warn(
+            e,
+            `Failed to recover stalled snapshot ${snapshot.id} from persisted results`,
+          );
         }
-      } catch (e) {
-        // A failed finalize must still leave the snapshot terminal, so fall
-        // through to the error write below instead of retrying every tick.
-        recoverError = getErrorMessage(e);
-        reason = "recovery-failed";
-        logger.warn(
-          e,
-          `Failed to recover stalled snapshot ${snapshot.id} from persisted results`,
-        );
       }
     }
 
