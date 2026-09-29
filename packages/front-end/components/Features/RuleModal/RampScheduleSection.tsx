@@ -904,6 +904,8 @@ interface Props {
   // Whether the parent rule is a sparse patch. The ramp's value edits inherit
   // this — sparse interpretation belongs to the rule, not the schedule.
   sparse?: boolean;
+  // For saved records with no ruleRampSchedule, e.g. an edited template.
+  hasSavedMonitoring?: boolean;
 }
 
 export default function RampScheduleSection({
@@ -932,6 +934,7 @@ export default function RampScheduleSection({
   ruleId,
   featureId,
   sparse = false,
+  hasSavedMonitoring: hasSavedMonitoringProp = false,
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
   const [seedOpen, setSeedOpen] = useState(
@@ -1017,7 +1020,8 @@ export default function RampScheduleSection({
     );
   // Saved monitoring must not be rewritten on load; legacy configs without a
   // stored identifier analyze on the query's legacy identifier.
-  const hasSavedMonitoring = !!ruleRampSchedule?.monitoringConfig;
+  const hasSavedMonitoring =
+    hasSavedMonitoringProp || !!ruleRampSchedule?.monitoringConfig;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource: selectedDatasource,
     hashAttribute,
