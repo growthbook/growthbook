@@ -156,7 +156,7 @@ Take the following results, for example.
 
 In the first graph, we see the number of users who were first exposed to the experiment on that day.
 
-In the second graph, we see the uplift for the two variations relative to the control _for all users first bucketed on that day_. That means that the values on October 7 show that users first exposed to the experiment on October 7 had X% uplift relative to control, when pooling all of the data in their relevant metric window. It does not mean show the difference in conversions across variations on October 7 for all previously bucketed users.
+In the second graph, we see the uplift for the two variations relative to the control _for all users first bucketed on that day_. That means that the values on October 7 show that users first exposed to the experiment on October 7 had X% uplift relative to control, when pooling all of the data in their relevant metric window. It does not show the difference in conversions across variations on October 7 for all previously bucketed users.
 
 #### Custom
 
@@ -220,7 +220,7 @@ This indicates that for some reason your identifier type (in this case `user_id`
 - If you're using something other than GrowthBook for experiment assignment, there are many possible reasons for this issue:
   - A bug with the third party solution's hashing algorithm
   - A mismatch between the identifier type that you have set up in GrowthBook and the ID that is being used to assign variations in that third-party solution
-  - A mistaken in your Experiment Assignment Query that is returning the wrong `variation_id` or identifier type for a given experiment.
+  - A mistake in your Experiment Assignment Query that is returning the wrong `variation_id` or identifier type for a given experiment.
 
 ### Health Tab
 
