@@ -515,15 +515,10 @@ export async function executeExperimentStart(
     experiment,
     changes: {
       ...changes,
-      // A stop the job derives when it fires a start inherits the start's armer.
+      // The job fires a start as its armer, so a stop derived here is theirs.
       nextScheduledStatusUpdate: withScheduledBy(
         nextScheduledStatusUpdate,
-        context.userId || context.apiKey
-          ? context
-          : {
-              userId: experiment.nextScheduledStatusUpdate?.scheduledBy,
-              apiKey: experiment.nextScheduledStatusUpdate?.scheduledByApiKey,
-            },
+        context,
       ),
     },
   });
