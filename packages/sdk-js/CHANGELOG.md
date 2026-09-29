@@ -1,6 +1,6 @@
 # Changelog
 
-## **1.8.0** - Sep 25, 2026
+## **1.8.0** - Sep 29, 2026
 
 - Add support for referencing every kind of Saved Group, not just ID Lists. A new top-level `$savedGroup` operator (`{ "$savedGroup": { "id": "grp_123" } }`) resolves against typed `savedGroups` entries (`{ type: "list", attributeKey, values }` or `{ type: "condition", condition }`), with an optional `attributeKey` override. Nested groups are supported, cycles are detected, and anything unrecognized fails closed instead of throwing
 - `$inGroup` and `$notInGroup` also read the new typed `savedGroups` entries
