@@ -347,8 +347,10 @@ function ChatComposer(
           return false;
         }
         if (ghost && event.key === "Tab") {
-          const end = docEnd(view.state.doc);
-          if (view.state.selection.to === end) {
+          const { selection, doc } = view.state;
+          const end = docEnd(doc);
+          // Same condition the ghost is drawn under: a caret at the very end.
+          if (selection.empty && selection.to === end) {
             view.dispatch(view.state.tr.insertText(ghost, end));
             return true;
           }

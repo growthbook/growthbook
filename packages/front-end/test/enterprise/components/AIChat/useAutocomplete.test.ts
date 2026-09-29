@@ -14,4 +14,9 @@ describe("remainingCompletion", () => {
     expect(remainingCompletion("create a fl", s)).toBe("");
     expect(remainingCompletion("create a flag", null)).toBe("");
   });
+  it("ignores an empty completion", () => {
+    expect(remainingCompletion("create a flag", { ...s, completion: "" })).toBe(
+      "",
+    );
+  });
 });
