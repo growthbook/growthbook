@@ -3,13 +3,13 @@ import {
   getMessageText,
   type AIChatAssistantMessage,
   type AIChatUserMessage,
-  type SkillSummary,
+  type OrgSkillSummary,
 } from "shared/ai-chat";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import { postGeneralAgentChat } from "back-end/src/agent/general-agent";
 import { makeListChats } from "back-end/src/routers/utils/chat-controllers";
 import { listSkillSummaries } from "back-end/src/agent/skills";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
@@ -31,11 +31,10 @@ export const listChats = makeListChats("general");
 
 export const listSkills = async (
   req: AuthRequest,
-  res: Response<{ status: 200; skills: SkillSummary[] }>,
+  res: Response<{ status: 200; skills: OrgSkillSummary[] }>,
 ): Promise<Response> => {
-  return res
-    .status(200)
-    .json({ status: 200, skills: [...listSkillSummaries()] });
+  const { org } = getContextFromReq(req);
+  return res.status(200).json({ status: 200, skills: listSkillSummaries(org) });
 };
 
 const AUTOCOMPLETE_INSTRUCTIONS = `You autocomplete a draft message a user is typing to GrowthBook's AI assistant.
@@ -85,8 +84,9 @@ export const postAutocomplete = async (
     .slice(-6)
     .map((m) => `${m.role}: ${getMessageText(m).slice(0, 500)}`)
     .join("\n");
-  const skills = listSkillSummaries()
-    .filter((s) => s.kind !== "domain")
+  // Only skills the org has on, so suggestions don't steer toward disabled ones.
+  const skills = listSkillSummaries(context.org)
+    .filter((s) => s.enabled && s.kind !== "domain")
     .map((s) => `- ${s.name}: ${s.description}`)
     .join("\n");
 
