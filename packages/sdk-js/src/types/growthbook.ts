@@ -231,6 +231,12 @@ export type CustomEventSubCallback = (
   properties: Readonly<Record<string, unknown>>,
 ) => void;
 
+export type ExperimentViewedSubCallback = (
+  experiment: Readonly<Experiment<unknown>>,
+  result: Readonly<Result<unknown>>,
+  user: TrackingUserContext,
+) => void;
+
 export type Plugin = (
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
 ) => void;
@@ -399,6 +405,7 @@ export type UserContext = {
   trackedFeatureUsage?: Record<string, string>;
   devLogs?: LogUnion[];
   featureUsageSubs?: Set<FeatureUsageSubCallback>;
+  experimentViewedSubs?: Set<ExperimentViewedSubCallback>;
 };
 
 export type StackContext = {
@@ -502,9 +509,7 @@ export type GrowthBookPayload = FeatureApiResponse;
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
 export type Polyfills = {
   fetch: any;
-
   SubtleCrypto: any;
-
   EventSource: any;
   localStorage?: LocalStorageCompat;
 };
