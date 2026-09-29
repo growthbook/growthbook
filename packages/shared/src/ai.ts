@@ -804,7 +804,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "product-analytics-chat": "",
   "find-learnings-context": "", // Org-specific context appended when finding cross-experiment insights
   "general-chat": "",
-  "chat-autocomplete": "", // Org text is appended to the built-in instructions in agent.controller.ts
+  "chat-autocomplete": "", // Always uses the default prompt set in agent.controller.ts
 };
 
 // Prompt types that have default values and can be customized by users
@@ -813,8 +813,7 @@ export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
     AI_PROMPT_DEFAULTS[key as AIPromptType] !== "" ||
     key === "generate-sql-query" ||
     key === "product-analytics-chat" ||
-    key === "find-learnings-context" ||
-    key === "chat-autocomplete",
+    key === "find-learnings-context",
 ) as AIPromptType[];
 
 export interface AIUsageData {

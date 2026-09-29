@@ -142,22 +142,6 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         (p) => p.type === "product-analytics-chat",
       )?.overrideModel,
     },
-    {
-      promptType: "chat-autocomplete",
-      promptName: "AI Assistant Autocomplete",
-      promptDescription:
-        "Suggests how to finish a message as you type it in the AI Assistant. Runs on every pause in typing, so a small, fast model is the right fit here.",
-      promptValue:
-        data.prompts.find((p) => p.type === "chat-autocomplete")?.prompt ||
-        AI_PROMPT_DEFAULTS["chat-autocomplete"],
-      promptDefaultValue: AI_PROMPT_DEFAULTS["chat-autocomplete"],
-      promptHelpText:
-        "Optional. Leave blank to use only the built-in instructions. When set, this text is appended to them.",
-      overrideModelHelpText:
-        "Pick a fast, inexpensive model. Suggestions are short and frequent.",
-      overrideModel: data.prompts.find((p) => p.type === "chat-autocomplete")
-        ?.overrideModel,
-    },
   ];
 }
 
