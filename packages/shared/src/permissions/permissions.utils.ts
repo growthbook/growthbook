@@ -210,17 +210,16 @@ export function pickDefaultRoleFields(
   };
 }
 
-// Same shape getDefaultRole returns: known fields only, and no rules for
-// custom roles the org has since deleted (an export can still carry them)
+// Same shape getDefaultRole returns: known fields only, with stale roles normalized.
 export function normalizeDefaultRole(
   defaultRole: MemberRoleWithProjects,
   org: Partial<OrganizationInterface>,
 ): MemberRoleWithProjects {
-  return dropStaleRoleRules(pickDefaultRoleFields(defaultRole), org);
+  return normalizeStaleRoleRules(pickDefaultRoleFields(defaultRole), org);
 }
 
 // A custom role deleted while referenced here must not block automated joins
-function dropStaleRoleRules(
+function normalizeStaleRoleRules(
   defaultRole: MemberRoleWithProjects,
   org: Partial<OrganizationInterface>,
 ): MemberRoleWithProjects {
@@ -233,8 +232,10 @@ function dropStaleRoleRules(
       : {}),
     ...(defaultRole.projectRoles
       ? {
-          projectRoles: validRules(defaultRole.projectRoles)?.map((p) => ({
+          projectRoles: defaultRole.projectRoles.map((p) => ({
             ...p,
+            // Removing the override would grant the global role in this project.
+            role: isRoleValid(p.role, org) ? p.role : "noaccess",
             ...(p.additionalRoles
               ? { additionalRoles: validRules(p.additionalRoles) }
               : {}),

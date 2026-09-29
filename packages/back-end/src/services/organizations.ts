@@ -1300,6 +1300,8 @@ function validateConfig(context: ReqContext, config: ConfigFile) {
 export async function assertCanUpdateDefaultRole(
   context: ReqContext | ApiReqContext,
   defaultRole: MemberRoleWithProjects,
+  environments: OrganizationSettings["environments"] = context.org.settings
+    ?.environments,
 ) {
   const { org } = context;
 
@@ -1317,7 +1319,11 @@ export async function assertCanUpdateDefaultRole(
   // Only gate a change so an existing non-admin default keeps working
   assertRoleChangeAllowed(org, current.role, defaultRole.role);
 
-  assertMemberRoleInfoValid(org, defaultRole);
+  // Imports can define environments and role restrictions in the same write.
+  assertMemberRoleInfoValid(
+    { ...org, settings: { ...org.settings, environments } },
+    defaultRole,
+  );
   // Diff against the current rules so a stale deleted-project rule that is
   // merely round-tripped doesn't block unrelated edits
   await assertProjectRulesReferenceProjects(
@@ -1355,7 +1361,7 @@ export async function sanitizeDefaultRoleUpdate(
   if (!parsed.success) {
     throw new Error(`Invalid defaultRole: ${errorStringFromZodResult(parsed)}`);
   }
-  await assertCanUpdateDefaultRole(context, parsed.data);
+  await assertCanUpdateDefaultRole(context, parsed.data, settings.environments);
   settings.defaultRole = parsed.data;
 }
 

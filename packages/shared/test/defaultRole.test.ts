@@ -1,6 +1,8 @@
 import {
   areAdditionalRolesValid,
   getDefaultRole,
+  getRolePermissions,
+  hasPermission,
   normalizeDefaultRole,
   pickDefaultRoleFields,
 } from "shared/permissions";
@@ -9,11 +11,15 @@ import {
   OrganizationSettings,
 } from "shared/types/organization";
 
-function orgWithDefaultRole(
-  defaultRole: unknown,
-): Partial<OrganizationInterface> {
+function orgWithDefaultRole(defaultRole: unknown): OrganizationInterface {
   return {
     id: "org_a",
+    name: "Test organization",
+    url: "test",
+    ownerEmail: "owner@example.com",
+    dateCreated: new Date(),
+    members: [],
+    invites: [],
     settings: {
       defaultRole: defaultRole as OrganizationSettings["defaultRole"],
     },
@@ -159,7 +165,7 @@ describe("areAdditionalRolesValid", () => {
 });
 
 describe("getDefaultRole with deleted custom roles", () => {
-  it("drops rules that reference roles the org no longer has", () => {
+  it("drops deleted additional roles and preserves project overrides as noaccess", () => {
     const rule = { limitAccessByEnvironment: false, environments: [] };
     const org = orgWithDefaultRole({
       role: "engineer",
@@ -184,9 +190,64 @@ describe("getDefaultRole with deleted custom roles", () => {
       ...rule,
       additionalRoles: [{ role: "analyst", ...rule }],
       projectRoles: [
+        { project: "p1", role: "noaccess", ...rule },
         { project: "p2", role: "admin", ...rule, additionalRoles: [] },
       ],
     });
+  });
+
+  it("does not inherit global permissions when a project role was deleted", () => {
+    const rule = { limitAccessByEnvironment: false, environments: [] };
+    const org = orgWithDefaultRole({
+      role: "engineer",
+      ...rule,
+      projectRoles: [{ project: "sensitive", role: "deleted_role", ...rule }],
+    });
+    const permissions = getRolePermissions(getDefaultRole(org), org, []);
+
+    expect(hasPermission(permissions, "readData", "sensitive")).toBe(false);
+    expect(
+      hasPermission(permissions, "publishFeatures", "sensitive", [
+        "production",
+      ]),
+    ).toBe(false);
+    expect(
+      hasPermission(permissions, "publishFeatures", "other", ["production"]),
+    ).toBe(true);
+  });
+
+  it("retains valid additional grants and their limits on a stale project override", () => {
+    const rule = { limitAccessByEnvironment: false, environments: [] };
+    const org = orgWithDefaultRole({
+      role: "engineer",
+      ...rule,
+      projectRoles: [
+        {
+          project: "sensitive",
+          role: "deleted_role",
+          ...rule,
+          additionalRoles: [
+            {
+              role: "engineer",
+              limitAccessByEnvironment: true,
+              environments: ["staging"],
+            },
+            { role: "deleted_extra", ...rule },
+          ],
+        },
+      ],
+    });
+    const permissions = getRolePermissions(getDefaultRole(org), org, []);
+
+    expect(hasPermission(permissions, "readData", "sensitive")).toBe(true);
+    expect(
+      hasPermission(permissions, "publishFeatures", "sensitive", ["staging"]),
+    ).toBe(true);
+    expect(
+      hasPermission(permissions, "publishFeatures", "sensitive", [
+        "production",
+      ]),
+    ).toBe(false);
   });
 });
 
