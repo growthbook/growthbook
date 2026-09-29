@@ -20,7 +20,11 @@ import {
 } from "./remoteStreamConstants";
 import { parseSSEEvents } from "./parseSSE";
 import { processSSEEvent } from "./processSSEEvent";
-import { useTypewriter } from "./useTypewriter";
+import {
+  FINISHED_DRAIN_TICKS,
+  TYPEWRITER_INTERVAL_MS,
+  useTypewriter,
+} from "./useTypewriter";
 
 export function useAIChat({
   endpoint,
@@ -114,10 +118,33 @@ export function useAIChat({
   // Active items state helper
   // ---------------------------------------------------------------------------
 
-  const { displayedTextMap, clearDisplayedText } = useTypewriter(
-    activeTurnItemsRef,
-    pauseIncompleteMarkdownLinks,
-    streamCompleteRef,
+  const { displayedTextMap, displayedTextMapRef, clearDisplayedText } =
+    useTypewriter(
+      activeTurnItemsRef,
+      pauseIncompleteMarkdownLinks,
+      streamCompleteRef,
+    );
+
+  // Swapping in the persisted reply ends the animation, so let buffered text
+  // finish typing first. Capped: a paused Markdown link never finishes.
+  const waitForTypewriterDrain = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        const deadline =
+          Date.now() + (FINISHED_DRAIN_TICKS + 10) * TYPEWRITER_INTERVAL_MS;
+        const check = () => {
+          const shown = displayedTextMapRef.current;
+          const drained = activeTurnItemsRef.current.every(
+            (item) =>
+              item.kind !== "text" ||
+              (shown.get(item.id)?.length ?? 0) >= item.content.length,
+          );
+          if (drained || Date.now() >= deadline) resolve();
+          else window.setTimeout(check, TYPEWRITER_INTERVAL_MS);
+        };
+        check();
+      }),
+    [displayedTextMapRef],
   );
 
   const setActive = useCallback(
@@ -464,6 +491,8 @@ export function useAIChat({
         } else if (wasCancelled) {
           onMessageCancelledRef.current?.({ durationMs });
         }
+        // Before loading clears, so a new send can't race the swap below.
+        if (streamCompletedOk) await waitForTypewriterDrain();
         setWaitingForNextStep(false);
         setLoading(false);
         setIsLocalStream(false);
@@ -498,6 +527,7 @@ export function useAIChat({
       finalizeTurn,
       syncMessagesFromServer,
       getConversationEndpoint,
+      waitForTypewriterDrain,
       nextId,
       clearRemotePoll,
     ],
