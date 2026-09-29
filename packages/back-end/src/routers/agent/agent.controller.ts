@@ -45,6 +45,7 @@ export const listSkills = async (
 const AUTOCOMPLETE_INSTRUCTIONS = `You autocomplete a draft message a user is typing to GrowthBook's AI assistant.
 Reply with ONLY the complete message: the draft exactly as written, character for character, continued to the end of the user's thought. No quotes, no explanation.
 Keep the continuation to one short sentence (under 15 words). Prefer requests the assistant's skills below can carry out, and use the recent conversation to guess what they want next.
+The user's current page in the GrowthBook app is given as a path: /features/<key> is that feature flag, /experiment/<id> that experiment, /metric/<id> or /fact-metrics/<id> that metric. When the draft says "this experiment", "this flag" or similar, it means the entity on that page.
 Ground the continuation in what this organization actually has, listed below. Refer to those data sources, feature flags, experiments and metrics by their real names. Never invent a metric, flag, experiment or table that isn't listed; if nothing listed fits, keep the continuation generic.
 Reply with the draft unchanged if there is no good continuation.`;
 
@@ -105,7 +106,11 @@ export function cleanCompletion(raw: string, draft: string): string {
 }
 
 export const postAutocomplete = async (
-  req: AuthRequest<{ text: string; conversationId?: string }>,
+  req: AuthRequest<{
+    text: string;
+    conversationId?: string;
+    currentPage?: string;
+  }>,
   res: Response,
 ) => {
   const context = getContextFromReq(req);
@@ -123,7 +128,7 @@ export const postAutocomplete = async (
     });
   }
 
-  const { text, conversationId } = req.body;
+  const { text, conversationId, currentPage } = req.body;
   // getById is owner-scoped, so another user's conversation reads as missing.
   const [conversation, orgContext] = await Promise.all([
     conversationId
@@ -151,7 +156,7 @@ export const postAutocomplete = async (
     isDefaultPrompt: true,
     temperature: 0.2,
     instructions: AUTOCOMPLETE_INSTRUCTIONS,
-    prompt: `Assistant skills:\n${skills}\n\nThis organization has:\n${orgContext}\n\nRecent conversation:\n${history || "(none)"}\n\nDraft:\n${text}`,
+    prompt: `Assistant skills:\n${skills}\n\nThis organization has:\n${orgContext}\n\nCurrent page: ${currentPage?.trim() || "(unknown)"}\n\nRecent conversation:\n${history || "(none)"}\n\nDraft:\n${text}`,
   });
 
   return res

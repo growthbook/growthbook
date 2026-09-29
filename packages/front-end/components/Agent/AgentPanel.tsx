@@ -873,6 +873,7 @@ export default function AgentPanel({
         skillItems={skillItems}
         autocomplete
         conversationId={conversationId}
+        currentPage={router.asPath.slice(0, 2048)}
         value={input}
         onChange={setInput}
         onSend={handleSend}

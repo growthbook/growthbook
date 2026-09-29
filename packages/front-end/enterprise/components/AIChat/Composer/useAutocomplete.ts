@@ -30,10 +30,13 @@ export function useAutocomplete({
   text,
   enabled,
   conversationId,
+  currentPage,
 }: {
   text: string;
   enabled: boolean;
   conversationId?: string;
+  /** App path the user is on; lets "this experiment" resolve to a real one. */
+  currentPage?: string;
 }): { ghost: string; accept: () => void; dismiss: () => void } {
   const { apiCall } = useAuth();
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
@@ -60,7 +63,7 @@ export function useAutocomplete({
           "/agent/autocomplete",
           {
             method: "POST",
-            body: JSON.stringify({ text, conversationId }),
+            body: JSON.stringify({ text, conversationId, currentPage }),
             signal: ctrl.signal,
           },
         );
@@ -81,7 +84,15 @@ export function useAutocomplete({
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [text, enabled, conversationId, ghost, current?.base, apiCall]);
+  }, [
+    text,
+    enabled,
+    conversationId,
+    currentPage,
+    ghost,
+    current?.base,
+    apiCall,
+  ]);
 
   // Both mark the draft as answered so it isn't refetched until the user types
   // again. After an accept that stops suggestions chaining off each other.
