@@ -1,6 +1,6 @@
 import type { DataSourceInterface } from "shared/types/datasource";
+import { postgresDialect } from "shared/dialects";
 import { getUserExperimentExposuresQuery } from "back-end/src/integrations/sql/queries/user-experiment-exposures-query";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
 
 const datasource = {
   settings: {

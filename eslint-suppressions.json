@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "packages/back-end/test/integrations/sql/queries/user-experiment-exposures-query.test.ts": {
-    "import/order": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Admin/EditOrganization.tsx": {
     "no-restricted-imports": {
       "count": 1
