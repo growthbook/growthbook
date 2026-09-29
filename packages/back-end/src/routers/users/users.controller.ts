@@ -295,8 +295,6 @@ export async function postNpsResponse(
     });
   }
 
-  // The license server forwards responses to HubSpot. Previews are staff
-  // testing the survey, so they never reach the CRM.
   if (IS_CLOUD && status === "responded" && score !== undefined && !isPreview) {
     postNpsResponseToLicenseServer({
       email: req.email,
@@ -306,9 +304,7 @@ export async function postNpsResponse(
       category: npsCategoryOf(score),
       feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
       respondedAt: new Date().toISOString(),
-    }).catch(() => {
-      // callLicenseServer already logs the failure.
-    });
+    }).catch(() => {});
   }
 
   res.status(200).json({
