@@ -1,4 +1,7 @@
-import { ApiContextualBanditInterface } from "shared/validators";
+import {
+  ApiContextualBanditInterface,
+  listContextualBanditsEndpoint,
+} from "shared/validators";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
@@ -6,6 +9,7 @@ import type { ContextualBanditResultsView } from "shared/experiments";
 import type { LinkedFeatureInfo } from "shared/types/experiment";
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { useAuth } from "@/services/auth";
+import { useRestApi } from "@/services/restApi";
 import useApi from "./useApi";
 
 /** Fetches CB docs from the REST API and returns the API shape directly. */
@@ -13,10 +17,9 @@ export function useContextualBandits(
   project?: string,
   includeArchived: boolean = false,
 ) {
-  const path = `/api/v1/contextual-bandits${project ? `?projectId=${encodeURIComponent(project)}` : ""}`;
-  const { data, error, mutate } = useApi<{
-    contextualBandits: ApiContextualBanditInterface[];
-  }>(path);
+  const { data, error, mutate } = useRestApi(listContextualBanditsEndpoint, {
+    query: { projectId: project || undefined },
+  });
 
   const allContextualBandits = useMemo(
     () => data?.contextualBandits ?? [],
