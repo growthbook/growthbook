@@ -509,9 +509,7 @@ export type GrowthBookPayload = FeatureApiResponse;
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
 export type Polyfills = {
   fetch: any;
-
   SubtleCrypto: any;
-
   EventSource: any;
   localStorage?: LocalStorageCompat;
 };

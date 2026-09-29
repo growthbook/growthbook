@@ -1122,7 +1122,7 @@ The cases.json file is an object. The keys are the function being tested, and th
   - condition
   - attributes
   - expected return value (boolean)
-  - definitions for Saved Groups referenced in the test case (object of keys: ID of list -> values: array of members)
+  - definitions for Saved Groups referenced in the test case (object of keys: ID of group -> values: array of members, or a typed entry in the `savedGroupReferencesV2` cases)
 - **hash**
   - seed (string)
   - value to hash (string)
@@ -1179,6 +1179,11 @@ The cases.json file is an object. The keys are the function being tested, and th
   - name of the test case (string)
   - context passed into GrowthBook constructor
   - expected array of result objects
+- **contextualBandit**: same shape as the `feature` cases, for SDKs that support Contextual Bandits
+- **savedGroupReferencesV2**: an object with three sub-suites, for SDKs that support `$savedGroup`. Skip the whole key if yours does not yet
+  - **evalCondition**: same shape as the top-level `evalCondition` cases, with Saved Groups given as typed entries
+  - **feature**: same shape as the top-level `feature` cases
+  - **run**: same shape as the top-level `run` cases
 
 In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, getters/setters, etc. that are more language-specific.
 
@@ -1255,3 +1260,15 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - New tests for pre-requisite edge cases
   - New tests to make sure only known properties are copied from feature rules to experiments
   - New tests for evalCondition to cover null/false edge cases
+- **v0.8.0** 2026-07-28
+  - Add Contextual Bandit support: feature rules can carry a `contextualBanditRef`, resolved against a new `contextualBandits` field in the payload
+  - New `contextualBandit` key in the test cases (35 cases)
+  - New `feature` test cases for bandit-related rules: `standard` and `multi-armed-bandit` rule types are treated as standard experiments, and unknown bandit fields on other rules are ignored
+- **v0.8.1** 2026-09-17
+  - Add 25 `evalCondition` test cases for the version comparison operators (`$veq`, `$vne`, `$vgt`, and others), covering edge cases such as empty, null, and absent attributes, numeric attributes, and pre-release tags
+- **v0.9.0** 2026-09-25
+  - New top-level `$savedGroup` operator that references any kind of Saved Group: `{"$savedGroup": {"id": "grp_123"}}`, with an optional `attributeKey` override. Exclusion is sent as `{"$not": {"$savedGroup": {...}}}`
+  - `savedGroups` entries can be typed objects: `{"type": "list", "attributeKey": "...", "values": [...]}` or `{"type": "condition", "condition": {...}}`. The bare-array form from v0.7.0 is still valid
+  - `$inGroup` and `$notInGroup` also read typed `list` entries
+  - Saved Groups are passed into prerequisite conditions (`parentConditions`)
+  - New `savedGroupReferencesV2` key in the test cases, with `evalCondition`, `feature`, and `run` sub-suites. SDKs that do not support it yet can skip the whole key
