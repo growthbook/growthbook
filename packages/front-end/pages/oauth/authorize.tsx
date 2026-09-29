@@ -277,25 +277,23 @@ export default function OAuthAuthorizePage() {
       ? info.message || "Failed to load authorization request"
       : "");
   const error = actionError || missingParamsError || infoError;
+  // Never redirect to a redirect_uri the server hasn't matched to the client (RFC 6749 §4.1.2.1).
+  const verifiedRedirectUri =
+    !infoFetchError && info?.status === 200 && info.client
+      ? info.redirectUri
+      : undefined;
 
   const deny = useCallback(() => {
-    if (!query.redirect_uri) {
-      setActionError("Cannot deny: missing redirect_uri");
-      return;
-    }
-    try {
-      const url = new URL(query.redirect_uri);
-      url.searchParams.set("error", "access_denied");
-      url.searchParams.set(
-        "error_description",
-        "The user denied the authorization request",
-      );
-      if (query.state) url.searchParams.set("state", query.state);
-      window.location.assign(url.toString());
-    } catch {
-      setActionError("Invalid redirect_uri");
-    }
-  }, [query.redirect_uri, query.state]);
+    if (!verifiedRedirectUri) return;
+    const url = new URL(verifiedRedirectUri);
+    url.searchParams.set("error", "access_denied");
+    url.searchParams.set(
+      "error_description",
+      "The user denied the authorization request",
+    );
+    if (query.state) url.searchParams.set("state", query.state);
+    window.location.assign(url.toString());
+  }, [verifiedRedirectUri, query.state]);
 
   const approve = useCallback(async () => {
     if (!orgId) {
@@ -512,7 +510,7 @@ export default function OAuthAuthorizePage() {
           color="gray"
           size="lg"
           onClick={deny}
-          disabled={submitting}
+          disabled={submitting || !verifiedRedirectUri}
           style={{ flex: 1 }}
         >
           Deny
