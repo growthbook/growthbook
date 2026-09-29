@@ -497,9 +497,8 @@ ul.sidebar-group > li[data-title="GrowthBook Guide"] {
 }
 
 /* Mintlify markdown tables ship [&_td]:min-w-[150px] on every cell, which
-   wraps identifier columns (tool names, env vars). Keep the first column
-   on one line and ellipsize instead of forcing a 200px min-width. */
-.\[\&_td\]\:min-w-\[150px\] td:first-child {
+   wraps identifier columns, making them unseemly. */
+table[class*="[&_td]:min-w-[150px]"] td:first-child {
   max-width: 25%;
   overflow: hidden;
   text-overflow: ellipsis;
