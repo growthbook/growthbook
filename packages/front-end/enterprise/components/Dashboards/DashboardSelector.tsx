@@ -46,7 +46,8 @@ export default function DashboardSelector({
         ...style,
       }}
       placeholder={placeholder}
-      value={allowClear && !value ? CLEAR_VALUE : value}
+      // Radix only shows the placeholder when value is undefined, not "".
+      value={value || (allowClear ? CLEAR_VALUE : undefined)}
       setValue={(newValue) => {
         if (newValue === "__create__") {
           onCreateNew?.();
