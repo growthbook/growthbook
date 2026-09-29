@@ -5,12 +5,12 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import {
-  applyScheduledExperimentStop,
-  getScheduledStatusContext,
-} from "back-end/src/services/experimentScheduling";
+import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
+import {
+  assertCanRunExperimentInAffectedEnvironments,
+  getScheduledStatusContext,
+} from "back-end/src/services/experiments";
 import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
 
 // A staged status change fires as whoever armed it, user or API key, checked
@@ -34,7 +34,6 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 }));
 jest.mock("back-end/src/services/experimentScheduling", () => ({
   applyScheduledExperimentStop: jest.fn(),
-  getScheduledStatusContext: jest.fn(),
 }));
 jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
@@ -46,6 +45,7 @@ jest.mock(
 );
 jest.mock("back-end/src/services/experiments", () => ({
   assertCanRunExperimentInAffectedEnvironments: jest.fn(),
+  getScheduledStatusContext: jest.fn(),
 }));
 jest.mock("back-end/src/services/experimentNotifications", () => ({
   notifyScheduledEndDecision: jest.fn(),

@@ -1761,6 +1761,9 @@ export async function getContextForAgendaJobByOrgId(
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   apiKeyId: string,
+  {
+    applyProjectRestrictions = true,
+  }: { applyProjectRestrictions?: boolean } = {},
 ): Promise<ApiReqContext | null> {
   const key =
     apiKeyId === SECRET_API_KEY_ID
@@ -1780,6 +1783,9 @@ export async function getContextForApiKeyIdInOrg(
     apiKey: apiKeyId,
     apiKeyData: key,
     teams: await TeamModel.dangerousGetTeamsForOrganization(org.id),
+    restrictedProjects: applyProjectRestrictions
+      ? await ProjectModel.dangerousGetRestrictedProjectIds(org.id)
+      : [],
   });
 }
 
@@ -1802,13 +1808,15 @@ export function isArmingApiKeyId(id: string | undefined): id is string {
   return !!id && (id.startsWith("key_") || id === SECRET_API_KEY_ID);
 }
 
-// A stored armer id is a user or an org API key; each runs as itself.
+// A stored armer id is a user or an org API key; each runs as itself, on the
+// authority it held when it armed (a later project restriction does not strand
+// the publish, as with users).
 export async function getContextForArmedPublisherInOrg(
   org: OrganizationInterface,
   id: string,
 ): Promise<ReqContext | ApiReqContext | null> {
   return isArmingApiKeyId(id)
-    ? getContextForApiKeyIdInOrg(org, id)
+    ? getContextForApiKeyIdInOrg(org, id, { applyProjectRestrictions: false })
     : getContextForUserIdInOrg(org, id, { applyProjectRestrictions: false });
 }
 

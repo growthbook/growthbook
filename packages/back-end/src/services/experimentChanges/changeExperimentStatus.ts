@@ -305,6 +305,18 @@ export async function getExperimentStartChecklistStatus(
     });
 
   linkedFeatures
+    .filter((f) => f.state === "draft" && f.cannotPublish)
+    .forEach((f) => {
+      items.push({
+        key: `publishPermission:${f.feature.id}`,
+        required: true,
+        status: "incomplete",
+        manual: false,
+        hardBlock: true,
+        reason: `Permission to publish linked feature ${f.feature.id} is needed before starting.`,
+      });
+    });
+  linkedFeatures
     .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
     .forEach((f) => {
       items.push({
@@ -576,6 +588,7 @@ export async function startExperiment({
     context,
     experimentId,
   );
+  await assertCanPublishPendingFeatureDrafts(context, loadedExperiment);
   const { checklistItems, status } = await getExperimentStartChecklist({
     context,
     experiment: loadedExperiment,
@@ -607,7 +620,6 @@ export async function startExperiment({
       await assertFeatureNotLockedByRamp(context, fid);
     }
   }
-  await assertCanPublishPendingFeatureDrafts(context, experiment);
 
   const { updated } = await executeExperimentStart(context, experiment);
 
@@ -652,6 +664,7 @@ export async function approveScheduledExperimentStart({
     );
   }
 
+  await assertCanPublishPendingFeatureDrafts(context, experiment);
   const checklistItems = await getExperimentStartChecklistStatus(
     context,
     experiment,
@@ -670,8 +683,6 @@ export async function approveScheduledExperimentStart({
       );
     }
   }
-
-  await assertCanPublishPendingFeatureDrafts(context, experiment);
 
   // The fire runs as the armer, so there has to be one to record.
   if (!context.userId && !isArmingApiKeyId(context.apiKey)) {

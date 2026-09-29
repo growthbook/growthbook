@@ -261,6 +261,8 @@ import {
 } from "./stats";
 import {
   getContextForAgendaJobByOrgObject,
+  getContextForApiKeyIdInOrg,
+  getContextForUserIdInOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
   getSignificanceSettingsForProject,
@@ -2493,6 +2495,23 @@ export async function getExperimentAffectedEnvs(
     linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
     pendingDrafts,
   });
+}
+
+// The principal a staged status change runs as: whoever armed it, user or org
+// API key, with the rights they hold now, project restrictions included.
+// Nobody recorded means nobody to run as.
+export async function getScheduledStatusContext(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate">,
+): Promise<ReqContext | ApiReqContext | null> {
+  const staged = experiment.nextScheduledStatusUpdate;
+  if (staged?.scheduledBy) {
+    return getContextForUserIdInOrg(context.org, staged.scheduledBy);
+  }
+  if (staged?.scheduledByApiKey) {
+    return getContextForApiKeyIdInOrg(context.org, staged.scheduledByApiKey);
+  }
+  return null;
 }
 
 // The drafts a start publishes, with the features they land on.
@@ -5374,12 +5393,15 @@ export async function getRefLinkedFeatureInfo({
   refIsDraft,
   matchRule,
   pendingFeatureDrafts,
+  publisher = context,
 }: {
   context: ReqContext | ApiReqContext;
   linkedFeatureIds: string[];
   refIsDraft: boolean;
   matchRule: (rule: FeatureRule) => boolean;
   pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
+  // Who a start would publish each draft as; null when nobody can be resolved.
+  publisher?: ReqContext | ApiReqContext | null;
 }): Promise<LinkedFeatureInfo[]> {
   if (!linkedFeatureIds.length) return [];
 
@@ -5570,6 +5592,16 @@ export async function getRefLinkedFeatureInfo({
           : undefined) ??
         !!feature.environmentSettings?.[environmentId]?.enabled;
 
+      const cannotPublish =
+        state === "draft" && !!matchedDraftRevision
+          ? !publisher ||
+            !publisher.permissions.canPublishFeature(
+              feature,
+              matches
+                .filter((m) => envEnabled(m.environmentId))
+                .map((m) => m.environmentId),
+            )
+          : undefined;
       const environmentStates: Record<string, LinkedFeatureEnvState> = {};
       environments.forEach((env) => (environmentStates[env] = "missing"));
       matches.forEach((match) => {
@@ -5650,6 +5682,7 @@ export async function getRefLinkedFeatureInfo({
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,
         }),
+        ...(cannotPublish !== undefined && { cannotPublish }),
         ...(environmentsToEnable !== undefined && { environmentsToEnable }),
       };
 
@@ -5664,6 +5697,11 @@ export async function getLinkedFeatureInfo(
   context: ReqContext,
   experiment: ExperimentInterface,
 ) {
+  // Once a start is armed the drafts publish as the armer, so judge as them.
+  const publisher =
+    experiment.nextScheduledStatusUpdate?.type === "start"
+      ? await getScheduledStatusContext(context, experiment)
+      : context;
   return getRefLinkedFeatureInfo({
     context,
     linkedFeatureIds: experiment.linkedFeatures || [],
@@ -5671,6 +5709,7 @@ export async function getLinkedFeatureInfo(
     matchRule: (rule) =>
       rule.type === "experiment-ref" && rule.experimentId === experiment.id,
     pendingFeatureDrafts: experiment.pendingFeatureDrafts,
+    publisher,
   });
 }
 

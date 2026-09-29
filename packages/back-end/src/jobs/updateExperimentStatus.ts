@@ -9,11 +9,11 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
 import {
-  applyScheduledExperimentStop,
+  assertCanRunExperimentInAffectedEnvironments,
   getScheduledStatusContext,
-} from "back-end/src/services/experimentScheduling";
-import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
+} from "back-end/src/services/experiments";
 import {
   isTerminalPublishError,
   TerminalPublishError,
