@@ -272,7 +272,7 @@ export function getChecklistItems({
                   ? "Whoever scheduled this start can no longer publish "
                   : "You need permission to publish "}
                 <Link
-                  href={`/features/${f.feature.id}${f.draftRevisionVersion != null ? `?v=${f.draftRevisionVersion}` : ""}`}
+                  href={`/features/${f.feature.id}${(f.draftRevisionVersion ?? null) !== null ? `?v=${f.draftRevisionVersion}` : ""}`}
                   target="_blank"
                 >
                   {f.feature.id}

@@ -242,7 +242,7 @@ export default function LinkedFeatureFlag({
               ? "Whoever scheduled this start can no longer publish this Feature Flag draft. Unschedule or reschedule the start, then approve it again from an account that can."
               : "You don't have permission to publish this Feature Flag draft, so it can't be published when the experiment starts."}{" "}
             <Link
-              href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
+              href={`/features/${info.feature?.id}${(info.draftRevisionVersion ?? null) !== null ? `?v=${info.draftRevisionVersion}` : ""}`}
               target="_blank"
             >
               View draft
