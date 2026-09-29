@@ -117,6 +117,7 @@ export default function ExperimentRefNewFields({
   projectScope,
   onRuleCyclicChange,
   assignmentQueryCopySource,
+  keepAssignmentSelection = false,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -161,6 +162,9 @@ export default function ExperimentRefNewFields({
   // When duplicating or creating from a template: keeps its identifier and
   // explains a change.
   assignmentQueryCopySource?: AssignmentQueryCopySource | null;
+  // A saved record being edited: don't rewrite its selection on load, and keep
+  // it listed even if its query no longer declares the identifier.
+  keepAssignmentSelection?: boolean;
 }) {
   const form = useFormContext();
 
@@ -225,7 +229,9 @@ export default function ExperimentRefNewFields({
       datasource ?? null,
       assignmentQueryCopySource ?? null,
     ),
-    autoRepair: !!datasourceProperties?.exposureQueries,
+    autoRepair:
+      !keepAssignmentSelection && !!datasourceProperties?.exposureQueries,
+    keepCurrentSelection: keepAssignmentSelection,
   });
 
   const getMatchingExposureQuery = (

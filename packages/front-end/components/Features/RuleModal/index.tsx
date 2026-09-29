@@ -21,6 +21,7 @@ import {
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -648,7 +649,19 @@ export default function RuleModal({
     if (rule.type === "safe-rollout") {
       return {
         ...rule,
-        safeRolloutFields: safeRollout,
+        // Rollouts saved before identifiers were stored analyze on their
+        // query's original one; fill it in so the required field isn't blank.
+        safeRolloutFields: safeRollout && {
+          ...safeRollout,
+          exposureQueryIdentifierType: resolveAnalysisIdentifierType(
+            datasources
+              .find((d) => d.id === safeRollout.datasourceId)
+              ?.settings?.queries?.exposure?.find(
+                (q) => q.id === safeRollout.exposureQueryId,
+              ),
+            safeRollout.exposureQueryIdentifierType,
+          ),
+        },
       };
     }
     if (rule.type === "rollout") {
