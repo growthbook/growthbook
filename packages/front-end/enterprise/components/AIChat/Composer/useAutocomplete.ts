@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/services/auth";
 
-const DEBOUNCE_MS = 400;
+const DEBOUNCE_MS = 250;
 // "I want" says little; three words is about where a continuation stops being a guess.
 const MIN_WORDS = 3;
 // ponytail: flat back-off after any failure; per-status handling if 429s get common.

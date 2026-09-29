@@ -157,6 +157,8 @@ export const postAutocomplete = async (
     type: "chat-autocomplete",
     isDefaultPrompt: true,
     temperature: 0.2,
+    // Draft echo plus one short sentence; anything longer is the model rambling.
+    maxOutputTokens: 120,
     instructions: AUTOCOMPLETE_INSTRUCTIONS,
     prompt: `Assistant skills:\n${skills}\n\nThis organization has:\n${orgContext}\n\nCurrent page: ${currentPage?.trim() || "(unknown)"}\n\nRecent conversation:\n${history || "(none)"}\n\nDraft:\n${text}`,
   });
