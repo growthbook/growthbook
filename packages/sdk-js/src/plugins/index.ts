@@ -1,7 +1,11 @@
 export { autoAttributesPlugin } from "./auto-attributes";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
-export { tracingPlugin, getTracingTags, TRACING_TAG_PREFIX } from "./tracing";
+export {
+  tracingPlugin,
+  getTracingTags,
+  TRACING_TAG_EXPERIMENT_PREFIX,
+} from "./tracing";
 export {
   devtoolsPlugin,
   devtoolsNextjsPlugin,

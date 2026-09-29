@@ -20,7 +20,7 @@ The Arize Phoenix event tracker is in beta. It queries Phoenix's own Postgres da
 
 ## Exposure Tracking
 
-There is no separate exposure event. Each trace's root span carries the GrowthBook assignment as an OpenInference tag of the form `gb:<experimentKey>:<variationKey>` (in the `tag.tags` attribute), and the exposure query reads those tags from the `spans` table.
+There is no separate exposure event. Each trace's root span carries the GrowthBook assignment as an OpenInference tag of the form `gb.exp:<experimentKey>=<variationKey>` (in the `tag.tags` attribute), and the exposure query reads those tags from the `spans` table.
 
 In JavaScript, the [`tracing` plugin](/lib/js#tracing) collects these tags for you. Put them, together with the user id, on the OpenTelemetry context before the root span starts:
 
@@ -52,7 +52,7 @@ await context.with(ctx, async () => {
 Two things must hold for the join to work:
 
 - The OpenInference `user.id` (and `session.id`, if used) must equal the value of the GrowthBook attribute the experiment hashes on.
-- Experiment and variation keys must not contain `:`.
+- Experiment keys must not contain `=`.
 
 Evaluate flags before starting the root span so the tags are present on it; the exposure query only reads the root span. For Python and plain OpenTelemetry examples, see [Stamping the trace](/integrations/llm-tracing#stamping-the-trace).
 

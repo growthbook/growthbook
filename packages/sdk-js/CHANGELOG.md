@@ -10,7 +10,7 @@
 - Fix `$elemMatch` skipping falsy array elements (`0`, `""`, `false`), so `{ "$elemMatch": { "$eq": 0 } }` now matches `[0]`
 - Add an `enableFeatureUsageEvents` option to the GrowthBook tracking plugin, to turn off feature usage events while keeping experiment views and custom events
 - The GrowthBook tracking plugin now sends events to `us-east-1.gb-ingest.com` by default
-- New `tracing` plugin that records experiment assignments as `gb:<experiment>:<variation>` tags for LLM tracing tools (Langfuse, Arize Phoenix, OpenTelemetry), plus an internal experiment-viewed subscription stream for plugins
+- New `tracing` plugin that records experiment assignments as `gb.exp:<experiment>=<variation>` tags for LLM tracing tools (Langfuse, Arize Phoenix, OpenTelemetry), plus an internal experiment-viewed subscription stream for plugins
 - Export more TypeScript types: plugin options (`AutoAttributeSettings`, `GrowthBookTrackingOptions`, `TrackingEventData`, `Trackers`), Contextual Bandit definitions, `SavedGroupCondition`, and the sticky bucket adapter interfaces. The React SDK now re-exports these along with `Options`, `UserContext`, `TrackingUserContext`, `Plugin`, and other core types it was missing
 
 ## **1.7.0** - Aug 7, 2026

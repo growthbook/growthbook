@@ -1,7 +1,7 @@
 import { Experiment, GrowthBook, GrowthBookClient } from "../../src";
 import {
   getTracingTags,
-  TRACING_TAG_PREFIX,
+  TRACING_TAG_EXPERIMENT_PREFIX,
   tracingPlugin,
 } from "../../src/plugins/tracing";
 
@@ -11,7 +11,7 @@ describe("tracingPlugin", () => {
     variations: [false, true],
   };
 
-  it("records a gb:<experiment>:<variation> tag after run()", () => {
+  it("records a gb.exp:<experiment>=<variation> tag after run()", () => {
     const gb = new GrowthBook({
       plugins: [tracingPlugin()],
       attributes: { id: "123" },
@@ -19,8 +19,8 @@ describe("tracingPlugin", () => {
 
     const res = gb.run(exp);
 
-    expect(TRACING_TAG_PREFIX).toBe("gb");
-    expect(getTracingTags(gb)).toEqual([`gb:my-experiment:${res.key}`]);
+    expect(TRACING_TAG_EXPERIMENT_PREFIX).toBe("gb.exp");
+    expect(getTracingTags(gb)).toEqual([`gb.exp:my-experiment=${res.key}`]);
     // Variation key defaults to the variation index
     expect(res.key).toBe(String(res.variationId));
 
@@ -65,7 +65,7 @@ describe("tracingPlugin", () => {
       second = gb.run(exp);
     }
 
-    expect(getTracingTags(gb)).toEqual([`gb:my-experiment:${second.key}`]);
+    expect(getTracingTags(gb)).toEqual([`gb.exp:my-experiment=${second.key}`]);
 
     gb.destroy();
   });
@@ -80,9 +80,12 @@ describe("tracingPlugin", () => {
     gb.run({ ...exp, key: "alpha" });
 
     const tags = getTracingTags(gb);
-    expect(tags.map((t) => t.split(":")[1])).toEqual(["alpha", "zeta"]);
+    expect(tags).toEqual([
+      expect.stringMatching(/^gb\.exp:alpha=/),
+      expect.stringMatching(/^gb\.exp:zeta=/),
+    ]);
 
-    tags.push("gb:injected:0");
+    tags.push("gb.exp:injected=0");
     expect(getTracingTags(gb)).toHaveLength(2);
 
     gb.destroy();
@@ -103,7 +106,7 @@ describe("tracingPlugin", () => {
         variationKey: res.key,
         hashAttribute: "id",
         hashValue: "123",
-        tag: `gb:my-experiment:${res.key}`,
+        tag: `gb.exp:my-experiment=${res.key}`,
       },
       { attributes: { id: "123" }, url: expect.any(String) },
     );
@@ -123,40 +126,39 @@ describe("tracingPlugin", () => {
     });
 
     expect(["control", "treatment"]).toContain(res.key);
-    expect(getTracingTags(gb)).toEqual([`gb:my-experiment:${res.key}`]);
+    expect(getTracingTags(gb)).toEqual([`gb.exp:my-experiment=${res.key}`]);
 
     gb.destroy();
   });
 
-  it("supports a custom tagPrefix", () => {
-    const gb = new GrowthBook({
-      plugins: [tracingPlugin({ tagPrefix: "exp" })],
-      attributes: { id: "123" },
-    });
-
-    const res = gb.run(exp);
-
-    expect(getTracingTags(gb)).toEqual([`exp:my-experiment:${res.key}`]);
-
-    gb.destroy();
-  });
-
-  it("skips assignments whose keys contain the separator", () => {
+  it("skips experiment keys containing =", () => {
     const onAssignment = jest.fn();
     const gb = new GrowthBook({
       plugins: [tracingPlugin({ onAssignment })],
       attributes: { id: "123" },
     });
 
-    gb.run({ ...exp, key: "bad:experiment" });
-    gb.run({
-      ...exp,
-      key: "bad-variation",
-      meta: [{ key: "a:b" }, { key: "c:d" }],
-    });
+    gb.run({ ...exp, key: "bad=experiment" });
 
     expect(getTracingTags(gb)).toEqual([]);
     expect(onAssignment).not.toHaveBeenCalled();
+
+    gb.destroy();
+  });
+
+  it("allows : in experiment keys and = or : in variation keys", () => {
+    const gb = new GrowthBook({
+      plugins: [tracingPlugin()],
+      attributes: { id: "123" },
+    });
+
+    const res = gb.run({
+      ...exp,
+      key: "llm:prompt",
+      meta: [{ key: "a=b" }, { key: "c:d" }],
+    });
+
+    expect(getTracingTags(gb)).toEqual([`gb.exp:llm:prompt=${res.key}`]);
 
     gb.destroy();
   });
@@ -204,7 +206,7 @@ describe("tracingPlugin", () => {
 
     expect(res.source).toBe("experiment");
     expect(getTracingTags(gb)).toEqual([
-      `gb:feature-exp:${res.experimentResult?.key}`,
+      `gb.exp:feature-exp=${res.experimentResult?.key}`,
     ]);
 
     gb.destroy();
@@ -237,8 +239,10 @@ describe("tracingPlugin", () => {
       const resA = userA.runInlineExperiment(exp);
       const resB = userB.runInlineExperiment({ ...exp, key: "other" });
 
-      expect(getTracingTags(userA)).toEqual([`gb:my-experiment:${resA.key}`]);
-      expect(getTracingTags(userB)).toEqual([`gb:other:${resB.key}`]);
+      expect(getTracingTags(userA)).toEqual([
+        `gb.exp:my-experiment=${resA.key}`,
+      ]);
+      expect(getTracingTags(userB)).toEqual([`gb.exp:other=${resB.key}`]);
       expect(getTracingTags(unused)).toEqual([]);
 
       expect(onAssignment).toHaveBeenCalledTimes(2);
@@ -282,7 +286,7 @@ describe("tracingPlugin", () => {
 
       expect(res.source).toBe("experiment");
       expect(getTracingTags(user)).toEqual([
-        `gb:feature-exp:${res.experimentResult?.key}`,
+        `gb.exp:feature-exp=${res.experimentResult?.key}`,
       ]);
 
       client.destroy();
