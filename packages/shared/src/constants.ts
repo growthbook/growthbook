@@ -82,7 +82,7 @@ export const CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE = "Combined";
  */
 export const MIN_UNITS_PER_VARIATION = 100;
 /** Per-variation minimum units applied within a single contextual bandit leaf. */
-export const MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY = 50;
+export const MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY = 100;
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 export const NULL_ATTRIBUTE_VALUE = "__NULL_ATTRIBUTE";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";

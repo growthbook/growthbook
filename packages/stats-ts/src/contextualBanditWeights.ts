@@ -9,8 +9,8 @@ import type {
   MetricSettingsForStatsEngine,
 } from "shared/types/stats";
 import { leafClausesFromContexts } from "shared/experiments";
+import { MIN_UNITS_PER_VARIATION } from "shared/constants";
 import {
-  MIN_UNITS_PER_VARIATION,
   updateVariationWeights,
   type VariationWeightResult,
 } from "./banditWeights";

@@ -127,7 +127,7 @@ describe("updateVariationWeights", () => {
   });
 
   it("gives small sample size arms 1/K and splits the rest among large sample size arms", () => {
-    // K = 3, one deficient arm (n < 50): L = 1, H = 2.
+    // K = 3, one deficient arm (n < 100): L = 1, H = 2.
     const stats = [arm(200, 1), arm(200, 2), arm(30, 1)];
     const result = updateVariationWeights(stats, [1 / 3, 1 / 3, 1 / 3]);
 
@@ -140,14 +140,17 @@ describe("updateVariationWeights", () => {
     expect(w[1]).toBeGreaterThan(w[0]);
     expect(sum(w)).toBeCloseTo(1, 6);
 
-    // Qualifying arms report their true P(best) among arms with sample size >= 100, otherwise the uniform prior 1/K.
+    // bestArmProbabilities mirrors the weights: deficient arm keeps 1/K, and the
+    // qualifying arms' P(best) is scaled by the (K - L)/K = 2/3 remaining mass so
+    // the full array sums to 1.
     expect(result.bestArmProbabilities).not.toBeNull();
     expect(result.bestArmProbabilities![0]).toBeGreaterThan(0);
     expect(result.bestArmProbabilities![1]).toBeGreaterThan(0);
     expect(
       result.bestArmProbabilities![0] + result.bestArmProbabilities![1],
-    ).toBeCloseTo(1, 6);
+    ).toBeCloseTo(2 / 3, 6);
     expect(result.bestArmProbabilities![2]).toBeCloseTo(1 / 3, 6);
+    expect(sum(result.bestArmProbabilities!)).toBeCloseTo(1, 6);
     expect(result.updateMessage).toContain("1 of 3 variations");
   });
 

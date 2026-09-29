@@ -1,14 +1,10 @@
-import {
-  MIN_UNITS_PER_VARIATION,
-  MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY,
-} from "shared/constants";
+import { MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY } from "shared/constants";
 import { normCdf, randomNormal } from "./utils";
 
 const BANDIT_PRIOR_MEAN = 0;
 const BANDIT_PRIOR_VARIANCE = 1e4;
 const BANDIT_PRIOR_PRECISION = 1 / BANDIT_PRIOR_VARIANCE;
 const MIN_VARIATION_WEIGHT = 0.01;
-export { MIN_UNITS_PER_VARIATION, MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY };
 // Minimum variance for a bandit variation.
 const BANDIT_MIN_VARIANCE = 1e-9;
 
@@ -272,11 +268,10 @@ export function updateVariationWeights(
   const remainingMass = (numStats - numWithoutEnoughUsers) / numStats;
 
   const updatedWeights = new Array<number>(numStats).fill(1 / numStats);
-  // Per-variation P(best) among arms with sample size >= 100, otherwise the uniform prior 1/K.
   const bestArmProbabilities = new Array<number>(numStats).fill(1 / numStats);
   statsWithEnoughUsers.forEach((idx, j) => {
     updatedWeights[idx] = subsetWeights[j] * remainingMass;
-    bestArmProbabilities[idx] = subsetProbs[j];
+    bestArmProbabilities[idx] = subsetProbs[j] * remainingMass;
   });
 
   const updateMessage =

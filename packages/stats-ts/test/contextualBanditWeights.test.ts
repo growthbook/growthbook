@@ -145,7 +145,7 @@ describe("computeContextualBanditWeights", () => {
   });
 
   it("assigns 1/K to deficient arms and splits the rest among healthy arms", () => {
-    // v0 and v1 are healthy (H = 2), v2 is deficient (< 50 units), so v2 gets a
+    // v0 and v1 are healthy (H = 2), v2 is deficient (< 100 units), so v2 gets a
     // fixed 1/K weight and v0/v1 share the remaining (K - L)/K = 2/3 mass.
     const data = [
       countryObs("US", 0, 200, 1),
@@ -169,14 +169,14 @@ describe("computeContextualBanditWeights", () => {
     expect(r.updateMessage).toContain("1 of 3 variations");
 
     // The arm with small sample size P(best) is the uniform prior 1/K (K = 3), not a
-    // computed 0. The qualifying arms report their true (unscaled) P(best) among
-    // qualifying arms, so they sum to 1 between themselves; the full array is a
-    // conditional distribution that need not sum to 1.
+    // computed 0. The qualifying arms' P(best) is scaled by the (K - L)/K = 2/3
+    // remaining mass so the full array (deficient arm included) sums to 1.
     const probs = r.bestArmProbabilities as number[];
     expect(probs[0]).toBeGreaterThan(0);
     expect(probs[1]).toBeGreaterThan(0);
-    expect(probs[0] + probs[1]).toBeCloseTo(1, 6);
+    expect(probs[0] + probs[1]).toBeCloseTo(2 / 3, 6);
     expect(probs[2]).toBeCloseTo(1 / 3, 6);
+    expect(probs.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
   });
 
   it("excludes under-powered variations from tree building", () => {
@@ -235,7 +235,7 @@ describe("computeContextualBanditWeights", () => {
     // eligible to drive a split and all contexts collapse into a single (root)
     // leaf -- even though US and CA carry opposing signals that would otherwise
     // split them apart. The pooled per-variation units at that leaf (40 each)
-    // are also below the 50-unit leaf-granularity threshold, so fewer than 2
+    // are also below the 100-unit leaf-granularity threshold, so fewer than 2
     // arms qualify and the weights fall back to the analysis weights unchanged.
     const data = [
       countryObs("US", 0, 20, 1),
@@ -262,15 +262,15 @@ describe("computeContextualBanditWeights", () => {
   });
 
   it("produces the same single-leaf, no-update result when only one variation has enough units", () => {
-    // v0 now clears the 50-unit leaf threshold (60 pooled units) while v1 stays
-    // below it (30 units), and neither reaches the 100-unit tree threshold. With
-    // only one qualifying arm (H = 1 < 2) the weights still cannot update, and
-    // with no tree-eligible variation the contexts stay in one leaf -- the same
-    // result as when no variation had enough units.
+    // v0 clears the 100-unit leaf threshold (120 pooled units) but carries no
+    // country signal (identical US/CA means), so the tree does not split and the
+    // contexts stay in one leaf. v1 stays below the threshold (30 units). With
+    // only one qualifying arm (H = 1 < 2) the weights still cannot update -- the
+    // same result as when no variation had enough units.
     const data = [
-      countryObs("US", 0, 30, 1),
+      countryObs("US", 0, 60, 1),
       countryObs("US", 1, 15, 2),
-      countryObs("CA", 0, 30, 2),
+      countryObs("CA", 0, 60, 1),
       countryObs("CA", 1, 15, 1),
     ];
 
@@ -289,17 +289,17 @@ describe("computeContextualBanditWeights", () => {
     }
   });
 
-  it("keeps one leaf but still reweights when pooled units clear the 50-unit leaf threshold", () => {
-    // Boundary case between the two tests above: every variation is still below
-    // the 100-unit tree threshold (60 pooled units each), so the contexts stay
-    // in a single leaf. But those 60 pooled units clear the 50-unit leaf
-    // threshold for both arms (H = 2), so Thompson reweighting DOES run and the
-    // better-performing arm (v1) is weighted more heavily.
+  it("keeps a single leaf but reweights when pooled units clear the 100-unit leaf threshold", () => {
+    // Every arm carries no country signal (identical US/CA means), so the tree
+    // does not split and the contexts stay in a single leaf. Pooled across both
+    // contexts each arm has 120 units, clearing the 100-unit leaf threshold
+    // (H = 2), so Thompson reweighting DOES run and the better-performing arm
+    // (v1) is weighted more heavily.
     const data = [
-      countryObs("US", 0, 30, 1),
-      countryObs("US", 1, 30, 2),
-      countryObs("CA", 0, 30, 1),
-      countryObs("CA", 1, 30, 2),
+      countryObs("US", 0, 60, 1),
+      countryObs("US", 1, 60, 2),
+      countryObs("CA", 0, 60, 1),
+      countryObs("CA", 1, 60, 2),
     ];
 
     const result = computeContextualBanditWeights(input(data));
