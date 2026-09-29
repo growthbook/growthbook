@@ -38,17 +38,27 @@ export const listSkills = async (
 };
 
 const AUTOCOMPLETE_INSTRUCTIONS = `You autocomplete a draft message a user is typing to GrowthBook's AI assistant.
-Reply with ONLY the text to append after the draft, nothing else: no quotes, no explanation, never repeat the draft.
-If the draft ends mid-word, finish that word. If it ends on a complete word, begin with a space.
-Finish the user's thought in one short sentence (under 15 words). Prefer requests the assistant's skills below can carry out, and use the recent conversation to guess what they want next.
-Reply with an empty string if there is no good continuation.`;
+Reply with ONLY the complete message: the draft exactly as written, character for character, continued to the end of the user's thought. No quotes, no explanation.
+Keep the continuation to one short sentence (under 15 words). Prefer requests the assistant's skills below can carry out, and use the recent conversation to guess what they want next.
+Reply with the draft unchanged if there is no good continuation.`;
 
-/** Model output → text to append. Keeps a leading space; drops echoes and wrapping quotes. */
+/**
+ * Model output → text to append. The model writes the whole message so word
+ * spacing comes out naturally; the draft prefix is stripped here.
+ */
 export function cleanCompletion(raw: string, draft: string): string {
-  let out = raw.replace(/\s+$/, "").replace(/^\s*["'“”`]+|["'“”`]+$/g, "");
-  if (out.trimStart().startsWith(draft)) {
-    out = out.trimStart().slice(draft.length);
-  }
+  const full = raw
+    .replace(/\s+$/, "")
+    .replace(/^\s*["'“”`]+|["'“”`]+$/g, "")
+    .trimStart();
+  const d = draft.trimStart();
+  const echoed = full.toLowerCase().startsWith(d.toLowerCase());
+  // No echo: the model sent just a continuation, so assume it starts a new word.
+  const out = echoed
+    ? full.slice(d.length)
+    : /\S$/.test(d) && /^\S/.test(full)
+      ? ` ${full}`
+      : full;
   return out.split("\n")[0].slice(0, 200);
 }
 
