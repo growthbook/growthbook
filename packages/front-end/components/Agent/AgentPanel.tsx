@@ -20,6 +20,7 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import { useUser } from "@/services/UserContext";
 import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -77,6 +78,9 @@ import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
 
+// Scoped per org and user below: conversation ids are unique across the whole
+// collection but only readable by their owner, so a stale id from another org
+// or account would make the next send collide on insert.
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
 const CALL_API_LABEL = "Calling GrowthBook API…";
@@ -204,6 +208,7 @@ export default function AgentPanel({
   onToggleExpanded,
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
+  const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
@@ -372,7 +377,7 @@ export default function AgentPanel({
     getCancelEndpoint: (cid) => `/agent/chat/${cid}/cancel`,
     onSSEEvent: handleAgentSSEEvent,
     onConversationLoaded: handleConversationLoaded,
-    conversationStorageKey: STORAGE_KEY,
+    conversationStorageKey: `${STORAGE_KEY}:${organization.id}:${userId}`,
     onMessageComplete: (info) => {
       track("AI Assistant Response Completed", {
         model: defaultAIModel,

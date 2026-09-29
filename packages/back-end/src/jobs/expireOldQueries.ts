@@ -92,7 +92,7 @@ const expireOldQueries = async () => {
       context,
       id: snapshot.id,
       updates: {
-        error: "Queries were interupted. Please try updating results again.",
+        error: "Queries were interrupted. Please try updating results again.",
         status: "error",
         queries: snapshot.queries,
       },
@@ -119,7 +119,7 @@ const expireOldQueries = async () => {
     logger.info("Updating status of report " + report.id);
     updateQueryStatus(report.queries, queryIds);
     await updateReport(report.organization, report.id, {
-      error: "Queries were interupted. Please try updating results again.",
+      error: "Queries were interrupted. Please try updating results again.",
       queries: report.queries,
     });
   }
@@ -133,7 +133,7 @@ const expireOldQueries = async () => {
     await updateMetricQueriesAndStatus(metric, {
       queries: metric.queries,
       analysisError:
-        "Queries were interupted. Please try re-running the analysis.",
+        "Queries were interrupted. Please try re-running the analysis.",
     });
   }
 
@@ -148,7 +148,7 @@ const expireOldQueries = async () => {
     updateQueryStatus(pastExperiment.queries, queryIds);
     await updatePastExperiments(pastExperiment, {
       queries: pastExperiment.queries,
-      error: "Queries were interupted. Please try refreshing the list.",
+      error: "Queries were interrupted. Please try refreshing the list.",
     });
   }
 
@@ -164,7 +164,7 @@ const expireOldQueries = async () => {
     updateQueryStatus(metricAnalysis.queries, queryIds);
     await context.models.metricAnalysis.update(metricAnalysis, {
       queries: metricAnalysis.queries,
-      error: "Queries were interupted. Please try refreshing the results.",
+      error: "Queries were interrupted. Please try refreshing the results.",
     });
   }
 
@@ -222,7 +222,7 @@ const expireOldQueries = async () => {
     updateQueryStatus(run.queries, queryIds);
     await finalizeStuckAggregatedFactTableRun(run, {
       queries: run.queries,
-      error: "Queries were interupted. Please try refreshing the results.",
+      error: "Queries were interrupted. Please try refreshing the results.",
     });
   }
 

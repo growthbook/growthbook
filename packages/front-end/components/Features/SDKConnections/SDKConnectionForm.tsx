@@ -1021,9 +1021,9 @@ export default function SDKConnectionForm({
                                 </div>
                                 <div className="mb-2">
                                   Remote evaluation provides the same security
-                                  benefits as a includeExperimentNames SDK.
-                                  However, remote evaluation is neither needed
-                                  nor supported for backend SDKs.
+                                  benefits as a backend SDK. However, remote
+                                  evaluation is neither needed nor supported for
+                                  backend SDKs.
                                 </div>
                                 <div className="mb-2">
                                   Remote evaluation does come with a few cost
