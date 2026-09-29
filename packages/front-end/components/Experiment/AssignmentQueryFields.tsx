@@ -128,6 +128,18 @@ export function useAssignmentQuerySelection({
     ],
   );
 
+  // The shown identifier may be resolved, not stored, for a record saved before
+  // identifiers were; commit it with a new query so the save keeps it.
+  const selectExposureQueryId = useCallback(
+    (value: string) => {
+      if (value !== exposureQueryId && identifierType) {
+        setIdentifierType(identifierType);
+      }
+      setExposureQueryId(value);
+    },
+    [exposureQueryId, identifierType, setIdentifierType, setExposureQueryId],
+  );
+
   // A hash attribute switch means the units changed, so follow it to a linked
   // identifier. The first value is the loaded one, not a switch, so saved
   // selections are left alone.
@@ -196,7 +208,7 @@ export function useAssignmentQuerySelection({
     groupedIdentifierTypes,
     exposureQueryOptions,
     identifierUndeclared,
-    setExposureQueryId,
+    setExposureQueryId: selectExposureQueryId,
     changeIdentifierType,
   };
 }

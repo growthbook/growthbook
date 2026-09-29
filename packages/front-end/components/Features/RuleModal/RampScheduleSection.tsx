@@ -3187,7 +3187,9 @@ export default function RampScheduleSection({
               {assignmentQuerySelection.exposureQueryOptions.map((o) => (
                 <DropdownMenuItem
                   key={o.value}
-                  onClick={() => setMonitoringExposureQueryId(o.value)}
+                  onClick={() =>
+                    assignmentQuerySelection.setExposureQueryId(o.value)
+                  }
                 >
                   {o.label}
                 </DropdownMenuItem>

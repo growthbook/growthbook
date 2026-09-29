@@ -476,9 +476,9 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
-              exposureQueryIdentifierType={form.watch(
-                "experimentAnalysisSettings.exposureQueryIdentifierType",
-              )}
+              exposureQueryIdentifierType={
+                assignmentQuerySelection.identifierType
+              }
               project={experiment?.project}
               forceSingleGoalMetric={experiment?.type === "multi-armed-bandit"}
               noQuantileGoalMetrics={experiment?.type === "multi-armed-bandit"}
@@ -627,9 +627,9 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
-              exposureQueryIdentifierType={form.watch(
-                "experimentAnalysisSettings.exposureQueryIdentifierType",
-              )}
+              exposureQueryIdentifierType={
+                assignmentQuerySelection.identifierType
+              }
               project={experiment?.project}
               includeFacts={true}
               label={

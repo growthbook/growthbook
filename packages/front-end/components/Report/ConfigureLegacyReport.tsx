@@ -358,7 +358,7 @@ export default function ConfigureLegacyReport({
         experimentType={experiment?.type}
         datasource={report.args.datasource}
         exposureQueryId={exposureQueryId}
-        exposureQueryIdentifierType={report.args.exposureQueryIdentifierType}
+        exposureQueryIdentifierType={assignmentQuerySelection.identifierType}
         project={project?.id}
         goalMetrics={form.watch("goalMetrics")}
         secondaryMetrics={form.watch("secondaryMetrics")}
@@ -381,7 +381,7 @@ export default function ConfigureLegacyReport({
         exposureQueryId={form.watch("exposureQueryId")}
         datasourceId={report.args.datasource}
         userIdType={
-          report.args.exposureQueryIdentifierType ?? report.args.userIdType
+          assignmentQuerySelection.identifierType ?? report.args.userIdType
         }
         labelClassName="font-weight-bold"
         showHelp={true}
@@ -414,7 +414,7 @@ export default function ConfigureLegacyReport({
       <MetricSelector
         datasource={form.watch("datasource")}
         exposureQueryId={exposureQueryId}
-        exposureQueryIdentifierType={report.args.exposureQueryIdentifierType}
+        exposureQueryIdentifierType={assignmentQuerySelection.identifierType}
         includeFacts={true}
         label={
           <>
