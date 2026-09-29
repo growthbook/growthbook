@@ -373,7 +373,10 @@ const AnalysisForm: FC<{
             d.datasource === datasourceField &&
             (!exposureQuery ||
               d.userIdType ===
-                (exposureQueryIdentifierType ?? exposureQuery.userIdType)),
+                getAnalysisIdentifierType(
+                  exposureQuery,
+                  exposureQueryIdentifierType,
+                )),
         )
         .map((d) => ({ label: d.name, value: d.id })),
     [dimensions, datasourceField, exposureQuery, exposureQueryIdentifierType],

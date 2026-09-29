@@ -23,6 +23,8 @@ export async function validateCreateSafeRolloutFields(
     SafeRolloutInterface,
     "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
   > | null,
+  // REST's grouped exposureQuery must name an identifier when it's ambiguous.
+  onOmitted: "defaultToFirst" | "requireUnambiguous" = "defaultToFirst",
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
@@ -84,7 +86,8 @@ export async function validateCreateSafeRolloutFields(
     const parsed = parseAssignmentQuerySelection(exposureQueries, {
       exposureQueryId: safeRolloutFields.exposureQueryId,
       identifierType: exposureQueryIdentifierType,
-      onOmitted: "defaultToFirst",
+      onOmitted,
+      field: "exposureQuery",
     });
     if (!parsed.ok) throw new BadRequestError(parsed.error);
     exposureQueryIdentifierType = parsed.identifierType;

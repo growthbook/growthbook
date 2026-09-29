@@ -69,10 +69,7 @@ import {
   resolveOwnerEmails,
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
-import {
-  assertApiAssignmentQueryRefHasIdentifierType,
-  getExposureQueriesForDatasource,
-} from "back-end/src/services/assignmentQuerySelection";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
 
@@ -467,12 +464,6 @@ export class HoldoutModel extends BaseClass {
       });
     }
 
-    await assertApiAssignmentQueryRefHasIdentifierType(this.context, {
-      datasourceId: body.datasourceId,
-      ref: body.assignmentQuery,
-      field: "assignmentQuery",
-    });
-
     const owner = await resolveOwnerForCreate(body.owner, this.context);
 
     const { holdout, experiment } = await createHoldoutWithExperiment(
@@ -503,6 +494,7 @@ export class HoldoutModel extends BaseClass {
             )
           : undefined,
       },
+      { onOmitted: body.assignmentQuery ? "requireUnambiguous" : undefined },
     );
 
     // Applied after creation so it is validated against the real stored stage.

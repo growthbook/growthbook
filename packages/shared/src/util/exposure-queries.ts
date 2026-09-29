@@ -158,56 +158,6 @@ export function parseAssignmentQuerySelection<
 }
 
 /**
- * A new REST ref may omit `identifierType` unless its query declares several,
- * where the choice would be ambiguous. Updates go through the selection
- * parser, which also keeps an unchanged selection's identifier.
- */
-export function assertAssignmentQueryRefIdentifierType({
-  ref,
-  field,
-  exposureQueries,
-}: {
-  ref: ApiAssignmentQueryRefInput | undefined;
-  field: AssignmentQueryField;
-  exposureQueries: SelectableExposureQuery[];
-}): void {
-  if (!ref || ref.identifierType) return;
-  // An unknown query is rejected by selection validation, not here.
-  if (!exposureQueries.some((q) => q.id === ref.id)) return;
-  const parsed = parseAssignmentQuerySelection(exposureQueries, {
-    exposureQueryId: ref.id,
-    onOmitted: "requireUnambiguous",
-    field,
-  });
-  if (!parsed.ok) throw new Error(parsed.error);
-}
-
-/**
- * Validates an assignment query selection before it is saved: the query exists
- * and declares `identifierType` (when given).
- */
-export function assertValidAssignmentQuerySelection({
-  exposureQueries,
-  exposureQueryId,
-  identifierType,
-}: {
-  exposureQueries: ExposureQuery[];
-  exposureQueryId: string;
-  identifierType?: string;
-}): ExposureQuery {
-  const parsed = parseAssignmentQuerySelection(exposureQueries, {
-    exposureQueryId,
-    identifierType,
-    onOmitted: "defaultToFirst",
-  });
-  if (parsed.ok) return parsed.query;
-  // With no identifier to check, a query declaring none is left to analysis.
-  const query = exposureQueries.find((q) => q.id === exposureQueryId);
-  if (query && !identifierType) return query;
-  throw new Error(parsed.error);
-}
-
-/**
  * API shape of a stored assignment query selection. Legacy records (no stored
  * identifier) report their query's legacy identifier; null when that can't be
  * resolved, or no query is selected.
@@ -255,26 +205,6 @@ export function isSameAssignmentQuerySelection(
   return (
     getAnalysisIdentifierType(query, previousType) ===
     getAnalysisIdentifierType(query, nextType)
-  );
-}
-
-// `loadExposureQueries` only runs when the raw selections differ.
-export async function hasAssignmentQuerySelectionChanged(
-  previous: AssignmentQuerySelection,
-  next: AssignmentQuerySelection,
-  loadExposureQueries: () => Promise<ExposureQuery[]>,
-): Promise<boolean> {
-  if (isSameAssignmentQuerySelection(previous, next, [])) return false;
-  if (
-    previous.datasource !== next.datasource ||
-    previous.exposureQueryId !== next.exposureQueryId
-  ) {
-    return true;
-  }
-  return !isSameAssignmentQuerySelection(
-    previous,
-    next,
-    await loadExposureQueries(),
   );
 }
 

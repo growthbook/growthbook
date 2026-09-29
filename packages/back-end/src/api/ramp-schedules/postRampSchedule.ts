@@ -432,11 +432,9 @@ export const postRampSchedule = createApiRequestHandler(
     } as unknown as RampScheduleInterface);
   }
 
-  const monitoringConfig = await resolveApiMonitoringConfig(
-    req.context,
-    body.monitoringConfig,
-    null,
-  );
+  const monitoringConfig = body.monitoringConfig
+    ? await resolveApiMonitoringConfig(req.context, body.monitoringConfig, null)
+    : null;
 
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,

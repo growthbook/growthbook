@@ -1,11 +1,8 @@
 import {
-  assertAssignmentQueryRefIdentifierType,
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
   getAnalysisIdentifierType,
-  assertValidAssignmentQuerySelection,
-  hasAssignmentQuerySelectionChanged,
   toApiAssignmentQueryRef,
   resolveExposureQueryForAnalysis,
   parseAssignmentQuerySelection,
@@ -148,48 +145,6 @@ describe("parseAssignmentQueryInput", () => {
   });
 });
 
-describe("assertAssignmentQueryRefIdentifierType", () => {
-  const single = query({
-    id: "exq_single",
-    userIdType: "user_id",
-    userIdTypes: ["user_id"],
-  });
-  const multi = query({
-    id: "exq_multi",
-    name: "Main",
-    userIdType: "user_id",
-    userIdTypes: ["user_id", "anonymous_id"],
-  });
-  const check =
-    (ref: { id: string; identifierType?: string } | undefined) => () =>
-      assertAssignmentQueryRefIdentifierType({
-        ref,
-        field: "assignmentQuery",
-        exposureQueries: [single, multi],
-      });
-
-  it("allows omitting it for a query with one identifier type", () => {
-    expect(check({ id: "exq_single" })).not.toThrow();
-  });
-
-  it("rejects omitting it for a query with several, naming them", () => {
-    expect(check({ id: "exq_multi" })).toThrow(
-      'Assignment query "Main" declares several identifier types (user_id, anonymous_id). Set assignmentQuery.identifierType to choose one.',
-    );
-  });
-
-  it("allows an explicit identifier type", () => {
-    expect(
-      check({ id: "exq_multi", identifierType: "anonymous_id" }),
-    ).not.toThrow();
-  });
-
-  it("ignores a missing ref or unknown query", () => {
-    expect(check(undefined)).not.toThrow();
-    expect(check({ id: "exq_missing" })).not.toThrow();
-  });
-});
-
 describe("getAnalysisIdentifierType", () => {
   const multi = query({
     id: "eq_1",
@@ -228,108 +183,6 @@ describe("getAnalysisIdentifierType", () => {
 
   it("is undefined with neither a stored identifier nor a query", () => {
     expect(getAnalysisIdentifierType(undefined, undefined)).toBeUndefined();
-  });
-});
-
-describe("assertValidAssignmentQuerySelection", () => {
-  const exposureQueries = [
-    query({
-      id: "eq_multi",
-      userIdType: "anonymous_id",
-      userIdTypes: ["anonymous_id", "user_id"],
-    }),
-  ];
-
-  it("returns the query for a valid selection", () => {
-    expect(
-      assertValidAssignmentQuerySelection({
-        exposureQueries,
-        exposureQueryId: "eq_multi",
-        identifierType: "user_id",
-      }).id,
-    ).toBe("eq_multi");
-  });
-
-  it("rejects an unknown query", () => {
-    expect(() =>
-      assertValidAssignmentQuerySelection({
-        exposureQueries,
-        exposureQueryId: "eq_missing",
-      }),
-    ).toThrow('Assignment query "eq_missing" doesn\'t exist');
-  });
-
-  it("rejects an identifier the query does not declare", () => {
-    expect(() =>
-      assertValidAssignmentQuerySelection({
-        exposureQueries,
-        exposureQueryId: "eq_multi",
-        identifierType: "company_id",
-      }),
-    ).toThrow('doesn\'t declare the "company_id" identifier type');
-  });
-});
-
-describe("hasAssignmentQuerySelectionChanged", () => {
-  const multi = query({
-    id: "eq_1",
-    userIdType: "anonymous_id",
-    userIdTypes: ["anonymous_id", "user_id"],
-  });
-  const legacy = { datasource: "ds_1", exposureQueryId: "eq_1" };
-
-  it("treats echoing a legacy record's resolved identifier as unchanged", async () => {
-    await expect(
-      hasAssignmentQuerySelectionChanged(
-        legacy,
-        { ...legacy, identifierType: "anonymous_id" },
-        async () => [multi],
-      ),
-    ).resolves.toBe(false);
-  });
-
-  it("detects a real identifier change", async () => {
-    await expect(
-      hasAssignmentQuerySelectionChanged(
-        legacy,
-        { ...legacy, identifierType: "user_id" },
-        async () => [multi],
-      ),
-    ).resolves.toBe(true);
-  });
-
-  it("compares a legacy record against the legacy identifier, not the first", async () => {
-    const reordered = query({
-      id: "eq_1",
-      userIdType: "anonymous_id",
-      userIdTypes: ["user_id", "anonymous_id"],
-    });
-    await expect(
-      hasAssignmentQuerySelectionChanged(
-        legacy,
-        { ...legacy, identifierType: "anonymous_id" },
-        async () => [reordered],
-      ),
-    ).resolves.toBe(false);
-    await expect(
-      hasAssignmentQuerySelectionChanged(
-        legacy,
-        { ...legacy, identifierType: "user_id" },
-        async () => [reordered],
-      ),
-    ).resolves.toBe(true);
-  });
-
-  it("detects a query change without loading queries", async () => {
-    const load = jest.fn(async () => [multi]);
-    await expect(
-      hasAssignmentQuerySelectionChanged(
-        legacy,
-        { ...legacy, exposureQueryId: "eq_2" },
-        load,
-      ),
-    ).resolves.toBe(true);
-    expect(load).not.toHaveBeenCalled();
   });
 });
 

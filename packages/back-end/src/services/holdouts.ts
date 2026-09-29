@@ -383,6 +383,10 @@ export function parseHoldoutAssignmentQuery(
 export async function createHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
   data: CreateHoldoutInput,
+  {
+    // REST's grouped assignmentQuery must name an identifier when ambiguous.
+    onOmitted = "defaultToFirst",
+  }: { onOmitted?: "defaultToFirst" | "requireUnambiguous" } = {},
 ): Promise<{
   holdout: HoldoutInterface;
   experiment: ExperimentInterface;
@@ -401,6 +405,7 @@ export async function createHoldoutWithExperiment(
     datasource,
     data.assignmentQueryId,
     data.assignmentQueryIdentifierType,
+    onOmitted,
   );
 
   const conditionResult = validateCondition(data.targetingCondition);

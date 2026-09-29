@@ -7,8 +7,6 @@ import type {
 } from "shared/types/datasource";
 import {
   AssignmentQuerySelection,
-  assertAssignmentQueryRefIdentifierType,
-  assertValidAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   parseAssignmentQuerySelection,
 } from "shared/util";
@@ -109,35 +107,15 @@ export async function assertValidAssignmentQuerySelectionChange(
     next,
   );
   if (!datasource) return;
-  assertValidAssignmentQuerySelection({
-    exposureQueries: datasource.settings.queries?.exposure ?? [],
-    exposureQueryId: next.exposureQueryId,
-    identifierType: next.identifierType,
-  });
-}
-
-// For REST handlers that haven't loaded the data source's queries yet.
-export async function assertApiAssignmentQueryRefHasIdentifierType(
-  context: ReqContext | ApiReqContext,
-  {
-    datasourceId,
-    ref,
-    field,
-  }: {
-    datasourceId: string | undefined;
-    ref: { id: string; identifierType?: string } | undefined;
-    field: "assignmentQuery" | "exposureQuery";
-  },
-): Promise<void> {
-  if (!datasourceId || !ref || ref.identifierType) return;
-  assertAssignmentQueryRefIdentifierType({
-    ref,
-    field,
-    exposureQueries: await getExposureQueriesForDatasource(
-      context,
-      datasourceId,
-    ),
-  });
+  const parsed = parseAssignmentQuerySelection(
+    datasource.settings.queries?.exposure ?? [],
+    {
+      exposureQueryId: next.exposureQueryId,
+      identifierType: next.identifierType,
+      onOmitted: "defaultToFirst",
+    },
+  );
+  if (!parsed.ok) throw new Error(parsed.error);
 }
 
 // Resolves legacy assignment query identifiers from the request's data source

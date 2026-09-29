@@ -21,7 +21,6 @@ import {
   addIdsToFlatRules,
   assertFeatureValuesValid,
 } from "back-end/src/services/features";
-import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -273,14 +272,13 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           };
         }
       ).safeRolloutFields;
-      await assertApiAssignmentQueryRefHasIdentifierType(req.context, {
-        datasourceId: validatableFields.datasourceId,
-        ref: validatableFields.exposureQuery,
-        field: "exposureQuery",
-      });
       const validatedFields = await validateCreateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),
         req.context,
+        null,
+        validatableFields.exposureQuery
+          ? "requireUnambiguous"
+          : "defaultToFirst",
       );
 
       const defaultRampSteps = [

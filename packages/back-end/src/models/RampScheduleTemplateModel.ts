@@ -7,7 +7,10 @@ import {
   rampScheduleTemplateValidator,
 } from "shared/validators";
 import { rampScheduleTemplateApiSpec } from "back-end/src/api/specs/ramp-schedule-template.spec";
-import { assertValidAssignmentQuerySelectionChange } from "back-end/src/services/assignmentQuerySelection";
+import {
+  assertValidMonitoringConfigChange,
+  withMonitoringDatasourceKey,
+} from "back-end/src/services/rampSchedule";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -168,33 +171,18 @@ export class RampScheduleTemplateModel extends BaseClass {
     doc: RampScheduleTemplateInterface,
     previousDoc?: RampScheduleTemplateInterface,
   ) {
-    const next = doc.monitoringConfig;
-    if (!next) return;
-    const previous = previousDoc?.monitoringConfig;
-    await assertValidAssignmentQuerySelectionChange(
+    await assertValidMonitoringConfigChange(
       this.context,
-      previous
-        ? {
-            datasource: previous.datasourceId,
-            exposureQueryId: previous.exposureQueryId,
-            identifierType: previous.exposureQueryIdentifierType,
-          }
-        : null,
-      {
-        datasource: next.datasourceId,
-        exposureQueryId: next.exposureQueryId,
-        identifierType: next.exposureQueryIdentifierType,
-      },
+      previousDoc?.monitoringConfig,
+      doc.monitoringConfig,
     );
   }
 
-  // The monitoring data source is nested, so BaseModel wouldn't cache it.
-  protected getForeignKeys(doc: RampScheduleTemplateInterface) {
-    const keys = super.getForeignKeys(doc);
-    if (doc.monitoringConfig?.datasourceId) {
-      keys.datasource = doc.monitoringConfig.datasourceId;
-    }
-    return keys;
+  protected override getForeignKeys(doc: RampScheduleTemplateInterface) {
+    return withMonitoringDatasourceKey(
+      super.getForeignKeys(doc),
+      doc.monitoringConfig,
+    );
   }
 
   protected toApiInterface(

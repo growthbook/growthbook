@@ -82,6 +82,17 @@ describe("validateCreateSafeRolloutFields", () => {
     expect(validated.exposureQueryIdentifierType).toBe("company_id");
   });
 
+  it("requires the grouped field to name an identifier on an ambiguous query", async () => {
+    await expect(
+      validateCreateSafeRolloutFields(
+        { ...fields, exposureQueryId: "eq_multi" },
+        context,
+        null,
+        "requireUnambiguous",
+      ),
+    ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
+  });
+
   it("rejects an identifier the query doesn't declare on a changed selection", async () => {
     await expect(
       validateCreateSafeRolloutFields(

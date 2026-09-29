@@ -40,7 +40,7 @@ import {
   stringifyFeatureValue,
   unanchoredRampTargets,
   validateFeatureValue,
-  hasAssignmentQuerySelectionChanged,
+  isSameAssignmentQuerySelection,
   getAnalysisIdentifierType,
 } from "shared/util";
 import uniqid from "uniqid";
@@ -66,7 +66,10 @@ import {
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import {
+  assertValidAssignmentQuerySelectionChange,
+  getExposureQueriesForDatasource,
+} from "back-end/src/services/assignmentQuerySelection";
 import {
   resolveRampTargets,
   ruleFootprint,
@@ -1517,23 +1520,63 @@ function sameStringArray(
   return left.length === right.length && left.every((v, i) => v === right[i]);
 }
 
-function monitoringSelectionChanged(
+// Shared by both ramp models, which store the assignment selection nested in
+// the monitoring config.
+export function toMonitoringSelection(
+  mc: Pick<
+    RampMonitoringConfig,
+    "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
+  >,
+) {
+  return {
+    datasource: mc.datasourceId,
+    exposureQueryId: mc.exposureQueryId,
+    identifierType: mc.exposureQueryIdentifierType,
+  };
+}
+
+// Every monitoring writer (REST, internal, revision publish) saves through the
+// ramp models, whose customValidation calls this.
+export async function assertValidMonitoringConfigChange(
+  ctx: ReqContext | ApiReqContext,
+  previous: RampMonitoringConfig | null | undefined,
+  next: RampMonitoringConfig | null | undefined,
+): Promise<void> {
+  if (!next) return;
+  await assertValidAssignmentQuerySelectionChange(
+    ctx,
+    previous ? toMonitoringSelection(previous) : null,
+    toMonitoringSelection(next),
+  );
+}
+
+// The monitoring data source is nested, so BaseModel wouldn't cache it.
+export function withMonitoringDatasourceKey<K extends { datasource?: string }>(
+  keys: K,
+  mc: Pick<RampMonitoringConfig, "datasourceId"> | null | undefined,
+): K {
+  return mc?.datasourceId ? { ...keys, datasource: mc.datasourceId } : keys;
+}
+
+async function monitoringSelectionChanged(
   ctx: ReqContext | ApiReqContext,
   current: RampMonitoringConfig,
   next: RampMonitoringConfig,
 ): Promise<boolean> {
-  return hasAssignmentQuerySelectionChanged(
-    {
-      datasource: current.datasourceId,
-      exposureQueryId: current.exposureQueryId,
-      identifierType: current.exposureQueryIdentifierType,
-    },
-    {
-      datasource: next.datasourceId,
-      exposureQueryId: next.exposureQueryId,
-      identifierType: next.exposureQueryIdentifierType,
-    },
-    () => getExposureQueriesForDatasource(ctx, next.datasourceId),
+  const previous = toMonitoringSelection(current);
+  const selection = toMonitoringSelection(next);
+  // Only a changed identifier on the same query needs the queries to compare.
+  if (isSameAssignmentQuerySelection(previous, selection, [])) return false;
+  if (
+    previous.datasource !== selection.datasource ||
+    previous.exposureQueryId !== selection.exposureQueryId
+  ) {
+    return true;
+  }
+  return !isSameAssignmentQuerySelection(
+    previous,
+    selection,
+    await getExposureQueriesForDatasource(ctx, next.datasourceId),
   );
 }
 
