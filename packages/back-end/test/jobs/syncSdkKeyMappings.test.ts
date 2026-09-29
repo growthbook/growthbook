@@ -35,13 +35,14 @@ describe("syncSdkKeyMappings", () => {
     });
   });
 
-  it("skips documents missing a key or organization", async () => {
+  it("skips documents whose key or organization is missing or not a string", async () => {
     mockSync.mockResolvedValue(undefined);
     async function* mixed() {
       yield { key: "sdk-a", organization: "org_1" };
       yield { key: "", organization: "org_1" };
       yield { organization: "org_1" };
       yield { key: "sdk-b" };
+      yield { key: 42, organization: "org_1" };
       yield { key: "sdk-c", organization: "org_2" };
     }
     await syncSdkKeyMappings(mixed());
@@ -52,11 +53,13 @@ describe("syncSdkKeyMappings", () => {
     ]);
   });
 
-  it("keeps going when one batch fails", async () => {
+  it("stops at the first failed batch instead of queueing more timeouts", async () => {
     mockSync
       .mockRejectedValueOnce(new Error("license server down"))
       .mockResolvedValue(undefined);
-    await syncSdkKeyMappings(docs(BATCH_SIZE + 1));
-    expect(mockSync).toHaveBeenCalledTimes(2);
+    await expect(syncSdkKeyMappings(docs(BATCH_SIZE * 2 + 1))).resolves.toBe(
+      false,
+    );
+    expect(mockSync).toHaveBeenCalledTimes(1);
   });
 });
