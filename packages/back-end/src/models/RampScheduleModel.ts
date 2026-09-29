@@ -60,7 +60,7 @@ import {
 } from "back-end/src/util/errors";
 import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { resolveApiAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
+import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -296,15 +296,13 @@ export async function resolveApiMonitoringConfig<
   previous: RampMonitoringConfig | null | undefined,
 ) {
   const internal = apiMonitoringConfigToInternal(mc, previous);
-  const exposureQueryIdentifierType = await resolveApiAssignmentQueryIdentifier(
-    context,
-    {
+  const { identifierType: exposureQueryIdentifierType } =
+    await resolveAssignmentQueryIdentifier(context, {
       previous: previous ? toMonitoringSelection(previous) : null,
       next: toMonitoringSelection(internal),
-      grouped: !!mc.exposureQuery,
+      onOmitted: mc.exposureQuery ? "requireUnambiguous" : "defaultToFirst",
       field: "exposureQuery",
-    },
-  );
+    });
   return exposureQueryIdentifierType === undefined
     ? internal
     : { ...internal, exposureQueryIdentifierType };

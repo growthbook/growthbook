@@ -115,7 +115,7 @@ import {
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { loadChangedAssignmentQuerySelection } from "back-end/src/services/assignmentQuerySelection";
+import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
@@ -2009,22 +2009,17 @@ export async function postExperiment(
       changes.exposureQueryIdentifierType ??
       experiment.exposureQueryIdentifierType,
   };
-  const changedSelectionDatasource = await loadChangedAssignmentQuerySelection(
-    context,
-    {
+  const resolvedSelection = await resolveAssignmentQueryIdentifier(context, {
+    previous: {
       datasource: experiment.datasource ?? "",
       exposureQueryId: experiment.exposureQueryId,
       identifierType: experiment.exposureQueryIdentifierType,
     },
-    nextSelection,
-  );
-  if (changedSelectionDatasource) {
-    const parsed = parseAssignmentQuerySelection(
-      changedSelectionDatasource.settings.queries?.exposure ?? [],
-      { ...nextSelection, onOmitted: "defaultToFirst" },
-    );
-    if (!parsed.ok) throw new Error(parsed.error);
-    changes.exposureQueryIdentifierType = parsed.identifierType;
+    next: nextSelection,
+    onOmitted: "defaultToFirst",
+  });
+  if (resolvedSelection.changed) {
+    changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
   }
 
   const shouldValidatePrecomputedUnitDimensionIds =

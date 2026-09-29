@@ -1,7 +1,4 @@
-import {
-  isSameAssignmentQuerySelection,
-  parseAssignmentQuerySelection,
-} from "shared/util";
+import { resolveAssignmentQuerySelectionChange } from "shared/util";
 import {
   CreateSafeRolloutInterface,
   createSafeRolloutValidator,
@@ -59,39 +56,27 @@ export async function validateCreateSafeRolloutFields(
     );
   }
 
-  const exposureQueries = datasource.settings?.queries?.exposure ?? [];
-  const sameQuery =
-    previous?.datasourceId === safeRolloutFields.datasourceId &&
-    previous?.exposureQueryId === safeRolloutFields.exposureQueryId;
-  // Naming the same query without an identifier keeps the stored one.
-  let exposureQueryIdentifierType =
-    safeRolloutFields.exposureQueryIdentifierType ??
-    (sameQuery ? previous?.exposureQueryIdentifierType : undefined);
-  const unchanged =
-    !!previous &&
-    isSameAssignmentQuerySelection(
-      {
-        datasource: previous.datasourceId,
-        exposureQueryId: previous.exposureQueryId,
-        identifierType: previous.exposureQueryIdentifierType,
-      },
-      {
+  const resolved = resolveAssignmentQuerySelectionChange(
+    datasource.settings?.queries?.exposure ?? [],
+    {
+      previous: previous
+        ? {
+            datasource: previous.datasourceId,
+            exposureQueryId: previous.exposureQueryId,
+            identifierType: previous.exposureQueryIdentifierType,
+          }
+        : null,
+      next: {
         datasource: safeRolloutFields.datasourceId,
         exposureQueryId: safeRolloutFields.exposureQueryId,
-        identifierType: exposureQueryIdentifierType,
+        identifierType: safeRolloutFields.exposureQueryIdentifierType,
       },
-      exposureQueries,
-    );
-  if (!unchanged) {
-    const parsed = parseAssignmentQuerySelection(exposureQueries, {
-      exposureQueryId: safeRolloutFields.exposureQueryId,
-      identifierType: exposureQueryIdentifierType,
       onOmitted,
       field: "exposureQuery",
-    });
-    if (!parsed.ok) throw new BadRequestError(parsed.error);
-    exposureQueryIdentifierType = parsed.identifierType;
-  }
+    },
+  );
+  if (!resolved.ok) throw new BadRequestError(resolved.error);
+  const exposureQueryIdentifierType = resolved.identifierType;
 
   if (
     safeRolloutFields.guardrailMetricIds === undefined ||

@@ -19,7 +19,7 @@ import {
   bulkImportExperimentTemplatesEndpoint,
 } from "back-end/src/api/specs/experiment-template.spec";
 import {
-  resolveApiAssignmentQueryIdentifier,
+  resolveAssignmentQueryIdentifier,
   assertValidAssignmentQuerySelectionChange,
 } from "back-end/src/services/assignmentQuerySelection";
 import { ReqContext } from "back-end/types/request";
@@ -44,9 +44,8 @@ async function toTemplateWriteBody<T extends ApiTemplateBody>(
 ) {
   const flat = flattenExposureQueryInput(body);
   if (flat.exposureQueryId === undefined) return flat;
-  const exposureQueryIdentifierType = await resolveApiAssignmentQueryIdentifier(
-    context,
-    {
+  const { identifierType: exposureQueryIdentifierType } =
+    await resolveAssignmentQueryIdentifier(context, {
       previous: existing
         ? {
             datasource: existing.datasource,
@@ -59,10 +58,9 @@ async function toTemplateWriteBody<T extends ApiTemplateBody>(
         exposureQueryId: flat.exposureQueryId,
         identifierType: flat.exposureQueryIdentifierType,
       },
-      grouped: !!body.exposureQuery,
+      onOmitted: body.exposureQuery ? "requireUnambiguous" : "defaultToFirst",
       field: "exposureQuery",
-    },
-  );
+    });
   return exposureQueryIdentifierType === undefined
     ? flat
     : { ...flat, exposureQueryIdentifierType };

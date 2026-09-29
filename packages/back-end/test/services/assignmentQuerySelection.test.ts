@@ -1,7 +1,7 @@
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   loadChangedAssignmentQuerySelection,
-  resolveApiAssignmentQueryIdentifier,
+  resolveAssignmentQueryIdentifier,
 } from "back-end/src/services/assignmentQuerySelection";
 import { ReqContext } from "back-end/types/request";
 
@@ -95,54 +95,64 @@ describe("loadChangedAssignmentQuerySelection", () => {
   });
 });
 
-describe("resolveApiAssignmentQueryIdentifier", () => {
+describe("resolveAssignmentQueryIdentifier", () => {
   const stored = { ...legacy, identifierType: "anonymous_id" };
 
   it("keeps the stored identifier when re-sending the same query without one", async () => {
-    const { context } = makeContext();
+    const { context, bypassRead } = makeContext();
     expect(
-      await resolveApiAssignmentQueryIdentifier(context, {
+      await resolveAssignmentQueryIdentifier(context, {
         previous: stored,
         next: legacy,
-        grouped: true,
+        onOmitted: "requireUnambiguous",
         field: "exposureQuery",
       }),
-    ).toBe("anonymous_id");
+    ).toEqual({ identifierType: "anonymous_id", changed: false });
+    expect(bypassRead).not.toHaveBeenCalled();
   });
 
   it("defaults a new selection without one to the query's first", async () => {
     const { context } = makeContext();
     expect(
-      await resolveApiAssignmentQueryIdentifier(context, {
+      await resolveAssignmentQueryIdentifier(context, {
         previous: null,
         next: legacy,
-        grouped: false,
-        field: "exposureQuery",
+        onOmitted: "defaultToFirst",
       }),
-    ).toBe("user_id");
+    ).toMatchObject({ identifierType: "user_id", changed: true });
   });
 
   it("doesn't carry the old identifier to a different query", async () => {
     const { context } = makeContext();
     await expect(
-      resolveApiAssignmentQueryIdentifier(context, {
+      resolveAssignmentQueryIdentifier(context, {
         previous: { ...stored, exposureQueryId: "eq_old" },
         next: legacy,
-        grouped: false,
-        field: "exposureQuery",
+        onOmitted: "defaultToFirst",
       }),
-    ).resolves.toBe("user_id");
+    ).resolves.toMatchObject({ identifierType: "user_id", changed: true });
   });
 
   it("requires the grouped field to name one on an ambiguous query", async () => {
     const { context } = makeContext();
     await expect(
-      resolveApiAssignmentQueryIdentifier(context, {
+      resolveAssignmentQueryIdentifier(context, {
         previous: null,
         next: legacy,
-        grouped: true,
+        onOmitted: "requireUnambiguous",
         field: "exposureQuery",
       }),
     ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
+  });
+
+  it("passes the kept identifier through when there's no data source to check", async () => {
+    const { context } = makeContext();
+    expect(
+      await resolveAssignmentQueryIdentifier(context, {
+        previous: null,
+        next: { ...legacy, datasource: "ds_gone", identifierType: "user_id" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ identifierType: "user_id", changed: false });
   });
 });

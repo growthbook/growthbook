@@ -1,8 +1,7 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
-  isSameAssignmentQuerySelection,
-  parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
+  resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
@@ -119,41 +118,26 @@ export const updateExperiment = createApiRequestHandler(
     if (!datasource) {
       throw new Error("Datasource not found.");
     }
-    const exposureQueries = datasource.settings.queries?.exposure ?? [];
-    const exposureQueryId =
-      payload.assignmentQueryId ?? experiment.exposureQueryId;
-    const next = {
-      datasource: datasource.id,
-      exposureQueryId,
-      // A partial update naming the same query keeps its stored identifier.
-      identifierType:
-        payload.assignmentQueryIdentifierType ??
-        (exposureQueryId === experiment.exposureQueryId
-          ? experiment.exposureQueryIdentifierType
-          : undefined),
-    };
-    // Re-sending an unchanged selection isn't re-validated, so a query that
-    // drifted since doesn't block the update.
-    if (
-      !isSameAssignmentQuerySelection(
-        {
+    const resolved = resolveAssignmentQuerySelectionChange(
+      datasource.settings.queries?.exposure ?? [],
+      {
+        previous: {
           datasource: experiment.datasource ?? "",
           exposureQueryId: experiment.exposureQueryId,
           identifierType: experiment.exposureQueryIdentifierType,
         },
-        next,
-        exposureQueries,
-      )
-    ) {
-      const parsed = parseAssignmentQuerySelection(exposureQueries, {
-        exposureQueryId,
-        identifierType: next.identifierType,
+        next: {
+          datasource: datasource.id,
+          exposureQueryId:
+            payload.assignmentQueryId ?? experiment.exposureQueryId,
+          identifierType: payload.assignmentQueryIdentifierType,
+        },
         onOmitted: assignmentQuery ? "requireUnambiguous" : "defaultToFirst",
         field: "assignmentQuery",
-      });
-      if (!parsed.ok) throw new Error(parsed.error);
-      payload.assignmentQueryIdentifierType = parsed.identifierType;
-    }
+      },
+    );
+    if (!resolved.ok) throw new Error(resolved.error);
+    payload.assignmentQueryIdentifierType = resolved.identifierType;
   }
 
   // check if tracking key is unique

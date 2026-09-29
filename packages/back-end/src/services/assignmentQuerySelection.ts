@@ -9,6 +9,8 @@ import {
   AssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   parseAssignmentQuerySelection,
+  resolveAssignmentQuerySelectionChange,
+  withKeptIdentifierType,
 } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -49,49 +51,38 @@ export async function loadChangedAssignmentQuerySelection(
 }
 
 /**
- * For REST writes of records that store their selection as given (templates,
- * ramps): the identifier to store. Naming the same query without one keeps the
- * stored identifier; a new or changed selection is validated and resolved, and
- * the grouped field must name one when the query declares several.
+ * resolveAssignmentQuerySelectionChange against `next`'s data source, loaded per
+ * loadChangedAssignmentQuerySelection. Throws on an invalid change. With no data
+ * source or query to check, the kept identifier passes unvalidated.
  */
-export async function resolveApiAssignmentQueryIdentifier(
+export async function resolveAssignmentQueryIdentifier(
   context: ReqContext | ApiReqContext,
   {
     previous,
     next,
-    grouped,
+    onOmitted,
     field,
   }: {
     previous: AssignmentQuerySelection | null;
     next: AssignmentQuerySelection;
-    grouped: boolean;
-    field: "assignmentQuery" | "exposureQuery";
+    onOmitted: "defaultToFirst" | "requireUnambiguous";
+    field?: "assignmentQuery" | "exposureQuery";
   },
-): Promise<string | undefined> {
-  const sameQuery =
-    previous?.datasource === next.datasource &&
-    previous?.exposureQueryId === next.exposureQueryId;
-  const identifierType =
-    next.identifierType ||
-    (sameQuery ? previous?.identifierType : undefined) ||
-    undefined;
+): Promise<{ identifierType: string | undefined; changed: boolean }> {
+  const kept = withKeptIdentifierType(previous, next);
   const datasource = await loadChangedAssignmentQuerySelection(
     context,
     previous,
-    { ...next, identifierType },
+    kept,
   );
-  if (!datasource) return identifierType;
-  const parsed = parseAssignmentQuerySelection(
+  if (!datasource)
+    return { identifierType: kept.identifierType, changed: false };
+  const result = resolveAssignmentQuerySelectionChange(
     datasource.settings.queries?.exposure ?? [],
-    {
-      exposureQueryId: next.exposureQueryId,
-      identifierType,
-      onOmitted: grouped ? "requireUnambiguous" : "defaultToFirst",
-      field,
-    },
+    { previous, next: kept, onOmitted, field },
   );
-  if (!parsed.ok) throw new Error(parsed.error);
-  return parsed.identifierType;
+  if (!result.ok) throw new Error(result.error);
+  return result;
 }
 
 // Only a changed selection is validated, so a record whose query later drifted

@@ -8,6 +8,8 @@ import {
   parseAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   flattenExposureQueryInput,
+  withKeptIdentifierType,
+  resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -440,5 +442,125 @@ describe("isSameAssignmentQuerySelection", () => {
         [],
       ),
     ).toBe(false);
+  });
+});
+
+describe("withKeptIdentifierType", () => {
+  const previous = {
+    datasource: "ds_1",
+    exposureQueryId: "eq_1",
+    identifierType: "user_id",
+  };
+
+  it("keeps the stored identifier for the same query", () => {
+    expect(
+      withKeptIdentifierType(previous, {
+        datasource: "ds_1",
+        exposureQueryId: "eq_1",
+      }).identifierType,
+    ).toBe("user_id");
+  });
+
+  it("prefers a given identifier", () => {
+    expect(
+      withKeptIdentifierType(previous, {
+        ...previous,
+        identifierType: "anonymous_id",
+      }).identifierType,
+    ).toBe("anonymous_id");
+  });
+
+  it("drops it for a different query or data source", () => {
+    expect(
+      withKeptIdentifierType(previous, {
+        datasource: "ds_1",
+        exposureQueryId: "eq_2",
+      }).identifierType,
+    ).toBeUndefined();
+    expect(
+      withKeptIdentifierType(previous, {
+        datasource: "ds_2",
+        exposureQueryId: "eq_1",
+      }).identifierType,
+    ).toBeUndefined();
+  });
+
+  it("treats an empty identifier as omitted", () => {
+    expect(
+      withKeptIdentifierType(previous, { ...previous, identifierType: "" })
+        .identifierType,
+    ).toBe("user_id");
+  });
+});
+
+describe("resolveAssignmentQuerySelectionChange", () => {
+  const multi = query({
+    id: "eq_1",
+    name: "Multi",
+    userIdType: "anonymous_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+  const legacy = { datasource: "ds_1", exposureQueryId: "eq_1" };
+
+  it("leaves an unchanged selection unvalidated, even if it drifted", () => {
+    const drifted = { ...legacy, identifierType: "company_id" };
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: drifted,
+        next: legacy,
+        onOmitted: "requireUnambiguous",
+      }),
+    ).toEqual({ ok: true, identifierType: "company_id", changed: false });
+  });
+
+  it("treats echoing a legacy record's resolved identifier as unchanged", () => {
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: legacy,
+        next: { ...legacy, identifierType: "anonymous_id" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ ok: true, identifierType: "anonymous_id", changed: false });
+  });
+
+  it("parses a new selection", () => {
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: null,
+        next: legacy,
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ ok: true, identifierType: "user_id", changed: true });
+  });
+
+  it("parses a changed identifier and rejects an undeclared one", () => {
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: legacy,
+        next: { ...legacy, identifierType: "user_id" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ ok: true, identifierType: "user_id", changed: true });
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: legacy,
+        next: { ...legacy, identifierType: "device_id" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toMatchObject({ ok: false });
+  });
+
+  it("requires naming an identifier on an ambiguous query when asked", () => {
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: null,
+        next: legacy,
+        onOmitted: "requireUnambiguous",
+        field: "assignmentQuery",
+      }),
+    ).toEqual({
+      ok: false,
+      error: expect.stringContaining("Set assignmentQuery.identifierType"),
+    });
   });
 });

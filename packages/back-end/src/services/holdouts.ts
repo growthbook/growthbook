@@ -11,9 +11,9 @@ import {
   holdoutSizeToCoverage,
   HoldoutStage,
   validateCondition,
-  isSameAssignmentQuerySelection,
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
+  resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import {
   ApiUpdateHoldoutBody,
@@ -710,35 +710,31 @@ export async function updateHoldoutWithExperiment(
     });
 
     const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
-    const next = {
-      datasource: body.datasourceId ?? experiment.datasource ?? "",
-      exposureQueryId: effectiveQueryId,
-      // A partial update naming the same query keeps its stored identifier.
-      identifierType:
-        assignmentQueryIdentifierType ??
-        (effectiveQueryId === experiment.exposureQueryId
-          ? experiment.exposureQueryIdentifierType
-          : undefined),
-    };
-    // Only a changed selection is validated, so a query that drifted since
-    // doesn't block unrelated edits.
-    if (
-      !isSameAssignmentQuerySelection(
-        {
-          datasource: experiment.datasource ?? "",
-          exposureQueryId: experiment.exposureQueryId,
-          identifierType: experiment.exposureQueryIdentifierType,
-        },
-        next,
+    // No query selected means no identifier to store.
+    if (!effectiveQueryId) {
+      assignmentQueryIdentifierType = undefined;
+    } else {
+      const resolved = resolveAssignmentQuerySelectionChange(
         datasource?.settings?.queries?.exposure ?? [],
-      )
-    ) {
-      assignmentQueryIdentifierType = parseHoldoutAssignmentQuery(
-        datasource,
-        effectiveQueryId,
-        next.identifierType,
-        body.assignmentQuery ? "requireUnambiguous" : "defaultToFirst",
+        {
+          previous: {
+            datasource: experiment.datasource ?? "",
+            exposureQueryId: experiment.exposureQueryId,
+            identifierType: experiment.exposureQueryIdentifierType,
+          },
+          next: {
+            datasource: body.datasourceId ?? experiment.datasource ?? "",
+            exposureQueryId: effectiveQueryId,
+            identifierType: assignmentQueryIdentifierType,
+          },
+          onOmitted: body.assignmentQuery
+            ? "requireUnambiguous"
+            : "defaultToFirst",
+          field: "assignmentQuery",
+        },
       );
+      if (!resolved.ok) throw new Error(resolved.error);
+      assignmentQueryIdentifierType = resolved.identifierType;
     }
 
     if (body.datasourceId !== undefined) {

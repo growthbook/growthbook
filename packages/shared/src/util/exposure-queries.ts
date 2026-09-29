@@ -209,6 +209,68 @@ export function isSameAssignmentQuerySelection(
 }
 
 /**
+ * `next`, keeping `previous`'s identifier when it names the same query without
+ * one, so a partial update doesn't drop the stored identifier.
+ */
+export function withKeptIdentifierType(
+  previous: AssignmentQuerySelection | null,
+  next: AssignmentQuerySelection,
+): AssignmentQuerySelection {
+  const sameQuery =
+    previous?.datasource === next.datasource &&
+    previous?.exposureQueryId === next.exposureQueryId;
+  return {
+    ...next,
+    identifierType:
+      next.identifierType ||
+      (sameQuery ? previous?.identifierType : undefined) ||
+      undefined,
+  };
+}
+
+export type AssignmentQuerySelectionChange =
+  | { ok: true; identifierType: string | undefined; changed: boolean }
+  | { ok: false; error: string };
+
+/**
+ * The identifier to store when `next` replaces `previous` (null on create),
+ * keeping the stored one per withKeptIdentifierType. An unchanged selection
+ * isn't re-validated, so a query that drifted since doesn't block unrelated
+ * edits; a new or changed one is parsed.
+ */
+export function resolveAssignmentQuerySelectionChange(
+  exposureQueries: SelectableExposureQuery[],
+  {
+    previous,
+    next,
+    onOmitted,
+    field,
+  }: {
+    previous: AssignmentQuerySelection | null;
+    next: AssignmentQuerySelection;
+    onOmitted: "defaultToFirst" | "requireUnambiguous";
+    field?: string;
+  },
+): AssignmentQuerySelectionChange {
+  const kept = withKeptIdentifierType(previous, next);
+  if (
+    previous &&
+    isSameAssignmentQuerySelection(previous, kept, exposureQueries)
+  ) {
+    return { ok: true, identifierType: kept.identifierType, changed: false };
+  }
+  const parsed = parseAssignmentQuerySelection(exposureQueries, {
+    exposureQueryId: kept.exposureQueryId,
+    identifierType: kept.identifierType,
+    onOmitted,
+    field,
+  });
+  return parsed.ok
+    ? { ok: true, identifierType: parsed.identifierType, changed: true }
+    : parsed;
+}
+
+/**
  * Throws rather than let analysis run on an identifier the query no longer
  * returns, including a legacy record whose frozen identifier was removed.
  */
