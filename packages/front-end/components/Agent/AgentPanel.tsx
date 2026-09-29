@@ -871,6 +871,8 @@ export default function AgentPanel({
         mentionItems={mentionItems}
         mentionItemsReady={mentionItemsReady}
         skillItems={skillItems}
+        autocomplete
+        conversationId={conversationId}
         value={input}
         onChange={setInput}
         onSend={handleSend}

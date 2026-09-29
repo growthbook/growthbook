@@ -764,6 +764,7 @@ export const AI_PROMPT_TYPES = [
   "product-analytics-chat",
   "find-learnings-context",
   "general-chat",
+  "chat-autocomplete",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
@@ -803,6 +804,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "product-analytics-chat": "",
   "find-learnings-context": "", // Org-specific context appended when finding cross-experiment insights
   "general-chat": "",
+  "chat-autocomplete": "", // Always uses the default prompt set in agent.controller.ts
 };
 
 // Prompt types that have default values and can be customized by users

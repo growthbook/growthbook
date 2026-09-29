@@ -45,6 +45,19 @@ router.get("/chat", agentController.listChats);
 
 router.get("/skills", agentController.listSkills);
 
+router.post(
+  "/autocomplete",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        text: z.string().min(1).max(2000),
+        conversationId: z.string().min(1).optional(),
+      })
+      .strict(),
+  }),
+  agentController.postAutocomplete,
+);
+
 router.get(
   "/chat/:conversationId",
   validateRequestMiddleware({

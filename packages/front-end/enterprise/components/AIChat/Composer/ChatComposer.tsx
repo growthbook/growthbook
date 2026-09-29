@@ -46,6 +46,8 @@ import TokenHoverCard, {
 } from "./TokenHoverCard";
 import DictationButton from "./DictationButton";
 import { useDictation } from "./useDictation";
+import { GhostText, GHOST_TEXT_NAME, docEnd } from "./extensions/ghostText";
+import { useAutocomplete } from "./useAutocomplete";
 import SuggestionList, {
   SUGGESTION_LISTBOX_ID,
   suggestionOptionId,
@@ -83,6 +85,10 @@ export interface ChatComposerProps {
   mentionItemsReady?: boolean;
   /** Omit to hide slash commands (PA chat has none). */
   skillItems?: SkillItem[];
+  /** Inline AI continuation of the draft; Tab accepts. */
+  autocomplete?: boolean;
+  /** Recent turns steer the continuation. */
+  conversationId?: string;
 }
 
 type ActiveSuggestion =
@@ -141,6 +147,8 @@ function ChatComposer(
     mentionItems,
     mentionItemsReady = false,
     skillItems,
+    autocomplete = false,
+    conversationId,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
 ) {
@@ -153,6 +161,12 @@ function ChatComposer(
   const rows = suggestion ? toRows(suggestion) : [];
   const suggestionVisible = suggestion !== null;
   const suggestionOpen = rows.length > 0;
+  const { ghost: ghostText, dismiss: dismissGhost } = useAutocomplete({
+    text: value,
+    enabled: autocomplete && !loading && !disabled && !suggestionVisible,
+    conversationId,
+  });
+  const ghost = suggestionVisible ? "" : ghostText;
 
   const hideCardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Read by the editor's Enter handler, which is configured before dictation exists.
@@ -220,6 +234,7 @@ function ChatComposer(
       TextNode,
       HardBreak,
       UndoRedo,
+      GhostText,
       Placeholder.configure({
         placeholder,
         showOnlyWhenEditable: false,
@@ -331,6 +346,17 @@ function ChatComposer(
           }
           return false;
         }
+        if (ghost && event.key === "Tab") {
+          const end = docEnd(view.state.doc);
+          if (view.state.selection.to === end) {
+            view.dispatch(view.state.tr.insertText(ghost, end));
+            return true;
+          }
+        }
+        if (ghost && event.key === "Escape") {
+          dismissGhost();
+          return true;
+        }
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
           if (!loading && !disabled && !dictatingRef.current) {
@@ -372,6 +398,12 @@ function ChatComposer(
     if (!editor) return;
     editor.storage[SKILL_COMMAND_NAME].items = skillItems ?? [];
   }, [editor, skillItems]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.storage[GHOST_TEXT_NAME].text = ghost;
+    editor.view.dispatch(editor.state.tr.setMeta("addToHistory", false));
+  }, [editor, ghost]);
 
   const handleFocus = useCallback(() => setFocused(true), []);
   const handleBlur = useCallback(() => setFocused(false), []);

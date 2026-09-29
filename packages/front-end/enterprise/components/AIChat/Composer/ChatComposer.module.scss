@@ -54,6 +54,13 @@
       pointer-events: none;
       color: var(--gray-a9);
     }
+
+    p[data-ghost]::after {
+      content: attr(data-ghost);
+      pointer-events: none;
+      color: var(--gray-a9);
+      white-space: pre-wrap;
+    }
   }
 
   &.readOnly :global(.ProseMirror) {
