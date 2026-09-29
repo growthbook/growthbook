@@ -169,11 +169,9 @@ export async function processJWT(
 
   const user = await getUserFromJWT(parsedJWT);
 
-  // Enterprise SSO sign-in is a licensed feature: block it once the
-  // connection's organization loses the sso feature (e.g. expired license)
   if (req.loginMethod?.organization && !user?.superAdmin) {
     try {
-      await validateLicensedSSOLogin(req.loginMethod);
+      await validateLicensedSSOLogin(req.loginMethod.organization);
     } catch (e) {
       res.status(403).json({
         status: 403,
@@ -274,18 +272,13 @@ export async function processJWT(
           req.organization.id,
         );
 
-        // Init license for org if it exists. Must happen before
-        // validateLoginMethod, which reads the cached license to decide
-        // whether SSO enforcement is still covered by the plan
+        // Must run before validateLoginMethod, which reads the cached license
         await licenseInit(
           req.organization,
           getUserCodesForOrg,
           getLicenseMetaData,
         );
 
-        // Self-hosted SSO (via SSO_CONFIG) requires a license that includes
-        // the sso feature. Air-gapped licenses get a 14-day grace period
-        // after expiration via getEffectiveAccountPlan
         if (
           !IS_CLOUD &&
           usingOpenId() &&
