@@ -166,7 +166,7 @@ export class RampScheduleTemplateModel extends BaseClass {
     );
   }
 
-  // Internal writes too; templates aren't tied to a Project, so no scope.
+  // Runs for internal and REST writes.
   protected override async customValidation(
     doc: RampScheduleTemplateInterface,
     previousDoc?: RampScheduleTemplateInterface,

@@ -21,7 +21,6 @@ export interface Props {
     | "dashboard"
     | "custom field"
     | "experiment"
-    | "experiment assignment query"
     | "constant";
   projectIds?: string[];
   invalidProjectIds?: string[];
