@@ -7,7 +7,11 @@ import {
   RuleCreateInputV2,
   SafeRolloutInterface,
 } from "shared/validators";
-import type { FeatureRule, SafeRolloutRule } from "shared/validators";
+import type {
+  ApiAssignmentQueryRefInput,
+  FeatureRule,
+  SafeRolloutRule,
+} from "shared/validators";
 import {
   getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
@@ -267,7 +271,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         ruleInput as typeof ruleInput & {
           type: "safe-rollout";
           safeRolloutFields: Record<string, unknown> & {
-            exposureQuery?: { id: string; identifierType: string };
+            exposureQuery?: ApiAssignmentQueryRefInput;
             exposureQueryId?: string;
           };
         }

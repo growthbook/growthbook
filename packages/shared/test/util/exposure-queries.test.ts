@@ -116,7 +116,7 @@ describe("parseAssignmentQueryInput", () => {
     ).toEqual({ id: "exq_1", identifierType: undefined });
   });
 
-  it("rejects both fields together, naming them", () => {
+  it("rejects both fields when they name different queries", () => {
     expect(() =>
       parseAssignmentQueryInput(
         { id: "exq_1", identifierType: "user_id" },
@@ -124,7 +124,7 @@ describe("parseAssignmentQueryInput", () => {
         "exposureQuery",
       ),
     ).toThrow(
-      "Cannot set exposureQuery together with the deprecated exposureQueryId",
+      "exposureQuery.id and the deprecated exposureQueryId name different assignment queries",
     );
   });
 });

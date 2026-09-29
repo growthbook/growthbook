@@ -5384,7 +5384,11 @@ paths:
                                     a different assignment query that declares
                                     several. Otherwise defaults to the current
                                     identifier type, or the query's only one.
-                                  type: string
+                                    Null is treated as omitted, so a response's
+                                    value can be sent back.
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
                               required:
                                 - id
                               additionalProperties: false
@@ -5982,8 +5986,12 @@ paths:
                                 query must declare. Required when selecting a
                                 different assignment query that declares
                                 several. Otherwise defaults to the current
-                                identifier type, or the query's only one.
-                              type: string
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                           required:
                             - id
                           additionalProperties: false
@@ -6681,8 +6689,12 @@ paths:
                                 query must declare. Required when selecting a
                                 different assignment query that declares
                                 several. Otherwise defaults to the current
-                                identifier type, or the query's only one.
-                              type: string
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                           required:
                             - id
                           additionalProperties: false
@@ -7423,8 +7435,11 @@ paths:
                             must declare. Required when selecting a different
                             assignment query that declares several. Otherwise
                             defaults to the current identifier type, or the
-                            query's only one.
-                          type: string
+                            query's only one. Null is treated as omitted, so a
+                            response's value can be sent back.
+                          anyOf:
+                            - type: string
+                            - type: 'null'
                       required:
                         - id
                       additionalProperties: false
@@ -11894,8 +11909,12 @@ paths:
                                 query must declare. Required when selecting a
                                 different assignment query that declares
                                 several. Otherwise defaults to the current
-                                identifier type, or the query's only one.
-                              type: string
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                           required:
                             - id
                           additionalProperties: false
@@ -12618,8 +12637,12 @@ paths:
                                 query must declare. Required when selecting a
                                 different assignment query that declares
                                 several. Otherwise defaults to the current
-                                identifier type, or the query's only one.
-                              type: string
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                           required:
                             - id
                           additionalProperties: false
@@ -13370,8 +13393,11 @@ paths:
                             must declare. Required when selecting a different
                             assignment query that declares several. Otherwise
                             defaults to the current identifier type, or the
-                            query's only one.
-                          type: string
+                            query's only one. Null is treated as omitted, so a
+                            response's value can be sent back.
+                          anyOf:
+                            - type: string
+                            - type: 'null'
                       required:
                         - id
                       additionalProperties: false
@@ -15091,8 +15117,12 @@ paths:
                         The identifier type to analyze on, which the query must
                         declare. Required when selecting a different assignment
                         query that declares several. Otherwise defaults to the
-                        current identifier type, or the query's only one.
-                      type: string
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                   required:
                     - id
                   additionalProperties: false
@@ -15833,8 +15863,12 @@ paths:
                         The identifier type to analyze on, which the query must
                         declare. Required when selecting a different assignment
                         query that declares several. Otherwise defaults to the
-                        current identifier type, or the query's only one.
-                      type: string
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                   required:
                     - id
                   additionalProperties: false
@@ -33561,8 +33595,12 @@ paths:
                                 query must declare. Required when selecting a
                                 different assignment query that declares
                                 several. Otherwise defaults to the current
-                                identifier type, or the query's only one.
-                              type: string
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                           required:
                             - id
                           additionalProperties: false
@@ -35353,8 +35391,12 @@ paths:
                         The identifier type to analyze on, which the query must
                         declare. Required when selecting a different assignment
                         query that declares several. Otherwise defaults to the
-                        current identifier type, or the query's only one.
-                      type: string
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                   required:
                     - id
                   additionalProperties: false
@@ -49891,8 +49933,12 @@ paths:
                         The identifier type to analyze on, which the query must
                         declare. Required when selecting a different assignment
                         query that declares several. Otherwise defaults to the
-                        current identifier type, or the query's only one.
-                      type: string
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                   required:
                     - id
                   additionalProperties: false
@@ -50079,8 +50125,12 @@ paths:
                         The identifier type to analyze on, which the query must
                         declare. Required when selecting a different assignment
                         query that declares several. Otherwise defaults to the
-                        current identifier type, or the query's only one.
-                      type: string
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                   required:
                     - id
                   additionalProperties: false
@@ -50318,8 +50368,12 @@ paths:
                                   query must declare. Required when selecting a
                                   different assignment query that declares
                                   several. Otherwise defaults to the current
-                                  identifier type, or the query's only one.
-                                type: string
+                                  identifier type, or the query's only one. Null
+                                  is treated as omitted, so a response's value
+                                  can be sent back.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - id
                             additionalProperties: false
@@ -55910,8 +55964,12 @@ paths:
                                 query must declare. Required when selecting a
                                 different assignment query that declares
                                 several. Otherwise defaults to the current
-                                identifier type, or the query's only one.
-                              type: string
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                           required:
                             - id
                           additionalProperties: false
@@ -56238,8 +56296,12 @@ paths:
                                 query must declare. Required when selecting a
                                 different assignment query that declares
                                 several. Otherwise defaults to the current
-                                identifier type, or the query's only one.
-                              type: string
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                           required:
                             - id
                           additionalProperties: false
@@ -56890,8 +56952,12 @@ paths:
                                 query must declare. Required when selecting a
                                 different assignment query that declares
                                 several. Otherwise defaults to the current
-                                identifier type, or the query's only one.
-                              type: string
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                           required:
                             - id
                           additionalProperties: false
@@ -57359,8 +57425,12 @@ paths:
                         The identifier type to analyze on, which the query must
                         declare. Required when selecting a different assignment
                         query that declares several. Otherwise defaults to the
-                        current identifier type, or the query's only one.
-                      type: string
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                   required:
                     - id
                   additionalProperties: false
@@ -57543,8 +57613,12 @@ paths:
                         The identifier type to analyze on, which the query must
                         declare. Required when selecting a different assignment
                         query that declares several. Otherwise defaults to the
-                        current identifier type, or the query's only one.
-                      type: string
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                   required:
                     - id
                   additionalProperties: false
@@ -63123,8 +63197,11 @@ components:
                     The identifier type to analyze on, which the query must
                     declare. Required when selecting a different assignment
                     query that declares several. Otherwise defaults to the
-                    current identifier type, or the query's only one.
-                  type: string
+                    current identifier type, or the query's only one. Null is
+                    treated as omitted, so a response's value can be sent back.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
               required:
                 - id
               additionalProperties: false

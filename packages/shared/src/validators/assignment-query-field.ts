@@ -23,8 +23,9 @@ export const apiAssignmentQueryRefInput = z.object({
     .describe("The ID of one of the data source's assignment queries."),
   identifierType: z
     .string()
+    .nullable()
     .describe(
-      "The identifier type to analyze on, which the query must declare. Required when selecting a different assignment query that declares several. Otherwise defaults to the current identifier type, or the query's only one.",
+      "The identifier type to analyze on, which the query must declare. Required when selecting a different assignment query that declares several. Otherwise defaults to the current identifier type, or the query's only one. Null is treated as omitted, so a response's value can be sent back.",
     )
     .optional(),
 });

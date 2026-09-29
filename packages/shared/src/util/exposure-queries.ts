@@ -75,21 +75,25 @@ export function getIdentifierTypeForSettingsHash(
 
 /**
  * Reads a REST body's grouped assignment query field and its deprecated flat
- * `<field>Id`, which are mutually exclusive.
+ * `<field>Id`. Both may be sent, as responses return both, but must agree.
  */
 export function parseAssignmentQueryInput(
   assignmentQuery: ApiAssignmentQueryRefInput | undefined,
   deprecatedId: string | undefined,
   field: AssignmentQueryField,
 ): { id: string | undefined; identifierType: string | undefined } {
-  if (assignmentQuery && deprecatedId !== undefined) {
+  if (
+    assignmentQuery &&
+    deprecatedId !== undefined &&
+    deprecatedId !== assignmentQuery.id
+  ) {
     throw new Error(
-      `Cannot set ${field} together with the deprecated ${field}Id`,
+      `${field}.id and the deprecated ${field}Id name different assignment queries`,
     );
   }
   return {
     id: assignmentQuery?.id ?? deprecatedId,
-    identifierType: assignmentQuery?.identifierType,
+    identifierType: assignmentQuery?.identifierType ?? undefined,
   };
 }
 

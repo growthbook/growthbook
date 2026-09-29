@@ -850,7 +850,7 @@ describe("experiments API", () => {
       );
     });
 
-    it("rejects assignmentQuery together with the deprecated flat fields", async () => {
+    it("rejects assignmentQuery and the deprecated flat id naming different queries", async () => {
       (getDataSourceById as jest.Mock).mockResolvedValue({
         id: "ds_123",
         type: "postgres",
@@ -876,7 +876,7 @@ describe("experiments API", () => {
           name: "Conflict",
           datasourceId: "ds_123",
           assignmentQuery: { id: "user_id", identifierType: "user_id" },
-          assignmentQueryId: "user_id",
+          assignmentQueryId: "anonymous_id",
           variations: [
             { key: "control", name: "Control" },
             { key: "treatment", name: "Treatment" },
@@ -885,7 +885,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(400);
-      expect(res.body.message).toContain("Cannot set assignmentQuery");
+      expect(res.body.message).toContain("name different assignment queries");
       expect(createExperiment).not.toHaveBeenCalled();
     });
 
