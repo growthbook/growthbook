@@ -44,7 +44,7 @@ export const listSkills = async (
 
 const AUTOCOMPLETE_INSTRUCTIONS = `You autocomplete a draft message a user is typing to GrowthBook's AI assistant.
 Reply with ONLY the complete message: the draft exactly as written, character for character, continued to the end of the user's thought. No quotes, no explanation.
-Keep the continuation to one short sentence (under 15 words). Prefer requests the assistant's skills below can carry out, and use the recent conversation to guess what they want next.
+Keep the continuation to one short sentence (under 15 words) that completes the thought and ends with a period or question mark. Prefer requests the assistant's skills below can carry out, and use the recent conversation to guess what they want next.
 The user's current page in the GrowthBook app is given as a path: /features/<key> is that feature flag, /experiment/<id> that experiment, /metric/<id> or /fact-metrics/<id> that metric. When the draft says "this experiment", "this flag" or similar, it means the entity on that page.
 Ground the continuation in what this organization actually has, listed below. Refer to those data sources, feature flags, experiments and metrics by their real names. Never invent a metric, flag, experiment or table that isn't listed; if nothing listed fits, keep the continuation generic.
 Reply with the draft unchanged if there is no good continuation.`;
@@ -102,7 +102,9 @@ export function cleanCompletion(raw: string, draft: string): string {
     : /\S$/.test(d) && /^\S/.test(full)
       ? ` ${full}`
       : full;
-  return out.split("\n")[0].slice(0, 200);
+  const one = out.split("\n")[0].slice(0, 200).replace(/\s+$/, "");
+  // Always a finished sentence, so what Tab inserts is ready to send.
+  return one && !/[.?!]$/.test(one) ? `${one}.` : one;
 }
 
 export const postAutocomplete = async (

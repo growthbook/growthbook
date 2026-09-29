@@ -55,14 +55,25 @@
       color: var(--gray-a9);
     }
 
-    // A sentence to read, not a hint: the low-contrast text step, not the placeholder's.
-    // The trailing margin clears the Tab keycap on the last line only.
-    p[data-ghost]::after {
-      content: attr(data-ghost);
+    // Autocomplete continuation plus its Tab keycap, inline after the caret.
+    :global(.composer-ghost) {
       pointer-events: none;
-      color: var(--gray-11);
+      user-select: none;
+      color: var(--gray-a9);
       white-space: pre-wrap;
-      margin-right: 28px;
+
+      kbd {
+        margin-left: 6px;
+        padding: 0 5px;
+        font-family: inherit;
+        font-size: 11px;
+        line-height: 16px;
+        vertical-align: 1px;
+        color: var(--gray-11);
+        background: var(--gray-a2);
+        border: 1px solid var(--gray-a6);
+        border-radius: var(--radius-2);
+      }
     }
   }
 
@@ -191,22 +202,6 @@
   display: flex;
   align-items: center;
   line-height: 0;
-}
-
-.buttonRow {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-// Out of the flow, so Dictate and Send don't slide when a suggestion appears.
-.ghostHint {
-  position: absolute;
-  right: calc(100% + var(--space-2));
-  top: 50%;
-  transform: translateY(-50%);
 }
 
 .sendButton,

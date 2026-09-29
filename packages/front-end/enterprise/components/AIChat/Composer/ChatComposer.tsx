@@ -13,14 +13,13 @@ import Paragraph from "@tiptap/extension-paragraph";
 import TextNode from "@tiptap/extension-text";
 import HardBreak from "@tiptap/extension-hard-break";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
-import { Flex, Kbd, VisuallyHidden } from "@radix-ui/themes";
+import { Flex, VisuallyHidden } from "@radix-ui/themes";
 import { PiArrowRightBold, PiStop } from "react-icons/pi";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention } from "shared/ai-chat";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
-import Tooltip from "@/ui/Tooltip";
 import {
   collectMentions,
   collectSkills,
@@ -513,17 +512,10 @@ function ChatComposer(
     <DictationButton dictation={dictation} disabled={loading || disabled} />
   );
   const buttons = (
-    <div className={styles.buttonRow}>
-      {ghost && (
-        <Tooltip content="Accept suggestion">
-          <Kbd size="1" className={styles.ghostHint} aria-hidden="true">
-            Tab
-          </Kbd>
-        </Tooltip>
-      )}
+    <>
       {dictateButton}
       {sendButton}
-    </div>
+    </>
   );
 
   const boxClasses = [

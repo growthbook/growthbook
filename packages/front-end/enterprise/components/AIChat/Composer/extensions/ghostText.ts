@@ -3,6 +3,8 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 export const GHOST_TEXT_NAME = "ghostText";
+/** Global class on the widget, since it's built outside React. */
+export const GHOST_TEXT_CLASS = "composer-ghost";
 
 /** Position at the end of the last block — where a continuation would land. */
 export function docEnd(doc: { content: { size: number } }): number {
@@ -10,9 +12,9 @@ export function docEnd(doc: { content: { size: number } }): number {
 }
 
 /**
- * Inline grey continuation after the cursor, drawn like the placeholder: a
- * `data-ghost` attribute on the last paragraph that CSS renders via `::after`.
- * Only shown while the caret sits at the very end of the message.
+ * Inline grey continuation after the cursor, with a Tab keycap right after
+ * its last character. A widget decoration, so it flows with the text but is
+ * never part of the document. Only shown while the caret sits at the very end.
  */
 export const GhostText = Extension.create<
   Record<string, never>,
@@ -31,20 +33,27 @@ export const GhostText = Extension.create<
         key: new PluginKey(GHOST_TEXT_NAME),
         props: {
           decorations: ({ doc, selection }) => {
-            const last = doc.lastChild;
             if (
               !storage.text ||
-              !last ||
               !selection.empty ||
               selection.to !== docEnd(doc)
             ) {
               return null;
             }
             return DecorationSet.create(doc, [
-              Decoration.node(
-                doc.content.size - last.nodeSize,
-                doc.content.size,
-                { "data-ghost": storage.text },
+              Decoration.widget(
+                docEnd(doc),
+                () => {
+                  const el = document.createElement("span");
+                  el.className = GHOST_TEXT_CLASS;
+                  el.setAttribute("aria-hidden", "true");
+                  el.textContent = storage.text;
+                  const kbd = document.createElement("kbd");
+                  kbd.textContent = "Tab";
+                  el.appendChild(kbd);
+                  return el;
+                },
+                { side: 1, ignoreSelection: true },
               ),
             ]);
           },
