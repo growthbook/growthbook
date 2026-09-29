@@ -1,7 +1,7 @@
-import type { DataType } from "shared/types/integrations";
 import { createLikeMatchFns } from "shared/sql";
+import type { DataType } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
-import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
+import { indicesTableUnpivot } from "./clauses/indices-table-unpivot";
 import { baseDialect } from "./base";
 
 const redshiftEscapeStringLiteral = (value: string) =>

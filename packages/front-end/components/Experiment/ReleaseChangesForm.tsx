@@ -403,7 +403,7 @@ function ImpactTooltips({
                   )}
                   {recommendedRolloutData.reasons.disableVariation && (
                     <div className="mt-2">
-                      <strong>Disabling or re-enableing a variation</strong>{" "}
+                      <strong>Disabling or re-enabling a variation</strong>{" "}
                       could lead to statistical bias and/or multiple exposures.
                     </div>
                   )}

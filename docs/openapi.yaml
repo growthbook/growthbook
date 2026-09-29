@@ -163,7 +163,7 @@ tags:
   - name: features-v2
     x-displayName: Feature Flags
     description: >-
-      Control your feature flags programatically.
+      Control your feature flags programmatically.
 
 
       Rules are returned as a unified top-level array; each rule carries
@@ -180,7 +180,7 @@ tags:
   - name: features
     x-displayName: Feature Flags (legacy)
     description: >-
-      Control your feature flags programatically.
+      Control your feature flags programmatically.
 
 
       **These are v1 endpoints.** New integrations should use the v2 Feature
@@ -16359,7 +16359,7 @@ paths:
               properties:
                 skipChecklist:
                   description: >-
-                    If true, skips validating the experiment satisifies all
+                    If true, skips validating the experiment satisfies all
                     pre-launch checklist items
                   type: boolean
                 ignoreWarnings:
@@ -16836,7 +16836,7 @@ paths:
                 triggeredBy:
                   description: >-
                     Set to "schedule" if you want this request to trigger
-                    notifications and other events as it if were a scheduled
+                    notifications and other events as if it were a scheduled
                     update. Defaults to manual.
                   type: string
                   enum:
@@ -21584,7 +21584,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/saved-groups' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"name":"interal-users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
+              -d '{"name":"internal-users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
   /v1/saved-groups-revisions:
     get:
       operationId: listSavedGroupRevisions
@@ -32555,8 +32555,8 @@ paths:
     post:
       operationId: updateMemberRole
       summary: >-
-        Update a member's global role (including any enviroment restrictions, if
-        applicable). Can also update a member's project roles if your plan
+        Update a member's global role (including any environment restrictions,
+        if applicable). Can also update a member's project roles if your plan
         supports it.
       tags:
         - members
@@ -67700,7 +67700,7 @@ components:
               type: boolean
             enabled:
               description: >-
-                Controls whether or not regresion adjustment is applied to the
+                Controls whether or not regression adjustment is applied to the
                 metric
               type: boolean
             days:

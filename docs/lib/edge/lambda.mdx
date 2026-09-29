@@ -53,7 +53,7 @@ You may either use our turnkey Edge App for Lambda@Edge or build your own app fr
 
 ## Turnkey Edge App
 
-Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirects behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments. Additionally, by using [lifecycle hooks](#lifecycle-hooks) you can perform custom logic such as feature flagging as well as proxying and early returns.
+Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches a Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirects behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments. Additionally, by using [lifecycle hooks](#lifecycle-hooks) you can perform custom logic such as feature flagging as well as proxying and early returns.
 
 <Warning>
 **Body size constraints**
@@ -326,7 +326,7 @@ If you are using `NO_AUTO_COOKIES` to wait for consent (see the [next section](#
 
 If you must delay persisting the `gbuuid` cookie until a user consents, you can set the environment variable `NO_AUTO_COOKIES="true"`.
 
-This will still generate a UUID for the user, but will not persist it. That means, if the user refreshes the page, they will have a new random UUID generated.environment
+This will still generate a UUID for the user, but will not persist it. That means, if the user refreshes the page, they will have a new random UUID generated.
 
 You have the option to manually persist this cookie at any time, for example when a user grants consent on your cookie banner. All you need to do is fire this custom event from JavaScript on the rendered page:
 
