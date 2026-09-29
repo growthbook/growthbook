@@ -195,7 +195,7 @@ describe("getAvailableDimensionColumns", () => {
   });
 
   describe("ratio metric denominator resolvability", () => {
-    it("excludes a nested JSON column the denominator's fact table doesn't share", () => {
+    it("excludes a nested JSON column the denominator's fact table only has as a deleted column", () => {
       const denominatorFt = makeFactTable({
         id: "denominator_ft",
         columns: [
@@ -204,7 +204,13 @@ describe("getAvailableDimensionColumns", () => {
             name: "Country",
             datatype: "string",
           }),
-          // No "props" column at all.
+          // "props" exists only as a deleted column, so it can't resolve.
+          makeColumn({
+            column: "props",
+            datatype: "json",
+            jsonFields: { plan: { datatype: "string" } },
+            deleted: true,
+          }),
         ],
       });
       const getFactTableById = (id: string) =>
