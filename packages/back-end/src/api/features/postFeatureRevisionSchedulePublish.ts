@@ -11,7 +11,7 @@ import {
   canPublishFeatureRevision,
   canScheduleFeaturePublish,
   parseScheduledPublishDate,
-  resolveArmedPublishUserId,
+  resolveArmedPublisherId,
 } from "./autoPublishOnApproval";
 
 const SCHEDULABLE_STATUSES = [
@@ -67,7 +67,10 @@ export async function schedulePublish(
   // (it would loop on "enabling user could not be resolved").
   if (
     date &&
-    !resolveArmedPublishUserId(revision, req.context.userId ?? null)
+    !resolveArmedPublisherId(
+      revision,
+      req.context.userId ?? req.context.apiKey ?? null,
+    )
   ) {
     throw new BadRequestError(
       "Scheduled publishes must run as a user, but this request has no resolvable user actor " +
@@ -111,7 +114,7 @@ export async function schedulePublish(
       lockOthers: req.body.lockOthers,
       bypassApproval,
     },
-    req.context.userId || null,
+    req.context.userId || req.context.apiKey || null,
   );
 
   const updated = await getRevision({

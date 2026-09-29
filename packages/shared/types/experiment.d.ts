@@ -340,6 +340,11 @@ export interface LinkedFeatureInfo {
    */
   hasUnrelatedDraftChanges?: boolean;
   /**
+   * The draft cannot be published by whoever a start would publish it as: the
+   * caller, or the recorded armer once a start is scheduled.
+   */
+  cannotPublish?: boolean;
+  /**
    * Environments currently disabled on the live feature that will be enabled
    * when the pending draft is auto-published on experiment start. Only set for
    * drafts queued in `pendingFeatureDrafts` — a draft created directly on the

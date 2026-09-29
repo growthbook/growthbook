@@ -5,17 +5,22 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getScheduledStatusContext } from "back-end/src/services/experimentScheduling";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
+import {
+  assertCanRunExperimentInAffectedEnvironments,
+  getScheduledStatusContext,
+} from "back-end/src/services/experiments";
 import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
 
-// A staged status change fires on the authority of whoever staged it, re-checked
-// at fire time, like a scheduled feature publish. No authority, no change.
+// A staged status change fires as whoever armed it, user or API key, checked
+// again at fire time. Nobody to run as, or no authority, and the job does not
+// lend its own.
 
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgId: jest.fn(async () => ({
     org: { id: "org_1" },
+    models: { metricGroups: { getAll: async () => [] } },
+    auditLog: jest.fn(),
   })),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -28,7 +33,6 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 }));
 jest.mock("back-end/src/services/experimentScheduling", () => ({
   applyScheduledExperimentStop: jest.fn(),
-  getScheduledStatusContext: jest.fn(),
 }));
 jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
@@ -40,6 +44,7 @@ jest.mock(
 );
 jest.mock("back-end/src/services/experiments", () => ({
   assertCanRunExperimentInAffectedEnvironments: jest.fn(),
+  getScheduledStatusContext: jest.fn(),
 }));
 jest.mock("back-end/src/services/experimentNotifications", () => ({
   notifyScheduledEndDecision: jest.fn(),
@@ -61,30 +66,33 @@ const draft = {
   nextScheduledStatusUpdate: {
     type: "start",
     date: new Date(Date.now() - 1000),
-    scheduledBy: "u_analyst",
+    scheduledByApiKey: "key_ci",
   },
 };
-const scheduler = { org: { id: "org_1" }, auditLog: jest.fn() };
+const armer = { org: { id: "org_1" }, auditLog: jest.fn() };
 
 describe("updateSingleExperimentStatus", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getExperimentById as jest.Mock).mockResolvedValue(draft);
-    (getScheduledStatusContext as jest.Mock).mockResolvedValue(scheduler);
+    (getScheduledStatusContext as jest.Mock).mockResolvedValue(armer);
+    (
+      assertCanRunExperimentInAffectedEnvironments as jest.Mock
+    ).mockResolvedValue(undefined);
   });
 
-  it("starts the experiment as the user who scheduled it", async () => {
+  it("starts the experiment as whoever armed it and audits through them", async () => {
     await updateSingleExperimentStatus(job);
     expect(assertCanRunExperimentInAffectedEnvironments).toHaveBeenCalledWith(
-      scheduler,
+      armer,
       draft,
     );
-    expect(executeExperimentStart).toHaveBeenCalledWith(scheduler, draft);
-    expect(scheduler.auditLog).toHaveBeenCalled();
+    expect(executeExperimentStart).toHaveBeenCalledWith(armer, draft);
+    expect(armer.auditLog).toHaveBeenCalled();
     expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
   });
 
-  it("gives up at once when the scheduler may not run the experiment", async () => {
+  it("gives up at once when the armer may no longer run the experiment", async () => {
     (
       assertCanRunExperimentInAffectedEnvironments as jest.Mock
     ).mockRejectedValue(new PermissionError("nope"));
@@ -98,7 +106,7 @@ describe("updateSingleExperimentStatus", () => {
     );
   });
 
-  it("leaves a schedule re-staged meanwhile alone, even the same action by someone else", async () => {
+  it("leaves a schedule re-armed meanwhile alone, even the same action by someone else", async () => {
     (getScheduledStatusContext as jest.Mock).mockResolvedValue(null);
     (getExperimentById as jest.Mock)
       .mockResolvedValueOnce(draft)
@@ -106,6 +114,7 @@ describe("updateSingleExperimentStatus", () => {
         ...draft,
         nextScheduledStatusUpdate: {
           ...draft.nextScheduledStatusUpdate,
+          scheduledByApiKey: undefined,
           scheduledBy: "u_other",
         },
       });
@@ -114,7 +123,7 @@ describe("updateSingleExperimentStatus", () => {
     expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
   });
 
-  it("retries when the scheduling user cannot be resolved yet", async () => {
+  it("retries when the armer cannot be resolved yet, keeping the stamp", async () => {
     (getScheduledStatusContext as jest.Mock).mockResolvedValue(null);
     await updateSingleExperimentStatus(job);
     expect(executeExperimentStart).not.toHaveBeenCalled();
@@ -123,7 +132,7 @@ describe("updateSingleExperimentStatus", () => {
         changes: {
           nextScheduledStatusUpdate: expect.objectContaining({
             failedAttempts: 1,
-            scheduledBy: "u_analyst",
+            scheduledByApiKey: "key_ci",
           }),
         },
       }),

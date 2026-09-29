@@ -256,6 +256,49 @@ export function getChecklistItems({
           });
         });
 
+      linkedFeatures
+        .filter((f) => f.state === "draft" && f.cannotPublish)
+        .forEach((f) => {
+          const armed = experiment.nextScheduledStatusUpdate?.type === "start";
+          items.push({
+            status: "incomplete",
+            type: "auto",
+            required: true,
+            hardBlock: true,
+            hideDescription: true,
+            display: (
+              <>
+                {armed
+                  ? "Whoever scheduled this start can no longer publish "
+                  : "You need permission to publish "}
+                <Link
+                  href={`/features/${f.feature.id}${(f.draftRevisionVersion ?? null) !== null ? `?v=${f.draftRevisionVersion}` : ""}`}
+                  target="_blank"
+                >
+                  {f.feature.id}
+                  <PiArrowSquareOut className="ml-1" />
+                </Link>
+                {armed ? (
+                  <>
+                    .{" "}
+                    {setShowScheduleModal ? (
+                      <Link onClick={() => setShowScheduleModal(true)}>
+                        Reschedule
+                      </Link>
+                    ) : (
+                      "Reschedule"
+                    )}{" "}
+                    or unschedule the start, then approve it again from an
+                    account that can.
+                  </>
+                ) : (
+                  " before this experiment can start"
+                )}
+              </>
+            ),
+          });
+        });
+
       // Publishing this feature's own draft (from its Review & Publish page) is
       // what approves it, so skip the self-referential approval row. Drafts with
       // unrelated changes are likewise covered by that publish flow.
