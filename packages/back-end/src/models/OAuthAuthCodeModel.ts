@@ -67,4 +67,16 @@ export class OAuthAuthCodeModel extends BaseClass {
     }
     return (result as OAuthAuthCodeInterface | null) ?? null;
   }
+
+  /** Grant teardown: burn this member's outstanding codes for the client. */
+  public async consumeAllForGrant(
+    clientId: string,
+    userId: string,
+  ): Promise<void> {
+    const now = new Date();
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, clientId, userId, used: false },
+      { $set: { used: true, dateUpdated: now } },
+    );
+  }
 }
