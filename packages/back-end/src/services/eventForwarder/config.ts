@@ -113,6 +113,51 @@ function buildBigQueryServiceAccountKey(
   });
 }
 
+function parseBigQueryServiceAccountKey(raw: string): {
+  project_id?: string;
+  client_email?: string;
+  private_key?: string;
+} | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    throw new Error("Event Forwarder service account key is not valid JSON.");
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Event Forwarder service account key is not valid JSON.");
+  }
+
+  return parsed;
+}
+
+export function getEventForwarderBigQueryConnectionParams(
+  params: BigQueryConnectionParams,
+  serviceAccountKeyJson: string | undefined,
+): BigQueryConnectionParams {
+  const serviceAccountKey = parseBigQueryServiceAccountKey(
+    serviceAccountKeyJson || "",
+  );
+  if (!serviceAccountKey) return params;
+
+  return {
+    ...params,
+    authType: "json",
+    projectId: serviceAccountKey.project_id || params.projectId,
+    defaultProject:
+      params.defaultProject ||
+      serviceAccountKey.project_id ||
+      params.projectId ||
+      "",
+    clientEmail: serviceAccountKey.client_email || params.clientEmail,
+    privateKey: serviceAccountKey.private_key || params.privateKey,
+    serviceAccountJson: serviceAccountKeyJson,
+  };
+}
+
 function buildBigQueryStoredConfigFromDraft(
   draft: BigQueryEventForwarderConfigDraft,
   datasourceParams: BigQueryConnectionParams | undefined,
@@ -206,7 +251,7 @@ function buildSnowflakeStoredConfigFromDraft(
   const authMethod = datasourceParams?.authMethod ?? "password";
   if (authMethod !== "key-pair") {
     throw new Error(
-      "Snowflake event forwarder requires key-pair authentication. Password authentication is supported for Snowflake queries, but Confluent Snowflake Sink provisioning requires a private key.",
+      "Snowflake event forwarder requires key-pair authentication. Password and Workload Identity authentication are supported for Snowflake queries, but Confluent Snowflake Sink provisioning requires a private key.",
     );
   }
 
