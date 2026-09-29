@@ -179,6 +179,13 @@ export const TERMINAL_RAMP_SCHEDULE_STATUSES: RampScheduleStatus[] = [
 ];
 export const isTerminalRampScheduleStatus = (status: RampScheduleStatus) =>
   TERMINAL_RAMP_SCHEDULE_STATUSES.includes(status);
+// Statuses whose start anchor is fixed and replayed by every forward step, so a
+// publish must reconcile a direct rule edit with the plan (planRampBaseStateSync).
+export const ANCHORED_RAMP_SCHEDULE_STATUSES: RampScheduleStatus[] = [
+  "ready",
+  "running",
+  "paused",
+];
 
 export const rampEventTypeArray = [
   "started",

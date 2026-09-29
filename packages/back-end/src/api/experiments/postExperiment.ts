@@ -11,6 +11,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  assertExperimentKeyFormat,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
@@ -163,6 +164,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
       );
     }
+
+    await assertExperimentKeyFormat(
+      req.context,
+      payload.trackingKey,
+      payload.datasourceId,
+    );
 
     // check if tracking key is unique (skip the lookup entirely if the caller
     // is bypassing the duplicate check and the org doesn't require uniqueness)

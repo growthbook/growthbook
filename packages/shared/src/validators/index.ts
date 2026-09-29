@@ -99,3 +99,5 @@ export * from "./contextual-bandit-event";
 export * from "./api-errors";
 export * from "./experiment-alerts";
 export * from "./holdout-notifications";
+export * from "./slack-user-link";
+export * from "./slack-task-claim";

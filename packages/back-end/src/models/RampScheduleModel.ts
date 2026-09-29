@@ -2,6 +2,7 @@ import escapeRegExp from "lodash/escapeRegExp";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
 import {
+  ANCHORED_RAMP_SCHEDULE_STATUSES,
   ApiRampScheduleInterface,
   RampScheduleInterface,
   RampStartAction,
@@ -96,6 +97,8 @@ const BaseClass = MakeModelClass({
     // dangerouslyFindAllDueSchedules is a cross-tenant query.
     // sparse: true matches the existing index (most documents have nextProcessAt: null).
     { fields: { nextProcessAt: 1 }, sparse: true },
+    // Every feature publish reads the feature's schedules (getAllByFeatureId).
+    { fields: { organization: 1, entityId: 1 } },
   ],
   globallyUniquePrimaryKeys: true,
   defaultValues: {
@@ -929,6 +932,22 @@ export class RampScheduleModel extends BaseClass {
     return this._find({
       entityType: "feature",
       entityId: { $in: featureIds },
+    });
+  }
+
+  // Schedules whose anchor a publish of `featureId` must reconcile with.
+  public async findAnchoredByTargetFeature(
+    featureId: string,
+  ): Promise<RampScheduleInterface[]> {
+    return this._find({
+      status: { $in: ANCHORED_RAMP_SCHEDULE_STATUSES },
+      targets: {
+        $elemMatch: {
+          entityType: "feature",
+          entityId: featureId,
+          status: "active",
+        },
+      },
     });
   }
 

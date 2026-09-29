@@ -8,6 +8,12 @@ import {
   isValidBigQueryTablePrefix,
   isValidSnowflakeTableName,
   isValidSnowflakeTablePrefix,
+  normalizeDatabricksEventForwarderZerobusEndpoint,
+  normalizeDatabricksTablePrefixForEventForwarder,
+  parseDatabricksEventForwarderTablePrefix,
+  quoteDatabricksIdentifier,
+  resolveDatabricksEventForwarderTableNames,
+  resolveDatabricksEventForwarderTables,
   normalizeBigQueryTablePrefixForEventForwarder,
   normalizeBigQueryTableNameForEventForwarder,
   normalizeSnowflakeEventForwarderAccessUrl,
@@ -437,5 +443,131 @@ describe("normalizeSnowflakeEventForwarderAccessUrl", () => {
     expect(() =>
       normalizeSnowflakeEventForwarderAccessUrl("https://example.com"),
     ).toThrow(/snowflakecomputing\.com/);
+  });
+});
+
+describe("normalizeDatabricksTablePrefixForEventForwarder", () => {
+  it("returns default when raw is empty", () => {
+    expect(normalizeDatabricksTablePrefixForEventForwarder("")).toBe(
+      DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
+    );
+  });
+
+  it("lowercases and maps hyphens and spaces to underscores", () => {
+    expect(normalizeDatabricksTablePrefixForEventForwarder("GB-Events ")).toBe(
+      "gb_events",
+    );
+  });
+
+  it("prefixes when the first character would be a digit", () => {
+    expect(normalizeDatabricksTablePrefixForEventForwarder("42foo")).toBe(
+      "_42foo",
+    );
+  });
+
+  it("throws when there are no letters or digits", () => {
+    expect(() =>
+      normalizeDatabricksTablePrefixForEventForwarder("---"),
+    ).toThrow(/letter or number/);
+  });
+});
+
+describe("resolveDatabricksEventForwarderTableNames", () => {
+  it("derives the three lowercase table names", () => {
+    expect(resolveDatabricksEventForwarderTableNames("GB")).toEqual({
+      events: "gb_events",
+      experimentViewed: "gb_experiment_viewed",
+      featureUsage: "gb_feature_usage",
+    });
+  });
+});
+
+describe("parseDatabricksEventForwarderTablePrefix", () => {
+  it("parses catalog.schema.prefix and unwraps backticks", () => {
+    expect(
+      parseDatabricksEventForwarderTablePrefix("`main`.`analytics`.GB"),
+    ).toEqual({ catalog: "main", schema: "analytics", tablePrefix: "gb" });
+  });
+
+  it("rejects anything but three parts", () => {
+    expect(() => parseDatabricksEventForwarderTablePrefix("main.gb")).toThrow(
+      /catalog\.schema\.prefix/,
+    );
+  });
+
+  it("rejects catalog or schema names with unsupported characters", () => {
+    expect(() =>
+      parseDatabricksEventForwarderTablePrefix("my-catalog.analytics.gb"),
+    ).toThrow(/Catalog/);
+    expect(() => parseDatabricksEventForwarderTablePrefix("main..gb")).toThrow(
+      /Schema cannot be empty/,
+    );
+  });
+});
+
+describe("resolveDatabricksEventForwarderTables", () => {
+  it("returns fully qualified names without backticks", () => {
+    expect(
+      resolveDatabricksEventForwarderTables({
+        catalog: "main",
+        schema: "analytics",
+        tablePrefix: "GB",
+      }),
+    ).toEqual({
+      events: "main.analytics.gb_events",
+      experiment_viewed: "main.analytics.gb_experiment_viewed",
+      feature_usage: "main.analytics.gb_feature_usage",
+    });
+  });
+});
+
+describe("quoteDatabricksIdentifier", () => {
+  it("wraps in backticks and doubles embedded backticks", () => {
+    expect(quoteDatabricksIdentifier("gb_events")).toBe("`gb_events`");
+    expect(quoteDatabricksIdentifier("we`ird")).toBe("`we``ird`");
+  });
+});
+
+describe("normalizeDatabricksEventForwarderZerobusEndpoint", () => {
+  it("adds https and strips paths", () => {
+    expect(
+      normalizeDatabricksEventForwarderZerobusEndpoint(
+        "1234.zerobus.us-east-1.cloud.databricks.com/",
+      ),
+    ).toBe("https://1234.zerobus.us-east-1.cloud.databricks.com");
+    expect(
+      normalizeDatabricksEventForwarderZerobusEndpoint(
+        "https://1234.zerobus.eastus.azuredatabricks.net",
+      ),
+    ).toBe("https://1234.zerobus.eastus.azuredatabricks.net");
+    expect(
+      normalizeDatabricksEventForwarderZerobusEndpoint(
+        "1234.zerobus.us-central1.gcp.databricks.com",
+      ),
+    ).toBe("https://1234.zerobus.us-central1.gcp.databricks.com");
+  });
+
+  it("rejects Zerobus-looking hosts outside Databricks domains", () => {
+    expect(() =>
+      normalizeDatabricksEventForwarderZerobusEndpoint(
+        "https://1234.zerobus.us-east-1.example.com",
+      ),
+    ).toThrow(/hostname must look like/);
+    expect(() =>
+      normalizeDatabricksEventForwarderZerobusEndpoint(
+        "https://evil.com/1234.zerobus.us-east-1.cloud.databricks.com",
+      ),
+    ).toThrow(/hostname must look like/);
+  });
+
+  it("rejects empty and non-Zerobus hosts", () => {
+    expect(() => normalizeDatabricksEventForwarderZerobusEndpoint("")).toThrow(
+      /required/,
+    );
+    expect(() =>
+      normalizeDatabricksEventForwarderZerobusEndpoint(
+        "https://adb-123.azuredatabricks.net",
+      ),
+    ).toThrow(/zerobus/);
   });
 });

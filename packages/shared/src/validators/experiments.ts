@@ -456,6 +456,9 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
+  // User who staged it; the job runs the change on their authority, as the
+  // scheduled feature publish runs on its arming user's. Absent for org keys.
+  scheduledBy: z.string().optional(),
 });
 
 export const experimentInterface = z
@@ -1487,8 +1490,8 @@ const postExperimentBody = z
         "When true, disables Sticky Bucketing for this experiment. If omitted, defaults to your organization's Sticky Bucketing setting for new experiments. Sticky Bucketing only takes effect when it is also enabled at the organization level.",
       )
       .optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     releasedVariationId: z.string().optional(),
     excludeFromPayload: z.boolean().optional(),
     inProgressConversions: z.enum(["loose", "strict"]).optional(),
@@ -1611,8 +1614,8 @@ const updateExperimentBody = z
       .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     disableStickyBucketing: z.boolean().optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     results: z
       .enum(["dnf", "won", "lost", "inconclusive"])
       .describe(

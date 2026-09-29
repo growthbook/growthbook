@@ -1,3 +1,4 @@
+import { resolveCappingSettingsPatch } from "shared/validators";
 import type { Response } from "express";
 import {
   canInlineFilterColumn,
@@ -1240,7 +1241,14 @@ export const postFactMetric = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const factMetric = await context.models.factMetrics.create(req.body);
+  const factMetric = await context.models.factMetrics.create({
+    ...req.body,
+    cappingSettings:
+      req.body.cappingSettings === undefined
+        ? { type: "", value: 0 }
+        : req.body.cappingSettings,
+    ...resolveCappingSettingsPatch(req.body),
+  });
 
   res.status(200).json({
     status: 200,
@@ -1254,7 +1262,12 @@ export const putFactMetric = async (
 ) => {
   const context = getContextFromReq(req);
 
-  await context.models.factMetrics.updateById(req.params.id, req.body);
+  const existing = await context.models.factMetrics.getById(req.params.id);
+  if (!existing) throw new Error("Fact Metric not found");
+  await context.models.factMetrics.update(existing, {
+    ...req.body,
+    ...resolveCappingSettingsPatch(req.body, existing),
+  });
 
   res.status(200).json({
     status: 200,
