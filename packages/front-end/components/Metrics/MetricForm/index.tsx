@@ -633,7 +633,7 @@ const MetricForm: FC<MetricFormProps> = ({
             form.setValue("sql", sql);
             // If they manually edit the sql back to the default, we'll allow it to be
             // automatically updated again upon datasource/type/name change.  If they
-            // have editted it to something else, we'll make sure not to overwrite any
+            // have edited it to something else, we'll make sure not to overwrite any
             // of their changes automatically.
             setAllowAutomaticSqlReset(sql == defaultSqlTemplate);
           }}

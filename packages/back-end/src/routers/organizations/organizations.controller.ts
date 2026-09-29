@@ -990,7 +990,7 @@ export async function getOrganization(
 
   // Use a stripped down list of invites if the user doesn't have permission to manage the team
   // The full invite object contains a key which can be used to accept the invite
-  // Without this filtering, a user could accept an invite of a higher-priveleged user and assume their role
+  // Without this filtering, a user could accept an invite of a higher-privileged user and assume their role
   const filteredInvites = context.permissions.canManageTeam()
     ? invites
     : invites.map((i) => ({ email: i.email }));

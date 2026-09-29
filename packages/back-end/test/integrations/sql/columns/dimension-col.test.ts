@@ -1,6 +1,6 @@
 import { NULL_DIMENSION_VALUE } from "shared/constants";
 import type { DimensionInterface } from "shared/types/dimension";
-import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
+import { redshiftDialect } from "shared/dialects";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { concatSql } from "back-end/src/integrations/sql/primitives/concat";
 
