@@ -2,16 +2,15 @@
 
 ## **1.8.0** - Sep 29, 2026
 
-- Add support for referencing every kind of Saved Group, not just ID Lists. A new top-level `$savedGroup` operator (`{ "$savedGroup": { "id": "grp_123" } }`) resolves against typed `savedGroups` entries (`{ type: "list", attributeKey, values }` or `{ type: "condition", condition }`), with an optional `attributeKey` override. Nested groups are supported, cycles are detected, and anything unrecognized fails closed instead of throwing
-- `$inGroup` and `$notInGroup` also read the new typed `savedGroups` entries
-- Fix Saved Groups being ignored inside prerequisite conditions, so a Saved Group used in a prerequisite gate matched nobody
-- Add built-in polling via the `pollingInterval` option, as an alternative to streaming for long-running processes. Instances sharing a client key poll once, errors back off exponentially, and the timer never keeps a process alive
-- Fix `streaming: true` silently doing nothing when a stream could not be started. A failed stream no longer discards the payload fetched at init, and the SDK now warns when streaming is enabled but no stream starts
-- Fix `$elemMatch` skipping falsy array elements (`0`, `""`, `false`), so `{ "$elemMatch": { "$eq": 0 } }` now matches `[0]`
-- Add an `enableFeatureUsageEvents` option to the GrowthBook tracking plugin, to turn off feature usage events while keeping experiment views and custom events
-- The GrowthBook tracking plugin now sends events to `us-east-1.gb-ingest.com` by default
-- New `tracing` plugin that records experiment assignments as `gb.exp:<experiment>=<variation>` tags for LLM tracing tools (Langfuse, Arize Phoenix, OpenTelemetry), plus an internal experiment-viewed subscription stream for plugins
-- Export more TypeScript types: plugin options (`AutoAttributeSettings`, `GrowthBookTrackingOptions`, `TrackingEventData`, `Trackers`), Contextual Bandit definitions, `SavedGroupCondition`, and the sticky bucket adapter interfaces. The React SDK now re-exports these along with `Options`, `UserContext`, `TrackingUserContext`, `Plugin`, and other core types it was missing
+- Add `$savedGroup` operator for referencing any kind of Saved Group, not just ID Lists
+- Fix Saved Groups being ignored in prerequisite conditions
+- Add built-in polling via the `pollingInterval` option
+- Fix a failed streaming setup discarding the features loaded by `init()`
+- Fix `$elemMatch` skipping falsy array elements (`0`, `""`, `false`)
+- Add `enableFeatureUsageEvents` option to the GrowthBook tracking plugin
+- GrowthBook tracking plugin now defaults to `us-east-1.gb-ingest.com`
+- Add `tracing` plugin that tags LLM traces with experiment assignments (`gb.exp:<experiment>=<variation>`)
+- Export more TypeScript types from the JS and React SDKs
 
 ## **1.7.0** - Aug 7, 2026
 
