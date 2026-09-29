@@ -6,6 +6,7 @@ import {
   RampScheduleTemplateInterface,
   rampScheduleTemplateValidator,
 } from "shared/validators";
+import { monitoringConfigToApi } from "shared/util";
 import { rampScheduleTemplateApiSpec } from "back-end/src/api/specs/ramp-schedule-template.spec";
 import {
   assertValidMonitoringConfigChange,
@@ -14,12 +15,9 @@ import {
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
-import {
-  migrateRampStepTriggers,
-  monitoringConfigToApi,
-  resolveApiMonitoringConfig,
-} from "./RampScheduleModel";
+import { migrateRampStepTriggers } from "./RampScheduleModel";
 
 // `null` (clear) and absent monitoring configs pass through.
 async function withInternalMonitoringConfig<

@@ -5,11 +5,17 @@ import type {
   DataSourceInterface,
   ExposureQuery,
 } from "shared/types/datasource";
+import type {
+  ApiAssignmentQueryRefInput,
+  RampMonitoringConfig,
+} from "shared/validators";
 import {
+  apiMonitoringConfigToInternal,
   AssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   parseAssignmentQuerySelection,
   resolveAssignmentQuerySelectionChange,
+  toMonitoringSelection,
   withKeptIdentifierType,
 } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
@@ -121,4 +127,30 @@ export async function getExposureQueriesForDatasource(
     context.foreignRefs.datasource.get(datasourceId)?.settings?.queries
       ?.exposure ?? []
   );
+}
+
+// For REST writes of a monitoring config: flattened, with the identifier a new
+// or changed selection resolves to, so it's never left implicit.
+export async function resolveApiMonitoringConfig<
+  T extends {
+    datasourceId: string;
+    exposureQuery?: ApiAssignmentQueryRefInput;
+    exposureQueryId?: string;
+  },
+>(
+  context: ReqContext | ApiReqContext,
+  mc: T,
+  previous: RampMonitoringConfig | null | undefined,
+) {
+  const internal = apiMonitoringConfigToInternal(mc, previous);
+  const { identifierType: exposureQueryIdentifierType } =
+    await resolveAssignmentQueryIdentifier(context, {
+      previous: previous ? toMonitoringSelection(previous) : null,
+      next: toMonitoringSelection(internal),
+      onOmitted: mc.exposureQuery ? "requireUnambiguous" : "defaultToFirst",
+      field: "exposureQuery",
+    });
+  return exposureQueryIdentifierType === undefined
+    ? internal
+    : { ...internal, exposureQueryIdentifierType };
 }

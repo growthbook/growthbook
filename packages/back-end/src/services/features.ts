@@ -37,6 +37,7 @@ import {
   stripConfigExtends,
   toApiNamespace,
   validateFeatureValue,
+  monitoringConfigToApi,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -2512,6 +2513,17 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   }
 }
 
+// Pending ramp actions store the monitoring config flat; the API groups it. No
+// queries are loaded here, so an action saved without an identifier reports
+// null until it publishes.
+function rampActionToApi(action: RevisionRampAction) {
+  if (action.mode === "detach") return action;
+  const { monitoringConfig, ...rest } = action;
+  return monitoringConfig
+    ? { ...rest, monitoringConfig: monitoringConfigToApi(monitoringConfig, []) }
+    : rest;
+}
+
 // Convenience wrapper that pulls the env list off the request context and
 // the project off the (optional) parent feature.
 export function toApiRevision(
@@ -2581,7 +2593,7 @@ export function revisionToApiInterface(
       },
     }),
     ...(rev.rampActions !== undefined && {
-      rampActions: rev.rampActions,
+      rampActions: rev.rampActions.map(rampActionToApi),
     }),
   };
 }
@@ -2734,7 +2746,7 @@ export function revisionToApiInterfaceV2(
       },
     }),
     ...(rev.rampActions !== undefined && {
-      rampActions: rev.rampActions,
+      rampActions: rev.rampActions.map(rampActionToApi),
     }),
     ...(rev.autoPublishOnApproval !== undefined && {
       autoPublishOnApproval: rev.autoPublishOnApproval,

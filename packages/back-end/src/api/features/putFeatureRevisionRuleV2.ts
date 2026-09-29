@@ -346,13 +346,17 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     }
 
     let resolvedRampAction:
-      | ReturnType<typeof normalizeInlineRampSchedule>
+      | Awaited<ReturnType<typeof normalizeInlineRampSchedule>>
       | undefined;
     if (inlineRampSchedule) {
-      resolvedRampAction = normalizeInlineRampSchedule(
+      resolvedRampAction = await normalizeInlineRampSchedule(
+        req.context,
         inlineRampSchedule,
         updatedRule.id,
         feature,
+        {
+          previousMonitoringConfig: liveSchedulesForRule[0]?.monitoringConfig,
+        },
       );
       updatedRule.scheduleRules = [];
       updatedRule.scheduleType = "none";

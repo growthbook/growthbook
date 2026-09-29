@@ -37,6 +37,7 @@ import {
   detachedRampTargets,
   rampTargetRuleIds,
   stemRuleId,
+  toMonitoringSelection,
   stringifyFeatureValue,
   unanchoredRampTargets,
   validateFeatureValue,
@@ -1540,19 +1541,6 @@ function sameStringArray(
   const left = [...(a ?? [])].sort();
   const right = [...(b ?? [])].sort();
   return left.length === right.length && left.every((v, i) => v === right[i]);
-}
-
-export function toMonitoringSelection(
-  mc: Pick<
-    RampMonitoringConfig,
-    "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
-  >,
-) {
-  return {
-    datasource: mc.datasourceId,
-    exposureQueryId: mc.exposureQueryId,
-    identifierType: mc.exposureQueryIdentifierType,
-  };
 }
 
 // Every monitoring writer (REST, internal, revision publish) saves through the
