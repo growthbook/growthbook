@@ -108,14 +108,19 @@ describe("Container Process Supervisor (scripts/run-apps.js) and ecosystem.confi
       // Child process stdout passed through directly via stdio: 'inherit'
       expect(result.stdout).toContain('"msg":"app started"');
 
-      // Zero files or directories (such as logs/ or *.log) created in PM2_HOME
-      const pm2Files = fs.readdirSync(fakePm2Home);
+      // Zero files or directories (such as logs/ or *.log) created in PM2_HOME (Issue #6644)
+      const pm2Files = fs.readdirSync(fakePm2Home, { recursive: true });
       expect(pm2Files).toEqual([]);
 
-      // Zero log files created anywhere in testTempDir
-      const allTempFiles = fs.readdirSync(testTempDir);
+      // Zero log files created anywhere in testTempDir (including nested subdirectories)
+      const allTempFiles = (
+        fs.readdirSync(testTempDir, { recursive: true }) as string[]
+      ).map(String);
       const logFiles = allTempFiles.filter(
-        (file) => file.endsWith(".log") || file === "logs",
+        (file) =>
+          file.endsWith(".log") ||
+          path.basename(file) === "logs" ||
+          file.split(/[/\\]/).includes("logs"),
       );
       expect(logFiles).toEqual([]);
     });
