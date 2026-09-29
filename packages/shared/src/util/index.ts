@@ -34,6 +34,7 @@ import {
 export * from "./strings";
 export * from "./units-query-settings";
 export * from "./exposure-queries";
+export * from "./ramp-monitoring";
 export * from "./event-forwarder-destination";
 export * from "./features";
 export * from "./featureHealth";
