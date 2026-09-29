@@ -40,12 +40,14 @@ import {
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import {
+  BadRequestError,
   ChecklistIncompleteError,
   InvalidStatusError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
+import { isArmingApiKeyId } from "back-end/src/services/organizations";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -671,6 +673,12 @@ export async function approveScheduledExperimentStart({
 
   await assertCanPublishPendingFeatureDrafts(context, experiment);
 
+  // The fire runs as the armer, so there has to be one to record.
+  if (!context.userId && !isArmingApiKeyId(context.apiKey)) {
+    throw new BadRequestError(
+      "A scheduled start must be armed by a user or an org API key",
+    );
+  }
   const changes: Changeset = {
     nextScheduledStatusUpdate: withScheduledBy(
       { type: "start" as const, date: startAt },

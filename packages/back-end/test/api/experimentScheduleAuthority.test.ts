@@ -372,6 +372,16 @@ describe("a scheduled status change is checked when armed and fires as the armer
       apiKey: "key_ci",
       name: "CI",
     });
+    expect(await staged()).toMatchObject({
+      type: "stop",
+      scheduledByApiKey: "key_ci",
+    });
+
+    await fireNow();
+    await updateSingleExperimentStatus(job);
+
+    expect(await status()).toBe("stopped");
+    expect((await lastStatusAudit())?.user).toMatchObject({ apiKey: "key_ci" });
   });
 
   it("gives up when the key that armed a start has since been narrowed", async () => {
@@ -389,7 +399,28 @@ describe("a scheduled status change is checked when armed and fires as the armer
     expect(await staged()).toBeNull();
   });
 
-  it("retries a pointer nobody is recorded on, rather than running as the owner", async () => {
+  it("stops a running experiment on a pointer nobody is recorded on, as the job", async () => {
+    await seed("running");
+    await experiments().updateOne(
+      { id: EXP_ID },
+      {
+        $set: {
+          statusUpdateSchedule: stopPlan,
+          nextScheduledStatusUpdate: {
+            type: "stop",
+            date: new Date(Date.now() - 1000),
+          },
+        },
+      },
+    );
+
+    await updateSingleExperimentStatus(job);
+
+    expect(await status()).toBe("stopped");
+    expect(await staged()).toBeNull();
+  });
+
+  it("retries a start nobody is recorded on, rather than running as the owner", async () => {
     await seed("draft");
     await experiments().updateOne(
       { id: EXP_ID },

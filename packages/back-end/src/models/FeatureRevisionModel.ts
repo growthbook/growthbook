@@ -1944,11 +1944,7 @@ export async function markRevisionAsReviewRequested(
   const enabledBy =
     !armed || !user
       ? null
-      : "id" in user && user.id
-        ? user.id
-        : "apiKey" in user
-          ? user.apiKey
-          : null;
+      : ("id" in user && user.id) || ("apiKey" in user && user.apiKey) || null;
 
   const unset: Record<string, 1> = {};
   if (enabledBy === null) unset.autoPublishEnabledBy = 1;

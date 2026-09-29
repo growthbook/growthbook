@@ -69,6 +69,7 @@ import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import { TeamInterface } from "shared/types/team";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   acceptOrganizationInvite,
   addOrganizationInviteIfSeatAvailable,
@@ -85,6 +86,8 @@ import {
   GEMINI_IMAGE_MODEL,
   IS_CLOUD,
   IS_MULTI_ORG,
+  SECRET_API_KEY,
+  SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
 import {
   AIKeySource,
@@ -112,6 +115,7 @@ import {
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
 import { PaymentRequiredError } from "back-end/src/util/errors";
+import { migrateApiKey } from "back-end/src/util/api-key.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -1752,17 +1756,18 @@ export async function getContextForAgendaJobByOrgId(
   return getContextForAgendaJobByOrgObject(organization);
 }
 
-// An org API key as a principal: its own role, environment limits and project
-// roles, the way the request middleware builds it. Null when the key is gone,
-// disabled or user-bound (those are stamped as their user).
+// An org API key as a principal, built the way the request middleware builds
+// it. Null when the key is gone, disabled or user-bound (stamped as its user).
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   apiKeyId: string,
 ): Promise<ApiReqContext | null> {
   const key =
-    await getContextForAgendaJobByOrgObject(org).models.apiKeys.getById(
-      apiKeyId,
-    );
+    apiKeyId === SECRET_API_KEY_ID
+      ? secretApiKeyDoc(org)
+      : await getContextForAgendaJobByOrgObject(org).models.apiKeys.getById(
+          apiKeyId,
+        );
   if (!key || key.disabled || key.userId || !key.role) return null;
   return new ReqContextClass({
     org,
@@ -1778,12 +1783,31 @@ export async function getContextForApiKeyIdInOrg(
   });
 }
 
+// The self-hosted env-var key has no document; the middleware synthesizes one.
+const SECRET_API_KEY_ID = "SECRET_API_KEY";
+function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
+  if (IS_MULTI_ORG || !SECRET_API_KEY) return null;
+  return migrateApiKey({
+    id: SECRET_API_KEY_ID,
+    key: SECRET_API_KEY,
+    secret: true,
+    organization: org.id,
+    role: SECRET_API_KEY_ROLE,
+    dateCreated: new Date(),
+  });
+}
+
+// An org API key id that can be recorded as an armer and resolved later.
+export function isArmingApiKeyId(id: string | undefined): id is string {
+  return !!id && (id.startsWith("key_") || id === SECRET_API_KEY_ID);
+}
+
 // A stored armer id is a user or an org API key; each runs as itself.
 export async function getContextForArmedPublisherInOrg(
   org: OrganizationInterface,
   id: string,
 ): Promise<ReqContext | ApiReqContext | null> {
-  return id.startsWith("key_")
+  return isArmingApiKeyId(id)
     ? getContextForApiKeyIdInOrg(org, id)
     : getContextForUserIdInOrg(org, id, { applyProjectRestrictions: false });
 }

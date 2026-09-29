@@ -2495,8 +2495,6 @@ export async function getExperimentAffectedEnvs(
   });
 }
 
-// Run-experiments permission over the affected environments, on the
-// experiment's project and on any additional (e.g. destination) project.
 // The drafts a start publishes, with the features they land on.
 async function loadPendingFeatureDrafts(
   context: ReqContext | ApiReqContext,
@@ -2531,10 +2529,8 @@ async function loadPendingFeatureDrafts(
   return pendingDrafts;
 }
 
-// Arming a start says up front whether the fire, which publishes the pending
-// drafts as the armer, can succeed: the armer must be able to publish each one
-// where it lands. Drafts are loaded org-wide, so one the armer cannot even read
-// is refused rather than skipped.
+// The fire publishes the pending drafts as the armer, so the arm asks the same
+// question up front. Loaded org-wide: a draft the armer cannot read is refused.
 export async function assertCanPublishPendingFeatureDrafts(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -2552,7 +2548,7 @@ export async function assertCanPublishPendingFeatureDrafts(
         hasURLRedirects: false,
       },
       orgEnvironments,
-      linkedFeatures: [draft.feature],
+      linkedFeatures: [],
       pendingDrafts: [draft],
     });
     if (!context.permissions.canPublishFeature(draft.feature, envs)) {
@@ -2561,6 +2557,8 @@ export async function assertCanPublishPendingFeatureDrafts(
   }
 }
 
+// Run-experiments permission over the affected environments, on the
+// experiment's project and on any additional (e.g. destination) project.
 export async function assertCanRunExperimentInAffectedEnvironments(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
