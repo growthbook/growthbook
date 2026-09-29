@@ -19,6 +19,7 @@ import {
   escapeSlackMrkdwn,
   truncateSlackText,
 } from "back-end/src/util/slack.util";
+import { postNpsResponseToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
@@ -264,7 +265,7 @@ export async function postNpsResponse(
   }
   const { status, score, feedback, disposition, preview } = parsed.data;
 
-  const { userId } = getContextFromReq(req);
+  const { userId, org } = getContextFromReq(req);
 
   // `preview` decides whether this response consumes the caller's re-survey
   // window, so it can't be trusted from the body — otherwise any caller could
@@ -291,6 +292,22 @@ export async function postNpsResponse(
       email: req.email,
       disposition,
       preview: isPreview,
+    });
+  }
+
+  // The license server forwards responses to HubSpot. Previews are staff
+  // testing the survey, so they never reach the CRM.
+  if (IS_CLOUD && status === "responded" && score !== undefined && !isPreview) {
+    postNpsResponseToLicenseServer({
+      email: req.email,
+      userId,
+      organizationId: org.id,
+      score,
+      category: npsCategoryOf(score),
+      feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
+      respondedAt: new Date().toISOString(),
+    }).catch(() => {
+      // callLicenseServer already logs the failure.
     });
   }
 

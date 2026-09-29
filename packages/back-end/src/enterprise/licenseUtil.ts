@@ -25,6 +25,7 @@ import {
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
 import { EventForwarderSinkType } from "shared/types/event-forwarder";
+import type { NpsCategory } from "shared/nps";
 import {
   OrganizationInterface,
   OrgMemberInfo,
@@ -420,6 +421,25 @@ export async function getPortalUrlFromServer(
     url,
     body: JSON.stringify({
       organizationId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export async function postNpsResponseToLicenseServer(response: {
+  email: string;
+  userId: string;
+  organizationId: string;
+  score: number;
+  category: NpsCategory;
+  feedback: string;
+  respondedAt: string;
+}) {
+  const url = `${LICENSE_SERVER_URL}nps/response`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...response,
       cloudSecret: process.env.CLOUD_SECRET,
     }),
   });
