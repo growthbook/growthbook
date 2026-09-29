@@ -49,6 +49,7 @@ import {
   runLockedRampScheduleAction,
   syncLinkedSafeRolloutForRampState,
   assertValidMonitoringConfigChange,
+  toMonitoringSelection,
   withMonitoringDatasourceKey,
 } from "back-end/src/services/rampSchedule";
 import { applyPagination } from "back-end/src/util/handler";
@@ -250,7 +251,7 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
 // model stays flat.
 export function apiMonitoringConfigToInternal<
   T extends {
-    datasourceId?: string;
+    datasourceId: string;
     exposureQuery?: { id: string; identifierType?: string };
     exposureQueryId?: string;
   },
@@ -285,7 +286,7 @@ export function apiMonitoringConfigToInternal<
 // changed selection resolves to, so it's never left implicit.
 export async function resolveApiMonitoringConfig<
   T extends {
-    datasourceId?: string;
+    datasourceId: string;
     exposureQuery?: { id: string; identifierType?: string };
     exposureQueryId?: string;
   },
@@ -295,20 +296,11 @@ export async function resolveApiMonitoringConfig<
   previous: RampMonitoringConfig | null | undefined,
 ) {
   const internal = apiMonitoringConfigToInternal(mc, previous);
-  const toSelection = (c: {
-    datasourceId?: string;
-    exposureQueryId: string;
-    exposureQueryIdentifierType?: string;
-  }) => ({
-    datasource: c.datasourceId ?? "",
-    exposureQueryId: c.exposureQueryId,
-    identifierType: c.exposureQueryIdentifierType,
-  });
   const exposureQueryIdentifierType = await resolveApiAssignmentQueryIdentifier(
     context,
     {
-      previous: previous ? toSelection(previous) : null,
-      next: toSelection(internal),
+      previous: previous ? toMonitoringSelection(previous) : null,
+      next: toMonitoringSelection(internal),
       grouped: !!mc.exposureQuery,
       field: "exposureQuery",
     },
