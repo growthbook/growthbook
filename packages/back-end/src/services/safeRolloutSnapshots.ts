@@ -10,7 +10,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   getSafeRolloutSnapshotAnalysis,
   isDefined,
 } from "shared/util";
@@ -322,7 +322,7 @@ export function getSafeRolloutSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === safeRollout.exposureQueryId,
   );
-  const exposureQueryIdentifierType = getAnalysisIdentifierType(
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
     exposureQuery,
     safeRollout.exposureQueryIdentifierType,
   );

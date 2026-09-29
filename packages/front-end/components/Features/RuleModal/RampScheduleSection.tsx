@@ -52,7 +52,10 @@ import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
-import { getAnalysisIdentifierType, parsePlainJSONObject } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  parsePlainJSONObject,
+} from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
 import {
@@ -1019,7 +1022,7 @@ export default function RampScheduleSection({
     datasource: selectedDatasource,
     hashAttribute,
     exposureQueryId: state.monitoring.exposureQueryId,
-    identifierType: getAnalysisIdentifierType(
+    identifierType: resolveAnalysisIdentifierType(
       selectedMonitoringExposureQuery,
       state.monitoring.exposureQueryIdentifierType,
     ),
@@ -3981,7 +3984,7 @@ export default function RampScheduleSection({
               )
             : null;
           const userUnitLabel = formatUserUnitLabel(
-            getAnalysisIdentifierType(
+            resolveAnalysisIdentifierType(
               monitoringExposureQuery ?? undefined,
               monitoringConfig?.exposureQueryIdentifierType,
             ),

@@ -1,7 +1,10 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getEffectiveLookbackOverride } from "shared/experiments";
-import { getAnalysisIdentifierType, getSnapshotAnalysis } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  getSnapshotAnalysis,
+} from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
@@ -75,7 +78,7 @@ export default function ReportAnalysisSettingsBar({
   // The identifier the shown snapshot ran on, not the report's current one.
   const userIdType =
     snapshot?.settings?.exposureQueryIdentifierType ??
-    getAnalysisIdentifierType(
+    resolveAnalysisIdentifierType(
       datasourceSettings?.queries?.exposure?.find(
         (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,
       ),

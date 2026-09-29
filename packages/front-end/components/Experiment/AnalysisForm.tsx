@@ -14,7 +14,7 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
@@ -156,7 +156,7 @@ const AnalysisForm: FC<{
   // Show what the experiment analyzes on, even a drifted identifier, so the
   // form can flag it; with no query yet, pre-fill from the hash attribute.
   const initialIdentifierType = initialExposureQuery
-    ? getAnalysisIdentifierType(
+    ? resolveAnalysisIdentifierType(
         initialExposureQuery,
         experiment.exposureQueryIdentifierType,
       )
@@ -373,7 +373,7 @@ const AnalysisForm: FC<{
             d.datasource === datasourceField &&
             (!exposureQuery ||
               d.userIdType ===
-                getAnalysisIdentifierType(
+                resolveAnalysisIdentifierType(
                   exposureQuery,
                   exposureQueryIdentifierType,
                 )),

@@ -1,6 +1,6 @@
 import { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
 import {
@@ -172,7 +172,7 @@ const MetricsSelector: FC<{
     (e) => e.id === exposureQueryId,
   );
   const userIdType = exposureQuery
-    ? getAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
+    ? resolveAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
     : undefined;
 
   const filteredOptions = useMemo(() => {

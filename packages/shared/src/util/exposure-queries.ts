@@ -26,15 +26,15 @@ export function getExposureQueryIdentifierTypes(
  * legacy identifier (`userIdType`). A new record defaults to `userIdTypes[0]`
  * instead, so don't use this to pick one.
  */
-export function getAnalysisIdentifierType(
+export function resolveAnalysisIdentifierType(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
   storedIdentifierType: string | undefined,
 ): string;
-export function getAnalysisIdentifierType(
+export function resolveAnalysisIdentifierType(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes"> | undefined,
   storedIdentifierType: string | undefined,
 ): string | undefined;
-export function getAnalysisIdentifierType(
+export function resolveAnalysisIdentifierType(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes"> | undefined,
   storedIdentifierType: string | undefined,
 ): string | undefined {
@@ -168,7 +168,7 @@ export function toApiAssignmentQueryRef(
   exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
 ): ApiAssignmentQueryRef {
   const identifierType = id
-    ? getAnalysisIdentifierType(
+    ? resolveAnalysisIdentifierType(
         exposureQueries.find((q) => q.id === id),
         storedIdentifierType,
       )
@@ -203,8 +203,8 @@ export function isSameAssignmentQuerySelection(
   if (previousType === nextType) return true;
   const query = exposureQueries.find((q) => q.id === next.exposureQueryId);
   return (
-    getAnalysisIdentifierType(query, previousType) ===
-    getAnalysisIdentifierType(query, nextType)
+    resolveAnalysisIdentifierType(query, previousType) ===
+    resolveAnalysisIdentifierType(query, nextType)
   );
 }
 
@@ -216,7 +216,10 @@ export function assertExposureQueryDeclaresIdentifierType(
   query: ExposureQueryIdentity & Pick<ExposureQuery, "name">,
   storedIdentifierType: string | undefined,
 ): void {
-  const identifierType = getAnalysisIdentifierType(query, storedIdentifierType);
+  const identifierType = resolveAnalysisIdentifierType(
+    query,
+    storedIdentifierType,
+  );
   if (!identifierType) return;
   if (!getExposureQueryIdentifierTypes(query).includes(identifierType)) {
     throw new Error(
@@ -240,6 +243,6 @@ export function resolveExposureQueryForAnalysis(
   assertExposureQueryDeclaresIdentifierType(query, storedIdentifierType);
   return {
     query: query.query,
-    identifierType: getAnalysisIdentifierType(query, storedIdentifierType),
+    identifierType: resolveAnalysisIdentifierType(query, storedIdentifierType),
   };
 }

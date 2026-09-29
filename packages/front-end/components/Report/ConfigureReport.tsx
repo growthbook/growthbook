@@ -1,7 +1,7 @@
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import {
   getExposureQueryIdentifierTypes,
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import React, { RefObject, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -181,7 +181,7 @@ export default function ConfigureReport({
     datasource,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
-    identifierType: getAnalysisIdentifierType(
+    identifierType: resolveAnalysisIdentifierType(
       exposureQuery,
       storedIdentifierType,
     ),

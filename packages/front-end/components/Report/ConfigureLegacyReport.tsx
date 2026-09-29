@@ -24,7 +24,7 @@ import {
 } from "shared/experiments";
 import {
   getExposureQueryIdentifierTypes,
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   isDefined,
 } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -201,7 +201,7 @@ export default function ConfigureLegacyReport({
     datasource,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
-    identifierType: getAnalysisIdentifierType(
+    identifierType: resolveAnalysisIdentifierType(
       exposureQuery,
       storedIdentifierType,
     ),

@@ -2,7 +2,7 @@ import {
   ExperimentDimension,
   ExperimentDimensionWithSpecifiedSlices,
 } from "shared/types/integrations";
-import { getAnalysisIdentifierType } from "shared/util";
+import { resolveAnalysisIdentifierType } from "shared/util";
 import {
   ExperimentInterface,
   IncrementalRefreshInterface,
@@ -142,7 +142,7 @@ async function resolvePrecomputedUnitDimensions({
   let exposureQueryUserIdType: string;
   try {
     const exposureQuery = getExposureQuery(datasource, exposureQueryId ?? "");
-    exposureQueryUserIdType = getAnalysisIdentifierType(
+    exposureQueryUserIdType = resolveAnalysisIdentifierType(
       exposureQuery,
       exposureQueryIdentifierType,
     );

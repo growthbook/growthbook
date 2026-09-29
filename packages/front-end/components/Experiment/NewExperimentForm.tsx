@@ -11,7 +11,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
@@ -187,7 +187,7 @@ export function getNewExperimentDatasourceDefaults({
   // it before falling back, and explains the change.
   const copiedIdentifierType =
     exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
-      ? getAnalysisIdentifierType(
+      ? resolveAnalysisIdentifierType(
           exposureQuery,
           initialValue.exposureQueryIdentifierType,
         )

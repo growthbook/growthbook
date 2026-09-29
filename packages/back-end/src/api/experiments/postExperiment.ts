@@ -1,6 +1,6 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
 } from "shared/util";
@@ -184,7 +184,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       // A template without a stored identifier analyzes on its query's legacy
       // one, so its experiments must too, not the query's first.
       if (templateId && !payload.assignmentQueryIdentifierType) {
-        payload.assignmentQueryIdentifierType = getAnalysisIdentifierType(
+        payload.assignmentQueryIdentifierType = resolveAnalysisIdentifierType(
           datasource.settings.queries?.exposure?.find(
             (q) => q.id === payload.assignmentQueryId,
           ),

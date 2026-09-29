@@ -1,6 +1,6 @@
 import { FC } from "react";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
 import {
@@ -72,7 +72,7 @@ const MetricSelector: FC<
     (e) => e.id === exposureQueryId,
   );
   const userIdType = exposureQuery
-    ? getAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
+    ? resolveAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
     : undefined;
 
   const options: MetricOption[] = [

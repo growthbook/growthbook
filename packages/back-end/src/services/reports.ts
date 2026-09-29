@@ -25,7 +25,7 @@ import {
   getFactMetricPrimaryFactTableId,
   parseDimensionId,
 } from "shared/experiments";
-import { getAnalysisIdentifierType, isDefined } from "shared/util";
+import { resolveAnalysisIdentifierType, isDefined } from "shared/util";
 import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
@@ -679,7 +679,7 @@ export function getReportSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === report.experimentAnalysisSettings.exposureQueryId,
   );
-  const exposureQueryIdentifierType = getAnalysisIdentifierType(
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
     exposureQuery,
     report.experimentAnalysisSettings.exposureQueryIdentifierType,
   );

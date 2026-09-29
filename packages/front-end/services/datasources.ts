@@ -8,7 +8,7 @@ import {
 } from "shared/types/datasource";
 import { MetricType } from "shared/types/metric";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
 } from "shared/util";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
@@ -809,7 +809,7 @@ export function getExposureQuery(
 }
 
 // For defaulting a new selection: `preferredIdentifierType` when the query
-// declares it, else the query's first. Saved records use getAnalysisIdentifierType.
+// declares it, else the query's first. Saved records use resolveAnalysisIdentifierType.
 export function getDefaultIdentifierTypeForQuery(
   exposureQuery: ExposureQuery,
   preferredIdentifierType?: string,
@@ -867,8 +867,10 @@ export function getCopySourceIdentifierType(
 ): string | undefined {
   const query = getCopySourceQuery(datasource, source);
   return query
-    ? getAnalysisIdentifierType(query, source?.exposureQueryIdentifierType) ||
-        undefined
+    ? resolveAnalysisIdentifierType(
+        query,
+        source?.exposureQueryIdentifierType,
+      ) || undefined
     : undefined;
 }
 

@@ -23,7 +23,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import { ExposureQuery } from "shared/types/datasource";
-import { getAnalysisIdentifierType } from "shared/util";
+import { resolveAnalysisIdentifierType } from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   FactMetricInterface,
@@ -136,7 +136,7 @@ export function getExperimentSettingsHashForIncrementalRefresh(
   );
   if (
     identifierType &&
-    identifierType !== getAnalysisIdentifierType(query, undefined)
+    identifierType !== resolveAnalysisIdentifierType(query, undefined)
   ) {
     settingsForHash.exposureQueryIdentifierType = identifierType;
   }

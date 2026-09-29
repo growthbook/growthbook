@@ -7,7 +7,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import {
   coverageToHoldoutSize,
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   holdoutSizeToCoverage,
   isProjectListValidForProject,
   MAX_HOLDOUT_SIZE,
@@ -119,7 +119,7 @@ export function getNewExperimentDatasourceDefaults(
     // would default differently.
     exposureQueryIdentifierType:
       exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
-        ? getAnalysisIdentifierType(
+        ? resolveAnalysisIdentifierType(
             exposureQuery,
             initialValue.exposureQueryIdentifierType,
           )

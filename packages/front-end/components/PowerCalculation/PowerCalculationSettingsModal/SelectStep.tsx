@@ -11,7 +11,7 @@ import {
 import { config, FullModalPowerCalculationParams } from "shared/power";
 import {
   isProjectListValidForProject,
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -87,7 +87,7 @@ export const SelectStep = ({
           const exposureQuery = datasource?.settings?.queries?.exposure?.find(
             (e) => e.id === exp.exposureQueryId,
           );
-          const identifierType = getAnalysisIdentifierType(
+          const identifierType = resolveAnalysisIdentifierType(
             exposureQuery,
             exp.exposureQueryIdentifierType,
           );

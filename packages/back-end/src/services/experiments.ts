@@ -42,7 +42,7 @@ import {
   validateCondition,
   assertExposureQueryDeclaresIdentifierType,
   toApiAssignmentQueryRef,
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -651,7 +651,7 @@ export function getSnapshotSettings({
       experiment.exposureQueryIdentifierType,
     );
   }
-  const exposureQueryIdentifierType = getAnalysisIdentifierType(
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
     exposureQuery,
     experiment.exposureQueryIdentifierType,
   );

@@ -41,7 +41,7 @@ import {
   unanchoredRampTargets,
   validateFeatureValue,
   isSameAssignmentQuerySelection,
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -1843,7 +1843,7 @@ export async function ensureSafeRolloutForMonitoredRamp(
   const trackingKey = `ramp_${schedule.id}`;
 
   // Stored explicitly, so a legacy monitoring config doesn't make it implicit.
-  const exposureQueryIdentifierType = getAnalysisIdentifierType(
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
     (await getExposureQueriesForDatasource(ctx, mc.datasourceId)).find(
       (q) => q.id === mc.exposureQueryId,
     ),

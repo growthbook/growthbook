@@ -2,7 +2,7 @@ import {
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   toApiAssignmentQueryRef,
   resolveExposureQueryForAnalysis,
   parseAssignmentQuerySelection,
@@ -145,7 +145,7 @@ describe("parseAssignmentQueryInput", () => {
   });
 });
 
-describe("getAnalysisIdentifierType", () => {
+describe("resolveAnalysisIdentifierType", () => {
   const multi = query({
     id: "eq_1",
     userIdType: "anonymous_id",
@@ -153,12 +153,16 @@ describe("getAnalysisIdentifierType", () => {
   });
 
   it("uses the stored identifier, even when the query no longer declares it", () => {
-    expect(getAnalysisIdentifierType(multi, "user_id")).toBe("user_id");
-    expect(getAnalysisIdentifierType(multi, "company_id")).toBe("company_id");
+    expect(resolveAnalysisIdentifierType(multi, "user_id")).toBe("user_id");
+    expect(resolveAnalysisIdentifierType(multi, "company_id")).toBe(
+      "company_id",
+    );
   });
 
   it("falls back to the query's legacy identifier when none is stored", () => {
-    expect(getAnalysisIdentifierType(multi, undefined)).toBe("anonymous_id");
+    expect(resolveAnalysisIdentifierType(multi, undefined)).toBe(
+      "anonymous_id",
+    );
   });
 
   it("keeps the legacy identifier after the query's identifiers are reordered", () => {
@@ -167,7 +171,7 @@ describe("getAnalysisIdentifierType", () => {
       userIdType: "anonymous_id",
       userIdTypes: ["user_id", "anonymous_id"],
     });
-    expect(getAnalysisIdentifierType(reordered, undefined)).toBe(
+    expect(resolveAnalysisIdentifierType(reordered, undefined)).toBe(
       "anonymous_id",
     );
   });
@@ -178,11 +182,11 @@ describe("getAnalysisIdentifierType", () => {
       userIdType: "",
       userIdTypes: ["user_id", "anonymous_id"],
     });
-    expect(getAnalysisIdentifierType(noLegacy, undefined)).toBe("user_id");
+    expect(resolveAnalysisIdentifierType(noLegacy, undefined)).toBe("user_id");
   });
 
   it("is undefined with neither a stored identifier nor a query", () => {
-    expect(getAnalysisIdentifierType(undefined, undefined)).toBeUndefined();
+    expect(resolveAnalysisIdentifierType(undefined, undefined)).toBeUndefined();
   });
 });
 

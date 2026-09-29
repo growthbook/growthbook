@@ -6,7 +6,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
   getManagedWarehouseExposureQueryIdForAttribute,
   isProjectListValidForProject,
@@ -162,7 +162,7 @@ export function resolveTemplateAssignment({
   const queries = datasource?.settings?.queries?.exposure ?? [];
   const templateQuery = queries.find((q) => q.id === templateExposureQueryId);
   if (!templateQuery) return null;
-  const identifierType = getAnalysisIdentifierType(
+  const identifierType = resolveAnalysisIdentifierType(
     templateQuery,
     templateIdentifierType,
   );

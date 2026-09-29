@@ -8,7 +8,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   experimentHasLiveLinkedChanges,
   getHoldoutStage,
 } from "shared/util";
@@ -217,7 +217,7 @@ export default function ExperimentHeader({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = getAnalysisIdentifierType(
+  const userIdType = resolveAnalysisIdentifierType(
     datasourceSettings?.queries?.exposure?.find(
       (e) => e.id === experiment.exposureQueryId,
     ),
