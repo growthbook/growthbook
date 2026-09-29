@@ -11,6 +11,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
+  getPreferredIdentifierType,
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -147,12 +148,14 @@ export function getNewExperimentDatasourceDefaults({
   project,
   initialValue,
   initialHashAttribute,
+  isImport,
 }: {
   datasources: DataSourceInterfaceWithParams[];
   settings: OrganizationSettings;
   project?: string;
   initialValue?: Partial<ExperimentInterfaceStringDates>;
   initialHashAttribute?: string;
+  isImport?: boolean;
 }): Pick<
   ExperimentInterfaceStringDates,
   "datasource" | "exposureQueryId" | "exposureQueryIdentifierType"
@@ -183,22 +186,25 @@ export function getNewExperimentDatasourceDefaults({
     initialUserIdType,
   );
 
-  // Copies (duplicate, from template) keep what the source analyzes on, even
-  // if the query dropped it: the form then looks for another query declaring
-  // it before falling back, and explains the change.
-  const copiedIdentifierType =
+  // Imports take the identifier discovery counted units on. Copies (duplicate,
+  // from template) keep what the source analyzes on, even if the query dropped
+  // it: the form then looks for another query declaring it before falling
+  // back, and explains the change.
+  const sourceIdentifierType =
     exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
-      ? resolveAnalysisIdentifierType(
-          exposureQuery,
-          initialValue.exposureQueryIdentifierType,
-        )
+      ? isImport
+        ? getPreferredIdentifierType(exposureQuery)
+        : resolveAnalysisIdentifierType(
+            exposureQuery,
+            initialValue.exposureQueryIdentifierType,
+          )
       : undefined;
 
   return {
     datasource: initialDatasource.id,
     exposureQueryId: exposureQuery?.id || "",
     exposureQueryIdentifierType: exposureQuery
-      ? (copiedIdentifierType ??
+      ? (sourceIdentifierType ??
         getDefaultIdentifierTypeForQuery(
           exposureQuery,
           initialValue?.exposureQueryIdentifierType ?? initialUserIdType,
@@ -328,6 +334,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         project: initialValue?.project || project || "",
         initialValue,
         initialHashAttribute,
+        isImport,
       }),
       name: initialValue?.name || "",
       type: initialValue?.type ?? "standard",
