@@ -40,6 +40,7 @@ export function useAssignmentQuerySelection({
   autoRepair = true,
   keepCurrentSelection = false,
   copiedIdentifierType,
+  useHashAttribute = true,
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
   hashAttribute: string | undefined;
@@ -54,6 +55,11 @@ export function useAssignmentQuerySelection({
   autoRepair?: boolean;
   /** Keep a drifted selection listed so existing records show what they use. */
   keepCurrentSelection?: boolean;
+  /**
+   * Group and follow the hash attribute. Off when that control isn't shown,
+   * so the list isn't split into "Matches hash attribute".
+   */
+  useHashAttribute?: boolean;
   /**
    * A copy's source identifier. Repair keeps it when some query declares it,
    * else leaves the identifier for the user to choose instead of defaulting,
@@ -74,8 +80,11 @@ export function useAssignmentQuerySelection({
     identifierType,
   );
   const hashAttributeIdentifierTypeMap = useMemo(
-    () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
-    [datasource?.settings?.userIdTypes],
+    () =>
+      useHashAttribute
+        ? getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes)
+        : new Map<string, string[]>(),
+    [useHashAttribute, datasource?.settings?.userIdTypes],
   );
   const identifierTypes = useMemo(() => {
     const selectable = getSelectableIdentifierTypes(exposureQueries);
