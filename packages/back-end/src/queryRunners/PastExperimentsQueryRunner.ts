@@ -11,6 +11,7 @@ import {
 import { Queries, QueryStatus } from "shared/types/query";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  PAST_EXPERIMENTS_COLLECTION,
   getPastExperimentsById,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
@@ -21,6 +22,8 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   PastExperimentParams,
   PastExperiment[]
 > {
+  protected readonly modelCollectionName = PAST_EXPERIMENTS_COLLECTION;
+
   private getMergeReadyWeights(exp: PastExperiment): number[] {
     // Stored weights are normalized fractions (e.g. [0.5, 0.5]) after each run.
     // Convert those back to count-space before merging in new user counts.

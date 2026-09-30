@@ -8,6 +8,7 @@ import {
   SafeRolloutSnapshotHealth,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
+import { COLLECTION_NAME } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { getSnapshotSettingsFromSafeRolloutArgs } from "back-end/src/services/safeRolloutSnapshots";
 import {
@@ -39,6 +40,8 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
   SafeRolloutQueryParams,
   SafeRolloutSnapshotResult
 > {
+  protected readonly modelCollectionName = COLLECTION_NAME;
+
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
   // TODO: Decide if we want more granular permissions here for safe rollouts

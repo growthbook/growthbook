@@ -8,6 +8,7 @@ import {
 } from "shared/types/dimension";
 import { Queries } from "shared/types/query";
 import {
+  DIMENSION_SLICES_COLLECTION,
   getDimensionSlicesById,
   updateDimensionSlices,
 } from "back-end/src/models/DimensionSlicesModel";
@@ -22,6 +23,8 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
   DimensionSlicesParams,
   DimensionSlicesResult[]
 > {
+  protected readonly modelCollectionName = DIMENSION_SLICES_COLLECTION;
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunHealthQueries(
       this.integration.datasource,

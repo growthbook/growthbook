@@ -10,6 +10,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { snapToUtcDayStart } from "shared/dates";
+import { COLLECTION_NAME } from "back-end/src/models/AggregatedFactTableRunModel";
 import { AggregatedFactTableKey } from "back-end/src/models/AggregatedFactTableModel";
 import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { QueryRunner, QueryMap } from "./QueryRunner";
@@ -156,6 +157,8 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
   AggregatedFactTableQueryParams,
   AggregatedFactTableResult
 > {
+  protected readonly modelCollectionName = COLLECTION_NAME;
+
   private params: AggregatedFactTableQueryParams | null = null;
   // Captured in startQueries so onSuccess and the updateModel backstop fold
   // against the same bounds.

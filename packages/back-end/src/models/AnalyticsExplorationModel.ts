@@ -103,7 +103,7 @@ function makeExplorationHandler<
   });
 }
 
-const COLLECTION_NAME = "analyticsexploration";
+export const COLLECTION_NAME = "analyticsexploration";
 const BaseClass = MakeModelClass({
   schema: productAnalyticsExplorationValidator,
   collectionName: COLLECTION_NAME,

@@ -50,6 +50,8 @@ type ExperimentReportDocument = mongoose.Document & ExperimentReportInterface;
 
 const ReportModel = mongoose.model<ReportInterface>("Report", reportSchema);
 
+export const REPORT_COLLECTION = ReportModel.collection.collectionName;
+
 const toInterface = (doc: ReportDocument): ReportInterface => {
   switch (doc.type) {
     case "experiment":

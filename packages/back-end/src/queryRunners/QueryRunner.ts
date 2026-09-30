@@ -23,6 +23,10 @@ import {
   updateQueryIfPending,
   updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
+import {
+  TerminalQueryStatus,
+  updateQueryPointerStatus,
+} from "back-end/src/models/queryPointers";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
@@ -253,6 +257,7 @@ export abstract class QueryRunner<
   /** Serializes refresh passes so two cannot analyze or mutate model at once. */
   private refreshChain: Promise<void> = Promise.resolve();
   private finishedQueryMapCache: QueryMap = new Map();
+  private unreconciledQueryStatuses = new Map<string, TerminalQueryStatus>();
   protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
     null;
 
@@ -272,6 +277,8 @@ export abstract class QueryRunner<
       this.context.permissions.throwPermissionError();
     }
   }
+
+  protected abstract readonly modelCollectionName: string;
 
   abstract checkPermissions(): boolean;
 
@@ -380,6 +387,48 @@ export abstract class QueryRunner<
       `Refresh watchdog for ${this.model.id}: re-arming the debounced refresh`,
     );
     this.onQueryFinish();
+  }
+
+  private async onQueryTerminal(queryId: string, status: TerminalQueryStatus) {
+    this.unreconciledQueryStatuses.set(queryId, status);
+    // A finishing runner may still overwrite queries in its final model write.
+    if (this.isFinished()) {
+      await this.flushUnreconciledQueryStatuses();
+    } else {
+      await this.onQueryFinish();
+    }
+  }
+
+  private async flushUnreconciledQueryStatuses(): Promise<void> {
+    const statuses = [...this.unreconciledQueryStatuses];
+    this.unreconciledQueryStatuses.clear();
+    for (const [queryId, status] of statuses) {
+      const pointer = this.model.queries.find((q) => q.query === queryId);
+      if (pointer?.status === "succeeded" || pointer?.status === "failed") {
+        continue;
+      }
+      try {
+        await this.persistLateQueryPointer(queryId, status);
+      } catch (e) {
+        logger.warn(
+          { err: e, modelId: this.model.id, queryId },
+          "Failed to reconcile late query completion",
+        );
+      }
+    }
+  }
+
+  protected persistLateQueryPointer(
+    queryId: string,
+    status: TerminalQueryStatus,
+  ): Promise<boolean> {
+    return updateQueryPointerStatus({
+      collectionName: this.modelCollectionName,
+      organization: this.model.organization,
+      id: this.model.id,
+      queryId,
+      status,
+    });
   }
 
   async onQueryFinish() {
@@ -697,6 +746,7 @@ export abstract class QueryRunner<
     if (this.status === "finished") {
       this.stopHeartbeat();
       this.stopRefreshWatchdog();
+      void this.flushUnreconciledQueryStatuses();
       this.emitter.emit(FINISH_EVENT);
     }
   }
@@ -770,7 +820,7 @@ export abstract class QueryRunner<
             (q) => q.query,
           )}`,
         });
-        this.onQueryFinish();
+        await this.onQueryTerminal(query.id, "failed");
         continue;
       }
       if (pendingDependencies.length) {
@@ -805,7 +855,7 @@ export abstract class QueryRunner<
             status: "failed",
             error: `Run callbacks not found`,
           });
-          this.onQueryFinish();
+          await this.onQueryTerminal(query.id, "failed");
         } else {
           if (await this.concurrencyLimitReached()) {
             this.queueQueryExecution(query);
@@ -1031,7 +1081,7 @@ export abstract class QueryRunner<
         status: "failed",
         error: `Run callbacks not found`,
       });
-      return this.onQueryFinish();
+      return this.onQueryTerminal(doc.id, "failed");
     }
     return this.executeQuery(doc, runCallbacks);
   }
@@ -1086,7 +1136,7 @@ export abstract class QueryRunner<
     }
     if (this.isStopping()) {
       clearInterval(timer);
-      await updateQueryIfRunning(this.context, doc, {
+      const updated = await updateQueryIfRunning(this.context, doc, {
         finishedAt: new Date(),
         status: "failed",
         error: "Query runner concluded before execution",
@@ -1096,6 +1146,7 @@ export abstract class QueryRunner<
           `${doc.id}: Failed to stop query claimed during shutdown`,
         ),
       );
+      if (updated) await this.onQueryTerminal(doc.id, "failed");
       return;
     }
 
@@ -1138,7 +1189,7 @@ export abstract class QueryRunner<
         if (onSuccess) {
           await onSuccess(rows);
         }
-        this.onQueryFinish();
+        await this.onQueryTerminal(doc.id, "succeeded");
       })
       .catch(async (e) => {
         clearInterval(timer);
@@ -1155,7 +1206,8 @@ export abstract class QueryRunner<
             );
           }
           onFailure();
-          this.onQueryFinish();
+          if (updated) await this.onQueryTerminal(doc.id, "failed");
+          else await this.onQueryFinish();
         } catch (err) {
           logger.error(err);
         }

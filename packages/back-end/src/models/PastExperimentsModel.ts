@@ -51,6 +51,9 @@ const PastExperimentsModel = mongoose.model<PastExperimentsInterface>(
   pastExperimentsSchema,
 );
 
+export const PAST_EXPERIMENTS_COLLECTION =
+  PastExperimentsModel.collection.collectionName;
+
 function toInterface(doc: PastExperimentsDocument): PastExperimentsInterface {
   const ret = doc.toJSON<PastExperimentsDocument>();
   return omit(ret, ["__v", "_id"]);

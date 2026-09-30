@@ -4,9 +4,11 @@ import {
 } from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 
+export const COLLECTION_NAME = "contextualbanditsnapshots";
+
 const BaseClass = MakeModelClass({
   schema: contextualBanditSnapshotValidator,
-  collectionName: "contextualbanditsnapshots",
+  collectionName: COLLECTION_NAME,
   idPrefix: "cbs_",
   globallyUniquePrimaryKeys: true,
   additionalIndexes: [

@@ -11,7 +11,11 @@ import {
 } from "shared/types/report";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { getReportById, updateReport } from "back-end/src/models/ReportModel";
+import {
+  REPORT_COLLECTION,
+  getReportById,
+  updateReport,
+} from "back-end/src/models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "back-end/src/services/reports";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
@@ -38,6 +42,8 @@ export class ExperimentReportQueryRunner extends QueryRunner<
   ReportQueryParams,
   ExperimentReportResults
 > {
+  protected readonly modelCollectionName = REPORT_COLLECTION;
+
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
   private factTableMap: FactTableMap = new Map();
   private metricGroups: MetricGroupInterface[] = [];

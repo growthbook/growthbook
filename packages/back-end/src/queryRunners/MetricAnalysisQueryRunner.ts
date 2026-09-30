@@ -19,6 +19,7 @@ import {
 } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { Queries, QueryStatus } from "shared/types/query";
+import { COLLECTION_NAME } from "back-end/src/models/MetricAnalysisModel";
 import { getMetricWithFiltersApplied } from "back-end/src/services/metric-analysis";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
@@ -27,6 +28,8 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricAnalysisParams,
   MetricAnalysisResult
 > {
+  protected readonly modelCollectionName = COLLECTION_NAME;
+
   private metric?: FactMetricInterface;
 
   checkPermissions(): boolean {

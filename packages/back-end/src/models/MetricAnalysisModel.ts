@@ -10,7 +10,7 @@ import {
 } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
-const COLLECTION_NAME = "metricanalyses";
+export const COLLECTION_NAME = "metricanalyses";
 const BaseClass = MakeModelClass({
   schema: metricAnalysisInterfaceValidator,
   collectionName: COLLECTION_NAME,

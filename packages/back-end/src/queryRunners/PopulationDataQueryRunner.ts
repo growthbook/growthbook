@@ -27,6 +27,7 @@ import {
 } from "shared/types/population-data";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import { COLLECTION_NAME } from "back-end/src/models/PopulationDataModel";
 import { ApiReqContext } from "back-end/types/api";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
@@ -270,6 +271,8 @@ export class PopulationDataQueryRunner extends QueryRunner<
   PopulationDataQueryParams,
   PopulationDataResult
 > {
+  protected readonly modelCollectionName = COLLECTION_NAME;
+
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
   checkPermissions(): boolean {

@@ -161,7 +161,7 @@ const MetricModel = mongoose.model<LegacyMetricInterface>(
   "Metric",
   metricSchema,
 );
-const COLLECTION = "metrics";
+export const METRIC_COLLECTION = "metrics";
 
 const toInterface: ToInterface<MetricInterface> = (doc) => {
   return upgradeMetricDoc(removeMongooseFields(doc));
@@ -302,7 +302,7 @@ export async function projectHasMetrics(
   context: ReqContext | ApiReqContext,
   projectId: string,
 ): Promise<boolean> {
-  const metric = await getCollection(COLLECTION).findOne(
+  const metric = await getCollection(METRIC_COLLECTION).findOne(
     {
       organization: context.org.id,
       projects: [projectId],
@@ -319,7 +319,7 @@ export async function deleteAllMetricsForAProject({
   projectId: string;
   context: ReqContext | ApiReqContext;
 }) {
-  const metricsToDelete = await getCollection(COLLECTION)
+  const metricsToDelete = await getCollection(METRIC_COLLECTION)
     .find({
       organization: context.org.id,
       projects: [projectId],
@@ -380,7 +380,7 @@ async function findMetrics(
     projection[f] = 0;
   });
 
-  const docs = await getCollection(COLLECTION)
+  const docs = await getCollection(METRIC_COLLECTION)
     .find(
       {
         ...additionalQuery,
@@ -453,7 +453,7 @@ export async function getMetricsByDatasource(
 }
 
 export async function getSampleMetrics(context: ReqContext | ApiReqContext) {
-  const docs = await getCollection(COLLECTION)
+  const docs = await getCollection(METRIC_COLLECTION)
     .find({
       id: /^met_sample/,
       organization: context.org.id,
@@ -474,7 +474,7 @@ export async function getMetricById(
     const doc = getConfigMetrics(context).filter((m) => m.id === id)[0] || null;
     if (doc) {
       if (includeAnalysis) {
-        const metric = await getCollection(COLLECTION).findOne({
+        const metric = await getCollection(METRIC_COLLECTION).findOne({
           id,
           organization: context.org.id,
         });
@@ -491,7 +491,7 @@ export async function getMetricById(
     }
   }
 
-  const res = await getCollection(COLLECTION).findOne({
+  const res = await getCollection(METRIC_COLLECTION).findOne({
     id,
     organization: context.org.id,
   });
@@ -533,7 +533,7 @@ export async function getMetricsByIds(
   const remainingIds = ids.filter((id) => !metrics.some((m) => m.id === id));
 
   if (remainingIds.length > 0) {
-    const docs = await getCollection(COLLECTION)
+    const docs = await getCollection(METRIC_COLLECTION)
       .find({
         id: { $in: remainingIds },
         organization: context.org.id,
@@ -552,7 +552,7 @@ export async function findRunningMetricsByQueryId(
   orgIds: string[],
   queryIds: string[],
 ) {
-  const docs = await getCollection(COLLECTION)
+  const docs = await getCollection(METRIC_COLLECTION)
     .find({
       // Query ids are globally unique, this filter is just for index performance
       organization: { $in: orgIds },

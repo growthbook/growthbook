@@ -8,6 +8,7 @@ import { Queries, QueryStatus } from "shared/types/query";
 import { transformProductAnalyticsRowsToResult } from "shared/enterprise";
 import { UpdateProps } from "shared/types/base-model";
 import { SQL_ROW_LIMIT } from "shared/sql";
+import { COLLECTION_NAME } from "back-end/src/models/AnalyticsExplorationModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
@@ -16,6 +17,8 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
   ProductAnalyticsExplorationParams,
   ProductAnalyticsResult
 > {
+  protected readonly modelCollectionName = COLLECTION_NAME;
+
   private factTableMap?: FactTableMap;
   private factMetricMap?: Map<string, FactMetricInterface>;
 

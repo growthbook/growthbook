@@ -13,6 +13,7 @@ import {
   ExperimentMetricQueryResponseRows,
 } from "shared/types/integrations";
 import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import { COLLECTION_NAME } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
 import {
   buildSnapshotSettingsForCb,
   getContextualBanditSettingsForStatsEngine,
@@ -58,6 +59,8 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
   ContextualBanditResultsQueryParams,
   ContextualBanditQueryRunResult
 > {
+  protected readonly modelCollectionName = COLLECTION_NAME;
+
   private snapshotSettings?: ContextualBanditSnapshotSettings;
   private variationNames: string[] = [];
   private cachedCb?: ContextualBanditInterface;
