@@ -14,6 +14,7 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import {
+  getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
@@ -1233,7 +1234,9 @@ const AnalysisForm: FC<{
                               {["timestamp", "variation_id"]
                                 .concat(
                                   exposureQuery
-                                    ? [exposureQuery.userIdType]
+                                    ? getExposureQueryIdentifierTypes(
+                                        exposureQuery,
+                                      )
                                     : [],
                                 )
                                 .concat(exposureQuery?.dimensions || [])

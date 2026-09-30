@@ -1066,7 +1066,7 @@ describe("normalizeInlineRampSchedule", () => {
     });
   });
 
-  it("stores the query's first identifier for a new selection by flat id", async () => {
+  it("leaves a new selection by flat id implicit when the query declares its legacy identifier", async () => {
     const action = await normalizeInlineRampSchedule(
       context,
       {
@@ -1077,8 +1077,10 @@ describe("normalizeInlineRampSchedule", () => {
     );
     expect(action.monitoringConfig).toMatchObject({
       exposureQueryId: "eq_multi",
-      exposureQueryIdentifierType: "user_id",
     });
+    expect(action.monitoringConfig).not.toHaveProperty(
+      "exposureQueryIdentifierType",
+    );
   });
 
   it("requires the grouped field to name an identifier on an ambiguous query", async () => {

@@ -24,7 +24,11 @@ import {
   getFactMetricPrimaryFactTableId,
   parseDimensionId,
 } from "shared/experiments";
-import { resolveAnalysisIdentifierType, isDefined } from "shared/util";
+import {
+  assertExposureQueryDeclaresIdentifierType,
+  resolveAnalysisIdentifierType,
+  isDefined,
+} from "shared/util";
 import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
@@ -591,6 +595,14 @@ export function getReportSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === report.experimentAnalysisSettings.exposureQueryId,
   );
+  // Refused before the snapshot is inserted so a failed refresh leaves none
+  // behind. A missing query is left to the query builder to surface.
+  if (exposureQuery) {
+    assertExposureQueryDeclaresIdentifierType(
+      exposureQuery,
+      report.experimentAnalysisSettings.exposureQueryIdentifierType,
+    );
+  }
   const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
     exposureQuery,
     report.experimentAnalysisSettings.exposureQueryIdentifierType,

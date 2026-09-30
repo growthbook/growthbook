@@ -60,9 +60,9 @@ async function toTemplateWriteBody<T extends ApiTemplateBody>(
       onOmitted: body.exposureQuery ? "requireUnambiguous" : "defaultToFirst",
       field: "exposureQuery",
     });
-  return exposureQueryIdentifierType === undefined
-    ? flat
-    : { ...flat, exposureQueryIdentifierType };
+  // Always keyed: on update, undefined clears an identifier the new selection
+  // doesn't use.
+  return { ...flat, exposureQueryIdentifierType };
 }
 
 // Both fields are optional in the API body, so creates must check for one.
@@ -171,7 +171,7 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.permissions.canDeleteExperimentTemplate(doc);
   }
 
-  protected hasPremiumFeature(): boolean {
+  protected override hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("templates");
   }
 

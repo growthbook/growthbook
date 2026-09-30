@@ -42,6 +42,12 @@ beforeEach(() => {
             userIdType: "anonymous_id",
             userIdTypes: ["user_id", "anonymous_id"],
           },
+          {
+            id: "eq_dropped",
+            name: "Dropped",
+            userIdType: "user_id",
+            userIdTypes: ["anonymous_id"],
+          },
         ],
       },
     },
@@ -75,7 +81,28 @@ describe("validateCreateSafeRolloutFields", () => {
       context,
       { datasourceId: "ds_1", exposureQueryId: "eq_multi" },
     );
-    expect(validated).not.toHaveProperty("exposureQueryIdentifierType");
+    expect(validated.exposureQueryIdentifierType).toBeUndefined();
+  });
+
+  it("clears the stored identifier when switching to an implicit query", async () => {
+    const validated = await validateCreateSafeRolloutFields(
+      { ...fields, exposureQueryId: "eq_multi" },
+      context,
+      stored,
+    );
+    expect(validated).toHaveProperty("exposureQueryIdentifierType", undefined);
+  });
+
+  it("rejects switching to a query that dropped its legacy identifier", async () => {
+    await expect(
+      validateCreateSafeRolloutFields(
+        { ...fields, exposureQueryId: "eq_dropped" },
+        context,
+        stored,
+      ),
+    ).rejects.toThrow(
+      'no longer declares its default identifier type "user_id"',
+    );
   });
 
   it("requires the grouped field to name an identifier on an ambiguous query", async () => {

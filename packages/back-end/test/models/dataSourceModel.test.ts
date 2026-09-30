@@ -551,6 +551,33 @@ describe("dataSourceModel", () => {
     });
   });
 
+  it("keeps reporting the frozen legacy identifier after the query drops it", () => {
+    const apiDatasource = toDataSourceApiInterface({
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        queries: {
+          ...datasource.settings.queries,
+          exposure: [
+            {
+              id: "dropped",
+              userIdType: "user_id",
+              userIdTypes: ["anonymous_id"],
+              dimensions: [],
+              name: "Dropped",
+              query: "SELECT anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(apiDatasource.assignmentQueries[0]).toMatchObject({
+      identifierType: "user_id",
+      identifierTypes: ["anonymous_id"],
+    });
+  });
+
   describe("updateDataSource", () => {
     it("should throw an error if data sources are managed by config.yml", async () => {
       mockedUsingFileConfig.mockReturnValue(true);

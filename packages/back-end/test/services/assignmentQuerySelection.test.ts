@@ -1,6 +1,7 @@
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   loadChangedAssignmentQuerySelection,
+  resolveApiMonitoringConfig,
   resolveAssignmentQueryIdentifier,
 } from "back-end/src/services/assignmentQuerySelection";
 import { ReqContext } from "back-end/types/request";
@@ -15,6 +16,22 @@ const datasource = {
           name: "Assignments",
           userIdType: "anonymous_id",
           userIdTypes: ["user_id", "anonymous_id"],
+          query: "SELECT 1",
+          dimensions: [],
+        },
+        {
+          id: "eq_2",
+          name: "Users",
+          userIdType: "user_id",
+          userIdTypes: ["user_id"],
+          query: "SELECT 1",
+          dimensions: [],
+        },
+        {
+          id: "eq_dropped",
+          name: "Dropped",
+          userIdType: "user_id",
+          userIdTypes: ["anonymous_id"],
           query: "SELECT 1",
           dimensions: [],
         },
@@ -41,7 +58,7 @@ describe("loadChangedAssignmentQuerySelection", () => {
     const { context, bypassRead } = makeContext();
     expect(
       await loadChangedAssignmentQuerySelection(context, legacy, legacy),
-    ).toBeNull();
+    ).toEqual({ changed: false });
     expect(bypassRead).not.toHaveBeenCalled();
   });
 
@@ -52,7 +69,7 @@ describe("loadChangedAssignmentQuerySelection", () => {
         ...legacy,
         identifierType: "anonymous_id",
       }),
-    ).toBeNull();
+    ).toEqual({ changed: false });
   });
 
   it("returns the data source for a changed selection", async () => {
@@ -62,14 +79,14 @@ describe("loadChangedAssignmentQuerySelection", () => {
         ...legacy,
         identifierType: "user_id",
       }),
-    ).toBe(datasource);
+    ).toEqual({ changed: true, datasource });
   });
 
   it("always checks a new selection", async () => {
     const { context } = makeContext();
     expect(
       await loadChangedAssignmentQuerySelection(context, null, legacy),
-    ).toBe(datasource);
+    ).toEqual({ changed: true, datasource });
   });
 
   it("uses the request's cached data source before bypassing read scope", async () => {
@@ -85,13 +102,13 @@ describe("loadChangedAssignmentQuerySelection", () => {
         datasource: "ds_gone",
         exposureQueryId: "eq_1",
       }),
-    ).toBeNull();
+    ).toEqual({ changed: true, datasource: null });
     expect(
       await loadChangedAssignmentQuerySelection(context, null, {
         datasource: "ds_1",
         exposureQueryId: "",
       }),
-    ).toBeNull();
+    ).toEqual({ changed: true, datasource: null });
   });
 });
 
@@ -117,5 +134,95 @@ describe("resolveAssignmentQueryIdentifier", () => {
         onOmitted: "defaultToFirst",
       }),
     ).toEqual({ identifierType: "user_id", changed: false });
+  });
+
+  it("leaves a new selection implicit when the query declares its legacy identifier", async () => {
+    const { context } = makeContext();
+    expect(
+      await resolveAssignmentQueryIdentifier(context, {
+        previous: null,
+        next: legacy,
+        onOmitted: "defaultToFirst",
+      }),
+    ).toMatchObject({ identifierType: undefined, changed: true });
+  });
+
+  it("drops the stored identifier when switching queries without naming one", async () => {
+    const { context } = makeContext();
+    const pinned = { ...legacy, identifierType: "user_id" };
+    expect(
+      await resolveAssignmentQueryIdentifier(context, {
+        previous: pinned,
+        next: { datasource: "ds_1", exposureQueryId: "eq_2" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toMatchObject({ identifierType: undefined, changed: true });
+    await expect(
+      resolveAssignmentQueryIdentifier(context, {
+        previous: pinned,
+        next: { datasource: "ds_1", exposureQueryId: "eq_dropped" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).rejects.toThrow(
+      'no longer declares its default identifier type "user_id"',
+    );
+  });
+
+  it("keeps a legacy record implicit when the update echoes its resolved identifier", async () => {
+    const { context } = makeContext();
+    expect(
+      await resolveAssignmentQueryIdentifier(context, {
+        previous: legacy,
+        next: { ...legacy, identifierType: "anonymous_id" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ identifierType: undefined, changed: false });
+  });
+});
+
+describe("resolveApiMonitoringConfig", () => {
+  const config = {
+    datasourceId: "ds_1",
+    guardrailMetricIds: ["met_1"],
+  };
+
+  it("leaves the identifier out when switching to an implicit query", async () => {
+    const { context } = makeContext();
+    const resolved = await resolveApiMonitoringConfig(
+      context,
+      { ...config, exposureQueryId: "eq_2" },
+      {
+        ...config,
+        exposureQueryId: "eq_1",
+        exposureQueryIdentifierType: "user_id",
+      },
+    );
+    expect(resolved).toEqual({ ...config, exposureQueryId: "eq_2" });
+  });
+
+  it("keeps an implicit config implicit when the body echoes its resolved identifier", async () => {
+    const { context } = makeContext();
+    const resolved = await resolveApiMonitoringConfig(
+      context,
+      {
+        ...config,
+        exposureQuery: { id: "eq_1", identifierType: "anonymous_id" },
+      },
+      { ...config, exposureQueryId: "eq_1" },
+    );
+    expect(resolved).toEqual({ ...config, exposureQueryId: "eq_1" });
+  });
+
+  it("rejects a new config on a query that dropped its legacy identifier", async () => {
+    const { context } = makeContext();
+    await expect(
+      resolveApiMonitoringConfig(
+        context,
+        { ...config, exposureQueryId: "eq_dropped" },
+        null,
+      ),
+    ).rejects.toThrow(
+      'no longer declares its default identifier type "user_id". Set exposureQuery.identifierType to choose one.',
+    );
   });
 });

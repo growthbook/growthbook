@@ -4870,12 +4870,9 @@ export function postExperimentApiPayloadToInterface(
   return obj;
 }
 
-// Internal-only: the handler resolves this from assignmentQuery.
 export type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
-> & {
-  assignmentQueryIdentifierType?: string;
-};
+>;
 
 function toActivePhaseVariations(
   canonicalVariations: ExperimentInterface["variations"],
@@ -5108,7 +5105,6 @@ export function updateExperimentApiPayloadToInterface(
     owner,
     datasourceId,
     assignmentQueryId,
-    assignmentQueryIdentifierType,
     hashAttribute,
     hashVersion,
     disableStickyBucketing,
@@ -5163,9 +5159,6 @@ export function updateExperimentApiPayloadToInterface(
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
-    ...(assignmentQueryIdentifierType !== undefined
-      ? { exposureQueryIdentifierType: assignmentQueryIdentifierType }
-      : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(payload.attributeScopeAllProjects !== undefined

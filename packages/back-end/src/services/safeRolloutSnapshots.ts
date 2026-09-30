@@ -10,6 +10,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import {
+  assertExposureQueryDeclaresIdentifierType,
   resolveAnalysisIdentifierType,
   getSafeRolloutSnapshotAnalysis,
   isDefined,
@@ -323,6 +324,14 @@ export function getSafeRolloutSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === safeRollout.exposureQueryId,
   );
+  // Refused before the snapshot is inserted so a failed refresh leaves none
+  // behind. A missing query is left to the query builder to surface.
+  if (exposureQuery) {
+    assertExposureQueryDeclaresIdentifierType(
+      exposureQuery,
+      safeRollout.exposureQueryIdentifierType,
+    );
+  }
   const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
     exposureQuery,
     safeRollout.exposureQueryIdentifierType,
@@ -449,6 +458,17 @@ export async function _createSafeRolloutSnapshot({
     throw new Error("Could not load data source");
   }
 
+  // Advanced before building settings, which can refuse the identifier, so a
+  // scheduled retry waits for the next window rather than the next minute.
+  const { nextSnapshot } = determineNextSafeRolloutSnapshotAttempt(
+    safeRollout,
+    organization,
+  );
+  await context.models.safeRollout.update(safeRollout, {
+    nextSnapshotAttempt: nextSnapshot,
+    lastSnapshotAttempt: new Date(),
+  });
+
   const snapshotSettings = getSafeRolloutSnapshotSettings({
     safeRollout,
     trackingKey,
@@ -479,15 +499,6 @@ export async function _createSafeRolloutSnapshot({
     ],
     status: "running",
   };
-
-  const { nextSnapshot } = determineNextSafeRolloutSnapshotAttempt(
-    safeRollout,
-    organization,
-  );
-  await context.models.safeRollout.update(safeRollout, {
-    nextSnapshotAttempt: nextSnapshot,
-    lastSnapshotAttempt: new Date(),
-  });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
 

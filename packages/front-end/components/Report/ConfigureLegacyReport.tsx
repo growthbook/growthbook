@@ -380,9 +380,7 @@ export default function ConfigureLegacyReport({
         activationMetric={!!form.watch("activationMetric")}
         exposureQueryId={form.watch("exposureQueryId")}
         datasourceId={report.args.datasource}
-        userIdType={
-          assignmentQuerySelection.identifierType ?? report.args.userIdType
-        }
+        userIdType={report.args.userIdType}
         labelClassName="font-weight-bold"
         showHelp={true}
         newUi={false}

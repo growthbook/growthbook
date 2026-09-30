@@ -682,7 +682,6 @@ export async function updateHoldoutWithExperiment(
     "assignmentQuery",
   );
   const assignmentQueryId = assignmentQueryInput.id;
-  let assignmentQueryIdentifierType = assignmentQueryInput.identifierType;
   if (
     body.datasourceId !== undefined ||
     assignmentQueryId !== undefined ||
@@ -696,9 +695,7 @@ export async function updateHoldoutWithExperiment(
     });
 
     const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
-    if (!effectiveQueryId) {
-      assignmentQueryIdentifierType = undefined;
-    } else {
+    if (effectiveQueryId) {
       const resolved = resolveAssignmentQuerySelectionChange(
         datasource?.settings?.queries?.exposure ?? [],
         {
@@ -710,7 +707,7 @@ export async function updateHoldoutWithExperiment(
           next: {
             datasource: body.datasourceId ?? experiment.datasource ?? "",
             exposureQueryId: effectiveQueryId,
-            identifierType: assignmentQueryIdentifierType,
+            identifierType: assignmentQueryInput.identifierType,
           },
           onOmitted: body.assignmentQuery
             ? "requireUnambiguous"
@@ -719,7 +716,10 @@ export async function updateHoldoutWithExperiment(
         },
       );
       if (!resolved.ok) throw new Error(resolved.error);
-      assignmentQueryIdentifierType = resolved.identifierType;
+      // Undefined when the new selection is implicit, which clears the old one.
+      if (resolved.changed) {
+        experimentChanges.exposureQueryIdentifierType = resolved.identifierType;
+      }
     }
 
     if (body.datasourceId !== undefined) {
@@ -727,10 +727,6 @@ export async function updateHoldoutWithExperiment(
     }
     if (assignmentQueryId !== undefined) {
       experimentChanges.exposureQueryId = assignmentQueryId;
-    }
-    if (assignmentQueryIdentifierType !== undefined) {
-      experimentChanges.exposureQueryIdentifierType =
-        assignmentQueryIdentifierType;
     }
   }
   // The name is stored on both documents and must not drift.

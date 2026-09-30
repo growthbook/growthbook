@@ -36,8 +36,8 @@ export function getPreferredIdentifierType(
 /**
  * The identifier a saved record analyzes on: the stored one, even if its query
  * no longer declares it (analysis then refuses to run), else the query's frozen
- * legacy identifier (`userIdType`). A new record defaults to `userIdTypes[0]`
- * instead, so don't use this to pick one.
+ * legacy identifier (`userIdType`). Pick a new record's with
+ * parseAssignmentQuerySelection, which also checks the query still declares it.
  */
 export function resolveAnalysisIdentifierType(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
@@ -134,13 +134,21 @@ type SelectableExposureQuery = Pick<
 export type ParsedAssignmentQuerySelection<
   Q extends SelectableExposureQuery = SelectableExposureQuery,
 > =
-  | { ok: true; identifierType: string; query: Q }
+  | {
+      ok: true;
+      // What to store. Undefined leaves the record implicit, analyzing on the
+      // query's frozen legacy identifier.
+      identifierType: string | undefined;
+      query: Q;
+    }
   | { ok: false; error: string };
 
 /**
  * Validates a new or changed selection and returns the identifier to store. An
- * omitted identifier becomes the query's first (the new-record default), unless
- * `onOmitted` is "requireUnambiguous" and the query declares several.
+ * omitted identifier stays implicit while the query declares the one analysis
+ * would fall back to (resolveAnalysisIdentifierType), and is rejected once it
+ * doesn't rather than moving to another. "requireUnambiguous" rejects any
+ * omission on a query that declares several, which lists the choices.
  */
 export function parseAssignmentQuerySelection<
   Q extends SelectableExposureQuery,
@@ -168,6 +176,7 @@ export function parseAssignmentQuerySelection<
   }
   const name = query.name || query.id;
   const declared = getExposureQueryIdentifierTypes(query);
+  const identifierField = `${field ? `${field}.` : ""}identifierType`;
   if (identifierType) {
     return declared.includes(identifierType)
       ? { ok: true, identifierType, query }
@@ -179,14 +188,21 @@ export function parseAssignmentQuerySelection<
   if (onOmitted === "requireUnambiguous" && declared.length > 1) {
     return {
       ok: false,
-      error: `Assignment query "${name}" declares several identifier types (${declared.join(", ")}). Set ${field ? `${field}.` : ""}identifierType to choose one.`,
+      error: `Assignment query "${name}" declares several identifier types (${declared.join(", ")}). Set ${identifierField} to choose one.`,
     };
   }
-  return declared[0]
-    ? { ok: true, identifierType: declared[0], query }
+  const legacyType = resolveAnalysisIdentifierType(query, undefined);
+  if (!legacyType) {
+    return {
+      ok: false,
+      error: `Assignment query "${name}" doesn't declare any identifier types`,
+    };
+  }
+  return declared.includes(legacyType)
+    ? { ok: true, identifierType: undefined, query }
     : {
         ok: false,
-        error: `Assignment query "${name}" doesn't declare any identifier types`,
+        error: `Assignment query "${name}" no longer declares its default identifier type "${legacyType}". Set ${identifierField} to choose one.`,
       };
 }
 
@@ -268,8 +284,9 @@ export type AssignmentQuerySelectionChange =
 /**
  * The identifier to store when `next` replaces `previous` (null on create),
  * keeping the stored one per withKeptIdentifierType. An unchanged selection
- * isn't re-validated, so a query that drifted since doesn't block unrelated
- * edits; a new or changed one is parsed.
+ * keeps `previous`'s stored value, so echoing an implicit record's resolved
+ * identifier leaves it implicit, and isn't re-validated, so a query that
+ * drifted since doesn't block unrelated edits. A new or changed one is parsed.
  */
 export function resolveAssignmentQuerySelectionChange(
   exposureQueries: SelectableExposureQuery[],
@@ -290,7 +307,11 @@ export function resolveAssignmentQuerySelectionChange(
     previous &&
     isSameAssignmentQuerySelection(previous, kept, exposureQueries)
   ) {
-    return { ok: true, identifierType: kept.identifierType, changed: false };
+    return {
+      ok: true,
+      identifierType: previous.identifierType || undefined,
+      changed: false,
+    };
   }
   const parsed = parseAssignmentQuerySelection(exposureQueries, {
     exposureQueryId: kept.exposureQueryId,

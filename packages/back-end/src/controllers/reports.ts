@@ -446,25 +446,29 @@ type ReportAssignmentQuerySelection = {
   exposureQueryIdentifierType?: string;
 };
 
+// `next` is merged over the stored settings, so the body's own identifier is
+// passed separately: the merged one would carry the old identifier to a new
+// query.
 async function applyReportAssignmentQuery(
   context: ReqContext,
   previous: ReportAssignmentQuerySelection,
   next: ReportAssignmentQuerySelection,
+  requestedIdentifierType: string | undefined,
 ) {
   const toSelection = (s: ReportAssignmentQuerySelection) => ({
     datasource: s.datasource,
     exposureQueryId: s.exposureQueryId,
     identifierType: s.exposureQueryIdentifierType,
   });
-  const { identifierType, changed } = await resolveAssignmentQueryIdentifier(
-    context,
-    {
-      previous: toSelection(previous),
-      next: toSelection(next),
-      onOmitted: "defaultToFirst",
-    },
-  );
-  if (changed) next.exposureQueryIdentifierType = identifierType;
+  const { identifierType } = await resolveAssignmentQueryIdentifier(context, {
+    previous: toSelection(previous),
+    next: { ...toSelection(next), identifierType: requestedIdentifierType },
+    onOmitted: "defaultToFirst",
+  });
+  // `next` is saved whole: an absent key clears the stored identifier, where an
+  // undefined one would persist as null.
+  if (identifierType === undefined) delete next.exposureQueryIdentifierType;
+  else next.exposureQueryIdentifierType = identifierType;
 }
 
 export async function putReport(
@@ -571,6 +575,7 @@ export async function putReport(
         context,
         report.experimentAnalysisSettings,
         updates.experimentAnalysisSettings,
+        data.experimentAnalysisSettings?.exposureQueryIdentifierType,
       );
     }
 
@@ -619,7 +624,12 @@ export async function putReport(
       updates.args.settingsForSnapshotMetrics =
         updates.args?.settingsForSnapshotMetrics || [];
 
-      await applyReportAssignmentQuery(context, report.args, updates.args);
+      await applyReportAssignmentQuery(
+        context,
+        report.args,
+        updates.args,
+        req.body.args?.exposureQueryIdentifierType,
+      );
 
       needsRun = true;
     }

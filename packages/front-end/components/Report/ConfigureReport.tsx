@@ -258,11 +258,7 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
-              userIdType={
-                form.watch(
-                  "experimentAnalysisSettings.exposureQueryIdentifierType",
-                ) ?? form.watch("experimentAnalysisSettings.userIdType")
-              }
+              userIdType={form.watch("experimentAnalysisSettings.userIdType")}
               newUi={false}
               cutoffBounds={{
                 min: getValidDate(

@@ -435,7 +435,7 @@ export class RampScheduleModel extends BaseClass {
       doc.monitoringConfig,
     );
   }
-  protected async beforeCreate(doc: RampScheduleInterface) {
+  protected override async beforeCreate(doc: RampScheduleInterface) {
     assertTargetsAnchored(doc, []);
   }
   protected override async customValidation(
@@ -448,7 +448,7 @@ export class RampScheduleModel extends BaseClass {
       doc.monitoringConfig,
     );
   }
-  protected async beforeUpdate(
+  protected override async beforeUpdate(
     existing: RampScheduleInterface,
     updates: UpdateProps<RampScheduleInterface>,
   ) {
@@ -514,7 +514,7 @@ export class RampScheduleModel extends BaseClass {
     );
   }
 
-  protected migrate(legacyDoc: unknown): RampScheduleInterface {
+  protected override migrate(legacyDoc: unknown): RampScheduleInterface {
     const doc = legacyDoc as RampScheduleInterface;
     const endCondMigrated = migrateRampScheduleEndCondition(doc);
     const statusMigrated = migrateRampScheduleStatus(endCondMigrated);
@@ -608,7 +608,7 @@ export class RampScheduleModel extends BaseClass {
     return result;
   }
 
-  protected toApiInterface(
+  protected override toApiInterface(
     doc: RampScheduleInterface,
   ): ApiRampScheduleInterface {
     return rampScheduleToApiInterface(this.context, doc);
