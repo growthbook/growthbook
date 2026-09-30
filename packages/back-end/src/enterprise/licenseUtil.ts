@@ -427,8 +427,6 @@ export async function getPortalUrlFromServer(
 
 export async function postNpsResponseToLicenseServer(response: {
   email: string;
-  userId: string;
-  organizationId: string;
   score: number;
   feedback: string;
   respondedAt: string;

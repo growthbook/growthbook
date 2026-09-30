@@ -265,7 +265,7 @@ export async function postNpsResponse(
   }
   const { status, score, feedback, disposition, preview } = parsed.data;
 
-  const { userId, org } = getContextFromReq(req);
+  const { userId } = getContextFromReq(req);
 
   // `preview` decides whether this response consumes the caller's re-survey
   // window, so it can't be trusted from the body — otherwise any caller could
@@ -298,8 +298,6 @@ export async function postNpsResponse(
   if (IS_CLOUD && status === "responded" && score !== undefined && !isPreview) {
     postNpsResponseToLicenseServer({
       email: req.email,
-      userId,
-      organizationId: org.id,
       score,
       feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
       respondedAt: new Date().toISOString(),
