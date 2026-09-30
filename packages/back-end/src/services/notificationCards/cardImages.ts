@@ -3,16 +3,21 @@ import path from "path";
 import satori from "satori";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import { logger } from "back-end/src/util/logger";
+import {
+  type MdRun,
+  parseInlineMarkdown,
+} from "back-end/src/services/notificationCards/markdown";
 import type {
-  CardState,
-  CardGoalRow,
-  CardCiMetric,
+  CardTone,
+  CardIcon,
+  CardResultRow,
+  CardField,
   CardTable,
+  CardCallout,
+  CardResults,
+  CardSection,
   CardIdentity,
-  EventCardData,
-  ExperimentCardData,
   CardData,
-  CompactEvent,
 } from "back-end/src/services/notificationCards/types";
 
 // Server-side notification-card rendering. The renderer is platform-neutral:
@@ -29,7 +34,7 @@ import type {
 // and is emitted as vector paths.
 
 // ---------------------------------------------------------------------------
-// Assets: fonts (Inter + Roboto Mono) and the GrowthBook logo. All vendored in
+// Assets: fonts (Inter upright + italic, Roboto Mono) and the GrowthBook logo. All vendored in
 // ./assets and copied to dist by the notification-card build step; resolve from
 // src when running via ts/tests (same pattern as agent skills).
 // ---------------------------------------------------------------------------
@@ -58,19 +63,36 @@ function resolveAssetPath(file: string): string {
   return found;
 }
 
-type FontSpec = { name: string; weight: 400 | 500 | 600; file: string };
+type FontStyle = "normal" | "italic";
+type FontSpec = {
+  name: string;
+  weight: 400 | 500 | 600;
+  style: FontStyle;
+  file: string;
+};
+const inter = (weight: 400 | 500 | 600, style: FontStyle): FontSpec => ({
+  name: "Inter",
+  weight,
+  style,
+  file: `inter-latin-${weight}-${style}.woff`,
+});
 const FONT_SPECS: FontSpec[] = [
-  { name: "Inter", weight: 400, file: "inter-latin-400-normal.woff" },
-  { name: "Inter", weight: 500, file: "inter-latin-500-normal.woff" },
-  { name: "Inter", weight: 600, file: "inter-latin-600-normal.woff" },
+  inter(400, "normal"),
+  inter(500, "normal"),
+  inter(600, "normal"),
+  inter(400, "italic"),
+  inter(500, "italic"),
+  inter(600, "italic"),
   {
     name: "Roboto Mono",
     weight: 400,
+    style: "normal",
     file: "roboto-mono-latin-400-normal.woff",
   },
   {
     name: "Roboto Mono",
     weight: 500,
+    style: "normal",
     file: "roboto-mono-latin-500-normal.woff",
   },
 ];
@@ -78,7 +100,7 @@ const FONT_SPECS: FontSpec[] = [
 type LoadedFont = {
   name: string;
   weight: 400 | 500 | 600;
-  style: "normal";
+  style: FontStyle;
   data: Buffer;
 };
 let loadedFonts: LoadedFont[] | null = null;
@@ -87,7 +109,7 @@ function getFonts(): LoadedFont[] {
     loadedFonts = FONT_SPECS.map((f) => ({
       name: f.name,
       weight: f.weight,
-      style: "normal" as const,
+      style: f.style,
       data: fs.readFileSync(resolveAssetPath(f.file)),
     }));
   }
@@ -123,7 +145,7 @@ function ensureWasmInitialized(): Promise<void> {
 
 // ---------------------------------------------------------------------------
 // Design tokens (light theme). Mirrors reference/colors_and_type.css + the
-// prototype's PAL/SOLID/SOFT maps.
+// prototype's palette.
 // ---------------------------------------------------------------------------
 
 const P = {
@@ -169,50 +191,74 @@ const SOFT: Record<Hue, string> = {
   amber: "rgba(255,178,36,.16)",
   slate: "rgba(31,45,92,.06)",
 };
-// Soft tag badges (bg / text), cycled by index — GrowthBook's tag treatment.
-const TAG_COLORS: { bg: string; fg: string }[] = [
-  { bg: "#ECEAFB", fg: "#5746AF" }, // violet
-  { bg: "#E5F1FF", fg: "#0A4A9E" }, // blue
-  { bg: "#E3F5F1", fg: "#0A6E62" }, // teal
-  { bg: "#FCEEE6", fg: "#944100" }, // orange
-];
-
 type Hue = "violet" | "blue" | "green" | "red" | "amber" | "slate";
 
-const HUE: Record<CardState, Hue> = {
-  started: "violet",
-  running: "blue",
-  winner: "green",
-  loser: "red",
-  stopped: "slate",
+const HUE: Record<CardTone, Hue> = {
+  // Info shares the app's Running badge color (indigo).
+  info: "blue",
+  success: "green",
+  danger: "red",
+  neutral: "slate",
   warning: "amber",
-};
-const BADGE: Record<CardState, string> = {
-  started: "Started",
-  running: "Running",
-  winner: "Significant · Won",
-  loser: "Rolled back · Lost",
-  stopped: "Stopped · Inconclusive",
-  warning: "SRM detected",
 };
 // Variation number-circle palette (index 0 = control).
 const VC = ["#3E63DD", "#12A594", "#F76808", "#E93D82"];
 
 const CARD_WIDTH = 1000;
-const COMPACT_WIDTH = 560;
-const COMPACT_MIN_HEIGHT = 240;
-const RAIL = 6;
-const COLS = [30, 150, 84, 84, 74, "flex" as const, 82];
-const VIOLIN_DOMAIN: [number, number] = [-20, 20];
-const CI_DOMAIN: [number, number] = [-10, 10];
-// The interval chart (violin / CI pill) spans this width; the flex interval
-// column is wider than the chart, so extra room sits to its right. Extra left
-// padding separates it from the Chance column.
-const INTERVAL_W = 320;
-const INTERVAL_PAD_LEFT = 28;
+// Two-column cards: the narrow left column's width; the right takes the rest.
+const LEFT_COLUMN_WIDTH = 340;
 
-const isResultsCard = (card: CardData): card is ExperimentCardData =>
-  "rows" in card;
+// Results-table metrics. Rows are kept short on purpose: chat clients fit the
+// PNG to a landscape box, so every extra pixel of height shrinks all the text.
+type ResultLayout = {
+  cols: readonly [number, number, number, "flex", number]; // circle, name, stat, interval, change
+  gap: number;
+  pad: string;
+  headPad: string;
+  circle: number;
+  name: number;
+  stat: number;
+  chg: number;
+  head: number;
+  vioW: number;
+  vioH: number;
+  axis: number;
+  ci: number;
+};
+const RESULT_LAYOUT: ResultLayout = {
+  cols: [36, 200, 120, "flex", 120],
+  gap: 14,
+  pad: "10px 28px",
+  headPad: "9px 28px",
+  circle: 24,
+  name: 18,
+  stat: 20,
+  chg: 20,
+  head: 12,
+  vioW: 380,
+  vioH: 40,
+  axis: 11,
+  ci: 12.5,
+};
+// Fits the right column of a two-column card.
+const RESULT_LAYOUT_NARROW: ResultLayout = {
+  cols: [28, 136, 104, "flex", 84],
+  gap: 12,
+  pad: "10px 28px",
+  headPad: "9px 28px",
+  circle: 22,
+  name: 16,
+  stat: 18,
+  chg: 18,
+  head: 11,
+  vioW: 200,
+  vioH: 40,
+  axis: 10,
+  ci: 11.5,
+};
+type Density = "full" | "narrow";
+const resultLayoutFor = (density: Density): ResultLayout =>
+  density === "narrow" ? RESULT_LAYOUT_NARROW : RESULT_LAYOUT;
 
 // ---------------------------------------------------------------------------
 // Element helpers (Satori "without JSX" object form).
@@ -267,47 +313,26 @@ function svgImg(svg: string, width: number, height: number): El {
 }
 
 // ---------------------------------------------------------------------------
-// Lightweight markdown for user-authored prose (hypothesis / conclusion). These
+// Lightweight markdown for user-authored prose (conclusions, fields). These
 // fields come from GrowthBook's markdown editor, so a raw string would show
 // literal `**`, `-`, `[label](url)` etc. Satori has no HTML/markdown support and
 // only the vendored font weights (Inter 400/500/600, no bold-700 / italic), so
-// we parse a safe subset into styled runs: bold -> weight 600, inline code ->
-// mono, links -> their label, bullet lists -> real bullets. Italic markers are
-// unwrapped to plain text (no italic font available). Not a full parser — just
-// the marks that show up in short experiment write-ups.
+// the inline runs from the shared parser render as: bold -> weight 600, inline
+// code -> mono, links -> their label, italic -> the vendored Inter italic
+// faces; bullet lists become real bullets here.
 // ---------------------------------------------------------------------------
 
-type MdRun = { text: string; bold?: boolean; code?: boolean };
 type MdBlock = { type: "p" | "li"; runs: MdRun[] };
-
-function parseInlineMd(input: string): MdRun[] {
-  // Links first: keep the label, drop the URL (not clickable in an image).
-  const s = input.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
-  const runs: MdRun[] = [];
-  // Bold (**x** / __x__), `code`, then italic (*x* / _x_) unwrapped to plain.
-  // The italic branch is boundary-guarded so it doesn't fire inside
-  // snake_case identifiers or the like.
-  const re =
-    /(\*\*|__)(.+?)\1|`([^`]+)`|(?<![\w*])([*_])(?=\S)(.+?)(?<=\S)\4(?![\w*])/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(s))) {
-    if (m.index > last) runs.push({ text: s.slice(last, m.index) });
-    if (m[2] !== undefined) runs.push({ text: m[2], bold: true });
-    else if (m[3] !== undefined) runs.push({ text: m[3], code: true });
-    else if (m[5] !== undefined) runs.push({ text: m[5] });
-    last = re.lastIndex;
-  }
-  if (last < s.length) runs.push({ text: s.slice(last) });
-  return runs.filter((r) => r.text.length > 0);
-}
 
 function parseMarkdownBlocks(md: string): MdBlock[] {
   const blocks: MdBlock[] = [];
   let paragraph: string[] = [];
   const flush = () => {
     if (paragraph.length) {
-      blocks.push({ type: "p", runs: parseInlineMd(paragraph.join(" ")) });
+      blocks.push({
+        type: "p",
+        runs: parseInlineMarkdown(paragraph.join(" ")),
+      });
       paragraph = [];
     }
   };
@@ -321,7 +346,7 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
     const heading = line.match(/^#{1,6}\s+(.*)$/);
     if (bullet) {
       flush();
-      blocks.push({ type: "li", runs: parseInlineMd(bullet[1]!) });
+      blocks.push({ type: "li", runs: parseInlineMarkdown(bullet[1]!) });
     } else if (heading) {
       flush();
       // Render a heading as a bold paragraph (no distinct heading sizes here).
@@ -342,9 +367,6 @@ interface MdStyle {
   letterSpacing?: string;
 }
 
-// Shared style for the hypothesis + conclusion body prose — deliberately the
-// same size and color so the two read as equally important; each block's label
-// (and the conclusion's tinted background) provides the differentiation.
 const PROSE_STYLE: MdStyle = {
   fontSize: 13,
   color: P.text,
@@ -360,6 +382,7 @@ function runSpan(r: MdRun, base: MdStyle): El {
       lineHeight: base.lineHeight,
       color: r.code ? P.st.slate : base.color,
       fontWeight: r.bold ? 600 : base.weight,
+      ...(r.italic ? { fontStyle: "italic" } : {}),
       // Preserve the spaces at run boundaries — Satori trims each flex child's
       // edge whitespace otherwise, gluing adjacent runs together.
       whiteSpace: "pre-wrap",
@@ -376,7 +399,7 @@ function runSpan(r: MdRun, base: MdStyle): El {
   );
 }
 
-// Render markdown prose into a stacked block layout. Paragraphs and list items
+// Render markdown prose into a stacked block RESULT_LAYOUT. Paragraphs and list items
 // are `flexWrap` rows of styled runs so text still wraps within the card.
 function renderMarkdown(md: string, base: MdStyle): El {
   const blocks = parseMarkdownBlocks(md);
@@ -392,7 +415,16 @@ function renderMarkdown(md: string, base: MdStyle): El {
           flexWrap: "wrap",
           alignItems: "baseline",
         },
-        b.runs.map((r) => runSpan(r, base)),
+        // One span per word so a styled run wraps within a line instead of
+        // moving to the next line as a block. Code chips stay whole.
+        b.runs.flatMap((r) =>
+          r.code
+            ? [runSpan(r, base)]
+            : r.text
+                .split(/(?<=\s)/)
+                .filter((word) => word.length > 0)
+                .map((word) => runSpan({ ...r, text: word }, base)),
+        ),
       );
       if (b.type === "li") {
         return el(
@@ -421,10 +453,6 @@ function renderMarkdown(md: string, base: MdStyle): El {
   );
 }
 
-function fmtPct(v: number): string {
-  return (v > 0 ? "+" : "") + Math.round(v * 10) / 10 + "%";
-}
-
 // ---------------------------------------------------------------------------
 // Charts — pure-shape SVG strings (no <text>; labels are drawn in Satori).
 // ---------------------------------------------------------------------------
@@ -434,7 +462,6 @@ function violinSvg(
   ht: number,
   domain: [number, number],
   vio: { c: number; s: number },
-  opts: { ci?: { lo: number; hi: number } } = {},
 ): string {
   const [dmin, dmax] = domain;
   const axisH = 8;
@@ -464,15 +491,6 @@ function violinSvg(
     `<path d="${d}" fill="${P.vio.pos}" clip-path="url(#cp)"/>`,
     `<path d="${d}" fill="${P.vio.neg}" clip-path="url(#cn)"/>`,
   ];
-  if (opts.ci) {
-    const th = A * 0.72;
-    const loX = xOf(opts.ci.lo);
-    const hiX = xOf(opts.ci.hi);
-    parts.push(
-      `<line x1="${loX}" y1="${midY - th}" x2="${loX}" y2="${midY + th}" stroke="${P.vio.median}" stroke-width="1" opacity="0.5"/>`,
-      `<line x1="${hiX}" y1="${midY - th}" x2="${hiX}" y2="${midY + th}" stroke="${P.vio.median}" stroke-width="1" opacity="0.5"/>`,
-    );
-  }
   parts.push(
     `<line x1="${cX}" y1="${midY - A}" x2="${cX}" y2="${midY + A}" stroke="${P.vio.median}" stroke-width="1.5"/>`,
   );
@@ -491,31 +509,6 @@ function violinSvg(
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${ht}" viewBox="0 0 ${w} ${ht}">${parts.join("")}</svg>`;
 }
 
-function ciPillSvg(
-  w: number,
-  ht: number,
-  domain: [number, number],
-  ci: { lo: number; hi: number; pt: number },
-  color: string,
-): string {
-  const [dmin, dmax] = domain;
-  const midY = ht / 2;
-  const xOf = (v: number) => ((v - dmin) / (dmax - dmin)) * w;
-  const zeroX = xOf(0);
-  const lo = xOf(ci.lo);
-  const hi = xOf(ci.hi);
-  const pt = xOf(ci.pt);
-  const pillH = 9;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${ht}" viewBox="0 0 ${w} ${ht}">${[
-    `<line x1="0" y1="${midY}" x2="${w}" y2="${midY}" stroke="${P.ci.track}" stroke-width="3" stroke-linecap="round"/>`,
-    `<line x1="${zeroX}" y1="2" x2="${zeroX}" y2="${ht - 2}" stroke="${P.vio.zero}" stroke-width="1" stroke-dasharray="2 2"/>`,
-    `<rect x="${lo}" y="${midY - pillH / 2}" width="${Math.max(2, hi - lo)}" height="${pillH}" rx="${pillH / 2}" fill="${color}" opacity="0.28"/>`,
-    `<line x1="${lo}" y1="${midY - 5}" x2="${lo}" y2="${midY + 5}" stroke="${color}" stroke-width="1.5"/>`,
-    `<line x1="${hi}" y1="${midY - 5}" x2="${hi}" y2="${midY + 5}" stroke="${color}" stroke-width="1.5"/>`,
-    `<circle cx="${pt}" cy="${midY}" r="4" fill="${color}"/>`,
-  ].join("")}</svg>`;
-}
-
 function arrowImg(dir: "up" | "down", color: string, size = 9): El {
   const d =
     dir === "up"
@@ -528,31 +521,6 @@ function arrowImg(dir: "up" | "down", color: string, size = 9): El {
 // ---------------------------------------------------------------------------
 // Shared cells / primitives.
 // ---------------------------------------------------------------------------
-
-function badge(state: CardState, label = BADGE[state]): El {
-  const hue = HUE[state];
-  return el(
-    "div",
-    {
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      padding: "4px 11px",
-      borderRadius: 9999,
-      backgroundColor: SOFT[hue],
-      alignSelf: "flex-start",
-    },
-    [
-      el("div", {
-        width: 7,
-        height: 7,
-        borderRadius: 9999,
-        backgroundColor: SOLID[hue],
-      }),
-      txt(label, { fontSize: 12, fontWeight: 600, color: P.st[hue] }),
-    ],
-  );
-}
 
 function vnumCircle(i: number, size = 18): El {
   const c = VC[i] || "#8B8D98";
@@ -575,25 +543,22 @@ function vnumCircle(i: number, size = 18): El {
   );
 }
 
-function pctCell(chg: string, dir: "up" | "down", size = 13): El {
-  const col = dir === "up" ? P.st.green : P.st.red;
+function pctCell(
+  chg: string,
+  dir: "up" | "down",
+  size = 13,
+  color?: string,
+): El {
+  const col = color ?? (dir === "up" ? P.st.green : P.st.red);
   return el("div", { display: "flex", alignItems: "center", gap: 5 }, [
     arrowImg(dir, col, Math.round(size * 0.62)),
     txt(chg, { fontSize: size, fontWeight: 600, color: col }, true),
   ]);
 }
 
-function ctwColor(ctw?: string): string {
-  const n = ctw ? parseFloat(ctw) : NaN;
-  if (!isNaN(n)) {
-    if (n >= 95) return P.st.green;
-    if (n <= 5) return P.st.red;
-  }
-  return P.muted;
-}
-
 // A results-table row built from fixed-width flex cells (Satori has no grid).
 function gridRow(
+  layout: ResultLayout,
   cells: (El | null)[],
   opts: {
     padding?: string;
@@ -608,26 +573,24 @@ function gridRow(
       display: "flex",
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
-      padding: opts.padding ?? "11px 24px",
+      gap: layout.gap,
+      padding: opts.padding ?? layout.pad,
       ...(opts.borderBottom ? { borderBottom: opts.borderBottom } : {}),
       ...(opts.backgroundColor
         ? { backgroundColor: opts.backgroundColor }
         : {}),
       ...(opts.opacity !== undefined ? { opacity: opts.opacity } : {}),
     },
-    COLS.map((w, i) => {
-      const align =
-        i >= 2 && i <= 4 ? "flex-end" : i === 6 ? "flex-end" : "flex-start";
+    layout.cols.map((w, i) => {
+      // name + interval left-aligned; stat + change right-aligned.
+      const align = i === 2 || i === 4 ? "flex-end" : "flex-start";
       return el(
         "div",
         {
           display: "flex",
           alignItems: "center",
           justifyContent: align,
-          ...(w === "flex"
-            ? { flexGrow: 1, paddingLeft: INTERVAL_PAD_LEFT }
-            : { width: w }),
+          ...(w === "flex" ? { flexGrow: 1 } : { width: w }),
         },
         cells[i] ? [cells[i]] : [],
       );
@@ -639,93 +602,103 @@ function gridRow(
 // name is intentionally NOT in the column header — see the design handoff.)
 function metricNameEl(name: string): El {
   return txt(name, {
-    fontSize: 14,
+    fontSize: 20,
     fontWeight: 500,
     color: P.text,
-    padding: "0 24px 9px",
+    padding: "0 28px 10px",
   });
 }
 
-function colHeader(): El {
-  // First cell (number circle) and the Interval cell are intentionally
-  // label-less; "Interval" was dropped from the header per product feedback.
-  const labels = ["", "", "Control", "Variation", "Chance", "", "Change"];
-  return el(
+// Column header. The number-circle cell is label-less; the interval cell names
+// the interval and shows the shared axis ticks once, instead of on every row.
+function colHeader(results: CardResults, layout: ResultLayout): El {
+  const label = (s: string) =>
+    txt(s, {
+      fontSize: layout.head,
+      fontWeight: 600,
+      letterSpacing: "0.05em",
+      textTransform: "uppercase",
+      color: P.subtle,
+    });
+  const intervalHeader = el(
     "div",
     {
       display: "flex",
-      flexDirection: "row",
+      flexDirection: "column",
       alignItems: "center",
-      gap: 10,
-      padding: "7px 24px",
-      backgroundColor: P.zebra,
+      gap: 4,
+      width: layout.vioW,
     },
-    COLS.map((w, i) => {
-      const align = (i >= 2 && i <= 4) || i === 6 ? "flex-end" : "flex-start";
-      return el(
-        "div",
-        {
-          display: "flex",
-          justifyContent: align,
-          ...(w === "flex" ? { flexGrow: 1 } : { width: w }),
-        },
-        labels[i]
-          ? [
-              txt(labels[i]!, {
-                fontSize: 9.5,
-                fontWeight: 600,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                color: P.subtle,
-              }),
-            ]
-          : [],
-      );
-    }),
+    [
+      results.intervalLabel ? label(results.intervalLabel) : null,
+      results.axis
+        ? el(
+            "div",
+            {
+              display: "flex",
+              justifyContent: "space-between",
+              width: layout.vioW,
+            },
+            results.axis.labels.map((tick) =>
+              txt(tick, { fontSize: layout.axis, color: P.subtle }, true),
+            ),
+          )
+        : null,
+    ],
+  );
+  return gridRow(
+    layout,
+    [
+      null,
+      null,
+      label(results.statLabel),
+      intervalHeader,
+      label(results.changeLabel),
+    ],
+    { padding: layout.headPad, backgroundColor: P.zebra },
   );
 }
 
-// `label` overrides the row's variation name (used for 2-way tests, where the
-// single treatment row is labeled with the goal metric name instead of the
-// variation name — and the number circle is dropped, mirroring secondary /
-// guardrail rows).
-function goalRowEl(r: CardGoalRow, label?: string): El {
+// Whether a row's change is in the metric's desired direction. Rows from a
+// payload say so via `good` (which accounts for inverse metrics); samples fall
+// back to the arrow.
+const isGoodOutcome = (r: Pick<CardResultRow, "dir" | "good">): boolean =>
+  r.good ?? r.dir !== "down";
+
+const outcomeColor = (r: Pick<CardResultRow, "dir" | "good">): string =>
+  isGoodOutcome(r) ? P.st.green : P.st.red;
+
+// Color for the stat cell: significant rows take their outcome direction's
+// color, everything else stays muted.
+function statColor(r: CardResultRow): string {
+  return r.sig ? outcomeColor(r) : P.muted;
+}
+
+// One row's result. Means are intentionally omitted: the row is the stat, the
+// distribution, and the change.
+function resultRowEl(
+  r: CardResultRow,
+  axis: CardResults["axis"],
+  layout: ResultLayout,
+): El {
   const intervalCell = el(
     "div",
-    { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2 },
+    { display: "flex", flexDirection: "column", gap: 2 },
     [
-      r.vio
+      r.vio && axis
         ? svgImg(
-            violinSvg(INTERVAL_W, 40, VIOLIN_DOMAIN, r.vio, { ci: r.ci }),
-            INTERVAL_W,
-            40,
+            violinSvg(layout.vioW, layout.vioH, axis.domain, r.vio),
+            layout.vioW,
+            layout.vioH,
           )
         : null,
-      // Axis labels (moved out of the SVG so resvg needs no fonts).
-      el(
-        "div",
-        { display: "flex", justifyContent: "space-between", width: INTERVAL_W },
-        [
-          txt(
-            fmtPct(VIOLIN_DOMAIN[0]),
-            { fontSize: 8.5, color: P.subtle },
-            true,
-          ),
-          txt("0", { fontSize: 8.5, color: P.subtle }, true),
-          txt(
-            fmtPct(VIOLIN_DOMAIN[1]),
-            { fontSize: 8.5, color: P.subtle },
-            true,
-          ),
-        ],
-      ),
-      r.ci
+      r.interval
         ? txt(
-            `95% CI [${fmtPct(r.ci.lo)}, ${fmtPct(r.ci.hi)}]`,
+            r.interval,
             {
-              fontSize: 9.5,
+              fontSize: layout.ci,
               color: P.subtle,
-              width: INTERVAL_W,
+              width: layout.vioW,
               justifyContent: "center",
             },
             true,
@@ -734,66 +707,38 @@ function goalRowEl(r: CardGoalRow, label?: string): El {
     ],
   );
 
-  const vrCell = el(
-    "div",
-    { display: "flex", flexDirection: "column", alignItems: "flex-end" },
-    [
-      txt(r.vr, { fontSize: 13, fontWeight: 500, color: P.text }, true),
-      r.vn ? txt(r.vn, { fontSize: 10, color: P.subtle }, true) : null,
-    ],
-  );
-
   return gridRow(
+    layout,
     [
-      label ? null : vnumCircle(r.i, 18),
-      txt(label ?? r.v, { fontSize: 13, fontWeight: 500, color: P.text }),
-      txt(r.ctrl, { fontSize: 13, fontWeight: 500, color: P.text }, true),
-      vrCell,
+      vnumCircle(r.i, layout.circle),
+      txt(r.v, {
+        fontSize: layout.name,
+        fontWeight: 500,
+        color: P.text,
+      }),
       txt(
-        r.ctw ?? "—",
-        { fontSize: 13, fontWeight: 600, color: ctwColor(r.ctw) },
+        r.stat ?? "—",
+        { fontSize: layout.stat, fontWeight: 600, color: statColor(r) },
         true,
       ),
       intervalCell,
+      // Same significance rule as the stat cell: muted unless significant.
       r.chg && r.dir
-        ? pctCell(r.chg, r.dir, 13)
-        : txt("—", { fontSize: 13, color: P.subtle }, true),
+        ? pctCell(r.chg, r.dir, layout.chg, statColor(r))
+        : txt("—", { fontSize: layout.chg, color: P.subtle }, true),
     ],
     { borderBottom: `1px solid ${P.borderSub}`, opacity: r.muted ? 0.55 : 1 },
   );
 }
 
-function ciRowEl(m: CardCiMetric, color: string): El {
-  return gridRow(
-    [
-      null,
-      txt(m.name, { fontSize: 13, fontWeight: 500, color: P.text }),
-      txt(m.ctrl, { fontSize: 13, fontWeight: 500, color: P.text }, true),
-      txt(m.vr, { fontSize: 13, fontWeight: 500, color: P.text }, true),
-      txt(m.sig ? "sig" : "ns", { fontSize: 11, color: P.subtle }, true),
-      el("div", { display: "flex", flexGrow: 1 }, [
-        svgImg(
-          ciPillSvg(INTERVAL_W, 32, CI_DOMAIN, m.ci, color),
-          INTERVAL_W,
-          32,
-        ),
-      ]),
-      m.chg && m.dir
-        ? pctCell(m.chg, m.dir, 13)
-        : txt("—", { fontSize: 13, color: P.subtle }, true),
-    ],
-    { borderBottom: `1px solid ${P.borderSub}` },
-  );
-}
-
 function sectionLabel(t: string): El {
   return txt(t, {
-    fontSize: 9.5,
+    fontSize: 12,
     fontWeight: 600,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     color: P.subtle,
-    padding: "10px 24px 4px",
+    padding: "14px 28px 6px",
   });
 }
 
@@ -801,25 +746,11 @@ function sectionLabel(t: string): El {
 // Card sections.
 // ---------------------------------------------------------------------------
 
-// Soft tag badges (no leading '#'), colors cycled from TAG_COLORS.
-function tagBadges(tags: string[]): El[] {
-  return tags.map((t, i) => {
-    const c = TAG_COLORS[i % TAG_COLORS.length]!;
-    return txt(t, {
-      fontSize: 11,
-      fontWeight: 500,
-      color: c.fg,
-      backgroundColor: c.bg,
-      padding: "2px 9px",
-      borderRadius: 3,
-    });
-  });
-}
-
-// Condensed single-row header, no background tint (status is carried by the
-// left rail + the badge): name · key · badge on the left, tags + logo right.
-function headerEl(exp: CardIdentity): El {
-  const logoH = 15;
+// Every card ends the same way: the producer's footer line on the left, the
+// GrowthBook logo on the right. Rendered even when there is no line so the
+// logo always sits in the same place.
+function standardFooterEl(card: CardIdentity): El {
+  const logoH = 20;
   return el(
     "div",
     {
@@ -828,394 +759,131 @@ function headerEl(exp: CardIdentity): El {
       justifyContent: "space-between",
       alignItems: "center",
       gap: 16,
-      padding: "14px 24px",
-      borderBottom: `1px solid ${P.border}`,
+      padding: "14px 28px",
+      borderTop: `1px solid ${P.border}`,
+      marginTop: "auto",
     },
     [
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-          flexWrap: "wrap",
+      txt(card.footer ?? "", { fontSize: 14, color: P.subtle }),
+      {
+        type: "img",
+        props: {
+          src: getLogoDataUri(),
+          width: Math.round(logoH * LOGO_ASPECT),
+          height: logoH,
+          style: { display: "flex", flexShrink: 0 },
         },
-        [
-          txt(exp.name, {
-            fontSize: 17,
-            fontWeight: 600,
-            color: P.text,
-            letterSpacing: "-0.01em",
-          }),
-          txt(exp.key, { fontSize: 12, color: P.subtle }, true),
-          badge(exp.state, exp.badgeLabel),
-        ],
-      ),
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 14,
-        },
-        [
-          ...(exp.tags?.length ? tagBadges(exp.tags) : []),
-          {
-            type: "img",
-            props: {
-              src: getLogoDataUri(),
-              width: Math.round(logoH * LOGO_ASPECT),
-              height: logoH,
-              style: { display: "flex" },
-            },
-          } as El,
-        ],
-      ),
+      } as El,
     ],
   );
 }
 
-// Plain-text metadata footer, items joined by a middot separator (not chips).
-function footerEl(items: (string | undefined)[]): El {
-  const fitems = items.filter((x): x is string => !!x);
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      padding: "11px 24px",
-      borderTop: `1px solid ${P.border}`,
-      marginTop: "auto",
-    },
-    fitems.map((t, i) =>
-      el(
-        "div",
-        { display: "flex", flexDirection: "row", alignItems: "center" },
-        [
-          i > 0
-            ? txt("·", {
-                fontSize: 11.5,
-                color: P.subtle,
-                margin: "0 9px",
-                opacity: 0.55,
-              })
-            : null,
-          txt(t, { fontSize: 11.5, color: P.subtle }),
-        ].filter(Boolean) as El[],
-      ),
-    ),
-  );
-}
-
-// The goal-metric section. For a 2-way test (one treatment) the single row is
-// labeled with the goal metric name instead of the variation name — dropping
-// the redundant metric-name line and number circle — mirroring how secondary /
-// guardrail metrics read. Multi-way tests keep the metric name up top and one
-// numbered row per variation (so variations stay distinguishable).
-function goalSectionEls(exp: ExperimentCardData): (El | null)[] {
-  const twoWay = exp.rows.length === 1;
-  return [
-    sectionLabel("Goal metric"),
-    twoWay ? null : metricNameEl(exp.goal),
-    colHeader(),
-    ...exp.rows.map((r) => goalRowEl(r, twoWay ? exp.goal : undefined)),
-  ];
-}
-
-function standardBody(exp: ExperimentCardData): El {
-  const children: (El | null)[] = [...goalSectionEls(exp)];
-  if (exp.secondary?.length) {
-    children.push(sectionLabel("Secondary metrics"));
-    for (const m of exp.secondary)
-      children.push(ciRowEl(m, m.sig ? SOLID.green : P.ci.neutral));
-  }
-  if (exp.guardrail?.length) {
-    children.push(sectionLabel("Guardrail metrics"));
-    for (const m of exp.guardrail) children.push(ciRowEl(m, P.ci.neutral));
-  }
-  return el(
-    "div",
-    { display: "flex", flexDirection: "column", flexGrow: 1 },
-    children.filter(Boolean) as El[],
-  );
-}
-
-function startedBody(exp: ExperimentCardData): El {
-  const metricCol = (label: string, list: string[], dot: string): El =>
-    el("div", { display: "flex", flexDirection: "column", flexGrow: 1 }, [
-      txt(
-        label,
-        {
-          fontSize: 10,
-          fontWeight: 600,
-          color: P.subtle,
-          letterSpacing: "0.07em",
-          textTransform: "uppercase",
-          marginBottom: 9,
-        },
-        true,
-      ),
-      el(
-        "div",
-        { display: "flex", flexDirection: "column", gap: 8 },
-        list.map((m) =>
+// Title above the header, one numbered row per variation. In a column the
+// section label and title share a line to save height.
+function resultsEl(results: CardResults, density: Density): El {
+  const layout = resultLayoutFor(density);
+  const heading =
+    density === "narrow"
+      ? [
           el(
             "div",
             {
               display: "flex",
               flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
+              alignItems: "baseline",
+              gap: 12,
+              padding: "16px 28px 10px",
             },
             [
-              el("div", {
-                width: 7,
-                height: 7,
-                borderRadius: 9999,
-                backgroundColor: dot,
+              txt(results.sectionLabel, {
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: P.subtle,
               }),
-              txt(m, { fontSize: 13.5, fontWeight: 500, color: P.text }),
+              txt(results.title, {
+                fontSize: 20,
+                fontWeight: 500,
+                color: P.text,
+              }),
             ],
           ),
-        ),
-      ),
-    ]);
-
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "column",
-      flexGrow: 1,
-      padding: "20px 24px",
-    },
-    [
-      el("div", { display: "flex", flexDirection: "column" }, [
-        txt(
-          "Hypothesis",
-          {
-            fontSize: 10,
-            fontWeight: 600,
-            color: P.subtle,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            marginBottom: 7,
-          },
-          true,
-        ),
-        renderMarkdown(exp.hypothesis ?? "", {
-          fontSize: 15,
-          lineHeight: 1.55,
-          color: P.text,
-          weight: 400,
-        }),
-      ]),
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "row",
-          gap: 22,
-          marginTop: 20,
-          paddingTop: 20,
-          borderTop: `1px solid ${P.borderSub}`,
-        },
-        [
-          metricCol(
-            "Goal metric",
-            exp.metrics ? [exp.metrics.goal] : [],
-            SOLID.violet,
-          ),
-          metricCol("Secondary", exp.metrics?.secondary ?? [], SOLID.blue),
-          metricCol("Guardrails", exp.metrics?.guardrail ?? [], SOLID.slate),
-        ],
-      ),
-    ],
-  );
-}
-
-function warningBody(exp: ExperimentCardData): El {
-  const alert = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M12 3 L22 20 H2 Z" fill="none" stroke="${P.st.amber}" stroke-width="2.2" stroke-linejoin="round"/><line x1="12" y1="10" x2="12" y2="14" stroke="${P.st.amber}" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16.8" r="1.1" fill="${P.st.amber}"/></svg>`;
+        ]
+      : [sectionLabel(results.sectionLabel), metricNameEl(results.title)];
   return el("div", { display: "flex", flexDirection: "column", flexGrow: 1 }, [
-    el(
-      "div",
-      {
-        display: "flex",
-        flexDirection: "row",
-        gap: 10,
-        alignItems: "center",
-        padding: "12px 24px",
-        backgroundColor: SOFT.amber,
-        borderBottom: `1px solid ${P.border}`,
-      },
-      [
-        svgImg(alert, 16, 16),
-        el(
-          "div",
-          { display: "flex", flexDirection: "row", alignItems: "center" },
-          [
-            txt("SRM · ", { fontSize: 13, fontWeight: 600, color: P.st.amber }),
-            txt(`${exp.srm ?? ""}  (${exp.p ?? ""})`, {
-              fontSize: 13,
-              fontWeight: 500,
-              color: P.text,
-            }),
-          ],
-        ),
-      ],
-    ),
-    ...goalSectionEls(exp),
-    ...(exp.note
+    ...heading,
+    colHeader(results, layout),
+    ...results.rows.map((r) => resultRowEl(r, results.axis, layout)),
+    ...(results.note
       ? [
-          txt(exp.note, {
-            fontSize: 12,
-            lineHeight: 1.5,
+          txt(results.note, {
+            fontSize: 13,
             color: P.subtle,
-            padding: "12px 24px",
+            padding: "10px 28px 0",
           }),
         ]
       : []),
   ]);
 }
 
-function triAlertSvg(color: string, size = 18): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24"><path d="M12 3 L22 20 H2 Z" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="9.5" x2="12" y2="14.5" stroke="${color}" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.2" fill="${color}"/></svg>`;
-}
-
-// Health is orthogonal to status — an unhealthy experiment gets a red banner
-// under the header regardless of whether it's Running, Won, etc.
-function healthBannerEl(exp: ExperimentCardData): El | null {
-  if (!exp.health || exp.health.status !== "unhealthy") return null;
-  const col = P.st.red;
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "row",
-      gap: 12,
-      alignItems: "flex-start",
-      padding: "13px 24px",
-      backgroundColor: SOFT.red,
-      borderBottom: `1px solid ${P.border}`,
-    },
-    [
-      svgImg(triAlertSvg(col, 18), 18, 18),
-      el(
-        "div",
-        { display: "flex", flexDirection: "column", flexGrow: 1, gap: 6 },
-        [
-          txt("Health · Needs attention", {
-            fontSize: 12.5,
-            fontWeight: 700,
-            color: col,
-          }),
-          el(
-            "div",
-            { display: "flex", flexDirection: "column", gap: 4 },
-            exp.health.issues.map(([label, detail]) =>
-              el(
-                "div",
-                {
-                  display: "flex",
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  alignItems: "baseline",
-                  gap: 4,
-                },
-                [
-                  txt(label, {
-                    fontSize: 12,
-                    lineHeight: 1.4,
-                    fontWeight: 600,
-                    color: P.text,
-                  }),
-                  txt(`— ${detail}`, {
-                    fontSize: 12,
-                    lineHeight: 1.4,
-                    color: P.muted,
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    ],
-  );
-}
-
-// Hypothesis above the conclusion for non-started states (the started layout
-// carries its own, larger hypothesis inside the body).
-function hypothesisEl(exp: ExperimentCardData): El | null {
-  if (exp.state === "started" || !exp.hypothesis) return null;
+// The main learning, featured near the top: soft tone-colored background, a
+// caps label, then the prose. Inside a column it fills the column's height
+// and leaves the divider to the column itself.
+function calloutEl(callout: CardCallout, hue: Hue, density: Density): El {
+  const fontSize = density === "narrow" ? 18 : 20;
+  const block = (label: string, markdown: string, first: boolean) => [
+    txt(label, {
+      fontSize: 12,
+      fontWeight: 600,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase",
+      color: P.st[hue],
+      marginBottom: 6,
+      ...(first ? {} : { marginTop: 16 }),
+    }),
+    renderMarkdown(markdown, { ...PROSE_STYLE, fontSize, lineHeight: 1.4 }),
+  ];
   return el(
     "div",
     {
       display: "flex",
       flexDirection: "column",
-      padding: "14px 24px 13px",
-      borderBottom: `1px solid ${P.borderSub}`,
-    },
-    [
-      txt("Hypothesis", {
-        fontSize: 9.5,
-        fontWeight: 600,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        color: P.subtle,
-        marginBottom: 6,
-      }),
-      renderMarkdown(exp.hypothesis, PROSE_STYLE),
-    ],
-  );
-}
-
-// The main learning, featured near the top — "lead" treatment: soft status-hue
-// background, a caps CONCLUSION label, then the conclusion text. The body text
-// matches the hypothesis (same size + color) since the two are of similar
-// importance; the tinted background and colored label carry the emphasis.
-function conclusionEl(exp: ExperimentCardData): El | null {
-  if (!exp.conclusion?.text) return null;
-  const hue = HUE[exp.state];
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "column",
-      padding: "18px 24px 16px",
+      padding: "18px 28px 20px",
       backgroundColor: SOFT[hue],
-      borderBottom: `1px solid ${P.border}`,
+      ...(density === "narrow"
+        ? { flexGrow: 1 }
+        : { borderBottom: `1px solid ${P.border}` }),
     },
     [
-      txt("Conclusion", {
-        fontSize: 9.5,
-        fontWeight: 600,
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
-        color: P.st[hue],
-        marginBottom: 7,
-      }),
-      renderMarkdown(exp.conclusion.text, PROSE_STYLE),
+      ...block(callout.label, callout.markdown, true),
+      ...(callout.aside
+        ? block(callout.aside.label, callout.aside.markdown, false)
+        : []),
     ],
   );
 }
 
-const TABLE_COL_W = 92;
+const TABLE = {
+  colW: 200,
+  gap: 18,
+  pad: "18px 24px",
+  head: 14,
+  cell: 22,
+  note: 17,
+} as const;
 
 // Plain text table: first column flexes and is left-aligned, the rest are
 // fixed-width and right-aligned.
 function tableEl(table: CardTable): El {
+  const sz = TABLE;
   const cell = (s: string, i: number, style: Record<string, unknown>) =>
     el(
       "div",
       {
         display: "flex",
         justifyContent: i === 0 ? "flex-start" : "flex-end",
-        ...(i === 0 ? { flexGrow: 1, minWidth: 0 } : { width: TABLE_COL_W }),
+        ...(i === 0 ? { flexGrow: 1, minWidth: 0 } : { width: sz.colW }),
       },
       [txt(s, style, i !== 0)],
     );
@@ -1226,8 +894,8 @@ function tableEl(table: CardTable): El {
         display: "flex",
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
-        padding: "8px 12px",
+        gap: sz.gap,
+        padding: sz.pad,
         ...style,
       },
       cells,
@@ -1238,14 +906,14 @@ function tableEl(table: CardTable): El {
       display: "flex",
       flexDirection: "column",
       border: `1px solid ${P.border}`,
-      borderRadius: 8,
+      borderRadius: 10,
       overflow: "hidden",
     },
     [
       row(
         table.columns.map((c, i) =>
           cell(c, i, {
-            fontSize: 9.5,
+            fontSize: sz.head,
             fontWeight: 600,
             letterSpacing: "0.05em",
             textTransform: "uppercase",
@@ -1258,7 +926,7 @@ function tableEl(table: CardTable): El {
         row(
           r.map((s, i) =>
             cell(s, i, {
-              fontSize: 13,
+              fontSize: sz.cell,
               fontWeight: i === 0 ? 500 : 400,
               color: P.text,
             }),
@@ -1268,7 +936,7 @@ function tableEl(table: CardTable): El {
       ),
       ...(table.note
         ? [
-            row([txt(table.note, { fontSize: 12, color: P.muted })], {
+            row([txt(table.note, { fontSize: sz.note, color: P.muted })], {
               borderTop: `1px solid ${P.borderSub}`,
             }),
           ]
@@ -1277,149 +945,179 @@ function tableEl(table: CardTable): El {
   );
 }
 
-function eventSummaryBody(card: EventCardData): El {
+// Label above, value below — matching the column headers and section labels
+// used elsewhere on the cards.
+function fieldEl(field: CardField): El {
+  return el("div", { display: "flex", flexDirection: "column", gap: 6 }, [
+    txt(field.label, {
+      fontSize: 12,
+      fontWeight: 600,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase",
+      color: P.subtle,
+    }),
+    renderMarkdown(field.value, {
+      fontSize: 20,
+      lineHeight: 1.4,
+      color: P.text,
+      weight: 400,
+    }),
+  ]);
+}
+
+// Inset body section: fields and tables sit inside the card's gutters, unlike
+// callouts and results tables, which run full-bleed.
+function insetSection(children: El[]): El {
   return el(
     "div",
-    { display: "flex", flexDirection: "column", gap: 12, padding: "20px 24px" },
-    [
-      ...card.summary.map((line) =>
-        txt(plainClamp(line, 240), { fontSize: 17, color: P.text }),
-      ),
-      ...(card.table ? [tableEl(card.table)] : []),
-    ],
+    {
+      display: "flex",
+      flexDirection: "column",
+      gap: 22,
+      padding: "0 28px 26px",
+    },
+    children,
   );
 }
 
-function buildCard(card: CardData): El {
-  const hue = HUE[card.state];
-  if (!isResultsCard(card)) {
-    return cardShell(hue, [
-      headerEl(card),
-      eventSummaryBody(card),
-      footerEl([card.dates]),
-    ]);
-  }
-  const exp = card;
-  let body: El;
-  let footerItems: (string | undefined)[];
-
-  if (exp.state === "started") {
-    body = startedBody(exp);
-    footerItems = [exp.variants.join(" · "), exp.dates, exp.ds];
-  } else if (exp.state === "warning") {
-    body = warningBody(exp);
-    footerItems = [
-      exp.days,
-      exp.users ? `${exp.users} users` : undefined,
-      exp.dates,
-      exp.ds,
-    ];
-  } else {
-    body = standardBody(exp);
-    const healthy = !exp.health || exp.health.status !== "unhealthy";
-    footerItems = [
-      exp.days,
-      exp.users ? `${exp.users} users` : undefined,
-      exp.dates,
-      exp.ds,
-      healthy ? "Health: healthy" : "Health: needs attention",
-    ];
-  }
-
-  const column = [
-    headerEl(exp),
-    healthBannerEl(exp),
-    hypothesisEl(exp),
-    conclusionEl(exp),
-    body,
-    footerEl(footerItems),
-  ].filter(Boolean) as El[];
-
-  return cardShell(hue, column);
-}
-
-// The rounded panel + full-height status rail shared by every card style.
-function cardShell(hue: Hue, column: El[]): El {
+// A narrow left column beside a wide right one, each a stack of sections.
+function columnsEl(left: CardSection[], right: CardSection[], hue: Hue): El {
+  const column = (sections: CardSection[], style: Record<string, unknown>) =>
+    el(
+      "div",
+      { display: "flex", flexDirection: "column", ...style },
+      sections.map((s) => sectionEl(s, hue, "narrow")),
+    );
   return el(
     "div",
     {
       display: "flex",
       flexDirection: "row",
+      alignItems: "stretch",
+      flexGrow: 1,
+    },
+    [
+      column(left, {
+        width: LEFT_COLUMN_WIDTH,
+        flexShrink: 0,
+        borderRight: `1px solid ${P.border}`,
+      }),
+      column(right, { flexGrow: 1, minWidth: 0 }),
+    ],
+  );
+}
+
+function sectionEl(
+  section: CardSection,
+  hue: Hue,
+  density: Density = "full",
+): El {
+  switch (section.kind) {
+    case "fields":
+      return insetSection(section.fields.map(fieldEl));
+    case "table":
+      return insetSection([tableEl(section.table)]);
+    case "callout":
+      return calloutEl(section.callout, hue, density);
+    case "results":
+      return resultsEl(section.results, density);
+    case "columns":
+      return columnsEl(section.left, section.right, hue);
+    default: {
+      const exhaustive: never = section;
+      throw new Error(
+        `Unhandled notification card section: ${JSON.stringify(exhaustive)}`,
+      );
+    }
+  }
+}
+
+// Full-width headline bar in the card's tone color, e.g. "Health Alert - SRM
+// Detected", with the card's icon. Amber is too light for white text, so it
+// gets the dark text color; the other hues take white.
+function eventBannerEl(card: CardIdentity, hue: Hue): El {
+  const color = hue === "amber" ? P.text : "#ffffff";
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 12,
+      padding: "16px 28px",
+      backgroundColor: SOLID[hue],
+    },
+    [
+      txt(card.banner, {
+        fontSize: 22,
+        fontWeight: 600,
+        letterSpacing: "-0.01em",
+        color,
+      }),
+      svgImg(eventIconSvg(card.icon, color), 26, 26),
+    ],
+  );
+}
+
+// Header for banner cards: the banner carries the tone and the footer the
+// logo, so this is just the large object name (plus tags).
+function eventHeaderEl(card: CardIdentity): El {
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: 14,
+      flexWrap: "wrap",
+      padding: "22px 28px 18px",
+    },
+    [
+      txt(card.name, {
+        fontSize: 28,
+        fontWeight: 600,
+        color: P.text,
+        letterSpacing: "-0.01em",
+      }),
+    ],
+  );
+}
+
+function buildCard(card: CardData): El {
+  const hue = HUE[card.tone];
+  return cardShell([
+    eventBannerEl(card, hue),
+    eventHeaderEl(card),
+    ...card.sections.map((section) => sectionEl(section, hue)),
+    standardFooterEl(card),
+  ]);
+}
+
+// The rounded panel shared by every card. Status color comes from the badge or
+// banner, not a rail.
+function cardShell(column: (El | null)[]): El {
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
       width: CARD_WIDTH,
       backgroundColor: P.panel,
       border: `1px solid ${P.border}`,
       borderRadius: 14,
       overflow: "hidden",
     },
-    [
-      el("div", { display: "flex", width: RAIL, backgroundColor: SOLID[hue] }),
-      el(
-        "div",
-        { display: "flex", flexDirection: "column", flexGrow: 1 },
-        column,
-      ),
-    ],
+    column.filter(Boolean) as El[],
   );
 }
 
 // ---------------------------------------------------------------------------
-// Compact card — a glanceable single-hero-stat card for per-event
-// notifications (stopped / started / warning). Reuses the same
-// header, rail, violin, badge, and tokens as the detailed card, condensed to
-// header + one hero row + slim footer (no full metrics table).
+// Event banner icons.
 // ---------------------------------------------------------------------------
 
-// Markdown -> plain text, collapsed and clamped to one line for compact prose.
-function plainClamp(md: string, max: number): string {
-  const plain = parseInlineMd(md)
-    .map((r) => r.text)
-    .join("")
-    .replace(/\s+/g, " ")
-    .trim();
-  return plain.length <= max ? plain : plain.slice(0, max - 1).trimEnd() + "…";
-}
-
-type EventIconKind = "play" | "check" | "trophy" | "x" | "stop" | "warn";
-
-// Event catalog: label, hue, the experiment status the event implies, and icon.
-const COMPACT_EVENT: Record<
-  CompactEvent,
-  {
-    label: string;
-    hue: Hue;
-    status: "running" | "stopped";
-    icon: EventIconKind;
-  }
-> = {
-  started: {
-    label: "Experiment started",
-    hue: "violet",
-    status: "running",
-    icon: "play",
-  },
-  won: {
-    label: "Declared a winner",
-    hue: "green",
-    status: "stopped",
-    icon: "trophy",
-  },
-  lost: { label: "Rolled back", hue: "red", status: "stopped", icon: "x" },
-  stopped: {
-    label: "Experiment stopped",
-    hue: "slate",
-    status: "stopped",
-    icon: "stop",
-  },
-  warning: {
-    label: "Health alert",
-    hue: "amber",
-    status: "running",
-    icon: "warn",
-  },
-};
-
 // Icons drawn in a 24x24 viewBox (svgImg scales to the requested px).
-function eventIconSvg(kind: EventIconKind, color: string): string {
+function eventIconSvg(kind: CardIcon, color: string): string {
   const wrap = (inner: string) =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${inner}</svg>`;
   switch (kind) {
@@ -1442,558 +1140,45 @@ function eventIconSvg(kind: EventIconKind, color: string): string {
         `<rect x="5" y="5" width="14" height="14" rx="2" fill="${color}"/>`,
       );
     case "warn":
-    default:
       return wrap(
         `<path d="M12 3 L22 20 H2 Z" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="9.5" x2="12" y2="14.5" stroke="${color}" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.2" fill="${color}"/>`,
       );
-  }
-}
-
-// Translucent-white status pill that sits on the solid event banner.
-function statusPillEl(status: "running" | "stopped"): El {
-  const running = status === "running";
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      padding: "3px 10px",
-      borderRadius: 9999,
-      backgroundColor: "rgba(255,255,255,0.22)",
-    },
-    [
-      el("div", {
-        width: 6,
-        height: 6,
-        borderRadius: 9999,
-        backgroundColor: "#ffffff",
-      }),
-      txt(running ? "Running" : "Stopped", {
-        fontSize: 11,
-        fontWeight: 500,
-        color: "#ffffff",
-      }),
-    ],
-  );
-}
-
-// Derive the event when the caller didn't set one (samples / assistant path).
-function compactEventFor(exp: CardIdentity): CompactEvent {
-  if (exp.event) return exp.event;
-  switch (exp.state) {
-    case "started":
-    case "running":
-      return "started";
-    case "winner":
-      return "won";
-    case "loser":
-      return "lost";
-    case "warning":
-      return "warning";
-    case "stopped":
-    default:
-      return "stopped";
-  }
-}
-
-function capLabel(
-  text: string,
-  marginBottom = 6,
-  color: string = P.subtle,
-): El {
-  return txt(text, {
-    fontSize: 9.5,
-    fontWeight: 600,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    color,
-    marginBottom,
-  });
-}
-
-// Full-width solid event banner: a rounded icon chip + the event label in white
-// on the event color, with a translucent-white status pill on the right.
-// Carries the status color (the compact card has no left rail).
-function compactBannerEl(
-  ev: (typeof COMPACT_EVENT)[CompactEvent],
-  hue: Hue,
-): El {
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap: 14,
-      padding: "13px 22px",
-      backgroundColor: SOLID[hue],
-    },
-    [
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-        },
-        [
-          el(
-            "div",
-            {
-              display: "flex",
-              width: 28,
-              height: 28,
-              borderRadius: 7,
-              backgroundColor: "rgba(255,255,255,0.22)",
-              alignItems: "center",
-              justifyContent: "center",
-            },
-            svgImg(eventIconSvg(ev.icon, "#ffffff"), 15, 15),
-          ),
-          txt(ev.label, {
-            fontSize: 15,
-            fontWeight: 700,
-            letterSpacing: "0.01em",
-            color: "#ffffff",
-          }),
-        ],
-      ),
-      statusPillEl(ev.status),
-    ],
-  );
-}
-
-// Name row on the white body, directly under the banner.
-function compactNameRowEl(exp: CardIdentity): El {
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      flexWrap: "wrap",
-      padding: "14px 22px 0",
-    },
-    [
-      txt(exp.name, {
-        fontSize: 18,
-        fontWeight: 600,
-        color: P.text,
-        letterSpacing: "-0.01em",
-      }),
-      txt(exp.key, { fontSize: 11.5, color: P.subtle }, true),
-      ...(exp.tags?.length ? tagBadges(exp.tags) : []),
-    ],
-  );
-}
-
-function compactHero(
-  exp: ExperimentCardData,
-  event: CompactEvent,
-  hue: Hue,
-): El {
-  const accentText = P.st[hue];
-  const r = exp.rows[0];
-
-  if (event === "started") {
-    return el(
-      "div",
-      { display: "flex", flexDirection: "column", gap: 14, width: "100%" },
-      [
-        el("div", { display: "flex", flexDirection: "column" }, [
-          capLabel("Hypothesis"),
-          renderMarkdown(
-            exp.hypothesis ? plainClamp(exp.hypothesis, 220) : "",
-            { fontSize: 14, lineHeight: 1.5, color: P.text, weight: 400 },
-          ),
-        ]),
-        el(
-          "div",
-          {
-            display: "flex",
-            flexDirection: "row",
-            gap: 34,
-            paddingTop: 14,
-            borderTop: `1px solid ${P.borderSub}`,
-          },
-          [
-            el("div", { display: "flex", flexDirection: "column" }, [
-              capLabel("Goal metric", 4),
-              txt(exp.goal, { fontSize: 14.5, fontWeight: 500, color: P.text }),
-            ]),
-          ],
-        ),
-      ],
-    );
-  }
-
-  if (event === "warning") {
-    // Describe the actual health issue rather than assuming SRM. SRM is carried
-    // on exp.srm/exp.p; other data-quality issues (multiple exposures, unknown
-    // variations) live in exp.health.issues; operational alerts (guardrail
-    // failed / no data / query failed) have neither, so fall back to a generic
-    // line — the accompanying text message carries the specifics.
-    const issues = exp.health?.issues ?? [];
-    const bodyStyle = {
-      fontSize: 13,
-      lineHeight: 1.5,
-      color: P.text,
-      weight: 400,
-    } as const;
-    const lines: El[] = [];
-    if (exp.srm) {
-      lines.push(
-        renderMarkdown(
-          `Traffic isn't splitting as configured; fix the assignment before trusting results. (${exp.srm}${
-            exp.p ? ` · ${exp.p}` : ""
-          })`,
-          bodyStyle,
-        ),
-      );
+    default: {
+      const exhaustive: never = kind;
+      throw new Error(`Unhandled notification card icon: ${exhaustive}`);
     }
-    issues.forEach(([label, detail]) =>
-      lines.push(renderMarkdown(`**${label}** — ${detail}`, bodyStyle)),
-    );
-    if (lines.length === 0) {
-      lines.push(
-        renderMarkdown(
-          "A health check flagged this experiment — review it before trusting results.",
-          bodyStyle,
-        ),
-      );
-    }
-    const title = exp.srm
-      ? "Sample Ratio Mismatch — results paused"
-      : issues.length === 1
-        ? issues[0][0]
-        : issues.length > 1
-          ? "Health warnings"
-          : "Health alert";
-    return el(
-      "div",
-      {
-        display: "flex",
-        flexDirection: "row",
-        gap: 13,
-        alignItems: "flex-start",
-        padding: "14px 16px",
-        backgroundColor: SOFT.amber,
-        borderRadius: 8,
-        width: "100%",
-      },
-      [
-        svgImg(triAlertSvg(P.st.amber, 20), 20, 20),
-        el(
-          "div",
-          {
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-            flexGrow: 1,
-            minWidth: 0,
-          },
-          [
-            txt(title, {
-              fontSize: 14,
-              fontWeight: 700,
-              color: P.st.amber,
-            }),
-            ...lines,
-          ],
-        ),
-      ],
-    );
   }
-
-  // won / lost / stopped — outcome-forward.
-  const line = exp.conclusion?.text
-    ? plainClamp(exp.conclusion.text, 200)
-    : exp.compactLine
-      ? plainClamp(exp.compactLine, 200)
-      : "";
-  // A won test shows the variation that shipped, matched by index (names can
-  // collide). If the winner is control or has no goal row, outcomeRow is
-  // undefined and the hero shows just the word. lost/stopped use the first row.
-  const outcomeRow =
-    event === "won"
-      ? (exp.winningVariationIndex ?? null) !== null
-        ? exp.rows.find((row) => row.i === exp.winningVariationIndex)
-        : r
-      : r;
-  const word =
-    event === "won"
-      ? exp.winningVariation
-        ? `${exp.winningVariation} won`
-        : "Winner"
-      : event === "lost"
-        ? "No lift"
-        : "Inconclusive";
-  const dirColor = outcomeRow?.dir === "up" ? P.st.green : P.st.red;
-  // Big-number layout for outcome events: metric eyebrow, then the
-  // change with a direction arrow (sign dropped — the arrow carries it), then
-  // the outcome word.
-  const heroChildren: (El | null)[] = [
-    capLabel(exp.goal, 6, P.text),
-    outcomeRow?.chg && outcomeRow.dir
-      ? el(
-          "div",
-          {
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "flex-start",
-            gap: 6,
-            flexWrap: "wrap",
-          },
-          [
-            arrowImg(outcomeRow.dir, dirColor, 20),
-            txt((outcomeRow.chg ?? "").replace(/^[+-]/, ""), {
-              fontSize: 44,
-              fontWeight: 700,
-              color: dirColor,
-              letterSpacing: "-0.02em",
-              lineHeight: 1,
-            }),
-            txt(word, {
-              fontSize: 15,
-              fontWeight: 600,
-              color: accentText,
-              marginLeft: 8,
-              alignSelf: "flex-end",
-              marginBottom: 6,
-            }),
-          ],
-        )
-      : txt(word, {
-          fontSize: 26,
-          fontWeight: 700,
-          color: accentText,
-          letterSpacing: "-0.02em",
-        }),
-  ];
-  // Confidence for the winning/decided variation (chance to beat control).
-  if (outcomeRow?.ctw) {
-    heroChildren.push(
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "baseline",
-          gap: 7,
-        },
-        [
-          txt(
-            outcomeRow.ctw,
-            { fontSize: 16, fontWeight: 600, color: ctwColor(outcomeRow.ctw) },
-            true,
-          ),
-          txt("chance to beat control", {
-            fontSize: 12.5,
-            fontWeight: 500,
-            color: P.subtle,
-          }),
-        ],
-      ),
-    );
-  }
-  if (line) {
-    heroChildren.push(
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "column",
-          paddingTop: 12,
-          borderTop: `1px solid ${P.borderSub}`,
-        },
-        [
-          capLabel("Conclusion"),
-          renderMarkdown(line, {
-            fontSize: 14,
-            lineHeight: 1.5,
-            color: P.text,
-            weight: 400,
-          }),
-        ],
-      ),
-    );
-  }
-  return el(
-    "div",
-    { display: "flex", flexDirection: "column", gap: 10, width: "100%" },
-    heroChildren.filter(Boolean) as El[],
-  );
 }
 
-function compactFooterItems(
-  exp: ExperimentCardData,
-  event: CompactEvent,
-): (string | undefined)[] {
-  // Running-state events (no end date) omit the date range from the footer.
-  if (event === "started") return [exp.variants.join(" · "), exp.dates, exp.ds];
-  if (event === "warning") {
-    return [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds];
-  }
-  return [
-    exp.days,
-    exp.users ? `${exp.users} users` : undefined,
-    exp.dates,
-    exp.ds,
-  ];
-}
-
-function buildCompactCard(card: CardData): El {
-  const event = compactEventFor(card);
-  const ev = COMPACT_EVENT[event];
-  // Event hue drives the rail + eyebrow; win/ship tint by
-  // direction (a "ship recommended" with a down metric goes red).
-  let hue = ev.hue;
-  if (isResultsCard(card) && event === "won" && card.rows[0]?.dir === "down") {
-    hue = "red";
-  }
-
-  const [hero, footerItems] = isResultsCard(card)
-    ? [compactHero(card, event, hue), compactFooterItems(card, event)]
-    : [eventSummaryBody(card), [card.dates]];
-
-  // Rail-less panel: the solid banner carries the status color. The hero wrapper
-  // flex-grows and centers its content so short cards sit at min-height without
-  // looking wide-and-short; tall ones grow.
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "column",
-      width: COMPACT_WIDTH,
-      minHeight: COMPACT_MIN_HEIGHT,
-      backgroundColor: P.panel,
-      border: `1px solid ${P.border}`,
-      borderRadius: 14,
-      overflow: "hidden",
-    },
-    [
-      compactBannerEl(ev, hue),
-      compactNameRowEl(card),
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          justifyContent: "center",
-          padding: "16px 22px 18px",
-        },
-        [hero],
-      ),
-      compactFooterEl(footerItems),
-    ],
-  );
-}
-
-// Compact-card footer: metadata on the left, GrowthBook logo bottom-right.
-function compactFooterEl(items: (string | undefined)[]): El {
-  const fitems = items.filter((x): x is string => !!x);
-  const logoH = 16;
-  const logoW = Math.round(logoH * LOGO_ASPECT);
-  const gap = 12;
-  // Fixed metadata width so a long row wraps instead of pushing the logo off the
-  // right edge (Satori doesn't wrap flexGrow text — fixed widths do).
-  const metaW = COMPACT_WIDTH - 44 - gap - logoW;
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap,
-      padding: "11px 22px",
-      borderTop: `1px solid ${P.border}`,
-      marginTop: "auto",
-    },
-    [
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "row",
-          flexWrap: "wrap",
-          alignItems: "center",
-          width: metaW,
-        },
-        fitems.map((t, i) =>
-          el(
-            "div",
-            { display: "flex", flexDirection: "row", alignItems: "center" },
-            [
-              i > 0
-                ? txt("·", {
-                    fontSize: 11.5,
-                    color: P.subtle,
-                    margin: "0 9px",
-                    opacity: 0.55,
-                  })
-                : null,
-              txt(t, { fontSize: 11.5, color: P.subtle }),
-            ].filter(Boolean) as El[],
-          ),
-        ),
-      ),
-      {
-        type: "img",
-        props: {
-          src: getLogoDataUri(),
-          width: logoW,
-          height: logoH,
-          // flexShrink:0 so a long metadata row can't squeeze/clip the logo.
-          style: { display: "flex", flexShrink: 0 },
-        },
-      } as El,
-    ],
-  );
-}
-
-async function rasterize(root: El, width = CARD_WIDTH): Promise<Buffer> {
+async function rasterize(root: El): Promise<Buffer> {
   await ensureWasmInitialized();
   const svg = await satori(root as unknown as Parameters<typeof satori>[0], {
-    width,
+    width: CARD_WIDTH,
     fonts: getFonts(),
   });
   const resvg = new Resvg(svg, {
-    fitTo: { mode: "width", value: width * 2 },
+    fitTo: { mode: "width", value: CARD_WIDTH * 2 },
   });
   return Buffer.from(resvg.render().asPng());
 }
 
 /**
- * Render the "detailed" experiment card to a PNG buffer — the full results
- * table with posterior violin plots, CI pills, and health signals. Rendered at
- * 2x width for crisp display in messaging clients; height auto-fits.
- *
- * This is one card *style*; callers should go through `renderCard` in
- * `./cardStyles`, which dispatches by style, rather than calling this directly.
+ * Render a card to a PNG buffer: the full results table with posterior violin
+ * plots, CI pills, and health signals, at 2x width for crisp display in
+ * messaging clients; height auto-fits. Callers go through `renderCard` in
+ * `./cardStyles`, which picks the theme.
  */
-export async function renderDetailedCard(exp: CardData): Promise<Buffer> {
+export async function renderLightCard(exp: CardData): Promise<Buffer> {
   return rasterize(buildCard(exp));
 }
 
-/**
- * Render the "compact" experiment card — a glanceable single-hero-stat card for
- * per-event notifications. Uses a colored event banner and a narrow layout.
- * Callers should use `renderCard` in `./cardStyles`.
- */
-export async function renderCompactCard(exp: CardData): Promise<Buffer> {
-  return rasterize(buildCompactCard(exp), COMPACT_WIDTH);
+export async function renderDarkCard(exp: CardData): Promise<Buffer> {
+  return rasterize(darkTheme(buildCard(exp)));
 }
 
-// Recolor the generated body tree, leaving the event banner and brand asset intact.
-// The tree is local to this render, so concurrent light/dark requests cannot mix palettes.
-const COMPACT_DARK_COLORS: Record<string, string> = {
+// Light palette -> dark palette. The tree is local to one render, so
+// concurrent light and dark requests cannot mix.
+const DARK_COLORS: Record<string, string> = {
   "#ffffff": "#1D202A",
   "#faf8ff": "#242833",
   "#1f2d5c": "#EDEEF0",
@@ -2009,23 +1194,22 @@ const COMPACT_DARK_COLORS: Record<string, string> = {
   "#c40006": "#FF8F95",
   "#ab6400": "#FFD078",
   "#c1c4cd": "#727B8F",
-  "#eceafb": "#353052",
-  "#e5f1ff": "#253B53",
-  "#0a4a9e": "#8BC4FF",
-  "#e3f5f1": "#234139",
-  "#0a6e62": "#74DCC8",
-  "#fceee6": "#473426",
-  "#944100": "#FFBD87",
 };
 
-function darkCompactBody(node: El): El {
+// Solid banners keep their event color and white text on either theme.
+const FIXED_BACKGROUNDS = new Set(Object.values(SOLID));
+
+function darkTheme(node: El): El {
+  if (FIXED_BACKGROUNDS.has(String(node.props.style?.backgroundColor))) {
+    return node;
+  }
   const recolor = (value: string) =>
     value.replace(
       /#[0-9a-f]{6}/gi,
-      (color) => COMPACT_DARK_COLORS[color.toLowerCase()] ?? color,
+      (color) => DARK_COLORS[color.toLowerCase()] ?? color,
     );
   const child = (value: El | string | null): El | string | null =>
-    value && typeof value === "object" ? darkCompactBody(value) : value;
+    value && typeof value === "object" ? darkTheme(value) : value;
   const children = node.props.children;
   const src = node.props.src;
   const prefix = "data:image/svg+xml;base64,";
@@ -2039,6 +1223,7 @@ function darkCompactBody(node: El): El {
           typeof value === "string" ? recolor(value) : value,
         ]),
       ),
+      // Embedded charts carry their own colors; the logo keeps its brand colors.
       ...(src?.startsWith(prefix) && src !== getLogoDataUri()
         ? {
             src:
@@ -2061,262 +1246,7 @@ function darkCompactBody(node: El): El {
   };
 }
 
-export async function renderCompactDarkCard(exp: CardData): Promise<Buffer> {
-  const light = buildCompactCard(exp);
-  const dark = darkCompactBody(light);
-  if (
-    Array.isArray(light.props.children) &&
-    Array.isArray(dark.props.children)
-  ) {
-    dark.props.children[0] = light.props.children[0];
-  }
-  return rasterize(dark, COMPACT_WIDTH);
-}
-
 /** Sample cards (from the design prototype) for eyeballing each state. */
-export function sampleCard(state: CardState = "winner"): ExperimentCardData {
-  const secondary: CardCiMetric[] = [
-    {
-      name: "Revenue per user",
-      ctrl: "$12.40",
-      vr: "$12.86",
-      chg: "+3.1%",
-      dir: "up",
-      ci: { lo: -0.4, hi: 6.4, pt: 3.1 },
-      sig: false,
-    },
-  ];
-  const guardrail: CardCiMetric[] = [
-    {
-      name: "Page load time",
-      ctrl: "842 ms",
-      vr: "849 ms",
-      chg: "+0.8%",
-      dir: "up",
-      ci: { lo: -1.0, hi: 2.6, pt: 0.8 },
-      sig: false,
-    },
-  ];
-
-  switch (state) {
-    case "started":
-      return {
-        state,
-        name: "Checkout v2 flow",
-        key: "checkout-v2-flow",
-        goal: "Checkout completion rate",
-        variants: ["Control", "Treatment A"],
-        tags: ["revenue", "checkout"],
-        dates: "Jun 28, 2026",
-        ds: "Snowflake · Prod",
-        hypothesis:
-          "A streamlined one-page checkout reduces friction and lifts completion rate without lowering average order value.",
-        metrics: {
-          goal: "Checkout completion rate",
-          secondary: ["Revenue per user", "Add-to-cart rate"],
-          guardrail: ["Page load time", "Refund rate"],
-        },
-        rows: [],
-      };
-    case "running":
-      return {
-        state,
-        name: "Mobile nav redesign",
-        key: "mobile-nav-redesign",
-        goal: "Sessions per user",
-        variants: ["Control", "Bottom tabs"],
-        tags: ["engagement", "mobile"],
-        users: "31,200",
-        days: "Day 21",
-        dates: "Started Jun 9, 2026",
-        ds: "Snowflake · Prod",
-        health: {
-          status: "unhealthy",
-          issues: [
-            ["Multiple exposures", "1.9k users saw more than one variation"],
-            [
-              "Sample Ratio Mismatch",
-              "observed traffic split deviates from the configured split",
-            ],
-          ],
-        },
-        rows: [
-          {
-            v: "Bottom tabs",
-            i: 1,
-            ctrl: "4.62",
-            vr: "4.72",
-            cn: "15.4k",
-            vn: "15.8k",
-            ctw: "78.4%",
-            chg: "+2.1%",
-            dir: "up",
-            vio: { c: 2.1, s: 5.2 },
-            ci: { lo: -1.8, hi: 6.1, pt: 2.1 },
-          },
-        ],
-        secondary,
-        guardrail,
-      };
-    case "loser":
-      return {
-        state,
-        name: "Signup CTA copy",
-        key: "signup-cta-copy",
-        goal: "Signup conversion",
-        variants: ["Control", "Start free"],
-        tags: ["acquisition", "copy"],
-        users: "22,100",
-        days: "Day 14 · stopped",
-        dates: "May 20 – Jun 3, 2026",
-        ds: "Snowflake · Prod",
-        rows: [
-          {
-            v: "Start free",
-            i: 1,
-            ctrl: "5.10%",
-            vr: "5.04%",
-            cn: "11.0k",
-            vn: "11.1k",
-            ctw: "14.0%",
-            chg: "-1.2%",
-            dir: "down",
-            vio: { c: -1.2, s: 3.0 },
-            ci: { lo: -4.6, hi: 2.3, pt: -1.2 },
-          },
-        ],
-        secondary,
-        guardrail,
-      };
-    case "stopped":
-      return {
-        state,
-        name: "Pricing page layout",
-        key: "pricing-page-layout",
-        goal: "Purchase rate",
-        variants: ["Control", "Layout B"],
-        tags: ["pricing"],
-        users: "88,900",
-        days: "Day 30 · stopped",
-        dates: "May 1 – May 31, 2026",
-        ds: "BigQuery · Prod",
-        hypothesis:
-          "Regrouping plans by use case on the pricing page will reduce decision friction and increase purchases.",
-        conclusion: {
-          text: "No clear winner. Neither layout produced a significant change in purchase rate over 30 days, so the experiment was stopped and traffic returned to control.",
-        },
-        rows: [
-          {
-            v: "Layout B",
-            i: 1,
-            ctrl: "2.30%",
-            vr: "2.32%",
-            cn: "44.5k",
-            vn: "44.4k",
-            ctw: "63.0%",
-            chg: "+0.9%",
-            dir: "up",
-            vio: { c: 0.9, s: 4.0 },
-            ci: { lo: -3.2, hi: 5.1, pt: 0.9 },
-          },
-        ],
-        secondary,
-        guardrail,
-      };
-    case "warning":
-      return {
-        state,
-        name: "Onboarding tour v3",
-        key: "onboarding-tour-v3",
-        goal: "Activation rate",
-        variants: ["Control", "Shorter", "Video-first"],
-        tags: ["activation"],
-        users: "9,880",
-        days: "Day 5",
-        dates: "Started Jun 25, 2026",
-        ds: "Mixpanel export",
-        // Note: the bundled Inter subset is latin-only (no Greek), so we avoid
-        // glyphs like "χ²" here — real SRM p-values are formatted on our side.
-        srm: "Expected 33 / 33 / 33 · Observed 38 / 34 / 28",
-        p: "p < 0.001",
-        note: "Sample Ratio Mismatch — traffic is not splitting as configured. Results are unreliable until fixed.",
-        rows: [
-          {
-            v: "Shorter",
-            i: 1,
-            ctrl: "—",
-            vr: "—",
-            ctw: "—",
-            chg: "+0.4%",
-            dir: "up",
-            vio: { c: 0.4, s: 6 },
-            muted: true,
-          },
-          {
-            v: "Video-first",
-            i: 2,
-            ctrl: "—",
-            vr: "—",
-            ctw: "—",
-            chg: "-0.9%",
-            dir: "down",
-            vio: { c: -0.9, s: 6 },
-            muted: true,
-          },
-        ],
-      };
-    case "winner":
-    default:
-      return {
-        state: "winner",
-        name: "Homepage hero test",
-        key: "homepage-hero-test",
-        goal: "Signup conversion",
-        variants: ["Control", "Hero B", "Hero C"],
-        tags: ["acquisition"],
-        users: "162,400",
-        days: "Day 26 · stopped",
-        dates: "May 12 – Jun 7, 2026",
-        ds: "Snowflake · Prod",
-        hypothesis:
-          "A benefit-led hero that leads with the core value proposition will reduce confusion and drive more visitors to sign up.",
-        conclusion: {
-          text: "The winning variation is Hero B. It drove a significant improvement in signup conversion without hurting revenue or page-load guardrails. Rolling out to 100%.",
-        },
-        rows: [
-          {
-            v: "Hero B",
-            i: 1,
-            ctrl: "5.10%",
-            vr: "5.41%",
-            cn: "54.1k",
-            vn: "54.3k",
-            ctw: "99.1%",
-            chg: "+6.1%",
-            dir: "up",
-            vio: { c: 6.1, s: 2.1 },
-            ci: { lo: 3.8, hi: 8.4, pt: 6.1 },
-          },
-          {
-            v: "Hero C",
-            i: 2,
-            ctrl: "5.10%",
-            vr: "5.29%",
-            cn: "54.1k",
-            vn: "54.0k",
-            ctw: "91.0%",
-            chg: "+3.8%",
-            dir: "up",
-            vio: { c: 3.8, s: 2.6 },
-            ci: { lo: 0.9, hi: 6.7, pt: 3.8 },
-          },
-        ],
-        secondary,
-        guardrail,
-      };
-  }
-}
-
 /** Warm the renderer (font + wasm) at startup rather than on first use. */
 export async function warmNotificationCardRenderer(): Promise<void> {
   try {

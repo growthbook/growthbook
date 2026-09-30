@@ -1,3 +1,4 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
@@ -278,7 +279,7 @@ const startExperimentIncrementalRefreshQueries = async (
 
   const settings = integration.datasource.settings;
 
-  // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
+  // Only include metrics tied to this experiment, which is governed by the snapshotSettings.metricSettings
   // after the introduction of metric slices
   // TODO(bryce): refactor the source of truth for metrics so that the expandedMetricMap isn't used to add
   // metrics to an experiment
@@ -1234,11 +1235,20 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
   }
 
+  prepareAnalysisData(
+    params: Pick<
+      ExperimentIncrementalRefreshQueryParams,
+      "metricMap" | "variationNames"
+    >,
+  ): void {
+    this.metricMap = params.metricMap;
+    this.variationNames = params.variationNames;
+  }
+
   async startQueries(
     params: ExperimentIncrementalRefreshQueryParams,
   ): Promise<Queries> {
-    this.metricMap = params.metricMap;
-    this.variationNames = params.variationNames;
+    this.prepareAnalysisData(params);
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
@@ -1409,13 +1419,15 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
+    // Reached from the runner's own failure paths, where neither the queries
+    // nor the analysis is known to be at fault.
     const wrote = await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
-      {
-        queries: this.model.queries,
-        error,
-      },
+      { queries: this.model.queries, error },
+      "unknown",
+      { concludedBy: this.concludedBy },
+      this.experimentUpdateExecutionLogger,
     );
     if (wrote) {
       await this.context.models.incrementalRefresh
@@ -1435,12 +1447,14 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     runStarted,
     result,
     error,
+    failureCause,
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const snapshotStatus =
       status === "running"
@@ -1460,6 +1474,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
+      conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

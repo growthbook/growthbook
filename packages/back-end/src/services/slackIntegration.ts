@@ -1,12 +1,9 @@
-import {
-  createHash,
-  createHmac,
-  randomBytes,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { SLACK_BOT_SCOPES } from "shared/slack-integration";
 import { defaultSlackNotificationEvents } from "shared/notifications";
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
+  parseNotificationSettings,
   SlackNotificationSettingsBody,
   SlackWorkspaceConnectionFrontEndInterface,
   SlackWorkspaceConnectionInterface,
@@ -14,9 +11,9 @@ import {
 import { z } from "zod";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { EventWebHookInterface } from "shared/types/event-webhook";
+import { signState, verifySignedState } from "back-end/src/util/signedState";
 import {
   APP_ORIGIN,
-  JWT_SECRET,
   SLACK_CLIENT_ID,
   SLACK_CLIENT_SECRET,
 } from "back-end/src/util/secrets";
@@ -48,8 +45,7 @@ import {
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
-const SLACK_OAUTH_SCOPE =
-  "chat:write,files:write,channels:read,groups:read,channels:join,assistant:write,im:history,app_mentions:read,commands,links:read,links:write";
+const SLACK_OAUTH_SCOPE = SLACK_BOT_SCOPES.join(",");
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 
 const slackOAuthStateSchema = z
@@ -126,9 +122,6 @@ export const isSlackOAuthConfigured = () =>
 export const getSlackOAuthRedirectUri = () =>
   `${APP_ORIGIN}/integrations/slack`;
 
-const signSlackOAuthState = (payload: string) =>
-  createHmac("sha256", JWT_SECRET).update(payload).digest("base64url");
-
 const encodeSlackOAuthState = ({
   orgId,
   userId,
@@ -137,19 +130,14 @@ const encodeSlackOAuthState = ({
   orgId: string;
   userId: string;
   teamId?: string;
-}) => {
-  const payload = Buffer.from(
-    JSON.stringify({
-      orgId,
-      userId,
-      teamId,
-      nonce: randomBytes(16).toString("base64url"),
-      createdAt: Date.now(),
-    }),
-  ).toString("base64url");
-
-  return `${payload}.${signSlackOAuthState(payload)}`;
-};
+}) =>
+  signState({
+    orgId,
+    userId,
+    teamId,
+    nonce: randomBytes(16).toString("base64url"),
+    createdAt: Date.now(),
+  });
 
 const assertSlackOAuthState = ({
   state,
@@ -158,48 +146,24 @@ const assertSlackOAuthState = ({
   state: string;
   context: ReqContext;
 }) => {
-  const parts = state.split(".");
-  if (parts.length !== 2) {
-    throw new Error("Invalid Slack OAuth state");
-  }
-  const [payload, signature] = parts;
-
-  const expected = signSlackOAuthState(payload);
-  const actualBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-
-  if (
-    actualBuffer.length !== expectedBuffer.length ||
-    !timingSafeEqual(actualBuffer, expectedBuffer)
-  ) {
-    throw new Error("Invalid Slack OAuth state");
-  }
-
-  let statePayload: unknown;
-  try {
-    statePayload = JSON.parse(
-      Buffer.from(payload, "base64url").toString("utf8"),
-    );
-  } catch {
-    throw new Error("Invalid Slack OAuth state");
-  }
-  const parsed = slackOAuthStateSchema.safeParse(statePayload);
-  if (!parsed.success) {
-    throw new Error("Invalid Slack OAuth state");
-  }
-
-  if (Date.now() - parsed.data.createdAt > SLACK_OAUTH_STATE_MAX_AGE_MS) {
+  const verified = verifySignedState(
+    state,
+    slackOAuthStateSchema,
+    SLACK_OAUTH_STATE_MAX_AGE_MS,
+  );
+  if (verified.status === "expired") {
     throw new Error("Slack OAuth state expired");
   }
-
+  if (verified.status !== "valid") {
+    throw new Error("Invalid Slack OAuth state");
+  }
   if (
-    parsed.data.orgId !== context.org.id ||
-    parsed.data.userId !== context.userId
+    verified.data.orgId !== context.org.id ||
+    verified.data.userId !== context.userId
   ) {
     throw new Error("Slack OAuth state does not match the current user");
   }
-
-  return parsed.data;
+  return verified.data;
 };
 
 export const getSlackOAuthAuthorizeUrl = (
@@ -297,6 +261,7 @@ const slackWorkspaceConnectionToFrontEnd = (
   authedUserId: connection.authedUserId,
   scope: connection.scope,
   isEnterpriseInstall: connection.isEnterpriseInstall,
+  assistantEnabled: connection.assistantEnabled,
 });
 
 const upsertSlackWorkspaceConnection = async ({
@@ -400,7 +365,9 @@ export const slackEventWebhookToIntegration = (
   tags: eventWebHook.tags,
   lastRunAt: eventWebHook.lastRunAt,
   lastState: eventWebHook.lastState,
-  notificationSettings: eventWebHook.notificationSettings,
+  notificationSettings: parseNotificationSettings(
+    eventWebHook.notificationSettings,
+  ),
   slack: eventWebHook.slack,
 });
 
@@ -472,6 +439,45 @@ export const listSlackOAuthConnections = async (
   };
 };
 
+/** A single connected workspace may be implied; several must be named. */
+export const pickSlackWorkspaceConnection = (
+  connections: SlackWorkspaceConnectionInterface[],
+  teamId?: string,
+): SlackWorkspaceConnectionInterface => {
+  const connection = teamId
+    ? connections.find((candidate) => candidate.teamId === teamId)
+    : connections.length === 1
+      ? connections[0]
+      : undefined;
+  if (!connection) {
+    throw new Error(
+      connections.length > 1 && !teamId
+        ? "Multiple Slack workspaces are connected — specify which one."
+        : "No Slack workspace connection found. Connect to Slack first.",
+    );
+  }
+  return connection;
+};
+
+export const setSlackAssistantEnabled = async ({
+  context,
+  teamId,
+  enabled,
+}: {
+  context: ReqContext;
+  teamId?: string;
+  enabled: boolean;
+}): Promise<{ enabled: boolean }> => {
+  const target = pickSlackWorkspaceConnection(
+    await context.models.slackWorkspaceConnections.getAll(),
+    teamId,
+  );
+  await context.models.slackWorkspaceConnections.update(target, {
+    assistantEnabled: enabled,
+  });
+  return { enabled };
+};
+
 export const getSlackOAuthIntegrationById = async ({
   context,
   id,
@@ -505,7 +511,7 @@ export const updateSlackOAuthIntegration = async ({
 
   await updateEventWebHook(
     { eventWebHookId: id, organizationId: context.org.id },
-    updates,
+    { ...updates, events: [...new Set(updates.events)] },
   );
 
   const updated = await getEventWebHookById(id, context.org.id);
@@ -733,18 +739,7 @@ const resolveSlackWorkspace = async ({
     context.models.slackWorkspaceConnections.getAll(),
     getAllEventWebHooks(context.org.id),
   ]);
-  const connection = teamId
-    ? connections.find((candidate) => candidate.teamId === teamId)
-    : connections.length === 1
-      ? connections[0]
-      : undefined;
-  if (!connection) {
-    throw new Error(
-      connections.length > 1 && !teamId
-        ? "Multiple Slack workspaces are connected — specify which one."
-        : "No Slack workspace connection found. Connect to Slack first.",
-    );
-  }
+  const connection = pickSlackWorkspaceConnection(connections, teamId);
   return {
     connection,
     token: getSlackWorkspaceToken(connection),

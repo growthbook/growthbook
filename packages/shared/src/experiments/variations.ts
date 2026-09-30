@@ -88,3 +88,22 @@ export function getAllVariations(
     index: i,
   }));
 }
+
+// The experiment variation a snapshot result column belongs to. Results are
+// indexed by the snapshot's own variation list, keyed at analysis time, which
+// can differ from the experiment's current order; a snapshot without keys, or
+// a key that no longer resolves, falls back to position. `index` is the
+// position in `variations`, so it lines up with `experiment.winner`.
+export function resolveSnapshotVariation<V extends { id: string; key: string }>(
+  variations: V[],
+  snapshotVariations: { id: string }[] | undefined,
+  column: number,
+): { variation: V; index: number } | null {
+  const key = snapshotVariations?.[column]?.id;
+  const variation =
+    (key !== undefined
+      ? (variations.find((v) => v.key === key) ??
+        variations.find((v) => v.id === key))
+      : undefined) ?? variations[column];
+  return variation ? { variation, index: variations.indexOf(variation) } : null;
+}

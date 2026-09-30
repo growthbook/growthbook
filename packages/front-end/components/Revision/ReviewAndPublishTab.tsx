@@ -41,6 +41,7 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import PermissionBlocker from "@/ui/PermissionBlocker";
@@ -1668,7 +1669,7 @@ function ReviewAndPublishRevision<T>({
 
                   {submitError && (
                     <Callout status="error" size="sm">
-                      {submitError}
+                      <MarkdownLinks text={submitError} />
                     </Callout>
                   )}
 

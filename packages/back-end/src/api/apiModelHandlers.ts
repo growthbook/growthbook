@@ -35,6 +35,7 @@ export type CustomApiHandler<
   zodReturnObject: ReturnShape;
   summary: string; // For generating docs, e.g. "Get all dashboards for an experiment"
   description?: string;
+  version?: "v1" | "v2";
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
   reqHandler: (

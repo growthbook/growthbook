@@ -50,7 +50,9 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "o3-mini": "O3 Mini",
   o1: "O1",
   // Anthropic Claude. Tier before version, matching Anthropic's own naming.
+  "claude-opus-5-5": "Claude Opus 5.5",
   "claude-opus-5": "Claude Opus 5",
+  "claude-sonnet-5-5": "Claude Sonnet 5.5",
   "claude-sonnet-5": "Claude Sonnet 5",
   "claude-opus-4-8": "Claude Opus 4.8",
   "claude-sonnet-4-6": "Claude Sonnet 4.6",

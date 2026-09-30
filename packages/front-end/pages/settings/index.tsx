@@ -60,6 +60,7 @@ import {
 import HelperText from "@/ui/HelperText";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
+import useApi from "@/hooks/useApi";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
 import TargetingAttributesSettings from "@/components/GeneralSettings/TargetingAttributesSettings";
 import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
@@ -82,6 +83,10 @@ function hasChanges(
 const GeneralSettingsPage = (): React.ReactElement => {
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
+  // Shares the composer's cache key, so revalidating here updates its `/` menu.
+  const { mutate: mutateAgentSkills } = useApi("/agent/skills", {
+    shouldRun: () => !!settings.aiEnabled,
+  });
   const [saveMsg, setSaveMsg] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
@@ -191,6 +196,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
       requireUniqueExperimentTrackingKeys:
         settings.requireUniqueExperimentTrackingKeys ?? false,
+      experimentKeyExample: settings.experimentKeyExample ?? "",
+      experimentKeyRegexValidator: settings.experimentKeyRegexValidator ?? "",
       experimentMinLengthDays:
         settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
       experimentMaxLengthDays:
@@ -211,6 +218,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ),
       aiEnabled: settings.aiEnabled ?? false,
       aiAskDataEnabled: settings.aiAskDataEnabled ?? false,
+      disabledAgentSkills: settings.disabledAgentSkills ?? [],
       // Seeding a model on Cloud would persist it on the next save of any
       // setting, silently taking the org off the managed default.
       defaultAIModel:
@@ -230,6 +238,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       topValuesLookbackValue:
         settings.topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
       savedGroupSizeLimit: undefined,
+      enforceSavedGroupProjectScope:
+        settings.enforceSavedGroupProjectScope ?? false,
       postStratificationEnabled:
         settings.postStratificationEnabled ??
         DEFAULT_POST_STRATIFICATION_ENABLED,
@@ -286,6 +296,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
     aiAskDataEnabled: form.watch("aiAskDataEnabled"),
+    disabledAgentSkills: form.watch("disabledAgentSkills"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
     sttModel: form.watch("sttModel") || undefined,
@@ -298,6 +309,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     topValuesLookbackValue: form.watch("topValuesLookbackValue"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
+    enforceSavedGroupProjectScope: form.watch("enforceSavedGroupProjectScope"),
     approvalFlows: form.watch("approvalFlows"),
     learningStatuses: form.watch("learningStatuses"),
     requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
@@ -354,6 +366,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
             getRequireRegisteredAttributesSettings(
               settings?.requireRegisteredAttributes,
             );
+        } else if (k === "enforceSavedGroupProjectScope") {
+          newVal.enforceSavedGroupProjectScope =
+            settings.enforceSavedGroupProjectScope ?? false;
         } else if (k === "approvalFlows") {
           newVal.approvalFlows = applyApprovalFlowEntitlements(
             settings?.approvalFlows,
@@ -493,13 +508,29 @@ const GeneralSettingsPage = (): React.ReactElement => {
       }
     }
 
+    const { experimentKeyExample, experimentKeyRegexValidator } =
+      transformedOrgSettings;
+    if (experimentKeyRegexValidator && !experimentKeyExample) {
+      throw new Error(
+        "Experiment key example must not be empty when a regex validator is defined.",
+      );
+    }
+    if (
+      experimentKeyRegexValidator &&
+      !new RegExp(experimentKeyRegexValidator).test(experimentKeyExample ?? "")
+    ) {
+      throw new Error(
+        `Experiment key example must match the regex validator. '${experimentKeyRegexValidator}' Example: '${experimentKeyExample ?? ""}'`,
+      );
+    }
+
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
         settings: transformedOrgSettings,
       }),
     });
-    await refreshOrganization();
+    await Promise.all([refreshOrganization(), mutateAgentSkills()]);
 
     // show the user that the settings have saved:
     setSaveMsg(true);

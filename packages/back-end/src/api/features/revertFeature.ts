@@ -21,6 +21,7 @@ import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
 import {
   assertCanRevertArchived,
+  assertRevertHasChanges,
   assertRevertLandingGuards,
   assertRevertValuesReadable,
 } from "back-end/src/services/revertGuards";
@@ -40,7 +41,7 @@ import {
 } from "back-end/src/services/featureRevisionEvents";
 import {
   getApiFeatureObj,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -303,12 +304,8 @@ export async function revertFeatureCore(
     changes.holdout = targetHoldout;
   }
 
-  // No diff against live — refuse before creating an empty "Locked" revision.
-  if (Object.keys(changes).length === 0) {
-    throw new Error(
-      `Nothing to revert: the live feature already matches revision #${version}.`,
-    );
-  }
+  // Before createRevision, so an empty revert leaves no "Locked" revision.
+  await assertRevertHasChanges(context, feature, changes, revision);
 
   assertRevertValuesReadable(context, feature, changes);
 
@@ -367,7 +364,7 @@ export async function revertFeatureCore(
         ]
       : [];
 
-  await assertRevertLandingGuards(context, feature, changes);
+  await assertRevertLandingGuards(context, feature, changes, revision);
   const { revision: newRevision, updatedFeature } =
     await createAndPublishRevision({
       context,
@@ -391,7 +388,6 @@ export async function revertFeatureCore(
     }),
   });
 
-  const groupMap = await getSavedGroupMap(context);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
   // Re-read so events and the response carry the published status; falls back
   // to the in-memory revision instead of failing the already-committed revert.
@@ -417,16 +413,15 @@ export async function revertFeatureCore(
     {},
   );
 
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-
   return {
     feature: updatedFeature,
     organization,
-    groupMap,
     experimentMap,
     revision: latestRevision,
-    safeRolloutMap,
+    ...(await getFeatureDefinitionLookups(context, {
+      features: [updatedFeature],
+      experiments: experimentMap.values(),
+    })),
     bypassedGates,
   };
 }

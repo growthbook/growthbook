@@ -19,7 +19,10 @@ function rows(
 }
 
 describe("buildContextualBanditObservations", () => {
-  const varIds = ["v0", "v1"];
+  const variations = [
+    { id: "v0", key: "0" },
+    { id: "v1", key: "1" },
+  ];
 
   it("maps numeric variation keys to variation indexes", () => {
     const result = buildContextualBanditObservations(
@@ -27,26 +30,68 @@ describe("buildContextualBanditObservations", () => {
         { variation: "0", count: 10 },
         { variation: "1", count: 20 },
       ]),
-      { varIds, attributes: [] },
+      { variations, attributes: [] },
     );
     expect(result.map((o) => o.variationIndex)).toEqual([0, 1]);
   });
 
-  it("maps variation ids to variation indexes", () => {
+  it("drops rows whose value matches an internal id but not a key", () => {
+    // The warehouse never emits the internal variation id, so we only match on
+    // the key — never the id.
     const result = buildContextualBanditObservations(
-      rows([{ variation: "v1", count: 5 }]),
-      { varIds, attributes: [] },
+      rows([{ variation: "var_b", count: 5 }]),
+      {
+        variations: [
+          { id: "var_a", key: "A0" },
+          { id: "var_b", key: "A1" },
+        ],
+        attributes: [],
+      },
     );
-    expect(result[0].variationIndex).toBe(1);
+    expect(result).toHaveLength(0);
   });
 
-  it("drops rows with an unknown / out-of-range variation", () => {
+  it("maps non-integer variation keys (distinct from ids) to variation indexes", () => {
+    const result = buildContextualBanditObservations(
+      rows([
+        { variation: "A0", count: 10 },
+        { variation: "A1", count: 20 },
+      ]),
+      {
+        variations: [
+          { id: "v0", key: "A0" },
+          { id: "v1", key: "A1" },
+        ],
+        attributes: [],
+      },
+    );
+    expect(result.map((o) => o.variationIndex)).toEqual([0, 1]);
+  });
+
+  it("does not positionally coerce a numeric value that matches no key", () => {
+    // Keys are non-integer ("A0"/"A1"), so a bare "1" matches no key. It must be
+    // dropped rather than mapped to index 1 — the warehouse value is not a
+    // positional index.
+    const result = buildContextualBanditObservations(
+      rows([{ variation: "1", count: 5 }]),
+      {
+        variations: [
+          { id: "var_a", key: "A0" },
+          { id: "var_b", key: "A1" },
+        ],
+        attributes: [],
+      },
+    );
+    expect(result).toHaveLength(0);
+  });
+
+  it("drops rows whose variation matches no key", () => {
     const result = buildContextualBanditObservations(
       rows([
         { variation: "xyz", count: 1 },
         { variation: "5", count: 2 },
       ]),
-      { varIds, attributes: [] },
+      { variations, attributes: [] },
     );
     expect(result).toEqual([]);
   });
@@ -63,7 +108,7 @@ describe("buildContextualBanditObservations", () => {
           [contextualBanditAttrCol("country")]: "US",
         },
       ]),
-      { varIds, attributes: ["Country"] },
+      { variations, attributes: ["Country"] },
     );
     expect(result[0].context).toEqual({ Country: "US" });
   });
@@ -71,7 +116,7 @@ describe("buildContextualBanditObservations", () => {
   it("falls back to the bare attribute column", () => {
     const result = buildContextualBanditObservations(
       rows([{ variation: "0", count: 10, country: "US" }]),
-      { varIds, attributes: ["country"] },
+      { variations, attributes: ["country"] },
     );
     expect(result[0].context).toEqual({ country: "US" });
   });
@@ -81,7 +126,7 @@ describe("buildContextualBanditObservations", () => {
       rows([
         { variation: "0", count: 10, [contextualBanditAttrCol("age")]: 30 },
       ]),
-      { varIds, attributes: ["age"] },
+      { variations, attributes: ["age"] },
     );
     expect(result[0].context).toEqual({ age: "30" });
   });
@@ -95,7 +140,7 @@ describe("buildContextualBanditObservations", () => {
           [contextualBanditAttrCol("country")]: "US",
         },
       ]),
-      { varIds, attributes: ["country", "device"] },
+      { variations, attributes: ["country", "device"] },
     );
     expect(result[0].context).toEqual({ country: "US" });
   });
@@ -111,7 +156,7 @@ describe("buildContextualBanditObservations", () => {
           main_sum_squares: 7,
         },
       ]),
-      { varIds, attributes: [] },
+      { variations, attributes: [] },
     );
     expect(result[0].arm).toEqual({
       n: 10,
@@ -129,7 +174,7 @@ describe("buildContextualBanditObservations", () => {
   it("falls back to users when the row has no count", () => {
     const result = buildContextualBanditObservations(
       rows([{ variation: "0", users: 42, main_sum: 1 }]),
-      { varIds, attributes: [] },
+      { variations, attributes: [] },
     );
     expect(result[0].arm.n).toBe(42);
   });
@@ -145,14 +190,17 @@ describe("buildContextualBanditObservations", () => {
           m1_main_sum: 99,
         },
       ]),
-      { varIds, attributes: [] },
+      { variations, attributes: [] },
     );
     expect(result[0].arm.main_sum).toBe(5);
   });
 
   it("handles an empty row set", () => {
     expect(
-      buildContextualBanditObservations(rows([]), { varIds, attributes: [] }),
+      buildContextualBanditObservations(rows([]), {
+        variations,
+        attributes: [],
+      }),
     ).toEqual([]);
   });
 });

@@ -260,9 +260,9 @@ export default function ExperimentHeader({
     permissionsUtil.canViewExperimentTemplateModal(experiment.project) &&
     hasCommercialFeature("templates");
 
-  const isUsingHealthUnsupportDatasource =
+  const isUsingHealthUnsupportedDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
-  const disableHealthTab = isUsingHealthUnsupportDatasource;
+  const disableHealthTab = isUsingHealthUnsupportedDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
@@ -737,6 +737,7 @@ export default function ExperimentHeader({
           experiment={experiment}
           close={() => setShowScheduleModal(false)}
           mutate={mutate}
+          envs={envs}
         />
       ) : null}
       {showTemplateForm && (

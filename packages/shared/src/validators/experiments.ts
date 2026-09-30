@@ -177,6 +177,10 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "guardrail-failed",
+  "query-failed",
+  "ending-soon",
+  "stale",
   "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
@@ -452,6 +456,9 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
+  // Who armed it, a user or an org API key; the job fires and audits as them.
+  scheduledBy: z.string().optional(),
+  scheduledByApiKey: z.string().optional(),
 });
 
 export const experimentInterface = z
@@ -1483,8 +1490,8 @@ const postExperimentBody = z
         "When true, disables Sticky Bucketing for this experiment. If omitted, defaults to your organization's Sticky Bucketing setting for new experiments. Sticky Bucketing only takes effect when it is also enabled at the organization level.",
       )
       .optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     releasedVariationId: z.string().optional(),
     excludeFromPayload: z.boolean().optional(),
     inProgressConversions: z.enum(["loose", "strict"]).optional(),
@@ -1607,8 +1614,8 @@ const updateExperimentBody = z
       .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     disableStickyBucketing: z.boolean().optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     results: z
       .enum(["dnf", "won", "lost", "inconclusive"])
       .describe(
@@ -1773,7 +1780,7 @@ const postExperimentStartBody = z
     skipChecklist: z
       .boolean()
       .describe(
-        "If true, skips validating the experiment satisifies all pre-launch checklist items",
+        "If true, skips validating the experiment satisfies all pre-launch checklist items",
       )
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
@@ -2288,7 +2295,7 @@ export const postExperimentSnapshotValidator = {
       triggeredBy: z
         .enum(["manual", "schedule"])
         .describe(
-          'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
+          'Set to "schedule" if you want this request to trigger notifications and other events as if it were a scheduled update. Defaults to manual.',
         )
         .optional(),
       dimension: z

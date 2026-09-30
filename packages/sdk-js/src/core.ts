@@ -128,6 +128,18 @@ function onExperimentViewed(
       ),
     );
   }
+
+  // Deduped above — subscribers fire once per unique experiment assignment.
+  if (ctx.user.experimentViewedSubs?.size) {
+    const user = getTrackingUserContext(ctx.user);
+    ctx.user.experimentViewedSubs.forEach((cb) => {
+      try {
+        cb(experiment, result, user);
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  }
   return calls;
 }
 
@@ -247,6 +259,7 @@ export function evalFeature<V = unknown>(
           const evaled = evalCondition(
             evalObj,
             parentCondition.condition || {},
+            ctx.global.savedGroups || {},
           );
           if (!evaled) {
             // blocking prerequisite eval failed: feature evaluation fails
@@ -618,7 +631,13 @@ export function runExperiment<T>(
         }
 
         const evalObj = { value: parentResult.value };
-        if (!evalCondition(evalObj, parentCondition.condition || {})) {
+        if (
+          !evalCondition(
+            evalObj,
+            parentCondition.condition || {},
+            ctx.global.savedGroups || {},
+          )
+        ) {
           process.env.NODE_ENV !== "production" &&
             ctx.global.log("Skip because prerequisite evaluation fails", {
               id: key,

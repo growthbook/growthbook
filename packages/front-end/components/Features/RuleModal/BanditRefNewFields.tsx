@@ -1,6 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { useEffect } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { CustomField } from "shared/types/custom-fields";
 import {
   FeatureInterface,
   FeaturePrerequisite,
@@ -12,6 +13,7 @@ import { Box, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import SelectField from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import HashVersionSelector, {
@@ -50,6 +52,7 @@ import RuleProjectScopeField, {
   type ProjectScopeProps,
 } from "@/components/Features/RuleModal/ProjectScopeField";
 import Callout from "@/ui/Callout";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 
 export default function BanditRefNewFields({
   step,
@@ -57,6 +60,7 @@ export default function BanditRefNewFields({
   feature,
   project,
   attributeProjects,
+  savedGroupProjects,
   attributeSelectIndicator,
   environments,
   prerequisiteValue,
@@ -78,6 +82,9 @@ export default function BanditRefNewFields({
   setVariations,
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
+  customFields,
+  customFieldValues,
+  setCustomFields,
   envScope,
   projectScope,
   onRuleCyclicChange,
@@ -87,6 +94,7 @@ export default function BanditRefNewFields({
   feature?: FeatureInterface;
   project?: string;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   prerequisiteValue: FeaturePrerequisite[];
@@ -107,6 +115,9 @@ export default function BanditRefNewFields({
   setVariations: (v: SortableVariation[]) => void;
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
+  customFields?: CustomField[];
+  customFieldValues?: Record<string, string>;
+  setCustomFields?: (customFields: Record<string, string>) => void;
   envScope?: EnvScopeProps;
   projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
@@ -149,6 +160,9 @@ export default function BanditRefNewFields({
   );
 
   const settings = useOrgSettings();
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+  );
   const { namespaces } = useOrgSettings();
 
   return (
@@ -168,6 +182,7 @@ export default function BanditRefNewFields({
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
+            {...trackingKeyFormatProps}
             helpText="Unique identifier for this Bandit, used to track impressions and analyze results"
           />
 
@@ -183,6 +198,14 @@ export default function BanditRefNewFields({
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
           {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
+
+          {!!customFields?.length && (
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues ?? {}}
+              onChange={setCustomFields ? setCustomFields : () => {}}
+            />
+          )}
         </>
       ) : null}
 
@@ -256,6 +279,7 @@ export default function BanditRefNewFields({
           <TargetingFieldsGroup
             project={project || ""}
             attributeProjects={attributeProjects}
+            savedGroupProjects={savedGroupProjects}
             attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}

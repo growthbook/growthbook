@@ -2,7 +2,6 @@
 title: JavaScript SDK
 description: Install the GrowthBook JavaScript SDK to evaluate feature flags and run A/B tests in the browser with vanilla JS or TypeScript.
 sidebarTitle: JavaScript
-slug: js
 toc_max_heading_level: 5
 ---
 
@@ -107,6 +106,43 @@ const gb = new GrowthBook({
     thirdPartyTrackingPlugin(pluginOptions),
   ],
 });
+```
+
+### Tracing
+
+The tracing plugin records every experiment assignment as a tag of the form `gb.exp:<experimentKey>=<variationKey>`, ready to be attached to an LLM trace in Langfuse, Arize Phoenix, or any OpenTelemetry-based tool. GrowthBook's Langfuse and Phoenix data source integrations read these tags back out of the trace to compute exposures. See [Experimenting on LLM Features](/integrations/llm-tracing) for the full setup.
+
+This plugin works in both browser and Node.js environments, and with the multi-user [`GrowthBookClient`](/lib/node#tracing). It does not send anything anywhere on its own; it only collects tags for you to hand to your tracing SDK.
+
+Options:
+
+- `onAssignment` - Optional callback fired once per unique experiment assignment with `{ experimentKey, variationKey, hashAttribute, hashValue, tag }` and the user context. Use it to set span attributes or push the tag to your tracer imperatively.
+
+The `getTracingTags(gb)` helper returns a sorted array of every tag recorded on that instance so far. Assignments whose experiment key contains `=` are skipped, because the exposure SQL splits the tag on the first `=`.
+
+```js
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: { user_id: userId },
+  plugins: [
+    tracingPlugin({
+      // Optional: also stamp the active OpenTelemetry span
+      onAssignment: (assignment) => {
+        trace
+          .getActiveSpan()
+          ?.setAttribute("growthbook.experiment." + assignment.experimentKey, assignment.variationKey);
+      },
+    }),
+  ],
+});
+await gb.init();
+
+// Evaluate flags first, then attach the tags at the top of the traced request
+const promptLabel = gb.getFeatureValue("support-prompt", "production");
+const tags = getTracingTags(gb); // e.g. ["gb.exp:support-prompt=prod-b"]
 ```
 
 ### Auto-Attributes
@@ -233,7 +269,7 @@ Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook inst
 
 #### Synchronous Init
 
-There is a alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
+There is an alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
@@ -486,7 +522,7 @@ Sticky bucketing ensures that users see the same experiment variant, even when u
 - `LocalStorageStickyBucketService` —
   For simple bucket persistence using the browser's LocalStorage (can be polyfilled for other environments).
 
-- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `expires: {days}` into the constructor's `cookieAttributes`.
+- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `expires: {days}` into the constructor's `cookieAttributes`. If your site sits behind a Web Application Firewall, see [Sticky Bucket Cookies and WAF False Positives](/kb/sdks/sticky-bucket-cookie-encoding).
 
 - Build your own — Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations (ex: read/write to both cookies and Redis).
 
@@ -548,7 +584,7 @@ const gb = new GrowthBook<AppFeatures>({
 Now, all feature flag methods will be strictly typed.
 
 ```ts
-// feature.value will by type `number`
+// feature.value will be type `number`
 const feature = gb.evalFeature("font-size");
 console.log(feature.value);
 
@@ -1279,7 +1315,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 
 ## Examples
 
-- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+- [TypeScript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
 
 ## Supported Features
 
