@@ -450,6 +450,29 @@ describe("visual changeset owner adapter", () => {
   });
 
   describe("contextual bandit owner variations", () => {
+    it("exposes each arm's status on the editor stub", async () => {
+      OWNERS[1].seedOwner({
+        variations: [
+          ...draftCb.variations,
+          {
+            id: "var_2",
+            key: "2",
+            name: "Variation 2",
+            description: "",
+            screenshots: [],
+            status: "pending",
+          },
+        ],
+      });
+      await seedChangeset(OWNERS[1]);
+      const res = await request(app).get(
+        `/api/v1/visual-changesets/${CHANGESET_ID}?includeExperiment=1`,
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.experiment.variations).toHaveLength(3);
+      expect(res.body.experiment.variations[2].status).toBe("pending");
+    });
+
     beforeEach(() => {
       OWNERS[1].seedOwner();
       mockExecuteVariationChange.mockImplementation(async (_ctx, cb, args) => {

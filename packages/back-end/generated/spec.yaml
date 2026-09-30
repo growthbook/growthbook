@@ -64895,6 +64895,12 @@ components:
                 type: string
               description:
                 type: string
+              status:
+                type: string
+                enum:
+                  - active
+                  - pending
+                  - deactivated
             required:
               - variationId
               - key

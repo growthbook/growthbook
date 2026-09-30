@@ -21,6 +21,7 @@ export const apiVisualEditorCbExperimentStubValidator = namedSchema(
           key: z.string(),
           name: z.string(),
           description: z.string(),
+          status: z.enum(["active", "pending", "deactivated"]).optional(),
         }),
       ),
     })
