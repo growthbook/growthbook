@@ -890,7 +890,7 @@ export default function ExperimentHeader({
                         linkedFeatures,
                       )
                     }
-                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
+                    body="Add at least one live Linked Feature, AI Visual Editor change, or URL Redirect before starting."
                   >
                     <Button
                       variant={checklistReady ? "solid" : "soft"}
