@@ -256,6 +256,16 @@ export default function ContextualBanditDetailPage({
   const pendingVariations = cb.variations
     .map((v, index) => ({ ...v, index }))
     .filter((v) => v.status === "pending");
+  const pendingReasons = [
+    linkedFeatures.length > 0
+      ? "a linked Feature Flag rule to be published"
+      : null,
+    visualChangesets.length > 0
+      ? "a visual editor change to be saved for it"
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" and ");
 
   const numVariations = cb.variations.length;
   const variationCols = numVariations > 4 ? 4 : Math.max(numVariations, 1);
@@ -544,12 +554,12 @@ export default function ContextualBanditDetailPage({
                       ))}
                       <Text>
                         {pendingVariations.length === 1 ? "is" : "are"} waiting
-                        on a linked Feature Flag rule to be published and will
-                        not receive any traffic until then.{" "}
+                        on {pendingReasons} and will not receive any traffic
+                        until then.{" "}
                         {pendingVariations.length === 1
                           ? "It activates"
                           : "They activate"}{" "}
-                        automatically when the Feature Flag revision publishes.
+                        automatically once that happens.
                       </Text>
                     </Flex>
                   </Callout>

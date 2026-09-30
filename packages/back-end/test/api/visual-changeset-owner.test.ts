@@ -25,6 +25,26 @@ jest.mock("back-end/src/models/ExperimentModel", () => {
   );
 });
 
+const mockExecuteVariationChange = jest.fn();
+
+jest.mock("back-end/src/enterprise/services/contextualBandits", () => {
+  const overrides: Record<string, unknown> = {
+    executeContextualBanditVariationChange: (...args: unknown[]) =>
+      mockExecuteVariationChange(...args),
+  };
+  return new Proxy(
+    {},
+    {
+      get: (_t, prop: string) =>
+        prop in overrides
+          ? overrides[prop]
+          : jest.requireActual(
+              "back-end/src/enterprise/services/contextualBandits",
+            )[prop],
+    },
+  );
+});
+
 jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
   () => ({
@@ -430,24 +450,110 @@ describe("visual changeset owner adapter", () => {
   });
 
   describe("contextual bandit owner variations", () => {
-    beforeEach(() => OWNERS[1].seedOwner());
+    beforeEach(() => {
+      OWNERS[1].seedOwner();
+      mockExecuteVariationChange.mockImplementation(async (_ctx, cb, args) => {
+        let variations = [...cb.variations];
+        for (const add of args.addVariations ?? []) {
+          variations.push({
+            id: `var_${variations.length}`,
+            key: `${variations.length}`,
+            name: add.name,
+            description: "",
+            screenshots: [],
+            status: "pending",
+          });
+        }
+        for (const id of args.removeVariationIds ?? []) {
+          variations = variations.map((v) =>
+            v.id === id ? { ...v, status: "deactivated" } : v,
+          );
+        }
+        for (const u of args.updateVariations ?? []) {
+          variations = variations.map((v) =>
+            v.id === u.id ? { ...v, ...u } : v,
+          );
+        }
+        return {
+          updated: { ...cb, variations },
+          featureDraftPublishFailures: [],
+        };
+      });
+    });
 
-    it.each([
-      ["add-variant", { name: "Variation 2" }],
-      ["delete-variant", { variationId: TREATMENT_ID }],
-      ["rename-variant", { variationId: TREATMENT_ID, name: "Treatment" }],
-    ])(
-      "rejects %s until the CB variation service is wired",
-      async (route, body) => {
-        await seedChangeset(OWNERS[1]);
-        const res = await request(app)
-          .post(`/api/v1/visual-editor/${route}`)
-          .send({ visualChangesetId: CHANGESET_ID, ...body });
-        expect(res.status).toBe(400);
-        expect(res.body.message).toMatch(/contextual bandit variations modal/);
-        expect(mockCbUpdate).not.toHaveBeenCalled();
-        expect((await readChangeset()).visualChanges).toHaveLength(1);
-      },
-    );
+    it("adds an arm through the CB variation service and seeds its visual change", async () => {
+      await seedChangeset(OWNERS[1]);
+      const res = await request(app)
+        .post("/api/v1/visual-editor/add-variant")
+        .send({
+          visualChangesetId: CHANGESET_ID,
+          name: "Variation 2",
+          sourceVariationId: TREATMENT_ID,
+        });
+      expect(res.status).toBe(200);
+      expect(mockExecuteVariationChange).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ id: draftCb.id }),
+        { addVariations: [{ name: "Variation 2" }] },
+      );
+      expect(res.body.newVariationId).toBe("var_2");
+      const saved = await readChangeset();
+      const entry = saved.visualChanges.find(
+        (vc: { variation: string }) => vc.variation === "var_2",
+      );
+      expect(entry).toBeTruthy();
+      expect(res.body.experiment.variations).toHaveLength(3);
+      expect(res.body.experiment.variations[2].status).toBe("pending");
+    });
+
+    it("removes an arm through the CB variation service", async () => {
+      await seedChangeset(OWNERS[1]);
+      const res = await request(app)
+        .post("/api/v1/visual-editor/delete-variant")
+        .send({ visualChangesetId: CHANGESET_ID, variationId: TREATMENT_ID });
+      expect(res.status).toBe(200);
+      expect(mockExecuteVariationChange).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { removeVariationIds: [TREATMENT_ID] },
+      );
+      expect(
+        (await readChangeset()).visualChanges.find(
+          (vc: { variation: string }) => vc.variation === TREATMENT_ID,
+        ),
+      ).toBeUndefined();
+      expect(res.body.experiment.variations).toHaveLength(1);
+    });
+
+    it("renames an arm through the CB variation service", async () => {
+      await seedChangeset(OWNERS[1]);
+      const res = await request(app)
+        .post("/api/v1/visual-editor/rename-variant")
+        .send({
+          visualChangesetId: CHANGESET_ID,
+          variationId: TREATMENT_ID,
+          name: "Promo",
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe("Promo");
+      expect(mockExecuteVariationChange).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { updateVariations: [{ id: TREATMENT_ID, name: "Promo" }] },
+      );
+    });
+
+    it("surfaces the service's validation errors as 400s", async () => {
+      await seedChangeset(OWNERS[1]);
+      mockExecuteVariationChange.mockRejectedValue(
+        new Error("A contextual bandit must have at least 2 variations."),
+      );
+      const res = await request(app)
+        .post("/api/v1/visual-editor/delete-variant")
+        .send({ visualChangesetId: CHANGESET_ID, variationId: TREATMENT_ID });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/at least 2 variations/);
+      expect((await readChangeset()).visualChanges).toHaveLength(1);
+    });
   });
 });

@@ -26,6 +26,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { onContextualBanditVisualStateChanged } from "back-end/src/services/contextualBanditVisualState";
+import { executeContextualBanditVariationChange } from "back-end/src/enterprise/services/contextualBandits";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
@@ -555,14 +556,70 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
     return this.cb.name;
   }
 
-  async addVariation(): Promise<{ id: string; name: string }> {
-    throw new Error(VARIATION_CHANGE_UNSUPPORTED);
+  async addVariation({
+    name,
+    sourceVariationId,
+  }: {
+    name?: string;
+    sourceVariationId?: string;
+  }): Promise<{ id: string; name: string }> {
+    const before = new Set(this.cb.variations.map((v) => v.id));
+    const source = sourceVariationId
+      ? this.editableVariations().find((v) => v.id === sourceVariationId)
+      : undefined;
+    if (sourceVariationId && !source) {
+      throw new Error("Source variation not found in this contextual bandit");
+    }
+    const defaultName = source
+      ? `${source.name} (copy)`
+      : `Variation ${this.cb.variations.length}`;
+    const newName = name?.trim() || defaultName;
+    const { updated } = await executeContextualBanditVariationChange(
+      this.context,
+      this.cb,
+      { addVariations: [{ name: newName }] },
+    );
+    this.cb = updated;
+    const added = updated.variations.find((v) => !before.has(v.id));
+    if (!added) {
+      throw new Error("The contextual bandit did not report the new variation");
+    }
+    return { id: added.id, name: added.name };
   }
-  async removeVariation(): Promise<{ rollback: () => Promise<void> }> {
-    throw new Error(VARIATION_CHANGE_UNSUPPORTED);
+
+  async removeVariation(
+    variationId: string,
+  ): Promise<{ rollback: () => Promise<void> }> {
+    const { updated } = await executeContextualBanditVariationChange(
+      this.context,
+      this.cb,
+      { removeVariationIds: [variationId] },
+    );
+    this.cb = updated;
+    return {
+      rollback: async () => {
+        logger.warn(
+          { contextualBanditId: this.cb.id, variationId },
+          "A removed contextual bandit variation cannot be restored; its visual change may remain",
+        );
+      },
+    };
   }
-  async renameVariation(): Promise<string> {
-    throw new Error(VARIATION_CHANGE_UNSUPPORTED);
+
+  async renameVariation(variationId: string, name: string): Promise<string> {
+    const current = this.editableVariations().find((v) => v.id === variationId);
+    if (!current) {
+      throw new Error("Variation not found in this contextual bandit");
+    }
+    const trimmed = name.trim();
+    if (trimmed === current.name) return trimmed;
+    const { updated } = await executeContextualBanditVariationChange(
+      this.context,
+      this.cb,
+      { updateVariations: [{ id: variationId, name: trimmed }] },
+    );
+    this.cb = updated;
+    return trimmed;
   }
 
   async toEditorExperiment(): Promise<EditorExperiment> {
@@ -595,9 +652,6 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
     };
   }
 }
-
-const VARIATION_CHANGE_UNSUPPORTED =
-  "Variation changes for contextual bandits go through the contextual bandit variations modal in GrowthBook.";
 
 export async function resolveChangesetOwner(
   context: Ctx,

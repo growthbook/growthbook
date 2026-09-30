@@ -88,11 +88,18 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     );
   }
 
+  // The owner write may have synced an empty entry for the new variation
+  // into this changeset already (contextual bandits do), so build from a
+  // fresh read and replace that entry rather than appending beside it.
+  const current =
+    (await findVisualChangesetById(visualChangesetId, req.organization.id)) ??
+    changeset;
+
   // Omitting `id` lets updateVisualChangeset's merge logic mint one. For a
   // duplicate we copy the source's css / js / domMutations (deep-copying each
   // mutation so the two variations don't share object references).
   const nextVisualChanges = [
-    ...changeset.visualChanges,
+    ...current.visualChanges.filter((vc) => vc.variation !== added.id),
     {
       variation: added.id,
       description: added.name,
@@ -103,7 +110,7 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
   ];
 
   await updateVisualChangeset({
-    visualChangeset: changeset,
+    visualChangeset: current,
     owner,
     context,
     updates: { visualChanges: nextVisualChanges },

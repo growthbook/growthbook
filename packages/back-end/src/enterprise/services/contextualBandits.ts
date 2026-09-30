@@ -73,6 +73,7 @@ import {
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
+import { findVisualChangesetsByContextualBandit } from "back-end/src/models/VisualChangesetModel";
 import { onContextualBanditVisualStateChanged } from "back-end/src/services/contextualBanditVisualState";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
@@ -1008,13 +1009,17 @@ export async function activatePendingContextualBanditVariations(
   const pendingIds = cb.variations.filter(isPendingVariation).map((v) => v.id);
   if (!pendingIds.length) return { activatedIds: [], updated: cb };
 
-  // An arm activates once it is live on every linked feature. With no linked
-  // features there is nothing gating activation, so pending arms activate
-  // immediately.
+  // An arm activates once it is live on every linked feature and, when the
+  // CB has visual changesets, once at least one of them holds a non-empty
+  // change for it. A CB with neither has nothing gating activation, so
+  // pending arms activate immediately.
   const liveArmInfo = await getLiveArmIdsByLinkedFeature(context, cb);
-  const activatedIds = liveArmInfo.length
+  const liveOnFeatures = liveArmInfo.length
     ? pendingIds.filter((id) => liveArmInfo.every((i) => i.liveArmIds.has(id)))
     : pendingIds;
+  const activatedIds = cb.hasVisualChangesets
+    ? await filterArmsWithVisualContent(context, cb, liveOnFeatures)
+    : liveOnFeatures;
   if (!activatedIds.length) return { activatedIds: [], updated: cb };
 
   const activatedSet = new Set(activatedIds);
@@ -1042,6 +1047,27 @@ export async function activatePendingContextualBanditVariations(
   );
 
   return { activatedIds, updated };
+}
+
+async function filterArmsWithVisualContent(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+  armIds: string[],
+): Promise<string[]> {
+  if (!armIds.length) return armIds;
+  const changesets = await findVisualChangesetsByContextualBandit(
+    cb.id,
+    context.org.id,
+  );
+  const withContent = new Set<string>();
+  for (const changeset of changesets) {
+    for (const vc of changeset.visualChanges) {
+      if (!!vc.css || !!vc.js || !!vc.domMutations.length) {
+        withContent.add(vc.variation);
+      }
+    }
+  }
+  return armIds.filter((id) => withContent.has(id));
 }
 
 export async function executeContextualBanditVariationChange(

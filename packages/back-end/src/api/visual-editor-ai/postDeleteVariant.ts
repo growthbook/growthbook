@@ -70,13 +70,18 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     );
   }
 
-  const nextVisualChanges = changeset.visualChanges.filter(
+  // Build from a fresh read: the owner write may already have dropped the
+  // entry from this changeset (contextual bandits sync on removal).
+  const current =
+    (await findVisualChangesetById(visualChangesetId, req.organization.id)) ??
+    changeset;
+  const nextVisualChanges = current.visualChanges.filter(
     (vc) => vc.variation !== variationId,
   );
 
   try {
     await updateVisualChangeset({
-      visualChangeset: changeset,
+      visualChangeset: current,
       owner,
       context,
       updates: { visualChanges: nextVisualChanges },
