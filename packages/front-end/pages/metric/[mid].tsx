@@ -665,7 +665,7 @@ const MetricPage: FC = () => {
                             icon="refresh"
                             cta={analysis ? "Refresh Data" : "Run Analysis"}
                             mutate={mutate}
-                            model={metric}
+                            model={{ ...metric, error: metric.analysisError }}
                             cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
                             onSubmit={async () => {
                               try {

@@ -478,6 +478,7 @@ export function MonitoringControls({
                   model={{
                     queries: latestSnap?.queries || [],
                     runStarted: latestSnap?.runStarted ?? null,
+                    error: latestSnap?.error,
                   }}
                   icon="refresh"
                   radixVariant="outline"
