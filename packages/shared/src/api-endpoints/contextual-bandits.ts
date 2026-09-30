@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { LinkedFeatureInfo } from "shared/types/experiment";
 import { crudEndpoint, customEndpoint } from "../api-model";
 import { booleanQueryField } from "../validators/shared";
 import { contextualLeafClauseValidator } from "../validators/contextual-bandit-event";
@@ -272,7 +273,7 @@ export const getContextualBanditLinkedFeatures = {
   paramsSchema: contextualBanditIdOnlyParam,
   responseSchema: z
     .object({
-      linkedFeatures: z.array(z.unknown()),
+      linkedFeatures: z.array(z.custom<LinkedFeatureInfo>()),
       environments: z.array(z.string()),
     })
     .strict(),

@@ -63,11 +63,15 @@ export function getQueryStatus(
   return { status, numFailed, failedNames };
 }
 
-type Props = {
+type CancelProps =
+  // An internal API path, POSTed to with apiCall
+  | { cancelEndpoint: string; onCancel?: never }
+  // For endpoints that need another client
+  | { onCancel: () => Promise<unknown>; cancelEndpoint?: never };
+
+type Props = CancelProps & {
   cta?: string;
   loadingText?: string;
-  // An internal API path, or a callback for endpoints that need another client
-  cancelEndpoint: string | (() => Promise<unknown>);
   model: { queries: Queries; runStarted: string | Date | undefined | null };
   mutate: () => Promise<unknown> | unknown;
   icon?: "run" | "refresh";
@@ -86,6 +90,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       cta = "Run Queries",
       loadingText = "Running",
       cancelEndpoint,
+      onCancel,
       model,
       mutate,
       icon = "run",
@@ -191,8 +196,8 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                     e.stopPropagation();
                     resetFilters?.();
                     try {
-                      await (typeof cancelEndpoint === "function"
-                        ? cancelEndpoint()
+                      await (onCancel
+                        ? onCancel()
                         : apiCall(cancelEndpoint, { method: "POST" }));
                     } catch (e) {
                       console.error(e);

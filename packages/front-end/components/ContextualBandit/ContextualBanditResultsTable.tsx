@@ -423,7 +423,7 @@ export default function ContextualBanditResultsTable({
             queries: queryLatest?.queries ?? [],
             runStarted: queryLatest?.runStarted ?? null,
           }}
-          cancelEndpoint={cancel}
+          onCancel={cancel}
           mutate={mutate}
           onSubmit={async () => {
             await refresh();

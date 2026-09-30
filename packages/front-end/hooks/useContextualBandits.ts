@@ -1,6 +1,5 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { LinkedFeatureInfo } from "shared/types/experiment";
 import { useRestApi, useRestApiCall } from "@/services/restApi";
 
 /** Fetches CB docs from the REST API and returns the API shape directly. */
@@ -131,9 +130,7 @@ export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
 
   return {
     loading: !!cbId && !error && !data,
-    // The REST schema leaves each entry untyped; the handler returns
-    // getContextualBanditLinkedFeatureInfo() output, i.e. LinkedFeatureInfo.
-    linkedFeatures: (data?.linkedFeatures ?? []) as LinkedFeatureInfo[],
+    linkedFeatures: data?.linkedFeatures ?? [],
     environments: data?.environments ?? [],
     error,
     mutate,
