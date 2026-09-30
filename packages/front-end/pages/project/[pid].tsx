@@ -112,6 +112,13 @@ const ProjectPage: FC = () => {
       dashboards.filter((d) => isProjectListValidForProject(d.projects, pid)),
     [dashboards, pid],
   );
+  // A stored default that was deleted or no longer fits this Project is
+  // ignored on the home page too, so show it as "No default".
+  const savedDefaultDashboardId = projectDashboards.some(
+    (d) => d.id === settings?.defaultDashboardId,
+  )
+    ? settings?.defaultDashboardId
+    : "";
   const noProjectDashboards =
     !dashboardsLoading && projectDashboards.length === 0;
 
@@ -139,7 +146,9 @@ const ProjectPage: FC = () => {
 
   const [savingDashboard, setSavingDashboard] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
-  const [dashboardSaved, setDashboardSaved] = useState(false);
+  const [dashboardSavedMsg, setDashboardSavedMsg] = useState<string | null>(
+    null,
+  );
   // Shown while the save is in flight so the controlled select doesn't snap
   // back to the old value until definitions refresh.
   const [pendingDashboardId, setPendingDashboardId] = useState<string | null>(
@@ -149,14 +158,16 @@ const ProjectPage: FC = () => {
     setSavingDashboard(true);
     setPendingDashboardId(dashboardId);
     setDashboardError(null);
-    setDashboardSaved(false);
+    setDashboardSavedMsg(null);
     try {
       await apiCall(`/projects/${pid}/default-dashboard`, {
         method: "PUT",
         body: JSON.stringify({ defaultDashboardId: dashboardId || null }),
       });
       await mutateDefinitions();
-      setDashboardSaved(true);
+      setDashboardSavedMsg(
+        dashboardId ? "Default dashboard saved" : "Default dashboard cleared",
+      );
     } catch (error) {
       setDashboardError(
         error instanceof Error
@@ -530,9 +541,11 @@ const ProjectPage: FC = () => {
                           {dashboardError && (
                             <Callout status="error">{dashboardError}</Callout>
                           )}
-                          {dashboardSaved && (
-                            <TempMessage close={() => setDashboardSaved(false)}>
-                              Default dashboard saved
+                          {dashboardSavedMsg && (
+                            <TempMessage
+                              close={() => setDashboardSavedMsg(null)}
+                            >
+                              {dashboardSavedMsg}
                             </TempMessage>
                           )}
                           {noProjectDashboards ? (
@@ -549,7 +562,7 @@ const ProjectPage: FC = () => {
                               dashboards={projectDashboards}
                               value={
                                 pendingDashboardId ??
-                                settings?.defaultDashboardId ??
+                                savedDefaultDashboardId ??
                                 ""
                               }
                               setValue={setDefaultDashboard}
