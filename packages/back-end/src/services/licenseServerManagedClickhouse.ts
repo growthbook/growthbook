@@ -7,6 +7,7 @@ import type { DailyUsage } from "shared/types/organization";
 import { dailyUsageForOrgResponseValidator } from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
+import type { AIUsageOutcome } from "back-end/src/services/growthbook";
 import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
 import { CLOUD_SECRET, IS_CLOUD } from "back-end/src/util/secrets";
@@ -196,20 +197,34 @@ export async function migrateOverageEventsForOrgId(
 
 export async function logCloudAIUsage({
   organization,
+  userId,
   type,
   model,
+  provider,
   temperature,
   numPromptTokensUsed,
   numCompletionTokensUsed,
+  numCacheReadTokens,
+  numCacheWriteTokens,
+  spendUsd,
   usedDefaultPrompt,
+  usedOwnKey,
+  outcome = "success",
 }: {
   organization: string;
+  userId?: string;
   type: AIPromptType;
   model: string;
+  provider?: string;
   numPromptTokensUsed?: number;
   numCompletionTokensUsed?: number;
+  numCacheReadTokens?: number;
+  numCacheWriteTokens?: number;
+  spendUsd?: number;
   temperature?: number;
   usedDefaultPrompt: boolean;
+  usedOwnKey: boolean;
+  outcome?: AIUsageOutcome;
 }): Promise<void> {
   if (!IS_CLOUD) {
     return;
@@ -220,10 +235,20 @@ export async function logCloudAIUsage({
       organization,
       type,
       model,
-      temperature,
-      numPromptTokensUsed,
-      numCompletionTokensUsed,
       usedDefaultPrompt,
+      usedOwnKey,
+      outcome,
+      ...(userId ? { userId } : {}),
+      ...(provider ? { provider } : {}),
+      ...(temperature !== undefined ? { temperature } : {}),
+      ...(numPromptTokensUsed !== undefined ? { numPromptTokensUsed } : {}),
+      ...(numCompletionTokensUsed !== undefined
+        ? { numCompletionTokensUsed }
+        : {}),
+      ...(numCacheReadTokens !== undefined ? { numCacheReadTokens } : {}),
+      ...(numCacheWriteTokens !== undefined ? { numCacheWriteTokens } : {}),
+      // Omit when unknown so ClickHouse stores NULL, not $0.
+      ...(spendUsd !== undefined ? { spendUsd } : {}),
     });
   } catch (e) {
     logger.error(e, "Failed to log AI usage to Clickhouse");

@@ -486,12 +486,18 @@ export const simpleCompletion = async ({
 
     logCloudAIUsage({
       organization: context.org.id,
+      userId: context.userId,
       type,
       model,
+      provider: getProviderFromModel(model),
       numPromptTokensUsed: usage.inputTokens,
       numCompletionTokensUsed: usage.outputTokens,
+      numCacheReadTokens: usage.cacheReadTokens,
+      numCacheWriteTokens: usage.cacheWriteTokens,
+      spendUsd,
       temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
     });
   }
 
@@ -596,12 +602,19 @@ export const streamingChatCompletion = async ({
 
     logCloudAIUsage({
       organization: context.org.id,
+      userId: context.userId,
       type,
       model,
+      provider: getProviderFromModel(model),
       numPromptTokensUsed: buckets.inputTokens,
       numCompletionTokensUsed: buckets.outputTokens,
+      numCacheReadTokens: buckets.cacheReadTokens,
+      numCacheWriteTokens: buckets.cacheWriteTokens,
+      spendUsd,
       temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
+      outcome,
     });
   };
 
@@ -1052,6 +1065,18 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       usedOwnKey: ownKey,
       outcome: "error",
     });
+    logCloudAIUsage({
+      organization: context.org.id,
+      userId: context.userId,
+      type,
+      model,
+      provider: getProviderFromModel(model),
+      spendUsd: retriedSpendUsd,
+      temperature: effectiveTemperature,
+      usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
+      outcome: "error",
+    });
   };
 
   let response: Awaited<ReturnType<typeof generateOnce>>;
@@ -1129,12 +1154,18 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     // Fire and forget
     logCloudAIUsage({
       organization: context.org.id,
+      userId: context.userId,
       type,
-      model: model,
-      numPromptTokensUsed: response.usage?.inputTokens,
-      numCompletionTokensUsed: response.usage?.outputTokens,
+      model,
+      provider: getProviderFromModel(model),
+      numPromptTokensUsed: usage.inputTokens,
+      numCompletionTokensUsed: usage.outputTokens,
+      numCacheReadTokens: usage.cacheReadTokens,
+      numCacheWriteTokens: usage.cacheWriteTokens,
+      spendUsd,
       temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
     });
 
     // Only meter usage against the daily cap when GrowthBook is paying.
