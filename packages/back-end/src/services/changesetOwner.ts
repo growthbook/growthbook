@@ -67,6 +67,7 @@ export type EditorExperiment = {
 };
 
 export type PromptContext = {
+  kind: ChangesetOwnerKind;
   id: string;
   name: string;
   hypothesis?: string;
@@ -424,6 +425,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
 
   promptContext(): PromptContext {
     return {
+      kind: this.kind,
       id: this.experiment.id,
       name: this.experiment.name,
       hypothesis: this.experiment.hypothesis || undefined,
@@ -585,6 +587,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
 
   promptContext(): PromptContext {
     return {
+      kind: this.kind,
       id: this.cb.id,
       name: this.cb.name,
       description: this.cb.description || undefined,

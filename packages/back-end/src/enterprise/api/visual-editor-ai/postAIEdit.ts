@@ -223,6 +223,9 @@ const bodySchema = z
     streamingMode: z.boolean().optional(),
     // Save the result rather than returning it for the caller to persist.
     persist: z.boolean().optional(),
+    // With `persist`, also accept the save when the owner is running. Same
+    // opt-in the changeset endpoints take; the write is audited.
+    allowRunningExperiment: z.boolean().optional(),
     // Bytes so the back-end never fetches; `url` is the hosted copy for placing it.
     attachments: z
       .array(
@@ -780,6 +783,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     conversationHistory,
     locale,
     persist,
+    allowRunningExperiment,
     attachments,
     resume,
   } = req.body;
@@ -810,9 +814,12 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     context.permissions.throwPermissionError();
   }
   // Before the generation, so a doomed save doesn't burn AI quota first.
-  if (persist) {
-    owner.requireWrite(req, { allowRunning: false, visualChangesetId });
-  }
+  const auditLiveEdit = persist
+    ? owner.requireWrite(req, {
+        allowRunning: !!allowRunningExperiment,
+        visualChangesetId,
+      })
+    : async () => {};
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
@@ -1297,6 +1304,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
           ...(finalized.js !== undefined ? { js: finalized.js } : {}),
         },
       });
+      await auditLiveEdit();
       return {
         ...finalized,
         saved: true as const,
