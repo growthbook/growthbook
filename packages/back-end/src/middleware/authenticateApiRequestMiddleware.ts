@@ -34,6 +34,7 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
+import { isDelegatedTokenCurrent } from "back-end/src/services/oauth";
 import { getAuthConnection, processJWT } from "back-end/src/services/auth";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 
@@ -306,6 +307,17 @@ function authenticateWithApiKey(
           ))
         ) {
           throw new Error("This OAuth authorization has been revoked");
+        }
+        if (
+          apiKeyDoc.oauthDelegatedSecretHash &&
+          !(await isDelegatedTokenCurrent(
+            apiKeyDoc.oauthClientId,
+            apiKeyDoc.oauthDelegatedSecretHash,
+          ))
+        ) {
+          throw new Error(
+            "This application can no longer act on behalf of members",
+          );
         }
       } else if (userId && org.settings?.disablePersonalAccessTokens) {
         throw new Error(

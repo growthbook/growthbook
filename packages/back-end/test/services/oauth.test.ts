@@ -9,6 +9,7 @@ import {
   EMAIL_SUBJECT_TOKEN_TYPE,
   exchangeAuthorizationCode,
   exchangeDelegatedToken,
+  isDelegatedTokenCurrent,
   exchangeRefreshToken,
   listOrgGrants,
   mintAuthorizationCode,
@@ -976,7 +977,7 @@ describe("delegated token exchange for org OAuth apps", () => {
         userId: "user-1",
         oauthClientId: APP_ID,
         officialClientForOrg: "org-1",
-        oauthDelegated: true,
+        oauthDelegatedSecretHash: hashToken(APP_SECRET),
       }),
     );
     expect(createRefresh).not.toHaveBeenCalled();
@@ -1094,22 +1095,27 @@ describe("delegated token exchange for org OAuth apps", () => {
   });
 
   it.each([
-    ["delegation is turned off", delegatingApp(false)],
-    ["the secret is rotated", delegatingApp(true, "gbcs_rotated")],
-  ])(
-    "disables the token it just minted when %s mid-exchange",
-    async (_, appAfter) => {
-      mockFindOrgApp
-        .mockResolvedValueOnce(delegatingApp())
-        .mockResolvedValue(appAfter);
-      mockGetOAuthClientById.mockResolvedValue(null);
-      const { createApiKey } = mockOrgContext();
+    [
+      "accepts a delegated token while the app is unchanged",
+      delegatingApp(),
+      true,
+    ],
+    [
+      "rejects a delegated token once delegation is turned off",
+      delegatingApp(false),
+      false,
+    ],
+    [
+      "rejects a delegated token once the secret rotates",
+      delegatingApp(true, "gbcs_rotated"),
+      false,
+    ],
+    ["rejects a delegated token once the app is deleted", null, false],
+  ])("%s", async (_, app, expected) => {
+    mockFindOrgApp.mockResolvedValue(app);
 
-      await expect(exchange()).rejects.toMatchObject({
-        error: "invalid_client",
-      });
-      const minted = createApiKey.mock.calls[0][0].key;
-      expect(mockDangerousDisableByKeyHash).toHaveBeenCalledWith(minted);
-    },
-  );
+    await expect(
+      isDelegatedTokenCurrent(APP_ID, hashToken(APP_SECRET)),
+    ).resolves.toBe(expected);
+  });
 });

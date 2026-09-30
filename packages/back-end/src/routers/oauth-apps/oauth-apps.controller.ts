@@ -5,7 +5,6 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
-  disableDelegatedTokens,
   listOrgGrants,
   revokeAllGrantsForClient,
   revokeMemberGrant,
@@ -87,8 +86,6 @@ export async function putOAuthApp(
     existing,
     req.body,
   );
-  // Not just on the toggle, so re-saving finishes a cleanup that failed partway.
-  if (!app.allowDelegation) await disableDelegatedTokens(context, app.clientId);
   res.status(200).json({ status: 200, app });
 }
 
@@ -102,8 +99,6 @@ export async function postOAuthAppSecret(
   const app = await getAppOrThrow(context, req.params.clientId);
 
   const clientSecret = await context.models.orgOAuthClients.rotateSecret(app);
-  // The old secret may be why they rotated; don't leave tokens it minted working.
-  await disableDelegatedTokens(context, app.id);
   res.status(200).json({ status: 200, clientSecret });
 }
 
