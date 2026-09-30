@@ -56,7 +56,7 @@ export default function DashboardCard() {
 
   return (
     <Box mt="5" mb="5">
-      <Flex align="center" justify="between" mb="3">
+      <Flex align="center" justify="between" wrap="wrap" gap="2" mb="3">
         <Heading as="h4" size="sm">
           Dashboard
         </Heading>

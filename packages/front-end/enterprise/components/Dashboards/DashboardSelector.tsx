@@ -74,7 +74,9 @@ export default function DashboardSelector({
           <SelectItem value={defaultDashboard.id}>
             <OverflowText maxWidth={400}>{defaultDashboard.title}</OverflowText>
           </SelectItem>
-          <SelectSeparator />
+          {dashboards.some((d) => d.id !== defaultDashboard.id) && (
+            <SelectSeparator />
+          )}
         </>
       )}
       {dashboards.map((dash) =>
