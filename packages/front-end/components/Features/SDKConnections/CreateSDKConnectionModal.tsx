@@ -30,11 +30,20 @@ export default function CreateSDKConnectionModal({
   close,
   mutate,
   initialValue,
+  cta = "Save",
+  autoCloseOnSubmit = true,
 }: {
   close: () => void;
   mutate: () => void;
   /** Duplicate seeds the form from an existing connection. */
   initialValue?: Partial<SDKConnectionInterface>;
+  cta?: string;
+  /**
+   * Off, the modal neither navigates nor closes after creating: the caller
+   * swaps in the next step (the setup flow shows the code snippet) once the
+   * refreshed connection list arrives.
+   */
+  autoCloseOnSubmit?: boolean;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -70,6 +79,9 @@ export default function CreateSDKConnectionModal({
   };
 
   const [languageError, setLanguageError] = useState<string | null>(null);
+  // ModalStandard closes after every submit; when the caller keeps the modal
+  // open, that close is swallowed while Cancel still closes.
+  const submitted = useRef(false);
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
     getConnectionLanguageFilter(initialValue?.languages ?? []),
   );
@@ -131,10 +143,13 @@ export default function CreateSDKConnectionModal({
     <ModalStandard
       trackingEventModalType="create-sdk-connection"
       open={true}
-      close={close}
+      close={() => {
+        if (!autoCloseOnSubmit && submitted.current) return;
+        close();
+      }}
       header="New SDK Connection"
       size="lg"
-      cta="Save"
+      cta={cta}
       submit={async () => {
         if (!value.languages.length) {
           setLanguageError("Please select an SDK language");
@@ -178,7 +193,11 @@ export default function CreateSDKConnectionModal({
           proxyEnabled: body.proxyEnabled,
         });
         mutate();
-        await router.push(`/sdks/${res.connection.id}`);
+        if (autoCloseOnSubmit) {
+          await router.push(`/sdks/${res.connection.id}`);
+        } else {
+          submitted.current = true;
+        }
       }}
     >
       <Flex direction="column" gap="4">

@@ -23,7 +23,7 @@ export type SdkConnectionRevisionProps = {
  * Encapsulates the SDK connection revision/approval flow shared by the
  * per-section edit modals. Returns a `DraftSelector` node to render at the top
  * of the modal and a `save` helper that PUTs with the correct revision params
- * and selects the newly-created revision — mirroring SDKConnectionForm.
+ * and selects the newly-created revision.
  */
 export function useSdkConnectionRevisionFlow({
   connection,

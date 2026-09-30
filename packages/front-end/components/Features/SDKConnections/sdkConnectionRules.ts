@@ -12,7 +12,7 @@ type SDKCapability = ReturnType<typeof getConnectionSDKCapabilities>[number];
 
 /**
  * Payload security rules shared by the create and edit surfaces, mirroring
- * `SDKConnectionForm` so the split modals can't drift from the full form.
+ * the original full form so the split modals stay consistent.
  */
 
 /**

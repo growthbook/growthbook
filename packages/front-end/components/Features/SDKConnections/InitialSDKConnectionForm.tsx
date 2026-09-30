@@ -5,7 +5,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
 import Callout from "@/ui/Callout";
-import SDKConnectionForm from "./SDKConnectionForm";
+import CreateSDKConnectionModal from "./CreateSDKConnectionModal";
 
 export default function InitialSDKConnectionForm({
   close,
@@ -66,15 +66,12 @@ export default function InitialSDKConnectionForm({
   }
 
   return (
-    <SDKConnectionForm
-      close={close}
-      edit={false}
+    <CreateSDKConnectionModal
+      close={close ?? (() => undefined)}
       mutate={mutate}
-      cta={"Continue"}
+      cta="Continue"
       autoCloseOnSubmit={false}
-      initialValue={{
-        includeRuleIds: true,
-      }}
+      initialValue={{ includeRuleIds: true }}
     />
   );
 }

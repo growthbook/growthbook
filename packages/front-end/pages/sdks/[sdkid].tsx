@@ -521,7 +521,7 @@ export default function SDKConnectionPage() {
               {canUpdate && (
                 <DropdownMenuItem
                   onClick={() => {
-                    // The revision-aware modal, not SDKConnectionForm: that
+                    // The revision-aware modal, not the old full form: that
                     // form PUTs with no revision params, so under approvals it
                     // returned 202 without writing while the UI reported
                     // success and minted an orphan draft per save.
