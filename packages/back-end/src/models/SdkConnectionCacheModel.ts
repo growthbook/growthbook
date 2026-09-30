@@ -62,6 +62,13 @@ export class SdkConnectionCacheModel extends BaseClass {
     return this.create({ id, ...updateData });
   }
 
+  // Looks up by id only (any schema version) so a stale-version entry for an
+  // archived connection is dropped too.
+  public async deleteByKey(key: string) {
+    const existing = await this._findOne({ id: key });
+    if (existing) await this.delete(existing);
+  }
+
   // Delete all cache entries for legacy API keys
   public async deleteAllLegacyCacheEntries() {
     return await this._dangerousGetCollection().deleteMany({

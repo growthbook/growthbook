@@ -33,7 +33,10 @@ import {
 } from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
 import { GroupMap } from "shared/types/saved-group";
-import { SavedGroupFormat } from "shared/types/sdk-connection";
+import {
+  SavedGroupFormat,
+  SDKConnectionInterface,
+} from "shared/types/sdk-connection";
 import { cloneDeep, isNil, pick } from "lodash";
 import md5 from "md5";
 import {
@@ -797,6 +800,14 @@ export function expandPayloadKeysForPrerequisites(
   });
 
   return out;
+}
+
+// Archived connections no longer serve a payload, so nothing downstream of a
+// refresh (cache upsert, SDK webhooks, proxy/CDN pushes) should run for them.
+export function filterRefreshableSDKConnections<
+  T extends Pick<SDKConnectionInterface, "archived">,
+>(connections: T[]): T[] {
+  return connections.filter((c) => !c.archived);
 }
 
 export function getAffectedSDKPayloadKeys(

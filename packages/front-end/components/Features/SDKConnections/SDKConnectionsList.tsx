@@ -30,7 +30,9 @@ import CreateSDKConnectionModal from "./CreateSDKConnectionModal";
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
   const { data: webhooksData, mutate: mutateWebhooks } = useSDKWebhooks();
-  const connections = data?.connections ?? [];
+  const connections = [...(data?.connections ?? [])].sort(
+    (a, b) => Number(!!a.archived) - Number(!!b.archived),
+  );
 
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -156,7 +158,10 @@ export default function SDKConnectionsList() {
               return (
                 <tr
                   key={connection.id}
-                  className="cursor-pointer"
+                  className={clsx("cursor-pointer", {
+                    "text-muted": connection.archived,
+                  })}
+                  style={connection.archived ? { opacity: 0.65 } : undefined}
                   onClick={(e) => {
                     e.preventDefault();
                     router.push(`/sdks/${connection.id}`);
@@ -181,6 +186,14 @@ export default function SDKConnectionsList() {
                     <Link href={`/sdks/${connection.id}`}>
                       {connection.name}
                     </Link>
+                    {connection.archived ? (
+                      <Badge
+                        label="Archived"
+                        color="gray"
+                        radius="full"
+                        ml="2"
+                      />
+                    ) : null}
                     {connection.managedBy?.type ? (
                       <div>
                         <Badge

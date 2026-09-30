@@ -37,7 +37,9 @@ export default function FeatureImplementationModal({
   const [languageInitialized, setLanguageInitialized] = useState(false);
   useEffect(() => {
     if (languageInitialized) return;
-    const firstLanguage = sdkConnectionData?.connections[0]?.languages[0];
+    const firstLanguage = sdkConnectionData?.connections.find(
+      (c) => !c.archived,
+    )?.languages[0];
     if (!firstLanguage) return;
     setLanguage(firstLanguage);
     setLanguageFilter(getConnectionLanguageFilter([firstLanguage]));

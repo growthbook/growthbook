@@ -171,6 +171,7 @@ import {
   featuresWithPrerequisiteClosure,
   getPrerequisiteIdsInFeatures,
   getReferenceIdsInFeatures,
+  filterRefreshableSDKConnections,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
@@ -1076,9 +1077,11 @@ export async function refreshSDKPayloadCache({
 
   // Everything that decides which connections are affected (the widening above
   // and this match) must stay above the early returns below.
-  const sdkConnections = payloadKeys.length
-    ? await findSDKConnectionsByOrganization(context)
-    : sdkConnectionsToUpdate;
+  const sdkConnections = filterRefreshableSDKConnections(
+    payloadKeys.length
+      ? await findSDKConnectionsByOrganization(context)
+      : sdkConnectionsToUpdate,
+  );
 
   const connectionsUpdated = sdkConnections.filter(
     (connection) =>

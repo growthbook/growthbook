@@ -33,8 +33,10 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/licenseServerManagedClickhouse";
 import { logger } from "back-end/src/util/logger";
+import { purgeCDNCache } from "back-end/src/util/cdn.util";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import {
   generateEncryptionKey,
   generateSigningKey,
@@ -384,6 +386,9 @@ export async function editSDKConnection(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams,
+  // `casOnDateUpdated` makes the write compare-and-swap on the stamp a landing
+  // proved; `null` guards a connection that has never been stamped.
+  options?: { casOnDateUpdated?: Date | null },
 ) {
   const { proxyEnabled, proxyHost, languages, ...rest } =
     editSDKConnectionValidator.parse(updates);
@@ -470,26 +475,38 @@ export async function editSDKConnection(
     dateUpdated: new Date(),
   };
 
-  await SDKConnectionModel.updateOne(
+  const casOnDateUpdated = options?.casOnDateUpdated;
+  const result = await SDKConnectionModel.updateOne(
     {
       organization: context.org.id,
       id: connection.id,
+      ...(casOnDateUpdated !== undefined && {
+        dateUpdated:
+          casOnDateUpdated === null ? { $exists: false } : casOnDateUpdated,
+      }),
     },
     {
       $set: fullChanges,
     },
   );
+  if (casOnDateUpdated !== undefined && result.matchedCount === 0) {
+    throw new CasConflictError();
+  }
 
-  if (needsProxyUpdate) {
+  const updated = { ...connection, ...fullChanges };
+
+  // An archived connection must stop serving rather than be rebuilt: drop its
+  // cached payload and CDN copy instead of pushing a refresh. Unarchiving goes
+  // through the normal refresh (`archived` is in keysRequiringProxyUpdate).
+  if (updated.archived) {
+    if (!connection.archived) {
+      await purgeArchivedConnectionCache(context, updated);
+    }
+  } else if (needsProxyUpdate) {
     queueSDKPayloadRefresh({
       context,
       payloadKeys: [],
-      sdkConnections: [
-        {
-          ...connection,
-          ...fullChanges,
-        },
-      ],
+      sdkConnections: [updated],
       auditContext: {
         event: "updated",
         model: "sdkconnection",
@@ -498,9 +515,20 @@ export async function editSDKConnection(
     });
   }
 
-  const updated = { ...connection, ...fullChanges };
   await audit.logUpdate(context, connection, updated);
   return updated;
+}
+
+async function purgeArchivedConnectionCache(
+  context: ReqContext | ApiReqContext,
+  connection: SDKConnectionInterface,
+) {
+  try {
+    await context.models.sdkConnectionCache.deleteByKey(connection.key);
+  } catch (e) {
+    logger.warn(e, "Failed to delete cache entry for archived SDK connection");
+  }
+  await purgeCDNCache(context.org.id, [connection.key]);
 }
 
 export const updateSdkConnectionsRemoveManagedBy = async (
@@ -720,5 +748,6 @@ export function toApiSDKConnectionInterface(
     savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
     savedGroupFormat: savedGroupFormatFromConnection(connection),
     includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
+    archived: connection.archived,
   };
 }

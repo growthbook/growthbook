@@ -1,5 +1,5 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import React, { ReactElement, useEffect, useState } from "react";
+import React, { ReactElement, useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -25,19 +25,16 @@ export default function InitialSDKConnectionForm({
   includeCheck?: boolean;
 }) {
   const { data, error, mutate } = useSDKConnections();
-  const connections = data?.connections;
+  const connections = useMemo(
+    () => data?.connections.filter((c) => !c.archived),
+    [data],
+  );
 
   const [currentConnection, setCurrentConnection] =
     useState<SDKConnectionInterface | null>(null);
 
   useEffect(() => {
-    setCurrentConnection(() => {
-      if (connections && connections[0]) {
-        return connections[0];
-      } else {
-        return null;
-      }
-    });
+    setCurrentConnection(connections?.[0] ?? null);
   }, [connections]);
 
   if (error) {
