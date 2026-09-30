@@ -3403,10 +3403,7 @@ export async function toExperimentApiInterface(
       assignmentQuery: toApiAssignmentQueryRef(
         experiment.exposureQueryId,
         experiment.exposureQueryIdentifierType,
-        await getExposureQueriesForDatasource(
-          context,
-          experiment.datasource ?? "",
-        ),
+        await getExposureQueriesForDatasource(context, experiment.datasource),
       ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
@@ -3640,8 +3637,10 @@ export function toSnapshotApiInterface(
       "",
     settings: {
       datasourceId: experiment.datasource || "",
-      // Legacy contract: settings describe the current experiment, not the
-      // snapshot (bulk results are the snapshot-authoritative view).
+      /**
+       * Legacy contract: settings describe the current experiment, not the
+       * snapshot (bulk results are the snapshot-authoritative view).
+       */
       assignmentQuery: toApiAssignmentQueryRef(
         experiment.exposureQueryId,
         experiment.exposureQueryIdentifierType,
@@ -4670,10 +4669,13 @@ function apiScheduleToInterface(
   };
 }
 
-// Internal-only: the handler resolves this from assignmentQuery or a template.
 export type PostExperimentApiPayload = z.infer<
   typeof postExperimentValidator.bodySchema
 > & {
+  /**
+   * Internal-only: the handler resolves this from assignmentQuery or a
+   * template.
+   */
   assignmentQueryIdentifierType?: string;
 };
 
@@ -4745,6 +4747,7 @@ export function postExperimentApiPayloadToInterface(
       },
     },
   ];
+
   const obj: Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> = {
     organization: organization.id,
     datasource: datasource?.id ?? "",
@@ -4777,7 +4780,7 @@ export function postExperimentApiPayloadToInterface(
       payload.assignmentQueryId ||
       datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
-    // Parsed by the caller, which has the data source's queries.
+    /** Parsed by the caller, which has the data source's queries. */
     exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
     name: payload.name || "",
     type: payload.type || "standard",

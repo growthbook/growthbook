@@ -987,7 +987,7 @@ describe("Saved Group scope in ramp patches", () => {
 });
 
 describe("normalizeInlineRampSchedule", () => {
-  // Only the monitoring cases read queries: from the request cache here.
+  /** Only the monitoring cases read this, from the request's foreignRefs. */
   const datasource = {
     id: "ds_1",
     settings: {

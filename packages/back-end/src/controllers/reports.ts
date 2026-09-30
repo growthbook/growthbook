@@ -446,9 +446,11 @@ type ReportAssignmentQuerySelection = {
   exposureQueryIdentifierType?: string;
 };
 
-// `next` is merged over the stored settings, so the body's own identifier is
-// passed separately: the merged one would carry the old identifier to a new
-// query.
+/**
+ * `next` is merged over the stored settings, so the body's own identifier is
+ * passed separately: the merged one would carry the old identifier to a new
+ * query.
+ */
 async function applyReportAssignmentQuery(
   context: ReqContext,
   previous: ReportAssignmentQuerySelection,

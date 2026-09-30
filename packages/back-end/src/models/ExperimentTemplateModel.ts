@@ -34,8 +34,10 @@ type ApiTemplateBody = {
   exposureQueryId?: string;
 };
 
-// The API's grouped exposureQuery supersedes the deprecated exposureQueryId; the
-// model stays flat.
+/**
+ * The API's grouped exposureQuery supersedes the deprecated exposureQueryId;
+ * the model stays flat.
+ */
 async function toTemplateWriteBody<T extends ApiTemplateBody>(
   context: ReqContext | ApiReqContext,
   body: T,
@@ -65,7 +67,7 @@ async function toTemplateWriteBody<T extends ApiTemplateBody>(
   return { ...flat, exposureQueryIdentifierType };
 }
 
-// Both fields are optional in the API body, so creates must check for one.
+/** Both fields are optional in the API body, so creates must check for one. */
 function withRequiredExposureQuery<T extends { exposureQueryId?: string }>(
   body: T,
 ): T & { exposureQueryId: string } {
@@ -175,7 +177,7 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.hasPremiumFeature("templates");
   }
 
-  // Runs for internal and REST writes.
+  /** Runs for internal and REST writes. */
   protected override async customValidation(
     doc: ExperimentTemplateInterface,
     previousDoc?: ExperimentTemplateInterface,
@@ -206,7 +208,9 @@ export class ExperimentTemplatesModel extends BaseClass {
     return super.processApiCreateBody(withRequiredExposureQuery(body));
   }
 
-  // Overridden to read the stored query, which processApiUpdateBody can't see.
+  /**
+   * Overridden to read the stored query, which processApiUpdateBody can't see.
+   */
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {

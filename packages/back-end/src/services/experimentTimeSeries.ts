@@ -176,10 +176,6 @@ export async function updateExperimentAnalysisTimeSeries({
     );
   }
   const [dimensionId] = Array.from(dimensionIds);
-  const exposureQueries = await getExposureQueriesForDatasource(
-    context,
-    experimentSnapshot.settings.datasourceId,
-  );
   if (
     dimensionId &&
     !isDimensionPrecomputed(
@@ -217,6 +213,10 @@ export async function updateExperimentAnalysisTimeSeries({
     throw new Error("No base analysis found for time series");
   }
 
+  const exposureQueries = await getExposureQueriesForDatasource(
+    context,
+    experimentSnapshot.settings.datasourceId,
+  );
   const variationIds = getLatestPhaseVariations(experiment);
   const allDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = [];
   const dimensionValues = dimensionId

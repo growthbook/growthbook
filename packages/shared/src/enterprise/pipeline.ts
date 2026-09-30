@@ -32,8 +32,11 @@ export const INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS = [
   "experimentId",
 ] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
 
-// `exposureQueryIdentifierType` is resolved to the query's legacy identifier when unset.
-// It is hashed separately (getExperimentSettingsHashForIncrementalRefresh).
+/**
+ * Callers resolve an unset `exposureQueryIdentifierType` to the query's legacy
+ * identifier. It isn't in INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS because it
+ * is hashed separately (getExperimentSettingsHashForIncrementalRefresh).
+ */
 export type IncrementalFullRefreshComparable = Pick<
   ExperimentSnapshotSettings,
   | (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]

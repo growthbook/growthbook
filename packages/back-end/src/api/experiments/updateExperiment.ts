@@ -68,7 +68,10 @@ export const updateExperiment = createApiRequestHandler(
     req.body.assignmentQueryId,
     "assignmentQuery",
   );
-  // The grouped field folded into the flat ones, read in place of req.body.
+  /**
+   * req.body without the grouped assignmentQuery, which assignmentQueryInput
+   * already folded into the flat fields. Read these, not req.body.
+   */
   const { assignmentQuery, ...body } = req.body;
   const payload: UpdateExperimentApiPayload = {
     ...body,
@@ -111,7 +114,7 @@ export const updateExperiment = createApiRequestHandler(
     }
   }
 
-  // What the experiment stores after this write; undefined is implicit.
+  /** Stored after this write; undefined leaves the experiment implicit. */
   let exposureQueryIdentifierType = experiment.exposureQueryIdentifierType;
   if (
     payload.assignmentQueryId !== undefined ||

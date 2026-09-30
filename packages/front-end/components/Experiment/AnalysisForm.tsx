@@ -154,8 +154,10 @@ const AnalysisForm: FC<{
     experiment.exposureQueryId,
     experiment.userIdType,
   );
-  // Show what the experiment analyzes on, even a drifted identifier, so the
-  // form can flag it; with no query yet, pre-fill from the hash attribute.
+  /**
+   * Show what the experiment analyzes on, even a drifted identifier, so the
+   * form can flag it; with no query yet, pre-fill from the hash attribute.
+   */
   const initialIdentifierType = initialExposureQuery
     ? resolveAnalysisIdentifierType(
         initialExposureQuery,

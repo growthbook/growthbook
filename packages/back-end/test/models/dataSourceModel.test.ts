@@ -207,7 +207,7 @@ describe("dataSourceModel", () => {
           exposure: [
             {
               id: "anonymous_id",
-              // The client echoes a stale or mirrored value; it's ignored.
+              /** The client echoes a stale or mirrored value; it's ignored. */
               userIdType: "user_id",
               userIdTypes: ["user_id", "anonymous_id"],
               dimensions: [],

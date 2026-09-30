@@ -180,8 +180,10 @@ export interface ExposureQuery {
   id: string;
   name: string;
   description?: string;
-  // Frozen legacy identifier: what records without a stored identifier analyze
-  // on. Set once when the query is created and never follows `userIdTypes`.
+  /**
+   * Frozen legacy identifier: what records without a stored identifier analyze
+   * on. Set once when the query is created and never follows `userIdTypes`.
+   */
   userIdType: string;
   userIdTypes: string[];
   query: string;

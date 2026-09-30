@@ -417,7 +417,7 @@ describe("parseAssignmentQuerySelection", () => {
 });
 
 describe("isSameAssignmentQuerySelection", () => {
-  // Reordered after records were saved: the legacy identifier is no longer first.
+  /** Reordered after records were saved: the legacy one is no longer first. */
   const reordered = query({
     id: "eq_1",
     userIdType: "anonymous_id",

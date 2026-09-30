@@ -134,7 +134,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       }
     }
 
-    // The grouped field folded into the flat ones, read in place of req.body.
+    /**
+     * req.body without the grouped assignmentQuery, which assignmentQueryInput
+     * already folded into the flat fields. Read these, not req.body.
+     */
     const { assignmentQuery, ...body } = req.body;
     const fields = {
       ...(template ? templateToPostExperimentDefaults(template) : {}),
@@ -184,7 +187,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
             onOmitted: assignmentQuery
               ? "requireUnambiguous"
               : "defaultToFirst",
-            // A template's selection is fixed on the template, not this body.
+            /**
+             * Errors name the template's field: a template's selection is set
+             * on the template, not in this body.
+             */
             field: template ? "exposureQuery" : "assignmentQuery",
           },
         )

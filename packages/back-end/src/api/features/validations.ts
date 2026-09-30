@@ -62,7 +62,7 @@ type RampForceFeature = Pick<FeatureInterface, "valueType">;
 
 type RampNormalizeOptions = {
   validateStartActions?: boolean;
-  // The rule's live ramp config, when the action will update that ramp.
+  /** The rule's live ramp config, when the action will update that ramp. */
   previousMonitoringConfig?: RampMonitoringConfig | null;
 };
 

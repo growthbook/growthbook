@@ -732,9 +732,12 @@ export class ReqContextClass {
       getFeaturesByIds(this, ids),
     );
   }
-  // An org doesn't have that many data sources, so we fetch them all, once per
-  // request: concurrent lookups share the load, and an id still missing after
-  // it isn't in the org or isn't readable, so it isn't refetched.
+
+  /**
+   * An org doesn't have that many data sources, so we fetch them all once per
+   * request. Concurrent lookups share the load, and an id still missing
+   * afterwards isn't in the org or isn't readable, so it isn't refetched.
+   */
   private allDataSourceRefs: Promise<void> | null = null;
   private loadAllDataSourceRefs(): Promise<void> {
     if (!this.allDataSourceRefs) {
@@ -756,7 +759,7 @@ export class ReqContextClass {
     return this.allDataSourceRefs;
   }
 
-  // Called after a data source write, so later reads in the request see it.
+  /** Called after a data source write, so later reads in the request see it. */
   public forgetDataSourceRefs(): void {
     this.foreignRefs.datasource.clear();
     this.allDataSourceRefs = null;
@@ -778,8 +781,11 @@ export class ReqContextClass {
     }
   }
 
-  // Defined on the context so validation helpers needn't import DataSourceModel.
-  // Uncached, and never written to foreignRefs: serializers read those.
+  /**
+   * Defined on the context so validation helpers needn't import
+   * DataSourceModel. Uncached, and never written to foreignRefs because
+   * serializers read those.
+   */
   public async dangerouslyGetDataSourceByIdBypassPermission(
     id: string,
   ): Promise<DataSourceInterface | null> {

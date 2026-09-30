@@ -27,7 +27,6 @@ import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlic
 import AssignmentQueryFields, {
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
-
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricAnalysisWindowSelector from "@/components/Experiment/MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "@/components/Experiment/MetricsOverridesSelector";

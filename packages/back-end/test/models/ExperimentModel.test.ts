@@ -124,7 +124,7 @@ describe("ExperimentModel", () => {
     afterAll(disconnectTestMongo);
 
     it("unsets a cleared assignment query identifier rather than keeping it", async () => {
-      // A holdout skips the event log, which needs a full request context.
+      /** A holdout skips the event log, which needs a full request context. */
       const stored: ExperimentInterface = {
         ...experiment,
         type: "holdout",

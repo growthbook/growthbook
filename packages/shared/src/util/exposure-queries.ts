@@ -11,7 +11,7 @@ type ExposureQueryIdentity = Pick<
   "id" | "userIdType" | "userIdTypes"
 >;
 
-// Falls back to the deprecated scalar for queries saved before userIdTypes.
+/** Falls back to `userIdType` for queries saved before `userIdTypes`. */
 export function getExposureQueryIdentifierTypes(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
 ): string[] {
@@ -21,8 +21,9 @@ export function getExposureQueryIdentifierTypes(
 }
 
 /**
- * For counting a query's units, where any identifier it returns works: the
- * legacy one so reordering doesn't change the counts, but not once removed.
+ * An identifier for counting a query's units, where any declared one works.
+ * Prefers the legacy `userIdType` so reordering doesn't change the counts, but
+ * not once the query stops declaring it.
  */
 export function getPreferredIdentifierType(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
@@ -64,7 +65,7 @@ export function resolveAnalysisIdentifierType(
 export function getIdentifierTypeForSettingsHash(
   exposureQueryId: string,
   identifierType: string | undefined,
-  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
+  exposureQueries: ExposureQueryIdentity[],
 ): string | undefined {
   const query = exposureQueries.find((q) => q.id === exposureQueryId);
   return identifierType &&
@@ -136,8 +137,10 @@ export type ParsedAssignmentQuerySelection<
 > =
   | {
       ok: true;
-      // What to store. Undefined leaves the record implicit, analyzing on the
-      // query's frozen legacy identifier.
+      /**
+       * What to store. Undefined leaves the record implicit, analyzing on the
+       * query's frozen legacy identifier.
+       */
       identifierType: string | undefined;
       query: Q;
     }
@@ -147,8 +150,8 @@ export type ParsedAssignmentQuerySelection<
  * Validates a new or changed selection and returns the identifier to store. An
  * omitted identifier stays implicit while the query declares the one analysis
  * would fall back to (resolveAnalysisIdentifierType), and is rejected once it
- * doesn't rather than moving to another. "requireUnambiguous" rejects any
- * omission on a query that declares several, which lists the choices.
+ * doesn't rather than moving to another. "requireUnambiguous" also rejects an
+ * omission on a query that declares several, with an error listing them.
  */
 export function parseAssignmentQuerySelection<
   Q extends SelectableExposureQuery,
@@ -163,7 +166,7 @@ export function parseAssignmentQuerySelection<
     exposureQueryId: string;
     identifierType?: string;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
-    // The REST field to name in the ambiguity error.
+    /** The REST field that errors tell the caller to set. */
     field?: string;
   },
 ): ParsedAssignmentQuerySelection<Q> {
@@ -214,7 +217,7 @@ export function parseAssignmentQuerySelection<
 export function toApiAssignmentQueryRef(
   id: string,
   storedIdentifierType: string | undefined,
-  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
+  exposureQueries: ExposureQueryIdentity[],
 ): ApiAssignmentQueryRef {
   const identifierType = id
     ? resolveAnalysisIdentifierType(
@@ -239,7 +242,7 @@ export type AssignmentQuerySelection = {
 export function isSameAssignmentQuerySelection(
   previous: AssignmentQuerySelection,
   next: AssignmentQuerySelection,
-  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
+  exposureQueries: ExposureQueryIdentity[],
 ): boolean {
   if (
     previous.datasource !== next.datasource ||
@@ -282,11 +285,13 @@ export type AssignmentQuerySelectionChange =
   | { ok: false; error: string };
 
 /**
- * The identifier to store when `next` replaces `previous` (null on create),
- * keeping the stored one per withKeptIdentifierType. An unchanged selection
- * keeps `previous`'s stored value, so echoing an implicit record's resolved
- * identifier leaves it implicit, and isn't re-validated, so a query that
- * drifted since doesn't block unrelated edits. A new or changed one is parsed.
+ * The identifier to store when `next` replaces `previous` (null on create).
+ * When `next` names the same query without an identifier, the stored one is
+ * kept (withKeptIdentifierType). An unchanged selection keeps `previous`'s
+ * stored value without re-validating it: echoing an implicit record's resolved
+ * identifier leaves it implicit, and a query that drifted since doesn't block
+ * unrelated edits. A new or changed selection goes through
+ * parseAssignmentQuerySelection.
  */
 export function resolveAssignmentQuerySelectionChange(
   exposureQueries: SelectableExposureQuery[],

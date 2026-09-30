@@ -121,8 +121,10 @@ export default function BanditRefNewFields({
   envScope?: EnvScopeProps;
   projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
-  // When duplicating or creating from a template: keeps its identifier and
-  // explains a change.
+  /**
+   * When duplicating or creating from a template: keeps its identifier and
+   * explains a change.
+   */
   assignmentQueryCopySource?: AssignmentQueryCopySource | null;
 }) {
   const form = useFormContext();
@@ -158,7 +160,7 @@ export default function BanditRefNewFields({
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
     copiedIdentifierType: getCopySourceIdentifierType(
-      datasource ?? null,
+      datasource,
       assignmentQueryCopySource ?? null,
     ),
     autoRepair: !!datasource?.properties?.exposureQueries,
@@ -357,7 +359,7 @@ export default function BanditRefNewFields({
                 selection={assignmentQuerySelection}
                 size="legacy"
                 notice={getCopiedAssignmentQueryNotice(
-                  datasource ?? null,
+                  datasource,
                   assignmentQueryCopySource ?? null,
                   {
                     exposureQueryId,

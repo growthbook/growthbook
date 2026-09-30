@@ -580,9 +580,11 @@ export interface IncrementalRefreshStatisticsQueryParams {
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 
-// An assignment query's SQL with the identifier resolved for this analysis.
-// Deliberately not shaped like `ExposureQuery`, so an unresolved query can't be
-// passed where a resolved one is expected.
+/**
+ * An assignment query's SQL with the identifier resolved for this analysis.
+ * Deliberately not shaped like `ExposureQuery`, so an unresolved query can't
+ * be passed where a resolved one is expected.
+ */
 export type ResolvedExposureQuery = { query: string; identifierType: string };
 
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {

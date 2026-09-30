@@ -362,9 +362,13 @@ export async function createHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
   data: CreateHoldoutInput,
   {
-    // REST's grouped assignmentQuery must name an identifier when ambiguous.
     onOmitted = "defaultToFirst",
-  }: { onOmitted?: "defaultToFirst" | "requireUnambiguous" } = {},
+  }: {
+    /**
+     * REST's grouped assignmentQuery must name an identifier when ambiguous.
+     */
+    onOmitted?: "defaultToFirst" | "requireUnambiguous";
+  } = {},
 ): Promise<{
   holdout: HoldoutInterface;
   experiment: ExperimentInterface;
@@ -674,14 +678,14 @@ export async function updateHoldoutWithExperiment(
   if (body.owner !== undefined) {
     experimentChanges.owner = await resolveOwnerToUserId(body.owner, context);
   }
-  // Validate against the post-update values, so a metric or exposure query left
-  // stale by a datasource-only change is rejected here, not at query time.
   const assignmentQueryInput = parseAssignmentQueryInput(
     body.assignmentQuery,
     body.assignmentQueryId,
     "assignmentQuery",
   );
   const assignmentQueryId = assignmentQueryInput.id;
+  // Validate against the post-update values, so a metric or exposure query left
+  // stale by a datasource-only change is rejected here, not at query time.
   if (
     body.datasourceId !== undefined ||
     assignmentQueryId !== undefined ||

@@ -82,7 +82,7 @@ export const postReportRefresh = createApiRequestHandler(
         metricMap,
         await getExposureQueriesForDatasource(
           req.context,
-          experiment.datasource ?? "",
+          experiment.datasource,
         ),
       );
       return { report: { ...apiReport, results } };

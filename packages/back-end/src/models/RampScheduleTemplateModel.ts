@@ -19,7 +19,10 @@ import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuer
 import { MakeModelClass } from "./BaseModel";
 import { migrateRampStepTriggers } from "./RampScheduleModel";
 
-// `null` (clear) and absent monitoring configs pass through.
+/**
+ * Resolves a REST body's monitoring config to the stored shape. `null` (clear)
+ * and absent configs pass through.
+ */
 async function withInternalMonitoringConfig<
   T extends { monitoringConfig?: ApiRampMonitoringConfigInput | null },
 >(
@@ -143,8 +146,10 @@ export class RampScheduleTemplateModel extends BaseClass {
     return { ...body, order: body.order ?? (await this.getNextOrder()) };
   }
 
-  // Overridden to read the stored monitoring config, which
-  // processApiUpdateBody can't see.
+  /**
+   * Overridden to read the stored monitoring config, which
+   * processApiUpdateBody can't see.
+   */
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
@@ -164,7 +169,7 @@ export class RampScheduleTemplateModel extends BaseClass {
     );
   }
 
-  // Runs for internal and REST writes.
+  /** Runs for internal and REST writes. */
   protected override async customValidation(
     doc: RampScheduleTemplateInterface,
     previousDoc?: RampScheduleTemplateInterface,

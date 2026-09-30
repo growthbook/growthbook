@@ -242,8 +242,10 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
   return doc;
 }
 
-// `context` must have the monitoring data source cached; the model's
-// getForeignKeys does that on every read and write.
+/**
+ * `context` must have the monitoring data source cached; the model's
+ * getForeignKeys does that on every read and write.
+ */
 export function rampScheduleToApiInterface(
   context: ReqContext | ApiReqContext,
   doc: RampScheduleInterface,

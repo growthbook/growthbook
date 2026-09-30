@@ -24,7 +24,7 @@ type Selection = {
   identifierTypes: string[];
   groupedIdentifierTypes: (GroupedValue | SingleValue)[];
   exposureQueryOptions: SingleValue[];
-  // A kept selection whose query no longer declares its identifier.
+  /** A kept selection whose query no longer declares its identifier. */
   identifierUndeclared: boolean;
   setExposureQueryId: (exposureQueryId: string) => void;
   changeIdentifierType: (identifierType: string) => void;
@@ -47,14 +47,18 @@ export function useAssignmentQuerySelection({
   identifierType: string | undefined;
   setExposureQueryId: (exposureQueryId: string) => void;
   setIdentifierType: (identifierType: string | undefined) => void;
-  // New records repair an invalid selection as inputs change; existing records
-  // must not have saved settings rewritten on load.
+  /**
+   * New records repair an invalid selection as inputs change; existing records
+   * must not have saved settings rewritten on load.
+   */
   autoRepair?: boolean;
-  // Keep a drifted selection listed so existing records show what they use.
+  /** Keep a drifted selection listed so existing records show what they use. */
   keepCurrentSelection?: boolean;
-  // A copy's source identifier. Repair keeps it when some query declares it,
-  // else leaves the identifier for the user to choose instead of defaulting,
-  // since a different identifier measures different units.
+  /**
+   * A copy's source identifier. Repair keeps it when some query declares it,
+   * else leaves the identifier for the user to choose instead of defaulting,
+   * since a different identifier measures different units.
+   */
   copiedIdentifierType?: string;
 }): Selection {
   const keptQueryId = keepCurrentSelection ? exposureQueryId : undefined;
@@ -128,8 +132,11 @@ export function useAssignmentQuerySelection({
     ],
   );
 
-  // The shown identifier may be resolved, not stored, for a record saved before
-  // identifiers were; commit it with a new query so the save keeps it.
+  /**
+   * For a record saved before identifiers were stored, the shown identifier is
+   * resolved rather than stored; commit it along with a new query so the save
+   * keeps it.
+   */
   const selectExposureQueryId = useCallback(
     (value: string) => {
       if (value !== exposureQueryId && identifierType) {

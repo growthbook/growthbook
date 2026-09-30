@@ -1052,7 +1052,7 @@ describe("createHoldoutWithExperiment", () => {
     await createHoldoutWithExperiment(makeAssignmentContext(), {
       ...input,
       assignmentQueryId: "eq_b",
-    } as Parameters<typeof createHoldoutWithExperiment>[1]);
+    });
 
     const { data } = jest.mocked(createExperiment).mock.calls[0][0];
     expect(data).toMatchObject({ exposureQueryId: "eq_b" });
@@ -1064,7 +1064,7 @@ describe("createHoldoutWithExperiment", () => {
       createHoldoutWithExperiment(makeAssignmentContext(), {
         ...input,
         assignmentQueryId: "eq_dropped",
-      } as Parameters<typeof createHoldoutWithExperiment>[1]),
+      }),
     ).rejects.toThrow(
       'no longer declares its default identifier type "user_id"',
     );

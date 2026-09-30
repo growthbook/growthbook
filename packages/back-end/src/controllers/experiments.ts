@@ -870,8 +870,10 @@ export async function getExperimentIncrementalRefresh(
         })
       : null;
 
-    // Bypasses read scope: a viewer who can't read the data source must still
-    // get the same answer. Only the matching decision leaves the server.
+    /**
+     * Bypasses read scope: a viewer who can't read the data source must still
+     * get the same answer. Only the matching decision leaves the server.
+     */
     const datasource = snapshot
       ? await context.dangerouslyGetDataSourceByIdBypassPermission(
           experiment.datasource,
@@ -2017,20 +2019,21 @@ export async function postExperiment(
     };
   }
 
-  const nextSelection = {
-    datasource: changes.datasource ?? experiment.datasource ?? "",
-    exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
-    // The body's, not `changes`: re-sending the stored value on a new query
-    // leaves it out of `changes` but is still an explicit choice.
-    identifierType: data.exposureQueryIdentifierType,
-  };
   const resolvedSelection = await resolveAssignmentQueryIdentifier(context, {
     previous: {
       datasource: experiment.datasource ?? "",
       exposureQueryId: experiment.exposureQueryId,
       identifierType: experiment.exposureQueryIdentifierType,
     },
-    next: nextSelection,
+    next: {
+      datasource: changes.datasource ?? experiment.datasource ?? "",
+      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
+      /**
+       * The body's, not `changes`: re-sending the stored value on a new query
+       * leaves it out of `changes` but is still an explicit choice.
+       */
+      identifierType: data.exposureQueryIdentifierType,
+    },
     onOmitted: "defaultToFirst",
   });
   // Also overrides an echoed identifier on an unchanged selection, so an

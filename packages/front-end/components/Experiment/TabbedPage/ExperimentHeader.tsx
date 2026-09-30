@@ -217,10 +217,11 @@ export default function ExperimentHeader({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
+  const exposureQuery = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId,
+  );
   const userIdType = resolveAnalysisIdentifierType(
-    datasourceSettings?.queries?.exposure?.find(
-      (e) => e.id === experiment.exposureQueryId,
-    ),
+    exposureQuery,
     experiment.exposureQueryIdentifierType,
   );
 
@@ -750,12 +751,7 @@ export default function ExperimentHeader({
       {showTemplateForm && (
         <TemplateForm
           onClose={() => setShowTemplateForm(false)}
-          initialValue={convertExperimentToTemplate(
-            experiment,
-            datasourceSettings?.queries?.exposure?.find(
-              (e) => e.id === experiment.exposureQueryId,
-            ),
-          )}
+          initialValue={convertExperimentToTemplate(experiment, exposureQuery)}
           isNewTemplate
           source="experiment"
         />

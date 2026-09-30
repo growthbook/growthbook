@@ -956,8 +956,10 @@ export async function updateExperiment({
       (type) => !remindersToReset.includes(type),
     );
   }
-  // $set skips an undefined value, so clearing the stored identifier (an
-  // implicit selection) needs an $unset or the old one would stay.
+  /**
+   * $set skips an undefined value, so clearing the stored identifier (an
+   * implicit selection) needs an $unset or the old one would stay.
+   */
   const unsetIdentifierType =
     "exposureQueryIdentifierType" in allChanges &&
     allChanges.exposureQueryIdentifierType === undefined;

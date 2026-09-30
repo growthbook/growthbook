@@ -94,8 +94,10 @@ export const SelectStep = ({
 
           return {
             ...exp,
-            // Excludes experiments whose identifier the query no longer declares,
-            // since their analysis can't run either.
+            /**
+             * Undefined, which filters the experiment out below, when its query
+             * no longer declares its identifier: its analysis can't run either.
+             */
             exposureQueryUserIdType:
               exposureQuery &&
               identifierType &&

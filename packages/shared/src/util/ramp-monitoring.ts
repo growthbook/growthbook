@@ -10,8 +10,10 @@ import {
   toApiAssignmentQueryRef,
 } from "./exposure-queries";
 
-// Ramps and ramp templates store their assignment selection flat, nested in the
-// monitoring config.
+/**
+ * Ramps and ramp templates store their assignment selection flat, nested in
+ * the monitoring config.
+ */
 export function toMonitoringSelection(
   mc: Pick<
     RampMonitoringConfig,
@@ -25,8 +27,10 @@ export function toMonitoringSelection(
   };
 }
 
-// The API's grouped exposureQuery supersedes the deprecated exposureQueryId; the
-// stored config stays flat.
+/**
+ * The API's grouped `exposureQuery` supersedes the deprecated
+ * `exposureQueryId`; the stored config stays flat.
+ */
 export function apiMonitoringConfigToInternal<
   T extends {
     datasourceId: string;
@@ -44,8 +48,10 @@ export function apiMonitoringConfigToInternal<
   if (!exposureQueryId) {
     throw new Error("monitoringConfig.exposureQuery is required");
   }
-  // The config is replaced whole, so re-sending the same query without an
-  // identifier would otherwise drop the stored one for the legacy default.
+  /**
+   * The config is replaced whole, so re-sending the same query without an
+   * identifier would otherwise drop the stored one for the legacy default.
+   */
   const keepsIdentifier =
     !flat.exposureQueryIdentifierType &&
     !!previous?.exposureQueryIdentifierType &&

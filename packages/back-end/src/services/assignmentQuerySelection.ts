@@ -23,10 +23,10 @@ import type { ApiReqContext } from "back-end/types/api";
 
 /**
  * Whether `next` changes `previous` (always when `previous` is null), with the
- * data source to validate it against. That's null when there's no data source
- * or query to check, which analysis surfaces instead. Reads the request's data
- * source cache before bypassing read scope, so a selection the caller may edit
- * is checked even when they can't read the data source.
+ * data source to validate it against. The data source is null when there's no
+ * data source or query to check; analysis surfaces that instead. Reads the
+ * request's data source cache before bypassing read scope, so a selection the
+ * caller may edit is checked even when they can't read the data source.
  */
 export async function loadChangedAssignmentQuerySelection(
   context: ReqContext | ApiReqContext,
@@ -61,9 +61,10 @@ export async function loadChangedAssignmentQuerySelection(
 }
 
 /**
- * resolveAssignmentQuerySelectionChange against `next`'s data source, loaded per
- * loadChangedAssignmentQuerySelection. Throws on an invalid change. With no data
- * source or query to check, the kept identifier passes unvalidated.
+ * Runs resolveAssignmentQuerySelectionChange against the data source of `next`,
+ * loaded as in loadChangedAssignmentQuerySelection, and throws on an invalid
+ * change. With no data source or query to check, the kept identifier passes
+ * through unvalidated.
  */
 export async function resolveAssignmentQueryIdentifier(
   context: ReqContext | ApiReqContext,
@@ -102,8 +103,10 @@ export async function resolveAssignmentQueryIdentifier(
   return result;
 }
 
-// Only a changed selection is validated, so a record whose query later drifted
-// can still save unrelated edits.
+/**
+ * Only a changed selection is validated, so a record whose query later drifted
+ * can still save unrelated edits.
+ */
 export async function assertValidAssignmentQuerySelectionChange(
   context: ReqContext | ApiReqContext,
   previous: AssignmentQuerySelection | null,
@@ -126,8 +129,11 @@ export async function assertValidAssignmentQuerySelectionChange(
   if (!parsed.ok) throw new Error(parsed.error);
 }
 
-// Resolves legacy assignment query identifiers from the request's data source
-// cache, so serializing a list reads data sources once.
+/**
+ * The data source's exposure queries, for resolving legacy records'
+ * identifiers. Reads the request's data source cache, so serializing a list
+ * loads data sources once.
+ */
 export async function getExposureQueriesForDatasource(
   context: ReqContext | ApiReqContext,
   datasourceId: string,
@@ -140,10 +146,12 @@ export async function getExposureQueriesForDatasource(
   );
 }
 
-// For REST writes of a monitoring config: flattened, with the identifier a new
-// or changed selection resolves to and the stored one for an unchanged
-// selection. The config is replaced whole, so an implicit one leaves the key
-// out rather than persist an undefined.
+/**
+ * Converts a REST monitoring config to the stored flat shape. A new or changed
+ * selection gets the identifier it resolves to; an unchanged one keeps the
+ * stored identifier. The config is replaced whole, so an implicit selection
+ * omits the key rather than persisting an undefined.
+ */
 export async function resolveApiMonitoringConfig<
   T extends {
     datasourceId: string;

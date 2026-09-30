@@ -100,8 +100,10 @@ const TemplateForm: FC<Props> = ({
       customFields: initialValue?.customFields || {},
       datasource: initialValue?.datasource || "",
       exposureQueryId: initialValue?.exposureQueryId || "",
-      // Templates saved before identifiers were stored analyze on their query's
-      // original one; keep it rather than let the form pick a default.
+      /**
+       * Templates saved before identifiers were stored analyze on their query's
+       * original one; keep it rather than let the form pick a default.
+       */
       exposureQueryIdentifierType: resolveAnalysisIdentifierType(
         getDatasourceById(
           initialValue?.datasource ?? "",
@@ -237,8 +239,6 @@ const TemplateForm: FC<Props> = ({
     ? permissionsUtils.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
-  // ExperimentRefNewFields owns repairing the assignment query / identifier
-  // selection, since only it knows the identifier filtering.
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
   let header = isNewTemplate

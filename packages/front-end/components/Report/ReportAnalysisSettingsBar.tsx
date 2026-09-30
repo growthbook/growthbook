@@ -62,9 +62,9 @@ export default function ReportAnalysisSettingsBar({
     report.experimentAnalysisSettings.lookbackOverride,
   );
 
-  // The identifier the shown snapshot ran on, not the report's current one.
+  /** The identifier the shown snapshot ran on, not the report's current one. */
   const userIdType =
-    snapshot?.settings?.exposureQueryIdentifierType ??
+    snapshot?.settings.exposureQueryIdentifierType ??
     resolveAnalysisIdentifierType(
       datasourceSettings?.queries?.exposure?.find(
         (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,

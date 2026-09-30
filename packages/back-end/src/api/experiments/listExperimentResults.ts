@@ -64,7 +64,7 @@ export const listExperimentResults = createApiRequestHandler(
   );
   const exposureQueriesByDatasource = new Map(
     await Promise.all(
-      [...new Set(filtered.map((e) => e.datasource ?? ""))].map(
+      [...new Set(filtered.map((e) => e.datasource))].map(
         async (id) =>
           [id, await getExposureQueriesForDatasource(req.context, id)] as const,
       ),
@@ -82,7 +82,7 @@ export const listExperimentResults = createApiRequestHandler(
             experiment,
             snapshot,
             metricsById,
-            exposureQueriesByDatasource.get(experiment.datasource ?? "") ?? [],
+            exposureQueriesByDatasource.get(experiment.datasource) ?? [],
           ),
         ]
       : [];

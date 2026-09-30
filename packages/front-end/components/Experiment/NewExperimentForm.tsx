@@ -186,10 +186,12 @@ export function getNewExperimentDatasourceDefaults({
     initialUserIdType,
   );
 
-  // Imports take the identifier discovery counted units on. Copies (duplicate,
-  // from template) keep what the source analyzes on, even if the query dropped
-  // it: the form then looks for another query declaring it before falling
-  // back, and explains the change.
+  /**
+   * Imports take the identifier discovery counted units on. Copies (duplicate,
+   * from template) keep what the source analyzes on, even if the query dropped
+   * it: the form then looks for another query declaring it before falling
+   * back, and explains the change.
+   */
   const sourceIdentifierType =
     exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
       ? isImport
@@ -749,8 +751,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     identifierType: exposureQueryIdentifierType,
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
-    // New and duplicate flows render the fields (and repair) in
-    // ExperimentRefNewFields/BanditRefNewFields; two repairs would fight.
+    /**
+     * New and duplicate flows render the fields (and repair) in
+     * ExperimentRefNewFields/BanditRefNewFields; two repairs would fight.
+     */
     autoRepair: !(isNewExperiment || duplicate),
   });
   const status = form.watch("status");
