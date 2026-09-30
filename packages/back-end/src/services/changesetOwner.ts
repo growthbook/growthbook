@@ -12,11 +12,7 @@ import type {
   ExperimentInterfaceExcludingHoldouts,
   PhaseVariation,
 } from "shared/validators";
-import {
-  getActiveVariations,
-  getLatestPhaseVariations,
-  getVisibleVariations,
-} from "shared/experiments";
+import { getVisibleVariations } from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -42,14 +38,14 @@ export type OwnerVariation = Pick<
   "id" | "key" | "name" | "description"
 > & { status?: "active" | "pending" | "deactivated" };
 
-export type ChangesetPayloadEvent = "created" | "updated" | "deleted";
+type ChangesetPayloadEvent = "created" | "updated" | "deleted";
 
 type WriteReq = {
   context: ApiReqContext;
   audit: (data: AuditInterfaceInput) => Promise<void>;
 };
 
-export type EditorExperiment = {
+type EditorExperiment = {
   id: string;
   trackingKey: string;
   name: string;
@@ -67,7 +63,7 @@ export type EditorExperiment = {
   }>;
 };
 
-export type PromptContext = {
+type PromptContext = {
   kind: ChangesetOwnerKind;
   id: string;
   name: string;
@@ -83,13 +79,9 @@ export interface ChangesetOwner {
   readonly status: string;
   readonly archived: boolean;
   readonly project: string;
-  readonly trackingKey: string;
-  readonly hashAttribute: string;
-  readonly hasVisualChangesets: boolean;
   readonly dateUpdated: Date | string | undefined;
 
   editableVariations(): OwnerVariation[];
-  servedVariations(): OwnerVariation[];
   isEditable(): boolean;
 
   canUpdate(): boolean;
@@ -112,7 +104,7 @@ export interface ChangesetOwner {
     name?: string;
     sourceVariationId?: string;
   }): Promise<{ id: string; name: string }>;
-  removeVariation(id: string): Promise<{ rollback: () => Promise<void> }>;
+  removeVariation(id: string): Promise<{ rollback?: () => Promise<void> }>;
   renameVariation(id: string, name: string): Promise<string>;
 
   toEditorExperiment(): Promise<ApiExperiment | EditorExperiment | null>;
@@ -143,24 +135,12 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
   get project() {
     return this.experiment.project ?? "";
   }
-  get trackingKey() {
-    return this.experiment.trackingKey;
-  }
-  get hashAttribute() {
-    return this.experiment.hashAttribute;
-  }
-  get hasVisualChangesets() {
-    return !!this.experiment.hasVisualChangesets;
-  }
   get dateUpdated() {
     return this.experiment.dateUpdated ?? this.experiment.dateCreated;
   }
 
   editableVariations(): OwnerVariation[] {
     return this.experiment.variations;
-  }
-  servedVariations(): OwnerVariation[] {
-    return getLatestPhaseVariations(this.experiment);
   }
   isEditable(): boolean {
     return !this.archived && this.status === "draft";
@@ -458,24 +438,12 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   get project() {
     return this.cb.project ?? "";
   }
-  get trackingKey() {
-    return this.cb.trackingKey;
-  }
-  get hashAttribute() {
-    return this.cb.hashAttribute;
-  }
-  get hasVisualChangesets() {
-    return !!this.cb.hasVisualChangesets;
-  }
   get dateUpdated() {
     return this.cb.dateUpdated ?? this.cb.dateCreated;
   }
 
   editableVariations(): OwnerVariation[] {
     return getVisibleVariations(this.cb.variations);
-  }
-  servedVariations(): OwnerVariation[] {
-    return getActiveVariations(this.cb.variations);
   }
   isEditable(): boolean {
     return !this.archived && this.status !== "stopped";
@@ -587,23 +555,14 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
     return { id: added.id, name: added.name };
   }
 
-  async removeVariation(
-    variationId: string,
-  ): Promise<{ rollback: () => Promise<void> }> {
+  async removeVariation(variationId: string): Promise<{ rollback?: never }> {
     const { updated } = await executeContextualBanditVariationChange(
       this.context,
       this.cb,
       { removeVariationIds: [variationId] },
     );
     this.cb = updated;
-    return {
-      rollback: async () => {
-        logger.warn(
-          { contextualBanditId: this.cb.id, variationId },
-          "A removed contextual bandit variation cannot be restored; its visual change may remain",
-        );
-      },
-    };
+    return {};
   }
 
   async renameVariation(variationId: string, name: string): Promise<string> {

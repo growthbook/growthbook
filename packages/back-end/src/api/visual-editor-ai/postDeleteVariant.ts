@@ -61,7 +61,7 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     visualChangesetId,
   });
 
-  let removed: { rollback: () => Promise<void> };
+  let removed: { rollback?: () => Promise<void> };
   try {
     removed = await owner.removeVariation(variationId);
   } catch (e) {
@@ -87,6 +87,13 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
       updates: { visualChanges: nextVisualChanges },
     });
   } catch (e) {
+    if (!removed.rollback) {
+      logger.error(
+        { err: e, variationId, visualChangesetId },
+        "[visual-editor/delete-variant] visual-change write failed after an irreversible variation removal; its visual change remains",
+      );
+      throw e;
+    }
     try {
       await removed.rollback();
     } catch (rollbackErr) {

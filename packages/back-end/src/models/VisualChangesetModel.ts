@@ -10,7 +10,6 @@ import {
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "shared/types/visual-changeset";
-import { ExperimentInterface } from "shared/types/experiment";
 import {
   ApiVisualChangeset,
   ContextualBanditInterface,
@@ -24,7 +23,6 @@ import {
   resolveChangesetOwner,
 } from "back-end/src/services/changesetOwner";
 import { ApiReqContext } from "back-end/types/api";
-import { getExperimentById } from "./ExperimentModel";
 
 const visualChangesetURLPatternSchema =
   new mongoose.Schema<VisualChangesetURLPattern>(
@@ -612,17 +610,3 @@ export async function findVisualChangesetsByOwner(
     ? findVisualChangesetsByContextualBandit(owner.id, organization)
     : findVisualChangesetsByExperiment(owner.id, organization);
 }
-
-export const findExperimentByVisualChangesetId = async (
-  context: ReqContext | ApiReqContext,
-  visualChangesetId: string,
-): Promise<ExperimentInterface | null> => {
-  const visualChangeset = await findVisualChangesetById(
-    visualChangesetId,
-    context.org.id,
-  );
-
-  if (!visualChangeset) return null;
-
-  return getExperimentById(context, visualChangeset.experiment);
-};
