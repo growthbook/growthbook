@@ -568,8 +568,14 @@ export function normalizeDatabricksEventForwarderDestination(
   destination: DatabricksEventForwarderTablePrefix,
 ): DatabricksEventForwarderTablePrefix {
   return {
-    catalog: assertDatabricksIdentifier(destination.catalog, "Catalog"),
-    schema: assertDatabricksIdentifier(destination.schema, "Schema"),
+    catalog: assertDatabricksIdentifier(
+      unwrapIdentifier(destination.catalog),
+      "Catalog",
+    ),
+    schema: assertDatabricksIdentifier(
+      unwrapIdentifier(destination.schema),
+      "Schema",
+    ),
     // Empty prefix falls back to the default, like BigQuery and Snowflake.
     tablePrefix: normalizeDatabricksTablePrefixForEventForwarder(
       destination.tablePrefix,

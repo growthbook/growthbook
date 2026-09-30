@@ -484,11 +484,11 @@ describe("resolveDatabricksEventForwarderTableNames", () => {
 });
 
 describe("normalizeDatabricksEventForwarderDestination", () => {
-  it("trims and normalizes the prefix", () => {
+  it("trims, unwraps backticks and normalizes the prefix", () => {
     expect(
       normalizeDatabricksEventForwarderDestination({
-        catalog: " main ",
-        schema: "analytics",
+        catalog: " `main` ",
+        schema: "`analytics`",
         tablePrefix: "GB",
       }),
     ).toEqual({ catalog: "main", schema: "analytics", tablePrefix: "gb" });
