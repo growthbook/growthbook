@@ -46,14 +46,11 @@ export default function PayloadSecurityField({
   onChange,
   languages,
   sdkVersion,
-  disabled = false,
 }: {
   value: PayloadSecurityValue;
   onChange: (patch: Partial<PayloadSecurityValue>) => void;
   languages: SDKLanguage[];
   sdkVersion?: string;
-  /** Externally managed connections are read-only. */
-  disabled?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
   const hasEncryptionFeature = hasCommercialFeature(
@@ -114,7 +111,7 @@ export default function PayloadSecurityField({
           <Checkbox
             weight="regular"
             value={value.encryptPayload}
-            disabled={disabled || !hasEncryptionFeature}
+            disabled={!hasEncryptionFeature}
             setValue={(v) => onChange({ encryptPayload: v })}
             label={
               <PremiumTooltip
@@ -147,7 +144,7 @@ export default function PayloadSecurityField({
         <Checkbox
           weight="regular"
           value={value.hashSecureAttributes}
-          disabled={disabled || !hasSecureAttributesFeature}
+          disabled={!hasSecureAttributesFeature}
           setValue={(v) => onChange({ hashSecureAttributes: v })}
           label={
             <PremiumTooltip
@@ -338,7 +335,6 @@ export default function PayloadSecurityField({
         <Tooltip body="How much of the feature definition the SDK receives, and whether it can be cached." />
       </Flex>
       <RadioGroup
-        disabled={disabled}
         value={value.delivery}
         setValue={(v) => {
           const mode = v as DeliveryMode;

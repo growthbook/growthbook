@@ -102,8 +102,6 @@ export default function EditSDKSettingsModal({
   const showVisualEditorSettings =
     latestSdkCapabilities.includes("visualEditor");
   const showRedirectSettings = latestSdkCapabilities.includes("redirects");
-  // Externally managed connections are read-only, as in the full form.
-  const isExternallyManaged = !!connection.managedBy?.type;
   const canStream = isCloud() || !!connection.proxy?.enabled;
   const { draftSelector, save } = useSdkConnectionRevisionFlow({
     connection,
@@ -218,7 +216,6 @@ export default function EditSDKSettingsModal({
                 onChange={onChange}
                 languages={connection.languages}
                 sdkVersion={connection.sdkVersion}
-                disabled={isExternallyManaged}
               />
               {canStream && value.delivery !== "ciphered" && (
                 <Box mt="3">
