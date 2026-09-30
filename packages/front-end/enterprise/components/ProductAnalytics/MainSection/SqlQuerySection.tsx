@@ -25,7 +25,11 @@ import AiSqlGenerator from "@/components/SchemaBrowser/AiSqlGenerator";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { canFormatSql, formatSql } from "@/services/sqlFormatter";
+import {
+  canFormatSql,
+  formatSql,
+  getFormatSqlShortcutLabel,
+} from "@/services/sqlFormatter";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useExplorerContext,
@@ -67,9 +71,6 @@ function SqlQueryActions({
   onToggleAutocomplete: () => void;
   queryHelp?: ReactNode;
 }) {
-  const isMac =
-    typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
-
   return (
     <>
       {formatError ? (
@@ -104,7 +105,7 @@ function SqlQueryActions({
         <DropdownMenuItem
           onClick={onFormat}
           disabled={!canFormat}
-          shortcut={isMac ? "⇧⌘F" : "Ctrl+Shift+F"}
+          shortcut={getFormatSqlShortcutLabel()}
         >
           Format
         </DropdownMenuItem>
