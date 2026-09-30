@@ -25,7 +25,7 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { onContextualBanditVisualStateChanged } from "back-end/src/services/contextualBanditChanges";
+import { onContextualBanditVisualStateChanged } from "back-end/src/services/contextualBanditVisualState";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";

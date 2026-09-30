@@ -46,6 +46,19 @@ jest.mock("back-end/src/services/configValidation", () => ({
 jest.mock("back-end/src/services/contextualBanditChanges", () => ({
   refreshLinkedFeaturePayloads: jest.fn(),
 }));
+
+// The visual-state hook forwards to the payload refresh, as the real one
+// does; the changeset sync and activation it also runs are covered by the
+// visual-changeset specs.
+jest.mock("back-end/src/services/contextualBanditVisualState", () => ({
+  onContextualBanditVisualStateChanged: jest.fn(async (context, cb) => {
+    const { refreshLinkedFeaturePayloads } = jest.requireMock(
+      "back-end/src/services/contextualBanditChanges",
+    );
+    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
+    return cb;
+  }),
+}));
 jest.mock("back-end/src/services/experiments", () => ({
   getRefLinkedFeatureInfo: jest.fn().mockResolvedValue([]),
 }));
