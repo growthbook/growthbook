@@ -9,6 +9,19 @@ import {
 export function getDraftMetricPreview(
   draft: CreateFactMetricFormProps,
 ): FactMetricInterface | null {
+  // Check the raw form filters, like "View sample rows" does:
+  // fromFactMetricFormValues drops `col = ""`, so a half-filled filter would
+  // otherwise vanish and the preview would run unfiltered.
+  const rawFilters =
+    draft.metricType === "funnel"
+      ? (draft.funnelSettings?.steps ?? []).flatMap((step) => step.rowFilters)
+      : [
+          ...(draft.numerator.rowFilters ?? []),
+          ...(draft.metricType === "ratio"
+            ? (draft.denominator?.rowFilters ?? [])
+            : []),
+        ];
+  if (!rawFilters.every(isRowFilterComplete)) return null;
   try {
     const values = fromFactMetricFormValues(draft);
     const funnel = values.metricType === "funnel";
@@ -30,7 +43,6 @@ export function getDraftMetricPreview(
       refs.some(
         (ref) =>
           !ref?.factTableId ||
-          !(ref.rowFilters ?? []).every(isRowFilterComplete) ||
           ("column" in ref && !ref.column) ||
           ("aggregateFilterColumn" in ref &&
             ref.aggregateFilterColumn &&
