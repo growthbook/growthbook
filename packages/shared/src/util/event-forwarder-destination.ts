@@ -563,29 +563,18 @@ function assertDatabricksIdentifier(segment: string, label: string): string {
   return s;
 }
 
-export function parseDatabricksEventForwarderTablePrefix(
-  input: string,
-): DatabricksEventForwarderTablePrefix {
-  const segments = splitQualifiedPath(input);
-
-  if (segments.length !== 3) {
-    throw new Error(
-      "Databricks destination must be catalog.schema.prefix (three dot-separated parts).",
-    );
-  }
-
-  return {
-    catalog: assertDatabricksIdentifier(segments[0], "Catalog"),
-    schema: assertDatabricksIdentifier(segments[1], "Schema"),
-    // Empty prefix falls back to the default, like BigQuery and Snowflake.
-    tablePrefix: normalizeDatabricksTablePrefixForEventForwarder(segments[2]),
-  };
-}
-
-export function formatDatabricksEventForwarderTablePrefix(
+// Validates each field on its own so errors name the field the user edits.
+export function normalizeDatabricksEventForwarderDestination(
   destination: DatabricksEventForwarderTablePrefix,
-): string {
-  return `${destination.catalog.trim()}.${destination.schema.trim()}.${destination.tablePrefix.trim()}`;
+): DatabricksEventForwarderTablePrefix {
+  return {
+    catalog: assertDatabricksIdentifier(destination.catalog, "Catalog"),
+    schema: assertDatabricksIdentifier(destination.schema, "Schema"),
+    // Empty prefix falls back to the default, like BigQuery and Snowflake.
+    tablePrefix: normalizeDatabricksTablePrefixForEventForwarder(
+      destination.tablePrefix,
+    ),
+  };
 }
 
 export function resolveDatabricksEventForwarderTables(

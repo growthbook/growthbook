@@ -28,7 +28,7 @@ export default function EventForwarderTableNameField({
 }) {
   return (
     <Flex direction="column" gap="1">
-      <label className="mb-0">
+      <label className="mb-0" htmlFor={name}>
         <Flex direction="column" gap="1" align="start">
           <Flex align="center" gap="1">
             <span>{label}</span>
@@ -47,6 +47,7 @@ export default function EventForwarderTableNameField({
       <Field
         type="text"
         className="form-control"
+        id={name}
         name={name}
         value={value}
         onChange={readOnly ? undefined : (e) => onChange(e.target.value)}

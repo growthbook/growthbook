@@ -11,7 +11,7 @@ import {
   normalizeDatabricksEventForwarderZerobusEndpoint,
   suggestDatabricksEventForwarderZerobusEndpoint,
   normalizeDatabricksTablePrefixForEventForwarder,
-  parseDatabricksEventForwarderTablePrefix,
+  normalizeDatabricksEventForwarderDestination,
   quoteDatabricksIdentifier,
   resolveDatabricksEventForwarderTableNames,
   resolveDatabricksEventForwarderTables,
@@ -483,31 +483,49 @@ describe("resolveDatabricksEventForwarderTableNames", () => {
   });
 });
 
-describe("parseDatabricksEventForwarderTablePrefix", () => {
-  it("parses catalog.schema.prefix and unwraps backticks", () => {
+describe("normalizeDatabricksEventForwarderDestination", () => {
+  it("trims and normalizes the prefix", () => {
     expect(
-      parseDatabricksEventForwarderTablePrefix("`main`.`analytics`.GB"),
+      normalizeDatabricksEventForwarderDestination({
+        catalog: " main ",
+        schema: "analytics",
+        tablePrefix: "GB",
+      }),
     ).toEqual({ catalog: "main", schema: "analytics", tablePrefix: "gb" });
   });
 
   it("defaults an empty prefix to gb", () => {
-    expect(parseDatabricksEventForwarderTablePrefix("main.analytics.")).toEqual(
-      { catalog: "main", schema: "analytics", tablePrefix: "gb" },
-    );
-  });
-  it("rejects anything but three parts", () => {
-    expect(() => parseDatabricksEventForwarderTablePrefix("main.gb")).toThrow(
-      /catalog\.schema\.prefix/,
-    );
+    expect(
+      normalizeDatabricksEventForwarderDestination({
+        catalog: "main",
+        schema: "analytics",
+        tablePrefix: "",
+      }),
+    ).toEqual({ catalog: "main", schema: "analytics", tablePrefix: "gb" });
   });
 
-  it("rejects catalog or schema names with unsupported characters", () => {
+  it("names the field in every error", () => {
     expect(() =>
-      parseDatabricksEventForwarderTablePrefix("my-catalog.analytics.gb"),
-    ).toThrow(/Catalog/);
-    expect(() => parseDatabricksEventForwarderTablePrefix("main..gb")).toThrow(
-      /Schema cannot be empty/,
-    );
+      normalizeDatabricksEventForwarderDestination({
+        catalog: "my-catalog",
+        schema: "analytics",
+        tablePrefix: "gb",
+      }),
+    ).toThrow(/^Catalog/);
+    expect(() =>
+      normalizeDatabricksEventForwarderDestination({
+        catalog: "main",
+        schema: "",
+        tablePrefix: "gb",
+      }),
+    ).toThrow(/^Schema cannot be empty/);
+    expect(() =>
+      normalizeDatabricksEventForwarderDestination({
+        catalog: "main",
+        schema: "a.b",
+        tablePrefix: "gb",
+      }),
+    ).toThrow(/^Schema/);
   });
 });
 

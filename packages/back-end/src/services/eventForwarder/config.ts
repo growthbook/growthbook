@@ -27,7 +27,7 @@ import {
   normalizeDatabricksTablePrefixForEventForwarder,
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
-  parseDatabricksEventForwarderTablePrefix,
+  normalizeDatabricksEventForwarderDestination,
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
@@ -350,10 +350,12 @@ function buildDatabricksStoredConfigFromDraft(
     datasourceParams?.catalog?.trim() ||
     "";
   const schema = draft.schema?.trim() || existingStored?.schema?.trim() || "";
-  // Re-parse so catalog/schema identifiers are validated the same way as the UI input.
-  const destination = parseDatabricksEventForwarderTablePrefix(
-    `${catalog}.${schema}.${draft.tablePrefix ?? DEFAULT_EVENT_FORWARDER_TABLE_PREFIX}`,
-  );
+  // Same per-field validation as the UI.
+  const destination = normalizeDatabricksEventForwarderDestination({
+    catalog,
+    schema,
+    tablePrefix: draft.tablePrefix ?? "",
+  });
 
   let zerobusEndpoint = existingStored?.zerobusEndpoint?.trim() || "";
   if (draft.zerobusEndpoint?.trim()) {

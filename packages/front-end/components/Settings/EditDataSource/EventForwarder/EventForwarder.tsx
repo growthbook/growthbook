@@ -3,13 +3,12 @@ import {
   databricksParamsSupportEventForwarder,
   getDatabricksEventForwarderAuthMessage,
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
-  formatDatabricksEventForwarderTablePrefix,
   normalizeBigQueryTablePrefixForEventForwarder,
+  normalizeDatabricksEventForwarderDestination,
   normalizeDatabricksEventForwarderZerobusEndpoint,
   suggestDatabricksEventForwarderZerobusEndpoint,
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
-  parseDatabricksEventForwarderTablePrefix,
   stripLeadingUtf8ByteOrderMark,
   supportsEventForwarder,
   tryDeriveSnowflakeAccessUrlFromAccount,
@@ -290,12 +289,12 @@ function getEventForwarderValidationErrors(
       errors.push(getDatabricksEventForwarderAuthMessage(p));
     }
     try {
-      parseDatabricksEventForwarderTablePrefix(
-        formatDatabricksEventForwarderTablePrefix(cfg.config),
-      );
+      normalizeDatabricksEventForwarderDestination(cfg.config);
     } catch (e) {
       errors.push(
-        e instanceof Error ? e.message : "Enter a valid destination.",
+        e instanceof Error
+          ? e.message
+          : "Enter a valid catalog, schema and table prefix.",
       );
     }
     try {
