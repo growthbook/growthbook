@@ -1,6 +1,7 @@
 import { UseFormReturn } from "react-hook-form";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { Flex, Grid } from "@radix-ui/themes";
+import { PiCaretDown } from "react-icons/pi";
 import {
   FactTableDefinition,
   MetricCappingSettings,
@@ -13,6 +14,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
@@ -61,6 +63,22 @@ function cappingSummary(
       ? [row(lower, "lower")]
       : []),
   ];
+}
+
+function Summary({ subtitle }: { subtitle: string }) {
+  return (
+    <summary className={styles.summary}>
+      <Flex direction="column" gap="1">
+        <Heading as="h4" size="sm" mb="0">
+          Advanced settings
+        </Heading>
+        <Text size="sm" color="text-mid">
+          {subtitle}
+        </Text>
+      </Flex>
+      <PiCaretDown className={styles.caret} size={16} />
+    </summary>
+  );
 }
 
 export default function AdvancedSettings({
@@ -202,14 +220,9 @@ export default function AdvancedSettings({
     ];
 
     return (
-      <Frame px="4" py="3" mb="0">
+      <Frame px="5" py="5" mb="0">
         <details open>
-          <summary style={{ cursor: "pointer" }}>
-            <Text weight="semibold">Advanced settings</Text>
-          </summary>
-          <Text as="div" size="sm" color="text-mid" mt="1">
-            Metric delay, decision framework, thresholds, priors, CUPED
-          </Text>
+          <Summary subtitle="Metric delay, decision framework, thresholds, priors, CUPED" />
           <Grid
             asChild
             columns={{ initial: "1", sm: "2" }}
@@ -243,12 +256,10 @@ export default function AdvancedSettings({
   }
 
   return (
-    <Frame px="4" py="4" mb="0">
+    <Frame px="5" py="5" mb="0">
       <details>
-        <summary style={{ cursor: "pointer" }}>
-          <Text weight="semibold">Advanced settings</Text>
-        </summary>
-        <Flex direction="column" gap="3" mt="3">
+        <Summary subtitle="Metric delay, decision framework, thresholds, priors, CUPED" />
+        <Flex direction="column" gap="3" mt="4">
           <Tabs defaultValue="analysis">
             <TabsList mb="3" aria-label="Advanced settings">
               <TabsTrigger value="analysis">Analysis settings</TabsTrigger>
@@ -259,39 +270,21 @@ export default function AdvancedSettings({
                 {
                   <>
                     {windowOk(formType) && (
-                      <Frame
-                        px="3"
-                        pt="3"
-                        pb="3"
-                        mb="0"
-                        className={styles.setting}
-                      >
+                      <div className={styles.setting}>
                         <MetricDelaySettings form={form} />
-                      </Frame>
+                      </div>
                     )}
                     {cappingOk(formType) && (
-                      <Frame
-                        px="3"
-                        pt="3"
-                        pb="3"
-                        mb="0"
-                        className={styles.setting}
-                      >
+                      <div className={styles.setting}>
                         <MetricCappingSettingsForm
                           form={form}
                           datasourceType={datasource?.type}
                           metricType={metricType}
                           allowLowerTailCapping
                         />
-                      </Frame>
+                      </div>
                     )}
-                    <Frame
-                      px="3"
-                      pt="3"
-                      pb="3"
-                      mb="0"
-                      className={styles.setting}
-                    >
+                    <div className={styles.setting}>
                       <Field
                         label={
                           <>
@@ -313,14 +306,8 @@ export default function AdvancedSettings({
                         append="%"
                         {...form.register("targetMDE", { valueAsNumber: true })}
                       />
-                    </Frame>
-                    <Frame
-                      px="3"
-                      pt="3"
-                      pb="3"
-                      mb="0"
-                      className={styles.setting}
-                    >
+                    </div>
+                    <div className={styles.setting}>
                       <MetricPriorSettingsForm
                         priorSettings={priorSettings}
                         setPriorSettings={(v) =>
@@ -328,15 +315,9 @@ export default function AdvancedSettings({
                         }
                         metricDefaults={metricDefaults}
                       />
-                    </Frame>
+                    </div>
                     {formType !== "quantile" && (
-                      <Frame
-                        px="3"
-                        pt="3"
-                        pb="3"
-                        mb="0"
-                        className={styles.setting}
-                      >
+                      <div className={styles.setting}>
                         <PremiumTooltip commercialFeature="regression-adjustment">
                           <Text weight="semibold" as="div" mb="1">
                             Regression adjustment (CUPED)
@@ -374,7 +355,7 @@ export default function AdvancedSettings({
                             />
                           </Flex>
                         )}
-                      </Frame>
+                      </div>
                     )}
                   </>
                 }
@@ -423,13 +404,7 @@ export default function AdvancedSettings({
               <Flex direction="column" gap="3">
                 {
                   <>
-                    <Frame
-                      px="3"
-                      pt="3"
-                      pb="3"
-                      mb="0"
-                      className={styles.setting}
-                    >
+                    <div className={styles.setting}>
                       <Field
                         label={
                           <>
@@ -449,14 +424,8 @@ export default function AdvancedSettings({
                           valueAsNumber: true,
                         })}
                       />
-                    </Frame>
-                    <Frame
-                      px="3"
-                      pt="3"
-                      pb="3"
-                      mb="0"
-                      className={styles.setting}
-                    >
+                    </div>
+                    <div className={styles.setting}>
                       <Field
                         label={
                           <>
@@ -480,14 +449,8 @@ export default function AdvancedSettings({
                           valueAsNumber: true,
                         })}
                       />
-                    </Frame>
-                    <Frame
-                      px="3"
-                      pt="3"
-                      pb="3"
-                      mb="0"
-                      className={styles.setting}
-                    >
+                    </div>
+                    <div className={styles.setting}>
                       <Field
                         label={
                           <>
@@ -511,7 +474,7 @@ export default function AdvancedSettings({
                           valueAsNumber: true,
                         })}
                       />
-                    </Frame>
+                    </div>
                     {(formType === "ratio" ||
                       formType === "dailyParticipation") && (
                       <Checkbox
