@@ -6,6 +6,7 @@ import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationMod
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   exchangeAuthorizationCode,
+  exchangeDelegatedToken,
   exchangeRefreshToken,
   getAuthorizationServerMetadata,
   getAuthorizeInfo,
@@ -15,6 +16,7 @@ import {
   registerPublicClient,
   revokeConnectedApp,
   revokeToken,
+  TOKEN_EXCHANGE_GRANT_TYPE,
 } from "back-end/src/services/oauth";
 
 function sendOAuthError(res: Response, err: unknown) {
@@ -124,10 +126,19 @@ export async function postToken(req: Request, res: Response) {
       return res.status(200).json(result);
     }
 
+    if (grantType === TOKEN_EXCHANGE_GRANT_TYPE) {
+      const result = await exchangeDelegatedToken({
+        clientId,
+        clientSecret,
+        subjectToken: String(body.subject_token || ""),
+        subjectTokenType: String(body.subject_token_type || ""),
+      });
+      return res.status(200).json(result);
+    }
+
     return res.status(400).json({
       error: "unsupported_grant_type",
-      error_description:
-        "Supported grant_types: authorization_code, refresh_token",
+      error_description: `Supported grant_types: authorization_code, refresh_token, ${TOKEN_EXCHANGE_GRANT_TYPE}`,
     });
   } catch (e) {
     return sendOAuthError(res, e);

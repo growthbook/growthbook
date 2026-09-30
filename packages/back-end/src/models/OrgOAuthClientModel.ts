@@ -35,6 +35,7 @@ const BaseClass = MakeModelClass({
       "clientName",
       "redirectUris",
       "clientUri",
+      "allowDelegation",
       "createdBy",
       "dateCreated",
       "dateUpdated",
@@ -82,6 +83,7 @@ export class OrgOAuthClientModel extends BaseClass {
       clientName: doc.clientName,
       redirectUris: doc.redirectUris,
       clientUri: doc.clientUri,
+      allowDelegation: doc.allowDelegation,
       createdBy: doc.createdBy,
       dateCreated: doc.dateCreated,
       dateUpdated: doc.dateUpdated,
@@ -97,6 +99,7 @@ export class OrgOAuthClientModel extends BaseClass {
       clientName: props.clientName,
       redirectUris: props.redirectUris,
       clientUri: props.clientUri || "",
+      allowDelegation: props.allowDelegation,
       clientSecretHash: hashToken(clientSecret),
       createdBy: this.context.userId,
     });
@@ -111,6 +114,7 @@ export class OrgOAuthClientModel extends BaseClass {
       clientName: props.clientName,
       redirectUris: props.redirectUris,
       clientUri: props.clientUri || "",
+      allowDelegation: props.allowDelegation,
     });
     return OrgOAuthClientModel.toPublic(doc);
   }

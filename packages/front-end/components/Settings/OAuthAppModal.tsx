@@ -4,6 +4,7 @@ import { OAuthAppInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import StringArrayField from "@/ui/StringArrayField";
 import Text from "@/ui/Text";
@@ -25,6 +26,9 @@ export const OAuthAppModal: FC<{
     existing?.redirectUris ?? [],
   );
   const [clientUri, setClientUri] = useState(existing?.clientUri ?? "");
+  const [allowDelegation, setAllowDelegation] = useState(
+    existing?.allowDelegation ?? false,
+  );
 
   return (
     <ModalStandard
@@ -35,7 +39,12 @@ export const OAuthAppModal: FC<{
       ctaEnabled={!!clientName.trim() && redirectUris.length > 0}
       close={close}
       submit={async () => {
-        const body = JSON.stringify({ clientName, redirectUris, clientUri });
+        const body = JSON.stringify({
+          clientName,
+          redirectUris,
+          clientUri,
+          allowDelegation,
+        });
         if (existing) {
           await apiCall(`/oauth-apps/${existing.clientId}`, {
             method: "PUT",
@@ -75,6 +84,12 @@ export const OAuthAppModal: FC<{
           value={clientUri}
           onChange={(e) => setClientUri(e.target.value)}
           placeholder="https://mcp.example.com"
+        />
+        <Checkbox
+          label="Allow acting on behalf of members"
+          description="The app can use its client secret to get a short-lived token for any member who has authorized it, without storing refresh tokens. Anyone holding the secret can act as those members."
+          value={allowDelegation}
+          setValue={setAllowDelegation}
         />
       </Flex>
     </ModalStandard>

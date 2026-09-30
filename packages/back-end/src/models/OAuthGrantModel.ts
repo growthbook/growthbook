@@ -196,6 +196,13 @@ export class OAuthGrantModel extends BaseClass {
     return this.update(grant, { expiresAt: grantExpiry() });
   }
 
+  /** Delegation: keep an active grant alive while in use; never creates or re-arms one. */
+  public async extend(
+    grant: OAuthGrantInterface,
+  ): Promise<OAuthGrantInterface> {
+    return this.update(grant, { expiresAt: grantExpiry() });
+  }
+
   /**
    * Mark revoked. Upserts a tombstone when missing so an in-flight refresh's
    * post-write re-check still sees `revoked`.

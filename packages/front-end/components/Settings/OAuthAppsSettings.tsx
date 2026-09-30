@@ -20,6 +20,7 @@ import {
 import OAuthGrantsTable, {
   OrgOAuthGrant,
 } from "@/components/Settings/OAuthGrantsTable";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -197,7 +198,12 @@ const OAuthAppsSettings: FC = () => {
           <TableBody>
             {data.apps.map((app) => (
               <TableRow key={app.clientId}>
-                <TableCell>{app.clientName}</TableCell>
+                <TableCell>
+                  {app.clientName}
+                  {app.allowDelegation && (
+                    <Badge ml="2" variant="soft" label="Delegation" />
+                  )}
+                </TableCell>
                 <TableCell>
                   <ClickToCopy compact>{app.clientId}</ClickToCopy>
                 </TableCell>

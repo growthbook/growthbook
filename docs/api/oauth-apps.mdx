@@ -14,6 +14,7 @@ OAuth apps are available on Enterprise plans. If your plan changes, existing app
    - **Name**: shown to members on the authorization screen.
    - **Redirect URIs**: where GrowthBook sends authorization codes. They must use `https`, except for `localhost`.
    - **Homepage URL** (optional).
+   - **Allow acting on behalf of members** (optional): see [Act on behalf of members](#act-on-behalf-of-members-without-storing-tokens).
 3. Copy the **client ID** and **client secret**. The secret is shown only once. If you lose it, choose **Rotate secret** from the app's menu; the old secret stops working immediately.
 
 Registering apps and managing member authorizations requires the `manageOAuthApps` permission (the **OAuth Apps Full Access** policy), which admins have by default.
@@ -84,6 +85,25 @@ curl https://api.growthbook.io/oauth/token \
 ```
 
 Each refresh returns a new refresh token, and the old one stops working. **Presenting a refresh token a second time is treated as theft and signs the member out of your app.** If your app handles several requests for the same member at once, make sure only one of them refreshes, and save the new refresh token before using it.
+
+### Act on behalf of members without storing tokens
+
+If your app already knows who its user is, for example an MCP server behind your own single sign-on, it can skip storing refresh tokens. Turn on **Allow acting on behalf of members** for the app, have each member authorize it once through the flow above, and then exchange the client secret for a token for that member whenever you need one ([RFC 8693](https://datatracker.ietf.org/doc/html/rfc8693) token exchange):
+
+```bash
+curl https://api.growthbook.io/oauth/token \
+  -u "gbapp_...:gbcs_..." \
+  -d grant_type=urn:ietf:params:oauth:grant-type:token-exchange \
+  --data-urlencode subject_token=ada@example.com \
+  -d subject_token_type=urn:growthbook:params:oauth:token-type:email
+```
+
+URL-encode the email, since a `+` in it would otherwise be read as a space. The response contains an `access_token` valid for 1 hour and no refresh token. It only works for members who have authorized your app and haven't revoked it, and the member's own permissions apply as usual.
+
+<Warning>
+  With this turned on, anyone holding the client secret can act as every member
+  who has authorized the app. Store the secret like a signing key.
+</Warning>
 
 ### Revoking access
 
