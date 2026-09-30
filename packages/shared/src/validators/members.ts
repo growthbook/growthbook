@@ -9,7 +9,7 @@ import {
 
 // Extra roles granted alongside the rule they sit on, for a member who needs more
 // than one role in the same scope.
-const apiAdditionalRoles = z
+export const apiAdditionalRoles = z
   .array(
     z.object({
       role: z.string(),
