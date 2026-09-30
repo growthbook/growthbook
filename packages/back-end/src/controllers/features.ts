@@ -291,7 +291,10 @@ import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
-import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import {
+  assertCanPublishPendingFeatureDrafts,
+  getChangesToStartExperiment,
+} from "back-end/src/services/experiments";
 import {
   approveScheduledExperimentStart,
   validateExperimentChange,
@@ -2577,6 +2580,7 @@ export async function postFeaturePublish(
       ) {
         context.permissions.throwPermissionError();
       }
+      await assertCanPublishPendingFeatureDrafts(context, experiment);
     }
 
     // Pre-flight: check for merge conflicts in OTHER pending feature drafts

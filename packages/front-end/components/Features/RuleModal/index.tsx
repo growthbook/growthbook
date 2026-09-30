@@ -2777,6 +2777,11 @@ export default function RuleModal({
                   setDisableBanditConversionWindow={
                     setDisableBanditConversionWindow
                   }
+                  customFields={customFields}
+                  customFieldValues={customFieldValues}
+                  setCustomFields={(value) =>
+                    form.setValue("customFields", value)
+                  }
                   envScope={i === 0 ? envScopeProps : undefined}
                   projectScope={i === 0 ? projectScopeProps : undefined}
                   onRuleCyclicChange={onRuleCyclicChange}
