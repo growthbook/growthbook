@@ -545,12 +545,21 @@ export type SDKPayloadParams = Pick<
 export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request,
+  // Authenticated callers pass their org so a foreign key is rejected before
+  // any side effect (e.g. marking the connection used).
+  expectedOrganization?: string,
 ): Promise<SDKPayloadParams> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
     const connection = await findSDKConnectionByKey(key);
     if (!connection) {
-      throw new UnrecoverableApiError("Invalid API Key");
+      throw new UnrecoverableApiError("Invalid API key");
+    }
+    if (
+      expectedOrganization &&
+      connection.organization !== expectedOrganization
+    ) {
+      throw new UnrecoverableApiError("Invalid API key");
     }
 
     // If this is the first time the SDK Connection is being used, mark it as successfully connected
@@ -603,7 +612,10 @@ export async function getPayloadParamsFromApiKey(
       encryptionKey,
     } = await dangerousLookupOrganizationByApiKey(key);
     if (!organization) {
-      throw new UnrecoverableApiError("Invalid API Key");
+      throw new UnrecoverableApiError("Invalid API key");
+    }
+    if (expectedOrganization && organization !== expectedOrganization) {
+      throw new UnrecoverableApiError("Invalid API key");
     }
     if (secret) {
       throw new UnrecoverableApiError(
