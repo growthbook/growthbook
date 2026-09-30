@@ -53,6 +53,7 @@ import {
   compensateFailedLanding,
   runGuardedWrite,
 } from "back-end/src/revisions/landingSequence";
+import type { SDKConnectionLiveSnapshot } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 
 const SETTINGS_SNAPSHOT_KEYS = Object.keys(
   sdkConnectionSettingsSnapshotValidator.shape,
@@ -526,10 +527,18 @@ export const putSDKConnection = async (
     bypass: needsApproval && bypassApproval,
   });
 
+  // The guarded write is conditioned on the stamp the diff was computed
+  // against, so the landing entity carries the live root fields.
+  const landingEntity: SDKConnectionLiveSnapshot = {
+    ...baselineSnapshot,
+    id: connection.id,
+    projects: connection.projects ?? [],
+    dateUpdated: connection.dateUpdated,
+  };
   let applied: ApplyChangesResult | undefined;
   try {
     await runGuardedWrite("sdk-connection", connection.id, () =>
-      adapter.applyChanges(context, baselineSnapshot, desiredChanges, {
+      adapter.applyChanges(context, landingEntity, desiredChanges, {
         guarded: true,
         onPersisted: (result) => {
           applied = result;

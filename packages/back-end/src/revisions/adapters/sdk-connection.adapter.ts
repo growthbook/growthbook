@@ -80,7 +80,7 @@ const webhookListValidator = z.array(sdkWebhookSnapshotValidator);
 // compensation re-reads by, `projects` is what the project-scoped authority
 // checks read, and `dateUpdated` is the connection's stamp that the landing
 // fences compare — the settings snapshot deliberately excludes it.
-type SDKConnectionLiveSnapshot = SDKConnectionRevisionSnapshot & {
+export type SDKConnectionLiveSnapshot = SDKConnectionRevisionSnapshot & {
   id: string;
   projects: string[];
   dateUpdated?: Date;
