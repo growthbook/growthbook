@@ -22,6 +22,7 @@ import { PiCaretRightFill } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import SelectField from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import HashVersionSelector, {
@@ -50,6 +51,12 @@ import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector"
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import {
+  AssignmentQueryCopySource,
+  getCopiedAssignmentQueryNotice,
+  getCopySourceIdentifierType,
+  getExposureQueriesForProject,
+} from "@/services/datasources";
 import AssignmentQueryFields, {
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -64,7 +71,6 @@ import RuleEnvironmentScopeField, {
 import RuleProjectScopeField, {
   type ProjectScopeProps,
 } from "@/components/Features/RuleModal/ProjectScopeField";
-import { getExposureQueriesForProject } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
   formatAttributeOptionLabel,
@@ -112,6 +118,8 @@ export default function ExperimentRefNewFields({
   envScope,
   projectScope,
   onRuleCyclicChange,
+  assignmentQueryCopySource,
+  keepAssignmentSelection = false,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -153,6 +161,12 @@ export default function ExperimentRefNewFields({
   envScope?: EnvScopeProps;
   projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
+  // When duplicating or creating from a template: keeps its identifier and
+  // explains a change.
+  assignmentQueryCopySource?: AssignmentQueryCopySource | null;
+  // A saved record being edited: don't rewrite its selection on load, and keep
+  // it listed even if its query no longer declares the identifier.
+  keepAssignmentSelection?: boolean;
 }) {
   const form = useFormContext();
 
@@ -214,7 +228,13 @@ export default function ExperimentRefNewFields({
     identifierType: exposureQueryIdentifierType,
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
-    autoRepair: !!datasourceProperties?.exposureQueries,
+    copiedIdentifierType: getCopySourceIdentifierType(
+      datasource ?? null,
+      assignmentQueryCopySource ?? null,
+    ),
+    autoRepair:
+      !keepAssignmentSelection && !!datasourceProperties?.exposureQueries,
+    keepCurrentSelection: keepAssignmentSelection,
   });
 
   const getMatchingExposureQuery = (
@@ -244,6 +264,9 @@ export default function ExperimentRefNewFields({
   );
 
   const settings = useOrgSettings();
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+  );
   const { namespaces, statsEngine: orgStatsEngine } = useOrgSettings();
 
   const templateRequired =
@@ -324,6 +347,7 @@ export default function ExperimentRefNewFields({
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
+            {...trackingKeyFormatProps}
             helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
           />
 
@@ -576,7 +600,17 @@ export default function ExperimentRefNewFields({
             />
 
             {datasourceProperties?.exposureQueries ? (
-              <AssignmentQueryFields selection={assignmentQuerySelection} />
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
+                notice={getCopiedAssignmentQueryNotice(
+                  datasource ?? null,
+                  assignmentQueryCopySource ?? null,
+                  {
+                    exposureQueryId,
+                    identifierType: exposureQueryIdentifierType,
+                  },
+                )}
+              />
             ) : null}
           </div>
 

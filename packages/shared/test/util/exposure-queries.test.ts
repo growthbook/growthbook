@@ -1,18 +1,19 @@
 import {
-  assertAssignmentQueryRefIdentifierType,
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
-  getExposureQueriesOutsideProjectScope,
-  getAnalysisIdentifierType,
-  assertValidAssignmentQuerySelection,
-  isExposureQueryAvailableForProjects,
-  hasAssignmentQuerySelectionChanged,
+  resolveAnalysisIdentifierType,
   toApiAssignmentQueryRef,
   resolveExposureQueryForAnalysis,
   parseAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   flattenExposureQueryInput,
+  getExposureQueriesOutsideProjectScope,
+  isExposureQueryAvailableForProjects,
+  getIdentifierTypeForSettingsHash,
+  getPreferredIdentifierType,
+  withKeptIdentifierType,
+  resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -27,46 +28,6 @@ function query(
     ...partial,
   };
 }
-
-describe("getExposureQueriesOutsideProjectScope", () => {
-  it("flags a query scoped to a project the data source is not", () => {
-    const result = getExposureQueriesOutsideProjectScope(
-      [{ id: "q1", name: "Q1", projects: ["p1", "p3"] }],
-      ["p1", "p2"],
-    );
-    expect(result).toEqual([{ id: "q1", name: "Q1", invalidProjects: ["p3"] }]);
-  });
-
-  it("allows a query whose projects are a subset of the data source's", () => {
-    expect(
-      getExposureQueriesOutsideProjectScope(
-        [{ id: "q1", name: "Q1", projects: ["p1"] }],
-        ["p1", "p2"],
-      ),
-    ).toEqual([]);
-  });
-
-  it("treats an empty data source project list as all projects", () => {
-    expect(
-      getExposureQueriesOutsideProjectScope(
-        [{ id: "q1", name: "Q1", projects: ["p1"] }],
-        [],
-      ),
-    ).toEqual([]);
-  });
-
-  it("treats a query with no projects as inheriting the data source scope", () => {
-    expect(
-      getExposureQueriesOutsideProjectScope(
-        [
-          { id: "q1", name: "Q1", projects: [] },
-          { id: "q2", name: "Q2", projects: undefined },
-        ],
-        ["p1"],
-      ),
-    ).toEqual([]);
-  });
-});
 
 describe("assertExposureQueryDeclaresIdentifierType", () => {
   const multi = query({
@@ -111,20 +72,6 @@ describe("assertExposureQueryDeclaresIdentifierType", () => {
     ).toThrow(
       'Assignment query "Multi" no longer declares the "device_id" identifier type. Choose an assignment query that declares it',
     );
-  });
-
-  it("falls back to the legacy scalar when userIdTypes is empty", () => {
-    const legacy = query({
-      id: "exq_legacy",
-      userIdType: "user_id",
-      userIdTypes: [],
-    });
-    expect(() =>
-      assertExposureQueryDeclaresIdentifierType(legacy, "user_id"),
-    ).not.toThrow();
-    expect(() =>
-      assertExposureQueryDeclaresIdentifierType(legacy, "anonymous_id"),
-    ).toThrow();
   });
 });
 
@@ -171,13 +118,7 @@ describe("parseAssignmentQueryInput", () => {
     ).toEqual({ id: "exq_1", identifierType: undefined });
   });
 
-  it("returns nothing when neither is set", () => {
-    expect(
-      parseAssignmentQueryInput(undefined, undefined, "assignmentQuery"),
-    ).toEqual({ id: undefined, identifierType: undefined });
-  });
-
-  it("rejects both fields together, naming them", () => {
+  it("rejects both fields when they name different queries", () => {
     expect(() =>
       parseAssignmentQueryInput(
         { id: "exq_1", identifierType: "user_id" },
@@ -185,63 +126,12 @@ describe("parseAssignmentQueryInput", () => {
         "exposureQuery",
       ),
     ).toThrow(
-      "Cannot set exposureQuery together with the deprecated exposureQueryId",
+      "exposureQuery.id and the deprecated exposureQueryId name different assignment queries",
     );
   });
 });
 
-describe("assertAssignmentQueryRefIdentifierType", () => {
-  const single = query({
-    id: "exq_single",
-    userIdType: "user_id",
-    userIdTypes: ["user_id"],
-  });
-  const multi = query({
-    id: "exq_multi",
-    name: "Main",
-    userIdType: "user_id",
-    userIdTypes: ["user_id", "anonymous_id"],
-  });
-  const check =
-    (
-      ref: { id: string; identifierType?: string } | undefined,
-      currentExposureQueryId?: string,
-    ) =>
-    () =>
-      assertAssignmentQueryRefIdentifierType({
-        ref,
-        field: "assignmentQuery",
-        exposureQueries: [single, multi],
-        currentExposureQueryId,
-      });
-
-  it("allows omitting it for a query with one identifier type", () => {
-    expect(check({ id: "exq_single" })).not.toThrow();
-  });
-
-  it("rejects omitting it for a new query with several, naming them", () => {
-    expect(check({ id: "exq_multi" }, "exq_single")).toThrow(
-      'Assignment query "Main" declares several identifier types (user_id, anonymous_id). Set assignmentQuery.identifierType to choose one.',
-    );
-  });
-
-  it("allows omitting it when keeping the current query", () => {
-    expect(check({ id: "exq_multi" }, "exq_multi")).not.toThrow();
-  });
-
-  it("allows an explicit identifier type", () => {
-    expect(
-      check({ id: "exq_multi", identifierType: "anonymous_id" }),
-    ).not.toThrow();
-  });
-
-  it("ignores a missing ref or unknown query", () => {
-    expect(check(undefined)).not.toThrow();
-    expect(check({ id: "exq_missing" })).not.toThrow();
-  });
-});
-
-describe("getAnalysisIdentifierType", () => {
+describe("resolveAnalysisIdentifierType", () => {
   const multi = query({
     id: "eq_1",
     userIdType: "anonymous_id",
@@ -249,12 +139,16 @@ describe("getAnalysisIdentifierType", () => {
   });
 
   it("uses the stored identifier, even when the query no longer declares it", () => {
-    expect(getAnalysisIdentifierType(multi, "user_id")).toBe("user_id");
-    expect(getAnalysisIdentifierType(multi, "company_id")).toBe("company_id");
+    expect(resolveAnalysisIdentifierType(multi, "user_id")).toBe("user_id");
+    expect(resolveAnalysisIdentifierType(multi, "company_id")).toBe(
+      "company_id",
+    );
   });
 
   it("falls back to the query's legacy identifier when none is stored", () => {
-    expect(getAnalysisIdentifierType(multi, undefined)).toBe("anonymous_id");
+    expect(resolveAnalysisIdentifierType(multi, undefined)).toBe(
+      "anonymous_id",
+    );
   });
 
   it("keeps the legacy identifier after the query's identifiers are reordered", () => {
@@ -263,7 +157,7 @@ describe("getAnalysisIdentifierType", () => {
       userIdType: "anonymous_id",
       userIdTypes: ["user_id", "anonymous_id"],
     });
-    expect(getAnalysisIdentifierType(reordered, undefined)).toBe(
+    expect(resolveAnalysisIdentifierType(reordered, undefined)).toBe(
       "anonymous_id",
     );
   });
@@ -274,185 +168,11 @@ describe("getAnalysisIdentifierType", () => {
       userIdType: "",
       userIdTypes: ["user_id", "anonymous_id"],
     });
-    expect(getAnalysisIdentifierType(noLegacy, undefined)).toBe("user_id");
+    expect(resolveAnalysisIdentifierType(noLegacy, undefined)).toBe("user_id");
   });
 
   it("is undefined with neither a stored identifier nor a query", () => {
-    expect(getAnalysisIdentifierType(undefined, undefined)).toBeUndefined();
-  });
-});
-
-describe("assertValidAssignmentQuerySelection", () => {
-  const exposureQueries = [
-    query({
-      id: "eq_multi",
-      userIdType: "anonymous_id",
-      userIdTypes: ["anonymous_id", "user_id"],
-    }),
-    query({
-      id: "eq_scoped",
-      userIdType: "user_id",
-      userIdTypes: ["user_id"],
-      projects: ["prj_a"],
-    }),
-  ];
-
-  it("returns the query for a valid selection", () => {
-    expect(
-      assertValidAssignmentQuerySelection({
-        exposureQueries,
-        exposureQueryId: "eq_multi",
-        identifierType: "user_id",
-        project: "prj_b",
-      }).id,
-    ).toBe("eq_multi");
-  });
-
-  it("rejects an unknown query", () => {
-    expect(() =>
-      assertValidAssignmentQuerySelection({
-        exposureQueries,
-        exposureQueryId: "eq_missing",
-        project: undefined,
-      }),
-    ).toThrow('Assignment query "eq_missing" doesn\'t exist');
-  });
-
-  it("rejects an identifier the query does not declare", () => {
-    expect(() =>
-      assertValidAssignmentQuerySelection({
-        exposureQueries,
-        exposureQueryId: "eq_multi",
-        identifierType: "company_id",
-        project: undefined,
-      }),
-    ).toThrow('doesn\'t declare the "company_id" identifier type');
-  });
-
-  it("rejects a query outside the project, unless the scope check is skipped", () => {
-    const selection = {
-      exposureQueries,
-      exposureQueryId: "eq_scoped",
-      identifierType: "user_id",
-    };
-    expect(() =>
-      assertValidAssignmentQuerySelection({ ...selection, project: "prj_b" }),
-    ).toThrow("isn't available for the selected project");
-    expect(
-      assertValidAssignmentQuerySelection({ ...selection, project: undefined })
-        .id,
-    ).toBe("eq_scoped");
-  });
-});
-
-describe("isExposureQueryAvailableForProjects", () => {
-  it("allows an unrestricted query for any projects, including all", () => {
-    expect(isExposureQueryAvailableForProjects({ projects: [] }, [], [])).toBe(
-      true,
-    );
-    expect(isExposureQueryAvailableForProjects({}, ["prj_a"], undefined)).toBe(
-      true,
-    );
-  });
-
-  it("requires a scoped query to cover every project", () => {
-    const query = { projects: ["prj_a", "prj_b"] };
-    expect(isExposureQueryAvailableForProjects(query, ["prj_a"], [])).toBe(
-      true,
-    );
-    expect(
-      isExposureQueryAvailableForProjects(query, ["prj_a", "prj_c"], []),
-    ).toBe(false);
-  });
-
-  it("rejects a scoped query when all projects are covered", () => {
-    expect(
-      isExposureQueryAvailableForProjects({ projects: ["prj_a"] }, [], []),
-    ).toBe(false);
-  });
-
-  it("applies the data source's projects to an unscoped query", () => {
-    const dsProjects = ["prj_a", "prj_b"];
-    expect(
-      isExposureQueryAvailableForProjects({ projects: [] }, [], dsProjects),
-    ).toBe(false);
-    expect(
-      isExposureQueryAvailableForProjects(
-        { projects: [] },
-        ["prj_a", "prj_c"],
-        dsProjects,
-      ),
-    ).toBe(false);
-    expect(
-      isExposureQueryAvailableForProjects(
-        { projects: [] },
-        ["prj_b"],
-        dsProjects,
-      ),
-    ).toBe(true);
-  });
-});
-
-describe("hasAssignmentQuerySelectionChanged", () => {
-  const multi = query({
-    id: "eq_1",
-    userIdType: "anonymous_id",
-    userIdTypes: ["anonymous_id", "user_id"],
-  });
-  const legacy = { datasource: "ds_1", exposureQueryId: "eq_1" };
-
-  it("treats echoing a legacy record's resolved identifier as unchanged", async () => {
-    await expect(
-      hasAssignmentQuerySelectionChanged(
-        legacy,
-        { ...legacy, identifierType: "anonymous_id" },
-        async () => [multi],
-      ),
-    ).resolves.toBe(false);
-  });
-
-  it("detects a real identifier change", async () => {
-    await expect(
-      hasAssignmentQuerySelectionChanged(
-        legacy,
-        { ...legacy, identifierType: "user_id" },
-        async () => [multi],
-      ),
-    ).resolves.toBe(true);
-  });
-
-  it("compares a legacy record against the legacy identifier, not the first", async () => {
-    const reordered = query({
-      id: "eq_1",
-      userIdType: "anonymous_id",
-      userIdTypes: ["user_id", "anonymous_id"],
-    });
-    await expect(
-      hasAssignmentQuerySelectionChanged(
-        legacy,
-        { ...legacy, identifierType: "anonymous_id" },
-        async () => [reordered],
-      ),
-    ).resolves.toBe(false);
-    await expect(
-      hasAssignmentQuerySelectionChanged(
-        legacy,
-        { ...legacy, identifierType: "user_id" },
-        async () => [reordered],
-      ),
-    ).resolves.toBe(true);
-  });
-
-  it("detects a query change without loading queries", async () => {
-    const load = jest.fn(async () => [multi]);
-    await expect(
-      hasAssignmentQuerySelectionChanged(
-        legacy,
-        { ...legacy, exposureQueryId: "eq_2" },
-        load,
-      ),
-    ).resolves.toBe(true);
-    expect(load).not.toHaveBeenCalled();
+    expect(resolveAnalysisIdentifierType(undefined, undefined)).toBeUndefined();
   });
 });
 
@@ -479,18 +199,15 @@ describe("toApiAssignmentQueryRef", () => {
     });
   });
 
-  it("reports the stored identifier as is, even if no longer declared", () => {
-    expect(toApiAssignmentQueryRef("eq_1", "company_id", [multi])).toEqual({
-      id: "eq_1",
-      identifierType: "company_id",
+  it("has a null identifier without a query id or a resolvable identifier", () => {
+    expect(toApiAssignmentQueryRef("", "user_id", [multi])).toEqual({
+      id: "",
+      identifierType: null,
     });
-  });
-
-  it("is undefined without a query id or a resolvable identifier", () => {
-    expect(toApiAssignmentQueryRef("", "user_id", [multi])).toBeUndefined();
-    expect(
-      toApiAssignmentQueryRef("eq_gone", undefined, [multi]),
-    ).toBeUndefined();
+    expect(toApiAssignmentQueryRef("eq_gone", undefined, [multi])).toEqual({
+      id: "eq_gone",
+      identifierType: null,
+    });
   });
 });
 
@@ -516,15 +233,6 @@ describe("flattenExposureQueryInput", () => {
     expect(flat).toEqual({ name: "renamed" });
     expect(flat).not.toHaveProperty("exposureQueryId");
   });
-
-  it("rejects the grouped object together with the deprecated id", () => {
-    expect(() =>
-      flattenExposureQueryInput({
-        exposureQuery: { id: "eq_1", identifierType: "user_id" },
-        exposureQueryId: "eq_1",
-      }),
-    ).toThrow("Cannot set exposureQuery together with the deprecated");
-  });
 });
 
 describe("resolveExposureQueryForAnalysis", () => {
@@ -541,12 +249,6 @@ describe("resolveExposureQueryForAnalysis", () => {
       query: "SELECT user_id, anonymous_id",
       identifierType: "user_id",
     });
-  });
-
-  it("resolves a legacy record to the legacy identifier, not the first", () => {
-    expect(
-      resolveExposureQueryForAnalysis(multi, undefined).identifierType,
-    ).toBe("anonymous_id");
   });
 
   it("refuses an identifier the query no longer declares", () => {
@@ -701,6 +403,297 @@ describe("isSameAssignmentQuerySelection", () => {
         { ...legacy, identifierType: "anonymous_id" },
         [],
       ),
+    ).toBe(false);
+  });
+});
+
+describe("withKeptIdentifierType", () => {
+  const previous = {
+    datasource: "ds_1",
+    exposureQueryId: "eq_1",
+    identifierType: "user_id",
+  };
+
+  it("keeps the stored identifier for the same query", () => {
+    expect(
+      withKeptIdentifierType(previous, {
+        datasource: "ds_1",
+        exposureQueryId: "eq_1",
+      }).identifierType,
+    ).toBe("user_id");
+  });
+
+  it("prefers a given identifier", () => {
+    expect(
+      withKeptIdentifierType(previous, {
+        ...previous,
+        identifierType: "anonymous_id",
+      }).identifierType,
+    ).toBe("anonymous_id");
+  });
+
+  it("drops it for a different query or data source", () => {
+    expect(
+      withKeptIdentifierType(previous, {
+        datasource: "ds_1",
+        exposureQueryId: "eq_2",
+      }).identifierType,
+    ).toBeUndefined();
+    expect(
+      withKeptIdentifierType(previous, {
+        datasource: "ds_2",
+        exposureQueryId: "eq_1",
+      }).identifierType,
+    ).toBeUndefined();
+  });
+
+  it("treats an empty identifier as omitted", () => {
+    expect(
+      withKeptIdentifierType(previous, { ...previous, identifierType: "" })
+        .identifierType,
+    ).toBe("user_id");
+  });
+});
+
+describe("resolveAssignmentQuerySelectionChange", () => {
+  const multi = query({
+    id: "eq_1",
+    name: "Multi",
+    userIdType: "anonymous_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+  const legacy = { datasource: "ds_1", exposureQueryId: "eq_1" };
+
+  it("leaves an unchanged selection unvalidated, even if it drifted", () => {
+    const drifted = { ...legacy, identifierType: "company_id" };
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: drifted,
+        next: legacy,
+        onOmitted: "requireUnambiguous",
+      }),
+    ).toEqual({ ok: true, identifierType: "company_id", changed: false });
+  });
+
+  it("treats echoing a legacy record's resolved identifier as unchanged", () => {
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: legacy,
+        next: { ...legacy, identifierType: "anonymous_id" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ ok: true, identifierType: "anonymous_id", changed: false });
+  });
+
+  it("parses a new selection", () => {
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: null,
+        next: legacy,
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ ok: true, identifierType: "user_id", changed: true });
+  });
+
+  it("parses a changed identifier and rejects an undeclared one", () => {
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: legacy,
+        next: { ...legacy, identifierType: "user_id" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ ok: true, identifierType: "user_id", changed: true });
+    expect(
+      resolveAssignmentQuerySelectionChange([multi], {
+        previous: legacy,
+        next: { ...legacy, identifierType: "device_id" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toMatchObject({ ok: false });
+  });
+});
+
+describe("getIdentifierTypeForSettingsHash", () => {
+  const reordered = query({
+    id: "eq_1",
+    userIdType: "anonymous_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+
+  it("leaves out the query's legacy identifier so older hashes still match", () => {
+    expect(
+      getIdentifierTypeForSettingsHash("eq_1", "anonymous_id", [reordered]),
+    ).toBeUndefined();
+    expect(
+      getIdentifierTypeForSettingsHash("eq_1", undefined, [reordered]),
+    ).toBeUndefined();
+  });
+
+  it("includes any other identifier", () => {
+    expect(
+      getIdentifierTypeForSettingsHash("eq_1", "user_id", [reordered]),
+    ).toBe("user_id");
+  });
+
+  it("includes the identifier when the query can't be found", () => {
+    expect(
+      getIdentifierTypeForSettingsHash("eq_gone", "anonymous_id", []),
+    ).toBe("anonymous_id");
+  });
+});
+
+describe("getPreferredIdentifierType", () => {
+  it("keeps the legacy identifier while the query declares it", () => {
+    expect(
+      getPreferredIdentifierType({
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+      }),
+    ).toBe("anonymous_id");
+  });
+
+  it("uses a declared identifier once the legacy one was removed", () => {
+    expect(
+      getPreferredIdentifierType({
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id"],
+      }),
+    ).toBe("user_id");
+  });
+});
+
+describe("getExposureQueriesOutsideProjectScope", () => {
+  it("flags a query scoped to a project the data source is not", () => {
+    const result = getExposureQueriesOutsideProjectScope(
+      [{ id: "q1", name: "Q1", projects: ["p1", "p3"] }],
+      ["p1", "p2"],
+    );
+    expect(result).toEqual([{ id: "q1", name: "Q1", invalidProjects: ["p3"] }]);
+  });
+
+  it("allows a query whose projects are a subset of the data source's", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [{ id: "q1", name: "Q1", projects: ["p1"] }],
+        ["p1", "p2"],
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats an empty data source project list as all projects", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [{ id: "q1", name: "Q1", projects: ["p1"] }],
+        [],
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats a query with no projects as inheriting the data source scope", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [
+          { id: "q1", name: "Q1", projects: [] },
+          { id: "q2", name: "Q2", projects: undefined },
+        ],
+        ["p1"],
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("isExposureQueryAvailableForProjects", () => {
+  it("allows an unrestricted query for any projects, including all", () => {
+    expect(isExposureQueryAvailableForProjects({ projects: [] }, [], [])).toBe(
+      true,
+    );
+    expect(isExposureQueryAvailableForProjects({}, ["prj_a"], undefined)).toBe(
+      true,
+    );
+  });
+
+  it("requires a scoped query to cover every project", () => {
+    const query = { projects: ["prj_a", "prj_b"] };
+    expect(isExposureQueryAvailableForProjects(query, ["prj_a"], [])).toBe(
+      true,
+    );
+    expect(
+      isExposureQueryAvailableForProjects(query, ["prj_a", "prj_c"], []),
+    ).toBe(false);
+  });
+
+  it("rejects a scoped query when all projects are covered", () => {
+    expect(
+      isExposureQueryAvailableForProjects({ projects: ["prj_a"] }, [], []),
+    ).toBe(false);
+  });
+
+  it("applies the data source's projects to an unscoped query", () => {
+    const dsProjects = ["prj_a", "prj_b"];
+    expect(
+      isExposureQueryAvailableForProjects({ projects: [] }, [], dsProjects),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        ["prj_a", "prj_c"],
+        dsProjects,
+      ),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        ["prj_b"],
+        dsProjects,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("assignment query project scope", () => {
+  const scoped = query({
+    id: "eq_scoped",
+    name: "Scoped",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: ["prj_a"],
+  });
+
+  it("rejects a query outside the project, unless the scope check is skipped", () => {
+    const selection = {
+      exposureQueryId: "eq_scoped",
+      onOmitted: "defaultToFirst" as const,
+    };
+    expect(
+      parseAssignmentQuerySelection([scoped], {
+        ...selection,
+        scope: { project: "prj_b" },
+      }),
+    ).toEqual({
+      ok: false,
+      error:
+        'Assignment query "Scoped" isn\'t available for the selected project',
+    });
+    expect(parseAssignmentQuerySelection([scoped], selection).ok).toBe(true);
+  });
+
+  it("only checks a new or changed selection", () => {
+    const previous = { datasource: "ds_1", exposureQueryId: "eq_scoped" };
+    expect(
+      resolveAssignmentQuerySelectionChange([scoped], {
+        previous,
+        next: previous,
+        onOmitted: "defaultToFirst",
+        scope: { project: "prj_b" },
+      }),
+    ).toMatchObject({ ok: true, changed: false });
+    expect(
+      resolveAssignmentQuerySelectionChange([scoped], {
+        previous: null,
+        next: previous,
+        onOmitted: "defaultToFirst",
+        scope: { project: "prj_b" },
+      }).ok,
     ).toBe(false);
   });
 });

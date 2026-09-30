@@ -3,7 +3,10 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import React, { FC, useState } from "react";
 import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
-import { validateAndFixCondition } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  validateAndFixCondition,
+} from "shared/util";
 import { isEmpty, kebabCase } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
@@ -54,7 +57,8 @@ const TemplateForm: FC<Props> = ({
   const router = useRouter();
   const [step, setStep] = useState(0);
 
-  const { refreshTags, project, projects } = useDefinitions();
+  const { getDatasourceById, refreshTags, project, projects } =
+    useDefinitions();
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
@@ -95,7 +99,16 @@ const TemplateForm: FC<Props> = ({
       customFields: initialValue?.customFields || {},
       datasource: initialValue?.datasource || "",
       exposureQueryId: initialValue?.exposureQueryId || "",
-      exposureQueryIdentifierType: initialValue?.exposureQueryIdentifierType,
+      // Templates saved before identifiers were stored analyze on their query's
+      // original one; keep it rather than let the form pick a default.
+      exposureQueryIdentifierType: resolveAnalysisIdentifierType(
+        getDatasourceById(
+          initialValue?.datasource ?? "",
+        )?.settings?.queries?.exposure?.find(
+          (q) => q.id === initialValue?.exposureQueryId,
+        ),
+        initialValue?.exposureQueryIdentifierType,
+      ),
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialValue?.hashAttribute || hashAttribute,
       disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
@@ -339,6 +352,7 @@ const TemplateForm: FC<Props> = ({
               <ExperimentRefNewFields
                 step={i}
                 source="experiment"
+                keepAssignmentSelection={!isNewTemplate && !duplicate}
                 project={form.watch("project")}
                 environments={envs}
                 noSchedule={true}

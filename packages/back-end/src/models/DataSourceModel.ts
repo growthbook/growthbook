@@ -11,6 +11,7 @@ import {
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -200,9 +201,10 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
   return doc ? toInterface(doc) : null;
 }
 
-// WARNING: bypasses project-read permission. Validation-only: checking a
-// selection the caller may already edit must not depend on them seeing every
-// project the data source spans. Never return the result to the user.
+// WARNING: bypasses project-read permission. Validation-only: a caller who may
+// edit a selection can still lack read access to its data source (reading
+// needs one of its projects), and the selection must be checked anyway. Never
+// return the result to the user.
 export async function dangerouslyGetDataSourceByIdBypassPermission(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -530,6 +532,8 @@ export async function createDataSource(
     false,
     [],
   );
+  // Validation returns a copy; save it, with its generated ids and errors,
+  // not the settings as submitted.
   datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
@@ -594,7 +598,7 @@ export async function validateExposureQueriesAndAddMissingIds(
           );
         }
         // The legacy identifier is frozen once the query exists, so ignore
-        // whatever the client echoes back. Before any comparison below.
+        // whatever the client echoes back.
         exposure.userIdType =
           storedExposureQueries.find((q) => q.id === exposure.id)?.userIdType ||
           exposure.userIdTypes[0];
@@ -844,7 +848,8 @@ export function toDataSourceApiInterface(
         name: q.name,
         description: q.description || "",
         identifierTypes,
-        identifierType: identifierTypes[0] ?? q.userIdType,
+        // What records without a stored identifier analyze on, as before.
+        identifierType: resolveAnalysisIdentifierType(q, undefined),
         sql: q.query,
         includesNameColumns: !!q.hasNameCol,
         dimensionColumns: q.dimensions,

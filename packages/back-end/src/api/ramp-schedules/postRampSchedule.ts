@@ -11,7 +11,7 @@ import {
   RampStepAction,
   stepHoldConditions,
   isAwaitingStartApproval,
-  apiAssignmentQueryRef,
+  apiAssignmentQueryInputFields,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
 import {
@@ -32,12 +32,9 @@ import {
   rampPatchEntriesForTargets,
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
-import {
-  apiMonitoringConfigToInternal,
-  rampScheduleToApiInterface,
-} from "back-end/src/models/RampScheduleModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
-import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 // Strict: a rule field placed on the step or action instead of inside `patch`
@@ -111,17 +108,7 @@ const postRampScheduleValidator = {
       monitoringConfig: z
         .object({
           datasourceId: z.string(),
-          exposureQuery: apiAssignmentQueryRef
-            .describe(
-              "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
-            )
-            .optional(),
-          /** @deprecated use exposureQuery */
-          exposureQueryId: z
-            .string()
-            .describe("Deprecated: use exposureQuery instead.")
-            .optional()
-            .meta({ deprecated: true }),
+          ...apiAssignmentQueryInputFields("exposureQuery"),
           guardrailMetricIds: z.array(z.string()).min(1),
           signalMetricIds: z.array(z.string()).optional(),
           monitoringMode: z.enum(["auto", "manual"]).optional(),
@@ -443,12 +430,9 @@ export const postRampSchedule = createApiRequestHandler(
     } as unknown as RampScheduleInterface);
   }
 
-  await assertApiAssignmentQueryRefHasIdentifierType(req.context, {
-    datasourceId: body.monitoringConfig?.datasourceId,
-    ref: body.monitoringConfig?.exposureQuery,
-    field: "exposureQuery",
-    currentExposureQueryId: undefined,
-  });
+  const monitoringConfig = body.monitoringConfig
+    ? await resolveApiMonitoringConfig(req.context, body.monitoringConfig, null)
+    : null;
 
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,
@@ -476,9 +460,7 @@ export const postRampSchedule = createApiRequestHandler(
     startDate,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
     monitoringConfig: normalizeMonitoringConfig(
-      apiMonitoringConfigToInternal(body.monitoringConfig) ??
-        template?.monitoringConfig ??
-        null,
+      monitoringConfig ?? template?.monitoringConfig ?? null,
     ),
     lockdownConfig: body.lockdownConfig ?? template?.lockdownConfig,
     ...(body.experimentHealthAction

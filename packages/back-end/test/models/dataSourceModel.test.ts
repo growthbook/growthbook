@@ -524,7 +524,7 @@ describe("dataSourceModel", () => {
     });
   });
 
-  it("maps assignment query identifier types to the API", () => {
+  it("reports the frozen legacy identifier as the deprecated identifierType", () => {
     const apiDatasource = toDataSourceApiInterface({
       ...datasource,
       settings: {
@@ -533,11 +533,11 @@ describe("dataSourceModel", () => {
           ...datasource.settings.queries,
           exposure: [
             {
-              id: "multi",
+              id: "reordered",
               userIdType: "user_id",
-              userIdTypes: ["user_id", "anonymous_id"],
+              userIdTypes: ["anonymous_id", "user_id"],
               dimensions: [],
-              name: "Multi",
+              name: "Reordered",
               query: "SELECT user_id, anonymous_id FROM experiment_viewed",
             },
           ],
@@ -547,7 +547,7 @@ describe("dataSourceModel", () => {
 
     expect(apiDatasource.assignmentQueries[0]).toMatchObject({
       identifierType: "user_id",
-      identifierTypes: ["user_id", "anonymous_id"],
+      identifierTypes: ["anonymous_id", "user_id"],
     });
   });
 

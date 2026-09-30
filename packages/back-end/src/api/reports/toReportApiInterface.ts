@@ -74,11 +74,16 @@ export async function toReportApiInterface(
         attributionModel: settings.attributionModel,
         lookbackOverride: settings.lookbackOverride,
         trackingKey: settings.trackingKey || undefined,
-        exposureQuery: toApiAssignmentQueryRef(
-          settings.exposureQueryId,
-          settings.exposureQueryIdentifierType,
-          await getExposureQueriesForDatasource(context, settings.datasource),
-        ),
+        exposureQuery: settings.exposureQueryId
+          ? toApiAssignmentQueryRef(
+              settings.exposureQueryId,
+              settings.exposureQueryIdentifierType,
+              await getExposureQueriesForDatasource(
+                context,
+                settings.datasource,
+              ),
+            )
+          : undefined,
         exposureQueryId: settings.exposureQueryId || undefined,
         segment: settings.segment || undefined,
         queryFilter: settings.queryFilter || undefined,
@@ -131,11 +136,13 @@ export async function toReportApiInterface(
         sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
         attributionModel: args.attributionModel,
         trackingKey: args.trackingKey || undefined,
-        exposureQuery: toApiAssignmentQueryRef(
-          args.exposureQueryId,
-          args.exposureQueryIdentifierType,
-          await getExposureQueriesForDatasource(context, args.datasource),
-        ),
+        exposureQuery: args.exposureQueryId
+          ? toApiAssignmentQueryRef(
+              args.exposureQueryId,
+              args.exposureQueryIdentifierType,
+              await getExposureQueriesForDatasource(context, args.datasource),
+            )
+          : undefined,
         exposureQueryId: args.exposureQueryId || undefined,
         segment: args.segment || undefined,
         queryFilter: args.queryFilter || undefined,

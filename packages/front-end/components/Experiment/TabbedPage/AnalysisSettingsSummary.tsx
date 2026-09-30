@@ -23,6 +23,7 @@ import {
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
+  isAutoSnapshotScheduled,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -31,7 +32,10 @@ import {
   OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON,
   IncrementalFullRefreshComparable,
 } from "shared/enterprise";
-import { getAnalysisIdentifierType, getSnapshotAnalysis } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  getSnapshotAnalysis,
+} from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
 import {
@@ -148,7 +152,7 @@ export default function AnalysisSettingsSummary({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = getAnalysisIdentifierType(
+  const userIdType = resolveAnalysisIdentifierType(
     datasourceSettings?.queries?.exposure?.find(
       (e) => e.id === experiment.exposureQueryId,
     ),
@@ -277,7 +281,7 @@ export default function AnalysisSettingsSummary({
   const { incrementalRefresh, mutate: mutateIncrementalRefresh } =
     useIncrementalRefresh(isIncremental ? experiment.id : "");
   useEffect(() => {
-    // If dimensionless snapshto changes, re-fecth incremental refresh data
+    // If dimensionless snapshot changes, re-fetch incremental refresh data
     if (!isIncremental) return;
     mutateIncrementalRefresh();
   }, [isIncremental, dimensionless?.id, mutateIncrementalRefresh]);
@@ -327,7 +331,7 @@ export default function AnalysisSettingsSummary({
       skipPartialData: dimensionless.settings.skipPartialData,
       datasourceId: dimensionless.settings.datasourceId,
       exposureQueryId: dimensionless.settings.exposureQueryId,
-      exposureQueryIdentifierType: getAnalysisIdentifierType(
+      exposureQueryIdentifierType: resolveAnalysisIdentifierType(
         datasourceSettings?.queries?.exposure?.find(
           (e) => e.id === dimensionless.settings.exposureQueryId,
         ),
@@ -721,13 +725,13 @@ export default function AnalysisSettingsSummary({
     // Snapshots from before identifiers were stored resolve the same way.
     if (
       isDifferent(
-        getAnalysisIdentifierType(
+        resolveAnalysisIdentifierType(
           datasourceSettings?.queries?.exposure?.find(
             (e) => e.id === exp.exposureQueryId,
           ),
           exp.exposureQueryIdentifierType,
         ),
-        getAnalysisIdentifierType(
+        resolveAnalysisIdentifierType(
           datasourceSettings?.queries?.exposure?.find(
             (e) => e.id === snapshotSettings.exposureQueryId,
           ),
@@ -913,9 +917,7 @@ export default function AnalysisSettingsSummary({
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
-                autoUpdateEnabled={
-                  experiment.autoSnapshots && !experiment.disableAutoSnapshots
-                }
+                autoUpdateEnabled={isAutoSnapshotScheduled(experiment)}
                 showAutoUpdateWidget={true}
                 failedString={
                   latest && !latest.queries.length && latest.error

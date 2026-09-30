@@ -11,7 +11,8 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
-  getAnalysisIdentifierType,
+  getPreferredIdentifierType,
+  resolveAnalysisIdentifierType,
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
@@ -32,7 +33,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  getCopiedAssignmentQueryNotice,
+  AssignmentQueryCopySource,
   getExposureQuery,
   getDefaultIdentifierTypeForQuery,
 } from "@/services/datasources";
@@ -44,6 +45,7 @@ import {
   validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -146,12 +148,14 @@ export function getNewExperimentDatasourceDefaults({
   project,
   initialValue,
   initialHashAttribute,
+  isImport,
 }: {
   datasources: DataSourceInterfaceWithParams[];
   settings: OrganizationSettings;
   project?: string;
   initialValue?: Partial<ExperimentInterfaceStringDates>;
   initialHashAttribute?: string;
+  isImport?: boolean;
 }): Pick<
   ExperimentInterfaceStringDates,
   "datasource" | "exposureQueryId" | "exposureQueryIdentifierType"
@@ -191,22 +195,25 @@ export function getNewExperimentDatasourceDefaults({
       ) ?? null;
   }
 
-  // Copies (duplicate, from template) keep what the source analyzes on, even
-  // if the query dropped it: the form then looks for another query declaring
-  // it before falling back, and explains the change.
-  const copiedIdentifierType =
+  // Imports take the identifier discovery counted units on. Copies (duplicate,
+  // from template) keep what the source analyzes on, even if the query dropped
+  // it: the form then looks for another query declaring it before falling
+  // back, and explains the change.
+  const sourceIdentifierType =
     exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
-      ? getAnalysisIdentifierType(
-          exposureQuery,
-          initialValue.exposureQueryIdentifierType,
-        )
+      ? isImport
+        ? getPreferredIdentifierType(exposureQuery)
+        : resolveAnalysisIdentifierType(
+            exposureQuery,
+            initialValue.exposureQueryIdentifierType,
+          )
       : undefined;
 
   return {
     datasource: initialDatasource.id,
     exposureQueryId: exposureQuery?.id || "",
     exposureQueryIdentifierType: exposureQuery
-      ? (copiedIdentifierType ??
+      ? (sourceIdentifierType ??
         getDefaultIdentifierTypeForQuery(
           exposureQuery,
           initialValue?.exposureQueryIdentifierType ?? initialUserIdType,
@@ -336,6 +343,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         project: initialValue?.project || project || "",
         initialValue,
         initialHashAttribute,
+        isImport,
       }),
       name: initialValue?.name || "",
       type: initialValue?.type ?? "standard",
@@ -551,6 +559,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     const data = { ...value };
 
+    // A copy whose identifier no query declares is left for the user to pick,
+    // and the fields may be on a step that isn't showing.
+    if (
+      assignmentQueryCopySource &&
+      data.exposureQueryId &&
+      !data.exposureQueryIdentifierType
+    ) {
+      throw new Error("Choose an identifier type for the assignment query");
+    }
+
     if (data.status !== "stopped" && data.phases?.[0]) {
       data.phases[0].dateEnded = "";
     }
@@ -723,6 +741,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       form.setValue("exposureQueryIdentifierType", value),
     [form],
   );
+  const selectedTemplateId = form.watch("templateId");
+  const selectedTemplate = selectedTemplateId
+    ? templatesMap.get(selectedTemplateId)
+    : undefined;
+  const assignmentQueryCopySource: AssignmentQueryCopySource | null =
+    duplicate && initialValue
+      ? { kind: "copy", ...initialValue }
+      : selectedTemplate
+        ? { kind: "template", ...convertTemplateToExperiment(selectedTemplate) }
+        : null;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
     project: selectedProject,
@@ -731,6 +759,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     identifierType: exposureQueryIdentifierType,
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
+    // New and duplicate flows render the fields (and repair) in
+    // ExperimentRefNewFields/BanditRefNewFields; two repairs would fight.
+    autoRepair: !(isNewExperiment || duplicate),
   });
   const status = form.watch("status");
   const type = form.watch("type");
@@ -780,7 +811,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     availableTemplates.length >= 1;
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
-  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
+  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(
+    !settings.experimentKeyRegexValidator,
+  );
 
   let header = isNewExperiment
     ? `Add New ${isBandit ? "Bandit" : "Experiment"}`
@@ -794,6 +827,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     setValueAs: (s) => s?.trim(),
   });
   const trackingKeyFieldHandlers = form.register("trackingKey");
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+    isImport,
+  );
 
   const checkForSimilar = useCallback(async () => {
     if (!aiEnabled) return;
@@ -1049,6 +1086,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <div className="form-group">
               <Text as="label" weight="semibold" mb="1">
                 Tracking Key
+                {trackingKeyFormatProps.markRequired ? (
+                  <span
+                    style={{
+                      color: "var(--red-11)",
+                      marginLeft: "var(--space-1)",
+                    }}
+                  >
+                    *
+                  </span>
+                ) : null}
               </Text>
               <Text as="div" color="text-mid" mb="2">
                 {`Unique identifier for this ${
@@ -1058,6 +1105,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <Field
                 size="legacy"
                 {...trackingKeyFieldHandlers}
+                {...trackingKeyFormatProps}
                 onChange={(e) => {
                   trackingKeyFieldHandlers.onChange(e);
                   setLinkNameWithTrackingKey(false);
@@ -1337,6 +1385,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <ExperimentRefNewFields
                       step={i}
                       source="experiment"
+                      assignmentQueryCopySource={assignmentQueryCopySource}
                       project={selectedProject}
                       attributeProjects={effectiveAttributeProjects}
                       attributeSelectIndicator={attributeScopeToggle}
@@ -1392,6 +1441,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <BanditRefNewFields
                       step={i}
                       source="experiment"
+                      assignmentQueryCopySource={assignmentQueryCopySource}
                       project={selectedProject}
                       attributeProjects={effectiveAttributeProjects}
                       attributeSelectIndicator={attributeScopeToggle}
@@ -1586,14 +1636,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <AssignmentQueryFields
                   selection={assignmentQuerySelection}
                   initialOption="Choose..."
-                  notice={getCopiedAssignmentQueryNotice(
-                    datasource ?? null,
-                    initialValue ?? null,
-                    {
-                      exposureQueryId,
-                      identifierType: exposureQueryIdentifierType,
-                    },
-                  )}
                 />
               )}
 

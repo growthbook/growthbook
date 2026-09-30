@@ -1,7 +1,5 @@
-import {
-  isSameAssignmentQuerySelection,
-  parseAssignmentQuerySelection,
-} from "shared/util";
+import omit from "lodash/omit";
+import { resolveAssignmentQuerySelectionChange } from "shared/util";
 import {
   CreateSafeRolloutInterface,
   createSafeRolloutValidator,
@@ -18,13 +16,21 @@ import { ReqContext } from "back-end/types/request";
 export async function validateCreateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
   context: ReqContext | ApiReqContext,
-  // The feature's project; undefined skips the assignment query scope check.
-  project: string | undefined,
-  // The stored rollout on update: an unchanged selection isn't re-validated.
-  previous?: Pick<
-    SafeRolloutInterface,
-    "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
-  > | null,
+  {
+    previous,
+    onOmitted = "defaultToFirst",
+    project,
+  }: {
+    // The stored rollout on update: an unchanged selection isn't re-validated.
+    previous?: Pick<
+      SafeRolloutInterface,
+      "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
+    > | null;
+    // REST's grouped exposureQuery must name an identifier when it's ambiguous.
+    onOmitted?: "defaultToFirst" | "requireUnambiguous";
+    // The feature's project, checked against a new or changed selection.
+    project?: string;
+  } = {},
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
@@ -59,39 +65,32 @@ export async function validateCreateSafeRolloutFields(
     );
   }
 
-  const exposureQueries = datasource.settings?.queries?.exposure ?? [];
-  const sameQuery =
-    previous?.datasourceId === safeRolloutFields.datasourceId &&
-    previous?.exposureQueryId === safeRolloutFields.exposureQueryId;
-  // Naming the same query without an identifier keeps the stored one.
-  let exposureQueryIdentifierType =
-    safeRolloutFields.exposureQueryIdentifierType ??
-    (sameQuery ? previous?.exposureQueryIdentifierType : undefined);
-  const unchanged =
-    !!previous &&
-    isSameAssignmentQuerySelection(
-      {
-        datasource: previous.datasourceId,
-        exposureQueryId: previous.exposureQueryId,
-        identifierType: previous.exposureQueryIdentifierType,
-      },
-      {
+  const resolved = resolveAssignmentQuerySelectionChange(
+    datasource.settings?.queries?.exposure ?? [],
+    {
+      previous: previous
+        ? {
+            datasource: previous.datasourceId,
+            exposureQueryId: previous.exposureQueryId,
+            identifierType: previous.exposureQueryIdentifierType,
+          }
+        : null,
+      next: {
         datasource: safeRolloutFields.datasourceId,
         exposureQueryId: safeRolloutFields.exposureQueryId,
-        identifierType: exposureQueryIdentifierType,
+        identifierType: safeRolloutFields.exposureQueryIdentifierType,
       },
-      exposureQueries,
-    );
-  if (!unchanged) {
-    const parsed = parseAssignmentQuerySelection(exposureQueries, {
-      exposureQueryId: safeRolloutFields.exposureQueryId,
-      identifierType: exposureQueryIdentifierType,
-      onOmitted: "defaultToFirst",
+      onOmitted,
+      field: "exposureQuery",
       scope: project !== undefined ? { project } : undefined,
-    });
-    if (!parsed.ok) throw new BadRequestError(parsed.error);
-    exposureQueryIdentifierType = parsed.identifierType;
-  }
+    },
+  );
+  if (!resolved.ok) throw new BadRequestError(resolved.error);
+  // An unchanged selection keeps its stored value as is: a started rollout
+  // can't change it, even to the equivalent resolved identifier.
+  const exposureQueryIdentifierType = resolved.changed
+    ? resolved.identifierType
+    : previous?.exposureQueryIdentifierType;
 
   if (
     safeRolloutFields.guardrailMetricIds === undefined ||
@@ -136,7 +135,10 @@ export async function validateCreateSafeRolloutFields(
     }
   }
 
-  return createSafeRolloutValidator
-    .strip()
-    .parse({ ...safeRolloutFields, exposureQueryIdentifierType });
+  return createSafeRolloutValidator.strip().parse({
+    ...omit(safeRolloutFields, "exposureQueryIdentifierType"),
+    ...(exposureQueryIdentifierType !== undefined && {
+      exposureQueryIdentifierType,
+    }),
+  });
 }

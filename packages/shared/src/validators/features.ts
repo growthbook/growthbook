@@ -28,6 +28,8 @@ import {
   rampStartAction,
   rampStartPatch,
   rampMonitoringConfig,
+  apiRampMonitoringConfig,
+  apiRampMonitoringConfigInput,
   stepHoldConditions,
 } from "./ramp-schedule";
 
@@ -181,7 +183,6 @@ const experimentRule = baseRule
     coverage: z.number().optional(),
     datasource: z.string().optional(),
     exposureQueryId: z.string().optional(),
-    exposureQueryIdentifierType: z.string().optional(),
     goalMetrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
@@ -532,6 +533,7 @@ export const revisionRampCreateAction = z.object({
 
 // API input variant — normalize to RevisionRampCreateAction before storing.
 export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
+  monitoringConfig: apiRampMonitoringConfigInput.optional(),
   steps: z.array(revisionApiRampStep).optional(),
   startActions: z.array(revisionApiRampStartAction).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),
@@ -579,9 +581,15 @@ const revisionRampAction = z.discriminatedUnion("mode", [
   revisionRampUpdateAction,
   revisionRampDetachAction,
 ]);
+// Revision responses: the stored flat monitoring config, grouped like every
+// other response.
 export const apiRevisionRampAction = z.discriminatedUnion("mode", [
-  apiRevisionRampCreateAction,
-  apiRevisionRampUpdateAction,
+  apiRevisionRampCreateAction.extend({
+    monitoringConfig: apiRampMonitoringConfig.optional(),
+  }),
+  apiRevisionRampUpdateAction.extend({
+    monitoringConfig: apiRampMonitoringConfig.optional(),
+  }),
   revisionRampDetachAction,
 ]);
 

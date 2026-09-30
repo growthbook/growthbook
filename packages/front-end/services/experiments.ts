@@ -21,7 +21,7 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { ago, getValidDate } from "shared/dates";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   getTempRolloutStaleReason,
   pValueFormatter,
 } from "shared/util";
@@ -1029,7 +1029,7 @@ export function convertExperimentToTemplate(
     datasource: experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
     // Store what the experiment analyzes on, even when it's a legacy default.
-    exposureQueryIdentifierType: getAnalysisIdentifierType(
+    exposureQueryIdentifierType: resolveAnalysisIdentifierType(
       exposureQuery,
       experiment.exposureQueryIdentifierType,
     ),

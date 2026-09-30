@@ -5,6 +5,10 @@ import {
   MAX_DESCRIPTION_LENGTH,
 } from "shared/constants";
 import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
+import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
@@ -13,8 +17,6 @@ import {
   ignoreWarningsBodyField,
   booleanQueryField,
   csvQueryField,
-  apiAssignmentQueryRef,
-  apiAssignmentQueryRefInput,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -459,6 +461,9 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
+  // User who staged it; the job runs the change on their authority, as the
+  // scheduled feature publish runs on its arming user's. Absent for org keys.
+  scheduledBy: z.string().optional(),
 });
 
 export const experimentInterface = z
@@ -724,9 +729,7 @@ export const apiExperimentAnalysisSettingsValidator = namedSchema(
   z
     .object({
       datasourceId: z.string(),
-      assignmentQuery: apiAssignmentQueryRef.optional(),
-      /** @deprecated use assignmentQuery.id */
-      assignmentQueryId: z.string().meta({ deprecated: true }),
+      ...apiAssignmentQueryResponseFields("assignmentQuery"),
       experimentId: z.string(),
       segmentId: z.string(),
       queryFilter: z.string(),
@@ -1159,9 +1162,7 @@ const apiBulkResultMetric = z.object({
 // Snapshot-authoritative analysis settings.
 const apiBulkResultSettings = z.object({
   datasourceId: z.string(),
-  assignmentQuery: apiAssignmentQueryRef.optional(),
-  /** @deprecated use assignmentQuery.id */
-  assignmentQueryId: z.string().meta({ deprecated: true }),
+  ...apiAssignmentQueryResponseFields("assignmentQuery"),
   experimentId: z.string(),
   segmentId: z.string(),
   queryFilter: z.string(),
@@ -1428,19 +1429,10 @@ const postExperimentBody = z
         "ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided.",
       )
       .optional(),
-    assignmentQuery: apiAssignmentQueryRefInput
-      .describe(
-        "The assignment query to use, grouping its ID with the identifier type to analyze on. The ID must be one of the assignment query objects associated with the datasource, and the identifier type must be one it declares. Can only be set if a templateId is not provided. Mutually exclusive with the deprecated assignmentQueryId.",
-      )
-      .optional(),
-    /** @deprecated use assignmentQuery */
-    assignmentQueryId: z
-      .string()
-      .describe(
-        "Deprecated: use assignmentQuery instead. The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided.",
-      )
-      .optional()
-      .meta({ deprecated: true }),
+    ...apiAssignmentQueryInputFields(
+      "assignmentQuery",
+      "Can only be set if a templateId is not provided.",
+    ),
     trackingKey: z.string(),
     bypassDuplicateKeyCheck: z
       .boolean()
@@ -1501,8 +1493,8 @@ const postExperimentBody = z
         "When true, disables Sticky Bucketing for this experiment. If omitted, defaults to your organization's Sticky Bucketing setting for new experiments. Sticky Bucketing only takes effect when it is also enabled at the organization level.",
       )
       .optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     releasedVariationId: z.string().optional(),
     excludeFromPayload: z.boolean().optional(),
     inProgressConversions: z.enum(["loose", "strict"]).optional(),
@@ -1575,17 +1567,7 @@ const updateExperimentBody = z
         "Can only be set if existing experiment does not have a datasource",
       )
       .optional(),
-    assignmentQuery: apiAssignmentQueryRefInput
-      .describe(
-        "The assignment query to use, grouping its ID with the identifier type to analyze on. Mutually exclusive with the deprecated assignmentQueryId.",
-      )
-      .optional(),
-    /** @deprecated use assignmentQuery */
-    assignmentQueryId: z
-      .string()
-      .describe("Deprecated: use assignmentQuery instead.")
-      .optional()
-      .meta({ deprecated: true }),
+    ...apiAssignmentQueryInputFields("assignmentQuery"),
     trackingKey: z.string().optional(),
     bypassDuplicateKeyCheck: z
       .boolean()
@@ -1635,8 +1617,8 @@ const updateExperimentBody = z
       .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     disableStickyBucketing: z.boolean().optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     results: z
       .enum(["dnf", "won", "lost", "inconclusive"])
       .describe(
@@ -1801,7 +1783,7 @@ const postExperimentStartBody = z
     skipChecklist: z
       .boolean()
       .describe(
-        "If true, skips validating the experiment satisifies all pre-launch checklist items",
+        "If true, skips validating the experiment satisfies all pre-launch checklist items",
       )
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
@@ -2316,7 +2298,7 @@ export const postExperimentSnapshotValidator = {
       triggeredBy: z
         .enum(["manual", "schedule"])
         .describe(
-          'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
+          'Set to "schedule" if you want this request to trigger notifications and other events as if it were a scheduled update. Defaults to manual.',
         )
         .optional(),
       dimension: z

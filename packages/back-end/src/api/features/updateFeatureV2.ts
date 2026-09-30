@@ -34,7 +34,7 @@ import {
   addIdsToFlatRules,
   assertFeatureValuesValid,
   getApiFeatureObjV2,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
   inheritStoredRolloutSeeds,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
@@ -603,7 +603,6 @@ export const updateFeatureV2 = createApiRequestHandler(
     details: auditDetailsUpdate(feature, updatedFeature),
   });
 
-  const groupMap = await getSavedGroupMap(req.context);
   const experimentMap = await getExperimentMapForFeature(
     req.context,
     feature.id,
@@ -615,8 +614,10 @@ export const updateFeatureV2 = createApiRequestHandler(
     feature: updatedFeature,
     version: updatedFeature.version,
   });
-  const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+  const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+    req.context,
+    { features: [updatedFeature], experiments: experimentMap.values() },
+  );
   return {
     feature: await resolveOwnerEmail(
       getApiFeatureObjV2({

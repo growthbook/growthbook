@@ -1192,11 +1192,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Metrics/MetricForm/MetricCappingSettingsForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Metrics/MetricForm/MetricDelaySettings.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -1590,11 +1585,6 @@
       "count": 4
     }
   },
-  "packages/front-end/components/Settings/EditSchemaOptions.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/EnvironmentModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1639,11 +1629,6 @@
   "packages/front-end/components/Settings/SSLConnectionFields.tsx": {
     "no-restricted-syntax": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/Settings/SharedConnectionSettings.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Settings/SubscriptionInfo.tsx": {
@@ -2133,6 +2118,11 @@
   },
   "packages/front-end/services/auth.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/shared/src/util/exposure-queries.ts": {
+    "import/order": {
       "count": 1
     }
   },

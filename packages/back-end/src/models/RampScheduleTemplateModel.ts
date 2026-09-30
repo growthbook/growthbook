@@ -1,31 +1,37 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
-  ApiRampMonitoringConfig,
   ApiRampMonitoringConfigInput,
   ApiRampScheduleTemplateInterface,
   RampScheduleTemplateInterface,
   rampScheduleTemplateValidator,
 } from "shared/validators";
+import { monitoringConfigToApi } from "shared/util";
 import { rampScheduleTemplateApiSpec } from "back-end/src/api/specs/ramp-schedule-template.spec";
-import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
-import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { MakeModelClass } from "./BaseModel";
 import {
-  apiMonitoringConfigToInternal,
-  migrateRampStepTriggers,
-  monitoringConfigToApi,
-} from "./RampScheduleModel";
+  assertValidMonitoringConfigChange,
+  withMonitoringDatasourceKey,
+} from "back-end/src/services/rampSchedule";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
+import { MakeModelClass } from "./BaseModel";
+import { migrateRampStepTriggers } from "./RampScheduleModel";
 
-// Translates the API's grouped monitoringConfig.exposureQuery to the flat
-// stored shape; `null` (clear) and absent pass through.
-function withInternalMonitoringConfig<
-  T extends { monitoringConfig?: ApiRampMonitoringConfig | null },
->(body: T, previous?: RampScheduleTemplateInterface["monitoringConfig"]) {
+// `null` (clear) and absent monitoring configs pass through.
+async function withInternalMonitoringConfig<
+  T extends { monitoringConfig?: ApiRampMonitoringConfigInput | null },
+>(
+  context: ReqContext | ApiReqContext,
+  body: T,
+  previous: RampScheduleTemplateInterface["monitoringConfig"] | undefined,
+) {
   if (!body.monitoringConfig) return body;
   return {
     ...body,
-    monitoringConfig: apiMonitoringConfigToInternal(
+    monitoringConfig: await resolveApiMonitoringConfig(
+      context,
       body.monitoringConfig,
       previous,
     ),
@@ -121,16 +127,17 @@ export class RampScheduleTemplateModel extends BaseClass {
   protected async processApiCreateBody(
     rawBody: unknown,
   ): Promise<CreateProps<RampScheduleTemplateInterface>> {
-    await this.assertApiMonitoringIdentifierType(rawBody, null);
-    const body = withInternalMonitoringConfig(
+    const body = (await withInternalMonitoringConfig(
+      this.context,
       rawBody as Omit<
         CreateProps<RampScheduleTemplateInterface>,
         "monitoringConfig"
       > & {
         order?: number;
-        monitoringConfig?: ApiRampMonitoringConfig | null;
+        monitoringConfig?: ApiRampMonitoringConfigInput | null;
       },
-    ) as CreateProps<RampScheduleTemplateInterface> & { order?: number };
+      null,
+    )) as CreateProps<RampScheduleTemplateInterface> & { order?: number };
     return { ...body, order: body.order ?? (await this.getNextOrder()) };
   }
 
@@ -141,43 +148,37 @@ export class RampScheduleTemplateModel extends BaseClass {
   ) {
     const { id } = req.params as { id: string };
     const existing = await this.getById(id);
-    await this.assertApiMonitoringIdentifierType(req.body, existing);
-    const toUpdate = withInternalMonitoringConfig(
+    const toUpdate = (await withInternalMonitoringConfig(
+      this.context,
       req.body as Omit<
         UpdateProps<RampScheduleTemplateInterface>,
         "monitoringConfig"
-      > & { monitoringConfig?: ApiRampMonitoringConfig | null },
+      > & { monitoringConfig?: ApiRampMonitoringConfigInput | null },
       existing?.monitoringConfig,
-    ) as UpdateProps<RampScheduleTemplateInterface>;
+    )) as UpdateProps<RampScheduleTemplateInterface>;
     return resolveOwnerEmail(
       this.toApiInterface(await this.updateById(id, toUpdate)),
       this.context,
     );
   }
 
-  private async assertApiMonitoringIdentifierType(
-    rawBody: unknown,
-    existing: RampScheduleTemplateInterface | null,
+  // Internal writes too; templates aren't tied to a Project, so no scope.
+  protected override async customValidation(
+    doc: RampScheduleTemplateInterface,
+    previousDoc?: RampScheduleTemplateInterface,
   ) {
-    const mc = (
-      rawBody as { monitoringConfig?: ApiRampMonitoringConfigInput | null }
-    )?.monitoringConfig;
-    if (!mc) return;
-    await assertApiAssignmentQueryRefHasIdentifierType(this.context, {
-      datasourceId: mc.datasourceId,
-      ref: mc.exposureQuery,
-      field: "exposureQuery",
-      currentExposureQueryId: existing?.monitoringConfig?.exposureQueryId,
-    });
+    await assertValidMonitoringConfigChange(
+      this.context,
+      previousDoc?.monitoringConfig,
+      doc.monitoringConfig,
+    );
   }
 
-  // The monitoring data source is nested, so BaseModel wouldn't cache it.
-  protected getForeignKeys(doc: RampScheduleTemplateInterface) {
-    const keys = super.getForeignKeys(doc);
-    if (doc.monitoringConfig?.datasourceId) {
-      keys.datasource = doc.monitoringConfig.datasourceId;
-    }
-    return keys;
+  protected override getForeignKeys(doc: RampScheduleTemplateInterface) {
+    return withMonitoringDatasourceKey(
+      super.getForeignKeys(doc),
+      doc.monitoringConfig,
+    );
   }
 
   protected toApiInterface(

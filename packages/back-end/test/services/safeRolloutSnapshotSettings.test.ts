@@ -1,7 +1,13 @@
 import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import { DataSourceInterface } from "shared/types/datasource";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { getSafeRolloutSnapshotSettings } from "back-end/src/services/safeRolloutSnapshots";
+import {
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
+} from "shared/types/safe-rollout";
+import {
+  getSafeRolloutSnapshotSettings,
+  getSnapshotSettingsFromSafeRolloutArgs,
+} from "back-end/src/services/safeRolloutSnapshots";
 
 // Helper to construct a minimal SafeRollout suitable for snapshot-settings
 // generation. The function under test only reads a small slice of the
@@ -183,5 +189,25 @@ describe("getSafeRolloutSnapshotSettings — metric joinability", () => {
 
     expect(settings.guardrailMetrics).toEqual(["met_user"]);
     expect(settings.exposureQueryIdentifierType).toBe("user_id");
+  });
+});
+
+describe("getSnapshotSettingsFromSafeRolloutArgs", () => {
+  it("passes the stored identifier to the settings the queries run on", () => {
+    const { snapshotSettings } = getSnapshotSettingsFromSafeRolloutArgs({
+      settings: {
+        datasourceId: "ds_1",
+        exposureQueryId: "exposure_1",
+        exposureQueryIdentifierType: "user_id",
+        experimentId: "sr_1",
+        startDate: new Date("2026-01-02T00:00:00Z"),
+        metricSettings: [],
+        guardrailMetrics: [],
+        variations: [],
+      },
+      analyses: [{ settings: {} }],
+    } as unknown as SafeRolloutSnapshotInterface);
+
+    expect(snapshotSettings.exposureQueryIdentifierType).toBe("user_id");
   });
 });

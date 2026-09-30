@@ -7,13 +7,9 @@ jest.mock("back-end/src/services/rampSchedule", () => ({
 }));
 
 import { RampScheduleInterface } from "shared/validators";
-import { ExposureQuery } from "shared/types/datasource";
+import { apiMonitoringConfigToInternal } from "shared/util";
 import { ReqContext } from "back-end/types/request";
-import {
-  apiMonitoringConfigToInternal,
-  monitoringConfigToApi,
-  rampScheduleToApiInterface,
-} from "back-end/src/models/RampScheduleModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 
 const context = {
   foreignRefs: { datasource: new Map() },
@@ -129,80 +125,7 @@ describe("rampScheduleToApiInterface approval fields", () => {
   });
 });
 
-describe("rampScheduleToApiInterface exposureQuery", () => {
-  it("groups the stored exposure query id and identifier type into exposureQuery", () => {
-    // A stored monitoringConfig activates the monitoringStatus branch, which
-    // calls into the mocked rampSchedule service; give it valid returns.
-    const svc = jest.requireMock("back-end/src/services/rampSchedule");
-    svc.getRampMonitoringMode.mockReturnValue("manual");
-    svc.getRampAutoUpdatePreference.mockReturnValue(false);
-    svc.getEffectiveRampAutoUpdateState.mockReturnValue({
-      enabled: false,
-      reason: null,
-    });
-    const api = rampScheduleToApiInterface(
-      context,
-      makeSchedule({
-        monitoringConfig: {
-          datasourceId: "ds_1",
-          exposureQueryId: "eq_1",
-          exposureQueryIdentifierType: "anonymous_id",
-          guardrailMetricIds: ["met_1"],
-        },
-      } as unknown as Partial<RampScheduleInterface>),
-    );
-    expect(api.monitoringConfig?.exposureQuery).toEqual({
-      id: "eq_1",
-      identifierType: "anonymous_id",
-    });
-    expect(api.monitoringConfig).not.toHaveProperty(
-      "exposureQueryIdentifierType",
-    );
-    expect(api.monitoringConfig?.exposureQueryId).toBe("eq_1");
-  });
-});
-
 describe("apiMonitoringConfigToInternal", () => {
-  it("projects the exposureQuery object onto the flat fields", () => {
-    expect(
-      apiMonitoringConfigToInternal({
-        datasourceId: "ds_1",
-        exposureQuery: { id: "eq_1", identifierType: "anonymous_id" },
-        guardrailMetricIds: ["met_1"],
-      }),
-    ).toEqual({
-      datasourceId: "ds_1",
-      exposureQueryId: "eq_1",
-      exposureQueryIdentifierType: "anonymous_id",
-      guardrailMetricIds: ["met_1"],
-    });
-  });
-
-  it("passes through the deprecated flat id when no object is set", () => {
-    expect(
-      apiMonitoringConfigToInternal({
-        datasourceId: "ds_1",
-        exposureQueryId: "eq_1",
-        guardrailMetricIds: ["met_1"],
-      }),
-    ).toEqual({
-      datasourceId: "ds_1",
-      exposureQueryId: "eq_1",
-      guardrailMetricIds: ["met_1"],
-    });
-  });
-
-  it("rejects the object together with the deprecated flat id", () => {
-    expect(() =>
-      apiMonitoringConfigToInternal({
-        datasourceId: "ds_1",
-        exposureQuery: { id: "eq_1", identifierType: "anonymous_id" },
-        exposureQueryId: "eq_1",
-        guardrailMetricIds: ["met_1"],
-      }),
-    ).toThrow("Cannot set exposureQuery together with the deprecated");
-  });
-
   it("requires one of the exposure query fields", () => {
     expect(() =>
       apiMonitoringConfigToInternal({
@@ -260,32 +183,5 @@ describe("apiMonitoringConfigToInternal", () => {
         ).exposureQueryIdentifierType,
       ).toBeUndefined();
     });
-  });
-});
-
-describe("monitoringConfigToApi", () => {
-  const mc = {
-    datasourceId: "ds_1",
-    exposureQueryId: "eq_1",
-    guardrailMetricIds: ["met_1"],
-  };
-
-  it("resolves a legacy config to its query's first identifier", () => {
-    const api = monitoringConfigToApi(mc, [
-      {
-        id: "eq_1",
-        userIdType: "anonymous_id",
-        userIdTypes: ["anonymous_id", "user_id"],
-      } as ExposureQuery,
-    ]);
-    expect(api.exposureQuery).toEqual({
-      id: "eq_1",
-      identifierType: "anonymous_id",
-    });
-    expect(api).not.toHaveProperty("exposureQueryIdentifierType");
-  });
-
-  it("leaves exposureQuery unset when the query can't be resolved", () => {
-    expect(monitoringConfigToApi(mc, []).exposureQuery).toBeUndefined();
   });
 });

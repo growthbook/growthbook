@@ -1,5 +1,8 @@
 import { DataSourceInterface } from "shared/types/datasource";
-import { loadChangedAssignmentQuerySelection } from "back-end/src/services/assignmentQuerySelection";
+import {
+  loadChangedAssignmentQuerySelection,
+  resolveAssignmentQueryIdentifier,
+} from "back-end/src/services/assignmentQuerySelection";
 import { ReqContext } from "back-end/types/request";
 
 const datasource = {
@@ -89,5 +92,30 @@ describe("loadChangedAssignmentQuerySelection", () => {
         exposureQueryId: "",
       }),
     ).toBeNull();
+  });
+});
+
+describe("resolveAssignmentQueryIdentifier", () => {
+  it("requires the grouped field to name one on an ambiguous query", async () => {
+    const { context } = makeContext();
+    await expect(
+      resolveAssignmentQueryIdentifier(context, {
+        previous: null,
+        next: legacy,
+        onOmitted: "requireUnambiguous",
+        field: "exposureQuery",
+      }),
+    ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
+  });
+
+  it("passes the kept identifier through when there's no data source to check", async () => {
+    const { context } = makeContext();
+    expect(
+      await resolveAssignmentQueryIdentifier(context, {
+        previous: null,
+        next: { ...legacy, datasource: "ds_gone", identifierType: "user_id" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ identifierType: "user_id", changed: false });
   });
 });

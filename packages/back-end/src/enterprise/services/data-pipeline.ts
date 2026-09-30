@@ -23,7 +23,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import { ExposureQuery } from "shared/types/datasource";
-import { getAnalysisIdentifierType } from "shared/util";
+import { getIdentifierTypeForSettingsHash } from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   FactMetricInterface,
@@ -126,18 +126,12 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     settingsForHash[field] = snapshotSettings[field];
   }
 
-  // Units tables built before queries had several identifiers used the query's
-  // frozen legacy identifier, so only hash a different one to keep those
-  // tables' hashes stable. The legacy identifier never changes, so reordering a
-  // query's identifiers doesn't re-key anything.
-  const identifierType = snapshotSettings.exposureQueryIdentifierType;
-  const query = exposureQueries.find(
-    (q) => q.id === snapshotSettings.exposureQueryId,
+  const identifierType = getIdentifierTypeForSettingsHash(
+    snapshotSettings.exposureQueryId,
+    snapshotSettings.exposureQueryIdentifierType,
+    exposureQueries,
   );
-  if (
-    identifierType &&
-    identifierType !== getAnalysisIdentifierType(query, undefined)
-  ) {
+  if (identifierType) {
     settingsForHash.exposureQueryIdentifierType = identifierType;
   }
 

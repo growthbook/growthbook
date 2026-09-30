@@ -103,6 +103,7 @@ describe("experiments API", () => {
         },
         savedGroups: {
           getAll: jest.fn().mockResolvedValue([]),
+          getAllWithoutValues: jest.fn().mockResolvedValue([]),
         },
         dataSources: {
           getById: jest.fn().mockResolvedValue({
@@ -849,52 +850,7 @@ describe("experiments API", () => {
       );
     });
 
-    it("accepts the grouped assignmentQuery object", async () => {
-      (getDataSourceById as jest.Mock).mockResolvedValue({
-        id: "ds_123",
-        type: "postgres",
-        settings: {
-          queries: {
-            exposure: [
-              {
-                id: "user_id",
-                name: "User ID",
-                userIdType: "user_id",
-                userIdTypes: ["user_id", "anonymous_id"],
-              },
-            ],
-          },
-        },
-      });
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
-      (createExperiment as jest.Mock).mockResolvedValue(experiment);
-
-      const res = await request(app)
-        .post("/api/v1/experiments")
-        .send({
-          trackingKey: "exp_grouped",
-          name: "Grouped Assignment Query",
-          datasourceId: "ds_123",
-          assignmentQuery: { id: "user_id", identifierType: "anonymous_id" },
-          variations: [
-            { key: "control", name: "Control" },
-            { key: "treatment", name: "Treatment" },
-          ],
-        })
-        .set("Authorization", "Bearer foo");
-
-      expect(res.status).toBe(200);
-      expect(createExperiment).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            exposureQueryId: "user_id",
-            exposureQueryIdentifierType: "anonymous_id",
-          }),
-        }),
-      );
-    });
-
-    it("rejects assignmentQuery together with the deprecated flat fields", async () => {
+    it("rejects assignmentQuery and the deprecated flat id naming different queries", async () => {
       (getDataSourceById as jest.Mock).mockResolvedValue({
         id: "ds_123",
         type: "postgres",
@@ -920,7 +876,7 @@ describe("experiments API", () => {
           name: "Conflict",
           datasourceId: "ds_123",
           assignmentQuery: { id: "user_id", identifierType: "user_id" },
-          assignmentQueryId: "user_id",
+          assignmentQueryId: "anonymous_id",
           variations: [
             { key: "control", name: "Control" },
             { key: "treatment", name: "Treatment" },
@@ -929,7 +885,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(400);
-      expect(res.body.message).toContain("Cannot set assignmentQuery");
+      expect(res.body.message).toContain("name different assignment queries");
       expect(createExperiment).not.toHaveBeenCalled();
     });
 
@@ -1330,6 +1286,36 @@ describe("experiments API", () => {
       expect(res.body.message).toContain(
         "requires unique experiment tracking keys",
       );
+    });
+
+    it("rejects a trackingKey that doesn't match experimentKeyRegexValidator", async () => {
+      const orgWithSetting = {
+        ...org,
+        settings: { experimentKeyRegexValidator: "^exp-" },
+      };
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        permissions: { canCreateExperiment: () => true },
+      });
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_123",
+          name: "Bad key",
+          assignmentQueryId: "user_id",
+          variations: [
+            { key: "control", name: "Control" },
+            { key: "treatment", name: "Treatment" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain("must match the regex validator");
+      expect(res.body.code).toBe("invalid_tracking_key");
+      expect(createExperiment).not.toHaveBeenCalled();
     });
 
     it("validates datasource exists", async () => {
@@ -2281,6 +2267,31 @@ describe("experiments API", () => {
       expect(res.body.message).toContain(
         "requires unique experiment tracking keys",
       );
+    });
+
+    it("rejects a changed trackingKey that doesn't match experimentKeyRegexValidator", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        trackingKey: "original_key",
+      });
+      const orgWithSetting = {
+        ...org,
+        settings: { experimentKeyRegexValidator: "^exp-" },
+      };
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        permissions: { canUpdateExperiment: () => true },
+      });
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({ trackingKey: "bad_key" })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain("must match the regex validator");
+      expect(res.body.code).toBe("invalid_tracking_key");
     });
 
     it("updates experiment variations with signed URLs", async () => {

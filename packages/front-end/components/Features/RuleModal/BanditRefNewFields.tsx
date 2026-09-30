@@ -12,6 +12,7 @@ import { Box, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import SelectField from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import HashVersionSelector, {
@@ -36,6 +37,11 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
+import {
+  AssignmentQueryCopySource,
+  getCopiedAssignmentQueryNotice,
+  getCopySourceIdentifierType,
+} from "@/services/datasources";
 import AssignmentQueryFields, {
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -84,6 +90,7 @@ export default function BanditRefNewFields({
   envScope,
   projectScope,
   onRuleCyclicChange,
+  assignmentQueryCopySource,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -114,6 +121,9 @@ export default function BanditRefNewFields({
   envScope?: EnvScopeProps;
   projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
+  // When duplicating or creating from a template: keeps its identifier and
+  // explains a change.
+  assignmentQueryCopySource?: AssignmentQueryCopySource | null;
 }) {
   const form = useFormContext();
 
@@ -148,6 +158,10 @@ export default function BanditRefNewFields({
     identifierType: exposureQueryIdentifierType,
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
+    copiedIdentifierType: getCopySourceIdentifierType(
+      datasource ?? null,
+      assignmentQueryCopySource ?? null,
+    ),
     autoRepair: !!datasource?.properties?.exposureQueries,
   });
 
@@ -165,6 +179,9 @@ export default function BanditRefNewFields({
   );
 
   const settings = useOrgSettings();
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+  );
   const { namespaces } = useOrgSettings();
 
   return (
@@ -184,6 +201,7 @@ export default function BanditRefNewFields({
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
+            {...trackingKeyFormatProps}
             helpText="Unique identifier for this Bandit, used to track impressions and analyze results"
           />
 
@@ -339,6 +357,14 @@ export default function BanditRefNewFields({
               <AssignmentQueryFields
                 selection={assignmentQuerySelection}
                 size="legacy"
+                notice={getCopiedAssignmentQueryNotice(
+                  datasource ?? null,
+                  assignmentQueryCopySource ?? null,
+                  {
+                    exposureQueryId,
+                    identifierType: exposureQueryIdentifierType,
+                  },
+                )}
               />
             ) : null}
           </div>

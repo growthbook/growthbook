@@ -6,6 +6,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import {
+  resolveAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
   getManagedWarehouseExposureQueryIdForAttribute,
   isProjectListValidForProject,
@@ -36,6 +37,7 @@ import { useWatching } from "@/services/WatchProvider";
 import { convertTemplateToExperiment } from "@/services/experiments";
 import { useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -148,10 +150,45 @@ export function getAutoExposureQueryId({
   return "";
 }
 
-// The identifier to analyze the auto-selected query on, in order: the
-// template's, one linked to the hash attribute, then the query's first. Each
-// must be declared by the query.
-export function getAutoExposureQueryIdentifierType({
+/**
+ * A template's assignment selection, kept when its query still declares the
+ * identifier and otherwise moved to one that does, since a different
+ * identifier would measure different units. "unavailable" when no query
+ * declares it, so the experiment is created without assignment settings. Null
+ * when the template has no selection to honor.
+ */
+export function resolveTemplateAssignment({
+  datasource,
+  project,
+  templateExposureQueryId,
+  templateIdentifierType,
+}: {
+  datasource?: DataSourceInterfaceWithParams;
+  project?: string;
+  templateExposureQueryId?: string;
+  templateIdentifierType?: string;
+}):
+  | { kind: "selected"; exposureQueryId: string; identifierType: string }
+  | { kind: "unavailable"; identifierType: string }
+  | null {
+  const queries = datasource?.settings?.queries?.exposure ?? [];
+  const templateQuery = queries.find((q) => q.id === templateExposureQueryId);
+  if (!templateQuery) return null;
+  const identifierType = resolveAnalysisIdentifierType(
+    templateQuery,
+    templateIdentifierType,
+  );
+  if (!identifierType) return null;
+  const query = getExposureQueriesForProject(
+    [templateQuery, ...queries],
+    project,
+  ).find((q) => getExposureQueryIdentifierTypes(q).includes(identifierType));
+  return query
+    ? { kind: "selected", exposureQueryId: query.id, identifierType }
+    : { kind: "unavailable", identifierType };
+}
+
+function getAutoExposureQueryIdentifierType({
   datasource,
   hashAttribute,
   exposureQueryId,
@@ -226,6 +263,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     defaultValues: {
       project: initialProject,
       name: "",
+      trackingKey: "",
       hypothesis: "",
       hashAttribute: initialHashAttribute,
       templateId: "",
@@ -234,6 +272,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     },
   });
 
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+  );
   const selectedProject = form.watch("project") ?? "";
   const creatingInDemoProject =
     !!demoProjectId && selectedProject === demoProjectId;
@@ -347,6 +388,14 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       project: selectedProject,
       templateExposureQueryId: watchedTemplate?.exposureQueryId,
     }) !== "";
+  const unavailableTemplateAssignment = watchedTemplate
+    ? resolveTemplateAssignment({
+        datasource: autoDatasource ?? undefined,
+        project: selectedProject,
+        templateExposureQueryId: watchedTemplate.exposureQueryId,
+        templateIdentifierType: watchedTemplate.exposureQueryIdentifierType,
+      })
+    : null;
   const showLinkIdentifierCallout =
     !!autoDatasource &&
     autoDatasource.type !== "growthbook_clickhouse" &&
@@ -425,18 +474,34 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     const selectedDatasource = datasourceId
       ? getDatasourceById(datasourceId)
       : null;
-    const exposureQueryId = getAutoExposureQueryId({
+    const templateAssignment = resolveTemplateAssignment({
       datasource: selectedDatasource ?? undefined,
-      hashAttribute: hashAttribute || "",
       project,
-      templateExposureQueryId: data.exposureQueryId || "",
-    });
-    const exposureQueryIdentifierType = getAutoExposureQueryIdentifierType({
-      datasource: selectedDatasource ?? undefined,
-      hashAttribute: hashAttribute || "",
-      exposureQueryId,
+      templateExposureQueryId: data.exposureQueryId,
       templateIdentifierType: data.exposureQueryIdentifierType,
     });
+    const exposureQueryId =
+      templateAssignment?.kind === "selected"
+        ? templateAssignment.exposureQueryId
+        : templateAssignment?.kind === "unavailable"
+          ? ""
+          : getAutoExposureQueryId({
+              datasource: selectedDatasource ?? undefined,
+              hashAttribute: hashAttribute || "",
+              project,
+              templateExposureQueryId: data.exposureQueryId || "",
+            });
+    const exposureQueryIdentifierType =
+      templateAssignment?.kind === "selected"
+        ? templateAssignment.identifierType
+        : templateAssignment?.kind === "unavailable"
+          ? undefined
+          : getAutoExposureQueryIdentifierType({
+              datasource: selectedDatasource ?? undefined,
+              hashAttribute: hashAttribute || "",
+              exposureQueryId,
+              templateIdentifierType: data.exposureQueryIdentifierType,
+            });
 
     data = {
       ...data,
@@ -453,8 +518,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       templateId: rawValue.templateId || "",
       holdoutId: rawValue.holdoutId || undefined,
       customFields: rawValue.customFields,
-      // Leave trackingKey empty — the back-end derives a unique key from the name
-      trackingKey: "",
+      // Empty lets the back-end derive a unique key from the name
+      trackingKey: rawValue.trackingKey || "",
     };
 
     // A draft has no end date; ensure the start date is a proper UTC timestamp
@@ -542,6 +607,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         minLength={2}
         {...form.register("name")}
       />
+      {settings.experimentKeyRegexValidator && (
+        <Field
+          label="Tracking Key"
+          {...form.register("trackingKey")}
+          {...trackingKeyFormatProps}
+        />
+      )}
 
       {projects.length >= 1 && (
         <SelectField
@@ -648,6 +720,14 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           ) : undefined
         }
       />
+      {unavailableTemplateAssignment?.kind === "unavailable" && (
+        <Callout status="warning" mb="3">
+          This template&apos;s identifier type (&quot;
+          {unavailableTemplateAssignment.identifierType}&quot;) isn&apos;t
+          declared by any assignment query. The experiment will be created
+          without assignment settings, so choose them before analyzing results.
+        </Callout>
+      )}
       {showLinkIdentifierCallout && autoDatasource && (
         <Callout status="info" mb="3">
           Link the <strong>{watchedHashAttribute}</strong> attribute to an

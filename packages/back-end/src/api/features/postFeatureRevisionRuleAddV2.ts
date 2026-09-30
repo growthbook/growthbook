@@ -7,7 +7,11 @@ import {
   RuleCreateInputV2,
   SafeRolloutInterface,
 } from "shared/validators";
-import type { FeatureRule, SafeRolloutRule } from "shared/validators";
+import type {
+  ApiAssignmentQueryRefInput,
+  FeatureRule,
+  SafeRolloutRule,
+} from "shared/validators";
 import {
   getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
@@ -21,7 +25,6 @@ import {
   addIdsToFlatRules,
   assertFeatureValuesValid,
 } from "back-end/src/services/features";
-import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -268,21 +271,20 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         ruleInput as typeof ruleInput & {
           type: "safe-rollout";
           safeRolloutFields: Record<string, unknown> & {
-            exposureQuery?: { id: string; identifierType: string };
+            exposureQuery?: ApiAssignmentQueryRefInput;
             exposureQueryId?: string;
           };
         }
       ).safeRolloutFields;
-      await assertApiAssignmentQueryRefHasIdentifierType(req.context, {
-        datasourceId: validatableFields.datasourceId,
-        ref: validatableFields.exposureQuery,
-        field: "exposureQuery",
-        currentExposureQueryId: undefined,
-      });
       const validatedFields = await validateCreateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),
         req.context,
-        feature.project ?? "",
+        {
+          onOmitted: validatableFields.exposureQuery
+            ? "requireUnambiguous"
+            : "defaultToFirst",
+          project: feature.project ?? "",
+        },
       );
 
       const defaultRampSteps = [
@@ -320,7 +322,12 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     }
 
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, feature)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          rule.id,
+          feature,
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       if (usesLegacyScheduling) {

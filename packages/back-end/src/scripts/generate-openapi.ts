@@ -65,7 +65,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   features: {
     display: "Feature Flags (legacy)",
     description:
-      "Control your feature flags programatically.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Flags endpoints, which expose a unified per-rule environment scope instead of per-environment rule arrays.",
+      "Control your feature flags programmatically.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Flags endpoints, which expose a unified per-rule environment scope instead of per-environment rule arrays.",
   },
   "feature-revisions": {
     display: "Feature Revisions (legacy)",
@@ -75,7 +75,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   "features-v2": {
     display: "Feature Flags",
     description:
-      "Control your feature flags programatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment.",
+      "Control your feature flags programmatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment.",
   },
   "feature-revisions-v2": {
     display: "Feature Revisions",

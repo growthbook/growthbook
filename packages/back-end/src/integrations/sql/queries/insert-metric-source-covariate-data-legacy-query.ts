@@ -36,6 +36,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
     .map((m) => ({
       ...m,
       cappingSettings: { type: "" as const, value: 0 },
+      lowerCappingSettings: null,
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
   const paramsMetricsSorted: {

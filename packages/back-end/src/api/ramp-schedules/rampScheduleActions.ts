@@ -19,7 +19,6 @@ import { getHealthSettings } from "shared/enterprise";
 import { expandMetricGroups } from "shared/experiments";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
 import {
   advanceScheduleManually,
   approveAndPublishStep,
@@ -46,10 +45,8 @@ import {
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import {
-  apiMonitoringConfigToInternal,
-  rampScheduleToApiInterface,
-} from "back-end/src/models/RampScheduleModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import {
   assertRampPlanChangeAllowed,
   assertRampScheduleReplanAllowed,
@@ -1388,21 +1385,18 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
-  await assertApiAssignmentQueryRefHasIdentifierType(req.context, {
-    datasourceId: req.body.datasourceId,
-    ref: req.body.exposureQuery,
-    field: "exposureQuery",
-    currentExposureQueryId: schedule.monitoringConfig?.exposureQueryId,
-  });
   const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) =>
+    async (fresh) =>
       updateRampMonitoringConfig(
         req.context,
         fresh,
-        // req.body is always present here, so the translation never returns null.
-        apiMonitoringConfigToInternal(req.body, fresh.monitoringConfig)!,
+        await resolveApiMonitoringConfig(
+          req.context,
+          req.body,
+          fresh.monitoringConfig,
+        ),
       ),
   );
   return rampScheduleToApiInterface(req.context, updated);

@@ -5,19 +5,48 @@ import type {
   DataSourceInterface,
   ExposureQuery,
 } from "shared/types/datasource";
+import type {
+  ApiAssignmentQueryRefInput,
+  RampMonitoringConfig,
+} from "shared/validators";
 import {
+  apiMonitoringConfigToInternal,
+  AssignmentQueryScope,
   AssignmentQuerySelection,
-  assertAssignmentQueryRefIdentifierType,
-  assertValidAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
+  parseAssignmentQuerySelection,
+  resolveAssignmentQuerySelectionChange,
+  toMonitoringSelection,
+  withKeptIdentifierType,
 } from "shared/util";
+import type { ExperimentInterface } from "shared/types/experiment";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
-type AssignmentQueryScope = {
-  project: string | undefined;
-  projects?: string[];
-};
+// Where a new or changed selection is used, checked against the query's
+// projects. Computed lazily since some scopes need a lookup (holdouts).
+export type GetAssignmentQueryScope = (
+  datasource: DataSourceInterface,
+) => AssignmentQueryScope | Promise<AssignmentQueryScope>;
+
+// An experiment's selection is scoped to its project. A holdout's must cover
+// every project the holdout does, and a query without its own projects
+// inherits its data source's.
+export function getExperimentAssignmentQueryScope(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "id" | "type" | "project">,
+  project: string = experiment.project ?? "",
+): GetAssignmentQueryScope {
+  return async (datasource) =>
+    experiment.type === "holdout"
+      ? {
+          projects:
+            (await context.models.holdout.getByExperimentId(experiment.id))
+              ?.projects ?? [],
+          datasourceProjects: datasource.projects,
+        }
+      : { project };
+}
 
 /**
  * The data source to validate `next` against when it differs from `previous`
@@ -54,13 +83,56 @@ export async function loadChangedAssignmentQuerySelection(
   return datasource;
 }
 
+/**
+ * resolveAssignmentQuerySelectionChange against `next`'s data source, loaded per
+ * loadChangedAssignmentQuerySelection. Throws on an invalid change. With no data
+ * source or query to check, the kept identifier passes unvalidated.
+ */
+export async function resolveAssignmentQueryIdentifier(
+  context: ReqContext | ApiReqContext,
+  {
+    previous,
+    next,
+    onOmitted,
+    field,
+    getScope,
+  }: {
+    previous: AssignmentQuerySelection | null;
+    next: AssignmentQuerySelection;
+    onOmitted: "defaultToFirst" | "requireUnambiguous";
+    field?: "assignmentQuery" | "exposureQuery";
+    getScope?: GetAssignmentQueryScope;
+  },
+): Promise<{ identifierType: string | undefined; changed: boolean }> {
+  const kept = withKeptIdentifierType(previous, next);
+  const datasource = await loadChangedAssignmentQuerySelection(
+    context,
+    previous,
+    kept,
+  );
+  if (!datasource)
+    return { identifierType: kept.identifierType, changed: false };
+  const result = resolveAssignmentQuerySelectionChange(
+    datasource.settings.queries?.exposure ?? [],
+    {
+      previous,
+      next: kept,
+      onOmitted,
+      field,
+      scope: await getScope?.(datasource),
+    },
+  );
+  if (!result.ok) throw new Error(result.error);
+  return result;
+}
+
 // Only a changed selection is validated, so a record whose query later drifted
 // can still save unrelated edits.
 export async function assertValidAssignmentQuerySelectionChange(
   context: ReqContext | ApiReqContext,
   previous: AssignmentQuerySelection | null,
   next: AssignmentQuerySelection,
-  getScope: () => AssignmentQueryScope | Promise<AssignmentQueryScope>,
+  getScope?: GetAssignmentQueryScope,
 ): Promise<void> {
   const datasource = await loadChangedAssignmentQuerySelection(
     context,
@@ -68,41 +140,16 @@ export async function assertValidAssignmentQuerySelectionChange(
     next,
   );
   if (!datasource) return;
-  assertValidAssignmentQuerySelection({
-    exposureQueries: datasource.settings.queries?.exposure ?? [],
-    exposureQueryId: next.exposureQueryId,
-    identifierType: next.identifierType,
-    datasourceProjects: datasource.projects,
-    ...(await getScope()),
-  });
-}
-
-// For REST handlers that haven't loaded the data source's queries yet.
-export async function assertApiAssignmentQueryRefHasIdentifierType(
-  context: ReqContext | ApiReqContext,
-  {
-    datasourceId,
-    ref,
-    field,
-    currentExposureQueryId,
-  }: {
-    datasourceId: string | undefined;
-    ref: { id: string; identifierType?: string } | undefined;
-    field: "assignmentQuery" | "exposureQuery";
-    currentExposureQueryId: string | undefined;
-  },
-): Promise<void> {
-  if (!datasourceId || !ref || ref.identifierType) return;
-  if (ref.id === currentExposureQueryId) return;
-  assertAssignmentQueryRefIdentifierType({
-    ref,
-    field,
-    exposureQueries: await getExposureQueriesForDatasource(
-      context,
-      datasourceId,
-    ),
-    currentExposureQueryId,
-  });
+  const parsed = parseAssignmentQuerySelection(
+    datasource.settings.queries?.exposure ?? [],
+    {
+      exposureQueryId: next.exposureQueryId,
+      identifierType: next.identifierType,
+      onOmitted: "defaultToFirst",
+      scope: await getScope?.(datasource),
+    },
+  );
+  if (!parsed.ok) throw new Error(parsed.error);
 }
 
 // Resolves legacy assignment query identifiers from the request's data source
@@ -117,4 +164,30 @@ export async function getExposureQueriesForDatasource(
     context.foreignRefs.datasource.get(datasourceId)?.settings?.queries
       ?.exposure ?? []
   );
+}
+
+// For REST writes of a monitoring config: flattened, with the identifier a new
+// or changed selection resolves to, so it's never left implicit.
+export async function resolveApiMonitoringConfig<
+  T extends {
+    datasourceId: string;
+    exposureQuery?: ApiAssignmentQueryRefInput;
+    exposureQueryId?: string;
+  },
+>(
+  context: ReqContext | ApiReqContext,
+  mc: T,
+  previous: RampMonitoringConfig | null | undefined,
+) {
+  const internal = apiMonitoringConfigToInternal(mc, previous);
+  const { identifierType: exposureQueryIdentifierType } =
+    await resolveAssignmentQueryIdentifier(context, {
+      previous: previous ? toMonitoringSelection(previous) : null,
+      next: toMonitoringSelection(internal),
+      onOmitted: mc.exposureQuery ? "requireUnambiguous" : "defaultToFirst",
+      field: "exposureQuery",
+    });
+  return exposureQueryIdentifierType === undefined
+    ? internal
+    : { ...internal, exposureQueryIdentifierType };
 }

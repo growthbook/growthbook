@@ -1,8 +1,7 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
-  isSameAssignmentQuerySelection,
-  parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
+  resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
@@ -16,10 +15,12 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   assertCanRunExperimentChanges,
+  assertExperimentKeyFormat,
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   getExperimentAttributeScopeProjects,
   updateExperimentApiPayloadToInterface,
+  UpdateExperimentApiPayload,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import {
@@ -62,40 +63,44 @@ export const updateExperiment = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
-  // The identifier type is tracked locally since there is no public flat field.
   const assignmentQueryInput = parseAssignmentQueryInput(
     req.body.assignmentQuery,
     req.body.assignmentQueryId,
     "assignmentQuery",
   );
-  req.body.assignmentQueryId = assignmentQueryInput.id;
-  let assignmentQueryIdentifierType = assignmentQueryInput.identifierType;
+  // The grouped field folded into the flat ones, read in place of req.body.
+  const { assignmentQuery, ...body } = req.body;
+  const payload: UpdateExperimentApiPayload = {
+    ...body,
+    assignmentQueryId: assignmentQueryInput.id,
+    assignmentQueryIdentifierType: assignmentQueryInput.identifierType,
+  };
 
   // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
-  if (req.body.project) {
-    await req.context.models.projects.ensureProjectsExist([req.body.project]);
+  if (payload.project) {
+    await req.context.models.projects.ensureProjectsExist([payload.project]);
   }
 
-  if (!req.context.permissions.canUpdateExperiment(experiment, req.body)) {
+  if (!req.context.permissions.canUpdateExperiment(experiment, payload)) {
     req.context.permissions.throwPermissionError();
   }
 
   assertExperimentPayloadCommercialFeatures(req.context, {
-    postStratificationEnabled: req.body.postStratificationEnabled,
-    decisionFrameworkSettings: req.body.decisionFrameworkSettings,
-    metricOverrides: req.body.metricOverrides,
-    defaultDashboardId: req.body.defaultDashboardId,
+    postStratificationEnabled: payload.postStratificationEnabled,
+    decisionFrameworkSettings: payload.decisionFrameworkSettings,
+    metricOverrides: payload.metricOverrides,
+    defaultDashboardId: payload.defaultDashboardId,
   });
 
   // validate datasource only if updating
-  const datasourceId = req.body.datasourceId ?? experiment.datasource;
+  const datasourceId = payload.datasourceId ?? experiment.datasource;
   const datasource = datasourceId
     ? await getDataSourceById(req.context, datasourceId)
     : null;
 
   if (
-    req.body.datasourceId !== undefined &&
-    req.body.datasourceId !== experiment.datasource
+    payload.datasourceId !== undefined &&
+    payload.datasourceId !== experiment.datasource
   ) {
     if (experiment.datasource) {
       throw new Error(
@@ -108,105 +113,99 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (
-    req.body.assignmentQueryId !== undefined ||
-    assignmentQueryIdentifierType !== undefined
+    payload.assignmentQueryId !== undefined ||
+    payload.assignmentQueryIdentifierType !== undefined
   ) {
     if (!datasource) {
       throw new Error("Datasource not found.");
     }
-    const exposureQueries = datasource.settings.queries?.exposure ?? [];
-    const exposureQueryId =
-      req.body.assignmentQueryId ?? experiment.exposureQueryId;
-    const next = {
-      datasource: datasource.id,
-      exposureQueryId,
-      // A partial update naming the same query keeps its stored identifier.
-      identifierType:
-        assignmentQueryIdentifierType ??
-        (exposureQueryId === experiment.exposureQueryId
-          ? experiment.exposureQueryIdentifierType
-          : undefined),
-    };
-    // Re-sending an unchanged selection isn't re-validated, so a query that
-    // drifted since doesn't block the update.
-    if (
-      !isSameAssignmentQuerySelection(
-        {
+    const resolved = resolveAssignmentQuerySelectionChange(
+      datasource.settings.queries?.exposure ?? [],
+      {
+        previous: {
           datasource: experiment.datasource ?? "",
           exposureQueryId: experiment.exposureQueryId,
           identifierType: experiment.exposureQueryIdentifierType,
         },
-        next,
-        exposureQueries,
-      )
-    ) {
-      const parsed = parseAssignmentQuerySelection(exposureQueries, {
-        exposureQueryId,
-        identifierType: next.identifierType,
-        onOmitted: req.body.assignmentQuery
-          ? "requireUnambiguous"
-          : "defaultToFirst",
+        next: {
+          datasource: datasource.id,
+          exposureQueryId:
+            payload.assignmentQueryId ?? experiment.exposureQueryId,
+          identifierType: payload.assignmentQueryIdentifierType,
+        },
+        onOmitted: assignmentQuery ? "requireUnambiguous" : "defaultToFirst",
         field: "assignmentQuery",
         // A project change alone that strands the current query is left to
         // drift (outdated reason); only choosing a query is rejected.
-        scope: { project: req.body.project ?? experiment.project ?? "" },
-      });
-      if (!parsed.ok) throw new Error(parsed.error);
-      assignmentQueryIdentifierType = parsed.identifierType;
-    }
+        scope: { project: payload.project ?? experiment.project ?? "" },
+      },
+    );
+    if (!resolved.ok) throw new Error(resolved.error);
+    payload.assignmentQueryIdentifierType = resolved.identifierType;
+  }
+
+  if (
+    req.body.trackingKey !== undefined &&
+    req.body.trackingKey !== experiment.trackingKey
+  ) {
+    await assertExperimentKeyFormat(
+      req.context,
+      req.body.trackingKey,
+      datasourceId,
+    );
   }
 
   // check if tracking key is unique
   const requireUniqueTrackingKeys =
     !!req.organization.settings?.requireUniqueExperimentTrackingKeys;
   if (
-    req.body.trackingKey != null &&
-    req.body.trackingKey !== experiment.trackingKey &&
-    (requireUniqueTrackingKeys || !req.body.bypassDuplicateKeyCheck)
+    payload.trackingKey != null &&
+    payload.trackingKey !== experiment.trackingKey &&
+    (requireUniqueTrackingKeys || !payload.bypassDuplicateKeyCheck)
   ) {
     const existingByTrackingKey = await getExperimentByTrackingKey(
       req.context,
-      req.body.trackingKey,
+      payload.trackingKey,
     );
     if (existingByTrackingKey) {
       // If organization requires unique tracking keys, always reject duplicates
       if (requireUniqueTrackingKeys) {
         throw new Error(
-          `Experiment with tracking key already exists: ${req.body.trackingKey}. Your organization requires unique experiment tracking keys and bypassDuplicateKeyCheck is ignored.`,
+          `Experiment with tracking key already exists: ${payload.trackingKey}. Your organization requires unique experiment tracking keys and bypassDuplicateKeyCheck is ignored.`,
         );
       }
-      if (!req.body.bypassDuplicateKeyCheck) {
+      if (!payload.bypassDuplicateKeyCheck) {
         throw new Error(
-          `Experiment with tracking key already exists: ${req.body.trackingKey}.`,
+          `Experiment with tracking key already exists: ${payload.trackingKey}.`,
         );
       }
     }
   }
 
   const projectChanged =
-    req.body.project !== undefined && req.body.project !== experiment.project;
+    payload.project !== undefined && payload.project !== experiment.project;
   const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
     existingCustomFieldValues: experiment.customFields,
-    updatedCustomFieldValues: req.body.customFields,
+    updatedCustomFieldValues: payload.customFields,
   });
 
   if (projectChanged || customFieldsChanged) {
     await validateCustomFields(
-      req.body.customFields ?? experiment.customFields,
+      payload.customFields ?? experiment.customFields,
       req.context,
-      req.body.project ?? experiment.project,
+      payload.project ?? experiment.project,
       // A project change must re-validate all values against the new
       // project's fields, so only grandfather unchanged values in place
       projectChanged ? undefined : experiment.customFields,
     );
   }
 
-  if (req.body.defaultDashboardId) {
+  if (payload.defaultDashboardId) {
     const dashboard = await req.context.models.dashboards.getById(
-      req.body.defaultDashboardId,
+      payload.defaultDashboardId,
     );
     if (!dashboard) {
-      throw new Error(`Invalid dashboard: ${req.body.defaultDashboardId}`);
+      throw new Error(`Invalid dashboard: ${payload.defaultDashboardId}`);
     }
   }
 
@@ -219,10 +218,10 @@ export const updateExperiment = createApiRequestHandler(
   );
   const newMetricIds = getAllMetricIdsFromExperiment(
     {
-      goalMetrics: req.body.metrics,
-      secondaryMetrics: req.body.secondaryMetrics,
-      guardrailMetrics: req.body.guardrailMetrics,
-      activationMetric: req.body.activationMetric,
+      goalMetrics: payload.metrics,
+      secondaryMetrics: payload.secondaryMetrics,
+      guardrailMetrics: payload.guardrailMetrics,
+      activationMetric: payload.activationMetric,
     },
     true,
     metricGroups,
@@ -265,36 +264,37 @@ export const updateExperiment = createApiRequestHandler(
     }
   }
 
-  if (req.body.variations) {
-    validateVariationIds(req.body.variations, experiment.variations);
+  if (payload.variations) {
+    validateVariationIds(payload.variations, experiment.variations);
   }
 
   const effectivePrecomputedUnitDimensionType =
-    req.body.type ?? experiment.type ?? "standard";
+    payload.type ?? experiment.type ?? "standard";
   if (effectivePrecomputedUnitDimensionType === "multi-armed-bandit") {
     // If request includes precomputed unit dimensions for a bandit, error
-    if (req.body.precomputedUnitDimensionIds !== undefined) {
+    if (payload.precomputedUnitDimensionIds !== undefined) {
       throw new Error(
         "Precomputed unit dimensions are not supported for bandit experiments",
       );
     }
     // if experiment is just switching to a bandit, silently clear precomputed unit dimensions
-    if (req.body.type === "multi-armed-bandit") {
-      req.body.precomputedUnitDimensionIds = [];
+    if (payload.type === "multi-armed-bandit") {
+      payload.precomputedUnitDimensionIds = [];
     }
   }
 
   const shouldValidatePrecomputedUnitDimensionIds =
-    req.body.precomputedUnitDimensionIds !== undefined ||
-    (req.body.datasourceId !== undefined &&
-      req.body.datasourceId !== experiment.datasource) ||
-    (req.body.assignmentQueryId !== undefined &&
-      req.body.assignmentQueryId !== experiment.exposureQueryId) ||
-    (assignmentQueryIdentifierType !== undefined &&
-      assignmentQueryIdentifierType !== experiment.exposureQueryIdentifierType);
+    payload.precomputedUnitDimensionIds !== undefined ||
+    (payload.datasourceId !== undefined &&
+      payload.datasourceId !== experiment.datasource) ||
+    (payload.assignmentQueryId !== undefined &&
+      payload.assignmentQueryId !== experiment.exposureQueryId) ||
+    (payload.assignmentQueryIdentifierType !== undefined &&
+      payload.assignmentQueryIdentifierType !==
+        experiment.exposureQueryIdentifierType);
   if (shouldValidatePrecomputedUnitDimensionIds) {
     const effectivePrecomputedUnitDimensionIds =
-      req.body.precomputedUnitDimensionIds ??
+      payload.precomputedUnitDimensionIds ??
       experiment.precomputedUnitDimensionIds ??
       [];
     if (effectivePrecomputedUnitDimensionIds.length > 0) {
@@ -302,9 +302,9 @@ export const updateExperiment = createApiRequestHandler(
         context: req.context,
         datasource,
         exposureQueryId:
-          req.body.assignmentQueryId ?? experiment.exposureQueryId,
+          payload.assignmentQueryId ?? experiment.exposureQueryId,
         exposureQueryIdentifierType:
-          assignmentQueryIdentifierType ??
+          payload.assignmentQueryIdentifierType ??
           experiment.exposureQueryIdentifierType,
         dimensionIds: effectivePrecomputedUnitDimensionIds,
       });
@@ -312,20 +312,20 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (
-    req.body.type &&
-    req.body.type !== (experiment.type || "standard") &&
+    payload.type &&
+    payload.type !== (experiment.type || "standard") &&
     experiment.status !== "draft" &&
-    req.body.status !== "draft"
+    payload.status !== "draft"
   ) {
     throw new Error("Can only convert experiment types while in draft mode.");
   }
 
   // Validate attributionModel + lookbackOverride consistency
   const effectiveAttrModel =
-    req.body.attributionModel ?? experiment.attributionModel;
+    payload.attributionModel ?? experiment.attributionModel;
   const effectiveLookback =
-    req.body.lookbackOverride !== undefined
-      ? req.body.lookbackOverride
+    payload.lookbackOverride !== undefined
+      ? payload.lookbackOverride
       : experiment.lookbackOverride;
   if (effectiveAttrModel === "lookbackOverride" && !effectiveLookback) {
     throw new Error(
@@ -336,7 +336,7 @@ export const updateExperiment = createApiRequestHandler(
   // attribution model
   if (
     effectiveAttrModel !== "lookbackOverride" &&
-    req.body.lookbackOverride !== undefined
+    payload.lookbackOverride !== undefined
   ) {
     throw new Error(
       "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
@@ -346,15 +346,15 @@ export const updateExperiment = createApiRequestHandler(
   const attributeScope = lazyAttributeScope(() =>
     getExperimentAttributeScopeProjects(req.context, {
       project:
-        req.body.project !== undefined ? req.body.project : experiment.project,
+        payload.project !== undefined ? payload.project : experiment.project,
       linkedFeatures: experiment.linkedFeatures,
     }),
   );
   await assertRegisteredAttributesScoped(
     req.context,
     {
-      hashAttribute: req.body.hashAttribute,
-      fallbackAttribute: req.body.fallbackAttribute,
+      hashAttribute: payload.hashAttribute,
+      fallbackAttribute: payload.fallbackAttribute,
     },
     "experiment",
     {
@@ -368,7 +368,7 @@ export const updateExperiment = createApiRequestHandler(
   const persistedConditions = new Set(
     (experiment.phases ?? []).map((p) => p.condition),
   );
-  for (const phase of req.body.phases ?? []) {
+  for (const phase of payload.phases ?? []) {
     await assertRegisteredAttributesScoped(
       req.context,
       { condition: phase.condition },
@@ -384,21 +384,22 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
+  const resolvedOwner = await resolveOwnerToUserId(payload.owner, req.context);
   const changes = updateExperimentApiPayloadToInterface(
     {
-      ...req.body,
-      ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
-      ...(assignmentQueryIdentifierType !== undefined
-        ? { assignmentQueryIdentifierType }
-        : {}),
+      ...payload,
+      ...(payload.owner !== undefined && { owner: resolvedOwner ?? "" }),
     },
     experiment,
     map,
     req.organization,
   );
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes);
+  normalizeStatusUpdateScheduleChanges(
+    experiment,
+    changes,
+    req.context.userId || undefined,
+  );
 
   // canUpdateExperiment (above) is the analysis-level check. Fields that reach
   // SDK payloads additionally need run-experiments permission in the
@@ -434,17 +435,17 @@ export const updateExperiment = createApiRequestHandler(
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.
-  if (req.body.statusUpdateSchedule) {
+  if (payload.statusUpdateSchedule) {
     validateScheduleUpdate({
       context: req.context,
-      experimentType: req.body.type ?? experiment.type ?? "standard",
+      experimentType: payload.type ?? experiment.type ?? "standard",
       status: experiment.status,
       archived: !!experiment.archived,
       phaseStart: experiment.phases[experiment.phases.length - 1]?.dateStarted,
       existingSchedule: experiment.statusUpdateSchedule,
       variations: changes.variations ?? experiment.variations,
       goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
-      incoming: req.body.statusUpdateSchedule,
+      incoming: payload.statusUpdateSchedule,
     });
   }
 

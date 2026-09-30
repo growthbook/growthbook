@@ -1,5 +1,10 @@
 import { ExposureQuery } from "shared/types/datasource";
 import { ResolvedExposureQuery } from "shared/types/integrations";
+import type {
+  ApiAssignmentQueryRef,
+  ApiAssignmentQueryRefInput,
+  AssignmentQueryField,
+} from "../validators/assignment-query-field";
 import { isProjectListValidForProject } from ".";
 
 type ExposureQueryIdentity = Pick<
@@ -17,20 +22,33 @@ export function getExposureQueryIdentifierTypes(
 }
 
 /**
+ * For counting a query's units, where any identifier it returns works: the
+ * legacy one so reordering doesn't change the counts, but not once removed.
+ */
+export function getPreferredIdentifierType(
+  query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
+): string {
+  const declared = getExposureQueryIdentifierTypes(query);
+  return declared.includes(query.userIdType)
+    ? query.userIdType
+    : (declared[0] ?? "");
+}
+
+/**
  * The identifier a saved record analyzes on: the stored one, even if its query
  * no longer declares it (analysis then refuses to run), else the query's frozen
  * legacy identifier (`userIdType`). A new record defaults to `userIdTypes[0]`
  * instead, so don't use this to pick one.
  */
-export function getAnalysisIdentifierType(
+export function resolveAnalysisIdentifierType(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
   storedIdentifierType: string | undefined,
 ): string;
-export function getAnalysisIdentifierType(
+export function resolveAnalysisIdentifierType(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes"> | undefined,
   storedIdentifierType: string | undefined,
 ): string | undefined;
-export function getAnalysisIdentifierType(
+export function resolveAnalysisIdentifierType(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes"> | undefined,
   storedIdentifierType: string | undefined,
 ): string | undefined {
@@ -41,22 +59,42 @@ export function getAnalysisIdentifierType(
 }
 
 /**
+ * The identifier to put in a settings hash: undefined when it's the query's
+ * frozen legacy one, so hashes saved before identifiers were stored stay valid.
+ */
+export function getIdentifierTypeForSettingsHash(
+  exposureQueryId: string,
+  identifierType: string | undefined,
+  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
+): string | undefined {
+  const query = exposureQueries.find((q) => q.id === exposureQueryId);
+  return identifierType &&
+    identifierType !== resolveAnalysisIdentifierType(query, undefined)
+    ? identifierType
+    : undefined;
+}
+
+/**
  * Reads a REST body's grouped assignment query field and its deprecated flat
- * `<field>Id`, which are mutually exclusive.
+ * `<field>Id`. Both may be sent, as responses return both, but must agree.
  */
 export function parseAssignmentQueryInput(
-  assignmentQuery: { id: string; identifierType?: string } | undefined,
+  assignmentQuery: ApiAssignmentQueryRefInput | undefined,
   deprecatedId: string | undefined,
-  field: "assignmentQuery" | "exposureQuery",
+  field: AssignmentQueryField,
 ): { id: string | undefined; identifierType: string | undefined } {
-  if (assignmentQuery && deprecatedId !== undefined) {
+  if (
+    assignmentQuery &&
+    deprecatedId !== undefined &&
+    deprecatedId !== assignmentQuery.id
+  ) {
     throw new Error(
-      `Cannot set ${field} together with the deprecated ${field}Id`,
+      `${field}.id and the deprecated ${field}Id name different assignment queries`,
     );
   }
   return {
     id: assignmentQuery?.id ?? deprecatedId,
-    identifierType: assignmentQuery?.identifierType,
+    identifierType: assignmentQuery?.identifierType ?? undefined,
   };
 }
 
@@ -67,7 +105,7 @@ export function parseAssignmentQueryInput(
  */
 export function flattenExposureQueryInput<
   T extends {
-    exposureQuery?: { id: string; identifierType?: string };
+    exposureQuery?: ApiAssignmentQueryRefInput;
     exposureQueryId?: string;
   },
 >(
@@ -196,111 +234,22 @@ export function parseAssignmentQuerySelection<
 }
 
 /**
- * A REST ref may omit `identifierType` unless it selects a different query that
- * declares several, where the choice would be ambiguous. Keeping the current
- * query keeps its identifier.
- */
-export function assertAssignmentQueryRefIdentifierType({
-  ref,
-  field,
-  exposureQueries,
-  currentExposureQueryId,
-}: {
-  ref: { id: string; identifierType?: string } | undefined;
-  field: "assignmentQuery" | "exposureQuery";
-  exposureQueries: SelectableExposureQuery[];
-  currentExposureQueryId: string | undefined;
-}): void {
-  if (!ref || ref.identifierType || ref.id === currentExposureQueryId) return;
-  // An unknown query is rejected by selection validation, not here.
-  if (!exposureQueries.some((q) => q.id === ref.id)) return;
-  const parsed = parseAssignmentQuerySelection(exposureQueries, {
-    exposureQueryId: ref.id,
-    onOmitted: "requireUnambiguous",
-    field,
-  });
-  if (!parsed.ok) throw new Error(parsed.error);
-}
-
-/**
- * For resources spanning several projects (holdouts): the query must be usable
- * by every one of them. A query with no projects inherits its data source's,
- * and no projects on either means all. A holdout with no projects covers all
- * projects, so only an unrestricted query qualifies.
- */
-export function isExposureQueryAvailableForProjects(
-  query: Pick<ExposureQuery, "projects">,
-  projects: string[],
-  datasourceProjects: string[] | undefined,
-): boolean {
-  const scope = query.projects?.length
-    ? query.projects
-    : (datasourceProjects ?? []);
-  if (!scope.length) return true;
-  if (!projects.length) return false;
-  return projects.every((project) => scope.includes(project));
-}
-
-/**
- * Validates an assignment query selection before it is saved: the query exists,
- * declares `identifierType` (when given), and is in scope. Scope is either a
- * single `project`, or `projects` that must all be covered (holdouts); pass
- * `project: undefined` without `projects` to skip the scope check.
- */
-export function assertValidAssignmentQuerySelection({
-  exposureQueries,
-  exposureQueryId,
-  identifierType,
-  project,
-  projects,
-  datasourceProjects,
-}: {
-  exposureQueries: ExposureQuery[];
-  exposureQueryId: string;
-  identifierType?: string;
-  project: string | undefined;
-  projects?: string[];
-  // Inherited by queries without their own project scope (holdout check).
-  datasourceProjects?: string[];
-}): ExposureQuery {
-  const parsed = parseAssignmentQuerySelection(exposureQueries, {
-    exposureQueryId,
-    identifierType,
-    onOmitted: "defaultToFirst",
-  });
-  let query: ExposureQuery | undefined;
-  if (parsed.ok) {
-    query = parsed.query;
-  } else {
-    query = exposureQueries.find((q) => q.id === exposureQueryId);
-    // With no identifier to check, a query declaring none is left to analysis.
-    if (!query || identifierType) throw new Error(parsed.error);
-  }
-  const scopeError = getAssignmentQueryScopeError(query, {
-    project,
-    projects,
-    datasourceProjects,
-  });
-  if (scopeError) throw new Error(scopeError);
-  return query;
-}
-
-/**
  * API shape of a stored assignment query selection. Legacy records (no stored
- * identifier) report their query's legacy identifier; omitted when that can't be
- * resolved.
+ * identifier) report their query's legacy identifier; null when that can't be
+ * resolved, or no query is selected.
  */
 export function toApiAssignmentQueryRef(
   id: string,
   storedIdentifierType: string | undefined,
   exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
-): { id: string; identifierType: string } | undefined {
-  if (!id) return undefined;
-  const identifierType = getAnalysisIdentifierType(
-    exposureQueries.find((q) => q.id === id),
-    storedIdentifierType,
-  );
-  return identifierType ? { id, identifierType } : undefined;
+): ApiAssignmentQueryRef {
+  const identifierType = id
+    ? resolveAnalysisIdentifierType(
+        exposureQueries.find((q) => q.id === id),
+        storedIdentifierType,
+      )
+    : undefined;
+  return { id, identifierType: identifierType || null };
 }
 
 export type AssignmentQuerySelection = {
@@ -330,46 +279,94 @@ export function isSameAssignmentQuerySelection(
   if (previousType === nextType) return true;
   const query = exposureQueries.find((q) => q.id === next.exposureQueryId);
   return (
-    getAnalysisIdentifierType(query, previousType) ===
-    getAnalysisIdentifierType(query, nextType)
-  );
-}
-
-// `loadExposureQueries` only runs when the raw selections differ.
-export async function hasAssignmentQuerySelectionChanged(
-  previous: AssignmentQuerySelection,
-  next: AssignmentQuerySelection,
-  loadExposureQueries: () => Promise<ExposureQuery[]>,
-): Promise<boolean> {
-  if (isSameAssignmentQuerySelection(previous, next, [])) return false;
-  if (
-    previous.datasource !== next.datasource ||
-    previous.exposureQueryId !== next.exposureQueryId
-  ) {
-    return true;
-  }
-  return !isSameAssignmentQuerySelection(
-    previous,
-    next,
-    await loadExposureQueries(),
+    resolveAnalysisIdentifierType(query, previousType) ===
+    resolveAnalysisIdentifierType(query, nextType)
   );
 }
 
 /**
- * Throws rather than let analysis run on an identifier the query no longer
- * returns, including a legacy record whose frozen identifier was removed.
+ * `next`, keeping `previous`'s identifier when it names the same query without
+ * one, so a partial update doesn't drop the stored identifier.
  */
-export function assertExposureQueryDeclaresIdentifierType(
-  query: ExposureQueryIdentity & Pick<ExposureQuery, "name">,
-  storedIdentifierType: string | undefined,
-): void {
-  const identifierType = getAnalysisIdentifierType(query, storedIdentifierType);
-  if (!identifierType) return;
-  if (!getExposureQueryIdentifierTypes(query).includes(identifierType)) {
-    throw new Error(
-      `Assignment query "${query.name || query.id}" no longer declares the "${identifierType}" identifier type. Choose an assignment query that declares it, or a different identifier type, before running analysis.`,
-    );
+export function withKeptIdentifierType(
+  previous: AssignmentQuerySelection | null,
+  next: AssignmentQuerySelection,
+): AssignmentQuerySelection {
+  const sameQuery =
+    previous?.datasource === next.datasource &&
+    previous?.exposureQueryId === next.exposureQueryId;
+  return {
+    ...next,
+    identifierType:
+      next.identifierType ||
+      (sameQuery ? previous?.identifierType : undefined) ||
+      undefined,
+  };
+}
+
+export type AssignmentQuerySelectionChange =
+  | { ok: true; identifierType: string | undefined; changed: boolean }
+  | { ok: false; error: string };
+
+/**
+ * The identifier to store when `next` replaces `previous` (null on create),
+ * keeping the stored one per withKeptIdentifierType. An unchanged selection
+ * isn't re-validated, so a query that drifted since doesn't block unrelated
+ * edits; a new or changed one is parsed.
+ */
+export function resolveAssignmentQuerySelectionChange(
+  exposureQueries: SelectableExposureQuery[],
+  {
+    previous,
+    next,
+    onOmitted,
+    field,
+    scope,
+  }: {
+    previous: AssignmentQuerySelection | null;
+    next: AssignmentQuerySelection;
+    onOmitted: "defaultToFirst" | "requireUnambiguous";
+    field?: string;
+    // Only checked for a new or changed selection.
+    scope?: AssignmentQueryScope;
+  },
+): AssignmentQuerySelectionChange {
+  const kept = withKeptIdentifierType(previous, next);
+  if (
+    previous &&
+    isSameAssignmentQuerySelection(previous, kept, exposureQueries)
+  ) {
+    return { ok: true, identifierType: kept.identifierType, changed: false };
   }
+  const parsed = parseAssignmentQuerySelection(exposureQueries, {
+    exposureQueryId: kept.exposureQueryId,
+    identifierType: kept.identifierType,
+    onOmitted,
+    field,
+    scope,
+  });
+  return parsed.ok
+    ? { ok: true, identifierType: parsed.identifierType, changed: true }
+    : parsed;
+}
+
+/**
+ * For resources spanning several projects (holdouts): the query must be usable
+ * by every one of them. A query with no projects inherits its data source's,
+ * and no projects on either means all. A holdout with no projects covers all
+ * projects, so only an unrestricted query qualifies.
+ */
+export function isExposureQueryAvailableForProjects(
+  query: Pick<ExposureQuery, "projects">,
+  projects: string[],
+  datasourceProjects: string[] | undefined,
+): boolean {
+  const scope = query.projects?.length
+    ? query.projects
+    : (datasourceProjects ?? []);
+  if (!scope.length) return true;
+  if (!projects.length) return false;
+  return projects.every((project) => scope.includes(project));
 }
 
 /**
@@ -397,6 +394,26 @@ export function getExposureQueriesOutsideProjectScope(
 }
 
 /**
+ * Throws rather than let analysis run on an identifier the query no longer
+ * returns, including a legacy record whose frozen identifier was removed.
+ */
+export function assertExposureQueryDeclaresIdentifierType(
+  query: ExposureQueryIdentity & Pick<ExposureQuery, "name">,
+  storedIdentifierType: string | undefined,
+): void {
+  const identifierType = resolveAnalysisIdentifierType(
+    query,
+    storedIdentifierType,
+  );
+  if (!identifierType) return;
+  if (!getExposureQueryIdentifierTypes(query).includes(identifierType)) {
+    throw new Error(
+      `Assignment query "${query.name || query.id}" no longer declares the "${identifierType}" identifier type. Choose an assignment query that declares it, or a different identifier type, before running analysis.`,
+    );
+  }
+}
+
+/**
  * The SQL builders' input for a saved record: refuses a query that no longer
  * declares the identifier the record analyzes on, then pairs its SQL with that
  * identifier.
@@ -411,6 +428,6 @@ export function resolveExposureQueryForAnalysis(
   assertExposureQueryDeclaresIdentifierType(query, storedIdentifierType);
   return {
     query: query.query,
-    identifierType: getAnalysisIdentifierType(query, storedIdentifierType),
+    identifierType: resolveAnalysisIdentifierType(query, storedIdentifierType),
   };
 }

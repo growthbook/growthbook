@@ -1,7 +1,7 @@
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import {
   getExposureQueryIdentifierTypes,
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import React, { RefObject, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -182,7 +182,7 @@ export default function ConfigureReport({
     project: experiment?.project,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
-    identifierType: getAnalysisIdentifierType(
+    identifierType: resolveAnalysisIdentifierType(
       exposureQuery,
       storedIdentifierType,
     ),
@@ -477,9 +477,9 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
-              exposureQueryIdentifierType={form.watch(
-                "experimentAnalysisSettings.exposureQueryIdentifierType",
-              )}
+              exposureQueryIdentifierType={
+                assignmentQuerySelection.identifierType
+              }
               project={experiment?.project}
               forceSingleGoalMetric={experiment?.type === "multi-armed-bandit"}
               noQuantileGoalMetrics={experiment?.type === "multi-armed-bandit"}
@@ -628,9 +628,9 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
-              exposureQueryIdentifierType={form.watch(
-                "experimentAnalysisSettings.exposureQueryIdentifierType",
-              )}
+              exposureQueryIdentifierType={
+                assignmentQuerySelection.identifierType
+              }
               project={experiment?.project}
               includeFacts={true}
               label={

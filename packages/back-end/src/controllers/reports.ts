@@ -1,10 +1,7 @@
 import { Request, Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import {
-  getSnapshotAnalysis,
-  parseAssignmentQuerySelection,
-} from "shared/util";
+import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
 import { experimentAnalysisSettings } from "shared/validators";
 import {
@@ -24,7 +21,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   createExperimentSnapshotModel,
-  findLatestRunningSnapshotByReportId,
+  findLatestSuccessfulReportSnapshotId,
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -39,7 +36,10 @@ import {
 } from "back-end/src/models/ReportModel";
 import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/ExperimentReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { loadChangedAssignmentQuerySelection } from "back-end/src/services/assignmentQuerySelection";
+import {
+  getExperimentAssignmentQueryScope,
+  resolveAssignmentQueryIdentifier,
+} from "back-end/src/services/assignmentQuerySelection";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
   getContextForAgendaJobByOrgId,
@@ -51,8 +51,8 @@ import {
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
-import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
+import { BadRequestError } from "back-end/src/util/errors";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -280,10 +280,19 @@ export async function getReportPublic(
   }
   const context = await getContextForAgendaJobByOrgId(report.organization);
 
-  const snapshot =
-    report.type === "experiment-snapshot"
-      ? (await findSnapshotById(context, report.snapshot)) || undefined
-      : undefined;
+  let snapshot =
+    (await findSnapshotById(context, report.snapshot)) || undefined;
+  // The public page loads once and never polls, so a refresh in progress
+  // shows the report's last successful results instead of a spinner.
+  if (snapshot?.status === "running") {
+    const latestSuccessId = await findLatestSuccessfulReportSnapshotId(
+      context,
+      report,
+    );
+    if (latestSuccessId) {
+      snapshot = (await findSnapshotById(context, latestSuccessId)) || snapshot;
+    }
+  }
 
   const _experiment = report.experimentId
     ? (await getExperimentById(context, report.experimentId || "")) || undefined
@@ -388,6 +397,9 @@ export async function refreshReport(
         factTableMap,
       });
 
+      // Point the report at the run so a page load, poll or cancel sees it.
+      await updateReport(org.id, report.id, { snapshot: newSnapshot.id });
+
       return res.status(200).json({
         status: 200,
         snapshot: newSnapshot,
@@ -438,8 +450,6 @@ type ReportAssignmentQuerySelection = {
   exposureQueryIdentifierType?: string;
 };
 
-// Validates a changed selection and stores its parsed identifier on `next`, so
-// it's never left implicit. An unchanged one is left alone, even if drifted.
 async function applyReportAssignmentQuery(
   context: ReqContext,
   previous: ReportAssignmentQuerySelection,
@@ -451,31 +461,18 @@ async function applyReportAssignmentQuery(
     exposureQueryId: s.exposureQueryId,
     identifierType: s.exposureQueryIdentifierType,
   });
-  const datasource = await loadChangedAssignmentQuerySelection(
+  const { identifierType, changed } = await resolveAssignmentQueryIdentifier(
     context,
-    toSelection(previous),
-    toSelection(next),
-  );
-  if (!datasource) return;
-  const parsed = parseAssignmentQuerySelection(
-    datasource.settings.queries?.exposure ?? [],
     {
-      exposureQueryId: next.exposureQueryId,
-      identifierType: next.exposureQueryIdentifierType,
+      previous: toSelection(previous),
+      next: toSelection(next),
       onOmitted: "defaultToFirst",
-      scope:
-        experiment?.type === "holdout"
-          ? {
-              projects:
-                (await context.models.holdout.getByExperimentId(experiment.id))
-                  ?.projects ?? [],
-              datasourceProjects: datasource.projects,
-            }
-          : { project: experiment?.project ?? "" },
+      getScope: experiment
+        ? getExperimentAssignmentQueryScope(context, experiment)
+        : () => ({ project: "" }),
     },
   );
-  if (!parsed.ok) throw new Error(parsed.error);
-  next.exposureQueryIdentifierType = parsed.identifierType;
+  if (changed) next.exposureQueryIdentifierType = identifierType;
 }
 
 export async function putReport(
@@ -703,40 +700,9 @@ export async function cancelReport(
   }
 
   if (report.type === "experiment-snapshot") {
-    const snapshot = await findLatestRunningSnapshotByReportId(
-      context,
-      report.id,
+    throw new BadRequestError(
+      "Experiment-snapshot report updates are cancelled via POST /snapshot/:id/cancel.",
     );
-    if (!snapshot) {
-      return res.status(400).json({
-        status: 400,
-        message: "No running query found",
-      });
-    }
-
-    const datasourceId = snapshot?.settings?.datasourceId;
-    if (!datasourceId) {
-      res.status(403).json({
-        status: 403,
-        message: "Invalid datasource: " + datasourceId,
-      });
-      return;
-    }
-
-    const integration = await getIntegrationFromDatasourceId(
-      context,
-      datasourceId,
-      true,
-    );
-
-    const queryRunner = new ExperimentResultsQueryRunner(
-      context,
-      snapshot,
-      integration,
-    );
-    await queryRunner.cancelQueries();
-
-    return res.status(200).json({ status: 200 });
   } else if (report.type === "experiment") {
     const integration = await getIntegrationFromDatasourceId(
       context,

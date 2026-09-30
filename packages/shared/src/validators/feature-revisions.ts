@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiAssignmentQueryInputFields } from "./assignment-query-field";
 import {
   featurePrerequisite,
   savedGroupTargeting,
@@ -9,7 +10,6 @@ import {
   bypassApprovalPublishBodyField,
   ignoreWarningsBodyField,
   publishBypassedGatesField,
-  apiAssignmentQueryRefInput,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
@@ -414,17 +414,7 @@ const safeRolloutCreateInput = z
     safeRolloutFields: z
       .object({
         datasourceId: z.string(),
-        exposureQuery: apiAssignmentQueryRefInput
-          .describe(
-            "The exposure query to use, grouping its ID with the identifier type to analyze on. Mutually exclusive with the deprecated exposureQueryId.",
-          )
-          .optional(),
-        /** @deprecated use exposureQuery.id */
-        exposureQueryId: z
-          .string()
-          .describe("Deprecated: use exposureQuery instead.")
-          .optional()
-          .meta({ deprecated: true }),
+        ...apiAssignmentQueryInputFields("exposureQuery"),
         guardrailMetricIds: z.array(z.string()).min(1),
         maxDuration: z
           .object({

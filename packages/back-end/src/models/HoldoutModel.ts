@@ -69,10 +69,7 @@ import {
   resolveOwnerEmails,
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
-import {
-  assertApiAssignmentQueryRefHasIdentifierType,
-  getExposureQueriesForDatasource,
-} from "back-end/src/services/assignmentQuerySelection";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
 
@@ -222,7 +219,6 @@ const LINKAGE_FIELDS = ["linkedFeatures", "linkedExperiments"] as const;
 export function toApiHoldout(
   holdout: HoldoutInterface,
   experiment: ExperimentInterface,
-  // The experiment's data source queries, to resolve a legacy identifier.
   exposureQueries: ExposureQuery[],
 ): ApiHoldoutInterface {
   const activePhase = getActivePhase(experiment);
@@ -467,13 +463,6 @@ export class HoldoutModel extends BaseClass {
       });
     }
 
-    await assertApiAssignmentQueryRefHasIdentifierType(this.context, {
-      datasourceId: body.datasourceId,
-      ref: body.assignmentQuery,
-      field: "assignmentQuery",
-      currentExposureQueryId: undefined,
-    });
-
     const owner = await resolveOwnerForCreate(body.owner, this.context);
 
     const { holdout, experiment } = await createHoldoutWithExperiment(
@@ -504,6 +493,7 @@ export class HoldoutModel extends BaseClass {
             )
           : undefined,
       },
+      { onOmitted: body.assignmentQuery ? "requireUnambiguous" : undefined },
     );
 
     // Applied after creation so it is validated against the real stored stage.

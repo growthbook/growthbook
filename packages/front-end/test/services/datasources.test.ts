@@ -1,5 +1,4 @@
 import { ExposureQuery } from "shared/types/datasource";
-import { getExposureQueryIdentifierTypes } from "shared/util";
 import { describe, expect, it } from "vitest";
 import {
   getDefaultIdentifierType,
@@ -8,9 +7,11 @@ import {
   getCopiedAssignmentQueryNotice,
   getExposureQueriesForProject,
   getExposureQueriesInScope,
+  getCopySourceIdentifierType,
   getDefaultIdentifierTypeForQuery,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
+  getInitialSettings,
   getSelectableIdentifierTypes,
   validateSQL,
 } from "@/services/datasources";
@@ -176,35 +177,6 @@ describe("validateSQL", () => {
   });
 });
 
-describe("getExposureQueryIdentifierTypes", () => {
-  it("returns userIdTypes when present", () => {
-    expect(
-      getExposureQueryIdentifierTypes(
-        makeExposureQuery({
-          userIdType: "user_id",
-          userIdTypes: ["user_id", "anonymous_id"],
-        }),
-      ),
-    ).toEqual(["user_id", "anonymous_id"]);
-  });
-
-  it("falls back to the deprecated scalar when userIdTypes is empty", () => {
-    expect(
-      getExposureQueryIdentifierTypes(
-        makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
-      ),
-    ).toEqual(["user_id"]);
-  });
-
-  it("returns an empty list when neither is set", () => {
-    expect(
-      getExposureQueryIdentifierTypes(
-        makeExposureQuery({ userIdType: "", userIdTypes: [] }),
-      ),
-    ).toEqual([]);
-  });
-});
-
 describe("getDefaultIdentifierTypeForQuery", () => {
   const query = makeExposureQuery({
     userIdType: "user_id",
@@ -225,14 +197,6 @@ describe("getDefaultIdentifierTypeForQuery", () => {
 
   it("returns the first declared identifier when no preference is given", () => {
     expect(getDefaultIdentifierTypeForQuery(query)).toBe("user_id");
-  });
-
-  it("falls back to the deprecated scalar for a legacy query", () => {
-    expect(
-      getDefaultIdentifierTypeForQuery(
-        makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
-      ),
-    ).toBe("user_id");
   });
 });
 
@@ -358,27 +322,59 @@ describe("getCopiedAssignmentQueryNotice", () => {
     id: "ds_1",
     settings: { queries: { exposure: [dropped, other] } },
   };
-  const legacySource = { datasource: "ds_1", exposureQueryId: "exq_dropped" };
+  const legacyCopy = {
+    kind: "copy" as const,
+    datasource: "ds_1",
+    exposureQueryId: "exq_dropped",
+  };
 
   it("explains a switch to another query declaring the source's identifier", () => {
     expect(
-      getCopiedAssignmentQueryNotice(datasource, legacySource, {
+      getCopiedAssignmentQueryNotice(datasource, legacyCopy, {
         exposureQueryId: "exq_other",
         identifierType: "anonymous_id",
       }),
-    ).toBe(
-      '"Dropped" no longer declares the "anonymous_id" identifier type the source analyzed on, so this copy uses "Other", which does.',
-    );
+    ).toEqual({
+      status: "info",
+      message:
+        '"Dropped" no longer declares the "anonymous_id" identifier type the source analyzed on, so this copy uses "Other", which does.',
+    });
   });
 
-  it("explains a switch to a different identifier", () => {
+  it("asks for an identifier when the copy's was left unset", () => {
     expect(
-      getCopiedAssignmentQueryNotice(datasource, legacySource, {
+      getCopiedAssignmentQueryNotice(datasource, legacyCopy, {
+        exposureQueryId: "exq_dropped",
+      }),
+    ).toEqual({
+      status: "warning",
+      message:
+        'The source analyzed on "anonymous_id", which no assignment query here declares. Choose an identifier type for this copy.',
+    });
+  });
+
+  it("warns when the copy measures different units than its source", () => {
+    expect(
+      getCopiedAssignmentQueryNotice(datasource, legacyCopy, {
         exposureQueryId: "exq_dropped",
         identifierType: "user_id",
       }),
+    ).toEqual({
+      status: "warning",
+      message:
+        'The source analyzed on "anonymous_id", which "Dropped" no longer declares. This copy analyzes on "user_id" instead, so it measures different units than the source.',
+    });
+  });
+
+  it("words a template's notice for the new experiment", () => {
+    expect(
+      getCopiedAssignmentQueryNotice(
+        datasource,
+        { ...legacyCopy, kind: "template" },
+        { exposureQueryId: "exq_dropped" },
+      )?.message,
     ).toBe(
-      'The source analyzed on "anonymous_id", which "Dropped" no longer declares. This copy analyzes on "user_id" instead, so it measures different units than the source.',
+      'The template analyzed on "anonymous_id", which no assignment query here declares. Choose an identifier type for this experiment.',
     );
   });
 
@@ -386,7 +382,7 @@ describe("getCopiedAssignmentQueryNotice", () => {
     expect(
       getCopiedAssignmentQueryNotice(
         datasource,
-        { datasource: "ds_1", exposureQueryId: "exq_other" },
+        { kind: "copy", datasource: "ds_1", exposureQueryId: "exq_other" },
         { exposureQueryId: "exq_dropped", identifierType: "user_id" },
       ),
     ).toBeNull();
@@ -402,10 +398,32 @@ describe("getCopiedAssignmentQueryNotice", () => {
     expect(
       getCopiedAssignmentQueryNotice(
         datasource,
-        { ...legacySource, datasource: "ds_2" },
+        { ...legacyCopy, datasource: "ds_2" },
         { exposureQueryId: "exq_other", identifierType: "anonymous_id" },
       ),
     ).toBeNull();
+  });
+});
+
+describe("getCopySourceIdentifierType", () => {
+  const reordered = makeExposureQuery({
+    id: "exq_1",
+    userIdType: "anonymous_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+  const datasource = {
+    id: "ds_1",
+    settings: { queries: { exposure: [reordered] } },
+  };
+
+  it("is undefined without a source query", () => {
+    expect(
+      getCopySourceIdentifierType(datasource, {
+        kind: "copy",
+        datasource: "ds_1",
+        exposureQueryId: "exq_gone",
+      }),
+    ).toBeUndefined();
   });
 });
 
@@ -419,12 +437,6 @@ describe("getHashAttributeIdentifierTypeMap", () => {
     expect(map.get("id")).toEqual(["user_id", "device_id"]);
     expect(map.get("email")).toEqual(["user_id"]);
     expect(map.has("anonymous_id")).toBe(false);
-  });
-
-  it("returns an empty map when no identifier declares attributes", () => {
-    expect(
-      getHashAttributeIdentifierTypeMap([{ userIdType: "user_id" }]).size,
-    ).toBe(0);
   });
 });
 
@@ -444,14 +456,6 @@ describe("getSelectableIdentifierTypes", () => {
         }),
       ]),
     ).toEqual(["user_id", "device_id", "anonymous_id"]);
-  });
-
-  it("falls back to the deprecated scalar for legacy queries", () => {
-    expect(
-      getSelectableIdentifierTypes([
-        makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
-      ]),
-    ).toEqual(["user_id"]);
   });
 });
 
@@ -617,6 +621,107 @@ describe("getIdentifierTypeForHashAttribute", () => {
           currentIdentifierType: "anonymous_id",
         }),
       ).toBeNull();
+    }
+  });
+});
+
+describe("getInitialSettings", () => {
+  const clickhouseParams = {
+    url: "http://localhost:8123",
+    database: "default",
+  };
+  const postgresParams = {
+    host: "localhost",
+    database: "phoenix",
+    defaultSchema: "public",
+  };
+
+  it("keeps the existing exposure query names for segment", () => {
+    // @ts-expect-error minimal params for the test
+    const settings = getInitialSettings("segment", postgresParams);
+    expect(settings.queries.exposure.map((q) => q.name)).toEqual([
+      "Anonymous Visitors",
+      "Logged-in Users",
+    ]);
+  });
+
+  it("builds langfuse exposure queries for user, session, and trace ids", () => {
+    // @ts-expect-error minimal params for the test
+    const settings = getInitialSettings("langfuse", clickhouseParams, {
+      projectId: "proj_1",
+    });
+    expect(settings.queries.exposure.map((q) => q.id)).toEqual([
+      "user_id",
+      "session_id",
+      "trace_id",
+    ]);
+    expect(settings.queries.exposure.map((q) => q.name)).toEqual([
+      "Logged-in Users",
+      "Sessions",
+      "Traces",
+    ]);
+    for (const q of settings.queries.exposure) {
+      expect(() =>
+        validateSQL(q.query, [
+          q.userIdType,
+          "timestamp",
+          "experiment_id",
+          "variation_id",
+          ...q.dimensions,
+        ]),
+      ).not.toThrow();
+      expect(q.query).toContain("ARRAY JOIN");
+      expect(q.query).toContain("startsWith(tag, 'gb.exp:')");
+      expect(q.query).toContain("substring(splitByChar('=', tag)[1], 8)");
+      expect(q.query).toContain("project_id = 'proj_1'");
+    }
+    expect(settings.queries.identityJoins).toHaveLength(1);
+    expect(settings.queries.identityJoins[0].ids).toEqual([
+      "user_id",
+      "session_id",
+    ]);
+    for (const t of settings.userIdTypes) {
+      expect(t.description).not.toEqual("");
+    }
+  });
+
+  it("builds phoenix exposure queries against the root span", () => {
+    // @ts-expect-error minimal params for the test
+    const settings = getInitialSettings("phoenix", postgresParams, {
+      projectName: "default",
+    });
+    expect(settings.queries.exposure.map((q) => q.id)).toEqual([
+      "user_id",
+      "session_id",
+      "trace_id",
+    ]);
+    for (const q of settings.queries.exposure) {
+      expect(() =>
+        validateSQL(q.query, [
+          q.userIdType,
+          "timestamp",
+          "experiment_id",
+          "variation_id",
+          ...q.dimensions,
+        ]),
+      ).not.toThrow();
+      expect(q.query).toContain("jsonb_array_elements_text");
+      expect(q.query).toContain("LIKE 'gb.exp:%'");
+      expect(q.query).toContain("substr(split_part(gb_tags.tag, '=', 1), 8)");
+      expect(q.query).toContain("public.traces");
+      expect(q.query).toContain("root.parent_id IS NULL");
+      expect(q.query).toContain("p.name = 'default'");
+    }
+    expect(settings.queries.identityJoins).toHaveLength(1);
+  });
+
+  it("omits the project filter when the option is blank", () => {
+    // @ts-expect-error minimal params for the test
+    const settings = getInitialSettings("langfuse", clickhouseParams, {
+      projectId: "",
+    });
+    for (const q of settings.queries.exposure) {
+      expect(q.query).not.toContain("project_id = '");
     }
   });
 });

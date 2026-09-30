@@ -12,9 +12,9 @@ import {
   HoldoutStage,
   validateCondition,
   isExposureQueryAvailableForProjects,
-  isSameAssignmentQuerySelection,
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
+  resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import {
   ApiUpdateHoldoutBody,
@@ -360,33 +360,6 @@ export async function resolveHoldoutExperimentToLink({
   }
 }
 
-// Validates a holdout's assignment query selection and returns the identifier
-// to store; undefined when there's no query to select.
-export function parseHoldoutAssignmentQuery(
-  datasource: DataSourceInterface | null,
-  assignmentQueryId: string | undefined,
-  identifierType: string | undefined,
-  // The holdout's projects, which the query must all cover; undefined skips.
-  projects: string[] | undefined,
-  onOmitted: "defaultToFirst" | "requireUnambiguous" = "defaultToFirst",
-): string | undefined {
-  if (!assignmentQueryId) return undefined;
-  const parsed = parseAssignmentQuerySelection(
-    datasource?.settings?.queries?.exposure ?? [],
-    {
-      exposureQueryId: assignmentQueryId,
-      identifierType,
-      onOmitted,
-      field: "assignmentQuery",
-      scope: projects
-        ? { projects, datasourceProjects: datasource?.projects }
-        : undefined,
-    },
-  );
-  if (!parsed.ok) throw new Error(parsed.error);
-  return parsed.identifierType;
-}
-
 // A project change must keep the holdout's current assignment query usable by
 // every project it now covers.
 export async function assertHoldoutAssignmentQueryCoversProjects(
@@ -422,6 +395,10 @@ export async function assertHoldoutAssignmentQueryCoversProjects(
 export async function createHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
   data: CreateHoldoutInput,
+  {
+    // REST's grouped assignmentQuery must name an identifier when ambiguous.
+    onOmitted = "defaultToFirst",
+  }: { onOmitted?: "defaultToFirst" | "requireUnambiguous" } = {},
 ): Promise<{
   holdout: HoldoutInterface;
   experiment: ExperimentInterface;
@@ -436,12 +413,24 @@ export async function createHoldoutWithExperiment(
     secondaryMetrics: data.secondaryMetrics,
   });
 
-  const exposureQueryIdentifierType = parseHoldoutAssignmentQuery(
-    datasource,
-    data.assignmentQueryId,
-    data.assignmentQueryIdentifierType,
-    data.projects ?? [],
-  );
+  let exposureQueryIdentifierType: string | undefined;
+  if (data.assignmentQueryId) {
+    const parsed = parseAssignmentQuerySelection(
+      datasource?.settings?.queries?.exposure ?? [],
+      {
+        exposureQueryId: data.assignmentQueryId,
+        identifierType: data.assignmentQueryIdentifierType,
+        onOmitted,
+        field: "assignmentQuery",
+        scope: {
+          projects: data.projects ?? [],
+          datasourceProjects: datasource?.projects,
+        },
+      },
+    );
+    if (!parsed.ok) throw new Error(parsed.error);
+    exposureQueryIdentifierType = parsed.identifierType;
+  }
 
   const conditionResult = validateCondition(data.targetingCondition);
   if (!conditionResult.success) {
@@ -757,36 +746,34 @@ export async function updateHoldoutWithExperiment(
     });
 
     const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
-    const next = {
-      datasource: body.datasourceId ?? experiment.datasource ?? "",
-      exposureQueryId: effectiveQueryId,
-      // A partial update naming the same query keeps its stored identifier.
-      identifierType:
-        assignmentQueryIdentifierType ??
-        (effectiveQueryId === experiment.exposureQueryId
-          ? experiment.exposureQueryIdentifierType
-          : undefined),
-    };
-    // Only a changed selection is validated, so a query that drifted since
-    // doesn't block unrelated edits.
-    if (
-      !isSameAssignmentQuerySelection(
-        {
-          datasource: experiment.datasource ?? "",
-          exposureQueryId: experiment.exposureQueryId,
-          identifierType: experiment.exposureQueryIdentifierType,
-        },
-        next,
+    if (!effectiveQueryId) {
+      assignmentQueryIdentifierType = undefined;
+    } else {
+      const resolved = resolveAssignmentQuerySelectionChange(
         datasource?.settings?.queries?.exposure ?? [],
-      )
-    ) {
-      assignmentQueryIdentifierType = parseHoldoutAssignmentQuery(
-        datasource,
-        effectiveQueryId,
-        next.identifierType,
-        body.projects ?? holdout.projects,
-        body.assignmentQuery ? "requireUnambiguous" : "defaultToFirst",
+        {
+          previous: {
+            datasource: experiment.datasource ?? "",
+            exposureQueryId: experiment.exposureQueryId,
+            identifierType: experiment.exposureQueryIdentifierType,
+          },
+          next: {
+            datasource: body.datasourceId ?? experiment.datasource ?? "",
+            exposureQueryId: effectiveQueryId,
+            identifierType: assignmentQueryIdentifierType,
+          },
+          onOmitted: body.assignmentQuery
+            ? "requireUnambiguous"
+            : "defaultToFirst",
+          field: "assignmentQuery",
+          scope: {
+            projects: body.projects ?? holdout.projects,
+            datasourceProjects: datasource?.projects,
+          },
+        },
       );
+      if (!resolved.ok) throw new Error(resolved.error);
+      assignmentQueryIdentifierType = resolved.identifierType;
     }
 
     if (body.datasourceId !== undefined) {

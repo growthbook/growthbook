@@ -21,6 +21,8 @@ import {
   publishRampDetaches,
   rampTargetsDetachedBy,
   toRampAttachments,
+  toMonitoringSelection,
+  withKeptIdentifierType,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -34,6 +36,7 @@ import {
   RampStartAction,
   RampStepAction,
   resolveStartApproval,
+  RampMonitoringConfig,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -68,7 +71,7 @@ import {
   assertFeatureValuesValidForPublish,
   getApiFeatureObj,
   getNextScheduledUpdate,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
   queueSDKPayloadRefresh,
   synthesizeRuleId,
 } from "back-end/src/services/features";
@@ -252,6 +255,19 @@ featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
+
+export function withKeptMonitoringIdentifier(
+  previous: RampMonitoringConfig | null | undefined,
+  next: RampMonitoringConfig,
+): RampMonitoringConfig {
+  const { identifierType } = withKeptIdentifierType(
+    previous ? toMonitoringSelection(previous) : null,
+    toMonitoringSelection(next),
+  );
+  return identifierType
+    ? { ...next, exposureQueryIdentifierType: identifierType }
+    : next;
+}
 
 export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   "Feature",
@@ -1100,10 +1116,24 @@ export const createFeatureEvent = async <
   data: CreateEventData<"feature", Event, FeatureInterface>;
 }) => {
   const event: CreateEventParams<"feature", Event> = await (async () => {
-    const groupMap = await getSavedGroupMap(eventData.context);
+    // Resolve targetingAllProjects into concrete ids so webhooks route by delivery scope.
+    const allProjectIds = await eventData.context.getAllProjectIds();
+
     const experimentMap = await getExperimentMapForFeature(
       eventData.context,
       eventData.data.object.id,
+    );
+    // The previous object is compiled from the same maps, so load for both.
+    const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+      eventData.context,
+      {
+        features: hasPreviousObject<"feature", Event, FeatureInterface>(
+          eventData.data,
+        )
+          ? [eventData.data.object, eventData.data.previous_object]
+          : [eventData.data.object],
+        experiments: experimentMap.values(),
+      },
     );
 
     const currentRevision = await getRevision({
@@ -1113,12 +1143,6 @@ export const createFeatureEvent = async <
       feature: eventData.data.object,
       version: eventData.data.object.version,
     });
-
-    const safeRolloutMap =
-      await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
-
-    // Resolve targetingAllProjects into concrete ids so webhooks route by delivery scope.
-    const allProjectIds = await eventData.context.getAllProjectIds();
 
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
@@ -3251,9 +3275,16 @@ async function createRampSchedulesForRevision(
           ? new Date(updateAction.cutoffDate)
           : null
         : (existingSchedule?.cutoffDate ?? null);
+    // The action's config replaces the stored one whole. Re-sending the ramp's
+    // query without an identifier keeps the stored one, as the REST path does,
+    // so drafts saved before that don't move the ramp to the legacy default.
     const nextMonitoringConfig =
       updateAction.monitoringConfig !== undefined
-        ? updateAction.monitoringConfig
+        ? updateAction.monitoringConfig &&
+          withKeptMonitoringIdentifier(
+            existingSchedule?.monitoringConfig,
+            updateAction.monitoringConfig,
+          )
         : existingSchedule?.monitoringConfig;
     // Resolve the post-edit approval strategy (tri-state; see resolveStartApproval).
     // When still on and unapproved, the ramp must NOT start now.

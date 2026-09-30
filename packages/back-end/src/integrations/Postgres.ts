@@ -5,7 +5,6 @@ import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import { getFactTableTypeFromPostgresOid } from "back-end/src/util/warehouseColumnTypes";
 import SqlIntegration from "./SqlIntegration";
-import { postgresDialect } from "./dialects/postgres";
 
 export default class Postgres extends SqlIntegration {
   params!: PostgresConnectionParams;
@@ -17,7 +16,7 @@ export default class Postgres extends SqlIntegration {
   }
   getSqlDialect(): SqlDialect {
     return {
-      ...postgresDialect,
+      ...super.getSqlDialect(),
       defaultSchema: this.params.defaultSchema || "",
     };
   }

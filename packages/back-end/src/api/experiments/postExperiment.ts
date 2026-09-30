@@ -1,6 +1,6 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
-  getAnalysisIdentifierType,
+  resolveAnalysisIdentifierType,
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
 } from "shared/util";
@@ -16,6 +16,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  assertExperimentKeyFormat,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
   PostExperimentApiPayload,
@@ -184,7 +185,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       // A template without a stored identifier analyzes on its query's legacy
       // one, so its experiments must too, not the query's first.
       if (templateId && !payload.assignmentQueryIdentifierType) {
-        payload.assignmentQueryIdentifierType = getAnalysisIdentifierType(
+        payload.assignmentQueryIdentifierType = resolveAnalysisIdentifierType(
           datasource.settings.queries?.exposure?.find(
             (q) => q.id === payload.assignmentQueryId,
           ),
@@ -196,7 +197,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         {
           exposureQueryId: payload.assignmentQueryId,
           identifierType: payload.assignmentQueryIdentifierType,
-          // Only the grouped field must name an identifier when it's ambiguous.
           onOmitted: req.body.assignmentQuery
             ? "requireUnambiguous"
             : "defaultToFirst",
@@ -205,7 +205,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         },
       );
       if (!parsed.ok) {
-        // Template callers can't override the assignment query, so point them at the template.
         throw new Error(
           templateId
             ? `Template "${templateId}": ${parsed.error}. Update the template's assignment settings.`
@@ -214,6 +213,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       }
       payload.assignmentQueryIdentifierType = parsed.identifierType;
     }
+
+    await assertExperimentKeyFormat(
+      req.context,
+      payload.trackingKey,
+      payload.datasourceId,
+    );
 
     // check if tracking key is unique (skip the lookup entirely if the caller
     // is bypassing the duplicate check and the org doesn't require uniqueness)

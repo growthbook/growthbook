@@ -52,7 +52,10 @@ import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
-import { getAnalysisIdentifierType, parsePlainJSONObject } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  parsePlainJSONObject,
+} from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
 import {
@@ -901,6 +904,8 @@ interface Props {
   // Whether the parent rule is a sparse patch. The ramp's value edits inherit
   // this — sparse interpretation belongs to the rule, not the schedule.
   sparse?: boolean;
+  // For saved records with no ruleRampSchedule, e.g. an edited template.
+  hasSavedMonitoring?: boolean;
 }
 
 export default function RampScheduleSection({
@@ -929,6 +934,7 @@ export default function RampScheduleSection({
   ruleId,
   featureId,
   sparse = false,
+  hasSavedMonitoring: hasSavedMonitoringProp = false,
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
   const [seedOpen, setSeedOpen] = useState(
@@ -1014,13 +1020,14 @@ export default function RampScheduleSection({
     );
   // Saved monitoring must not be rewritten on load; legacy configs without a
   // stored identifier analyze on the query's legacy identifier.
-  const hasSavedMonitoring = !!ruleRampSchedule?.monitoringConfig;
+  const hasSavedMonitoring =
+    hasSavedMonitoringProp || !!ruleRampSchedule?.monitoringConfig;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource: selectedDatasource,
     project: feature?.project,
     hashAttribute,
     exposureQueryId: state.monitoring.exposureQueryId,
-    identifierType: getAnalysisIdentifierType(
+    identifierType: resolveAnalysisIdentifierType(
       selectedMonitoringExposureQuery,
       state.monitoring.exposureQueryIdentifierType,
     ),
@@ -3185,7 +3192,9 @@ export default function RampScheduleSection({
               {assignmentQuerySelection.exposureQueryOptions.map((o) => (
                 <DropdownMenuItem
                   key={o.value}
-                  onClick={() => setMonitoringExposureQueryId(o.value)}
+                  onClick={() =>
+                    assignmentQuerySelection.setExposureQueryId(o.value)
+                  }
                 >
                   {o.label}
                 </DropdownMenuItem>
@@ -3982,7 +3991,7 @@ export default function RampScheduleSection({
               )
             : null;
           const userUnitLabel = formatUserUnitLabel(
-            getAnalysisIdentifierType(
+            resolveAnalysisIdentifierType(
               monitoringExposureQuery ?? undefined,
               monitoringConfig?.exposureQueryIdentifierType,
             ),

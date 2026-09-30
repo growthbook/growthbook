@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getAnalysisIdentifierType } from "shared/util";
+import { resolveAnalysisIdentifierType } from "shared/util";
 import { Fragment, useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -66,7 +66,7 @@ export default function AnalysisSettings({
   const assignmentQuery = datasource?.settings?.queries?.exposure?.find(
     (e) => e.id === experiment.exposureQueryId,
   );
-  const identifierType = getAnalysisIdentifierType(
+  const identifierType = resolveAnalysisIdentifierType(
     assignmentQuery,
     experiment.exposureQueryIdentifierType,
   );

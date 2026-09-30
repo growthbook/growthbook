@@ -56,46 +56,35 @@ beforeEach(() => {
 });
 
 describe("validateCreateSafeRolloutFields", () => {
-  it("stores the query's first identifier when creating without one", async () => {
-    const validated = await validateCreateSafeRolloutFields(
-      { ...fields, exposureQueryId: "eq_multi" },
-      context,
-    );
-    expect(validated.exposureQueryIdentifierType).toBe("user_id");
-  });
-
-  it("stores the new query's first identifier when switching queries without one", async () => {
-    const validated = await validateCreateSafeRolloutFields(
-      { ...fields, exposureQueryId: "eq_multi" },
-      context,
-      undefined,
-      stored,
-    );
-    expect(validated.exposureQueryIdentifierType).toBe("user_id");
-  });
-
   it("keeps an unchanged selection, even one its query no longer declares", async () => {
     const validated = await validateCreateSafeRolloutFields(
       { ...fields, exposureQueryId: "eq_single" },
       context,
-      undefined,
-      stored,
+      { previous: stored },
     );
     expect(validated.exposureQueryIdentifierType).toBe("company_id");
   });
 
-  it("rejects an identifier the query doesn't declare on a changed selection", async () => {
+  it("leaves a legacy rollout's identifier unset when the form echoes the resolved one", async () => {
+    const validated = await validateCreateSafeRolloutFields(
+      {
+        ...fields,
+        exposureQueryId: "eq_multi",
+        exposureQueryIdentifierType: "anonymous_id",
+      },
+      context,
+      { previous: { datasourceId: "ds_1", exposureQueryId: "eq_multi" } },
+    );
+    expect(validated).not.toHaveProperty("exposureQueryIdentifierType");
+  });
+
+  it("requires the grouped field to name an identifier on an ambiguous query", async () => {
     await expect(
       validateCreateSafeRolloutFields(
-        {
-          ...fields,
-          exposureQueryId: "eq_multi",
-          exposureQueryIdentifierType: "company_id",
-        },
+        { ...fields, exposureQueryId: "eq_multi" },
         context,
-        undefined,
-        stored,
+        { onOmitted: "requireUnambiguous" },
       ),
-    ).rejects.toThrow('doesn\'t declare the "company_id" identifier type');
+    ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
   });
 });

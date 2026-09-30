@@ -26,7 +26,6 @@ import {
   assertFeatureValuesValid,
   toApiRevision,
 } from "back-end/src/services/features";
-import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -285,16 +284,15 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       // the stored ramp-up shape is larger.
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
-      await assertApiAssignmentQueryRefHasIdentifierType(req.context, {
-        datasourceId: validatableFields.datasourceId,
-        ref: validatableFields.exposureQuery,
-        field: "exposureQuery",
-        currentExposureQueryId: undefined,
-      });
       const validatedFields = await validateCreateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),
         req.context,
-        feature.project ?? "",
+        {
+          onOmitted: validatableFields.exposureQuery
+            ? "requireUnambiguous"
+            : "defaultToFirst",
+          project: feature.project ?? "",
+        },
       );
 
       const defaultRampSteps = [
@@ -324,7 +322,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, feature)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          rule.id,
+          feature,
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       // A startDate implies the rule should be disabled until the ramp fires.

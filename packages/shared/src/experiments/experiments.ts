@@ -63,6 +63,10 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import { stringToBoolean } from "../util";
+import {
+  getCappingTailState,
+  isCappableFactMetric,
+} from "../validators/fact-table";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -1120,6 +1124,54 @@ export function getRowFilterSQL({
   }
 }
 
+export function buildRowFilterWhereClause({
+  rowFilters,
+  factTable,
+  dialect,
+}: {
+  rowFilters: RowFilter[];
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  dialect: Pick<
+    SqlDialect,
+    | "jsonExtract"
+    | "escapeStringLiteral"
+    | "stringMatch"
+    | "evalBoolean"
+    | "castToTimestamp"
+    | "identifierQuote"
+  >;
+}): string {
+  const where: string[] = [];
+  rowFilters.forEach((rowFilter) => {
+    const sql = getRowFilterSQL({
+      rowFilter,
+      factTable,
+      jsonExtract: dialect.jsonExtract,
+      escapeStringLiteral: dialect.escapeStringLiteral,
+      stringMatch: dialect.stringMatch,
+      evalBoolean: dialect.evalBoolean,
+      castToTimestamp: dialect.castToTimestamp,
+      identifierQuote: dialect.identifierQuote,
+    });
+
+    // Incomplete/deleted filters would silently widen the preview.
+    if (sql === null) {
+      if (rowFilter.operator === "saved_filter") {
+        throw new Error(
+          `Saved Filter "${rowFilter.values?.[0]}" no longer exists. Remove it from the row filters to preview rows.`,
+        );
+      }
+      throw new Error(
+        `The row filter on "${rowFilter.column || rowFilter.operator}" is incomplete and cannot be previewed.`,
+      );
+    }
+
+    where.push(sql);
+  });
+
+  return where.join("\n  AND ");
+}
+
 export function getAggregateFilters({
   columnRef,
   column,
@@ -1238,6 +1290,9 @@ export function getMetricTemplateVariables(
 }
 
 export function isCappableMetricType(m: ExperimentMetricDefinition) {
+  if (isFactMetric(m)) {
+    return isCappableFactMetric(m.metricType);
+  }
   return !quantileMetricType(m) && !isBinomialMetric(m);
 }
 
@@ -1350,20 +1405,77 @@ export function isRegressionAdjusted(
   );
 }
 
-export function isPercentileCappedMetric(metric: ExperimentMetricDefinition) {
+/**
+ * The optional independent lower-tail capping settings. Only fact metrics
+ * support a lower tail; legacy metrics never have this field.
+ */
+export function getLowerCappingSettings(metric: ExperimentMetricDefinition) {
+  return "lowerCappingSettings" in metric
+    ? metric.lowerCappingSettings
+    : undefined;
+}
+
+export function isUpperPercentileCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
   return (
-    metric.cappingSettings.type === "percentile" &&
-    !!metric.cappingSettings.value &&
-    metric.cappingSettings.value < 1 &&
+    getCappingTailState(metric.cappingSettings).upperPercentileCapped &&
     isCappableMetricType(metric)
   );
 }
 
-function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
+/**
+ * Legacy alias for upper-tail percentile capping. The legacy (non-fact)
+ * experiment SQL path only supports upper-tail capping, so this maps to the
+ * upper tail.
+ */
+export function isPercentileCappedMetric(metric: ExperimentMetricDefinition) {
+  return isUpperPercentileCappedMetric(metric);
+}
+
+/** Lower-tail percentile winsorization (e.g. 5th percentile floor). */
+export function isLowerPercentileCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
   return (
-    metric.cappingSettings.type === "absolute" &&
-    !!metric.cappingSettings.value &&
+    getCappingTailState(undefined, getLowerCappingSettings(metric))
+      .lowerPercentileCapped && isCappableMetricType(metric)
+  );
+}
+
+/** True if SQL needs a percentile subquery (upper and/or lower tail). */
+export function needsPercentileCapSubquery(metric: ExperimentMetricInterface) {
+  const t = getCappingTailState(
+    metric.cappingSettings,
+    getLowerCappingSettings(metric),
+  );
+  return (
+    (t.upperPercentileCapped || t.lowerPercentileCapped) &&
     isCappableMetricType(metric)
+  );
+}
+
+export function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
+  return (
+    getCappingTailState(metric.cappingSettings).upperAbsoluteCapped &&
+    isCappableMetricType(metric)
+  );
+}
+
+export function isLowerAbsoluteCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
+  return (
+    getCappingTailState(undefined, getLowerCappingSettings(metric))
+      .lowerAbsoluteCapped && isCappableMetricType(metric)
+  );
+}
+
+/** Any upper or lower tail capping is active (SQL / experiment analysis). */
+export function hasActiveCappingTails(metric: ExperimentMetricDefinition) {
+  return (
+    getCappingTailState(metric.cappingSettings, getLowerCappingSettings(metric))
+      .anyCap && isCappableMetricType(metric)
   );
 }
 
@@ -1373,7 +1485,10 @@ export function isSliceMetric(metric: ExperimentMetricDefinition) {
 
 export function eligibleForUncappedMetric(metric: ExperimentMetricDefinition) {
   return (
-    (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
+    (isUpperPercentileCappedMetric(metric) ||
+      isLowerPercentileCappedMetric(metric) ||
+      isAbsoluteCappedMetric(metric) ||
+      isLowerAbsoluteCappedMetric(metric)) &&
     !isSliceMetric(metric)
   );
 }
@@ -2600,6 +2715,19 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
   );
 }
 
+export function isAutoSnapshotScheduled(
+  experiment: Pick<
+    ExperimentInterface,
+    "autoSnapshots" | "disableAutoSnapshots" | "archived"
+  >,
+): boolean {
+  return (
+    !!experiment.autoSnapshots &&
+    !experiment.disableAutoSnapshots &&
+    !experiment.archived
+  );
+}
+
 export async function generateTrackingKey<
   T = ExperimentInterface | ExperimentInterfaceStringDates,
 >(
@@ -3061,6 +3189,14 @@ export function scheduleStagesStatusChange(
   if (schedule.startAt) return true;
   if (!(schedule.stopAt || schedule.stopAfter)) return false;
   return (schedule.scheduledStopPlan?.mode ?? "notify") !== "notify";
+}
+
+// Stamps who staged a status update so the job can run it on their authority.
+export function withScheduledBy<T extends object>(
+  staged: T | null,
+  userId: string | undefined,
+): (T & { scheduledBy?: string }) | null {
+  return staged && userId ? { ...staged, scheduledBy: userId } : staged;
 }
 
 // True when the incoming schedule stages a status change, or a staged one is

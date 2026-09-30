@@ -57,6 +57,7 @@ import {
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
   assertCanRunExperimentChanges,
+  assertExperimentKeyFormat,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
   determineNextBanditSchedule,
@@ -107,7 +108,6 @@ import {
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
 import {
-  deleteSnapshotById,
   findSnapshotById,
   getLatestSuccessfulSnapshot,
   getLatestSnapshotStatus,
@@ -115,7 +115,10 @@ import {
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { loadChangedAssignmentQuerySelection } from "back-end/src/services/assignmentQuerySelection";
+import {
+  getExperimentAssignmentQueryScope,
+  resolveAssignmentQueryIdentifier,
+} from "back-end/src/services/assignmentQuerySelection";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
@@ -134,6 +137,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
+import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
@@ -141,7 +145,6 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
-import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
@@ -509,7 +512,7 @@ export async function postSimilarExperiments(
       includeArchived: false,
     },
   );
-  // filter to only experiments that have hypothesises, and enough words to make a good search:
+  // filter to only experiments that have hypotheses, and enough words to make a good search:
   const filteredPreviousExps = previousExperiments.filter((e) => {
     const words =
       (e.hypothesis || "").split(" ").length + (e.name || "").split(" ").length;
@@ -1402,6 +1405,8 @@ export async function postExperiments(
       });
     }
 
+    await assertExperimentKeyFormat(context, obj.trackingKey, obj.datasource);
+
     // Make sure tracking key is unique
     if (
       obj.trackingKey &&
@@ -1643,7 +1648,7 @@ export async function postExperiment(
 
   // FIXME: We skip validation because project is updated in a different place than where
   // we define custom fields, and that would prevent the user from doing either update.
-  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
+  // Ideally we validate custom fields every time, but we need to update our UI to support that.
   if (
     shouldValidateCustomFieldsOnUpdate({
       existingCustomFieldValues: experiment.customFields,
@@ -1785,6 +1790,17 @@ export async function postExperiment(
       });
       return;
     }
+  }
+
+  if (
+    data.trackingKey !== undefined &&
+    data.trackingKey !== experiment.trackingKey
+  ) {
+    await assertExperimentKeyFormat(
+      context,
+      data.trackingKey,
+      data.datasource ?? experiment.datasource,
+    );
   }
 
   // Check if tracking key is being changed and validate uniqueness if required
@@ -1975,7 +1991,11 @@ export async function postExperiment(
     }
   });
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes);
+  normalizeStatusUpdateScheduleChanges(
+    experiment,
+    changes,
+    context.userId || undefined,
+  );
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.
@@ -2001,8 +2021,6 @@ export async function postExperiment(
     };
   }
 
-  // Drift on an unchanged selection is flagged by the form, not blocked here. A
-  // changed one stores its parsed identifier, so it's never left implicit.
   const nextSelection = {
     datasource: changes.datasource ?? experiment.datasource ?? "",
     exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
@@ -2010,37 +2028,22 @@ export async function postExperiment(
       changes.exposureQueryIdentifierType ??
       experiment.exposureQueryIdentifierType,
   };
-  const changedSelectionDatasource = await loadChangedAssignmentQuerySelection(
-    context,
-    {
+  const resolvedSelection = await resolveAssignmentQueryIdentifier(context, {
+    previous: {
       datasource: experiment.datasource ?? "",
       exposureQueryId: experiment.exposureQueryId,
       identifierType: experiment.exposureQueryIdentifierType,
     },
-    nextSelection,
-  );
-  if (changedSelectionDatasource) {
-    const parsed = parseAssignmentQuerySelection(
-      changedSelectionDatasource.settings.queries?.exposure ?? [],
-      {
-        ...nextSelection,
-        onOmitted: "defaultToFirst",
-        scope:
-          experiment.type === "holdout"
-            ? {
-                projects:
-                  (
-                    await context.models.holdout.getByExperimentId(
-                      experiment.id,
-                    )
-                  )?.projects ?? [],
-                datasourceProjects: changedSelectionDatasource.projects,
-              }
-            : { project: changes.project ?? experiment.project ?? "" },
-      },
-    );
-    if (!parsed.ok) throw new Error(parsed.error);
-    changes.exposureQueryIdentifierType = parsed.identifierType;
+    next: nextSelection,
+    onOmitted: "defaultToFirst",
+    getScope: getExperimentAssignmentQueryScope(
+      context,
+      experiment,
+      changes.project ?? experiment.project ?? "",
+    ),
+  });
+  if (resolvedSelection.changed) {
+    changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
   }
 
   const shouldValidatePrecomputedUnitDimensionIds =
@@ -3345,27 +3348,9 @@ export async function cancelSnapshot(
     });
   }
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    snapshot.settings.datasourceId,
-  );
+  const { outcome } = await cancelExperimentSnapshot(context, snapshot);
 
-  const queryRunner = new ExperimentResultsQueryRunner(
-    context,
-    snapshot,
-    integration,
-  );
-  await queryRunner.cancelQueries();
-  await deleteSnapshotById(context, snapshot.id);
-
-  // Release the incremental refresh lock if this snapshot held it.
-  await context.models.incrementalRefresh
-    .releaseLock(experiment.id, snapshot.id)
-    .catch((e) =>
-      logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
-    );
-
-  res.status(200).json({ status: 200 });
+  res.status(200).json({ status: 200, outcome });
 }
 
 export async function postSnapshot(
@@ -4437,7 +4422,7 @@ export async function postExperimentFeatureValues(
         {},
       );
 
-      // This should never happen since we only allow auto-publising new revisions, but guard against it just in case
+      // This should never happen since we only allow auto-publishing new revisions, but guard against it just in case
       if (!mergeResult.success) {
         res.status(400).json({
           status: 400,

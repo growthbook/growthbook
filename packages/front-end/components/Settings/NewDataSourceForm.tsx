@@ -214,6 +214,13 @@ const NewDataSourceForm: FC<{
     ctaEnabled = false;
     disabledMessage = "You don't have permission to create data sources.";
   }
+  // An empty selection means All Projects, which needs a global role.
+  const projectPermissionError = permissionsUtil.canCreateDataSource({
+    projects: connectionInfo.projects,
+    type: connectionInfo.type,
+  })
+    ? undefined
+    : "You don't have permission to create a Data Source for All Projects; please select a Project.";
 
   const saveConnectionInfo =
     async (): Promise<DataSourceInterfaceWithParams> => {
@@ -636,6 +643,8 @@ const NewDataSourceForm: FC<{
               onChange={(v) => onManualChange("projects", v)}
               customClassName="label-overflow-ellipsis"
               helpText="Assign this data source to specific projects"
+              error={projectPermissionError}
+              errorLevel="warning"
             />
           </div>
         )}
@@ -667,7 +676,7 @@ const NewDataSourceForm: FC<{
         <h3>{selectedSchema.label || ""} Query Options</h3>
         <div className="my-4">
           <div className="d-inline-block">
-            Below are are the typical defaults for{" "}
+            Below are the typical defaults for{" "}
             {selectedSchema.label || "this data source"}.{" "}
             {selectedSchema.options?.length === 1
               ? "The value "
@@ -746,6 +755,11 @@ const NewDataSourceForm: FC<{
 
   if (step === "initial" && !connectionInfo.type) {
     ctaEnabled = false;
+  }
+
+  if (step === "connection" && projectPermissionError) {
+    ctaEnabled = false;
+    disabledMessage ??= projectPermissionError;
   }
 
   if (managedWarehouseOpen) {
