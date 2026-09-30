@@ -15,6 +15,7 @@ import {
   ClientSecretModal,
   OAuthApp,
   OAuthAppCredentials,
+  DELEGATION_DESCRIPTION,
   OAuthAppModal,
 } from "@/components/Settings/OAuthAppModal";
 import OAuthGrantsTable, {
@@ -201,7 +202,12 @@ const OAuthAppsSettings: FC = () => {
                 <TableCell>
                   {app.clientName}
                   {app.allowDelegation && (
-                    <Badge ml="2" variant="soft" label="Delegation" />
+                    <Badge
+                      ml="2"
+                      variant="soft"
+                      label="Acts as members"
+                      title={DELEGATION_DESCRIPTION}
+                    />
                   )}
                 </TableCell>
                 <TableCell>

@@ -87,9 +87,8 @@ export async function putOAuthApp(
     existing,
     req.body,
   );
-  if (existing.allowDelegation && !app.allowDelegation) {
-    await disableDelegatedTokens(context, app.clientId);
-  }
+  // Not just on the toggle, so re-saving finishes a cleanup that failed partway.
+  if (!app.allowDelegation) await disableDelegatedTokens(context, app.clientId);
   res.status(200).json({ status: 200, app });
 }
 
