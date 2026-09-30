@@ -1596,6 +1596,31 @@ describe("productAnalytics", () => {
     // column — a bare `revenue_vc` does not exist in the warehouse.
     expect(sql).toContain("(amount * qty)");
     expect(sql).not.toContain("revenue_vc");
+
+    // Row count as the threshold basis counts rows, not a column named $$count.
+    const numerator = aggregateFilterMetricMap.get("big_spenders")!.numerator;
+    numerator.aggregateFilterColumn = "$$count";
+    const { sql: countSql } = generateProductAnalyticsSQL(
+      config,
+      virtualFactTableMap,
+      aggregateFilterMetricMap,
+      helpers,
+      datasource,
+    );
+    expect(countSql).not.toContain("$$count");
+    expect(countSql).toContain("1 AS m0");
+
+    // Per-unit path: the threshold CASE is aliased once by the caller.
+    config.dataset.values[0].unit = "user_id";
+    const { sql: unitSql } = generateProductAnalyticsSQL(
+      config,
+      virtualFactTableMap,
+      aggregateFilterMetricMap,
+      helpers,
+      datasource,
+    );
+    expect(unitSql).toMatch(/THEN 1\s+ELSE NULL\s+END AS m0/);
+    expect(unitSql).not.toMatch(/as m0 AS m0/i);
   });
 
   it("throws when a data_source dataset has no timestamp column", () => {
