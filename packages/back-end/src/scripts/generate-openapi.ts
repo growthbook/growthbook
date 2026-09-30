@@ -40,6 +40,8 @@ const openApiTags = [
   "custom-hooks",
   "organizations",
   "members",
+  "event-webhooks",
+  "audits",
   "code-references",
   "archetypes",
   "queries",
@@ -216,6 +218,16 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   usage: {
     display: "Usage",
     description: "Usage information for metrics in experiments.",
+  },
+  "event-webhooks": {
+    display: "Event Webhooks",
+    description:
+      "Send GrowthBook events (feature, experiment and other changes) to your own endpoint.",
+  },
+  audits: {
+    display: "Audit Logs",
+    description:
+      "Audit history of who changed what, and the event log that drives event webhooks. Requires permission to view audit logs.",
   },
   meta: {
     display: "Meta",

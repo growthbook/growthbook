@@ -45,6 +45,8 @@ export * from "./event-forwarder-config";
 export * from "./event-forwarder-access-test";
 export * from "./event-forwarder-status";
 export * from "./event-webhook";
+export * from "./api-event-webhooks";
+export * from "./api-audits";
 export * from "./notification-card";
 export * from "./feature-webhook-schemas";
 // Load watch before events - events imports base-types which imports validators, creating a cycle.

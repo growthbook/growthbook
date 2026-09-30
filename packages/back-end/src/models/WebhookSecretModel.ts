@@ -1,9 +1,11 @@
 import { omit } from "lodash";
 import {
   WebhookSecretFrontEndInterface,
+  WebhookSecretInterface,
   webhookSecretSchema,
 } from "shared/validators";
 import { secretsReplacer } from "back-end/src/util/secrets";
+import { webhookSecretApiSpec } from "back-end/src/api/specs/webhook-secret.spec";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -27,6 +29,10 @@ const BaseClass = MakeModelClass({
       },
     },
   ],
+  apiConfig: {
+    modelKey: "webhookSecrets",
+    openApiSpec: webhookSecretApiSpec,
+  },
 });
 
 export class WebhookSecretDataModel extends BaseClass {
@@ -42,6 +48,17 @@ export class WebhookSecretDataModel extends BaseClass {
 
   protected canDelete(): boolean {
     return this.context.permissions.canDeleteEventWebhook();
+  }
+
+  protected toApiInterface(doc: WebhookSecretInterface) {
+    return {
+      id: doc.id,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+      key: doc.key,
+      description: doc.description,
+      allowedOrigins: doc.allowedOrigins,
+    };
   }
 
   public async getAllForFrontEnd(): Promise<WebhookSecretFrontEndInterface[]> {
