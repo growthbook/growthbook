@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FullFactTableColumns } from "shared/types/fact-table";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
@@ -11,19 +11,19 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 export default function useFullFactTables(ids: string[]) {
   const { getFactTableById } = useDefinitions();
   const unique = [...new Set(ids.filter(Boolean))].sort();
-  const { data } = useApi<{ factTables: FactTableInterface[] }>(
+  const { data } = useApi<{ factTables: FullFactTableColumns[] }>(
     `/fact-tables?ids=${unique.map(encodeURIComponent).join(",")}`,
     { shouldRun: () => unique.length > 0 },
   );
 
   const byId = useMemo(() => {
-    const map = new Map<string, Omit<FactTableInterface, "sql">>();
+    const map = new Map<string, FullFactTableColumns>();
     data?.factTables.forEach((ft) => map.set(ft.id, ft));
     return map;
   }, [data]);
 
   const getById = useCallback(
-    (id: string): Omit<FactTableInterface, "sql"> | null =>
+    (id: string): FullFactTableColumns | null =>
       byId.get(id) ?? getFactTableById(id),
     [byId, getFactTableById],
   );

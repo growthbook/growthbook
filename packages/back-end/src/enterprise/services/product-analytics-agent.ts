@@ -19,15 +19,21 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { DataSourceInterface } from "shared/types/datasource";
 import {
   clearInapplicableShowAs,
   getEffectiveShowAs,
   getIsRatioByIndex,
   buildExplorationColumns,
   getExplorationCellValue,
-  getAvailableDimensionColumns,
   getRelevantFactTableIds,
-  dimensionColumnIsAvailable,
+  getRelevantFactTableIdsForMetrics,
+  getAvailableDimensionColumnsForMetrics,
+  expandFactTableColumns,
+  factTableHasResolvableColumn,
+  sanitizeDimensions,
+  getValidDateGranularities,
+  calculateProductAnalyticsDateRange,
 } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
@@ -743,16 +749,6 @@ async function normalizeConfigForExplorer(
         );
       }
     }
-
-    // Enforce max dimensions (2, or 1 if multiple values)
-    const maxDims = dataset.values.length > 1 ? 1 : 2;
-    if (dims.length > maxDims) {
-      const removed = dims.length - maxDims;
-      dims = dims.slice(0, maxDims);
-      warnings.push(
-        `Removed ${removed} dimension(s) to stay within the limit of ${maxDims} (max 2, or 1 when multiple values).`,
-      );
-    }
   }
 
   // Load every referenced fact metric once. This map serves both the unit
@@ -788,23 +784,21 @@ async function normalizeConfigForExplorer(
   const getDimensionFactTableById = (id: string) =>
     dimensionFtById.get(id) ?? null;
 
-  const availableDimensionColumns = getAvailableDimensionColumns(
-    dataset,
+  // Single source of truth for the dimension-list policy, shared with the
+  // Explorer: drop dimensions whose column no longer resolves, cap the count
+  // at the dataset's limit, and reset an invalid date granularity to "auto".
+  const resolvedDateRange = calculateProductAnalyticsDateRange(
+    config.dateRange,
+  );
+  const validGranularities = getValidDateGranularities(resolvedDateRange);
+  const sanitized = sanitizeDimensions(
+    { ...config, dimensions: dims, dataset } as ExplorationConfig,
     getDimensionFactTableById,
     getFactMetricByIdResolver,
+    validGranularities,
   );
-  const invalidDims = dims.filter(
-    (d) => !dimensionColumnIsAvailable(d, availableDimensionColumns),
-  );
-  if (invalidDims.length) {
-    const invalidDimSet = new Set(invalidDims);
-    dims = dims.filter((d) => !invalidDimSet.has(d));
-    warnings.push(
-      `Removed ${invalidDims.length} dimension(s) referencing a column that isn't valid for this dataset (unknown, deleted, or — for a ratio metric — not shared between the numerator and denominator fact tables): ${invalidDims
-        .map((d) => `"${"column" in d ? d.column : ""}"`)
-        .join(", ")}.`,
-    );
-  }
+  dims = sanitized.config.dimensions;
+  warnings.push(...sanitized.warnings);
 
   // Backfill missing units for metric values so the SQL layer emits a
   // denominator and per_unit rendering works. The agent often omits `unit`
@@ -1060,19 +1054,8 @@ async function executeGetAvailableColumns(
       // live on a different fact table than its numerator, and columns must
       // resolve on both to be valid group-by candidates.
       const metricMap = new Map(metrics.map((m) => [m.id, m]));
-      const metricDataset = {
-        type: "metric" as const,
-        values: metricIds.map((metricId) => ({
-          type: "metric" as const,
-          name: metricId,
-          rowFilters: [],
-          metricId,
-          unit: null,
-          denominatorUnit: null,
-        })),
-      };
-      const ftIds = getRelevantFactTableIds(
-        metricDataset,
+      const ftIds = getRelevantFactTableIdsForMetrics(
+        metricIds,
         (id) => metricMap.get(id) ?? null,
       );
       const factTables = await Promise.all(
@@ -1104,15 +1087,15 @@ async function executeGetAvailableColumns(
       // Single source of truth shared with the front-end Explorer's dimension
       // picker — only offers columns (including nested JSON paths) resolvable
       // on every referenced metric's fact table(s), denominator included.
-      const availableColumns = getAvailableDimensionColumns(
-        metricDataset,
+      const availableColumns = getAvailableDimensionColumnsForMetrics(
+        metricIds,
         (id) => ftMap.get(id) ?? null,
         (id) => metricMap.get(id) ?? null,
       );
       const result = availableColumns.map((c) => ({
         column: c.column,
         name: c.name,
-        datatype: "string" as const,
+        datatype: c.datatype,
       }));
 
       const unitNote = userIdTypes.length
@@ -1135,10 +1118,10 @@ async function executeGetColumnValues(
   const { columns: requestedColumns, searchTerm, limit } = input;
 
   type RawCol = { column: string; datatype: string };
-  let factTableSql: string;
-  let factTableEventName: string;
-  let factTableTimestampColumn: string | undefined;
-  let datasourceId: string;
+  // Every fact table a requested column might need to be queried against —
+  // for a metric source this can be more than one (a ratio metric's
+  // denominator can live on a different fact table than its numerator).
+  let factTables: FactTableInterface[];
   let availableColumns: RawCol[];
 
   switch (input.source) {
@@ -1147,13 +1130,17 @@ async function executeGetColumnValues(
       if (!factTableId) return "factTableId is required for fact_table source.";
       const ft = await getFactTable(ctx, factTableId);
       if (!ft) return `Fact table "${factTableId}" not found.`;
-      factTableSql = ft.sql;
-      factTableEventName = ft.eventName ?? "";
-      factTableTimestampColumn = ft.timestampColumn;
-      datasourceId = ft.datasource;
-      availableColumns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .map((c) => ({ column: c.column, datatype: c.datatype }));
+      factTables = [ft];
+      // Flat columns (any datatype, so we can distinguish "not found" from
+      // "wrong type" below) plus dotted JSON sub-paths (always string).
+      availableColumns = [
+        ...(ft.columns ?? [])
+          .filter((c) => !c.deleted)
+          .map((c) => ({ column: c.column, datatype: c.datatype as string })),
+        ...expandFactTableColumns(ft)
+          .filter((c) => c.column.includes("."))
+          .map((c) => ({ column: c.column, datatype: c.datatype as string })),
+      ];
       break;
     }
 
@@ -1161,58 +1148,116 @@ async function executeGetColumnValues(
       const { metricIds } = input;
       if (!metricIds?.length) return "metricIds is required for metric source.";
       const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      const firstWithFt = metrics.find((m) => m.numerator?.factTableId);
-      if (!firstWithFt?.numerator?.factTableId) {
+      const metricMap = new Map(metrics.map((m) => [m.id, m]));
+      const ftIds = getRelevantFactTableIdsForMetrics(
+        metricIds,
+        (id) => metricMap.get(id) ?? null,
+      );
+      if (!ftIds.length) {
         return "Could not resolve a fact table from the provided metric IDs.";
       }
-      const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);
-      if (!ft) return `Fact table not found.`;
-      factTableSql = ft.sql;
-      factTableEventName = ft.eventName ?? "";
-      factTableTimestampColumn = ft.timestampColumn;
-      datasourceId = ft.datasource;
-      availableColumns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .map((c) => ({ column: c.column, datatype: c.datatype }));
+      const resolvedFactTables = await Promise.all(
+        ftIds.map((id) => getFactTable(ctx, id)),
+      );
+      factTables = resolvedFactTables.filter(
+        (ft): ft is FactTableInterface => !!ft,
+      );
+      if (!factTables.length) {
+        return "Could not resolve a fact table from the provided metric IDs.";
+      }
+      const ftMap = new Map(factTables.map((ft) => [ft.id, ft]));
+      // Same helper the Explorer's dimension picker uses — includes dotted
+      // JSON paths and only offers columns that resolve on every referenced
+      // metric's fact table(s), denominator included.
+      const dimensionColumns = getAvailableDimensionColumnsForMetrics(
+        metricIds,
+        (id) => ftMap.get(id) ?? null,
+        (id) => metricMap.get(id) ?? null,
+      );
+      availableColumns = dimensionColumns.map((c) => ({
+        column: c.column,
+        datatype: c.datatype as string,
+      }));
       break;
     }
   }
 
-  const datasource = await getDataSourceById(ctx, datasourceId);
-  if (!datasource) return `Datasource not found.`;
+  const datasourceIds = Array.from(
+    new Set(factTables.map((ft) => ft.datasource)),
+  );
+  const resolvedDatasources = await Promise.all(
+    datasourceIds.map((id) => getDataSourceById(ctx, id)),
+  );
+  const datasourceById = new Map(
+    datasourceIds
+      .map((id, i) => [id, resolvedDatasources[i]] as const)
+      .filter((entry): entry is [string, DataSourceInterface] => !!entry[1]),
+  );
 
-  // Separate requested columns into queryable (string-typed), skipped (wrong type), not-found
-  const colsToQuery: ColumnInterface[] = [];
+  // Separate requested columns into queryable (string-typed, top-level),
+  // skipped (wrong type, or a nested JSON field — no live-value lookup for
+  // those yet), and not-found.
   const nonStringCols: string[] = [];
   const notFoundCols: string[] = [];
+  const nestedJsonCols: string[] = [];
+  const targetsByFactTable = new Map<
+    string,
+    { factTable: FactTableInterface; columns: ColumnInterface[] }
+  >();
 
   for (const name of requestedColumns) {
     const found = availableColumns.find((c) => c.column === name);
     if (!found) {
       notFoundCols.push(name);
-    } else if (found.datatype !== "string") {
-      nonStringCols.push(name);
-    } else {
-      colsToQuery.push({
-        column: name,
-        name,
-        datatype: "string",
-        numberFormat: "",
-        description: "",
-        deleted: false,
-        dateCreated: new Date(0),
-        dateUpdated: new Date(0),
-      });
+      continue;
     }
+    if (found.datatype !== "string") {
+      nonStringCols.push(name);
+      continue;
+    }
+    if (name.includes(".")) {
+      nestedJsonCols.push(name);
+      continue;
+    }
+    const column: ColumnInterface = {
+      column: name,
+      name,
+      datatype: "string",
+      numberFormat: "",
+      description: "",
+      deleted: false,
+      dateCreated: new Date(0),
+      dateUpdated: new Date(0),
+    };
+    // Query every fact table that actually has this column so a ratio
+    // metric's denominator-side columns get values too, not just the
+    // numerator's.
+    factTables
+      .filter((ft) => factTableHasResolvableColumn(ft, name))
+      .forEach((factTable) => {
+        const existing = targetsByFactTable.get(factTable.id);
+        if (existing) {
+          existing.columns.push(column);
+        } else {
+          targetsByFactTable.set(factTable.id, {
+            factTable,
+            columns: [column],
+          });
+        }
+      });
   }
 
   const warnings: string[] = [];
   if (nonStringCols.length)
     warnings.push(`Skipped (non-string type): ${nonStringCols.join(", ")}`);
+  if (nestedJsonCols.length)
+    warnings.push(
+      `Skipped (nested JSON field — live value lookup isn't supported yet): ${nestedJsonCols.join(", ")}`,
+    );
   if (notFoundCols.length)
     warnings.push(`Columns not found: ${notFoundCols.join(", ")}`);
 
-  if (colsToQuery.length === 0) {
+  if (targetsByFactTable.size === 0) {
     return JSON.stringify(
       { values: {}, warnings: warnings.length ? warnings : undefined },
       null,
@@ -1220,22 +1265,27 @@ async function executeGetColumnValues(
     );
   }
 
-  let rawValues: Record<string, string[]>;
-  try {
-    rawValues = await runColumnsTopValuesQuery(
-      ctx,
-      datasource,
-      {
-        sql: factTableSql,
-        eventName: factTableEventName,
-        timestampColumn: factTableTimestampColumn,
-      },
-      colsToQuery,
-    );
-  } catch (err) {
-    return `Failed to query column values on ${datasource.type}: ${
-      err instanceof Error ? err.message : "Unknown error"
-    }`;
+  const rawValues: Record<string, string[]> = {};
+  for (const { factTable, columns } of targetsByFactTable.values()) {
+    const datasource = datasourceById.get(factTable.datasource);
+    if (!datasource) continue;
+    try {
+      const result = await runColumnsTopValuesQuery(
+        ctx,
+        datasource,
+        factTable,
+        columns,
+      );
+      for (const col of Object.keys(result)) {
+        rawValues[col] = Array.from(
+          new Set([...(rawValues[col] ?? []), ...result[col]]),
+        );
+      }
+    } catch (err) {
+      return `Failed to query column values on ${datasource.type}: ${
+        err instanceof Error ? err.message : "Unknown error"
+      }`;
+    }
   }
 
   // Apply searchTerm filter and respect limit

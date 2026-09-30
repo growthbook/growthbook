@@ -39,6 +39,7 @@ import {
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
+  dateGranularity,
 } from "../../validators/product-analytics";
 import {
   getRowFilterSQL,
@@ -51,6 +52,7 @@ import {
 import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
 import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
+import { factTableHasResolvableColumn } from "./columns";
 
 // Internal Type definitions
 type MinimalFactTable = Pick<
@@ -157,7 +159,7 @@ interface CTE {
   name: string;
   sql: string;
 }
-interface DateRange {
+export interface DateRange {
   startDate: Date;
   endDate: Date;
 }
@@ -518,6 +520,17 @@ export function getDateGranularity(
   return "month";
 }
 
+/** Date granularities valid for a resolved date range (for filtering dropdown
+ * options and for `sanitizeDimensions`). A granularity is valid if
+ * `getDateGranularity` returns it unchanged (or, for "auto", always valid). */
+export function getValidDateGranularities(
+  dateRange: DateRange,
+): (typeof dateGranularity)[number][] {
+  return dateGranularity.filter(
+    (g) => g === "auto" || getDateGranularity(g, dateRange) === g,
+  );
+}
+
 // Generate row filter SQL
 export function generateRowFilterSQL(
   rowFilters: RowFilter[],
@@ -560,27 +573,6 @@ export function generatePushdownFilterSQL(
       generateRowFilterSQL(filters, factTable, helpers),
     ),
   );
-}
-
-// True if `column` resolves to a real, non-deleted underlying column on
-// `factTable` — either a top-level column, or (for a dotted path) a JSON
-// field defined on a JSON-typed top-level column. A ratio metric's
-// denominator can live on a different fact table than its numerator, and
-// that table may not expose the dimension's column at all.
-// getAvailableDimensionColumns uses this to keep such columns out of the
-// picker, and generateProductAnalyticsSQL to reject configs that reference
-// them anyway.
-export function factTableHasResolvableColumn(
-  factTable: Pick<FactTableInterface, "columns">,
-  column: string,
-): boolean {
-  const [baseColumn, ...rest] = column.split(".");
-  const col = factTable.columns.find(
-    (c) => c.column === baseColumn && !c.deleted,
-  );
-  if (!col) return false;
-  if (rest.length === 0) return true;
-  return col.datatype === "json" && !!col.jsonFields?.[rest.join(".")];
 }
 
 // Dimension values are compared against string literals — the 'other' fallback
