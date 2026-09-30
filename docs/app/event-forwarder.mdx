@@ -55,6 +55,16 @@ Key-pair authentication must be configured on the Snowflake datasource connectio
 
 ### Databricks
 
+#### Before you start: is Zerobus available for your workspace?
+
+The Databricks Event Forwarder writes through [Zerobus Ingest](https://docs.databricks.com/aws/en/ingestion/zerobus), which is not available everywhere yet. Check three things:
+
+- **Region.** Open the workspace switcher in the top navigation bar to see your workspace region, then confirm it has a check in the Zerobus Ingest column of Databricks' availability table for your cloud: [AWS](https://docs.databricks.com/aws/en/resources/feature-region-support#ingestion), [Azure](https://learn.microsoft.com/en-us/azure/databricks/resources/feature-region-support#ingestion), [Google Cloud](https://docs.databricks.com/gcp/en/resources/feature-region-support#ingestion).
+- **Unity Catalog.** Zerobus writes only to Unity Catalog managed tables. The catalog on your GrowthBook connection must be a Unity Catalog catalog, not `hive_metastore`.
+- **Databricks OAuth (machine-to-machine)** on the connection, as described below.
+
+Setup creates the tables through your SQL warehouse and does not test Zerobus itself. If your region is unsupported, setup succeeds and the forwarder shows an error after the first event arrives.
+
 The Databricks connection **must use Databricks OAuth (machine-to-machine) authentication** with a Databricks-issued client ID and secret. Personal access tokens keep working for queries, but the Event Forwarder writes through [Zerobus Ingest](https://docs.databricks.com/aws/en/ingestion/zerobus), which only accepts Databricks OAuth tokens. Switch the datasource connection to Databricks OAuth before enabling the Event Forwarder.
 
 Grant the service principal the following on the destination catalog and schema. GrowthBook creates the three Delta tables itself, so it also gets `SELECT` and `MODIFY` on them as their owner.
