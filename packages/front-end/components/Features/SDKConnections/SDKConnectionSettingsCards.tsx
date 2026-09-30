@@ -3,7 +3,7 @@ import {
   getConnectionSDKCapabilities,
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
-import { ReactNode } from "react";
+import { ComponentProps, ReactNode } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { isCloud } from "@/services/env";
 import { useCustomFields } from "@/hooks/useCustomFields";
@@ -42,6 +42,12 @@ function Toggle({ on }: { on: boolean }) {
       </Text>
     </Flex>
   );
+}
+
+// Long labels wrap their value onto the next line instead of squeezing both
+// into narrow columns.
+function SettingRow(props: ComponentProps<typeof Metadata>) {
+  return <Metadata {...props} style={{ flexWrap: "wrap", ...props.style }} />;
 }
 
 function SettingsCard({
@@ -123,13 +129,13 @@ export default function SDKConnectionSettingsCards({
         onEdit={edit("payloadSecurity")}
       >
         {payloadSecurityAllowed && (
-          <Metadata
+          <SettingRow
             label="Evaluation mode"
             value={connection.remoteEvalEnabled ? "Remote Eval" : "Standard"}
           />
         )}
         <Flex align="center" gap="1">
-          <Metadata
+          <SettingRow
             label="Streaming updates"
             value={<Toggle on={streamingEnabled} />}
           />
@@ -137,7 +143,7 @@ export default function SDKConnectionSettingsCards({
         </Flex>
         {payloadSecurityAllowed && (
           <>
-            <Metadata
+            <SettingRow
               label="Payload security"
               // Ciphered covers either half, matching the full form — hashing
               // alone still means the payload isn't plain text.
@@ -147,7 +153,7 @@ export default function SDKConnectionSettingsCards({
                   : "Plain text"
               }
             />
-            <Metadata
+            <SettingRow
               label="Secure attribute hashing"
               value={<Toggle on={!!connection.hashSecureAttributes} />}
             />
@@ -161,18 +167,18 @@ export default function SDKConnectionSettingsCards({
         onEdit={edit("experiments")}
       >
         {showVisualEditor && (
-          <Metadata
+          <SettingRow
             label={SETTING_TITLES.visualEditor}
             value={<Toggle on={!!connection.includeVisualExperiments} />}
           />
         )}
         {showRedirects && (
-          <Metadata
+          <SettingRow
             label={SETTING_TITLES.urlRedirect}
             value={<Toggle on={!!connection.includeRedirectExperiments} />}
           />
         )}
-        <Metadata
+        <SettingRow
           label={SETTING_TITLES.hideNames}
           value={<Toggle on={!(connection.includeExperimentNames ?? true)} />}
         />
@@ -184,7 +190,7 @@ export default function SDKConnectionSettingsCards({
           canUpdate={canUpdate}
           onEdit={edit("savedGroups")}
         >
-          <Metadata
+          <SettingRow
             label={SETTING_TITLES.savedGroupReferences}
             value={
               SAVED_GROUP_FORMAT_LABELS[
@@ -200,11 +206,11 @@ export default function SDKConnectionSettingsCards({
         canUpdate={canUpdate}
         onEdit={edit("payloadMetadata")}
       >
-        <Metadata
+        <SettingRow
           label={SETTING_TITLES.projectIds}
           value={<Toggle on={!!connection.includeProjectIdInMetadata} />}
         />
-        <Metadata
+        <SettingRow
           label={SETTING_TITLES.customFields}
           value={
             <Flex as="span" align="center" gap="2" wrap="wrap">
@@ -218,11 +224,11 @@ export default function SDKConnectionSettingsCards({
             </Flex>
           }
         />
-        <Metadata
+        <SettingRow
           label={SETTING_TITLES.tags}
           value={<Toggle on={!!connection.includeTagsInMetadata} />}
         />
-        <Metadata
+        <SettingRow
           label={SETTING_TITLES.scheduleDates}
           value={
             <Toggle on={!!connection.includeExperimentScheduleInMetadata} />
@@ -235,16 +241,16 @@ export default function SDKConnectionSettingsCards({
         canUpdate={canUpdate}
         onEdit={edit("observability")}
       >
-        <Metadata
+        <SettingRow
           label={SETTING_TITLES.ruleIds}
           value={<Toggle on={!!connection.includeRuleIds} />}
         />
-        <Metadata
+        <SettingRow
           label={SETTING_TITLES.draftRules}
           value={<Toggle on={!!connection.includeDraftExperimentRefs} />}
         />
         {(showVisualEditor || showRedirects) && (
-          <Metadata
+          <SettingRow
             label={SETTING_TITLES.draftExperiments}
             value={<Toggle on={!!connection.includeDraftExperiments} />}
           />
@@ -259,12 +265,12 @@ export default function SDKConnectionSettingsCards({
           canUpdate={canUpdate}
           onEdit={edit("proxy")}
         >
-          <Metadata
+          <SettingRow
             label={SETTING_TITLES.useProxy}
             value={<Toggle on={!!connection.proxy?.enabled} />}
           />
           {connection.proxy?.enabled && connection.proxy?.host ? (
-            <Metadata
+            <SettingRow
               label={SETTING_TITLES.proxyHost}
               value={connection.proxy.host}
             />
