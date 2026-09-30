@@ -34,9 +34,18 @@ import {
 
 // One project for a constant or config, several for a saved group.
 export const entityProjects = (snapshot: unknown): string[] => {
-  const entity = (snapshot ?? {}) as { project?: string; projects?: string[] };
-  if (entity.projects?.length) return entity.projects;
-  return entity.project ? [entity.project] : [];
+  const entity = (snapshot ?? {}) as {
+    project?: string;
+    projects?: string[];
+    // The SDK-connection snapshot is composite, so its scope lives one level
+    // down. Without this every project-scoped approval rule resolved against an
+    // empty list and was invisible to self-approval blocking, review reset and
+    // autopublish.
+    sdkConnection?: { project?: string; projects?: string[] };
+  };
+  const scope = entity.sdkConnection ?? entity;
+  if (scope.projects?.length) return scope.projects;
+  return scope.project ? [scope.project] : [];
 };
 
 // Stricter wins; autopublish takes agreement; team lists union into one OR-group.
@@ -73,6 +82,8 @@ const approvalFlowRulesFor = (
   switch (entityType) {
     case "saved-group":
       return approvalFlows.savedGroups ?? [];
+    case "sdk-connection":
+      return approvalFlows.sdkConnections ?? [];
     // Constants don't use this config — they inherit the feature `requireReviews`
     // settings (see constantRequiresReview).
     case "config":
@@ -383,7 +394,9 @@ const isSelfApprovalBlockedForEntity = (
   return !!getApprovalFlowSettings(
     settings?.approvalFlows,
     entityType,
-    snapshot.projects ?? [],
+    // Via the shared resolver so composite snapshots (SDK connections) yield
+    // their nested scope rather than an empty list.
+    entityProjects(snapshot),
   )?.blockSelfApproval;
 };
 
@@ -442,6 +455,8 @@ export const getRevisionKey = (
   switch (entityType) {
     case "saved-group":
       return "saved-groups";
+    case "sdk-connection":
+      return "sdk-connections";
     case "constant":
       return "constants";
     case "config":
@@ -639,6 +654,10 @@ export function getRevisionUpdatableFields(
       return new Set(Object.keys(constantUpdatableFieldsSchema.shape));
     case "saved-group":
       return new Set(Object.keys(savedGroupUpdatableFieldsSchema.shape));
+    // The SDK-connection snapshot is composite, so its proposed changes target
+    // the two top-level branches rather than individual connection fields.
+    case "sdk-connection":
+      return new Set(["sdkConnection", "sdkWebhooks"]);
   }
 }
 
@@ -836,3 +855,123 @@ export function coauthorIds(
 ): string[] {
   return (contributors ?? []).filter((id) => !!id && id !== authorId);
 }
+
+/**
+ * Returns true when the only change in the revision is the SDK-connection
+ * display name (the sole "metadata" field). Almost every other field affects
+ * the generated payload, so only the name is exempt. Archiving and webhook
+ * changes are intentionally excluded — they always require review when
+ * approval is enabled.
+ *
+ * With the nested snapshot structure, connection settings are stored as a
+ * coarse `replace /sdkConnection` patch containing the entire new settings
+ * object. To determine which fields actually changed we compare against the
+ * `baselineSnapshot.sdkConnection` supplied by the caller (both the adapter
+ * and the frontend have the revision's snapshot available). Without a
+ * baseline we conservatively return `false` (require review).
+ */
+export const isSdkConnectionRevisionMetadataOnly = (
+  proposedChanges: JsonPatchOperation[] | unknown,
+  baselineSnapshot?: Record<string, unknown>,
+): boolean => {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return false;
+
+  // Any webhook op means something more than metadata changed.
+  if (ops.some((op) => op.path === "/sdkWebhooks")) return false;
+
+  // Expect exactly one `replace /sdkConnection` op.
+  const connOp = ops.find(
+    (op) => op.path === "/sdkConnection" && op.op === "replace",
+  );
+  if (!connOp || ops.length > 1) return false;
+
+  // Need the baseline settings object to know which fields changed.
+  const baseline = baselineSnapshot?.["sdkConnection"] as
+    | Record<string, unknown>
+    | undefined;
+  if (!baseline) return false;
+
+  const proposed = ("value" in connOp ? connOp.value : undefined) as
+    | Record<string, unknown>
+    | undefined;
+  if (!proposed || typeof proposed !== "object" || Array.isArray(proposed)) {
+    return false;
+  }
+
+  // Metadata-only if every field is identical to the baseline except `name`
+  // and system-managed fields (`dateUpdated`, `dateCreated`).
+  const skipKeys = new Set(["name", "dateUpdated", "dateCreated"]);
+  const allKeys = new Set([...Object.keys(proposed), ...Object.keys(baseline)]);
+  for (const key of allKeys) {
+    if (skipKeys.has(key)) continue;
+    if (!isEqual(proposed[key], baseline[key])) return false;
+  }
+  // Require the name to have actually changed (otherwise zero real changes).
+  return !isEqual(proposed["name"], baseline["name"]);
+};
+
+// ---------------------------------------------------------------------------
+// SDK-connection approval scoping (project + environment, SDK-connection only)
+//
+// Mirrors how Features scope `requireReviews`: each rule carries optional
+// `projects` / `environments` arrays. A rule applies to a connection when the
+// connection's project(s) match the rule's `projects` (empty = all projects)
+// AND its environment matches the rule's `environments` (empty = all
+// environments). Multiple rules OR together. Saved groups and features do NOT
+// use these helpers.
+// ---------------------------------------------------------------------------
+
+export type SdkConnectionApprovalScope = {
+  projects?: string[];
+  environment?: string;
+};
+
+/**
+ * Whether an approval rule's project/environment scope matches a connection.
+ * An empty (or omitted) `projects`/`environments` on the rule means "all".
+ * Mirrors the feature `getReviewSetting` (project) + `checkEnvironmentsMatch`
+ * (environment) logic, extended to a connection's `projects` array.
+ */
+export const sdkConnectionMatchesApprovalScope = (
+  rule: Pick<ApprovalFlowConfiguration, "projects" | "environments">,
+  scope: SdkConnectionApprovalScope,
+): boolean => {
+  const ruleProjects = rule.projects ?? [];
+  const connProjects = scope.projects ?? [];
+  const projectMatch =
+    ruleProjects.length === 0 ||
+    connProjects.some((p) => ruleProjects.includes(p));
+
+  const ruleEnvironments = rule.environments ?? [];
+  const envMatch =
+    ruleEnvironments.length === 0 ||
+    (!!scope.environment && ruleEnvironments.includes(scope.environment));
+
+  return projectMatch && envMatch;
+};
+
+/**
+ * The first enabled SDK-connection approval rule whose project/environment
+ * scope matches the given connection, or undefined if none require approval for
+ * it. The matched rule supplies the per-rule settings (requireMetadataReview, etc.).
+ */
+export const getSdkConnectionApprovalRule = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  scope: SdkConnectionApprovalScope,
+): ApprovalFlowConfiguration | undefined => {
+  const rules = approvalFlows?.sdkConnections;
+  if (!rules?.length) return undefined;
+  return rules.find(
+    (rule) => rule.required && sdkConnectionMatchesApprovalScope(rule, scope),
+  );
+};
+
+/**
+ * Whether the org has *any* enabled SDK-connection approval rule (ignoring
+ * scope). Used for type-level "does this org use SDK-connection approvals at
+ * all" decisions, e.g. the approvals inbox / badge query.
+ */
+export const orgHasAnySdkConnectionApproval = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+): boolean => !!approvalFlows?.sdkConnections?.some((rule) => rule.required);

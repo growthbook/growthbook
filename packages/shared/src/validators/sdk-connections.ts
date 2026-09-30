@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
-
 import { namedSchema } from "./openapi-helpers";
+import { payloadFormatValidator, webhookMethods } from "./webhooks";
 
 /**
  * The three ways Saved Groups can be written into an SDK payload.
@@ -81,6 +81,125 @@ export const apiSdkConnectionValidator = namedSchema(
 );
 
 export type ApiSdkConnection = z.infer<typeof apiSdkConnectionValidator>;
+
+// ---------------------------------------------------------------------------
+// Revision/approval-flow schemas
+// ---------------------------------------------------------------------------
+
+// The connection-settings portion of a revision snapshot. It is a flattened,
+// secret-free projection of SDKConnectionInterface:
+//   - `proxy` is flattened to `proxyEnabled` / `proxyHost` so it lines up with
+//     the EditSDKConnectionParams the merge step ultimately writes.
+//   - secret/system fields (`encryptionKey`, `key`, the proxy signing key,
+//     `connected`, `managedBy`) are intentionally omitted.
+// Strict so the adapter's snapshot whitelist can't silently drift from this.
+export const sdkConnectionSettingsSnapshotValidator = z
+  .object({
+    id: z.string(),
+    organization: z.string(),
+    name: z.string(),
+    eventTracker: z.string().optional(),
+    languages: z.array(z.string()),
+    sdkVersion: z.string().optional(),
+    environment: z.string(),
+    projects: z.array(z.string()),
+    encryptPayload: z.boolean(),
+    hashSecureAttributes: z.boolean().optional(),
+    includeVisualExperiments: z.boolean().optional(),
+    includeDraftExperiments: z.boolean().optional(),
+    includeDraftExperimentRefs: z.boolean().optional(),
+    includeExperimentNames: z.boolean().optional(),
+    includeRedirectExperiments: z.boolean().optional(),
+    includeRuleIds: z.boolean().optional(),
+    includeProjectIdInMetadata: z.boolean().optional(),
+    includeCustomFieldsInMetadata: z.boolean().optional(),
+    allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
+    includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
+    remoteEvalEnabled: z.boolean().optional(),
+    // The deprecated boolean stays in the snapshot because the model still
+    // writes it; the UI sends `savedGroupFormat` and the model derives it.
+    savedGroupReferencesEnabled: z.boolean().optional(),
+    savedGroupFormat: savedGroupFormatValidator.optional(),
+    includeReferencedPrerequisites: z.boolean().optional(),
+    proxyEnabled: z.boolean().optional(),
+    proxyHost: z.string().optional(),
+    archived: z.boolean().optional(),
+    // NOTE: dateCreated/dateUpdated are deliberately excluded. Proposed changes
+    // target the whole `/sdkConnection` object, so conflict detection compares
+    // it wholesale — and `dateUpdated` changes on every write, which would make
+    // every draft look conflicted. They are not updatable fields either.
+  })
+  .strict();
+
+export type SDKConnectionSettingsRevisionSnapshot = z.infer<
+  typeof sdkConnectionSettingsSnapshotValidator
+>;
+
+// Webhook fields tracked in a revision snapshot. Runtime/secret fields
+// (signingKey, lastSuccess, error, consecutiveFailures, managedBy, sdks,
+// useSdkMode) are intentionally omitted.
+export const sdkWebhookSnapshotValidator = z.object({
+  id: z.string(),
+  name: z.string(),
+  endpoint: z.string(),
+  httpMethod: z.enum(webhookMethods),
+  headers: z.string().optional(),
+  payloadFormat: payloadFormatValidator.optional(),
+  payloadKey: z.string().optional(),
+  disabled: z.boolean().optional(),
+});
+
+export type SDKWebhookRevisionSnapshot = z.infer<
+  typeof sdkWebhookSnapshotValidator
+>;
+
+// Composite snapshot combining connection settings and associated webhooks.
+// When a revision is published, `sdkConnection` changes apply to the
+// sdkconnections collection and `sdkWebhooks` changes apply to the webhooks
+// collection.
+export const sdkConnectionSnapshotValidator = z.object({
+  sdkConnection: sdkConnectionSettingsSnapshotValidator,
+  sdkWebhooks: z.array(sdkWebhookSnapshotValidator),
+});
+
+export type SDKConnectionRevisionSnapshot = z.infer<
+  typeof sdkConnectionSnapshotValidator
+>;
+
+// Single source of truth for the SDK-connection fields a revision is allowed to
+// mutate when applying changes to the live connection. Derived from the
+// settings snapshot schema so it cannot drift. The keys line up with
+// EditSDKConnectionParams.
+export const sdkConnectionUpdatableFieldsSchema =
+  sdkConnectionSettingsSnapshotValidator.pick({
+    name: true,
+    eventTracker: true,
+    languages: true,
+    sdkVersion: true,
+    environment: true,
+    projects: true,
+    encryptPayload: true,
+    hashSecureAttributes: true,
+    includeVisualExperiments: true,
+    includeDraftExperiments: true,
+    includeDraftExperimentRefs: true,
+    includeExperimentNames: true,
+    includeRedirectExperiments: true,
+    includeRuleIds: true,
+    includeProjectIdInMetadata: true,
+    includeCustomFieldsInMetadata: true,
+    allowedCustomFieldsInMetadata: true,
+    includeTagsInMetadata: true,
+    includeExperimentScheduleInMetadata: true,
+    remoteEvalEnabled: true,
+    savedGroupReferencesEnabled: true,
+    savedGroupFormat: true,
+    includeReferencedPrerequisites: true,
+    proxyEnabled: true,
+    proxyHost: true,
+    archived: true,
+  });
 
 // Corresponds to payload-schemas/PostSdkConnectionPayload.yaml
 const postSdkConnectionBody = z

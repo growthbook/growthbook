@@ -1131,6 +1131,13 @@ export class Permissions {
     return this.canRevisionAction("saved-group", "bypass", obj);
   };
 
+  public canBypassSDKConnectionApprovalChecks = (obj: {
+    project?: string;
+    projects?: string[];
+  }): boolean => {
+    return this.canRevisionAction("sdk-connection", "bypass", obj);
+  };
+
   public canManageCustomFields = (): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [] },

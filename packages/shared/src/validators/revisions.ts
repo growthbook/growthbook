@@ -2,6 +2,7 @@ import { z } from "zod";
 import { savedGroupValidator } from "./saved-group";
 import { constantValidator } from "./constant";
 import { configValidator } from "./config";
+import { sdkConnectionSnapshotValidator } from "./sdk-connections";
 
 export const revisionStatus = [
   "draft",
@@ -48,6 +49,7 @@ export const revisionTargetType = [
   "saved-group",
   "constant",
   "config",
+  "sdk-connection",
 ] as const;
 export type RevisionTargetType = (typeof revisionTargetType)[number];
 
@@ -173,12 +175,23 @@ export type RevisionConfigTarget = z.infer<
   typeof revisionConfigTargetValidator
 >;
 
+export const revisionSdkConnectionTargetValidator = z.object({
+  type: z.literal("sdk-connection"),
+  id: z.string(),
+  snapshot: sdkConnectionSnapshotValidator,
+  proposedChanges: z.array(jsonPatchOperationValidator),
+});
+export type RevisionSdkConnectionTarget = z.infer<
+  typeof revisionSdkConnectionTargetValidator
+>;
+
 // Extension point: add new revisionXxxTargetValidator entries here as new entity types are added.
 // Each validator must have a unique `type` literal and a `snapshot` field with the entity's schema.
 export const revisionTargetValidator = z.discriminatedUnion("type", [
   revisionSavedGroupTargetValidator,
   revisionConstantTargetValidator,
   revisionConfigTargetValidator,
+  revisionSdkConnectionTargetValidator,
   // revisionFeatureTargetValidator,  ← add future entity types here
 ]);
 export type RevisionTarget = z.infer<typeof revisionTargetValidator>;

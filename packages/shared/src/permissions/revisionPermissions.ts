@@ -11,7 +11,12 @@ export type RevisionAction =
   | "revert" // restore a previously-published revision
   | "bypass"; // publish without the required review, force-merge a stale base
 
-export type RevisionModel = "feature" | "config" | "constant" | "saved-group";
+export type RevisionModel =
+  | "feature"
+  | "config"
+  | "constant"
+  | "saved-group"
+  | "sdk-connection";
 
 export interface ActionPermission {
   permission: Permission;
@@ -84,6 +89,26 @@ export const REVISION_PERMISSIONS: Record<
     publish: { permission: "publishSavedGroups", scope: "project" },
     revert: { permission: "revertSavedGroups", scope: "project" },
     bypass: { permission: "bypassApprovalSavedGroups", scope: "project" },
+  },
+  // SDK connections have a single edit atom (`manageSDKConnections`) rather
+  // than per-action atoms, so every action maps to it — except bypass, which
+  // gets its own so that being able to edit a connection is not by itself
+  // enough to skip an approval. A connection declares an environment and
+  // `manageSDKConnections` is env-scoped, so it takes the flag scoping: the
+  // actions that touch live state carry the environment footprint. Declaring
+  // them project-scoped would skip the environment check entirely, letting a
+  // dev-limited role publish a revision against a production connection.
+  // Unlike the flag entities there is no separate draft atom, so drafting also
+  // carries the environment footprint — the scope of each entry has to match
+  // its atom's own scope, which the REVISION_PERMISSIONS matrix test enforces.
+  "sdk-connection": {
+    create: { permission: "manageSDKConnections", scope: "environment" },
+    delete: { permission: "manageSDKConnections", scope: "environment" },
+    draft: { permission: "manageSDKConnections", scope: "environment" },
+    review: { permission: "manageSDKConnections", scope: "environment" },
+    publish: { permission: "manageSDKConnections", scope: "environment" },
+    revert: { permission: "manageSDKConnections", scope: "environment" },
+    bypass: { permission: "bypassApprovalSDKConnections", scope: "project" },
   },
 };
 

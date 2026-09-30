@@ -32766,6 +32766,36 @@ paths:
                       type: array
                       items:
                         $ref: '#/components/schemas/SavedGroupApprovalRule'
+                    sdkConnections:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          required:
+                            type: boolean
+                          projects:
+                            type: array
+                            items:
+                              type: string
+                          resetReviewOnChange:
+                            type: boolean
+                          requireMetadataReview:
+                            type: boolean
+                          blockSelfApproval:
+                            type: boolean
+                          autopublishOnApproval:
+                            type: boolean
+                          requiredApproverTeams:
+                            type: array
+                            items:
+                              type: string
+                          environments:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - required
+                        additionalProperties: false
                   required:
                     - savedGroups
                   additionalProperties: false
@@ -71748,6 +71778,36 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/SavedGroupApprovalRule'
+            sdkConnections:
+              type: array
+              items:
+                type: object
+                properties:
+                  required:
+                    type: boolean
+                  projects:
+                    type: array
+                    items:
+                      type: string
+                  resetReviewOnChange:
+                    type: boolean
+                  requireMetadataReview:
+                    type: boolean
+                  blockSelfApproval:
+                    type: boolean
+                  autopublishOnApproval:
+                    type: boolean
+                  requiredApproverTeams:
+                    type: array
+                    items:
+                      type: string
+                  environments:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - required
+                additionalProperties: false
           required:
             - savedGroups
           additionalProperties: false
@@ -82606,6 +82666,36 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SavedGroupApprovalRule'
+        sdkConnections:
+          type: array
+          items:
+            type: object
+            properties:
+              required:
+                type: boolean
+              projects:
+                type: array
+                items:
+                  type: string
+              resetReviewOnChange:
+                type: boolean
+              requireMetadataReview:
+                type: boolean
+              blockSelfApproval:
+                type: boolean
+              autopublishOnApproval:
+                type: boolean
+              requiredApproverTeams:
+                type: array
+                items:
+                  type: string
+              environments:
+                type: array
+                items:
+                  type: string
+            required:
+              - required
+            additionalProperties: false
       required:
         - savedGroups
       additionalProperties: false

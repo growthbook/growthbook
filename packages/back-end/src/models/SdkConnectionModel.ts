@@ -84,6 +84,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   savedGroupReferencesEnabled: Boolean,
   savedGroupFormat: String,
   eventTracker: String,
+  archived: Boolean,
   managedBy: {},
   key: {
     type: String,
@@ -212,9 +213,21 @@ export async function findSDKConnectionsByIds(
   return docs.map(toInterface);
 }
 
-export async function findSDKConnectionByKey(key: string) {
+/**
+ * Client-key lookup used by every payload-serving path. Archived connections are
+ * excluded: archiving is presented to the user as "it will no longer serve
+ * feature flags to your application", so the key must stop resolving here.
+ * Pass `includeArchived` only for management reads that must still see them.
+ */
+export async function findSDKConnectionByKey(
+  key: string,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+) {
   const doc = await SDKConnectionModel.findOne({ key });
-  return doc ? toInterface(doc) : null;
+  if (!doc) return null;
+  const connection = toInterface(doc);
+  if (!includeArchived && connection.archived) return null;
+  return connection;
 }
 
 export const createSDKConnectionValidator = z
@@ -363,6 +376,7 @@ export const editSDKConnectionValidator = z
     savedGroupFormat: savedGroupFormatValidator.optional(),
     includeReferencedPrerequisites: z.boolean().optional(),
     eventTracker: z.string().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
 
@@ -439,6 +453,7 @@ export async function editSDKConnection(
     "includeTagsInMetadata",
     "includeExperimentScheduleInMetadata",
     "savedGroupReferencesEnabled",
+    "archived",
     "savedGroupFormat",
     "includeReferencedPrerequisites",
   ] as const;

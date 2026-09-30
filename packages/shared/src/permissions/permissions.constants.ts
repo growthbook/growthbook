@@ -46,6 +46,7 @@ export const POLICIES = [
   "SavedGroupsRevert",
   "SavedGroupsDelete",
   "SavedGroupsBypassApprovals",
+  "SDKConnectionsBypassApprovals",
   "SavedGroupsBypassSizeLimit",
   "BypassSavedGroupSizeLimit",
   "GeneralSettingsFullAccess",
@@ -194,6 +195,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "bypassApprovalConfigs",
     "bypassApprovalConstants",
     "bypassApprovalSavedGroups",
+    "bypassApprovalSDKConnections",
   ],
   ExperimentsFullAccess: ["readData", "createAnalyses", "runQueries"],
   VisualEditorFullAccess: ["readData", "manageVisualChanges"],
@@ -288,6 +290,8 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   SavedGroupsDelete: ["readData", "deleteSavedGroups"],
   // The saved-group half of the bypass add-on, mirroring FlagsBypassApprovals.
   SavedGroupsBypassApprovals: ["readData", "bypassApprovalSavedGroups"],
+  // The SDK-connection half of the bypass add-on, mirroring SavedGroupsBypassApprovals.
+  SDKConnectionsBypassApprovals: ["readData", "bypassApprovalSDKConnections"],
   BypassSavedGroupSizeLimit: ["readData", "bypassSavedGroupSizeLimit"],
   // Deprecated superset — see DEPRECATED_POLICIES.
   SavedGroupsBypassSizeLimit: [
@@ -413,6 +417,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     name: "SDK Configuration",
     policies: [
       "SDKConnectionsFullAccess",
+      "SDKConnectionsBypassApprovals",
       "AttributesFullAccess",
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
@@ -648,6 +653,11 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Bypass draft approvals",
     description:
       "Publish without the required draft review, and force-merge an out-of-date draft",
+  },
+  SDKConnectionsBypassApprovals: {
+    displayName: "Bypass draft approvals",
+    description:
+      "Publish an SDK Connection without the required draft review, and force-merge an out-of-date draft",
   },
   BypassSavedGroupSizeLimit: {
     displayName: "Bypass size limit",
@@ -1019,6 +1029,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "publishSavedGroups",
   "revertSavedGroups",
   "bypassApprovalSavedGroups",
+  "bypassApprovalSDKConnections",
   "manageLearnings",
   "manageCustomFields",
   "manageTemplates",

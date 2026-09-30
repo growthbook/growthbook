@@ -68,7 +68,18 @@ export const apiSavedGroupApprovalRule = namedSchema(
 );
 
 export const apiApprovalFlows = z
-  .object({ savedGroups: z.array(apiSavedGroupApprovalRule) })
+  .object({
+    savedGroups: z.array(apiSavedGroupApprovalRule),
+    // SDK-connection rules additionally scope by environment, since a
+    // connection serves exactly one.
+    sdkConnections: z
+      .array(
+        apiSavedGroupApprovalRule.extend({
+          environments: z.array(z.string()).optional(),
+        }),
+      )
+      .optional(),
+  })
   .strict();
 
 // Corresponds to schemas/Settings.yaml

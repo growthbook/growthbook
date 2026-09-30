@@ -32,6 +32,10 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
       savedGroups: toApiSavedGroupApprovals(
         req.context.org.settings?.approvalFlows?.savedGroups ?? [],
       ),
+      // Read back what the PUT accepts, so a round-trip doesn't drop rules.
+      sdkConnections: toApiSavedGroupApprovals(
+        req.context.org.settings?.approvalFlows?.sdkConnections ?? [],
+      ),
     },
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
     preferredEnvironment:

@@ -25,17 +25,19 @@ export const putApprovalSettings = createApiRequestHandler(
 
   // Matches the interactive route: saved-group approvals are the licensed part.
   if (
-    approvalFlows?.savedGroups?.some((rule) => rule.required) &&
+    (approvalFlows?.savedGroups?.some((rule) => rule.required) ||
+      approvalFlows?.sdkConnections?.some((rule) => rule.required)) &&
     !req.context.hasPremiumFeature("require-approvals")
   ) {
     throw new Error(
-      "Saved Groups approval flows require the Require Approvals enterprise feature.",
+      "Approval flows require the Require Approvals enterprise feature.",
     );
   }
 
   await assertApprovalRuleReferencesExist(req.context, [
     ...(requireReviews ?? []),
     ...(approvalFlows?.savedGroups ?? []),
+    ...(approvalFlows?.sdkConnections ?? []),
     ...(targetingReviewMode ?? []),
   ]);
   assertTargetingRulesDisjoint(targetingReviewMode ?? []);
@@ -50,7 +52,16 @@ export const putApprovalSettings = createApiRequestHandler(
           })),
         }
       : {}),
-    ...(approvalFlows ? { approvalFlows } : {}),
+    // Merge rather than replace: a request that sends only `savedGroups` would
+    // otherwise silently delete every sdkConnections rule, with no audit signal.
+    ...(approvalFlows
+      ? {
+          approvalFlows: {
+            ...org.settings?.approvalFlows,
+            ...approvalFlows,
+          },
+        }
+      : {}),
   });
   const targetingUpdate = targetingReviewMode ? { targetingReviewMode } : {};
 
