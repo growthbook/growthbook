@@ -92,6 +92,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   context: ReqContext;
   datasource: DataSourceInterface;
   decryptionError: boolean;
+  columnNamesAreCaseSensitive = false;
 
   constructor(context: ReqContext, datasource: DataSourceInterface) {
     this.context = context;
@@ -528,7 +529,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
           // GA doesn't expose standard deviations, so we have to guess
           // If the metric is duration, we can assume an exponential distribution where the stddev equals the mean
           // If the metric is count, we can assume a poisson distribution where the variance equals the mean
-          // For binomial metrics, we can use the Normal approximation for a bernouli random variable
+          // For binomial metrics, we can use the Normal approximation for a Bernoulli random variable
           const variance =
             metric.type === "duration"
               ? Math.pow(mean, 2)

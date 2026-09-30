@@ -73,6 +73,7 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
   "sql-explorer": {
     name: "Custom SQL Query",
     icon: <PiFileSqlDuotone />,
+    deprecated: true,
     description:
       "Displays results and saved visualizations from a custom SQL query.",
   },
@@ -100,6 +101,11 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
     description:
       "Builds a custom analysis from tables and columns from one of your connected Data Sources.",
   },
+  "sql-exploration": {
+    name: "SQL Explorer",
+    icon: <PiFileSqlDuotone />,
+    description: "Build a visualization from a custom SQL query.",
+  },
   "funnel-exploration": {
     name: "Funnel Explorer",
     icon: <PiFunnel />,
@@ -121,6 +127,7 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
       "fact-table-exploration",
       "data-source-exploration",
       "funnel-exploration",
+      "sql-exploration",
     ],
   ],
   [
@@ -141,6 +148,7 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "sql-exploration",
   "funnel-exploration",
   "metric-experiments",
   "experiments-scaled-impact",

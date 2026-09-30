@@ -1,16 +1,16 @@
 // `isArmedWithAuthorizedPublisher` resolves the armer's request context, which
 // reaches the database. Only that is stubbed; every rule under test stays real.
 jest.mock("back-end/src/services/organizations", () => ({
-  getContextForUserIdInOrg: jest.fn(),
+  getContextForArmedPublisherInOrg: jest.fn(),
 }));
 
 import {
   isArmedWithAuthorizedPublisher,
   planApproveAndPublish,
 } from "back-end/src/revisions/approveAndPublish";
-import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
+import { getContextForArmedPublisherInOrg } from "back-end/src/services/organizations";
 
-const resolveArmerContext = getContextForUserIdInOrg as jest.Mock;
+const resolveArmerContext = getContextForArmedPublisherInOrg as jest.Mock;
 
 describe("planApproveAndPublish", () => {
   it("denies anyone without review authority", () => {

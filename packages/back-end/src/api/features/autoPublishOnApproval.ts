@@ -1,6 +1,10 @@
 import { ExperimentRefRule } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
+import {
+  holdsTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   filterEnvironmentsByFeature,
@@ -23,7 +27,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
+import { getContextForArmedPublisherInOrg } from "back-end/src/services/organizations";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {
   recordScheduledPublishFailure,
@@ -61,7 +65,26 @@ export async function canEnableFeatureAutoPublishOnApproval(
 
   // Delegates to the shared arming check so the source and destination rule is
   // stated once.
-  return canPublishFeatureRevision(context, feature, revision);
+  return (
+    (await canPublishFeatureRevision(context, feature, revision)) &&
+    (await armsTargeting(context, feature, revision))
+  );
+}
+
+// Arming commits a future landing into whatever the draft newly targets, so it
+// takes the targeting atom now. Cancelling and disarming do not: a schedule
+// must stay cancellable after a project opts out or the atom is revoked.
+async function armsTargeting(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<boolean> {
+  return holdsTargetingDestination({
+    permissions: context.permissions,
+    existing: feature,
+    proposed: withStagedTargeting(feature, revision?.metadata),
+    optedOut: await context.getTargetingOptOutProjectIds(),
+  });
 }
 
 /** Disarming requires publish authority, but not scheduling eligibility. */
@@ -154,7 +177,15 @@ export async function canPublishFeatureRevision(
   // in the DESTINATION, so arming a schedule for it commits a future publish there —
   // judging the live feature's scope alone let someone arm a publish they cannot
   // perform, which then failed on every poller tick until it gave up.
-  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+  revision?:
+    | FeatureRevisionInterface
+    | {
+        metadata?: {
+          project?: string;
+          targetingAllProjects?: boolean;
+          targetingProjects?: string[];
+        };
+      },
 ): Promise<boolean> {
   const environmentIds = await armingEnvironments(context, feature, revision);
   if (!context.permissions.canPublishFeature(feature, environmentIds)) {
@@ -178,7 +209,10 @@ export async function canScheduleFeaturePublish(
   revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
 ): Promise<boolean> {
   if (!context.hasPremiumFeature("scheduled-revisions")) return false;
-  return canPublishFeatureRevision(context, feature, revision);
+  return (
+    (await canPublishFeatureRevision(context, feature, revision)) &&
+    (await armsTargeting(context, feature, revision))
+  );
 }
 
 async function revisionRequiresPreLaunchChecklist(
@@ -223,7 +257,7 @@ async function revisionRequiresPreLaunchChecklist(
 // the draft's author — but only when that author is a dashboard user. API-key
 // and system event users can carry an `id` that is NOT a resolvable user, so
 // they return null (the publish can't run with their authority).
-export function resolveArmedPublishUserId(
+export function resolveArmedPublisherId(
   revision: Pick<
     FeatureRevisionInterface,
     "autoPublishEnabledBy" | "createdBy"
@@ -243,10 +277,10 @@ async function getArmedPublishContext(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
 ): Promise<ReqContext | ApiReqContext | null> {
-  const enablerId = resolveArmedPublishUserId(revision, null);
+  const enablerId = resolveArmedPublisherId(revision, null);
   if (!enablerId) return null;
   try {
-    return await getContextForUserIdInOrg(context.org, enablerId);
+    return await getContextForArmedPublisherInOrg(context.org, enablerId);
   } catch {
     return null;
   }

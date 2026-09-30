@@ -10,6 +10,9 @@ import {
 // and the reference detector (validators/constant) so they can't drift.
 export const CONSTANT_EXTENDS_KEY = "$extends";
 
+// The single NAT gateway address all GrowthBook Cloud egress leaves from; keep in sync with docs/ip-addresses.mdx.
+export const CLOUD_EGRESS_IP = "52.70.79.40";
+
 export const GB_SDK_ID_DEV = "sdk-UmQ03OkUDAu7Aox";
 export const GB_SDK_ID_PROD = "sdk-ueFMOgZ2daLa0M";
 
@@ -17,6 +20,7 @@ export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
+export const BAYESIAN_CREDIBLE_INTERVAL_ALPHA = 0.05;
 export const DEFAULT_P_VALUE_CORRECTION = null;
 export const DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE = 0.001;
 export const DEFAULT_GUARDRAIL_ALPHA = 0.05; //used for early stopping for safe
@@ -60,6 +64,8 @@ export const DEFAULT_TOP_VALUES_LOOKBACK_UNIT = "days";
 export const DEFAULT_TEST_QUERY_DAYS = 30;
 export const DEFAULT_USE_STICKY_BUCKETING = false;
 
+export const DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT = true;
+
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
 export const BANDIT_SRM_DIMENSION_NAME = "gb_internal_bandit_srm";
@@ -70,6 +76,13 @@ export const ATTR_CB_PREFIX = "attr_cb_";
 export const ATTR_CB_RAW_PREFIX = "attr_cb_raw_";
 /** Bucket value for low-traffic / merged contextual bandit attribute slices. */
 export const CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE = "Combined";
+/**
+ * Minimum total units a variation needs to participate in contextual bandit tree
+ * construction.
+ */
+export const MIN_UNITS_PER_VARIATION = 100;
+/** Per-variation minimum units applied within a single contextual bandit leaf. */
+export const MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY = 100;
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 export const NULL_ATTRIBUTE_VALUE = "__NULL_ATTRIBUTE";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
@@ -295,6 +308,7 @@ export const entityEvents = {
   vercelNativeIntegration: ["create", "update", "delete"],
   factTable: ["autocreate", "create", "update", "delete"],
   customField: ["create", "update", "delete"],
+  autoRun: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
   safeRollout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],

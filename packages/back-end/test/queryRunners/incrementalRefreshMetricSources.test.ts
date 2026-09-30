@@ -1,4 +1,5 @@
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   getIncrementalRefreshMetricSources,
   MetricSourceGroups,
@@ -92,6 +93,44 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
     expect(denomGroup!.metrics).toHaveLength(1);
     expect(denomGroup!.metrics[0].id).toBe("fact_xft_ratio");
     expect(denomGroup!.metrics[0].denominator?.factTableId).toBe("ft_denom");
+  });
+
+  it("routes a funnel into a single group on its step-0 fact table", () => {
+    const funnel = {
+      ...factMetricFactory.build({ id: "fact_funnel" }),
+      id: "fact_funnel",
+      metricType: "funnel" as const,
+      numerator: null,
+      funnelSettings: {
+        steps: [
+          {
+            name: "view",
+            factTableId: "ft_funnel",
+            rowFilters: [],
+            optional: false,
+            conversionWindow: null,
+          },
+          {
+            name: "purchase",
+            factTableId: "ft_funnel",
+            rowFilters: [],
+            optional: false,
+            conversionWindow: { unit: "hours" as const, value: 2 },
+          },
+        ],
+        concurrencyWindowSeconds: 0,
+      },
+    } as unknown as FactMetricInterface;
+    const groups = getIncrementalRefreshMetricSources({
+      metrics: [funnel],
+      existingMetricSources: [],
+      integration: fakeIntegration,
+      snapshotSettings: baseSnapshotSettings,
+    });
+    expect(groups).toHaveLength(1);
+    expect(groups[0].factTableId).toBe("ft_funnel");
+    expect(groups[0].metrics).toHaveLength(1);
+    expect(groups[0].metrics[0].id).toBe("fact_funnel");
   });
 
   it("co-locates a cross-FT numerator entry with a same-FT metric in the shared FT", () => {

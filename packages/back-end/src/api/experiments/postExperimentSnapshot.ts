@@ -71,6 +71,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
       datasource,
       dimension,
       organization: context.org.id,
+      phase: phaseIndex,
     });
   }
 

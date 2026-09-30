@@ -8,7 +8,12 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { postFactMetricValidator } from "shared/validators";
+import {
+  postFactMetricBodyFields,
+  postFactMetricValidator,
+  resolveCappingSettingsPatch,
+  validateFactMetricCapping,
+} from "shared/validators";
 import {
   CreateFactMetricProps,
   FactTableInterface,
@@ -20,7 +25,9 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 export async function getCreateMetricPropsFromBody(
-  body: z.infer<typeof postFactMetricValidator.bodySchema>,
+  body: z.infer<typeof postFactMetricBodyFields> & {
+    archived?: boolean;
+  },
   organization: OrganizationInterface,
   getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<CreateFactMetricProps> {
@@ -45,6 +52,7 @@ export async function getCreateMetricPropsFromBody(
     quantileSettings,
     funnelSettings,
     cappingSettings,
+    lowerCappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
     priorSettings,
@@ -168,11 +176,11 @@ export async function getCreateMetricPropsFromBody(
     }
   }
 
-  if (cappingSettings?.type && cappingSettings?.type !== "none") {
-    data.cappingSettings.type = cappingSettings.type;
-    data.cappingSettings.value = cappingSettings.value || 0;
-    data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
-  }
+  Object.assign(
+    data,
+    resolveCappingSettingsPatch({ cappingSettings, lowerCappingSettings }),
+  );
+  validateFactMetricCapping(data);
 
   if (windowSettings?.type && windowSettings?.type !== "none") {
     data.windowSettings.type = windowSettings.type;

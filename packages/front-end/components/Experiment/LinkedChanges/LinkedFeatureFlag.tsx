@@ -2,6 +2,7 @@ import { useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
+  LinkedFeatureEnvState,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -29,6 +30,32 @@ type Props = {
   onReAdd?: () => void;
   mutate?: () => void;
 };
+
+function getEnvironmentStateTooltip(
+  state: LinkedFeatureEnvState,
+  experimentStarted: boolean,
+): string {
+  switch (state) {
+    case "active":
+      return experimentStarted
+        ? "The experiment is active in this environment"
+        : "The experiment will be active in this environment once started";
+    case "disabled-env":
+      return experimentStarted
+        ? "The environment is disabled for this feature, so the experiment is not active"
+        : "The environment is disabled for this feature, so the experiment will not be active once started";
+    case "disabled-rule":
+      return experimentStarted
+        ? "The experiment is disabled in this environment and is not active"
+        : "The experiment is disabled in this environment and will not be active once started";
+    case "missing":
+      return "The experiment is not present in this environment";
+    default: {
+      const _exhaustiveCheck: never = state;
+      return _exhaustiveCheck;
+    }
+  }
+}
 
 export default function LinkedFeatureFlag({
   info,
@@ -110,14 +137,7 @@ export default function LinkedFeatureFlag({
       env,
       state,
       isActive: state === "active",
-      tooltip:
-        state === "active"
-          ? "The experiment is active in this environment"
-          : state === "disabled-env"
-            ? "The environment is disabled for this feature, so the experiment is not active"
-            : state === "disabled-rule"
-              ? "The experiment is disabled in this environment and is not active"
-              : "The experiment is not present in this environment",
+      tooltip: getEnvironmentStateTooltip(state, experiment.status !== "draft"),
     }),
   );
 
@@ -216,6 +236,20 @@ export default function LinkedFeatureFlag({
             </Link>
           </Callout>
         )}
+        {info.state === "draft" && info.cannotPublish && (
+          <Callout status="error" my="4">
+            {experiment.nextScheduledStatusUpdate?.type === "start"
+              ? "Whoever scheduled this start can no longer publish this Feature Flag draft. Unschedule or reschedule the start, then approve it again from an account that can."
+              : "You don't have permission to publish this Feature Flag draft, so it can't be published when the experiment starts."}{" "}
+            <Link
+              href={`/features/${info.feature?.id}${(info.draftRevisionVersion ?? null) !== null ? `?v=${info.draftRevisionVersion}` : ""}`}
+              target="_blank"
+            >
+              View draft
+              <PiArrowSquareOut className="ml-1" />
+            </Link>
+          </Callout>
+        )}
         {info.state === "draft" &&
           !info.hasMergeConflict &&
           info.hasUnrelatedDraftChanges && (
@@ -235,7 +269,8 @@ export default function LinkedFeatureFlag({
           )}
         {info.state === "draft" &&
           !info.hasMergeConflict &&
-          !info.hasUnrelatedDraftChanges && (
+          !info.hasUnrelatedDraftChanges &&
+          !info.cannotPublish && (
             <Callout
               status="info"
               my="4"

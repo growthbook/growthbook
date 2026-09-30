@@ -19,14 +19,13 @@ describe("isVisionCapableModel", () => {
   it("treats reasoning o-series and non-vision models as not capable", () => {
     expect(isVisionCapableModel("o3")).toBe(false);
     expect(isVisionCapableModel("o4-mini")).toBe(false);
-    expect(isVisionCapableModel("mistral-small")).toBe(false);
-    expect(isVisionCapableModel("grok-3")).toBe(false);
+    expect(isVisionCapableModel("mistral-small-latest")).toBe(false);
   });
 
   it("handles the special-case vision models (pixtral, grok-4)", () => {
-    expect(isVisionCapableModel("pixtral-12b")).toBe(true);
-    expect(isVisionCapableModel("grok-4")).toBe(true);
-    expect(isVisionCapableModel("grok-4-fast-reasoning")).toBe(true);
+    expect(isVisionCapableModel("pixtral-large-latest")).toBe(true);
+    expect(isVisionCapableModel("grok-4.6")).toBe(true);
+    expect(isVisionCapableModel("grok-4.3")).toBe(true);
   });
 });
 

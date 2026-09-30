@@ -100,7 +100,7 @@ function parseAttributes(attributes: Attributes): {
   };
 }
 
-type EventData = {
+export type TrackingEventData = {
   eventName: string;
   properties: EventProperties;
   attributes: Attributes;
@@ -112,7 +112,7 @@ function getEventPayload({
   properties,
   attributes,
   url,
-}: EventData): EventPayload {
+}: TrackingEventData): EventPayload {
   const { nested, topLevel } = parseAttributes(attributes || {});
 
   return {
@@ -183,28 +183,32 @@ async function track({
   }
 }
 
+export type GrowthBookTrackingOptions = {
+  // TODO: add option to allow filtering out certain attributes that contain PII
+  queueFlushInterval?: number;
+  ingestorHost?: string;
+  enable?: boolean;
+  enableFeatureUsageEvents?: boolean;
+  debug?: boolean;
+  dedupeCacheSize?: number;
+  dedupeKeyAttributes?: string[];
+  eventFilter?: (event: TrackingEventData) => boolean;
+  // "auto" (default): fetch with keepalive, plus sendBeacon when the page is
+  // unloading. "beacon": always prefer sendBeacon. "fetch": never use beacon.
+  transport?: TrackingTransport;
+};
+
 export function growthbookTrackingPlugin({
   queueFlushInterval = 100,
   ingestorHost,
   enable = true,
+  enableFeatureUsageEvents = true,
   debug,
   dedupeCacheSize = 1000,
   dedupeKeyAttributes = [],
   eventFilter,
   transport = "auto",
-}: {
-  // TODO: add option to allow filtering out certain attributes that contain PII
-  queueFlushInterval?: number;
-  ingestorHost?: string;
-  enable?: boolean;
-  debug?: boolean;
-  dedupeCacheSize?: number;
-  dedupeKeyAttributes?: string[];
-  eventFilter?: (event: EventData) => boolean;
-  // "auto" (default): fetch with keepalive, plus sendBeacon when the page is
-  // unloading. "beacon": always prefer sendBeacon. "fetch": never use beacon.
-  transport?: TrackingTransport;
-} = {}) {
+}: GrowthBookTrackingOptions = {}) {
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     const clientKey = gb.getClientKey();
     if (!clientKey) {
@@ -246,12 +250,19 @@ export function growthbookTrackingPlugin({
         }
       };
       gb.setEventLogger(async (eventName, properties, userContext) => {
-        const data: EventData = {
+        const data: TrackingEventData = {
           eventName,
           properties,
           attributes: userContext.attributes || {},
           url: userContext.url || "",
         };
+
+        if (
+          !enableFeatureUsageEvents &&
+          eventName === EVENT_FEATURE_EVALUATED
+        ) {
+          return;
+        }
 
         // Skip logging if the event is being filtered
         if (eventFilter && !eventFilter(data)) {

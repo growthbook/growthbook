@@ -1,4 +1,8 @@
-import { ANY_REVIEW_FOOTPRINT } from "shared/util";
+import {
+  ANY_REVIEW_FOOTPRINT,
+  featureReviewCandidateProjects,
+} from "shared/util";
+import type { OrganizationSettings } from "shared/types/organization";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
@@ -38,6 +42,7 @@ import {
 import { useRevisions } from "@/hooks/useRevisions";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 
 const ITEMS_PER_PAGE = 20;
@@ -90,9 +95,10 @@ type ApprovalRow = {
   // only understands numbers/strings/arrays) can properly order rows by date.
   dateCreated: number;
   url: string;
-  // Projects the underlying entity belongs to. Features have exactly one
-  // project (empty string → "no project"); saved groups can belong to many
-  // or none. Used by the "Needs my review" scope to check per-project
+  // Projects whose reviewers may act on the row. Features list their primary
+  // project first (empty string → "no project"), then any targeting project
+  // whose own review rule can bind them; saved groups can belong to many or
+  // none. Used by the "Needs my review" scope to check per-project
   // review/edit permissions without having to refetch the entities.
   projects: string[];
 };
@@ -229,6 +235,7 @@ function buildRevisionUrl(revision: Revision): string {
 
 function featureRevisionToRow(
   revision: FeatureRevisionWithMeta,
+  settings: OrganizationSettings,
 ): ApprovalRow | null {
   // Only show revisions with an identifiable logged-in author (matches the
   // shape expected by the "Requested by" column).
@@ -247,7 +254,11 @@ function featureRevisionToRow(
   const status: RevisionStatus =
     revision.status === "published" ? "merged" : revision.status;
 
-  const featureProject = revision.featureMeta?.project ?? "";
+  const projects = featureReviewCandidateProjects(
+    revision.featureMeta ?? { project: "" },
+    settings,
+    revision,
+  );
 
   return {
     id: `${revision.featureId}-v${revision.version}`,
@@ -260,7 +271,7 @@ function featureRevisionToRow(
     status,
     dateCreated: new Date(revision.dateCreated).getTime(),
     url: `/features/${revision.featureId}?v=${revision.version}`,
-    projects: [featureProject],
+    projects,
   };
 }
 
@@ -268,6 +279,7 @@ const ApprovalRequests: FC = () => {
   const router = useRouter();
   const { getUserDisplay, hasCommercialFeature, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const settings = useOrgSettings();
   const hasFeature = hasCommercialFeature("require-approvals");
 
   // Scope selector controlling the top-level "who cares about this row?"
@@ -300,11 +312,11 @@ const ApprovalRequests: FC = () => {
     const all: ApprovalRow[] = [
       ...revisions.map(revisionToRow),
       ...(featureRevisionsData?.revisions || [])
-        .map(featureRevisionToRow)
+        .map((r) => featureRevisionToRow(r, settings))
         .filter((r): r is ApprovalRow => r !== null),
     ];
     return all;
-  }, [revisions, featureRevisionsData]);
+  }, [revisions, featureRevisionsData, settings]);
 
   const entityTypes = useMemo(() => {
     const types = new Set(rows.map((r) => r.entityType));
@@ -400,6 +412,7 @@ const ApprovalRequests: FC = () => {
         return permissionsUtil.canReviewFeatureDrafts(
           { project: row.projects[0] ?? "" },
           ANY_REVIEW_FOOTPRINT,
+          row.projects.slice(1),
         );
       }
       if (

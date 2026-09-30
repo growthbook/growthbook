@@ -17,10 +17,14 @@ import {
   LicenseMetaData,
   LicenseUserCodes,
   makeOrgLimits,
+  DEFAULT_ORG_LIMITS,
+  OrgLimits,
   OrgLimitsAccessor,
+  planTierFor,
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
+import { EventForwarderSinkType } from "shared/types/event-forwarder";
 import {
   OrganizationInterface,
   OrgMemberInfo,
@@ -79,6 +83,7 @@ export function getSubscriptionFromLicense(
     cancelationDate: new Date((sub.canceled_at || 0) * 1000).toDateString(),
     pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
     isVercelIntegration: !!license.vercelInstallationId,
+    stripeCustomerId: license.stripeCustomerId,
   };
 }
 
@@ -123,7 +128,7 @@ export function isActiveSubscriptionStatus(
   return ["active", "trialing", "past_due"].includes(status || "");
 }
 
-// This returns the actual plan the organzation is on.  If you would prefer to know
+// This returns the actual plan the organization is on.  If you would prefer to know
 // what plan the organization is effectively on (taking into account downgrades)
 // use getEffectiveAccountPlan() instead.
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
@@ -807,7 +812,7 @@ export async function licenseInit(
         new Date(mongoCache.dateUpdated) < oneWeekAgo
       ) {
         // It is time to update the license data from the server.
-        // However when hitting a page we often make many simulataneous requests
+        // However when hitting a page we often make many simultaneous requests
         // By acquiring a lock we make sure to only call the license server once, the remaining
         // calls will be able to read from the cache.
         await lock.acquire(key, async () => {
@@ -1063,13 +1068,20 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
 // Raw plan limits only — does NOT honor the pricing-limits flag's kill switch.
 // Enforcement paths must use getEffectiveOrgLimits (services/plan-limits.ts).
 export function getOrgLimits(
-  org: MinimalOrganization & Pick<OrganizationInterface, "limits">,
+  org: MinimalOrganization &
+    Pick<OrganizationInterface, "limits" | "dateCreated">,
+  planLimitsOverride?: OrgLimits,
 ): OrgLimitsAccessor {
+  const effectivePlan = getEffectiveAccountPlan(org);
+  const tier = planTierFor(effectivePlan);
   return makeOrgLimits({
-    effectivePlan: getEffectiveAccountPlan(org),
+    effectivePlan,
     orgLimits: org.limits,
+    orgDateCreated: org.dateCreated,
     licenseLimits: getLicense(org.licenseKey || process.env.LICENSE_KEY)
       ?.limits,
+    planLimits:
+      planLimitsOverride ?? (tier ? DEFAULT_ORG_LIMITS[tier] : undefined),
   });
 }
 
@@ -1181,7 +1193,7 @@ export async function postProvisionEventForwarderToLicenseServer(
 export async function postTeardownEventForwarderToLicenseServer(params: {
   organizationId: string;
   datasourceId: string;
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderSinkType;
   topic?: string;
   connectorName?: string;
   connectorId?: string;

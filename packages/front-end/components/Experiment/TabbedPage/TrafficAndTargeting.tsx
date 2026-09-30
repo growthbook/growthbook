@@ -36,7 +36,7 @@ export default function TrafficAndTargeting({
   editTargeting,
   editTraffic,
 }: Props) {
-  const { namespaces } = useOrgSettings();
+  const { namespaces, useStickyBucketing } = useOrgSettings();
 
   const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
@@ -145,10 +145,13 @@ export default function TrafficAndTargeting({
                     </HashVersionTooltip>
                   ) : null}
                 </div>
-                {!isHoldout && experiment.disableStickyBucketing ? (
+                {!isHoldout && useStickyBucketing ? (
                   <div className="mt-1">
                     <Text color="text-mid">
-                      Sticky bucketing: <em>disabled</em>
+                      Sticky bucketing:{" "}
+                      {experiment.disableStickyBucketing
+                        ? "Disabled"
+                        : "Enabled"}
                     </Text>
                   </div>
                 ) : null}

@@ -1,12 +1,143 @@
-import { HoldoutInterface, holdoutValidator } from "shared/validators";
+import { z } from "zod";
+import {
+  coverageToHoldoutSize,
+  getAllowedHoldoutStageSources,
+  getEnabledHoldoutEnvironments,
+  getHoldoutStage,
+  HoldoutStage,
+  isHoldoutStageTransitionAllowed,
+  stringToBoolean,
+} from "shared/util";
+import { getActivePhase } from "shared/experiments";
+import {
+  ApiHoldoutInterface,
+  apiCreateHoldoutBody,
+  apiHoldoutActionReturn,
+  apiHoldoutActionValidator,
+  apiUpdateHoldoutBody,
+  HOLDOUT_API_TARGETING_UPDATE_FIELDS,
+  HoldoutInterface,
+  holdoutValidator,
+} from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
+import { notifyHoldoutNewLinkage } from "back-end/src/services/holdoutNotifications";
+import {
+  type DeferredEventBuffer,
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+  holdoutLinkageOwner,
+} from "back-end/src/events/bulkPublishCorrelation";
+
+// Removing linkage can never announce new linkage; without this a removal's
+// pending event would absorb other owners' additions in the same landing.
+const NO_NEW_LINKAGE = { notifyNewLinkage: false } as const;
+
+// One deferred linkage event per owner within a landing: a publish that joins a
+// holdout writes the feature entry and the experiment entries separately, and
+// subscribers should hear about both in one event.
+type PendingLinkage = { previous: HoldoutInterface; holdout: HoldoutInterface };
+const pendingLinkageEvents = new WeakMap<
+  DeferredEventBuffer,
+  Map<string, PendingLinkage>
+>();
+import {
+  holdoutApiSpec,
+  holdoutStartAnalysisEndpoint,
+  holdoutStartEndpoint,
+  holdoutStopEndpoint,
+} from "back-end/src/api/specs/holdout.spec";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { InvalidStatusError, NotFoundError } from "back-end/src/util/errors";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { ApiRequest } from "back-end/src/util/handler";
+import {
+  assertCanRunHoldoutEnvironments,
+  assertCanUpdateHoldout,
+  assertValidHoldoutSchedule,
+  createHoldoutWithExperiment,
+  normalizeHoldoutScheduleUpdates,
+  setHoldoutStage,
+  updateHoldoutWithExperiment,
+} from "back-end/src/services/holdouts";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+  resolveOwnerForCreate,
+} from "back-end/src/services/owner";
 import { MakeModelClass } from "./BaseModel";
-import { getExperimentById } from "./ExperimentModel";
+import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
 
 const COLLECTION_NAME = "holdouts";
+
+type HoldoutActionRequest = ApiRequest<
+  z.infer<typeof apiHoldoutActionReturn>,
+  typeof apiHoldoutActionValidator.paramsSchema,
+  typeof apiHoldoutActionValidator.bodySchema,
+  typeof apiHoldoutActionValidator.querySchema
+>;
+
+async function handleHoldoutStageTransition(
+  req: HoldoutActionRequest,
+  {
+    targetStage,
+    invalidStatusMessage,
+  }: {
+    targetStage: HoldoutStage;
+    invalidStatusMessage: string;
+  },
+): Promise<z.infer<typeof apiHoldoutActionReturn>> {
+  const holdout = await req.context.models.holdout.getById(req.params.id);
+  if (!holdout) {
+    return req.context.throwNotFoundError();
+  }
+  const experiment = await getExperimentById(req.context, holdout.experimentId);
+  if (!experiment) {
+    return req.context.throwNotFoundError("Holdout experiment not found");
+  }
+
+  if (!req.context.permissions.canUpdateHoldout(holdout, holdout)) {
+    req.context.permissions.throwPermissionError();
+  }
+  // Lifecycle transitions change what live SDKs serve (matches editStatus).
+  assertCanRunHoldoutEnvironments(req.context, {
+    enabledEnvironments: getEnabledHoldoutEnvironments(
+      holdout.environmentSettings,
+    ),
+    projects: holdout.projects,
+  });
+
+  const currentStage = getHoldoutStage(holdout, experiment);
+  if (!isHoldoutStageTransitionAllowed(currentStage, targetStage)) {
+    throw new InvalidStatusError(
+      invalidStatusMessage,
+      currentStage,
+      getAllowedHoldoutStageSources(targetStage),
+    );
+  }
+
+  await setHoldoutStage(req.context, {
+    holdout,
+    experiment,
+    stage: targetStage,
+  });
+
+  const [updatedHoldout, updatedExperiment] = await Promise.all([
+    req.context.models.holdout.getById(holdout.id),
+    getExperimentById(req.context, holdout.experimentId),
+  ]);
+  if (!updatedHoldout || !updatedExperiment) {
+    return req.context.throwNotFoundError();
+  }
+
+  return {
+    holdout: await resolveOwnerEmail(
+      toApiHoldout(updatedHoldout, updatedExperiment),
+      req.context,
+    ),
+  };
+}
 
 const BaseClass = MakeModelClass({
   schema: holdoutValidator,
@@ -19,6 +150,8 @@ const BaseClass = MakeModelClass({
     deleteEvent: "holdout.delete",
   },
   globallyUniquePrimaryKeys: false,
+  // The companion experiment is bound at creation and never reassigned.
+  readonlyFields: ["experimentId"],
   defaultValues: {
     skipAsDefaultHoldout: false,
   } as Partial<HoldoutInterface>,
@@ -27,6 +160,39 @@ const BaseClass = MakeModelClass({
       fields: { "nextScheduledStatusUpdate.date": 1 },
     },
   ],
+  apiConfig: {
+    modelKey: "holdout",
+    openApiSpec: holdoutApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...holdoutStartEndpoint,
+        reqHandler: (req) =>
+          handleHoldoutStageTransition(req, {
+            targetStage: "running",
+            invalidStatusMessage:
+              "Holdout must be in the draft stage to start.",
+          }),
+      }),
+      defineCustomApiHandler({
+        ...holdoutStartAnalysisEndpoint,
+        reqHandler: (req) =>
+          handleHoldoutStageTransition(req, {
+            targetStage: "analysis-period",
+            invalidStatusMessage:
+              "Holdout must be running to start its analysis period.",
+          }),
+      }),
+      defineCustomApiHandler({
+        ...holdoutStopEndpoint,
+        reqHandler: (req) =>
+          handleHoldoutStageTransition(req, {
+            targetStage: "stopped",
+            invalidStatusMessage:
+              "Holdout must be running or in its analysis period to stop.",
+          }),
+      }),
+    ],
+  },
 });
 
 // Guarded on BOTH maps by every linkage write, even one that touches only one of
@@ -34,6 +200,93 @@ const BaseClass = MakeModelClass({
 // experiments, compensate a publish) that guarding half would let the other half
 // be clobbered by a writer this one never saw.
 const LINKAGE_FIELDS = ["linkedFeatures", "linkedExperiments"] as const;
+
+/**
+ * A holdout is invalid without its companion experiment, so callers resolve it
+ * before serializing.
+ */
+export function toApiHoldout(
+  holdout: HoldoutInterface,
+  experiment: ExperimentInterface,
+): ApiHoldoutInterface {
+  const activePhase = getActivePhase(experiment);
+  const lastPhase = experiment.phases[experiment.phases.length - 1];
+  const firstPhase = experiment.phases[0];
+  const stage = getHoldoutStage(holdout, experiment);
+
+  return {
+    id: holdout.id,
+    dateCreated: holdout.dateCreated.toISOString(),
+    dateUpdated: holdout.dateUpdated.toISOString(),
+    name: holdout.name,
+    description: experiment.description ?? "",
+    projects: holdout.projects,
+    owner: experiment.owner,
+    tags: experiment.tags,
+    archived: experiment.archived,
+    stage,
+    trackingKey: experiment.trackingKey,
+    experimentId: holdout.experimentId,
+    skipAsDefaultHoldout: holdout.skipAsDefaultHoldout ?? false,
+
+    holdoutSize: coverageToHoldoutSize(activePhase?.coverage ?? 0),
+    hashAttribute: experiment.hashAttribute,
+    targetingCondition: activePhase?.condition ?? "",
+    savedGroupTargeting: activePhase?.savedGroups,
+
+    datasourceId: experiment.datasource,
+    assignmentQueryId: experiment.exposureQueryId,
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    statsEngine: experiment.statsEngine,
+    variations: experiment.variations.map((v) => ({
+      variationId: v.id,
+      key: v.key,
+      name: v.name,
+      description: v.description,
+    })),
+
+    environments: Object.fromEntries(
+      Object.entries(holdout.environmentSettings).map(([id, settings]) => [
+        id,
+        { enabled: settings.enabled },
+      ]),
+    ),
+
+    linkedFeatures: Object.values(holdout.linkedFeatures).map((f) => ({
+      id: f.id,
+      dateAdded: f.dateAdded.toISOString(),
+    })),
+    linkedExperiments: Object.values(holdout.linkedExperiments).map((e) => ({
+      id: e.id,
+      dateAdded: e.dateAdded.toISOString(),
+    })),
+
+    // The phase gets a dateStarted at creation, meaningless until it leaves draft.
+    dateStarted:
+      stage === "draft" ? undefined : firstPhase?.dateStarted?.toISOString(),
+    analysisStartDate: holdout.analysisStartDate?.toISOString(),
+    dateStopped:
+      experiment.status === "stopped"
+        ? lastPhase?.dateEnded?.toISOString()
+        : undefined,
+
+    statusUpdateSchedule: holdout.statusUpdateSchedule
+      ? {
+          startAt: holdout.statusUpdateSchedule.startAt?.toISOString(),
+          startAnalysisPeriodAt:
+            holdout.statusUpdateSchedule.startAnalysisPeriodAt?.toISOString(),
+          stopAt: holdout.statusUpdateSchedule.stopAt?.toISOString(),
+        }
+      : holdout.statusUpdateSchedule,
+    nextScheduledStatusUpdate: holdout.nextScheduledStatusUpdate
+      ? {
+          type: holdout.nextScheduledStatusUpdate.type,
+          date: holdout.nextScheduledStatusUpdate.date.toISOString(),
+        }
+      : holdout.nextScheduledStatusUpdate,
+  };
+}
 
 export class HoldoutModel extends BaseClass {
   // CRUD permission checks
@@ -58,6 +311,211 @@ export class HoldoutModel extends BaseClass {
     return this.context.hasPremiumFeature("holdouts");
   }
 
+  /***************
+   * REST API handlers
+   *
+   * All four are overridden: the defaults route through `toApiInterface`, which
+   * is synchronous and so cannot fetch the companion experiment that supplies
+   * most of the API shape.
+   ***************/
+
+  protected toApiInterface(): ApiHoldoutInterface {
+    throw new Error(
+      "Use handleApi* handlers to serialize a Holdout; toApiInterface cannot resolve its experiment.",
+    );
+  }
+
+  private async getExperimentOrThrow(
+    holdout: HoldoutInterface,
+  ): Promise<ExperimentInterface> {
+    const experiment = await getExperimentById(
+      this.context,
+      holdout.experimentId,
+    );
+    if (!experiment) {
+      // A 404 rather than a 500: the Holdout exists but is missing its other half.
+      this.context.throwNotFoundError("Holdout experiment not found");
+    }
+    return experiment;
+  }
+
+  public override async handleApiGet(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiGet"]>[0],
+  ): Promise<ApiHoldoutInterface> {
+    const holdout = await this.getById(req.params.id);
+    if (!holdout) req.context.throwNotFoundError();
+    const experiment = await this.getExperimentOrThrow(holdout);
+    return resolveOwnerEmail(toApiHoldout(holdout, experiment), this.context);
+  }
+
+  public override async handleApiList(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
+  ): Promise<ApiHoldoutInterface[]> {
+    const { projectId, datasourceId, stage, archived } = req.query;
+
+    const holdouts = await this.getAll();
+
+    const filteredByProject = projectId
+      ? holdouts.filter(
+          (h) => h.projects.length === 0 || h.projects.includes(projectId),
+        )
+      : holdouts;
+
+    const experiments = await getExperimentsByIds(
+      this.context,
+      filteredByProject.map((h) => h.experimentId),
+    );
+    const experimentsById = new Map(experiments.map((e) => [e.id, e]));
+
+    const wantArchived =
+      archived === undefined ? undefined : stringToBoolean(archived.toString());
+
+    const results: ApiHoldoutInterface[] = [];
+    for (const holdout of filteredByProject) {
+      const experiment = experimentsById.get(holdout.experimentId);
+      // A holdout without its companion experiment is invalid, so drop it.
+      if (!experiment) continue;
+      if (datasourceId && experiment.datasource !== datasourceId) continue;
+      if (stage && getHoldoutStage(holdout, experiment) !== stage) continue;
+      if (
+        wantArchived !== undefined &&
+        !!experiment.archived !== wantArchived
+      ) {
+        continue;
+      }
+      results.push(toApiHoldout(holdout, experiment));
+    }
+
+    return resolveOwnerEmails(results, this.context);
+  }
+
+  public override async handleApiCreate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
+  ): Promise<ApiHoldoutInterface> {
+    const body = apiCreateHoldoutBody.parse(req.body);
+
+    // createExperiment enforces no permissions, so gate before it runs or an
+    // unauthorized create orphans an experiment.
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
+    if (
+      !this.context.permissions.canCreateHoldout({
+        projects: body.projects ?? [],
+      })
+    ) {
+      this.context.permissions.throwPermissionError();
+    }
+
+    if (body.statusUpdateSchedule !== undefined) {
+      assertCanRunHoldoutEnvironments(this.context, {
+        enabledEnvironments: getEnabledHoldoutEnvironments(body.environments),
+        projects: body.projects ?? [],
+      });
+      // Stored by a follow-up update below, which has nothing to roll back to if
+      // rejected. Every new Holdout starts in draft.
+      assertValidHoldoutSchedule({
+        schedule: body.statusUpdateSchedule,
+        currentStage: "draft",
+      });
+    }
+
+    const owner = await resolveOwnerForCreate(body.owner, this.context);
+
+    const { holdout, experiment } = await createHoldoutWithExperiment(
+      this.context,
+      {
+        name: body.name,
+        description: body.description,
+        projects: body.projects,
+        owner,
+        tags: body.tags,
+        skipAsDefaultHoldout: body.skipAsDefaultHoldout,
+        datasourceId: body.datasourceId,
+        assignmentQueryId: body.assignmentQueryId,
+        hashAttribute: body.hashAttribute || "id",
+        holdoutSize: body.holdoutSize,
+        targetingCondition: body.targetingCondition,
+        savedGroups: body.savedGroupTargeting,
+        goalMetrics: body.goalMetrics,
+        secondaryMetrics: body.secondaryMetrics,
+        statsEngine: body.statsEngine,
+        environmentSettings: body.environments
+          ? Object.fromEntries(
+              Object.entries(body.environments).map(([id, settings]) => [
+                id,
+                { enabled: settings.enabled },
+              ]),
+            )
+          : undefined,
+      },
+    );
+
+    // Applied after creation so it is validated against the real stored stage.
+    if (body.statusUpdateSchedule) {
+      const withSchedule = await this.update(
+        holdout,
+        normalizeHoldoutScheduleUpdates({
+          holdout,
+          experiment,
+          scheduleInput: body.statusUpdateSchedule,
+        }),
+      );
+      return resolveOwnerEmail(
+        toApiHoldout(withSchedule, experiment),
+        this.context,
+      );
+    }
+
+    return resolveOwnerEmail(toApiHoldout(holdout, experiment), this.context);
+  }
+
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ): Promise<ApiHoldoutInterface> {
+    const body = apiUpdateHoldoutBody.parse(req.body);
+
+    const holdout = await this.getById(req.params.id);
+    if (!holdout) req.context.throwNotFoundError();
+    const experiment = await this.getExperimentOrThrow(holdout);
+
+    // Experiment-only updates never reach holdout.update, which is where the
+    // premium gate lives, so enforce it here too.
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
+
+    assertCanUpdateHoldout(this.context, {
+      holdout,
+      updatedProjects: body.projects,
+      requestedEnabledEnvironments: body.environments
+        ? getEnabledHoldoutEnvironments(body.environments)
+        : undefined,
+      isTargetingChange: HOLDOUT_API_TARGETING_UPDATE_FIELDS.some(
+        (field) => body[field] !== undefined,
+      ),
+      isScheduleChange: (body.statusUpdateSchedule ?? null) !== null,
+      isArchiveChange: body.archived !== undefined,
+      isRunning: experiment.status === "running",
+    });
+
+    const { holdout: updated, experiment: updatedExperiment } =
+      await updateHoldoutWithExperiment(this.context, {
+        holdout,
+        experiment,
+        body,
+      });
+
+    return resolveOwnerEmail(
+      toApiHoldout(updated, updatedExperiment),
+      this.context,
+    );
+  }
+
   protected async beforeUpdate(
     existing: HoldoutInterface,
     updates: Partial<HoldoutInterface>,
@@ -77,85 +535,11 @@ export class HoldoutModel extends BaseClass {
       throw new NotFoundError("Holdout experiment not found");
     }
 
-    const { startAt, startAnalysisPeriodAt, stopAt } =
-      updates.statusUpdateSchedule ?? {};
-
-    const now = new Date();
-
-    // Check if one of the scheduled dates is in the past
-    if (
-      startAt &&
-      holdoutExperiment.status === "draft" &&
-      new Date(startAt) < now
-    ) {
-      throw new BadRequestError("Scheduled start date cannot be in the past");
-    }
-    if (
-      startAnalysisPeriodAt &&
-      holdoutExperiment.status === "running" &&
-      !existing.analysisStartDate &&
-      new Date(startAnalysisPeriodAt) < now
-    ) {
-      throw new BadRequestError(
-        "Scheduled analysis start date cannot be in the past",
-      );
-    }
-    if (
-      stopAt &&
-      holdoutExperiment.status !== "stopped" &&
-      new Date(stopAt) < now
-    ) {
-      throw new BadRequestError("Scheduled stop date cannot be in the past");
-    }
-
-    // Check date dependencies
-    if (
-      holdoutExperiment.status === "draft" &&
-      stopAt &&
-      (!startAt || !startAnalysisPeriodAt)
-    ) {
-      throw new BadRequestError(
-        "To set a stop date, you must also set a start date and an analysis start date",
-      );
-    }
-    if (
-      holdoutExperiment.status === "draft" &&
-      startAnalysisPeriodAt &&
-      !startAt
-    ) {
-      throw new BadRequestError(
-        "To set an analysis start date, you must first set a start date",
-      );
-    }
-
-    if (
-      holdoutExperiment.status === "running" &&
-      !existing.analysisStartDate &&
-      stopAt &&
-      !startAnalysisPeriodAt
-    ) {
-      throw new BadRequestError(
-        "To set a stop date, you must first set an analysis start date",
-      );
-    }
-
-    // Check if the dates are consecutive
-    const dateError =
-      (startAt &&
-        startAnalysisPeriodAt &&
-        holdoutExperiment.status === "draft" &&
-        startAt > startAnalysisPeriodAt) ||
-      (startAt &&
-        stopAt &&
-        holdoutExperiment.status === "draft" &&
-        startAt > stopAt) ||
-      (startAnalysisPeriodAt &&
-        stopAt &&
-        !existing.analysisStartDate &&
-        startAnalysisPeriodAt > stopAt);
-    if (dateError) {
-      throw new BadRequestError("Scheduled dates must be consecutive");
-    }
+    assertValidHoldoutSchedule({
+      schedule: updates.statusUpdateSchedule,
+      currentStage: getHoldoutStage(existing, holdoutExperiment),
+      analysisStartDate: existing.analysisStartDate,
+    });
   }
 
   public static async getAllHoldoutsToUpdate(): Promise<
@@ -236,17 +620,25 @@ export class HoldoutModel extends BaseClass {
     holdoutId: string,
     experimentId: string,
   ) {
-    await this.mutateLinkage(holdoutId, ({ linkedExperiments }) => {
-      const { [experimentId]: _, ...rest } = linkedExperiments;
-      return { linkedExperiments: rest };
-    });
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedExperiments }) => {
+        const { [experimentId]: _, ...rest } = linkedExperiments;
+        return { linkedExperiments: rest };
+      },
+      NO_NEW_LINKAGE,
+    );
   }
 
   public async removeFeatureFromHoldout(holdoutId: string, featureId: string) {
-    await this.mutateLinkage(holdoutId, ({ linkedFeatures }) => {
-      const { [featureId]: _, ...rest } = linkedFeatures;
-      return { linkedFeatures: rest };
-    });
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedFeatures }) => {
+        const { [featureId]: _, ...rest } = linkedFeatures;
+        return { linkedFeatures: rest };
+      },
+      NO_NEW_LINKAGE,
+    );
   }
 
   /**
@@ -259,7 +651,6 @@ export class HoldoutModel extends BaseClass {
   public async addFeatureToHoldout(
     holdoutId: string,
     featureId: string,
-    experimentIds: string[] = [],
   ): Promise<{ id: string; dateAdded: Date } | null> {
     const entry = { id: featureId, dateAdded: new Date() };
     // Set on every attempt, so the value that survives is the one computed from
@@ -268,28 +659,19 @@ export class HoldoutModel extends BaseClass {
     let added: { id: string; dateAdded: Date } | null = null;
     await this.mutateLinkage(
       holdoutId,
-      ({ linkedFeatures, linkedExperiments }) => {
+      ({ linkedFeatures }) => {
         // The spread puts existing entries last, so an entry that was already
         // there wins and this call added nothing.
         added = linkedFeatures[featureId] ? null : entry;
-        return {
-          linkedFeatures: { [featureId]: entry, ...linkedFeatures },
-          ...(experimentIds.length
-            ? {
-                linkedExperiments: {
-                  ...Object.fromEntries(
-                    experimentIds.map((experimentId) => [
-                      experimentId,
-                      { id: experimentId, dateAdded: new Date() },
-                    ]),
-                  ),
-                  ...linkedExperiments,
-                },
-              }
-            : {}),
-        };
+        return { linkedFeatures: { [featureId]: entry, ...linkedFeatures } };
       },
-      { required: true },
+      {
+        required: true,
+        eventOwner: holdoutLinkageOwner(
+          holdoutId,
+          entityKey("feature", featureId),
+        ),
+      },
     );
     return added;
   }
@@ -301,6 +683,12 @@ export class HoldoutModel extends BaseClass {
   public async addExperimentsToHoldout(
     holdoutId: string,
     experimentIds: string[],
+    {
+      // Rewinds pass false: putting linkage back is not new linkage.
+      notifyNewLinkage = true,
+      // Publish paths pass the owning item's key; see holdoutLinkageOwner.
+      eventOwner,
+    }: { notifyNewLinkage?: boolean; eventOwner?: string } = {},
   ) {
     if (!experimentIds.length) return;
     const added = Object.fromEntries(
@@ -312,7 +700,7 @@ export class HoldoutModel extends BaseClass {
         // Existing entries win, so re-linking keeps the original `dateAdded`.
         linkedExperiments: { ...added, ...linkedExperiments },
       }),
-      { required: true },
+      { required: true, notifyNewLinkage, eventOwner },
     );
   }
 
@@ -329,14 +717,15 @@ export class HoldoutModel extends BaseClass {
           Object.entries(linkedExperiments).filter(([id]) => !drop.has(id)),
         ),
       }),
-      { required: true },
+      { required: true, ...NO_NEW_LINKAGE },
     );
   }
 
   // Publish-rewind counterpart to `addFeatureToHoldout`: drops only the entries a
   // failed publish added, in one write, leaving entries other features
   // contributed alone. No-ops when the maps are already at the target state, so
-  // rewinding a forward pass that never landed writes nothing.
+  // rewinding a forward pass that never landed writes nothing. Returns whether
+  // it wrote.
   public async removeLinkageFromHoldout(
     holdoutId: string,
     {
@@ -354,41 +743,46 @@ export class HoldoutModel extends BaseClass {
       experimentIds?: string[];
       expectFeatureEntry?: { dateAdded: Date } | null;
     },
-  ) {
+  ): Promise<boolean> {
     const drop = new Set(experimentIds ?? []);
-    await this.mutateLinkage(holdoutId, (holdout) => {
-      const linkedExperiments = Object.fromEntries(
-        Object.entries(holdout.linkedExperiments).filter(
-          ([id]) => !drop.has(id),
-        ),
-      );
-      const linkedFeatures = { ...holdout.linkedFeatures };
-      const liveEntry = featureId
-        ? holdout.linkedFeatures[featureId]
-        : undefined;
-      // Decided HERE, not before the write: the `dateAdded` comparison is only
-      // ownership if it describes the row being written. Deciding it against an
-      // earlier read and then replacing the whole map let a relink land in between
-      // and be deleted anyway — the exact ABA `dateAdded` was added to prevent,
-      // just moved from "which entry" to "which moment".
-      const ownsFeatureEntry =
-        expectFeatureEntry === undefined ||
-        (!!liveEntry &&
-          !!expectFeatureEntry &&
-          new Date(liveEntry.dateAdded).getTime() ===
-            expectFeatureEntry.dateAdded.getTime());
-      if (featureId && ownsFeatureEntry) delete linkedFeatures[featureId];
+    const updated = await this.mutateLinkage(
+      holdoutId,
+      (holdout) => {
+        const linkedExperiments = Object.fromEntries(
+          Object.entries(holdout.linkedExperiments).filter(
+            ([id]) => !drop.has(id),
+          ),
+        );
+        const linkedFeatures = { ...holdout.linkedFeatures };
+        const liveEntry = featureId
+          ? holdout.linkedFeatures[featureId]
+          : undefined;
+        // Decided HERE, not before the write: the `dateAdded` comparison is only
+        // ownership if it describes the row being written. Deciding it against an
+        // earlier read and then replacing the whole map let a relink land in between
+        // and be deleted anyway — the exact ABA `dateAdded` was added to prevent,
+        // just moved from "which entry" to "which moment".
+        const ownsFeatureEntry =
+          expectFeatureEntry === undefined ||
+          (!!liveEntry &&
+            !!expectFeatureEntry &&
+            new Date(liveEntry.dateAdded).getTime() ===
+              expectFeatureEntry.dateAdded.getTime());
+        if (featureId && ownsFeatureEntry) delete linkedFeatures[featureId];
 
-      if (
-        Object.keys(linkedExperiments).length ===
-          Object.keys(holdout.linkedExperiments).length &&
-        Object.keys(linkedFeatures).length ===
-          Object.keys(holdout.linkedFeatures).length
-      ) {
-        return null;
-      }
-      return { linkedFeatures, linkedExperiments };
-    });
+        if (
+          Object.keys(linkedExperiments).length ===
+            Object.keys(holdout.linkedExperiments).length &&
+          Object.keys(linkedFeatures).length ===
+            Object.keys(holdout.linkedFeatures).length
+        ) {
+          return null;
+        }
+        return { linkedFeatures, linkedExperiments };
+      },
+      NO_NEW_LINKAGE,
+    );
+    return !!updated;
   }
 
   // Puts a feature back under the holdout it was unlinked from, with its original
@@ -397,10 +791,13 @@ export class HoldoutModel extends BaseClass {
     holdoutId: string,
     feature: { id: string; dateAdded: Date },
   ) {
-    await this.mutateLinkage(holdoutId, ({ linkedFeatures }) =>
-      linkedFeatures[feature.id]
-        ? null
-        : { linkedFeatures: { ...linkedFeatures, [feature.id]: feature } },
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedFeatures }) =>
+        linkedFeatures[feature.id]
+          ? null
+          : { linkedFeatures: { ...linkedFeatures, [feature.id]: feature } },
+      NO_NEW_LINKAGE,
     );
   }
 
@@ -448,12 +845,28 @@ export class HoldoutModel extends BaseClass {
     // Set by the link/unlink verbs, which are acting on a Holdout the caller just
     // resolved: a missing one is a real error there, where for compensation it just
     // means there is nothing left to undo.
-    { required = false }: { required?: boolean } = {},
+    {
+      required = false,
+      notifyNewLinkage = true,
+      eventOwner = holdoutLinkageOwner(holdoutId),
+    }: {
+      required?: boolean;
+      notifyNewLinkage?: boolean;
+      eventOwner?: string;
+    } = {},
   ) {
+    // Captured before the first await: a publish landing opens a buffer that
+    // holds events until it commits, and the next landing may already have
+    // replaced it by the time the write returns.
+    const buffer = captureEventBuffer(this.context);
+    let previous: HoldoutInterface | null = null;
     const updated = await this.updateWithCas(
       holdoutId,
       [...LINKAGE_FIELDS],
-      compute,
+      (holdout) => {
+        previous = holdout;
+        return compute(holdout);
+      },
       {
         dangerouslyBypassCanUpdate: true,
         dangerouslyBypassCanRead: true,
@@ -464,6 +877,43 @@ export class HoldoutModel extends BaseClass {
       const stillThere = await this.getByIdForLinkage(holdoutId);
       if (!stillThere) throw new NotFoundError("Holdout not found");
     }
+    if (updated && previous && notifyNewLinkage) {
+      await this.notifyLinkage(previous, updated, eventOwner, buffer);
+    }
     return updated;
+  }
+
+  // Emits `config.newLinkage`, or defers it until the landing commits. A second
+  // write for the same owner in one landing extends the pending event rather
+  // than adding another, so the diff runs from the first pre-image to the last
+  // result.
+  private async notifyLinkage(
+    previous: HoldoutInterface,
+    holdout: HoldoutInterface,
+    eventOwner: string,
+    buffer: DeferredEventBuffer | null,
+  ) {
+    let forBuffer: Map<string, PendingLinkage> | null = null;
+    if (buffer && !buffer.closed) {
+      forBuffer = pendingLinkageEvents.get(buffer) ?? new Map();
+      pendingLinkageEvents.set(buffer, forBuffer);
+    }
+    const earlier = forBuffer?.get(eventOwner);
+    if (earlier) {
+      earlier.holdout = holdout;
+      return;
+    }
+    const state: PendingLinkage = { previous, holdout };
+    await emitOrDeferBulkPublishEvent(
+      () =>
+        notifyHoldoutNewLinkage({
+          context: this.context,
+          previous: state.previous,
+          holdout: state.holdout,
+        }),
+      eventOwner,
+      buffer,
+    );
+    forBuffer?.set(eventOwner, state);
   }
 }

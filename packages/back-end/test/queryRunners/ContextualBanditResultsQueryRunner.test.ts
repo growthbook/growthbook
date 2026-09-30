@@ -106,6 +106,10 @@ function makeCb(
     datasource: "ds_1",
     contextualBanditQueryId: "cbq_1",
     contextualAttributes: ["country"],
+    variations: [
+      { id: "v0", key: "0", name: "Control", screenshots: [] },
+      { id: "v1", key: "1", name: "Treatment", screenshots: [] },
+    ],
     minUsersPerLeaf: 100,
     maxLeaves: 8,
     holdoutPercent: 0,
@@ -185,7 +189,7 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
     models: {
       contextualBandits: {
         getById: jest.fn().mockResolvedValue(cb),
-        patchLeafWeights: jest.fn().mockResolvedValue(cb),
+        setLeafWeights: jest.fn().mockResolvedValue(cb),
       },
       contextualBanditEvents: {
         getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
@@ -284,7 +288,10 @@ describe("ContextualBanditResultsQueryRunner", () => {
 
       const [statsSettings, forwardedRows, runParams] =
         runContextualStatsEngineMock.mock.calls[0];
-      expect(statsSettings.varIds).toEqual(["v0", "v1"]);
+      expect(statsSettings.variations).toEqual([
+        { id: "v0", key: "0" },
+        { id: "v1", key: "1" },
+      ]);
       expect(statsSettings.contextualAttributes).toEqual(["country"]);
       expect(runParams?.snapshotId).toBe("cbs_1");
       expect(runParams?.decisionMetricId).toBe("fact__g1");

@@ -290,8 +290,12 @@ export class RevisionModel extends BaseClass {
     }
   }
 
+  // Judged on the write itself — `existing` as approved against `proposed` as
+  // it will be stored — so a gated change added under a standing approval is
+  // seen even when the approved content was not gated.
   private resetApprovalIfNeeded(
     existing: Revision,
+    proposed: Revision,
     userId: string,
   ): { status?: Revision["status"]; resetEntry?: ActivityLogEntry } {
     if (existing.status !== "approved") return {};
@@ -302,7 +306,7 @@ export class RevisionModel extends BaseClass {
     // approval-flow toggle.
     const adapter = getAdapter(existing.target.type);
     const shouldReset = adapter.shouldResetReviewOnChange
-      ? adapter.shouldResetReviewOnChange(this.context, existing)
+      ? adapter.shouldResetReviewOnChange(this.context, existing, proposed)
       : !!getApprovalFlowSettings(
           this.context.org.settings?.approvalFlows,
           existing.target.type,
@@ -1014,12 +1018,9 @@ export class RevisionModel extends BaseClass {
               : armed
                 ? CLEARED_DATED_SCHEDULE
                 : {}),
-            // The auto-publish runs with the arming user's authority. A stale
-            // value from a previous cycle is harmless — `autoPublishOnApproval`
-            // gates everything. `userId` is empty for API-key actors; skip so the
-            // publish falls back to `authorId`.
+            // The auto-publish runs as the armer, a user or an org API key.
             // Replaced, not conditionally set — see setAutoPublishOnApproval.
-            autoPublishEnabledBy: armed && userId ? userId : null,
+            autoPublishEnabledBy: armed ? this.armerId() : null,
             // Arm-time guard fingerprints: set the new acknowledgments, or clear a
             // stale set from a prior arm (to {}) so a re-arm with no current conflicts
             // can't be covered by an outdated fingerprint.
@@ -1052,6 +1053,12 @@ export class RevisionModel extends BaseClass {
     return updated;
   }
 
+  // Who a deferred publish runs as: the acting user, else the org API key, as
+  // the feature twin records. A system actor arms nobody.
+  private armerId(): string | null {
+    return this.context.userId || this.context.apiKey || null;
+  }
+
   // Arm/disarm auto-publish-on-approval after a draft has already been
   // submitted for review (the submit-for-review path handles the draft case).
   async setAutoPublishOnApproval(
@@ -1082,13 +1089,12 @@ export class RevisionModel extends BaseClass {
         );
       }
 
-      // Auto-publish runs with the arming user's authority, so the identity is
-      // REPLACED on every transition — left behind, an identityless arm (API
-      // key, system actor) inherits whoever armed last and the deferred publish
-      // runs as that user. `null` clears it.
+      // Auto-publish runs as the armer, so the identity is REPLACED on every
+      // transition — left behind, an identityless arm (system actor) inherits
+      // whoever armed last. `null` clears it.
       return {
         autoPublishOnApproval: enabled,
-        autoPublishEnabledBy: enabled && userId ? userId : null,
+        autoPublishEnabledBy: enabled ? this.armerId() : null,
         // Arm-time guard fingerprints: set the new acknowledgments, or clear a
         // stale set from a prior arm (to {}) so a re-arm with no current
         // conflicts can't be covered by an outdated fingerprint.
@@ -1626,6 +1632,7 @@ export class RevisionModel extends BaseClass {
         const { target, entry } = await build(existing);
         const { status, resetEntry } = this.resetApprovalIfNeeded(
           existing,
+          { ...existing, target },
           userId,
         );
         return {

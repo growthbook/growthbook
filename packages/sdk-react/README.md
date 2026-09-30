@@ -260,7 +260,7 @@ This same tracking callback is used for both feature flag experiments and Visual
 
 ### Feature Flag Experiments
 
-There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+Evaluate the feature (for example with `useFeatureValue` or `useFeatureIsOn`) to enter a feature flag experiment; that is when `trackingCallback` runs. If they are not included, you still get a value and `trackingCallback` does not run.
 
 ```js
 // If this has an active experiment and the user is included,
@@ -453,7 +453,7 @@ You can specify attributes about the current user and request. These are used fo
 1.  Feature targeting (e.g. paid users get one value, free users get another)
 2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
 
-The following are some comonly used attributes, but use whatever makes sense for your application.
+The following are some commonly used attributes, but use whatever makes sense for your application.
 
 ```ts
 new GrowthBook({

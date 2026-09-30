@@ -69,6 +69,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   datasource: DataSourceInterface;
   params: MixpanelConnectionParams;
   decryptionError: boolean;
+  columnNamesAreCaseSensitive = false;
   constructor(context: ReqContext, datasource: DataSourceInterface) {
     this.context = context;
     this.datasource = datasource;
@@ -286,7 +287,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
     ${destVar} = !${destVar}.length ? 0 : (
       (values => ${this.getMetricAggregationExpression(metric)})(${destVar})
     );${
-      metric.cappingSettings.type === "absolute" && metric.cappingSettings.value
+      metric.cappingSettings.type === "absolute" &&
+      (metric.cappingSettings.value ?? null) !== null &&
+      metric.cappingSettings.value > 0
         ? `\n${destVar} = ${destVar} && Math.min(${destVar}, ${metric.cappingSettings.value});`
         : ""
     }

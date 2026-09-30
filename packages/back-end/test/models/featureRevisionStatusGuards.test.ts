@@ -169,7 +169,6 @@ describe("feature revision status guards", () => {
         stale,
         { defaultValue: "true" },
         { user, action: "edit", subject: "", value: "{}" },
-        false,
       ),
     ).rejects.toThrow(/changed while the request was in flight/i);
 
@@ -297,10 +296,31 @@ describe("feature revision status guards", () => {
       asRead("changes-requested"),
       { defaultValue: "edited" },
       { user, action: "edit", subject: "", value: "{}" },
-      false,
     );
     expect((await stored())?.defaultValue).toBe("edited");
   });
+
+  it.each([
+    ["a user", user, "u_author"],
+    [
+      "an org API key",
+      { type: "api_key", apiKey: "key_ci", name: "CI" },
+      "key_ci",
+    ],
+  ])(
+    "records %s as the armer of a scheduled publish",
+    async (_who, actor, armer) => {
+      await seed("draft");
+      await markRevisionAsReviewRequested(
+        context,
+        asRead("draft"),
+        actor as typeof user,
+        "go",
+        { scheduledPublishAt: new Date(Date.now() + 3_600_000) },
+      );
+      expect((await stored())?.autoPublishEnabledBy).toBe(armer);
+    },
+  );
 
   /**
    * The positive half. Without these, deleting the whole method body would pass the
@@ -323,7 +343,6 @@ describe("feature revision status guards", () => {
       asRead("draft"),
       { defaultValue: "true" },
       { user, action: "edit", subject: "", value: "{}" },
-      false,
     );
     expect((await stored())?.defaultValue).toBe("true");
   });

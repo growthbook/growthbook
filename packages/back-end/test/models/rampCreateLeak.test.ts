@@ -33,8 +33,18 @@ describe("applyRampCreateActionsForRevision surfaces schedules it could not clea
     // A FLAT rule list (the unified shape), and each action's rule must be in
     // it — otherwise the loop skips every action and the cases pass vacuously.
     rules: [
-      { id: "r1", type: "rollout", enabled: true, environment: "production" },
-      { id: "r2", type: "rollout", enabled: true, environment: "production" },
+      {
+        id: "r1",
+        type: "rollout",
+        enabled: true,
+        environments: ["production"],
+      },
+      {
+        id: "r2",
+        type: "rollout",
+        enabled: true,
+        environments: ["production"],
+      },
     ],
   } as never;
 

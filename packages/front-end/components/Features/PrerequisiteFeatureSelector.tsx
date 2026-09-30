@@ -5,7 +5,6 @@ import {
   FaRegCircleCheck,
   FaRegCircleXmark,
 } from "react-icons/fa6";
-import { PiArrowSquareOut } from "react-icons/pi";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
 import SelectField, {
@@ -13,8 +12,15 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Link from "@/ui/Link";
+import { Popover } from "@/ui/Popover";
+import {
+  FeatureOptionForTooltip,
+  FeatureOptionWithTooltip,
+} from "@/components/Features/FeatureOptionTooltip";
+import {
+  OptionLabel,
+  OptionProjectsLabel,
+} from "@/components/Features/OptionTooltipShell";
 import Text from "@/ui/Text";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 
@@ -28,12 +34,9 @@ export interface FeatureOptionMeta {
   deterministicFalse: boolean;
 }
 
-interface FeatureOption {
-  label: string;
-  value: string;
+interface FeatureOption extends FeatureOptionForTooltip {
   meta: FeatureOptionMeta;
   project: string;
-  projectName: string | null | undefined;
 }
 
 interface Props {
@@ -116,6 +119,8 @@ export default function PrerequisiteFeatureSelector({
         const foundOption = featureOptions.find((o) => o.value === optionValue);
         const meta = foundOption?.meta;
         const projectName = foundOption?.projectName;
+        const targetingProjectNames = foundOption?.targetingProjectNames ?? [];
+        const targetingAllProjects = !!foundOption?.targetingAllProjects;
         const isSelectedValue = context === "value" && optionValue;
 
         return (
@@ -130,36 +135,16 @@ export default function PrerequisiteFeatureSelector({
               width: "100%",
             }}
           >
-            {isSelectedValue ? (
-              <Link
-                href={`/features/${optionValue}`}
-                target="_blank"
-                style={{
-                  position: "relative",
-                  zIndex: 1000,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                <OverflowText
-                  maxWidth={180}
-                  style={{ opacity: meta?.disabled ? 0.5 : 1 }}
-                  title={label}
-                >
-                  {label}
-                </OverflowText>
-                <PiArrowSquareOut />
-              </Link>
-            ) : (
-              <OverflowText
-                maxWidth={180}
+            <FeatureOptionWithTooltip
+              option={foundOption ?? { label, value: optionValue }}
+              environments={environments}
+              context={isSelectedValue ? "value" : "menu"}
+            >
+              <OptionLabel
+                label={label}
                 style={{ opacity: meta?.disabled ? 0.5 : 1 }}
-                title={label}
-              >
-                {label}
-              </OverflowText>
-            )}
+              />
+            </FeatureOptionWithTooltip>
             <div
               style={{
                 marginLeft: "auto",
@@ -167,22 +152,54 @@ export default function PrerequisiteFeatureSelector({
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
+                fontSize: 11,
               }}
             >
-              {projectName ? (
-                <Box style={{ position: "relative", zIndex: 1000 }}>
-                  <Text size="sm">
-                    <Text color="text-low">Project:</Text>{" "}
-                    <Text color="text-high">
-                      <OverflowText maxWidth={150} title={projectName}>
-                        {projectName}
-                      </OverflowText>
-                    </Text>
-                  </Text>
-                </Box>
-              ) : (
-                <Text color="text-low">no project</Text>
-              )}
+              <Box style={{ position: "relative", zIndex: 1000 }}>
+                <OptionProjectsLabel
+                  names={projectName ? [projectName] : []}
+                  extra={
+                    <>
+                      {!projectName && (
+                        <Text size="inherit" color="text-low">
+                          No Project
+                        </Text>
+                      )}
+                      {targetingAllProjects ? (
+                        <Text size="inherit" color="text-low">
+                          {" "}
+                          + All Projects
+                        </Text>
+                      ) : targetingProjectNames.length > 0 ? (
+                        <>
+                          {" "}
+                          <Popover
+                            openOnHover
+                            anchorOnly
+                            side="top"
+                            sideOffset={8}
+                            // Native span: @/ui/Text drops Slot-injected props
+                            // (hover handlers, aria), which makes it an inert
+                            // asChild trigger.
+                            trigger={
+                              <span>
+                                <Text size="inherit" color="text-low">
+                                  + {targetingProjectNames.length} more
+                                </Text>
+                              </span>
+                            }
+                            content={
+                              <Text size="sm">
+                                Also targets: {targetingProjectNames.join(", ")}
+                              </Text>
+                            }
+                          />
+                        </>
+                      ) : null}
+                    </>
+                  }
+                />
+              </Box>
               {meta?.wouldBeCyclic && (
                 <Tooltip
                   flipTheme={false}

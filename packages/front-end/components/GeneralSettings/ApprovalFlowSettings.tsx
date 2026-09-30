@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus, PiTrash } from "react-icons/pi";
@@ -13,6 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -60,6 +62,22 @@ export default function ApprovalFlowSettings() {
   const nextTabId = useRef(0);
   const newTabId = () => `override-${nextTabId.current++}`;
   const [activeTab, setActiveTab] = useState(ALL_PROJECTS_TAB);
+
+  // Deep links (e.g. from a team's Required Approver list) name a Project;
+  // open the rule that governs it once its tab exists.
+  const router = useRouter();
+  const requestedProject = router.query.approvalProject;
+  const requestApplied = useRef(false);
+  useEffect(() => {
+    if (requestApplied.current || typeof requestedProject !== "string") return;
+    const tab = tabs.find((t) =>
+      scopeProjects(t.scope).includes(requestedProject),
+    );
+    if (tab) {
+      setActiveTab(tab.id);
+      requestApplied.current = true;
+    }
+  }, [tabs, requestedProject]);
 
   // Settings load after mount, so stored overrides get a tab when they arrive.
   const storedScopeKey = overrideScopes([flagRules, savedGroupRules]).join("|");
@@ -143,6 +161,16 @@ export default function ApprovalFlowSettings() {
     (p) => !allTabs.some((t) => scopeProjects(t.scope).includes(p.id)),
   );
 
+  // Overrides are wholesale rules the base tab's settings never reach.
+  const overriddenProjects = useMemo(
+    () =>
+      [...new Set(tabs.flatMap((t) => scopeProjects(t.scope)))].map((id) => ({
+        id,
+        name: projects.find((p) => p.id === id)?.name ?? id,
+      })),
+    [tabs, projects],
+  );
+
   return (
     <Frame>
       <Flex gap="4">
@@ -212,13 +240,13 @@ export default function ApprovalFlowSettings() {
                 return (
                   <TabsContent key={tab.id} value={tab.id}>
                     <Frame p="4" mt="3" mb="0">
-                      <Flex align="start" justify="between" gap="3" mb="4">
-                        <Text size="sm" color="text-low">
-                          {scope
-                            ? 'These settings override the base settings in the "All Projects" tab. Each Project belongs to a single override.'
-                            : "Applies to every Project without an override of its own."}
-                        </Text>
-                        {scope ? (
+                      {scope ? (
+                        <Flex align="start" justify="between" gap="3" mb="4">
+                          <Text size="sm" color="text-low">
+                            These settings override the base settings in the
+                            &quot;All Projects&quot; tab. Each Project belongs
+                            to a single override.
+                          </Text>
                           <Button
                             variant="ghost"
                             color="red"
@@ -227,8 +255,24 @@ export default function ApprovalFlowSettings() {
                           >
                             <PiTrash /> Remove override
                           </Button>
-                        ) : null}
-                      </Flex>
+                        </Flex>
+                      ) : null}
+
+                      {!scope && overriddenProjects.length > 0 && (
+                        <Callout status="info" size="sm" mb="4">
+                          These settings are overridden in the following{" "}
+                          {overriddenProjects.length === 1
+                            ? "Project"
+                            : "Projects"}
+                          :{" "}
+                          {overriddenProjects.map((p, i) => (
+                            <span key={p.id}>
+                              {i > 0 && ", "}
+                              <strong>{p.name}</strong>
+                            </span>
+                          ))}
+                        </Callout>
+                      )}
 
                       {scope ? (
                         <Box mb="4">
@@ -320,7 +364,7 @@ export default function ApprovalFlowSettings() {
                 <Checkbox
                   id="toggle-targeting-review-mode"
                   label="Apply approval requirements from Targeting Projects"
-                  description="When a Feature Flag is delivered into Targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. When off, only the primary Project governs approvals."
+                  description="When a Feature Flag is delivered into Targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. Each Targeting Project with approval requirements of its own also needs approval from a reviewer in that Project. When off, only the primary Project's requirements and reviewers apply."
                   value={targetingStrict(form)}
                   setValue={(v) => setTargetingMode(form, v)}
                 />

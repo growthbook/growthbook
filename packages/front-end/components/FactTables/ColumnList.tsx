@@ -1,4 +1,8 @@
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import {
+  getFactTableIdColumn,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { useEffect, useMemo, useState } from "react";
 import {
   PiUserBold,
@@ -80,11 +84,15 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
     return out;
   }, [factTable]);
 
+  const timestampColumn = getFactTableTimestampColumn(factTable);
+
   const columns = useAddComputedFields(availableColumns, (column) => ({
     ...column,
     name: column.name || column.column,
     id: column.name || column.column,
-    identifier: factTable.userIdTypes.includes(column.column),
+    identifier: factTable.userIdTypes.some(
+      (idType) => getFactTableIdColumn(factTable, idType) === column.column,
+    ),
     isJsonField: !!column.jsonFieldParent,
     type:
       column.datatype === "number"
@@ -205,7 +213,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                           </Avatar>
                         </Tooltip>
                       )}
-                      {col.column === "timestamp" && (
+                      {col.column === timestampColumn && (
                         <Tooltip
                           body="Main date field used for sorting and filtering"
                           tipPosition="left"

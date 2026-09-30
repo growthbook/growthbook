@@ -3,6 +3,10 @@ import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
+import {
+  assertEnvironmentDeletable,
+  cleanupDeletedEnvironment,
+} from "back-end/src/services/environments";
 
 export const deleteEnvironment = createApiRequestHandler(
   deleteEnvironmentValidator,
@@ -13,11 +17,13 @@ export const deleteEnvironment = createApiRequestHandler(
 
   const environment = environments.find((env) => env.id === id);
   if (!environment) {
-    throw Error(`Environment ${id} does not exists!`);
+    throw Error(`Environment ${id} does not exist!`);
   }
 
   if (!req.context.permissions.canDeleteEnvironment(environment))
     req.context.permissions.throwPermissionError();
+
+  await assertEnvironmentDeletable(req.context, id);
 
   const updates: Partial<OrganizationInterface> = {
     settings: {
@@ -27,6 +33,7 @@ export const deleteEnvironment = createApiRequestHandler(
   };
 
   await updateOrganization(org.id, updates);
+  await cleanupDeletedEnvironment(org.id, id);
 
   await req.audit({
     event: "environment.delete",

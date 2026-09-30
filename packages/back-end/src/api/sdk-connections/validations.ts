@@ -62,6 +62,7 @@ interface CreateSdkConnectionRequestBody
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeReferencedPrerequisites?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -145,7 +146,7 @@ export function validateSdkCapabilities(
     if (payload[param] && !capabilities.includes(capability))
       if (latestCapabilities.includes(capability))
         throw new Error(
-          `You need to ugrade to version ${latestSdkVersion} to support ${capability}`,
+          `You need to upgrade to version ${latestSdkVersion} to support ${capability}`,
         );
       else
         throw new Error(

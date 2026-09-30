@@ -1,6 +1,6 @@
 import type { Namespaces } from "shared/types/organization";
 import type { ApiNamespace } from "shared/validators";
-import { experimentHasLinkedChanges, getNamespaceRanges } from "shared/util";
+import { getNamespaceRanges } from "shared/util";
 import type { NamespaceValue } from "shared/types/feature";
 import type { ExperimentInterface } from "shared/types/experiment";
 
@@ -24,26 +24,6 @@ export function filterAllNamespaceExperiments(
   namespaceId: string,
 ) {
   return experiments.filter((e) => {
-    if (!e.phases?.length) return false;
-    const phase = e.phases[e.phases.length - 1];
-    return phase?.namespace?.enabled && phase.namespace.name === namespaceId;
-  });
-}
-
-// Returns experiments that are actively sending namespace traffic to the SDK payload.
-// Used by the deleteNamespace guard to block deletion of in-use namespaces.
-export function filterActiveNamespaceExperiments(
-  experiments: ExperimentInterface[],
-  namespaceId: string,
-) {
-  return experiments.filter((e) => {
-    if (e.archived) return false;
-    if (!experimentHasLinkedChanges(e)) return false;
-    if (
-      e.status === "stopped" &&
-      (e.excludeFromPayload || !e.releasedVariationId)
-    )
-      return false;
     if (!e.phases?.length) return false;
     const phase = e.phases[e.phases.length - 1];
     return phase?.namespace?.enabled && phase.namespace.name === namespaceId;

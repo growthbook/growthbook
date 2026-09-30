@@ -95,6 +95,8 @@ export type OpenApiEndpointSpec = {
   validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
   zodReturnObject: z.ZodTypeAny;
   summary: string;
+  description?: string;
+  version?: "v1" | "v2";
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
 };
@@ -128,6 +130,8 @@ export type OpenApiModelSpec<
   customEndpoints?: OpenApiEndpointSpec[];
   /** Per-CRUD-action descriptions (longer form text shown below the summary in docs). */
   crudDescriptions?: Partial<Record<CrudAction, string>>;
+  /** Marks CRUD actions deprecated. Values are RFC 8594 `Deprecation` header values (`"true"` or `"@<unix-timestamp>"`). */
+  crudDeprecations?: Partial<Record<CrudAction, string>>;
   /** Error codes that may be thrown by CRUD actions, used to generate OpenAPI error response schemas. */
   possibleErrors?: Partial<Record<CrudAction, readonly ApiErrorCode[]>>;
   /** Human-readable label shown in the docs nav (e.g. "Ramp Schedule Templates"). Defaults to the raw tag name. */
@@ -263,6 +267,7 @@ export function getOpenApiRoutesForApiConfig(
       const pluralCapitalized = capitalizeFirstCharacter(
         apiConfig.openApiSpec.modelPlural,
       );
+      const deprecationDate = apiConfig.openApiSpec.crudDeprecations?.[action];
       const route = createApiRequestHandler({
         ...validator,
         method: verb,
@@ -274,6 +279,8 @@ export function getOpenApiRoutesForApiConfig(
           apiConfig.openApiSpec.modelPlural,
         ),
         description: apiConfig.openApiSpec.crudDescriptions?.[action],
+        deprecated: deprecationDate !== undefined,
+        deprecationDate,
         tags: [tag],
         responseSchema: returnSchema,
         possibleErrors: apiConfig.openApiSpec.possibleErrors?.[action],
@@ -297,8 +304,10 @@ export function getOpenApiRoutesForApiConfig(
       verb,
       operationId,
       summary,
+      description,
       zodReturnObject,
       possibleErrors,
+      version,
     }) => {
       const route = createApiRequestHandler({
         ...validator,
@@ -306,9 +315,11 @@ export function getOpenApiRoutesForApiConfig(
         path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
         operationId,
         summary,
+        description,
         tags: [tag],
         responseSchema: zodReturnObject,
         possibleErrors,
+        version,
       })(reqHandler);
       routes.push(route);
     },

@@ -1,17 +1,30 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { hasTargetingConfigured } from "shared/experiments";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { RampScheduleInterface } from "shared/validators";
-import { ensureConfigBacking } from "shared/util";
+import {
+  ANCHORED_RAMP_SCHEDULE_STATUSES,
+  RampScheduleInterface,
+} from "shared/validators";
+import {
+  ensureConfigBacking,
+  rampPlanControlledFields,
+  rampTargetMatchesRule,
+} from "shared/util";
 import { PiLockSimple } from "react-icons/pi";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
 import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
-import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
+import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
+import {
+  NewExperimentRefRule,
+  useAttributeSchema,
+  resolveAttributeFilter,
+} from "@/services/features";
 import LegacyScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
@@ -63,6 +76,9 @@ export function deriveScheduleType(
 export default function StandardRuleFields({
   ruleType,
   feature,
+  attributeProjects,
+  savedGroupProjects,
+  attributeSelectIndicator,
   environments,
   defaultValues,
   setPrerequisiteTargetingSdkIssues,
@@ -83,6 +99,9 @@ export default function StandardRuleFields({
 }: {
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
+  attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -130,7 +149,10 @@ export default function StandardRuleFields({
         form.watch("hashVersion") !== undefined &&
         form.watch("hashVersion") !== 2),
   );
-  const attributeSchema = useAttributeSchema(false, feature.project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, feature.project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { hasCommercialFeature } = useUser();
@@ -165,8 +187,25 @@ export default function StandardRuleFields({
       ? "ramp-monitored"
       : scheduleType;
 
+  // A running ramp locks the rule (pause first). Once paused, publish carries
+  // other edits into the anchor and refuses the fields the plan sets.
+  const rampAnchored =
+    !!ruleRampSchedule &&
+    ANCHORED_RAMP_SCHEDULE_STATUSES.includes(ruleRampSchedule.status);
+  const rampTargetId = ruleRampSchedule?.targets.find((t) =>
+    rampTargetMatchesRule(t, form.watch("id") ?? ""),
+  )?.id;
+  const rampSetsCoverage =
+    !!ruleRampSchedule &&
+    !!rampTargetId &&
+    rampPlanControlledFields(ruleRampSchedule, rampTargetId).has("coverage");
   const rampLocksTargeting =
-    !isSimpleSchedule && scheduleType === "ramp" && releasePlanLocked;
+    !isSimpleSchedule && scheduleType === "ramp" && rampScheduleEditLocked;
+  const rampSyncsTargeting =
+    !isSimpleSchedule &&
+    scheduleType === "ramp" &&
+    rampAnchored &&
+    !rampScheduleEditLocked;
   const inModalPendingRamp =
     !ruleRampSchedule &&
     scheduleType === "ramp" &&
@@ -175,7 +214,9 @@ export default function StandardRuleFields({
   const rampControlsCoverage =
     !isSimpleSchedule &&
     scheduleType === "ramp" &&
-    (rampScheduleEditLocked || inModalPendingRamp);
+    (rampScheduleEditLocked ||
+      (rampAnchored && rampSetsCoverage) ||
+      inModalPendingRamp);
 
   function applyScheduleType(type: ScheduleSelectorType) {
     const currentCoverage = form.watch("coverage") ?? 1;
@@ -281,7 +322,31 @@ export default function StandardRuleFields({
       />
       <ConflictCallout field="description" />
 
-      <RuleEnvironmentScopeField {...envScope} my="5" />
+      {rampSyncsTargeting && (
+        <Callout status="info" mt="5">
+          This rule is part of a ramp-up that is{" "}
+          {ruleRampSchedule?.status === "paused" ? "paused" : "not running yet"}
+          .{" "}
+          {rampControlsCoverage
+            ? "The rollout % is managed by the ramp-up plan, so it can't be changed here. Anything else you change "
+            : "Anything you change "}
+          takes effect when you publish and stays in place as the ramp-up
+          continues.
+        </Callout>
+      )}
+      {rampLocksTargeting && (
+        <Callout status="info" mt="5" icon={<PiLockSimple />}>
+          This rule is part of a running ramp-up. Pause it before changing the
+          environments, rollout %, targeting, or value. Once paused, your
+          changes take effect when you publish and stay in place when the
+          ramp-up resumes.
+        </Callout>
+      )}
+      <RuleEnvironmentScopeField
+        {...envScope}
+        disabled={rampLocksTargeting}
+        my="5"
+      />
       <ConflictCallout field="environments" />
       <RuleProjectScopeField {...projectScope} mb="5" />
       <ConflictCallout field="projects" />
@@ -307,6 +372,7 @@ export default function StandardRuleFields({
           configBackingOptionKeys={configBackingOptionKeys}
           configBackingShowPatch={isConfigBacked}
           lockConfigBacking={isConfigBacked}
+          disabled={rampLocksTargeting}
         />
         <ConflictCallout field="value" />
       </Box>
@@ -494,15 +560,23 @@ export default function StandardRuleFields({
         Targeting
       </Heading>
       {rampLocksTargeting ? (
-        <HelperText status="info" mb="2" icon={<PiLockSimple />}>
-          <Box>
-            <Text as="div">Controlled by ramp schedule</Text>
-            <Text as="div" mt="1" size="sm">
-              Coverage and targeting are controlled by the live ramp schedule.
-              Pause or end the ramp-up to make immediate changes.
-            </Text>
-          </Box>
-        </HelperText>
+        <Box mb="4" style={{ opacity: 0.6 }}>
+          {hasTargetingConfigured({
+            condition: form.watch("condition"),
+            savedGroups: form.watch("savedGroups"),
+            prerequisites: form.watch("prerequisites"),
+          }) ? (
+            <TruncatedConditionDisplay
+              condition={form.watch("condition") || ""}
+              savedGroups={form.watch("savedGroups")}
+              prerequisites={form.watch("prerequisites")}
+              maxLength={500}
+              prefix={<Text weight="medium">IF</Text>}
+            />
+          ) : (
+            <em>No targeting (all traffic will be included)</em>
+          )}
+        </Box>
       ) : (
         <Flex direction="column" gap="5" mb="4">
           {rampControlsCoverage ? null : (
@@ -516,6 +590,7 @@ export default function StandardRuleFields({
                   form.setValue("hashAttribute", v)
                 }
                 attributeSchema={attributeSchema}
+                extraIndicator={attributeSelectIndicator}
                 hasHashAttributes={hasHashAttributes}
                 hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
                 setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
@@ -536,6 +611,7 @@ export default function StandardRuleFields({
           )}
 
           <SavedGroupTargetingField
+            savedGroupProjects={savedGroupProjects}
             value={form.watch("savedGroups") || []}
             setValue={(savedGroups) =>
               form.setValue("savedGroups", savedGroups)
@@ -550,6 +626,9 @@ export default function StandardRuleFields({
             onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
             project={feature.project || ""}
+            attributeProjects={attributeProjects}
+            savedGroupProjects={savedGroupProjects}
+            attributeSelectIndicator={attributeSelectIndicator}
             label="Attributes"
           />
           <ConflictCallout field="condition" />

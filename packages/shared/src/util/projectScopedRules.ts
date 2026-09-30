@@ -64,7 +64,12 @@ export function resolveProjectScopedRule<T extends ProjectScopedRule>(
   if (!winner) return undefined;
   // A base winner is already the bottom layer; only a specific one inherits.
   if (!specificWinner || !baseWinner) return winner;
-  const layers = [specificWinner, baseWinner];
+  // A switched-off rule gates nothing, so it takes no part in inheritance: it
+  // neither borrows fields from the layer beneath nor donates its own dormant
+  // ones.
+  const active = (rule: T) => !isActive || isActive(rule);
+  if (!active(winner)) return winner;
+  const layers = [specificWinner, baseWinner].filter(active);
 
   const merged: T = { ...winner };
   for (const field of inheritable) {
@@ -89,35 +94,88 @@ function dropUnsetFields<T extends object>(rule: T): T {
   ) as T;
 }
 
+// The UI hides a disabled rule's fields, so a stored team association is
+// invisible and would silently re-arm on re-enable. Scraped on write; the
+// resolver also ignores them on read, so pre-existing rows stay inert.
+function dropDormantTeams<T extends { requiredApproverTeams?: string[] }>(
+  rule: T,
+  active: boolean,
+): T {
+  if (active || rule.requiredApproverTeams === undefined) return rule;
+  const next = { ...rule };
+  delete next.requiredApproverTeams;
+  return next;
+}
+
 // Applied on the way in, so both rule families store clears the same way.
 export function normalizeApprovalRuleSettings<
   T extends {
-    requireReviews?: boolean | ProjectScopedRule[];
+    requireReviews?:
+      | boolean
+      | (ProjectScopedRule & {
+          requireReviewOn?: boolean;
+          requiredApproverTeams?: string[];
+        })[];
     approvalFlows?: {
-      savedGroups?: ProjectScopedRule[];
-      sdkConnections?: ProjectScopedRule[];
+      savedGroups?: (ProjectScopedRule & {
+        required?: boolean;
+        requiredApproverTeams?: string[];
+      })[];
+      sdkConnections?: (ProjectScopedRule & {
+        required?: boolean;
+        requiredApproverTeams?: string[];
+        environments?: string[];
+      })[];
     };
   },
 >(settings: T): T {
   const next: T = { ...settings };
   if (Array.isArray(next.requireReviews)) {
-    next.requireReviews = next.requireReviews.map(dropUnsetFields);
+    next.requireReviews = next.requireReviews.map((rule) =>
+      dropDormantTeams(dropUnsetFields(rule), !!rule.requireReviewOn),
+    );
   }
   if (next.approvalFlows?.savedGroups || next.approvalFlows?.sdkConnections) {
     next.approvalFlows = {
       ...next.approvalFlows,
       ...(next.approvalFlows.savedGroups
-        ? { savedGroups: next.approvalFlows.savedGroups.map(dropUnsetFields) }
+        ? {
+            savedGroups: next.approvalFlows.savedGroups.map((rule) =>
+              dropDormantTeams(dropUnsetFields(rule), !!rule.required),
+            ),
+          }
         : {}),
       ...(next.approvalFlows.sdkConnections
         ? {
-            sdkConnections:
-              next.approvalFlows.sdkConnections.map(dropUnsetFields),
+            sdkConnections: next.approvalFlows.sdkConnections.map((rule) =>
+              dropDormantTeams(dropUnsetFields(rule), !!rule.required),
+            ),
           }
         : {}),
     };
   }
   return next;
+}
+
+// Resolution is most-specific-wins with the first match, so two rules naming
+// the same project (or two organization-wide rules) would let order decide.
+export function assertTargetingRulesDisjoint(
+  rules: { projects?: string[] }[],
+): void {
+  const seen = new Set<string>();
+  rules.forEach((rule) => {
+    const keys = rule.projects?.length ? rule.projects : [""];
+    keys.forEach((key) => {
+      if (seen.has(key)) {
+        throw new Error(
+          key
+            ? `Project ${key} appears in more than one targetingReviewMode rule.`
+            : "Only one organization-wide targetingReviewMode rule is allowed.",
+        );
+      }
+      seen.add(key);
+    });
+  });
 }
 
 // Makes the settings UI's "Saving removes it" promise true: references to a
@@ -126,69 +184,88 @@ export function pruneApprovalRuleReferences<
   T extends {
     requireReviews?:
       | boolean
-      | { environments?: string[]; requiredApproverTeams?: string[] }[];
+      | {
+          projects?: string[];
+          environments?: string[];
+          requiredApproverTeams?: string[];
+        }[];
     approvalFlows?: {
-      savedGroups?: { requiredApproverTeams?: string[] }[];
+      savedGroups?: { projects?: string[]; requiredApproverTeams?: string[] }[];
       sdkConnections?: {
+        projects?: string[];
         requiredApproverTeams?: string[];
         environments?: string[];
       }[];
     };
+    targetingReviewMode?: { projects?: string[] }[];
   },
->(settings: T, valid: { environments: string[]; teams: string[] }): T {
-  const environments = new Set(valid.environments);
-  const teams = new Set(valid.teams);
+>(
+  settings: T,
+  // A family is pruned only when its valid set is given.
+  valid: { environments?: string[]; teams?: string[]; projects?: string[] },
+): T {
+  const environments = valid.environments && new Set(valid.environments);
+  const teams = valid.teams && new Set(valid.teams);
+  const projects = valid.projects && new Set(valid.projects);
+
+  const keepTeams = <R extends { requiredApproverTeams?: string[] }>(
+    rule: R,
+  ): R =>
+    teams && rule.requiredApproverTeams
+      ? {
+          ...rule,
+          requiredApproverTeams: rule.requiredApproverTeams.filter((t) =>
+            teams.has(t),
+          ),
+        }
+      : rule;
+  const keepEnvironments = <R extends { environments?: string[] }>(
+    rule: R,
+  ): R =>
+    environments && rule.environments
+      ? {
+          ...rule,
+          environments: rule.environments.filter((e) => environments.has(e)),
+        }
+      : rule;
+  // A project-scoped rule with no surviving project is dropped rather than
+  // left empty, since an empty list would read as the organization-wide rule.
+  const keepProjects = <R extends { projects?: string[] }>(rules: R[]): R[] =>
+    projects
+      ? rules.flatMap((rule) => {
+          if (!rule.projects?.length) return [rule];
+          const kept = rule.projects.filter((id) => projects.has(id));
+          return kept.length ? [{ ...rule, projects: kept }] : [];
+        })
+      : rules;
+
   const next: T = { ...settings };
   if (Array.isArray(next.requireReviews)) {
-    next.requireReviews = next.requireReviews.map((rule) => ({
-      ...rule,
-      ...(rule.environments
-        ? { environments: rule.environments.filter((e) => environments.has(e)) }
-        : {}),
-      ...(rule.requiredApproverTeams
-        ? {
-            requiredApproverTeams: rule.requiredApproverTeams.filter((t) =>
-              teams.has(t),
-            ),
-          }
-        : {}),
-    }));
+    next.requireReviews = keepProjects(next.requireReviews).map((rule) =>
+      keepTeams(keepEnvironments(rule)),
+    );
   }
   if (next.approvalFlows?.savedGroups || next.approvalFlows?.sdkConnections) {
     next.approvalFlows = {
       ...next.approvalFlows,
-      savedGroups: (next.approvalFlows.savedGroups ?? []).map((rule) => ({
-        ...rule,
-        ...(rule.requiredApproverTeams
-          ? {
-              requiredApproverTeams: rule.requiredApproverTeams.filter((t) =>
-                teams.has(t),
-              ),
-            }
-          : {}),
-      })),
+      ...(next.approvalFlows.savedGroups
+        ? {
+            savedGroups: keepProjects(next.approvalFlows.savedGroups).map(
+              keepTeams,
+            ),
+          }
+        : {}),
       ...(next.approvalFlows.sdkConnections
         ? {
-            sdkConnections: next.approvalFlows.sdkConnections.map((rule) => ({
-              ...rule,
-              ...(rule.environments
-                ? {
-                    environments: rule.environments.filter((e) =>
-                      environments.has(e),
-                    ),
-                  }
-                : {}),
-              ...(rule.requiredApproverTeams
-                ? {
-                    requiredApproverTeams: rule.requiredApproverTeams.filter(
-                      (t) => teams.has(t),
-                    ),
-                  }
-                : {}),
-            })),
+            sdkConnections: keepProjects(next.approvalFlows.sdkConnections).map(
+              (rule) => keepTeams(keepEnvironments(rule)),
+            ),
           }
         : {}),
     };
+  }
+  if (next.targetingReviewMode) {
+    next.targetingReviewMode = keepProjects(next.targetingReviewMode);
   }
   return next;
 }

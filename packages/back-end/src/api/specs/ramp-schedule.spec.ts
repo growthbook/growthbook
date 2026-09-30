@@ -6,6 +6,7 @@ import {
   featureRulePatch,
   paginationQueryFields,
   rampMonitoringConfig,
+  rampStartPatch,
   stepHoldConditions,
 } from "shared/validators";
 import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
@@ -34,6 +35,16 @@ const postBodyAction = z.object({
     .optional()
     .describe("Auto-injected when featureId+ruleId+environment are provided"),
   patch: postBodyPatch,
+});
+
+// Start actions alone carry bucketing identity (hashAttribute, seed, hashVersion).
+const postBodyStartAction = postBodyAction.extend({
+  patch: rampStartPatch
+    .partial({ ruleId: true })
+    .extend({ ruleId: postBodyPatch.shape.ruleId })
+    .describe(
+      "The rule's pre-ramp state, and the only place a plan sets hashAttribute, seed or hashVersion. Applied on rollback to start and as the base every step accumulates on.",
+    ),
 });
 
 const postBodyStep = z.object({
@@ -84,10 +95,10 @@ const createBodySchema = z
         "Ordered ramp steps. When `featureId`+`ruleId` are provided,\n`targetId` and `patch.ruleId` in actions are auto-injected — only\nsupply the patch fields you want to change.\n",
       ),
     startActions: z
-      .array(postBodyAction)
+      .array(postBodyStartAction)
       .optional()
       .describe(
-        "Actions that restore controlled rules to their pre-ramp state. When omitted for an attached rule, the server captures the current published rule state.",
+        "Actions that restore controlled rules to their pre-ramp state. When omitted for an attached rule, the server captures the current published rule state. A partial-coverage step on a force rule needs `patch.hashAttribute` here unless the rule has one.",
       ),
     endActions: z
       .array(postBodyAction)
@@ -149,35 +160,48 @@ const createBodySchema = z
 // --- Update body schemas ---
 
 // API update body action — relaxed version of patch-rule for partial updates
-const putBodyAction = z.object({
-  targetType: z.literal("feature-rule").optional(),
-  targetId: z.string().optional(),
-  patch: featureRulePatch.optional(),
+const putBodyAction = z
+  .object({
+    targetType: z.literal("feature-rule").optional(),
+    targetId: z.string().optional(),
+    patch: featureRulePatch.strict().optional(),
+  })
+  .strict();
+
+const putBodyStartAction = putBodyAction.extend({
+  patch: rampStartPatch
+    .strict()
+    .optional()
+    .describe(
+      "The rule's pre-ramp state, and the only place a plan sets hashAttribute, seed or hashVersion.",
+    ),
 });
 
-const putBodyStep = z.object({
-  interval: z
-    .number()
-    .positive()
-    .nullable()
-    .describe(
-      "Hold duration in seconds before this step's gates are evaluated. null = no time gate (advance as soon as holdConditions clear).",
-    ),
-  actions: z.array(putBodyAction).optional(),
-  approvalNotes: z.string().nullish(),
-  monitored: z
-    .boolean()
-    .default(false)
-    .describe(
-      "When true, this step runs A/B traffic analysis while active. Enrolled users are split 50/50 between control and variation, so a coverage of 1.0 means 50% of users see the variation. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts when transitioning between monitored and unmonitored steps.",
-    ),
-  holdConditions: stepHoldConditions.optional(),
-});
+const putBodyStep = z
+  .object({
+    interval: z
+      .number()
+      .positive()
+      .nullable()
+      .describe(
+        "Hold duration in seconds before this step's gates are evaluated. null = no time gate (advance as soon as holdConditions clear).",
+      ),
+    actions: z.array(putBodyAction).optional(),
+    approvalNotes: z.string().nullish(),
+    monitored: z
+      .boolean()
+      .default(false)
+      .describe(
+        "When true, this step runs A/B traffic analysis while active. Enrolled users are split 50/50 between control and variation, so a coverage of 1.0 means 50% of users see the variation. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts when transitioning between monitored and unmonitored steps.",
+      ),
+    holdConditions: stepHoldConditions.strict().optional(),
+  })
+  .strict();
 
 const updateBodySchema = z.object({
   name: z.string().optional(),
   steps: z.array(putBodyStep).optional(),
-  startActions: z.array(putBodyAction).optional(),
+  startActions: z.array(putBodyStartAction).optional(),
   endActions: z.array(putBodyAction).optional(),
   startDate: z.string().datetime().optional().nullable(),
   cutoffDate: z.string().datetime().optional().nullable(),
@@ -228,7 +252,7 @@ export const rampScheduleApiSpec = {
     create:
       "Creates a new ramp schedule, optionally attaching it to a published feature rule.\n\n### Target attachment (optional)\n\nProvide `featureId` and `ruleId` together to attach the schedule to a specific\nrule on creation. The rule must already be live (published). Each rule can only\nbe controlled by one schedule at a time.\n\nWhen both are supplied, **`targetId` and `patch.ruleId` are auto-injected**\ninto every step action and endAction — callers only need to supply the patch\nvalues (`coverage`, `condition`, etc.).\n\n`environment` is accepted for backward compatibility with pre-v2 ramps but is\ndeprecated and no longer required. Post-v2 `rule.id` is uniquely sufficient.\n\nIf rule attachment is omitted, the schedule is created as a free-standing\nskeleton in `pending` status. Use `POST /ramp-schedules/{id}/actions/add-target`\nto attach rules later, and `POST /ramp-schedules/{id}/actions/start` to start it.\n\n### Coverage on monitored steps\n\nFor monitored steps (`monitored: true`), `coverage` represents total experiment\nenrollment (both control and variation), not the fraction of users seeing\nvariation 1. The experiment splits enrolled traffic 50/50, so variation-1\nexposure is `coverage / 2`. For example, to show variation 1 to 25% of users,\nset `coverage: 0.5`. The SDK payload uses hash-based filters (not coverage) on\nthe experiment rule to prevent bucketing shifts when transitioning between\nmonitored and unmonitored steps.\n\n### Using templates\n\nProvide `templateId` to inherit steps and endActions from a saved template.\nExplicit `steps` / `endActions` in the request body take precedence over the\ntemplate. Template auto-population requires `featureId` and `ruleId` to be set\n(so targetId can be injected).\n\nRequires an **Enterprise** plan.\n",
     update:
-      'Updates the name, steps, endActions, startDate, or cutoffDate of a ramp schedule.\n\nOnly allowed when the schedule is in `pending`, `ready`, or `paused` status.\n\n**targetId shorthand**: When providing `steps` or `endActions`, you may omit `targetId`\n(or pass `"t1"`) in each action. If the schedule has exactly one active target, the server\nwill resolve it automatically. For schedules with multiple targets, provide the explicit\ntarget UUID from `targets[].id`.\n\n**Coverage on monitored steps**: See the create endpoint description for details\non how `coverage` is interpreted for monitored steps (total enrollment, not\nvariation-1 exposure).\n',
+      'Updates the name, steps, endActions, startDate, or cutoffDate of a ramp schedule.\n\nOnly allowed when the schedule is in `pending`, `ready`, or `paused` status.\n\nChanging `steps`, `startActions`, `endActions`, `startDate`, or `cutoffDate` on a\nschedule that is attached to a rule skips the revision review flow, so when the\norganization requires review anywhere it is limited to credentials that may\nbypass approval. Otherwise stage a new plan on a draft revision and publish it.\n\n**targetId shorthand**: When providing `steps` or `endActions`, you may omit `targetId`\n(or pass `"t1"`) in each action. If the schedule has exactly one active target, the server\nwill resolve it automatically. For schedules with multiple targets, provide the explicit\ntarget UUID from `targets[].id`.\n\n**Coverage on monitored steps**: See the create endpoint description for details\non how `coverage` is interpreted for monitored steps (total enrollment, not\nvariation-1 exposure).\n',
     delete:
       "Permanently deletes a ramp schedule. This does not undo any rule patches that\nwere already applied by completed steps.\n",
   },

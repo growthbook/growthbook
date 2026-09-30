@@ -63,6 +63,8 @@ export type SchemaFormat =
   | "firebase"
   | "keen"
   | "clevertap"
+  | "langfuse"
+  | "phoenix"
   | "eventForwarder"
   | "custom";
 
@@ -81,6 +83,7 @@ type GetExperimentSqlOptions = {
   actionName?: string;
   eventType?: string;
   projectId?: string;
+  projectName?: string;
   tablePrefix?: string;
   actionPrefix?: string;
   siteId?: string | number;
@@ -305,6 +308,11 @@ export type DataSourceSettings = {
     featureUsage?: FeatureUsageQuery[];
   };
   events?: DataSourceEvents;
+  askData?: {
+    enabled?: boolean;
+    runPolicy?: "auto-below-threshold" | "always-confirm";
+    thresholdBytes?: number;
+  };
   default?: {
     timestampColumn?: string;
     userIdColumn?: string;

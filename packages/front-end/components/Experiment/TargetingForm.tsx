@@ -9,10 +9,12 @@ import FeatureVariationsInput from "@/components//Features/FeatureVariationsInpu
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import Callout from "@/ui/Callout";
+import { useAttributeScopePicker } from "./useAttributeScopePicker";
 import type { ChangeType } from "./MakeChangesFlow";
 
 export interface TargetingFormProps {
   experiment: ExperimentInterfaceStringDates;
+  attributeProjects?: string[] | null;
   form: UseFormReturn<ExperimentTargetingData>;
   changeType?: ChangeType;
   conditionKey: number;
@@ -21,11 +23,25 @@ export interface TargetingFormProps {
 
 export default function TargetingForm({
   experiment,
+  attributeProjects,
   form,
   changeType = "advanced",
   conditionKey,
   setPrerequisiteTargetingSdkIssues,
 }: TargetingFormProps) {
+  const restrictedAttributeProjects =
+    attributeProjects !== undefined
+      ? attributeProjects
+      : experiment.project
+        ? [experiment.project]
+        : null;
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: experiment.project,
+      scopeProjects: restrictedAttributeProjects,
+      allProjects: form.watch("attributeScopeAllProjects"),
+      setAllProjects: (v) => form.setValue("attributeScopeAllProjects", v),
+    });
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
 
@@ -52,6 +68,8 @@ export default function TargetingForm({
         <>
           <TargetingFieldsGroup
             project={experiment.project || ""}
+            attributeProjects={effectiveAttributeProjects}
+            attributeSelectIndicator={attributeScopeToggle}
             environments={envs}
             savedGroups={form.watch("savedGroups") || []}
             setSavedGroups={(v) => form.setValue("savedGroups", v)}

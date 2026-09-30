@@ -52,7 +52,7 @@ import {
   isTerminalPublishError,
   getErrorMessage,
 } from "back-end/src/util/errors";
-import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
+import { getContextForArmedPublisherInOrg } from "back-end/src/services/organizations";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import {
   isArchiveTransition,
@@ -1136,8 +1136,9 @@ export async function maybeAutoPublishRevision(
     return revision;
   }
 
-  // Publish with the authority of whoever armed auto-publish; fall back to
-  // the author for revisions armed before `autoPublishEnabledBy` existed.
+  // Publish as whoever armed auto-publish, user or org API key. Revisions armed
+  // before the stamp existed fall back to the author, always a dashboard user
+  // (an org key authors nobody), as the feature twin does.
   const enablerId = revision.autoPublishEnabledBy ?? revision.authorId;
   if (!enablerId) {
     logger.warn(
@@ -1154,7 +1155,10 @@ export async function maybeAutoPublishRevision(
   // Resolved BEFORE the try: the catch below deliberately swallows publish
   // failures to leave the draft approved for a manual publish, which would also
   // swallow this and let the caller believe the publish ran.
-  const enablerContext = await getContextForUserIdInOrg(context.org, enablerId);
+  const enablerContext = await getContextForArmedPublisherInOrg(
+    context.org,
+    enablerId,
+  );
   if (!enablerContext) {
     logger.warn(
       { revisionId: revision.id, enablerId },
@@ -1306,7 +1310,7 @@ export async function maybePublishScheduledRevision(
   }
 
   try {
-    const enablerContext = await getContextForUserIdInOrg(
+    const enablerContext = await getContextForArmedPublisherInOrg(
       context.org,
       enablerId,
     );

@@ -45,7 +45,6 @@ export function useIncrementalPipelineUnsupportedReason(
         orgHasIncrementalPipelineFeature: hasCommercialFeature(
           "incremental-refresh",
         ),
-        skipPartialData: !!experiment.skipPartialData,
         activationMetric: experiment.activationMetric,
         metrics,
         experimentType: experiment.type,

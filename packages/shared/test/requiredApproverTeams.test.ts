@@ -84,6 +84,43 @@ describe("required approver teams", () => {
     );
   });
 
+  // {Finance} ∧ {Finance or Payments} ≡ {Finance} — the superset rule is implied.
+  it("drops a rule implied by a stricter one", () => {
+    const rules = [
+      { requiredApproverTeams: ["t_fin"] },
+      { requiredApproverTeams: ["t_fin", "t_pay"] },
+    ];
+
+    expect(assess(rules, []).unmet).toEqual([
+      [{ id: "t_fin", name: "Finance" }],
+    ]);
+    expect(assess(rules, ["u_fin"]).satisfied).toBe(true);
+    // Payments alone satisfies only the wider rule — Finance still required.
+    expect(assess(rules, ["u_pay"]).satisfied).toBe(false);
+  });
+
+  // An emptied rule (all teams deleted) must not subsume one that still binds.
+  it("never lets a fully-deleted rule subsume a partly-deleted one", () => {
+    const rules = [
+      { requiredApproverTeams: ["t_gone"] },
+      { requiredApproverTeams: ["t_gone", "t_fin"] },
+    ];
+
+    expect(assess(rules, []).satisfied).toBe(false);
+    expect(assess(rules, []).unmet).toEqual([
+      [{ id: "t_fin", name: "Finance" }],
+    ]);
+  });
+
+  it("dedupes rules naming the same teams", () => {
+    const rules = [
+      { requiredApproverTeams: ["t_fin", "t_pay"] },
+      { requiredApproverTeams: ["t_pay", "t_fin"] },
+    ];
+
+    expect(assess(rules, []).unmet).toHaveLength(1);
+  });
+
   it("still enforces the surviving teams of a partly-deleted rule", () => {
     const rules = [{ requiredApproverTeams: ["t_gone", "t_fin"] }];
 

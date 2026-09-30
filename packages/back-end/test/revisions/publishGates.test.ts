@@ -265,6 +265,32 @@ describe("classifyPublishGate", () => {
     });
   });
 
+  // The review requirement's own sub-conditions clear exactly as it does.
+  describe.each([
+    "required-approvers-missing",
+    "required-project-approvers-missing",
+  ])("%s", (type) => {
+    const gate: PublishGate = { ...approvalGate, type };
+
+    it("blocks without any bypass authority", () => {
+      expect(classifyPublishGate(gate, noClearance)).toEqual({
+        outcome: "blocking",
+      });
+    });
+
+    it("is bypassed by the bypass-approval permission or the org REST setting", () => {
+      expect(
+        classifyPublishGate(
+          gate,
+          clearance({ bypassApprovalPermission: true }),
+        ),
+      ).toEqual({ outcome: "bypassed", via: "bypassApprovalPermission" });
+      expect(
+        classifyPublishGate(gate, clearance({ restApiBypassesReviews: true })),
+      ).toEqual({ outcome: "bypassed", via: "restApiBypassesReviews" });
+    });
+  });
+
   describe("stale-base", () => {
     it("blocks when only ignoreWarnings is set (no force-merge authority)", () => {
       expect(

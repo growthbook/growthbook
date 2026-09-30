@@ -28,6 +28,7 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import { DocLink, DocSection } from "@/components/DocLink";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 
 // Per-hook-type example section in the Custom Hooks docs.
 const EXAMPLE_DOC_SECTIONS: Record<CustomHookType, DocSection> = {
@@ -531,7 +532,6 @@ export default function CustomHookModal({
 
   return (
     <Modal
-      useRadixButton={false}
       header={current?.id ? "Edit Custom Hook" : "Add Custom Hook"}
       close={close}
       open={true}
@@ -747,7 +747,7 @@ export default function CustomHookModal({
               <strong>Warnings:</strong>
               {testResult.warnings.map((w, i) => (
                 <Callout key={i} status="warning" mt="2">
-                  {w}
+                  <MarkdownLinks text={w} />
                 </Callout>
               ))}
             </div>
@@ -762,7 +762,7 @@ export default function CustomHookModal({
                 ...(testResult.suppressed.warnings ?? []),
               ].map((m, i) => (
                 <Callout key={i} status="info" mt="2">
-                  {m}
+                  <MarkdownLinks text={m} />
                 </Callout>
               ))}
             </Box>
@@ -776,7 +776,9 @@ export default function CustomHookModal({
           {testResult.error && (
             <div className="mt-3">
               <strong>Error:</strong>
-              <pre className="p-3 bg-light">{testResult.error}</pre>
+              <pre className="p-3 bg-light">
+                <MarkdownLinks text={testResult.error} />
+              </pre>
             </div>
           )}
           {testResult.log && (

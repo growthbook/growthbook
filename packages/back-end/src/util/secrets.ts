@@ -216,6 +216,8 @@ export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
+export const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID || "";
+export const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET || "";
 
 // Internal-only: incoming webhook URL for forwarding NPS survey responses to
 // GrowthBook's own Slack. Only set on GrowthBook Cloud — self-hosted and Cloud
@@ -230,6 +232,14 @@ export const JOB_TIMEOUT_MS = parseEnvInt(
   2 * 60 * 60 * 1000,
   { min: 1, name: "JOB_TIMEOUT_MS" },
 ); // Defaults to 2 hours
+
+// Must exceed the idle timeout of any load balancer in front of us, or the LB
+// reuses connections we already closed and returns spurious 502s to clients.
+export const KEEP_ALIVE_TIMEOUT_MS = parseEnvInt(
+  process.env.KEEP_ALIVE_TIMEOUT_MS,
+  60 * 60 * 1000 + 5000,
+  { min: 1, name: "KEEP_ALIVE_TIMEOUT_MS" },
+);
 
 export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
 export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
@@ -366,6 +376,11 @@ export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 // /v1beta/models to find an ID your account has access to and override.
 export const GEMINI_IMAGE_MODEL =
   process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+
+// Self-hosted only: extra AI Assistant skills, layered over the built-ins.
+export const AGENT_SKILLS_DIR = IS_CLOUD
+  ? ""
+  : process.env.AGENT_SKILLS_DIR || "";
 // Kraken.io credentials — AI-generated images are resized + re-encoded to
 // WebP via the Kraken API instead of any in-process codec (sharp/wasm-vips),
 // which proved unreliable in production. When unset, optimization is skipped

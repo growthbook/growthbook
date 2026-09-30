@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/router";
 import { OrganizationInterface } from "shared/types/organization";
+import { NonJsonResponseError } from "shared/util";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
@@ -40,6 +41,9 @@ export function appendIgnoreWarnings(url: string): string {
   return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
 }
 
+// The REST API (/api/v*) authenticates with the Authorization header and
+// allows any CORS origin, so cross-origin requests must carry no credentials;
+// a same-origin API may sit behind a cookie-authenticated proxy, so send them.
 export function isExternalApiPath(url: string): boolean {
   return /^\/api\/v\d/.test(url);
 }
@@ -305,7 +309,6 @@ export const AuthProvider: React.FC<{
       if (resp.confirm) {
         setAuthComponent(
           <Modal
-            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             submit={async () => {
@@ -379,7 +382,7 @@ export const AuthProvider: React.FC<{
       const init = { ...options };
       init.headers = init.headers || {};
       init.headers["Authorization"] = `Bearer ${token}`;
-      init.credentials = isExternalApiPath(url) ? "omit" : "include";
+      init.credentials = isExternalApiPath(url) ? "same-origin" : "include";
 
       if (init.body && !init.headers["Content-Type"]) {
         init.headers["Content-Type"] = "application/json";
@@ -403,7 +406,11 @@ export const AuthProvider: React.FC<{
       if (contentType && contentType.startsWith("image/")) {
         responseData = await response.blob();
       } else {
-        responseData = await response.json();
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          throw new NonJsonResponseError(response.status);
+        }
         if (
           !response.ok &&
           responseData &&
@@ -426,7 +433,7 @@ export const AuthProvider: React.FC<{
       init.headers["Authorization"] = `Bearer ${token}`;
 
       if (!init.credentials) {
-        init.credentials = isExternalApiPath(url) ? "omit" : "include";
+        init.credentials = isExternalApiPath(url) ? "same-origin" : "include";
       }
 
       if (init.body && !init.headers["Content-Type"]) {
@@ -609,7 +616,6 @@ export const AuthProvider: React.FC<{
   if (initError) {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         header="logo"
         open={true}
@@ -636,7 +642,6 @@ export const AuthProvider: React.FC<{
   if (sessionError) {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         cta="OK"

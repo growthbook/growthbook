@@ -1,7 +1,6 @@
 ---
 title: Node.js SDK
 description: Install the GrowthBook Node.js SDK to evaluate feature flags and run A/B tests in server-side JavaScript. Requires Node 18 or above.
-slug: node
 toc_max_heading_level: 5
 ---
 
@@ -93,6 +92,36 @@ Scoped instances were first introduced in SDK version 1.3.1.
 GrowthBook comes with a number of built-in plugins that add additional functionality. You can enable these by passing them into the GrowthBook client's `createScopedInstance()` factory method or into the GrowthBook constructor.
 
 Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
+
+### Tracing
+
+The tracing plugin records every experiment assignment as a tag of the form `gb.exp:<experimentKey>=<variationKey>` so you can attach it to an LLM trace in Langfuse, Arize Phoenix, or any OpenTelemetry-based tool. GrowthBook's Langfuse and Phoenix data source integrations read the tags back out of the trace to compute exposures. See [Experimenting on LLM Features](/integrations/llm-tracing) for the full setup and the plugin options in the [JavaScript SDK docs](/lib/js#tracing).
+
+Pass the plugin in the `GrowthBookClient` options. The shared client has no assignments of its own, so the plugin runs for each `createScopedInstance()` call and every scoped instance keeps its own tag set. Read the tags off the scoped instance with `getTracingTags()`.
+
+```js
+import { GrowthBookClient } from "@growthbook/growthbook";
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+
+const gbClient = new GrowthBookClient({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [tracingPlugin()],
+});
+await gbClient.init();
+
+app.post("/chat", async (req, res) => {
+  const scoped = gbClient.createScopedInstance({
+    attributes: { user_id: req.user.id },
+  });
+
+  // Evaluate flags first so the tags exist before the trace starts
+  const promptLabel = scoped.getFeatureValue("support-prompt", "production");
+  const tags = getTracingTags(scoped); // e.g. ["gb.exp:support-prompt=prod-b"]
+
+  // Hand `tags` (and req.user.id as the user id) to your tracing SDK
+});
+```
 
 ### DevTools for back-end
 
@@ -197,7 +226,7 @@ Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook inst
 
 #### Synchronous Init
 
-There is a alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
+There is an alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
@@ -216,7 +245,7 @@ const gbClient = new GrowthBookClient().initSync({
 
 By default, the GrowthBookClient will only fetch features once during initialization. This works great for short-running processes (e.g. serverless functions).
 
-For long-running Node.js processes, there are 2 main approaches to keeping feature defintiions up-to-date.
+For long-running Node.js processes, there are 2 main approaches to keeping feature definitions up-to-date.
 
 1. Streaming
 2. Polling
@@ -383,7 +412,7 @@ const userContext = {
 
 ### Feature Flag Experiments
 
-There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+Evaluating the feature is what enrolls a user and fires `trackingCallback`. See [Feature Flag Experiments](/features/feature-flag-experiments).
 
 ```js
 // If this has an active experiment and the user is included,
@@ -590,7 +619,7 @@ const salt = "f09jq3fij"; // Your organization's secure attribute salt (see Orga
 // hashing a secureString attribute
 const userEmail = sha256(salt + user.email);
 
-// hashing an secureString[] attribute
+// hashing a secureString[] attribute
 const userTags = user.tags.map(tag => sha256(salt + tag));
 
 const userContext = {
@@ -883,7 +912,7 @@ The `hashUsed` flag will only be true if the user was randomly assigned a variat
 
 ## Implementing DevTools
 
-The DevTools plugins are designed to work both GrowthBookClient and GrowthBook (legacy) SDK instances. Your SDK must be in dev mode (`enableDevMode: true`) for the plugin to work.
+The DevTools plugins are designed to work with both GrowthBookClient and GrowthBook (legacy) SDK instances. Your SDK must be in dev mode (`enableDevMode: true`) for the plugin to work.
 
 ### Helper Functions
 
@@ -1084,7 +1113,7 @@ Similar to the Express and Next.js middleware examples above, you can generate y
 
 ## Examples
 
-- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+- [TypeScript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
 
 ## Supported Features
 

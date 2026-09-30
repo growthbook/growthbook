@@ -2039,6 +2039,9 @@ main.main {
     transparent 100%
   );
 }
+.fade-mask-bottom-1rem {
+  mask-image: linear-gradient(to top, transparent 0%, black 1rem);
+}
 .w100-1rem {
   width: calc(100% - 2rem);
 }
@@ -3439,6 +3442,27 @@ textarea.form-control--lg {
   padding-top: 6px;
   padding-bottom: 6px;
   font-size: var(--font-size-3);
+}
+// The blanket `textarea.form-control` min-height above is the legacy size, and
+// the shared padding rules above are tuned for fixed-height inputs. Together
+// they leave a single-row textarea taller than the matching input with dead
+// space under the text. Each size gets the min-height of its own input plus
+// padding that centers one row, so a minRows={1} textarea is indistinguishable
+// from a text input until a second line arrives. Legacy already lands right.
+textarea.form-control--sm {
+  min-height: 28px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+textarea.form-control--md {
+  min-height: 32px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+textarea.form-control--lg {
+  min-height: 40px;
+  padding-top: 7px;
+  padding-bottom: 7px;
 }
 .form-control--error {
   border-color: var(--red-8) !important;

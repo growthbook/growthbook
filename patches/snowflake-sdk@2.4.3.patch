@@ -1,0 +1,25 @@
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 010d4793fc069048ad384e4ed839f1331cb67d98..502bd551c0728d9f51f39655349bbef45dcb280f 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -299,13 +299,18 @@ declare module 'snowflake-sdk' {
+ 
+     /**
+      * Checks whether the given status is currently running.
++     *
++     * Typed as `string`: `getQueryStatus` resolves to `string`, and the runtime
++     * returns statuses (e.g. `NO_QUERY_DATA`) outside the `QueryStatus` union.
+      */
+-    isStillRunning(status: QueryStatus): boolean;
++    isStillRunning(status: string): boolean;
+ 
+     /**
+      * Checks whether the given status means that there has been an error.
++     *
++     * Takes the status string; the shipped type dropped the argument.
+      */
+-    isAnError(): boolean;
++    isAnError(status: string): boolean;
+ 
+     /**
+      * Returns a JSON-serialized string of the connection state (master/session

@@ -1,12 +1,17 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import MakeChangesFlow from "./MakeChangesFlow";
+import { getLinkedExperimentAttributeScopes } from "./useAttributeScopePicker";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 
 export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
 }
@@ -14,9 +19,14 @@ export interface Props {
 export default function EditNamespaceModal({
   close,
   experiment,
+  linkedFeatures,
   mutate,
   safeToEdit,
 }: Props) {
+  const { enforcement, dropdown } = getLinkedExperimentAttributeScopes(
+    experiment.project,
+    linkedFeatures,
+  );
   const {
     form,
     defaultValues,
@@ -24,7 +34,7 @@ export default function EditNamespaceModal({
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
     onSubmit,
-  } = useExperimentTargetingForm(experiment);
+  } = useExperimentTargetingForm(experiment, enforcement);
 
   if (safeToEdit) {
     return (
@@ -55,6 +65,7 @@ export default function EditNamespaceModal({
   return (
     <MakeChangesFlow
       experiment={experiment}
+      attributeProjects={dropdown}
       form={form}
       defaultValues={defaultValues}
       onSubmit={(scope) => onSubmit(mutate, scope)()}

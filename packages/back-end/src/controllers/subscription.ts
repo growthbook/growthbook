@@ -281,6 +281,13 @@ export async function cancelSubscription(req: AuthRequest, res: Response) {
     throw new Error("No license found for organization");
   }
 
+  // Enterprise contracts are sales-managed; the UI hides cancel, so block the API too.
+  if (license.plan === "enterprise") {
+    throw new Error(
+      "Enterprise subscriptions can't be canceled here. Please contact your account executive or support@growthbook.io.",
+    );
+  }
+
   await postCancelSubscriptionToLicenseServer(license.id);
 
   res.status(200).json({

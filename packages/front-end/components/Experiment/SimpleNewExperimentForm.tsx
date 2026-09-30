@@ -16,8 +16,8 @@ import SelectField from "@/components/Forms/SelectField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
@@ -30,6 +30,7 @@ import { useWatching } from "@/services/WatchProvider";
 import { convertTemplateToExperiment } from "@/services/experiments";
 import { useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -177,6 +178,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     defaultValues: {
       project: initialProject,
       name: "",
+      trackingKey: "",
       hypothesis: "",
       hashAttribute: initialHashAttribute,
       templateId: "",
@@ -185,6 +187,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     },
   });
 
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+  );
   const selectedProject = form.watch("project") ?? "";
   const creatingInDemoProject =
     !!demoProjectId && selectedProject === demoProjectId;
@@ -393,8 +398,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       templateId: rawValue.templateId || "",
       holdoutId: rawValue.holdoutId || undefined,
       customFields: rawValue.customFields,
-      // Leave trackingKey empty — the back-end derives a unique key from the name
-      trackingKey: "",
+      // Empty lets the back-end derive a unique key from the name
+      trackingKey: rawValue.trackingKey || "",
     };
 
     // A draft has no end date; ensure the start date is a proper UTC timestamp
@@ -482,6 +487,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         minLength={2}
         {...form.register("name")}
       />
+      {settings.experimentKeyRegexValidator && (
+        <Field
+          label="Tracking Key"
+          {...form.register("trackingKey")}
+          {...trackingKeyFormatProps}
+        />
+      )}
 
       {projects.length >= 1 && (
         <SelectField
@@ -577,22 +589,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         onChange={(v) => form.setValue("hashAttribute", v)}
         options={attributeSchema
           .filter((s) => !hasHashAttributes || s.hashAttribute)
-          .map((s) => ({
-            label: s.property,
-            value: s.property,
-            description: s.description,
-            tags: s.tags,
-            datatype: s.datatype,
-            hashAttribute: s.hashAttribute,
-          }))}
-        formatOptionLabel={(o, meta) => (
-          <AttributeOptionWithTooltip
-            option={o as AttributeOptionForTooltip}
-            context={meta.context}
-          >
-            {o.label}
-          </AttributeOptionWithTooltip>
-        )}
+          .map(toAttributeOption)}
+        formatOptionLabel={formatAttributeOptionLabel}
         helpText={
           hashAttributeHoldoutMismatch ? (
             <HelperText status="warning" size="sm" mt="2">

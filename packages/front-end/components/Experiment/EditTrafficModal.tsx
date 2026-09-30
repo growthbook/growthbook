@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
@@ -10,11 +11,13 @@ import { distributeWeights } from "@/services/utils";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import track from "@/services/track";
 import MakeChangesFlow from "./MakeChangesFlow";
+import { getLinkedExperimentAttributeScopes } from "./useAttributeScopePicker";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 
 export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
   // Auto-focus this variation's Name field when the modal opens.
@@ -26,6 +29,7 @@ export interface Props {
 export default function EditTrafficModal({
   close,
   experiment,
+  linkedFeatures,
   mutate,
   safeToEdit,
   focusVariationId,
@@ -43,7 +47,14 @@ export default function EditTrafficModal({
     );
   }
 
-  return <MakeChanges close={close} experiment={experiment} mutate={mutate} />;
+  return (
+    <MakeChanges
+      close={close}
+      experiment={experiment}
+      linkedFeatures={linkedFeatures}
+      mutate={mutate}
+    />
+  );
 }
 
 function EditTrafficForm({
@@ -199,12 +210,18 @@ function EditTrafficForm({
 function MakeChanges({
   close,
   experiment,
+  linkedFeatures,
   mutate,
 }: {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
 }) {
+  const { enforcement, dropdown } = getLinkedExperimentAttributeScopes(
+    experiment.project,
+    linkedFeatures,
+  );
   const {
     form,
     defaultValues,
@@ -212,11 +229,12 @@ function MakeChanges({
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
     onSubmit,
-  } = useExperimentTargetingForm(experiment);
+  } = useExperimentTargetingForm(experiment, enforcement);
 
   return (
     <MakeChangesFlow
       experiment={experiment}
+      attributeProjects={dropdown}
       form={form}
       defaultValues={defaultValues}
       onSubmit={(scope) => onSubmit(mutate, scope)()}

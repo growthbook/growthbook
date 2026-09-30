@@ -50,11 +50,13 @@ type MultiValueLabelStyle = {
   fontSize: string;
   fontWeight: number;
   cursor: string | undefined;
+  title: boolean;
 };
 const MultiValueLabelStyleContext = createContext<MultiValueLabelStyle>({
   fontSize: "12px",
   fontWeight: 500,
   cursor: undefined,
+  title: true,
 });
 
 const SortableMultiValue = SortableElement(
@@ -73,10 +75,15 @@ const SortableMultiValue = SortableElement(
 const SortableMultiValueLabel = (
   props: MultiValueGenericProps<SingleValue, true, GroupBase<SingleValue>>,
 ) => {
-  const style = useContext(MultiValueLabelStyleContext);
-  const title = props.data?.tooltip || props.data?.label || "";
-  const innerProps = { ...props.innerProps, title };
-  return (
+  const { title: showTitle, ...style } = useContext(
+    MultiValueLabelStyleContext,
+  );
+  const tooltip = props.data?.tooltip;
+  const innerProps =
+    showTitle && !tooltip
+      ? { ...props.innerProps, title: props.data?.label || "" }
+      : props.innerProps;
+  const label = (
     <span
       style={{
         display: "flex",
@@ -88,13 +95,23 @@ const SortableMultiValueLabel = (
       <components.MultiValueLabel {...props} innerProps={innerProps} />
     </span>
   );
+  return tooltip ? <Tooltip content={tooltip}>{label}</Tooltip> : label;
 };
 
-const OptionWithTitle = (
+const OptionWithTooltip = (
   props: OptionProps<SingleValue, true, GroupBase<SingleValue>>,
 ) => {
-  const option = <components.Option {...props} />;
-  return <div title={props.data?.tooltip}>{option}</div>;
+  const tooltip = props.data?.tooltip;
+  if (!tooltip) return <components.Option {...props} />;
+  // Anchored to the label, not the full-width row, so the tooltip sits beside
+  // the text and stays out of the way while moving down the list.
+  return (
+    <components.Option {...props}>
+      <Tooltip content={tooltip} side="right">
+        <span style={{ display: "inline-block" }}>{props.children}</span>
+      </Tooltip>
+    </components.Option>
+  );
 };
 
 const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<
@@ -280,6 +297,7 @@ export type MultiSelectFieldProps = Omit<
   size?: MultiSelectFieldSize;
   /** Preserve the pre-design-system 36px control height. */
   legacyHeight?: boolean;
+  valueTitles?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
   errorLevel?: "error" | "warning";
@@ -309,6 +327,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   showCopyButton = true,
   size,
   legacyHeight,
+  valueTitles = true,
   labelSize,
   labelWeight = "semibold",
   errorLevel = "error",
@@ -450,8 +469,9 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       fontSize: !usesLegacyHeight && resolvedSize === "lg" ? "14px" : "12px",
       fontWeight: 500,
       cursor: sort ? "grab" : undefined,
+      title: valueTitles,
     }),
-    [resolvedSize, sort, usesLegacyHeight],
+    [resolvedSize, sort, usesLegacyHeight, valueTitles],
   );
   return (
     <MultiValueLabelStyleContext.Provider value={labelStyle}>
@@ -525,7 +545,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     MultiValue: SortableMultiValue,
                     MultiValueLabel: SortableMultiValueLabel,
                     MultiValueRemove: CustomMultiValueRemove,
-                    Option: OptionWithTitle,
+                    Option: OptionWithTooltip,
                     Input,
                     ClearIndicator: CustomClearIndicator,
                     GroupHeading,

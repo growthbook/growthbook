@@ -59,6 +59,7 @@ import {
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
 import { scheduleRevisionPublish } from "back-end/src/revisions/revisionLifecycle";
+import { assertPendingScheduleAcknowledged } from "back-end/src/revisions/pendingScheduleGuard";
 
 // Arming publishes into the entity as it stands when the fire happens, so
 // authorization uses the LIVE entity rather than the revision's snapshot: after
@@ -1136,6 +1137,7 @@ export const postMerge = async (
   if (!entity) {
     return res.status(404).json({ message: "Entity not found" });
   }
+  assertPendingScheduleAcknowledged(context, revision);
 
   const mergedRevision = await publishRevisionAction(
     context,
@@ -1182,6 +1184,7 @@ export const postApproveAndPublish = async (
   if (!entity) {
     return res.status(404).json({ message: "Entity not found" });
   }
+  assertPendingScheduleAcknowledged(context, revision);
 
   // Pre-flight publish feasibility BEFORE writing the approval. Otherwise a
   // conflict (or missing publish permission) surfaces only inside
