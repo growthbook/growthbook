@@ -8,6 +8,13 @@ declare global {
       track?: (name: string, props?: Record<string, unknown>) => void;
     };
     gtag?: (...args: unknown[]) => void;
+    rudderanalytics?: {
+      track?: (
+        name: string,
+        props?: Record<string, unknown>,
+        cb?: () => Promise<void>
+      ) => void;
+    };
   }
 }
 
@@ -128,10 +135,73 @@ describe("thirdPartyTrackingPlugin", () => {
     gb.destroy();
   });
 
+  it("should call rudderstack if enabled", () => {
+    const plugin = thirdPartyTrackingPlugin({
+      trackers: ["rudderstack"],
+    });
+
+    window.rudderanalytics = {
+      track: jest.fn(),
+    };
+
+    const gb = new GrowthBook({
+      plugins: [plugin],
+      attributes: {
+        id: "123",
+      },
+    });
+
+    const exp: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+    };
+    const res = gb.run(exp);
+
+    expect(window.rudderanalytics.track).toHaveBeenCalledWith(
+      "Experiment Viewed",
+      {
+        experiment_id: exp.key,
+        variation_id: res.key,
+      },
+      expect.any(Function)
+    );
+
+    delete window.rudderanalytics;
+    gb.destroy();
+  });
+
+  it("should not call rudderstack by default", () => {
+    const plugin = thirdPartyTrackingPlugin();
+
+    window.rudderanalytics = {
+      track: jest.fn(),
+    };
+
+    const gb = new GrowthBook({
+      plugins: [plugin],
+      attributes: {
+        id: "123",
+      },
+    });
+
+    const exp: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+    };
+    gb.run(exp);
+
+    expect(window.rudderanalytics.track).not.toHaveBeenCalled();
+
+    delete window.rudderanalytics;
+    gb.destroy();
+  });
+
   it("Fails silently if trackers don't exist", () => {
     delete window.dataLayer;
 
-    const plugin = thirdPartyTrackingPlugin();
+    const plugin = thirdPartyTrackingPlugin({
+      trackers: ["gtm", "gtag", "segment", "rudderstack"],
+    });
 
     const gb = new GrowthBook({
       plugins: [plugin],
