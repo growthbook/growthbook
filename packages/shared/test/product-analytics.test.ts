@@ -1609,6 +1609,18 @@ describe("productAnalytics", () => {
     );
     expect(countSql).not.toContain("$$count");
     expect(countSql).toContain("1 AS m0");
+
+    // Per-unit path: the threshold CASE is aliased once by the caller.
+    config.dataset.values[0].unit = "user_id";
+    const { sql: unitSql } = generateProductAnalyticsSQL(
+      config,
+      virtualFactTableMap,
+      aggregateFilterMetricMap,
+      helpers,
+      datasource,
+    );
+    expect(unitSql).toMatch(/THEN 1\s+ELSE NULL\s+END AS m0/);
+    expect(unitSql).not.toMatch(/as m0 AS m0/i);
   });
 
   it("throws when a data_source dataset has no timestamp column", () => {

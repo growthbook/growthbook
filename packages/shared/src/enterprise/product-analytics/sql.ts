@@ -854,7 +854,7 @@ function getUnitAggregationExpr(
         ignoreInvalid: true,
       });
       if (filters.length > 0) {
-        return `CASE WHEN (${filters.join(" AND ")}) THEN 1 ELSE NULL END as ${alias}`;
+        return `CASE WHEN (${filters.join(" AND ")}) THEN 1 ELSE NULL END`;
       }
     }
     return `MAX(${alias})`;
