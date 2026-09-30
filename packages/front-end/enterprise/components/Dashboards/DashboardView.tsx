@@ -16,7 +16,6 @@ export default function DashboardView({
   mutate?: () => void;
 }) {
   const visibleBlocks = getPreviewBlocks(dashboard.blocks, maxBlocks);
-  const hasHiddenBlocks = visibleBlocks.length < dashboard.blocks.length;
   const previewDashboard =
     visibleBlocks === dashboard.blocks
       ? dashboard
@@ -32,13 +31,11 @@ export default function DashboardView({
         globalControls={dashboard.globalControls}
         dashboardComparison={dashboard.comparison}
       />
-      {hasHiddenBlocks && (
-        <Flex justify="end" mt="2">
-          <Link href={`/product-analytics/dashboards/${dashboard.id}`}>
-            View full dashboard <PiArrowRight />
-          </Link>
-        </Flex>
-      )}
+      <Flex justify="end" mt="2">
+        <Link href={`/product-analytics/dashboards/${dashboard.id}`}>
+          View full dashboard <PiArrowRight />
+        </Link>
+      </Flex>
     </DashboardSnapshotProvider>
   );
 }
