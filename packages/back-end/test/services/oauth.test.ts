@@ -923,19 +923,23 @@ describe("delegated token exchange for org OAuth apps", () => {
   const APP_ID = "gbapp_delegating";
   const APP_SECRET = "gbcs_delegating-secret";
 
-  function mockDelegatingApp(allowDelegation = true) {
-    mockFindOrgApp.mockResolvedValue({
+  function delegatingApp(allowDelegation = true, secret = APP_SECRET) {
+    return {
       id: APP_ID,
       organization: "org-1",
       clientName: "Internal MCP",
       redirectUris: ["https://mcp.example.com/cb"],
       clientUri: "",
-      clientSecretHash: hashToken(APP_SECRET),
+      clientSecretHash: hashToken(secret),
       createdBy: "user-1",
       allowDelegation,
       dateCreated: new Date(),
       dateUpdated: new Date(),
-    });
+    };
+  }
+
+  function mockDelegatingApp(allowDelegation = true) {
+    mockFindOrgApp.mockResolvedValue(delegatingApp(allowDelegation));
     mockGetOAuthClientById.mockResolvedValue(null);
   }
 
@@ -972,6 +976,7 @@ describe("delegated token exchange for org OAuth apps", () => {
         userId: "user-1",
         oauthClientId: APP_ID,
         officialClientForOrg: "org-1",
+        oauthDelegated: true,
       }),
     );
     expect(createRefresh).not.toHaveBeenCalled();
@@ -1087,4 +1092,24 @@ describe("delegated token exchange for org OAuth apps", () => {
       "org-1",
     );
   });
+
+  it.each([
+    ["delegation is turned off", delegatingApp(false)],
+    ["the secret is rotated", delegatingApp(true, "gbcs_rotated")],
+  ])(
+    "disables the token it just minted when %s mid-exchange",
+    async (_, appAfter) => {
+      mockFindOrgApp
+        .mockResolvedValueOnce(delegatingApp())
+        .mockResolvedValue(appAfter);
+      mockGetOAuthClientById.mockResolvedValue(null);
+      const { createApiKey } = mockOrgContext();
+
+      await expect(exchange()).rejects.toMatchObject({
+        error: "invalid_client",
+      });
+      const minted = createApiKey.mock.calls[0][0].key;
+      expect(mockDangerousDisableByKeyHash).toHaveBeenCalledWith(minted);
+    },
+  );
 });

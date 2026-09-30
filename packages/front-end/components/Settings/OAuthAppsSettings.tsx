@@ -259,7 +259,7 @@ const OAuthAppsSettings: FC = () => {
                           confirmationTitle: "Rotate client secret",
                           cta: "Rotate",
                           getConfirmationContent: async () =>
-                            `The current secret for "${app.clientName}" stops working immediately. Members stay authorized, but the app can't refresh tokens until it is updated with the new secret.`,
+                            `The current secret for "${app.clientName}" stops working immediately${app.allowDelegation ? ", and so do tokens it got by acting on behalf of members" : ""}. Members stay authorized, but the app can't get new tokens until it is updated with the new secret.`,
                         }}
                       >
                         Rotate secret

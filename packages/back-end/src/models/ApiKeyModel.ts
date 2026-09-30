@@ -693,6 +693,22 @@ export class ApiKeyModel extends BaseClass {
     );
   }
 
+  // Turning delegation off or rotating the secret ends the app's delegated tokens at once.
+  public static async dangerousDisableDelegatedTokens(
+    clientId: string,
+    organization: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateMany(
+      {
+        oauthClientId: clientId,
+        oauthDelegated: true,
+        organization,
+        disabled: { $ne: true },
+      },
+      { $set: { disabled: true } },
+    );
+  }
+
   // A deleted project's roles are dead grants; drop them from every org key.
   public static async dangerousRemoveProjectRolesForProject(
     organization: string,

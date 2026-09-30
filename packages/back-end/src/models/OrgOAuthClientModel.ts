@@ -99,7 +99,7 @@ export class OrgOAuthClientModel extends BaseClass {
       clientName: props.clientName,
       redirectUris: props.redirectUris,
       clientUri: props.clientUri || "",
-      allowDelegation: props.allowDelegation,
+      allowDelegation: props.allowDelegation ?? false,
       clientSecretHash: hashToken(clientSecret),
       createdBy: this.context.userId,
     });
@@ -114,7 +114,7 @@ export class OrgOAuthClientModel extends BaseClass {
       clientName: props.clientName,
       redirectUris: props.redirectUris,
       clientUri: props.clientUri || "",
-      allowDelegation: props.allowDelegation,
+      allowDelegation: props.allowDelegation ?? existing.allowDelegation,
     });
     return OrgOAuthClientModel.toPublic(doc);
   }

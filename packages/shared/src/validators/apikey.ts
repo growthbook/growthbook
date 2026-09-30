@@ -104,6 +104,12 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Stamped at issuance: the org that registered the OAuth client, or null for public (DCR) clients. The OAuth access policy trusts this, not the client ID.",
     ),
+  oauthDelegated: z
+    .boolean()
+    .optional()
+    .describe(
+      "True for OAuth access tokens an org app minted by token exchange rather than the consent flow.",
+    ),
   scopes: z
     .array(z.string())
     .optional()

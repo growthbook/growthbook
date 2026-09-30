@@ -45,7 +45,8 @@ export const oauthAppPropsValidator = z
     clientName: z.string().trim().min(1).max(100),
     redirectUris: z.array(oauthAppRedirectUri).min(1).max(10),
     clientUri: z.string().url().optional().or(z.literal("")),
-    allowDelegation: z.boolean(),
+    // Omitted means off on create and unchanged on edit.
+    allowDelegation: z.boolean().optional(),
   })
   .strict();
 
