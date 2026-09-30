@@ -16,6 +16,7 @@ import {
   DashboardBlockWithAnalysisId,
   ApiDashboardInterface,
   ApiGetDashboardsForExperimentReturn,
+  ApiRefreshDashboardReturn,
   apiUpdateDashboardBody,
   dashboardInterface,
   DashboardInterface,
@@ -49,10 +50,12 @@ import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   dashboardApiSpec,
   getDashboardsForExperimentEndpoint,
+  refreshDashboardEndpoint,
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
 import {
   explorationAnalysisId,
+  refreshDashboard,
   runNewApiExplorationBlocks,
   shouldRecalculateNextUpdate,
   updateDashboardExplorations,
@@ -104,6 +107,18 @@ const BaseClass = MakeModelClass({
             )
           ).map(req.context.models.dashboards.toApiInterface),
         }),
+      }),
+      defineCustomApiHandler({
+        ...refreshDashboardEndpoint,
+        reqHandler: async (req): Promise<ApiRefreshDashboardReturn> => {
+          const dashboards = req.context.models.dashboards;
+          const dashboard = await dashboards.getById(req.params.id);
+          if (!dashboard) return req.context.throwNotFoundError();
+          await refreshDashboard(req.context, dashboard);
+          const refreshed =
+            (await dashboards.getById(dashboard.id)) ?? dashboard;
+          return { dashboard: dashboards.toApiInterface(refreshed) };
+        },
       }),
     ],
   },

@@ -5,6 +5,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { BadRequestError } from "back-end/src/util/errors";
 
 export const postFactMetricAnalysis = createApiRequestHandler(
   postFactMetricAnalysisValidator,
@@ -20,7 +21,12 @@ export const postFactMetricAnalysis = createApiRequestHandler(
     useCache,
     additionalNumeratorFilters,
     additionalDenominatorFilters,
+    startDate: fixedStart,
+    endDate: fixedEnd,
   } = req.body ?? {};
+  if (!!fixedStart !== !!fixedEnd) {
+    throw new BadRequestError("Provide both startDate and endDate, or neither");
+  }
 
   const factMetric = await context.models.factMetrics.getById(id);
 
@@ -60,15 +66,26 @@ export const postFactMetricAnalysis = createApiRequestHandler(
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
 
-  const lookbackDaysValue = lookbackDays ?? 30;
-  const startDate = new Date(endOfToday);
+  let lookbackDaysValue = lookbackDays ?? 30;
+  let startDate = new Date(endOfToday);
   startDate.setDate(startDate.getDate() - lookbackDaysValue);
   startDate.setHours(0, 0, 0, 0);
+  let endDate = endOfToday;
+  if (fixedStart && fixedEnd) {
+    startDate = new Date(fixedStart);
+    endDate = new Date(fixedEnd);
+    if (startDate >= endDate) {
+      throw new BadRequestError("startDate must be before endDate");
+    }
+    lookbackDaysValue = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000),
+    );
+  }
 
   const metricAnalysisSettings: MetricAnalysisSettings = {
     userIdType: userIdType ?? factTable.userIdTypes?.[0] ?? "",
     startDate,
-    endDate: endOfToday,
+    endDate,
     lookbackDays: lookbackDaysValue,
     populationType: populationType ?? "factTable",
     populationId: populationId ?? null,

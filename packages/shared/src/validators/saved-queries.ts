@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { factTableColumnTypeValidator } from "./fact-table";
+import { namedSchema } from "./openapi-helpers";
 
 const dateAggregationEnum = z.enum([
   "none",
@@ -281,3 +282,143 @@ export type DataVizConfig = z.infer<typeof dataVizConfigValidator>;
 export type QueryExecutionResult = z.infer<
   typeof queryExecutionResultValidator
 >;
+
+// Result rows are only returned by the refresh endpoint, to keep listings small.
+export const apiSavedQueryValidator = namedSchema(
+  "SavedQuery",
+  z
+    .object({
+      id: z.string(),
+      datasourceId: z.string(),
+      name: z.string(),
+      sql: z.string(),
+      dataVizConfig: z.array(dataVizConfigValidator),
+      linkedDashboardIds: z.array(z.string()),
+      dateLastRan: z.string().meta({ format: "date-time" }),
+      lastRun: z.object({
+        rowCount: z.number(),
+        error: z.string().nullable(),
+        duration: z.number().nullable(),
+      }),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+    })
+    .strict(),
+);
+
+const savedQueryFields = {
+  name: z.string().min(1),
+  sql: z.string().min(1),
+  dataVizConfig: z
+    .array(dataVizConfigValidator)
+    .optional()
+    .describe("Charts to draw from the results"),
+};
+
+const savedQueryIdParams = z.object({ id: z.string() }).strict();
+const savedQueryResponse = z
+  .object({ savedQuery: apiSavedQueryValidator })
+  .strict();
+const savedQueryGate =
+  "Requires the saved SQL Explorer queries feature and permission to run SQL Explorer queries on the Data Source.";
+
+export const listSavedQueriesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ datasourceId: z.string().optional() }).strict(),
+  paramsSchema: z.never(),
+  responseSchema: z
+    .object({ savedQueries: z.array(apiSavedQueryValidator) })
+    .strict(),
+  summary: "Get all saved SQL Explorer queries",
+  operationId: "listSavedQueries",
+  tags: ["saved-queries"],
+  method: "get" as const,
+  path: "/saved-queries",
+};
+
+export const getSavedQueryValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: savedQueryIdParams,
+  responseSchema: savedQueryResponse,
+  summary: "Get a single saved query",
+  operationId: "getSavedQuery",
+  tags: ["saved-queries"],
+  method: "get" as const,
+  path: "/saved-queries/:id",
+};
+
+export const postSavedQueryValidator = {
+  bodySchema: z
+    .object({
+      datasourceId: z.string(),
+      ...savedQueryFields,
+      runNow: z
+        .boolean()
+        .optional()
+        .describe("Run the query after saving it (default true)"),
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+  responseSchema: savedQueryResponse,
+  summary: "Create a saved query",
+  description: `${savedQueryGate} Use its id in a Dashboard's SQL Explorer block.`,
+  operationId: "postSavedQuery",
+  tags: ["saved-queries"],
+  method: "post" as const,
+  path: "/saved-queries",
+  exampleRequest: {
+    body: {
+      datasourceId: "ds_abc123",
+      name: "Signups by day",
+      sql: "SELECT date, COUNT(*) AS signups FROM users GROUP BY date",
+    },
+  },
+};
+
+export const updateSavedQueryValidator = {
+  bodySchema: z.object(savedQueryFields).partial().strict(),
+  querySchema: z.never(),
+  paramsSchema: savedQueryIdParams,
+  responseSchema: savedQueryResponse,
+  summary: "Update a saved query",
+  description: `${savedQueryGate} Changing \`sql\` doesn't re-run it; call the refresh endpoint.`,
+  operationId: "updateSavedQuery",
+  tags: ["saved-queries"],
+  method: "post" as const,
+  path: "/saved-queries/:id",
+};
+
+export const deleteSavedQueryValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: savedQueryIdParams,
+  responseSchema: z.object({ deletedId: z.string() }).strict(),
+  summary: "Delete a saved query",
+  operationId: "deleteSavedQuery",
+  tags: ["saved-queries"],
+  method: "delete" as const,
+  path: "/saved-queries/:id",
+};
+
+export const postSavedQueryRefreshValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: savedQueryIdParams,
+  responseSchema: z
+    .object({
+      savedQuery: apiSavedQueryValidator,
+      results: z
+        .array(z.record(z.string(), z.unknown()))
+        .describe("Up to 1000 rows"),
+      error: z.string().nullable(),
+    })
+    .strict(),
+  summary: "Re-run a saved query",
+  description: `${savedQueryGate} A failed run is reported in \`error\` and the previous results are kept.`,
+  operationId: "postSavedQueryRefresh",
+  tags: ["saved-queries"],
+  method: "post" as const,
+  path: "/saved-queries/:id/refresh",
+};

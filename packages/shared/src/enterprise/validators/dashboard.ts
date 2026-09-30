@@ -259,6 +259,17 @@ export const apiGetDashboardsForExperimentValidator = {
 export const apiGetDashboardsForExperimentReturn = z.strictObject({
   dashboards: z.array(apiDashboardInterface),
 });
+export const apiRefreshDashboardValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.strictObject({ id: z.string() }),
+};
+export const apiRefreshDashboardReturn = z.strictObject({
+  dashboard: apiDashboardInterface,
+});
+export type ApiRefreshDashboardReturn = z.infer<
+  typeof apiRefreshDashboardReturn
+>;
 export type ApiGetDashboardsForExperimentReturn = z.infer<
   typeof apiGetDashboardsForExperimentReturn
 >;
