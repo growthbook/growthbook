@@ -196,6 +196,7 @@ import {
   hasPublishLockingScheduledSibling,
   markRevisionAsPublished,
   computeRevisionPublishChanges,
+  liveRevisionBeforePublish,
   restoreFeatureRevisionAfterFailedBulkPublish,
   updateRevision,
   createRevision,
@@ -3798,7 +3799,7 @@ export async function prevalidatePublishRevision({
         },
       ),
     },
-    original: revision,
+    original: liveRevisionBeforePublish(revision, feature),
   });
 }
 
@@ -4070,6 +4071,10 @@ async function publishRevisionInner({
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
+  const environmentIds = getApplicableEnvIds(
+    getEnvironments(context.org),
+    feature,
+  );
 
   // Resolved before the landing gate and any mutation: the ramps a revert
   // detaches reach environments its rule diff may not, and a failed read must
@@ -4108,10 +4113,7 @@ async function publishRevisionInner({
         // The live feature's own rules are the baseline the merge lands on.
         filledLiveRules: feature.rules ?? [],
         result,
-        environmentIds: getApplicableEnvIds(
-          getEnvironments(context.org),
-          feature,
-        ),
+        environmentIds,
         // The draft's ramp actions reach environments no rule diff mentions.
         rampActions: [
           ...(revision.rampActions ?? []),
@@ -4409,14 +4411,8 @@ async function publishRevisionInner({
       feature,
       revision,
       context.auditUser,
+      { result, environmentIds },
       comment,
-      {
-        result,
-        environmentIds: getApplicableEnvIds(
-          getEnvironments(context.org),
-          feature,
-        ),
-      },
     );
     revisionStatusRewind = {
       what: "revision status",

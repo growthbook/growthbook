@@ -1,13 +1,10 @@
 import isEqual from "lodash/isEqual";
 import {
-  autoMerge,
   AutoMergeResult,
-  evaluatePublishGovernance,
   getMatchingRules,
   liveRevisionFromFeature,
   MatchingRule,
   mergeResultHasChanges,
-  reconcileMergeBaselines,
 } from "shared/util";
 import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -23,7 +20,10 @@ import {
 } from "shared/validators";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
-import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
+import {
+  assessRevisionApproval,
+  mergeDraftForAutoPublish,
+} from "back-end/src/services/featurePublishGates";
 import {
   editFeatureRules,
   getFeature,
@@ -395,41 +395,6 @@ async function assessRevisionApprovalForAutoPublish(
     filledLive,
     base,
   });
-}
-
-export function mergeDraftForAutoPublish(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  live: FeatureRevisionInterface,
-  base: FeatureRevisionInterface,
-): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
-  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-    feature,
-    live,
-    base,
-  );
-  const mergeResult = autoMerge(
-    mergeLive,
-    mergeBase,
-    revision,
-    context.environments,
-    {},
-  );
-  const governance = evaluatePublishGovernance({
-    revisionStatus: revision.status,
-    baseVersion: revision.baseVersion,
-    liveVersion: live.version,
-    mergeSuccess: mergeResult.success,
-    liveChanges: [],
-    approvedBaseVersion: revision.approvedBaseVersion ?? null,
-    requireRebaseBeforePublish:
-      !!context.org.settings?.requireRebaseBeforePublish,
-  });
-  return {
-    mergeResult,
-    rebaseRequired: mergeResult.success && governance.rebaseRequired,
-  };
 }
 
 type ReadyDraft = ResolvedDraft & {

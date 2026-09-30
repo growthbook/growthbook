@@ -1,5 +1,7 @@
 import {
   autoMerge,
+  AutoMergeResult,
+  reconcileMergeBaselines,
   getRevisionReviewRequirement,
   draftDiffersFromLive,
   evaluatePublishGovernance,
@@ -27,7 +29,10 @@ import {
   collectHoldoutChangeGates,
   computeProposedFeatureForValidation,
 } from "back-end/src/models/FeatureModel";
-import { computeRevisionPublishChanges } from "back-end/src/models/FeatureRevisionModel";
+import {
+  computeRevisionPublishChanges,
+  liveRevisionBeforePublish,
+} from "back-end/src/models/FeatureRevisionModel";
 import {
   collectFeatureValueErrorsForPublish,
   getLiveAndBaseRevisionsForFeature,
@@ -595,7 +600,7 @@ export async function collectFeaturePublishGates({
         { result: plan.mergeResult, environmentIds: plan.environmentIds },
       ),
     },
-    original: revision,
+    original: liveRevisionBeforePublish(revision, feature),
   });
   const hookHardErrors = [
     ...featureHookResults.hardErrors,
@@ -643,4 +648,42 @@ export async function collectFeaturePublishGates({
   if (moveGate) gates.push(moveGate);
 
   return gates;
+}
+
+// The merge an unattended publish lands, under the governance the publish button
+// applies. `rebaseRequired` is the mergeable-but-blocked case; conflicts are the
+// caller's to report.
+export function mergeDraftForAutoPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  live: FeatureRevisionInterface,
+  base: FeatureRevisionInterface,
+): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
+  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+    feature,
+    live,
+    base,
+  );
+  const mergeResult = autoMerge(
+    mergeLive,
+    mergeBase,
+    revision,
+    context.environments,
+    {},
+  );
+  const governance = evaluatePublishGovernance({
+    revisionStatus: revision.status,
+    baseVersion: revision.baseVersion,
+    liveVersion: live.version,
+    mergeSuccess: mergeResult.success,
+    liveChanges: [],
+    approvedBaseVersion: revision.approvedBaseVersion ?? null,
+    requireRebaseBeforePublish:
+      !!context.org.settings?.requireRebaseBeforePublish,
+  });
+  return {
+    mergeResult,
+    rebaseRequired: mergeResult.success && governance.rebaseRequired,
+  };
 }

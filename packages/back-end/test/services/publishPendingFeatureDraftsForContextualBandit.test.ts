@@ -35,6 +35,7 @@ jest.mock("shared/util", () => ({
 }));
 
 jest.mock("back-end/src/services/featurePublishGates", () => ({
+  ...jest.requireActual("back-end/src/services/featurePublishGates"),
   assessRevisionApproval: jest.fn(),
 }));
 
@@ -44,9 +45,8 @@ import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 
-// A bandit start publishes its pending drafts through the same merge and
-// governance as an experiment start, so the org's rebase-before-publish
-// setting holds there too.
+// A bandit start publishes its pending drafts under the same governance as an
+// experiment start.
 
 const cb = {
   id: "cb_1",

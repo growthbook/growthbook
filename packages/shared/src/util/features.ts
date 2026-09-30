@@ -2147,36 +2147,39 @@ export function pruneOrphanedRampActions<T extends { ruleId?: string }>(
   return { kept, pruned };
 }
 
+// The record fields a rebase rewrites; a failed publish restores exactly these.
+export const REBASED_REVISION_FIELDS = [
+  "baseVersion",
+  "defaultValue",
+  "rules",
+  "environmentsEnabled",
+  "prerequisites",
+  "archived",
+  "metadata",
+  "holdout",
+] as const;
+
 export type RebasedRevisionChanges = Required<
-  Pick<
-    RevisionChanges,
-    | "baseVersion"
-    | "defaultValue"
-    | "rules"
-    | "environmentsEnabled"
-    | "prerequisites"
-    | "archived"
-    | "metadata"
-    | "holdout"
-  >
+  Pick<RevisionChanges, (typeof REBASED_REVISION_FIELDS)[number]>
 > &
   Pick<RevisionChanges, "rampActions">;
 
-// A draft re-expressed on top of live, the way a rebase records it: every field
-// filled from the live feature, the merge result on top, and ramp actions whose
-// rule the merge dropped pruned. `logValue` is what the rebase log entry holds.
+// A draft re-expressed on top of live, the way a rebase records it. A draft
+// that goes on being edited also drops ramp actions whose rule the merge removed.
 export function rebasedRevisionChanges({
   feature,
   revision,
   liveVersion,
   result,
   environmentIds,
+  pruneRampActions = true,
 }: {
   feature: FeatureInterface;
   revision: Pick<FeatureRevisionInterface, "rampActions">;
   liveVersion: number;
   result: MergeResultChanges;
   environmentIds: string[];
+  pruneRampActions?: boolean;
 }): { changes: RebasedRevisionChanges; logValue: string } {
   const rules = result.rules ?? feature.rules ?? [];
   const environmentsEnabled: Record<string, boolean> = {};
@@ -2187,10 +2190,9 @@ export function rebasedRevisionChanges({
       false;
   });
   const liveMetadata = featureMetadataEnvelope(feature);
-  const { kept, pruned } = pruneOrphanedRampActions(
-    revision.rampActions,
-    rules,
-  );
+  const { kept, pruned } = pruneRampActions
+    ? pruneOrphanedRampActions(revision.rampActions, rules)
+    : { kept: revision.rampActions, pruned: [] };
   return {
     changes: {
       baseVersion: liveVersion,

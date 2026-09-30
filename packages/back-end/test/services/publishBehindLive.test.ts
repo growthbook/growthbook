@@ -1,19 +1,16 @@
 import mongoose from "mongoose";
-import type { Request, Response } from "express";
+import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
-import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
-import { mergeDraftForAutoPublish } from "back-end/src/services/experiment-feature";
-import { getFeatureById } from "back-end/src/controllers/features";
-import { setupApp } from "./api.setup";
+import { mergeDraftForAutoPublish } from "back-end/src/services/featurePublishGates";
+import { repairFeatureDriftIfNeeded } from "back-end/src/services/featureDriftRepair";
+import { setupApp } from "../api/api.setup";
 
-// A draft published over a newer live version lands its merge on the feature.
-// The published record must hold that same merge: the flag page repairs the
-// feature from its live record on every load, and a record that still held the
-// draft alone rewrote the newer live changes away.
+// The flag page repairs the feature from its live record on every load, so a
+// published record must hold the merge the publish landed, not the draft alone.
 
 const ORG_ID = "org_publish_behind_live";
 const org = {
@@ -61,26 +58,35 @@ function context() {
   return ctx;
 }
 
-// The flag page load, which runs the drift repair.
-async function loadFlagPage(id: string) {
-  const req = {
-    params: { id },
-    query: {},
-    headers: {},
-    body: {},
-    organization: org,
-    userId: "u_admin",
-    email: "a@t.co",
-    name: "A",
-    teams: [],
-    audit: jest.fn(),
-  } as unknown as AuthRequest<null, { id: string }, { v?: string }>;
-  const res = {
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn().mockReturnThis(),
-  } as unknown as Response;
-  await getFeatureById(req, res);
-  return res;
+// What the flag page does on load: read the feature and heal it from its live record.
+async function loadFlagPage(ctx: ReqContextClass, id: string) {
+  const feature = (await getFeature(ctx, id))!;
+  const live = await getRevision({
+    context: ctx,
+    organization: ORG_ID,
+    featureId: id,
+    feature,
+    version: feature.version,
+  });
+  await repairFeatureDriftIfNeeded(
+    ctx,
+    feature,
+    live ?? undefined,
+    ctx.environments,
+  );
+}
+
+async function revisionLogs(id: string, version: number) {
+  for (let i = 0; i < 40; i++) {
+    const logs = await mongoose.connection
+      .collection("featurerevisionlog")
+      .find({ organization: ORG_ID, featureId: id, version })
+      .sort({ _id: 1 })
+      .toArray();
+    if (logs.length >= 2) return logs;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  return [];
 }
 
 describe("publishing a draft behind live", () => {
@@ -186,19 +192,13 @@ describe("publishing a draft behind live", () => {
     });
     expect(published).toMatchObject({ status: "published", baseVersion: 2 });
     expect(ruleIds(published)).toEqual(["fr_alice", "fr_bob"]);
-    await new Promise((r) => setTimeout(r, 50));
-    const logs = await mongoose.connection
-      .collection("featurerevisionlog")
-      .find({ organization: ORG_ID, featureId: "flag", version: 3 })
-      .sort({ _id: 1 })
-      .toArray();
+    const logs = await revisionLogs("flag", 3);
     expect(logs.map((l) => [l.action, l.subject])).toEqual([
       ["rebase", "on top of revision #2 at publish"],
       ["publish", ""],
     ]);
 
-    const res = await loadFlagPage("flag");
-    expect((res.status as jest.Mock).mock.calls[0]?.[0]).toBe(200);
+    await loadFlagPage(ctx, "flag");
 
     const stored = await features().findOne({
       organization: ORG_ID,
@@ -253,7 +253,7 @@ describe("publishing a draft behind live", () => {
       datePublished: now,
     });
 
-    await loadFlagPage("legacy");
+    await loadFlagPage(context(), "legacy");
 
     const stored = await features().findOne({
       organization: ORG_ID,

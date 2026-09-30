@@ -581,15 +581,18 @@ describe("every revision content field resets an approval", () => {
 
 describe("computeRevisionPublishChanges", () => {
   const user = { type: "dashboard" as const, id: "u", email: "", name: "" };
+  const current = { ...FEATURE, version: 1 } as unknown as FeatureInterface;
+  const noRebase = { result: {}, environmentIds: [] };
 
   it("computes the published status and publisher", () => {
     const revision = makeRevision();
 
     const changes = computeRevisionPublishChanges(
-      FEATURE,
+      current,
       revision,
       user,
       "publish comment",
+      noRebase,
     );
 
     expect(changes.status).toBe("published");
@@ -602,10 +605,11 @@ describe("computeRevisionPublishChanges", () => {
     const revision = makeRevision({ comment: "original" });
 
     const changes = computeRevisionPublishChanges(
-      FEATURE,
+      current,
       revision,
       user,
       "ignored",
+      noRebase,
     );
 
     expect(changes.comment).toBe("original");
@@ -644,10 +648,8 @@ describe("computeRevisionPublishChanges", () => {
   });
 
   it("leaves the record alone when the draft is current", () => {
-    const live = { ...FEATURE, version: 1 } as unknown as FeatureInterface;
-
     const changes = computeRevisionPublishChanges(
-      live,
+      current,
       makeRevision({ baseVersion: 1, rules: [alice] as never }),
       user,
       "",

@@ -425,20 +425,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     { comment, entityPreImage, desiredState },
   ) {
     const desired = desiredState as unknown as FeatureDesiredState;
-    const { claimed, claimStamp, changes } =
-      await claimFeatureRevisionAsPublished(
-        entityPreImage as unknown as FeatureInterface,
-        rawRevision(revision),
-        context.auditUser,
-        {
-          status: baseline.revisionStatus,
-          dateUpdated: baseline.revisionDateUpdated,
-        },
-        comment,
-        publishRebase(desired),
-      );
+    const { claimed, claimStamp } = await claimFeatureRevisionAsPublished(
+      entityPreImage as unknown as FeatureInterface,
+      rawRevision(revision),
+      context.auditUser,
+      {
+        status: baseline.revisionStatus,
+        dateUpdated: baseline.revisionDateUpdated,
+      },
+      publishRebase(desired),
+      comment,
+    );
     revision.claimStamp = claimStamp;
-    revision.claimChanges = changes;
     return claimed;
   },
 
@@ -879,11 +877,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // Run required published effects before the isolated best-effort tail.
     await emitFeatureRevisionPublishedSideEffects(
       context,
+      feature,
       raw,
       context.auditUser,
-      revision.claimChanges
-        ? { changes: revision.claimChanges, rebase: publishRebase(desired) }
-        : undefined,
+      publishRebase(desired),
     );
     const finalRevision = await getPublishedRevisionForEvents(
       context,

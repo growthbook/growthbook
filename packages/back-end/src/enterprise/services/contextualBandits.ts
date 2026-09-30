@@ -51,10 +51,10 @@ import { CasConflictError } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import {
-  mergeDraftForAutoPublish,
   PendingDraftFailure,
   PendingDraftFailureReason,
 } from "back-end/src/services/experiment-feature";
+import { mergeDraftForAutoPublish } from "back-end/src/services/featurePublishGates";
 import {
   getLinkageSyncRevisionSummaries,
   getRevision,

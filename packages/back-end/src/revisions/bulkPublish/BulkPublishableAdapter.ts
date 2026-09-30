@@ -15,8 +15,6 @@ export type BulkRevisionRef = {
    * the claim is still ours (features stamp datePublished at claim time).
    */
   claimStamp?: Date | null;
-  /** Set by claim(): the record changes it landed, for the published log. */
-  claimChanges?: Record<string, unknown>;
   /**
    * Entity image reported by apply; null means no entity change, while undefined
    * means no report.
