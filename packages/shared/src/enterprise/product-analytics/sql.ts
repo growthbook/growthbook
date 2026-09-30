@@ -778,29 +778,23 @@ function getEventValueExpr(
   alias: string,
   cap: MetricCappingSettings | null,
 ): string {
+  // A unique-users metric with a threshold measures its basis column per row;
+  // the unit rollup then compares that basis against the threshold.
+  const hasThreshold =
+    getAggregateFilters({
+      columnRef,
+      column: "",
+      ignoreInvalid: true,
+    }).length > 0;
+  const column =
+    hasThreshold && columnRef.aggregateFilterColumn
+      ? columnRef.aggregateFilterColumn
+      : columnRef.column;
+
   let rawValue: string;
-  if (columnRef.column === "$$distinctUsers") {
-    if (
-      columnRef.aggregateFilter &&
-      columnRef.aggregateFilterColumn &&
-      columnRef.aggregateFilterColumn !== "$$count"
-    ) {
-      // Same expansion as an ordinary value column below, so a virtual column
-      // inlines its expression instead of emitting a name the warehouse cannot
-      // resolve. A plain column returns its own name, as before.
-      rawValue = getColumnExpression(
-        columnRef.aggregateFilterColumn,
-        factTable,
-        helpers.jsonExtract,
-        "",
-        helpers.identifierQuote,
-      );
-    } else {
-      rawValue = "1";
-    }
-  } else if (columnRef.column === "$$count") {
+  if (column === "$$count" || column === "$$distinctUsers") {
     rawValue = "1";
-  } else if (columnRef.column === "$$distinctDates") {
+  } else if (column === "$$distinctDates") {
     const timestampColumn = getTimestampColumnExpression(factTable, helpers);
     if (!timestampColumn) {
       throw new Error("Distinct date values require a timestamp column");
@@ -810,7 +804,7 @@ function getEventValueExpr(
     // Expand virtual (computed) columns into their SQL expression, and resolve
     // JSON columns. A plain column just returns its own name here.
     rawValue = getColumnExpression(
-      columnRef.column,
+      column,
       factTable,
       helpers.jsonExtract,
       "",
@@ -847,15 +841,13 @@ function getUnitAggregationExpr(
     return `COUNT(DISTINCT ${alias})`;
   }
   if (columnRef.column === "$$distinctUsers") {
-    if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
-      const filters = getAggregateFilters({
-        columnRef: columnRef,
-        column: `SUM(${alias})`,
-        ignoreInvalid: true,
-      });
-      if (filters.length > 0) {
-        return `CASE WHEN (${filters.join(" AND ")}) THEN 1 ELSE NULL END`;
-      }
+    const filters = getAggregateFilters({
+      columnRef,
+      column: `SUM(${alias})`,
+      ignoreInvalid: true,
+    });
+    if (filters.length > 0) {
+      return `CASE WHEN (${filters.join(" AND ")}) THEN 1 ELSE NULL END`;
     }
     return `MAX(${alias})`;
   }
