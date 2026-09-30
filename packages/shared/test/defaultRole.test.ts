@@ -1,5 +1,6 @@
 import {
   areAdditionalRolesValid,
+  assertDefaultRoleListsAreArrays,
   getDefaultRole,
   getRolePermissions,
   hasPermission,
@@ -262,5 +263,51 @@ describe("normalizeDefaultRole", () => {
     };
     const org = orgWithDefaultRole(stored);
     expect(normalizeDefaultRole(stored, org)).toEqual(getDefaultRole(org));
+  });
+});
+
+describe("malformed stored default role", () => {
+  const rule = { limitAccessByEnvironment: false, environments: [] };
+
+  it("getDefaultRole drops non-array lists instead of throwing", () => {
+    const org = orgWithDefaultRole({
+      role: "engineer",
+      ...rule,
+      additionalRoles: { junk: true },
+      projectRoles: { p1: { project: "p1", role: "admin", ...rule } },
+    });
+    expect(() => getDefaultRole(org)).not.toThrow();
+    expect(getDefaultRole(org)).toEqual({ role: "engineer", ...rule });
+  });
+
+  it("assertDefaultRoleListsAreArrays rejects non-array lists", () => {
+    expect(() =>
+      assertDefaultRoleListsAreArrays({
+        role: "engineer",
+        ...rule,
+        projectRoles: { p1: {} },
+      } as never),
+    ).toThrow(/must be arrays/);
+    expect(() =>
+      assertDefaultRoleListsAreArrays({
+        role: "engineer",
+        ...rule,
+        additionalRoles: { x: 1 },
+      } as never),
+    ).toThrow(/must be arrays/);
+  });
+
+  it("assertDefaultRoleListsAreArrays accepts well-formed or absent lists", () => {
+    expect(() =>
+      assertDefaultRoleListsAreArrays({ role: "engineer", ...rule }),
+    ).not.toThrow();
+    expect(() =>
+      assertDefaultRoleListsAreArrays({
+        role: "engineer",
+        ...rule,
+        additionalRoles: [{ role: "analyst", ...rule }],
+        projectRoles: [{ project: "p1", role: "admin", ...rule }],
+      }),
+    ).not.toThrow();
   });
 });

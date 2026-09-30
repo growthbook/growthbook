@@ -9,6 +9,7 @@ import {
   isRoleValid,
   getDefaultRole,
   pickDefaultRoleFields,
+  assertDefaultRoleListsAreArrays,
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
@@ -1341,6 +1342,11 @@ export async function sanitizeDefaultRoleUpdate(
     // Don't persist null; reads would fall back to collaborator with no check.
     delete settings.defaultRole;
     return;
+  }
+  try {
+    assertDefaultRoleListsAreArrays(defaultRole);
+  } catch (e) {
+    throw new Error(`Invalid defaultRole: ${e.message}`);
   }
   const submitted = pickDefaultRoleFields(defaultRole);
   const stored = context.org.settings?.defaultRole;

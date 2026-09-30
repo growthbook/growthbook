@@ -184,33 +184,49 @@ const ROLE_RULE_FIELDS = [
   "environments",
 ] as const;
 
+// Drops unknown keys and any non-array role list, so every consumer (reads,
+// join sites, delete guard) gets a well-formed value. Malformed writes are
+// rejected earlier by assertRoleListsAreArrays, not silently cleaned here.
 export function pickDefaultRoleFields(
   defaultRole: MemberRoleWithProjects,
 ): MemberRoleWithProjects {
-  // Strip unknown keys from well-formed rules, but pass a malformed (non-array)
-  // role list through unchanged so schema validation rejects it instead of
-  // silently dropping the override.
   const pickRules = (rules: unknown) =>
-    Array.isArray(rules) ? rules.map((r) => pick(r, ROLE_RULE_FIELDS)) : rules;
-  const projectRoles = defaultRole.projectRoles as unknown;
+    Array.isArray(rules)
+      ? rules.map((r) => pick(r, ROLE_RULE_FIELDS))
+      : undefined;
   return {
     ...pick(defaultRole, ROLE_RULE_FIELDS),
     ...(defaultRole.additionalRoles
       ? { additionalRoles: pickRules(defaultRole.additionalRoles) }
       : {}),
-    ...(defaultRole.projectRoles
+    ...(Array.isArray(defaultRole.projectRoles)
       ? {
-          projectRoles: Array.isArray(projectRoles)
-            ? projectRoles.map((p) => ({
-                ...pick(p, [...ROLE_RULE_FIELDS, "project"]),
-                ...(p.additionalRoles
-                  ? { additionalRoles: pickRules(p.additionalRoles) }
-                  : {}),
-              }))
-            : projectRoles,
+          projectRoles: defaultRole.projectRoles.map((p) => ({
+            ...pick(p, [...ROLE_RULE_FIELDS, "project"]),
+            ...(p.additionalRoles
+              ? { additionalRoles: pickRules(p.additionalRoles) }
+              : {}),
+          })),
         }
       : {}),
-  } as MemberRoleWithProjects;
+  };
+}
+
+// A non-array role list would be dropped by pickDefaultRoleFields, silently
+// discarding an override; reject it so a write reports the bad shape instead.
+export function assertDefaultRoleListsAreArrays(
+  defaultRole: MemberRoleWithProjects,
+): void {
+  const lists: unknown[] = [
+    defaultRole.additionalRoles,
+    defaultRole.projectRoles,
+  ];
+  if (Array.isArray(defaultRole.projectRoles)) {
+    for (const p of defaultRole.projectRoles) lists.push(p.additionalRoles);
+  }
+  if (lists.some((list) => list != null && !Array.isArray(list))) {
+    throw new Error("additionalRoles and projectRoles must be arrays");
+  }
 }
 
 export function normalizeDefaultRole(

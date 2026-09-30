@@ -688,13 +688,15 @@ export async function editCustomRole(
 }
 
 function usingRole(member: MemberRoleWithProjects, role: string): boolean {
+  // Stored data can predate validation, so treat a non-array list as empty.
+  const asArray = <T>(v: T[] | undefined): T[] => (Array.isArray(v) ? v : []);
   return (
     member.role === role ||
-    (member.additionalRoles || []).some((r) => r.role === role) ||
-    (member.projectRoles || []).some(
+    asArray(member.additionalRoles).some((r) => r.role === role) ||
+    asArray(member.projectRoles).some(
       (pr) =>
         pr.role === role ||
-        (pr.additionalRoles || []).some((r) => r.role === role),
+        asArray(pr.additionalRoles).some((r) => r.role === role),
     )
   );
 }
