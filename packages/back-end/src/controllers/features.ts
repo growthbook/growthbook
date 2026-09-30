@@ -545,8 +545,7 @@ export type SDKPayloadParams = Pick<
 export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request,
-  // Authenticated callers pass their org so a foreign key is rejected before
-  // any side effect (e.g. marking the connection used).
+  // Reject a foreign key before side effects run.
   expectedOrganization?: string,
 ): Promise<SDKPayloadParams> {
   // SDK Connection key

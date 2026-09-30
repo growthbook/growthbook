@@ -212,18 +212,13 @@ export async function findSDKConnectionsByIds(
   return docs.map(toInterface);
 }
 
-// Not org-scoped. Public SDK endpoints rely on the key identifying the org;
-// authenticated callers must pass their org to getPayloadParamsFromApiKey so a
-// foreign key is rejected. Don't add an authenticated by-key caller without
-// scoping to the caller's org.
+// Not org-scoped — authenticated callers must scope to their own org.
 export async function findSDKConnectionByKey(key: string) {
   const doc = await SDKConnectionModel.findOne({ key });
   return doc ? toInterface(doc) : null;
 }
 
-// Scoped to the caller's org only. Unlike findSDKConnectionById it does NOT
-// apply canReadMultiProjectResource, so a caller that surfaces the connection
-// (e.g. its secrets) must add that project-read check itself.
+// Org-scoped only; does not check project-read (unlike findSDKConnectionById).
 export async function findSDKConnectionByKeyForOrg(
   context: ReqContext | ApiReqContext,
   key: string,
