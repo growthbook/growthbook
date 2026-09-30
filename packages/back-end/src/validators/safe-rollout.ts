@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import { resolveAssignmentQuerySelectionChange } from "shared/util";
 import {
   CreateSafeRolloutInterface,
@@ -76,7 +77,11 @@ export async function validateCreateSafeRolloutFields(
     },
   );
   if (!resolved.ok) throw new BadRequestError(resolved.error);
-  const exposureQueryIdentifierType = resolved.identifierType;
+  // An unchanged selection keeps its stored value as is: a started rollout
+  // can't change it, even to the equivalent resolved identifier.
+  const exposureQueryIdentifierType = resolved.changed
+    ? resolved.identifierType
+    : previous?.exposureQueryIdentifierType;
 
   if (
     safeRolloutFields.guardrailMetricIds === undefined ||
@@ -121,7 +126,10 @@ export async function validateCreateSafeRolloutFields(
     }
   }
 
-  return createSafeRolloutValidator
-    .strip()
-    .parse({ ...safeRolloutFields, exposureQueryIdentifierType });
+  return createSafeRolloutValidator.strip().parse({
+    ...omit(safeRolloutFields, "exposureQueryIdentifierType"),
+    ...(exposureQueryIdentifierType !== undefined && {
+      exposureQueryIdentifierType,
+    }),
+  });
 }

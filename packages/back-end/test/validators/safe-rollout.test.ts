@@ -65,6 +65,19 @@ describe("validateCreateSafeRolloutFields", () => {
     expect(validated.exposureQueryIdentifierType).toBe("company_id");
   });
 
+  it("leaves a legacy rollout's identifier unset when the form echoes the resolved one", async () => {
+    const validated = await validateCreateSafeRolloutFields(
+      {
+        ...fields,
+        exposureQueryId: "eq_multi",
+        exposureQueryIdentifierType: "anonymous_id",
+      },
+      context,
+      { datasourceId: "ds_1", exposureQueryId: "eq_multi" },
+    );
+    expect(validated).not.toHaveProperty("exposureQueryIdentifierType");
+  });
+
   it("requires the grouped field to name an identifier on an ambiguous query", async () => {
     await expect(
       validateCreateSafeRolloutFields(
