@@ -74,9 +74,7 @@ export const updateSavedGroup = createApiRequestHandler(
     validateListSize(
       values,
       req.context.org.settings?.savedGroupSizeLimit,
-      req.context.permissions.canBypassSavedGroupSizeLimit(
-        projects ?? savedGroup.projects,
-      ),
+      req.context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
     );
   }
   if (
