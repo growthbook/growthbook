@@ -242,6 +242,12 @@ function authenticateWithApiKey(
 
       let asOrg = organization;
       if (xOrganizationHeader) {
+        // A member consented for one org; don't let a super admin's token leave it.
+        if (apiKeyDoc.oauthClientId) {
+          throw new Error(
+            "OAuth access tokens can't use the x-organization header",
+          );
+        }
         if (!req.user?.superAdmin) {
           throw new Error(
             "Only super admins can use the x-organization header",
