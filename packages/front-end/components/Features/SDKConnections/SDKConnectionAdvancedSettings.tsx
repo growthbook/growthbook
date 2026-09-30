@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useId, useRef, useState } from "react";
 import { PiCaretDown } from "react-icons/pi";
-import { SDKLanguage } from "shared/types/sdk-connection";
+import { SavedGroupFormat, SDKLanguage } from "shared/types/sdk-connection";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
 import Checkbox from "@/ui/Checkbox";
@@ -11,8 +11,8 @@ import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { isCloud } from "@/services/env";
-import { useUser } from "@/services/UserContext";
 import { SDKConnectionAdvancedValue } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import SavedGroupFormatField from "@/components/Features/SDKConnections/SavedGroupFormatField";
 import {
   CustomFieldsLabel,
   DraftExperimentsLabel,
@@ -20,7 +20,6 @@ import {
   HideNamesLabel,
   ProjectIdsLabel,
   ProxyHostTooltip,
-  SavedGroupReferencesLabel,
   ScheduleDatesLabel,
   TagsLabel,
   UrlRedirectLabel,
@@ -54,6 +53,7 @@ export default function SDKConnectionAdvancedSettings({
   languages,
   sdkVersion,
   remoteEvalEnabled,
+  storedSavedGroupFormat,
 }: {
   value: SDKConnectionAdvancedValue;
   onChange: (patch: Partial<SDKConnectionAdvancedValue>) => void;
@@ -61,10 +61,10 @@ export default function SDKConnectionAdvancedSettings({
   sdkVersion?: string;
   /** Only changes the Saved Groups warning copy, as in the full form. */
   remoteEvalEnabled: boolean;
+  /** The persisted Saved Groups format when editing; unset on create. */
+  storedSavedGroupFormat?: SavedGroupFormat;
 }) {
   const customFields = useCustomFields();
-  const { hasCommercialFeature } = useUser();
-  const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
   // Gated exactly as the full form gates them — with no language chosen yet,
   // the capability-dependent options are not offered.
@@ -215,16 +215,15 @@ export default function SDKConnectionAdvancedSettings({
 
             {showSavedGroups && (
               <Category title={CATEGORY_TITLES.savedGroups}>
-                <Checkbox
-                  weight="regular"
-                  value={value.savedGroupReferencesEnabled}
-                  setValue={(v) => onChange({ savedGroupReferencesEnabled: v })}
-                  disabled={!hasLargeSavedGroupFeature}
-                  label={
-                    <SavedGroupReferencesLabel
-                      remoteEvalEnabled={remoteEvalEnabled}
-                    />
+                <SavedGroupFormatField
+                  value={value.savedGroupFormat}
+                  onChange={(savedGroupFormat) =>
+                    onChange({ savedGroupFormat })
                   }
+                  languages={languages}
+                  sdkVersion={sdkVersion}
+                  remoteEvalEnabled={remoteEvalEnabled}
+                  storedFormat={storedSavedGroupFormat}
                 />
               </Category>
             )}

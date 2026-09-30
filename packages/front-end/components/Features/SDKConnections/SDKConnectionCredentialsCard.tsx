@@ -1,6 +1,7 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { Flex, Separator } from "@radix-ui/themes";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
+import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButton";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -8,17 +9,26 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import DataList, { DataListItem } from "@/ui/DataList";
 import Frame from "@/ui/Frame";
+import Text from "@/ui/Text";
 
 export default function SDKConnectionCredentialsCard({
   connection,
+  canUpdate = false,
+  mutate,
 }: {
   connection: SDKConnectionInterface;
+  canUpdate?: boolean;
+  mutate?: () => void;
 }) {
-  const hasProxy = !!connection.proxy?.enabled;
+  const proxy = connection.proxy;
+  const hasProxy = !!proxy?.enabled;
   const apiHost = getApiBaseUrl(connection);
   const clientKey = connection.key;
-  const proxyHost = connection.proxy?.host || connection.proxy?.hostExternal;
-  const proxyError = connection.proxy?.error;
+  const proxyHost = proxy?.host || proxy?.hostExternal;
+  const proxyError = proxy?.error;
+  // Either currently enabled or was enabled but had too many failures.
+  const showProxy =
+    hasProxy || (!!proxy?.host && !!proxy?.consecutiveFailures && !!proxyError);
 
   const details: DataListItem[] = [
     {
@@ -34,40 +44,47 @@ export default function SDKConnectionCredentialsCard({
     },
   ];
 
-  // Only meaningful once a proxy has been configured.
-  if (proxyHost) {
+  if (showProxy) {
     details.push({
       label: "Proxy Host",
       value: (
         <Flex align="center" gap="2" wrap="wrap">
-          <ClickToCopy compact>{proxyHost}</ClickToCopy>
-          {!connection.proxy?.enabled ? (
+          <ClickToCopy compact>
+            {proxyHost || "https://proxy.yoursite.io"}
+          </ClickToCopy>
+          {!hasProxy ? (
             <Tooltip body="Proxy was disabled for too many consecutive failures">
               <Badge color="red" variant="solid" label="Disabled" />
             </Tooltip>
           ) : null}
-          {proxyError !== undefined && !connection.proxy?.connected ? (
+          {proxy?.connected ? (
+            <Badge color="green" variant="solid" label="Connected" />
+          ) : proxyError !== undefined ? (
             <Tooltip
               usePortal={true}
               body={
                 <>
-                  <div className="mb-2">
+                  <Text as="p" mb="2">
                     Encountered an error while trying to connect:
-                  </div>
-                  {proxyError ? (
-                    <Callout status="error" mt="2">
-                      {proxyError}
-                    </Callout>
-                  ) : (
-                    <Callout status="error">
-                      <em>Unknown error</em>
-                    </Callout>
-                  )}
+                  </Text>
+                  <Callout status="error">
+                    {proxyError || <em>Unknown error</em>}
+                  </Callout>
                 </>
               }
             >
-              <Badge color="red" variant="soft" label="error" />
+              <Badge color="red" variant="soft" label="Error" />
             </Tooltip>
+          ) : (
+            <Badge color="gray" variant="soft" label="Not connected" />
+          )}
+          {canUpdate && mutate && proxy?.host ? (
+            <ProxyTestButton
+              host={proxy.host}
+              id={connection.id}
+              mutate={mutate}
+              showButton={true}
+            />
           ) : null}
         </Flex>
       ),

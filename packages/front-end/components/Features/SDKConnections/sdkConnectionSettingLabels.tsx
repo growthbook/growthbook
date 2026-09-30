@@ -1,4 +1,5 @@
 import { PiInfo } from "react-icons/pi";
+import { SavedGroupFormat } from "shared/types/sdk-connection";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -27,6 +28,7 @@ export const SETTING_TITLES = {
   urlRedirect: "Enable URL Redirect experiments",
   hideNames: "Hide names from payload",
   savedGroupReferences: "Pass Saved Groups by reference",
+  prerequisites: "Always include prerequisite Feature Flags",
   projectIds: "Include Project IDs",
   customFields: "Include Custom Fields",
   tags: "Include tags",
@@ -37,6 +39,12 @@ export const SETTING_TITLES = {
   useProxy: "Use GrowthBook Proxy",
   proxyHost: "Proxy Host URL",
 } as const;
+
+export const SAVED_GROUP_FORMAT_LABELS: Record<SavedGroupFormat, string> = {
+  inline: "Off",
+  referencesV1: "ID Lists only",
+  referencesV2: "All Saved Groups",
+};
 
 export function VisualEditorLabel() {
   return (
@@ -98,24 +106,42 @@ export function SavedGroupReferencesLabel({
       body={
         <>
           <p>
-            Reduce the size of your payload by moving ID List Saved Groups from
-            inline evaluation to a separate key in the payload json. Re-using an
-            ID List in multiple features or experiments will no longer
-            meaningfully increase the size of your payload.
+            Passing Saved Groups by reference sends each group once in its own
+            key instead of copying it into every rule that uses it, so re-using
+            a group stops growing the payload.
           </p>
           <HelperText status="warning" size="sm">
-            This feature is not supported by old SDK versions
+            Older SDK versions
             {remoteEvalEnabled
-              ? " or remote evaluation tools (e.g. GrowthBook Proxy)"
-              : ""}
-            . Ensure that your SDK implementation is up to date before enabling
-            this feature.
+              ? " and remote evaluation tools (e.g. GrowthBook Proxy)"
+              : ""}{" "}
+            cannot read references. Check your SDK is up to date before changing
+            this.
           </HelperText>
         </>
       }
     >
       {SETTING_TITLES.savedGroupReferences} <PiInfo />
     </PremiumTooltip>
+  );
+}
+
+export function PrerequisitesLabel() {
+  return (
+    <>
+      {SETTING_TITLES.prerequisites}{" "}
+      <Tooltip
+        body={
+          <p className="mb-0">
+            Deliver prerequisite Feature Flags that target other Projects.
+            Without them, the Feature Flags they gate are always off. Only
+            applies when this connection filters by Project.
+          </p>
+        }
+      >
+        <PiInfo />
+      </Tooltip>
+    </>
   );
 }
 

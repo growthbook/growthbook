@@ -124,6 +124,12 @@ function flattenConnection(
     ...(connection.savedGroupReferencesEnabled !== undefined && {
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
     }),
+    ...(connection.savedGroupFormat !== undefined && {
+      savedGroupFormat: connection.savedGroupFormat,
+    }),
+    ...(connection.includeReferencedPrerequisites !== undefined && {
+      includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
+    }),
     // Emitted only when set: an explicit `undefined` is not equal to an absent
     // key under lodash isEqual, which would show as a permanent phantom diff
     // against a snapshot that simply omitted them.
@@ -474,7 +480,10 @@ export default function SDKConnectionPage() {
           {connection.connected ? (
             <Badge color="green" variant="solid" label="Connected" />
           ) : (
-            <Badge color="gray" variant="soft" label="Not connected" />
+            <>
+              <Badge color="gray" variant="soft" label="Not connected" />
+              {canUpdate && <Link onClick={() => mutate()}>Retry</Link>}
+            </>
           )}
           {displayedArchived && <Badge label="Archived" color="gray" />}
         </Flex>
@@ -557,6 +566,8 @@ export default function SDKConnectionPage() {
                   confirmation={{
                     confirmationTitle: "Delete SDK Connection",
                     cta: "Delete",
+                    getConfirmationContent: async () =>
+                      "Are you sure? This will permanently delete the SDK connection and any associated session recordings will no longer be accessible.",
                     submit: async () => {
                       await apiCall(`/sdk-connections/${connection.id}`, {
                         method: "DELETE",
@@ -641,7 +652,11 @@ export default function SDKConnectionPage() {
                 <Link onClick={() => openEditSection("proxy")}>Edit</Link>
               )}
             </Flex>
-            <SDKConnectionCredentialsCard connection={displayedConn} />
+            <SDKConnectionCredentialsCard
+              connection={displayedConn}
+              canUpdate={canUpdate}
+              mutate={mutate}
+            />
           </Box>
           <Box mt="5">
             <Heading size="lg" as="h2" mb="3">

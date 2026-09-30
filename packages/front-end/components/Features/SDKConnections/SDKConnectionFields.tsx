@@ -15,6 +15,7 @@ import { Box, Flex, Grid } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Badge from "@/ui/Badge";
+import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -30,6 +31,7 @@ import {
 import PayloadSecurityField, {
   PayloadSecurityValue,
 } from "@/components/Features/SDKConnections/PayloadSecurityField";
+import { PrerequisitesLabel } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -41,6 +43,7 @@ export type SDKConnectionFieldsValue = PayloadSecurityValue & {
   sdkVersion?: string;
   environment: string;
   projects: string[];
+  includeReferencedPrerequisites: boolean;
 };
 
 /**
@@ -325,6 +328,16 @@ export default function SDKConnectionFields({
             project being removed from the selected environment.
           </HelperText>
         )}
+        <Box mt="3">
+          <Checkbox
+            weight="regular"
+            value={!!value.includeReferencedPrerequisites}
+            setValue={(val) =>
+              onChange({ includeReferencedPrerequisites: val })
+            }
+            label={<PrerequisitesLabel />}
+          />
+        </Box>
       </Box>
 
       <PayloadSecurityField

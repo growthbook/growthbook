@@ -1,5 +1,8 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  savedGroupFormatFromConnection,
+} from "shared/sdk-versioning";
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -52,6 +55,8 @@ export default function EditSDKOverviewModal({
     sdkVersion: connection.sdkVersion,
     environment: connection.environment,
     projects: connection.projects ?? [],
+    // Absent = off, so existing connections keep their behavior.
+    includeReferencedPrerequisites: !!connection.includeReferencedPrerequisites,
     delivery: deliveryModeFromConnection(connection),
     encryptPayload: !!connection.encryptPayload,
     hashSecureAttributes: !!connection.hashSecureAttributes,
@@ -106,6 +111,7 @@ export default function EditSDKOverviewModal({
           sdkVersion: value.sdkVersion,
           environment: value.environment,
           projects: value.projects,
+          includeReferencedPrerequisites: value.includeReferencedPrerequisites,
           // Plain Text is the only mode that implies no encryption.
           encryptPayload: plain ? false : value.encryptPayload,
           hashSecureAttributes: plain ? false : value.hashSecureAttributes,
@@ -141,6 +147,7 @@ export default function EditSDKOverviewModal({
           languages={value.languages}
           sdkVersion={value.sdkVersion}
           remoteEvalEnabled={value.delivery === "remote"}
+          storedSavedGroupFormat={savedGroupFormatFromConnection(connection)}
         />
       </Flex>
     </ModalStandard>

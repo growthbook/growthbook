@@ -117,7 +117,11 @@ export const sdkConnectionSettingsSnapshotValidator = z
     includeTagsInMetadata: z.boolean().optional(),
     includeExperimentScheduleInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
+    // The deprecated boolean stays in the snapshot because the model still
+    // writes it; the UI sends `savedGroupFormat` and the model derives it.
     savedGroupReferencesEnabled: z.boolean().optional(),
+    savedGroupFormat: savedGroupFormatValidator.optional(),
+    includeReferencedPrerequisites: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     archived: z.boolean().optional(),
@@ -190,6 +194,8 @@ export const sdkConnectionUpdatableFieldsSchema =
     includeExperimentScheduleInMetadata: true,
     remoteEvalEnabled: true,
     savedGroupReferencesEnabled: true,
+    savedGroupFormat: true,
+    includeReferencedPrerequisites: true,
     proxyEnabled: true,
     proxyHost: true,
     archived: true,

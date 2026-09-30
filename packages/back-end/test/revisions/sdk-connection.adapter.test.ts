@@ -1,5 +1,8 @@
 import type { Revision, JsonPatchOperation } from "shared/enterprise";
-import type { SDKConnectionRevisionSnapshot } from "shared/validators";
+import {
+  sdkConnectionUpdatableFieldsSchema,
+  type SDKConnectionRevisionSnapshot,
+} from "shared/validators";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { Context } from "back-end/src/models/BaseModel";
 import { sdkConnectionAdapter } from "back-end/src/revisions/adapters/sdk-connection.adapter";
@@ -57,6 +60,8 @@ const baseConnection = {
   includeDraftExperiments: true,
   remoteEvalEnabled: false,
   savedGroupReferencesEnabled: false,
+  savedGroupFormat: "inline",
+  includeReferencedPrerequisites: true,
   archived: false,
   key: "sdk-abc123",
   connected: true,
@@ -140,6 +145,8 @@ describe("sdkConnectionAdapter", () => {
         includeDraftExperiments: true,
         remoteEvalEnabled: false,
         savedGroupReferencesEnabled: false,
+        savedGroupFormat: "inline",
+        includeReferencedPrerequisites: true,
         archived: false,
         proxyEnabled: true,
         proxyHost: "https://proxy.example.com",
@@ -189,6 +196,12 @@ describe("sdkConnectionAdapter", () => {
         "remoteEvalEnabled",
         "archived",
       ].forEach((f) => expect(fields.has(f)).toBe(true));
+    });
+
+    it("lets a revision carry the saved group format and prerequisite setting", () => {
+      const keys = Object.keys(sdkConnectionUpdatableFieldsSchema.shape);
+      expect(keys).toContain("savedGroupFormat");
+      expect(keys).toContain("includeReferencedPrerequisites");
     });
 
     it("excludes identity / secret / system fields", () => {
@@ -405,6 +418,25 @@ describe("sdkConnectionAdapter", () => {
       const [, conn, changes] = mockedEdit.mock.calls[0];
       expect(conn).toBe(baseConnection);
       expect(changes).toEqual({ name: "New Name", encryptPayload: true });
+    });
+
+    it("carries the saved group format and prerequisite setting through", async () => {
+      mockedFind.mockResolvedValue(baseConnection);
+      const ctx = makeContext({});
+
+      await sdkConnectionAdapter.applyChanges(ctx, baseSnapshot, {
+        sdkConnection: {
+          ...baseSnapshot.sdkConnection,
+          savedGroupFormat: "referencesV2",
+          includeReferencedPrerequisites: false,
+        },
+      });
+
+      const [, , changes] = mockedEdit.mock.calls[0];
+      expect(changes).toEqual({
+        savedGroupFormat: "referencesV2",
+        includeReferencedPrerequisites: false,
+      });
     });
 
     it("does not reload or write when there are no effective changes", async () => {

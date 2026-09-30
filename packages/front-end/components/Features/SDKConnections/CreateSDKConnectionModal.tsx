@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
@@ -12,6 +12,7 @@ import { getConnectionLanguageFilter } from "@/components/Features/SDKConnection
 import type { LanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import {
   advancedValueFromConnection,
+  defaultSavedGroupFormat,
   deliveryModeFromConnection,
   sanitizeAdvancedForSave,
   SDKConnectionAdvancedValue,
@@ -51,13 +52,22 @@ export default function CreateSDKConnectionModal({
     sdkVersion: initialValue?.sdkVersion,
     environment: initialValue?.environment ?? environments[0]?.id ?? "",
     projects: initialValue?.projects ?? (project ? [project] : []),
+    includeReferencedPrerequisites:
+      initialValue?.includeReferencedPrerequisites ?? true,
     delivery: initialValue ? deliveryModeFromConnection(initialValue) : "plain",
     encryptPayload: !!initialValue?.encryptPayload,
     hashSecureAttributes: !!initialValue?.hashSecureAttributes,
     ...advancedValueFromConnection(initialValue),
   }));
-  const onChange = (patch: Partial<FormValue>) =>
+  // The Saved Groups default follows the chosen SDK until someone picks an
+  // option themselves.
+  const savedGroupFormatChosen = useRef(false);
+  const onChange = (patch: Partial<FormValue>) => {
+    if (patch.savedGroupFormat !== undefined) {
+      savedGroupFormatChosen.current = true;
+    }
     setValue((v) => ({ ...v, ...patch }));
+  };
 
   const [languageError, setLanguageError] = useState<string | null>(null);
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
@@ -82,6 +92,21 @@ export default function CreateSDKConnectionModal({
     }));
     // Only when the language selection changes.
   }, [value.languages, value.sdkVersion]);
+
+  // As the full form: on a new connection the SDK is usually picked after the
+  // form opens, so the default has to follow it — the most capable format the
+  // chosen SDK can read. Both reference formats need the plan.
+  useEffect(() => {
+    if (savedGroupFormatChosen.current) return;
+    const savedGroupFormat = defaultSavedGroupFormat({
+      currentCapabilities: getConnectionSDKCapabilities(
+        { languages: value.languages, sdkVersion: value.sdkVersion },
+        "min-ver-intersection",
+      ),
+      hasLargeSavedGroupFeature,
+    });
+    setValue((v) => ({ ...v, savedGroupFormat }));
+  }, [value.languages, value.sdkVersion, hasLargeSavedGroupFeature]);
 
   // Parity with the full form's create analytics.
   useEffect(() => {
@@ -123,6 +148,7 @@ export default function CreateSDKConnectionModal({
           sdkVersion: value.sdkVersion,
           environment: value.environment,
           projects: value.projects,
+          includeReferencedPrerequisites: value.includeReferencedPrerequisites,
           // Plain Text is the only mode that implies no encryption.
           encryptPayload: plain ? false : value.encryptPayload,
           hashSecureAttributes: plain ? false : value.hashSecureAttributes,

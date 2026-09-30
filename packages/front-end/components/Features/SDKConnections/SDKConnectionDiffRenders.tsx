@@ -8,6 +8,10 @@ import {
 } from "shared/validators";
 import Text from "@/ui/Text";
 import { ChangeField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
+import {
+  SAVED_GROUP_FORMAT_LABELS,
+  SETTING_TITLES,
+} from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 
@@ -106,6 +110,24 @@ export function renderSDKConnectionScope(
     );
   }
 
+  if (
+    !isEqual(
+      p0?.includeReferencedPrerequisites,
+      p1.includeReferencedPrerequisites,
+    ) &&
+    p1.includeReferencedPrerequisites !== undefined
+  ) {
+    rows.push(
+      <ChangeField
+        key="includeReferencedPrerequisites"
+        label={SETTING_TITLES.prerequisites}
+        changed
+        oldNode={boolDisplay(p0?.includeReferencedPrerequisites)}
+        newNode={boolDisplay(p1.includeReferencedPrerequisites)}
+      />,
+    );
+  }
+
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
@@ -147,6 +169,20 @@ export function getSDKConnectionScopeBadges(pre: Pre, post: Post): DiffBadge[] {
 
   if (!isEqual(p0?.sdkVersion, p1.sdkVersion) && p1.sdkVersion !== undefined) {
     badges.push({ label: "Edit SDK version", action: "edit SDK version" });
+  }
+
+  if (
+    p1.includeReferencedPrerequisites !== undefined &&
+    !isEqual(
+      p0?.includeReferencedPrerequisites,
+      p1.includeReferencedPrerequisites,
+    )
+  ) {
+    badges.push(
+      p1.includeReferencedPrerequisites
+        ? { label: "Prerequisite flags included", action: "added" }
+        : { label: "Prerequisite flags excluded", action: "removed" },
+    );
   }
 
   return badges;
@@ -295,6 +331,7 @@ export function renderSDKConnectionMetadata(
       key: "includeExperimentScheduleInMetadata",
       label: "Include experiment schedule dates",
     },
+    // Still diffed for API callers that write the deprecated boolean.
     { key: "savedGroupReferencesEnabled", label: "Saved group references" },
     { key: "remoteEvalEnabled", label: "Remote evaluation" },
   ];
@@ -313,6 +350,27 @@ export function renderSDKConnectionMetadata(
         />,
       );
     }
+  }
+
+  if (
+    !isEqual(p0?.savedGroupFormat, p1.savedGroupFormat) &&
+    p1.savedGroupFormat !== undefined
+  ) {
+    rows.push(
+      <ChangeField
+        key="savedGroupFormat"
+        label={SETTING_TITLES.savedGroupReferences}
+        changed
+        oldNode={
+          p0?.savedGroupFormat ? (
+            SAVED_GROUP_FORMAT_LABELS[p0.savedGroupFormat]
+          ) : (
+            <em>—</em>
+          )
+        }
+        newNode={SAVED_GROUP_FORMAT_LABELS[p1.savedGroupFormat]}
+      />,
+    );
   }
 
   if (

@@ -5,7 +5,7 @@ import {
 } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
-import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -48,20 +48,28 @@ export default function SDKConnectionHeaderMeta({
     ...disallowedProjectIds,
   ];
 
-  const language = connection.languages?.[0];
-  const languageLabel = language
-    ? (languageMapping[language]?.label ?? language)
-    : "None";
+  const languages = connection.languages ?? [];
   // Version only makes sense when a single language is selected.
-  const sdkLabel =
-    language && connection.languages?.length === 1 && connection.sdkVersion
-      ? `${languageLabel} ver ${connection.sdkVersion}`
-      : languageLabel;
+  const sdkValue = languages.length ? (
+    <Flex align="center" gap="3" wrap="wrap">
+      {languages.map((language) => (
+        <SDKLanguageLogo
+          key={language}
+          language={language}
+          showLabel={true}
+          size={18}
+          version={languages.length === 1 ? connection.sdkVersion : undefined}
+        />
+      ))}
+    </Flex>
+  ) : (
+    "None"
+  );
 
   return (
     <Flex direction="column" gap="2" mt="2">
       <Flex align="center" gap="5" wrap="wrap">
-        <Metadata label="SDK" value={sdkLabel} />
+        <Metadata label="SDK" value={sdkValue} />
         <Metadata
           label="Proxy"
           value={connection.proxy?.enabled ? "Enabled" : "Disabled"}

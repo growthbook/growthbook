@@ -10,6 +10,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -256,38 +257,63 @@ export default function PayloadSecurityField({
           {
             value: "remote",
             label: (
-              <Flex as="span" align="center" gap="2">
-                <Flex as="span" align="center" gap="1">
-                  Remote Evaluated
-                  <Tooltip
-                    body={
-                      <>
-                        <p>
-                          Features and experiments are evaluated on a private
-                          server and only the final assigned values are exposed
-                          to users.
-                        </p>
-                        {isCloud() && (
-                          <HelperText status="warning" size="sm">
-                            Requires a remote evaluation service such as
-                            GrowthBook Proxy or a CDN edge worker.
-                          </HelperText>
-                        )}
-                      </>
-                    }
-                  >
-                    <PiInfo />
-                  </Tooltip>
-                </Flex>
-                {!hasRemoteEvaluationFeature && (
-                  <PaidFeatureBadge commercialFeature="remote-evaluation" />
-                )}
-              </Flex>
+              <PremiumTooltip
+                commercialFeature="remote-evaluation"
+                tipMinWidth="600px"
+                body={
+                  <>
+                    <Text as="p" mb="2">
+                      <strong>Remote Evaluation</strong> fully secures your SDK
+                      by evaluating feature flags exclusively on a private
+                      server instead of within a front-end environment. This
+                      ensures that any sensitive information within targeting
+                      rules or unused feature variations are never seen by the
+                      client.
+                    </Text>
+                    <Text as="p" mb="2">
+                      Remote evaluation provides the same security benefits as a
+                      backend SDK. However, remote evaluation is neither needed
+                      nor supported for backend SDKs.
+                    </Text>
+                    <Text as="div" mb="2">
+                      Remote evaluation does come with a few cost
+                      considerations:
+                      <ol style={{ paddingLeft: "1rem", marginTop: "0.5rem" }}>
+                        <li style={{ marginBottom: "0.5rem" }}>
+                          It will increase network traffic. Evaluated payloads
+                          cannot be shared across different users; therefore CDN
+                          cache misses will increase.
+                        </li>
+                        <li>
+                          Any connections using Streaming Updates will incur a
+                          slight delay. An additional network hop is required to
+                          retrieve the evaluated payload from the server.
+                        </li>
+                      </ol>
+                    </Text>
+                  </>
+                }
+              >
+                Remote Evaluated <PiInfo />
+              </PremiumTooltip>
             ),
             description: "Completely hides business logic from users",
             disabled: !hasRemoteEvaluationFeature,
             renderOnSelect: (
               <Flex direction="column" gap="3" mt="2">
+                {isCloud() && (
+                  <Callout status="info" size="sm">
+                    Cloud customers must self-host a remote evaluation service
+                    such as{" "}
+                    <Link
+                      href="https://github.com/growthbook/growthbook-proxy"
+                      external
+                    >
+                      GrowthBook Proxy
+                    </Link>{" "}
+                    or a CDN edge worker.
+                  </Callout>
+                )}
                 {cipherOptions}
                 {activeCipherOptions.length > 0 && (
                   <Callout status="warning" size="sm">

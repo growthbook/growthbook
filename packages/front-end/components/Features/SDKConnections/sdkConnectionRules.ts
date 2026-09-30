@@ -1,8 +1,12 @@
 import {
+  SavedGroupFormat,
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  savedGroupFormatFromConnection,
+} from "shared/sdk-versioning";
 
 type SDKCapability = ReturnType<typeof getConnectionSDKCapabilities>[number];
 
@@ -48,7 +52,7 @@ export type SDKConnectionAdvancedValue = {
   includeRedirectExperiments: boolean;
   includeExperimentNames: boolean;
   // Saved Groups
-  savedGroupReferencesEnabled: boolean;
+  savedGroupFormat: SavedGroupFormat;
   // Payload Metadata
   includeProjectIdInMetadata: boolean;
   includeCustomFieldsInMetadata: boolean;
@@ -75,7 +79,10 @@ export function advancedValueFromConnection(
     includeVisualExperiments: !!c?.includeVisualExperiments,
     includeRedirectExperiments: !!c?.includeRedirectExperiments,
     includeExperimentNames: c?.includeExperimentNames ?? true,
-    savedGroupReferencesEnabled: !!c?.savedGroupReferencesEnabled,
+    // The model derives `savedGroupFormat` from the old boolean, so a stored
+    // connection always resolves; a new one starts inline until the create
+    // modal's effect follows the chosen SDK.
+    savedGroupFormat: c ? savedGroupFormatFromConnection(c) : "inline",
     includeProjectIdInMetadata: !!c?.includeProjectIdInMetadata,
     includeCustomFieldsInMetadata: !!c?.includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata: c?.allowedCustomFieldsInMetadata ?? [],
@@ -88,6 +95,47 @@ export function advancedValueFromConnection(
     proxyEnabled: !!c?.proxy?.enabled,
     proxyHost: c?.proxy?.host ?? "",
   };
+}
+
+/**
+ * The most capable format the chosen SDK can read: the full form's create-time
+ * default. Both reference formats need the plan.
+ */
+export function defaultSavedGroupFormat({
+  currentCapabilities,
+  hasLargeSavedGroupFeature,
+}: {
+  currentCapabilities: SDKCapability[];
+  hasLargeSavedGroupFeature: boolean;
+}): SavedGroupFormat {
+  if (!hasLargeSavedGroupFeature) return "inline";
+  if (currentCapabilities.includes("savedGroupReferencesV2"))
+    return "referencesV2";
+  if (currentCapabilities.includes("savedGroupReferences"))
+    return "referencesV1";
+  return "inline";
+}
+
+/**
+ * Never persist a reference format the pinned SDK can't read at all, or that
+ * the plan doesn't include. `referencesV2` on an SDK that only reads v1 is
+ * kept on purpose, as the full form keeps it: the payload steps down to v1 and
+ * re-upgrading the SDK resumes v2.
+ */
+export function sanitizeSavedGroupFormat(
+  format: SavedGroupFormat,
+  {
+    currentCapabilities,
+    hasLargeSavedGroupFeature,
+  }: {
+    currentCapabilities: SDKCapability[];
+    hasLargeSavedGroupFeature: boolean;
+  },
+): SavedGroupFormat {
+  return currentCapabilities.includes("savedGroupReferences") &&
+    hasLargeSavedGroupFeature
+    ? format
+    : "inline";
 }
 
 /**
@@ -116,10 +164,10 @@ export function sanitizeAdvancedForSave(
     includeVisualExperiments,
     includeRedirectExperiments,
     includeExperimentNames: v.includeExperimentNames,
-    savedGroupReferencesEnabled:
-      currentCapabilities.includes("savedGroupReferences") &&
-      hasLargeSavedGroupFeature &&
-      v.savedGroupReferencesEnabled,
+    savedGroupFormat: sanitizeSavedGroupFormat(v.savedGroupFormat, {
+      currentCapabilities,
+      hasLargeSavedGroupFeature,
+    }),
     includeProjectIdInMetadata: v.includeProjectIdInMetadata,
     includeCustomFieldsInMetadata: v.includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata: v.includeCustomFieldsInMetadata

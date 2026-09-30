@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { ProxyTestResult } from "shared/types/sdk-connection";
 import { BsArrowRepeat } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import Button from "@/components/Button";
+import Modal from "@/ui/Modal";
+import Button from "@/ui/Button";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 
 export default function ProxyTestButton({
   host,
@@ -30,54 +31,67 @@ export default function ProxyTestButton({
   return (
     <>
       {proxyTestResult && (
-        <Modal
-          trackingEventModalType=""
-          header="Proxy Status"
+        <Modal.Root
           open={true}
-          close={() => setProxyTestResult(null)}
-          closeCta="Close"
+          onOpenChange={(open) => {
+            if (!open) setProxyTestResult(null);
+          }}
+          trackingEventModalType=""
         >
-          {proxyTestResult.error ? (
-            <div>
-              {proxyTestResult.url && (
-                <div className="mb-2">
-                  GET <code>{proxyTestResult.url}</code>
-                </div>
-              )}
-              {proxyTestResult.status > 0 && (
-                <div className="mb-2">
-                  Status Code: <code>{proxyTestResult.status}</code>
-                </div>
-              )}
-              {proxyTestResult.body && (
-                <Code
-                  language={
-                    proxyTestResult.body.trim().substring(0, 1) === "<"
-                      ? "html"
-                      : proxyTestResult.body.trim().substring(0, 1) === "{"
-                        ? "json"
-                        : "none"
-                  }
-                  code={proxyTestResult.body}
-                  filename="response.body"
-                  expandable={true}
-                />
-              )}
-              <Callout status="error">Error: {proxyTestResult.error}</Callout>
-            </div>
-          ) : (
-            <Callout status="success">
-              Successfully Connected. Proxy Server running version{" "}
-              <strong>{proxyTestResult.version}</strong>.
-            </Callout>
-          )}
-        </Modal>
+          <Modal.Header>
+            <Modal.Title>Proxy Status</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {proxyTestResult.error ? (
+              <div>
+                {proxyTestResult.url && (
+                  <Text as="p" mb="2">
+                    GET <code>{proxyTestResult.url}</code>
+                  </Text>
+                )}
+                {proxyTestResult.status > 0 && (
+                  <Text as="p" mb="2">
+                    Status Code: <code>{proxyTestResult.status}</code>
+                  </Text>
+                )}
+                {proxyTestResult.body && (
+                  <Code
+                    language={
+                      proxyTestResult.body.trim().substring(0, 1) === "<"
+                        ? "html"
+                        : proxyTestResult.body.trim().substring(0, 1) === "{"
+                          ? "json"
+                          : "none"
+                    }
+                    code={proxyTestResult.body}
+                    filename="response.body"
+                    expandable={true}
+                  />
+                )}
+                <Callout status="error">Error: {proxyTestResult.error}</Callout>
+              </div>
+            ) : (
+              <Callout status="success">
+                Successfully Connected. Proxy Server running version{" "}
+                <strong>{proxyTestResult.version}</strong>.
+              </Callout>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Modal.Close>
+              <Button variant="soft" color="gray">
+                Close
+              </Button>
+            </Modal.Close>
+          </Modal.Footer>
+        </Modal.Root>
       )}
       {showButton && (
         <Button
-          color="link"
-          className="btn-sm"
+          variant="ghost"
+          size="sm"
           title="Test connection"
+          icon={<BsArrowRepeat />}
           onClick={async () => {
             const res = await apiCall<{
               result: ProxyTestResult;
@@ -91,7 +105,7 @@ export default function ProxyTestButton({
             }
           }}
         >
-          <BsArrowRepeat /> re-check
+          Re-check
         </Button>
       )}
     </>

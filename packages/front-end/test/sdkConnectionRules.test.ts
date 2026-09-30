@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   advancedValueFromConnection,
+  defaultSavedGroupFormat,
   deliveryModeFromConnection,
   sanitizeAdvancedForSave,
+  sanitizeSavedGroupFormat,
   SDKConnectionAdvancedValue,
   shouldShowPayloadSecurity,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
@@ -11,7 +13,7 @@ const allOn: SDKConnectionAdvancedValue = {
   includeVisualExperiments: true,
   includeRedirectExperiments: true,
   includeExperimentNames: false,
-  savedGroupReferencesEnabled: true,
+  savedGroupFormat: "referencesV2",
   includeProjectIdInMetadata: true,
   includeCustomFieldsInMetadata: true,
   allowedCustomFieldsInMetadata: ["cf_a"],
@@ -63,7 +65,7 @@ describe("advancedValueFromConnection", () => {
       includeVisualExperiments: false,
       includeRedirectExperiments: false,
       includeExperimentNames: true,
-      savedGroupReferencesEnabled: false,
+      savedGroupFormat: "inline",
       includeProjectIdInMetadata: false,
       includeCustomFieldsInMetadata: false,
       allowedCustomFieldsInMetadata: [],
@@ -75,6 +77,19 @@ describe("advancedValueFromConnection", () => {
       proxyEnabled: false,
       proxyHost: "",
     });
+  });
+
+  it("derives the saved group format from the legacy boolean", () => {
+    expect(
+      advancedValueFromConnection({ savedGroupReferencesEnabled: true })
+        .savedGroupFormat,
+    ).toBe("referencesV1");
+    expect(
+      advancedValueFromConnection({
+        savedGroupReferencesEnabled: true,
+        savedGroupFormat: "referencesV2",
+      }).savedGroupFormat,
+    ).toBe("referencesV2");
   });
 
   it("seeds from a stored connection, including the proxy", () => {
@@ -128,14 +143,18 @@ describe("sanitizeAdvancedForSave", () => {
       sanitizeAdvancedForSave(allOn, {
         ...fullyCapable,
         currentCapabilities: [],
-      }).savedGroupReferencesEnabled,
-    ).toBe(false);
+      }).savedGroupFormat,
+    ).toBe("inline");
     expect(
       sanitizeAdvancedForSave(allOn, {
         ...fullyCapable,
         hasLargeSavedGroupFeature: false,
-      }).savedGroupReferencesEnabled,
-    ).toBe(false);
+      }).savedGroupFormat,
+    ).toBe("inline");
+    // v2 on a v1-only SDK is kept: the payload steps down until an upgrade.
+    expect(sanitizeAdvancedForSave(allOn, fullyCapable).savedGroupFormat).toBe(
+      "referencesV2",
+    );
   });
 
   it("clears the dependants of switched-off options", () => {
@@ -145,5 +164,57 @@ describe("sanitizeAdvancedForSave", () => {
     );
     expect(result.allowedCustomFieldsInMetadata).toEqual([]);
     expect(result.proxyHost).toBe("");
+  });
+});
+
+describe("sanitizeSavedGroupFormat", () => {
+  it("falls back to inline without capability or entitlement", () => {
+    expect(
+      sanitizeSavedGroupFormat("referencesV1", {
+        currentCapabilities: [],
+        hasLargeSavedGroupFeature: true,
+      }),
+    ).toBe("inline");
+    expect(
+      sanitizeSavedGroupFormat("referencesV1", {
+        currentCapabilities: ["savedGroupReferences"],
+        hasLargeSavedGroupFeature: false,
+      }),
+    ).toBe("inline");
+    expect(
+      sanitizeSavedGroupFormat("referencesV1", {
+        currentCapabilities: ["savedGroupReferences"],
+        hasLargeSavedGroupFeature: true,
+      }),
+    ).toBe("referencesV1");
+  });
+});
+
+describe("defaultSavedGroupFormat", () => {
+  it("picks the most capable format the SDK can read, only with the plan", () => {
+    expect(
+      defaultSavedGroupFormat({
+        currentCapabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+        hasLargeSavedGroupFeature: true,
+      }),
+    ).toBe("referencesV2");
+    expect(
+      defaultSavedGroupFormat({
+        currentCapabilities: ["savedGroupReferences"],
+        hasLargeSavedGroupFeature: true,
+      }),
+    ).toBe("referencesV1");
+    expect(
+      defaultSavedGroupFormat({
+        currentCapabilities: [],
+        hasLargeSavedGroupFeature: true,
+      }),
+    ).toBe("inline");
+    expect(
+      defaultSavedGroupFormat({
+        currentCapabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+        hasLargeSavedGroupFeature: false,
+      }),
+    ).toBe("inline");
   });
 });

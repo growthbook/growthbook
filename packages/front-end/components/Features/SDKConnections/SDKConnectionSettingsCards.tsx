@@ -1,5 +1,8 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  savedGroupFormatFromConnection,
+} from "shared/sdk-versioning";
 import { ReactNode } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { isCloud } from "@/services/env";
@@ -13,6 +16,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { shouldShowPayloadSecurity } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
   CATEGORY_TITLES,
+  SAVED_GROUP_FORMAT_LABELS,
   SDKConnectionSettingsCategory,
   SETTING_TITLES,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
@@ -182,7 +186,11 @@ export default function SDKConnectionSettingsCards({
         >
           <Metadata
             label={SETTING_TITLES.savedGroupReferences}
-            value={<Toggle on={!!connection.savedGroupReferencesEnabled} />}
+            value={
+              SAVED_GROUP_FORMAT_LABELS[
+                savedGroupFormatFromConnection(connection)
+              ]
+            }
           />
         </SettingsCard>
       )}

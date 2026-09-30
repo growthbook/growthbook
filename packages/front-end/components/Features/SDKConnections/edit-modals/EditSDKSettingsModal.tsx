@@ -1,5 +1,8 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  savedGroupFormatFromConnection,
+} from "shared/sdk-versioning";
 import { useId, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -14,8 +17,10 @@ import PayloadSecurityField, {
 import {
   advancedValueFromConnection,
   deliveryModeFromConnection,
+  sanitizeSavedGroupFormat,
   SDKConnectionAdvancedValue,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import SavedGroupFormatField from "@/components/Features/SDKConnections/SavedGroupFormatField";
 import {
   CATEGORY_TITLES,
   CustomFieldsLabel,
@@ -24,7 +29,6 @@ import {
   HideNamesLabel,
   ProjectIdsLabel,
   ProxyHostTooltip,
-  SavedGroupReferencesLabel,
   ScheduleDatesLabel,
   SDKConnectionSettingsCategory,
   SETTING_TITLES,
@@ -154,10 +158,10 @@ export default function EditSDKSettingsModal({
         await save({
           // Premium, as in the full form: without the entitlement this must
           // not be persisted.
-          savedGroupReferencesEnabled:
-            showSavedGroupSettings &&
-            hasLargeSavedGroupFeature &&
-            value.savedGroupReferencesEnabled,
+          savedGroupFormat: sanitizeSavedGroupFormat(value.savedGroupFormat, {
+            currentCapabilities: currentSdkCapabilities,
+            hasLargeSavedGroupFeature,
+          }),
         });
         return;
       case "payloadMetadata":
@@ -256,16 +260,13 @@ export default function EditSDKSettingsModal({
 
           {section === "savedGroups" &&
             (showSavedGroupSettings ? (
-              <Checkbox
-                weight="regular"
-                label={
-                  <SavedGroupReferencesLabel
-                    remoteEvalEnabled={!!connection.remoteEvalEnabled}
-                  />
-                }
-                value={value.savedGroupReferencesEnabled}
-                disabled={!hasLargeSavedGroupFeature}
-                setValue={(v) => onChange({ savedGroupReferencesEnabled: v })}
+              <SavedGroupFormatField
+                value={value.savedGroupFormat}
+                onChange={(savedGroupFormat) => onChange({ savedGroupFormat })}
+                languages={connection.languages}
+                sdkVersion={connection.sdkVersion}
+                remoteEvalEnabled={!!connection.remoteEvalEnabled}
+                storedFormat={savedGroupFormatFromConnection(connection)}
               />
             ) : (
               <Text size="sm" color="text-mid">
