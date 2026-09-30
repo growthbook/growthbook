@@ -100,6 +100,8 @@ curl https://api.growthbook.io/oauth/token \
 
 URL-encode the email, since a `+` in it would otherwise be read as a space. The response contains an `access_token` valid for 1 hour and no refresh token. It only works for members who have authorized your app and haven't revoked it, and the member's own permissions apply as usual.
 
+An authorization lapses after 30 days without use, the same as an unused refresh token, and the member has to authorize the app again. Each exchange counts as use. Turning **Allow acting on behalf of members** off or rotating the client secret immediately stops every token the app got this way.
+
 <Warning>
   With this turned on, anyone holding the client secret can act as every member
   who has authorized the app. Store the secret like a signing key.

@@ -310,6 +310,14 @@ export async function revokeMemberGrant(
   await tearDownGrant(context, clientId, userId);
 }
 
+/** Called when an app's delegation is turned off or its secret rotated. */
+export async function disableDelegatedTokens(
+  context: ApiReqContext,
+  clientId: string,
+): Promise<void> {
+  await ApiKeyModel.dangerousDisableDelegatedTokens(clientId, context.org.id);
+}
+
 /** Ends every member's grant with one client in this org (org app deletion). */
 export async function revokeAllGrantsForClient(
   context: ApiReqContext,
@@ -677,7 +685,7 @@ export interface TokenResponse {
 async function createAccessToken(
   context: ApiReqContext,
   params: IssueParams,
-  description: string,
+  delegated: boolean,
 ): Promise<string> {
   const accessToken = OAUTH_ACCESS_TOKEN_PREFIX + randomUrlSafe(32);
   // The context is always user-attributed (issuance requires a member
@@ -688,7 +696,9 @@ async function createAccessToken(
     secret: true,
     userId: params.userId,
     role: "user",
-    description,
+    description: delegated
+      ? `OAuth delegated access token (${params.clientId})`
+      : `OAuth access token (${params.clientId})`,
     environment: "",
     project: "",
     encryptSDK: false,
@@ -697,6 +707,7 @@ async function createAccessToken(
     expiresAt: new Date(Date.now() + OAUTH_ACCESS_TOKEN_TTL_SECONDS * 1000),
     oauthClientId: params.clientId,
     officialClientForOrg: params.officialClientForOrg,
+    ...(delegated && { oauthDelegated: true }),
     scopes: params.scope ? params.scope.split(/\s+/).filter(Boolean) : [],
     lastUsed: null,
   });
@@ -724,11 +735,7 @@ async function issueTokenPair(
   context: ApiReqContext,
   params: IssueParams,
 ): Promise<TokenResponse> {
-  const accessToken = await createAccessToken(
-    context,
-    params,
-    `OAuth access token (${params.clientId})`,
-  );
+  const accessToken = await createAccessToken(context, params, false);
   const refreshToken = OAUTH_REFRESH_TOKEN_PREFIX + randomUrlSafe(32);
   await context.models.oauthRefreshTokens.create({
     tokenHash: hashToken(refreshToken),
@@ -811,9 +818,19 @@ export async function exchangeDelegatedToken(params: {
       officialClientForOrg: org.id,
       userId: user.id,
     },
-    `OAuth delegated access token (${client.clientId})`,
+    true,
   );
   await assertGrantStillActive(context, client.clientId, user.id);
+
+  // Same race guard for the app: delegation turned off or the secret rotated mid-exchange.
+  const current = await findOAuthClient(client.clientId);
+  if (
+    !current?.allowDelegation ||
+    current.clientSecretHash !== client.clientSecretHash
+  ) {
+    await ApiKeyModel.dangerousDisableByKeyHash(hashToken(accessToken));
+    throw new OAuthError("invalid_client", "Client authentication failed", 401);
+  }
 
   return {
     access_token: accessToken,
