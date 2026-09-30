@@ -28,6 +28,7 @@ import type { ReqContext } from "back-end/types/request";
 import {
   collectHoldoutChangeGates,
   computeProposedFeatureForValidation,
+  scrubDeadProjectScopes,
 } from "back-end/src/models/FeatureModel";
 import {
   computeRevisionPublishChanges,
@@ -352,7 +353,7 @@ export async function planFeatureRevisionMerge({
 
   return {
     environmentIds,
-    mergeResult: merged.result,
+    mergeResult: await scrubDeadProjectScopes(context, merged.result),
     filledLiveRules: filledLive.rules,
     hasChanges:
       draftDiffersFromLive(revision, live, feature, environmentIds) ||

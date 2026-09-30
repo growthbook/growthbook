@@ -101,8 +101,8 @@ describe("publishing a draft behind live", () => {
     }
   });
 
-  it("keeps the newer live changes across a flag page load", async () => {
-    // Bob published v2 over v1 while Alice's draft, based on v1, sat open.
+  // Bob published v2 over v1 while Alice's draft, based on v1, sat open.
+  async function seedBehindLive(aliceRule: object) {
     await features().insertOne({
       id: "flag",
       organization: ORG_ID,
@@ -118,45 +118,31 @@ describe("publishing a draft behind live", () => {
       dateCreated: now,
       dateUpdated: now,
     });
+    const revision = (
+      version: number,
+      baseVersion: number,
+      status: string,
+      rules: object[],
+    ) => ({
+      organization: ORG_ID,
+      featureId: "flag",
+      version,
+      baseVersion,
+      status,
+      defaultValue: "false",
+      rules,
+      dateCreated: now,
+      dateUpdated: now,
+      ...(status === "published" ? { datePublished: now } : {}),
+    });
     await revisions().insertMany([
-      {
-        organization: ORG_ID,
-        featureId: "flag",
-        version: 1,
-        baseVersion: 0,
-        status: "published",
-        defaultValue: "false",
-        rules: [],
-        dateCreated: now,
-        dateUpdated: now,
-        datePublished: now,
-      },
-      {
-        organization: ORG_ID,
-        featureId: "flag",
-        version: 2,
-        baseVersion: 1,
-        status: "published",
-        defaultValue: "false",
-        rules: [bob],
-        dateCreated: now,
-        dateUpdated: now,
-        datePublished: now,
-      },
-      {
-        organization: ORG_ID,
-        featureId: "flag",
-        version: 3,
-        baseVersion: 1,
-        status: "draft",
-        defaultValue: "false",
-        rules: [alice],
-        dateCreated: now,
-        dateUpdated: now,
-      },
+      revision(1, 0, "published", []),
+      revision(2, 1, "published", [bob]),
+      revision(3, 1, "draft", [aliceRule]),
     ]);
+  }
 
-    const ctx = context();
+  async function publishDraft(ctx: ReqContextClass) {
     const feature = (await getFeature(ctx, "flag"))!;
     const revision = (await getRevision({
       context: ctx,
@@ -184,12 +170,27 @@ describe("publishing a draft behind live", () => {
       revision,
       result: mergeResult.success ? mergeResult.result : {},
     });
+  }
 
-    const published = await revisions().findOne({
+  const repairs = () =>
+    audits()
+      .find({ organization: ORG_ID, details: /autoRepair/ })
+      .toArray();
+  const publishedRecord = () =>
+    revisions().findOne({
       organization: ORG_ID,
       featureId: "flag",
       version: 3,
     });
+  const storedFeature = () =>
+    features().findOne({ organization: ORG_ID, id: "flag" });
+
+  it("keeps the newer live changes across a flag page load", async () => {
+    await seedBehindLive(alice);
+    const ctx = context();
+    await publishDraft(ctx);
+
+    const published = await publishedRecord();
     expect(published).toMatchObject({ status: "published", baseVersion: 2 });
     expect(ruleIds(published)).toEqual(["fr_alice", "fr_bob"]);
     const logs = await revisionLogs("flag", 3);
@@ -200,16 +201,29 @@ describe("publishing a draft behind live", () => {
 
     await loadFlagPage(ctx, "flag");
 
-    const stored = await features().findOne({
-      organization: ORG_ID,
-      id: "flag",
-    });
+    const stored = await storedFeature();
     expect(stored?.version).toBe(3);
     expect(ruleIds(stored)).toEqual(["fr_alice", "fr_bob"]);
-    const repairs = await audits()
-      .find({ organization: ORG_ID, details: /autoRepair/ })
-      .toArray();
-    expect(repairs).toEqual([]);
+    expect(await repairs()).toEqual([]);
+  });
+
+  it("drops a deleted project scope from the record as it does from the feature", async () => {
+    await seedBehindLive({
+      ...alice,
+      allProjects: false,
+      projects: ["prj_gone"],
+    });
+    const ctx = context();
+    await publishDraft(ctx);
+
+    const scope = (
+      doc: { rules?: { id: string; projects?: string[] }[] } | null,
+    ) => doc?.rules?.find((r) => r.id === "fr_alice")?.projects;
+    expect(scope(await storedFeature())).toEqual([]);
+    expect(scope(await publishedRecord())).toEqual([]);
+
+    await loadFlagPage(ctx, "flag");
+    expect(await repairs()).toEqual([]);
   });
 
   it("still heals a legacy document whose environment rules shadow its live record", async () => {

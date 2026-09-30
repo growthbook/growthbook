@@ -2097,6 +2097,42 @@ export function computeRevisionMergeChanges(
   return { changes, hasChanges, removeHoldout };
 }
 
+// removeProjectFromFeatures only scrubs live features, so a revision staged
+// before a project deletion can still carry the dead id. Dropped from the merge
+// before anything consumes it, so the document and the record agree. Rules
+// that lose nothing are returned as is, so a repeat scrub is an identity.
+export async function scrubDeadProjectScopes(
+  context: ReqContext | ApiReqContext,
+  result: MergeResultChanges,
+): Promise<MergeResultChanges> {
+  const scopedRules = (result.rules ?? []).some((r) =>
+    Array.isArray((r as { projects?: string[] }).projects),
+  );
+  const targeting = result.metadata?.targetingProjects;
+  if (!scopedRules && !targeting) return result;
+  const valid = new Set(await context.getAllProjectIds());
+  const keep = (ids: string[]) => {
+    const kept = ids.filter((p) => valid.has(p));
+    return kept.length === ids.length ? ids : kept;
+  };
+  return {
+    ...result,
+    ...(scopedRules
+      ? {
+          rules: result.rules?.map((r) => {
+            const projects = (r as { projects?: string[] }).projects;
+            if (!Array.isArray(projects)) return r;
+            const kept = keep(projects);
+            return kept === projects ? r : { ...r, projects: kept };
+          }),
+        }
+      : {}),
+    ...(targeting
+      ? { metadata: { ...result.metadata, targetingProjects: keep(targeting) } }
+      : {}),
+  };
+}
+
 // Apply a revision merge result to the feature document.
 export async function applyRevisionChanges(
   context: ReqContext | ApiReqContext,
@@ -2116,31 +2152,8 @@ export async function applyRevisionChanges(
     context,
     feature,
     revision,
-    result,
+    await scrubDeadProjectScopes(context, result),
   );
-
-  // removeProjectFromFeatures only scrubs live features, so a revision staged
-  // before a project deletion can still carry the dead id — drop it on publish
-  // rather than restoring it into the live feature.
-  const rulesHaveProjectScope = (changes.rules ?? []).some((r) =>
-    Array.isArray((r as { projects?: string[] }).projects),
-  );
-  if (changes.targetingProjects || rulesHaveProjectScope) {
-    const validProjectIds = new Set(await context.getAllProjectIds());
-    if (changes.targetingProjects) {
-      changes.targetingProjects = changes.targetingProjects.filter((p) =>
-        validProjectIds.has(p),
-      );
-    }
-    if (rulesHaveProjectScope) {
-      changes.rules = changes.rules?.map((r) => {
-        const projects = (r as { projects?: string[] }).projects;
-        return Array.isArray(projects)
-          ? { ...r, projects: projects.filter((p) => validProjectIds.has(p)) }
-          : r;
-      });
-    }
-  }
 
   // Every branch below is a landing, so its FIRST write is guarded on the
   // pre-image `feature` — same rule as the generic entities' guarded landings:
@@ -4062,7 +4075,7 @@ async function publishRevisionInner({
   context,
   feature,
   revision,
-  result,
+  result: proposed,
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
@@ -4071,6 +4084,7 @@ async function publishRevisionInner({
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
+  const result = await scrubDeadProjectScopes(context, proposed);
   const environmentIds = getApplicableEnvIds(
     getEnvironments(context.org),
     feature,
