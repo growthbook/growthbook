@@ -187,7 +187,9 @@ export default function EditSDKSettingsModal({
       case "proxy":
         await save({
           proxyEnabled: value.proxyEnabled,
-          proxyHost: value.proxyEnabled ? value.proxyHost : "",
+          // Kept while the proxy is off, as the full form did, so re-enabling
+          // it doesn't make someone retype the host.
+          proxyHost: value.proxyHost,
         });
         return;
     }

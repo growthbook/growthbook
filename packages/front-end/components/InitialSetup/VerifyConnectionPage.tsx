@@ -52,6 +52,7 @@ const VerifyConnectionPage = ({
   const [attributesOpen, setAttributesOpen] = useState(true);
   const [inviting, setInviting] = useState(false);
   const [eventTracker, setEventTracker] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { refreshOrganization, organization, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
@@ -79,6 +80,10 @@ const VerifyConnectionPage = ({
           eventTracker,
           language: currentConnection?.languages || [],
         });
+        // The selection always drives the snippet; the write is a convenience
+        // the server may refuse (e.g. the connection's changes need review).
+        setEventTracker(value);
+        setSaveError(null);
         if (canUpdate && currentConnection?.id) {
           await apiCall(`/sdk-connections/${currentConnection.id}`, {
             method: "PUT",
@@ -87,9 +92,10 @@ const VerifyConnectionPage = ({
             }),
           });
         }
-        setEventTracker(value);
       } catch (e) {
-        setEventTracker(value);
+        setSaveError(
+          e instanceof Error ? e.message : "Could not save the event tracker",
+        );
       }
     },
     [apiCall, canUpdate, currentConnection, eventTracker],
@@ -109,6 +115,7 @@ const VerifyConnectionPage = ({
       const languageLabel = languageMapping[language].label;
 
       try {
+        setSaveError(null);
         await apiCall(`/sdk-connections/${currentConnection.id}`, {
           method: "PUT",
           body: JSON.stringify({
@@ -125,7 +132,12 @@ const VerifyConnectionPage = ({
         track("SDK Language Changed", { language });
         await mutate();
       } catch (e) {
-        // Ignore - keep showing the previous instructions
+        // Keep showing the previous instructions, but say why they didn't change.
+        setSaveError(
+          e instanceof Error
+            ? e.message
+            : "Could not update the SDK connection",
+        );
       }
     },
     [apiCall, canUpdate, currentConnection, hasCommercialFeature, mutate],
@@ -201,6 +213,11 @@ const VerifyConnectionPage = ({
               </div>
             )}
           </div>
+          {saveError && (
+            <Callout status="warning" mb="3">
+              {saveError}
+            </Callout>
+          )}
           <Flex align="center" gap="4">
             <Box width="260px">
               <SelectField

@@ -23,28 +23,36 @@ import {
 import {
   Revision,
   JsonPatchOperation,
+  getSdkConnectionApprovalRule,
+  isSdkConnectionRevisionMetadataOnly,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createSDKConnection,
   deleteSDKConnectionModel,
-  editSDKConnection,
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
 import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-connections/validations";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   createOrUpdateRevision,
   applyPatchToSnapshot,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
+import type { ApplyChangesResult } from "back-end/src/revisions/EntityRevisionAdapter";
+import {
+  compensateFailedLanding,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
 
 const SETTINGS_SNAPSHOT_KEYS = Object.keys(
   sdkConnectionSettingsSnapshotValidator.shape,
@@ -173,6 +181,28 @@ type PutSDKConnectionResponse =
       revision: Revision;
     };
 
+// Same rule as the adapter's `isApprovalRequiredForRevision`, which needs a
+// persisted revision; this answers before the draft is minted so a refused
+// publish leaves nothing behind.
+function isApprovalRequiredForChange(
+  context: ReqContext,
+  baseline: SDKConnectionRevisionSnapshot,
+  proposedSettings: SDKConnectionSettingsRevisionSnapshot,
+  patchOps: JsonPatchOperation[],
+): boolean {
+  if (!context.hasPremiumFeature("require-approvals")) return false;
+  const approvalFlows = context.org.settings?.approvalFlows;
+  const rule =
+    getSdkConnectionApprovalRule(approvalFlows, baseline.sdkConnection) ??
+    getSdkConnectionApprovalRule(approvalFlows, proposedSettings);
+  if (!rule) return false;
+  if (rule.requireMetadataReview ?? true) return true;
+  return !isSdkConnectionRevisionMetadataOnly(
+    patchOps,
+    baseline as unknown as Record<string, unknown>,
+  );
+}
+
 export const putSDKConnection = async (
   req: PutSDKConnectionRequest,
   res: Response<PutSDKConnectionResponse | ApiErrorResponse>,
@@ -248,28 +278,42 @@ export const putSDKConnection = async (
   const revisionId = req.query.revisionId;
   let settingsComparisonBase = { ...currentState };
   if (revisionId) {
-    const targetRevision = await context.models.revisions.getById(revisionId);
-    if (targetRevision && targetRevision.target.type === "sdk-connection") {
-      const patchedSnapshot = applyPatchToSnapshot(
-        targetRevision.target.snapshot as Record<string, unknown>,
-        normalizeProposedChanges(targetRevision.target.proposedChanges),
-      ) as SDKConnectionRevisionSnapshot;
-      settingsComparisonBase = {
-        ...currentState,
-        ...patchedSnapshot.sdkConnection,
-      };
+    const targetRevision =
+      await context.models.revisions.getByIdReadable(revisionId);
+    if (!targetRevision) {
+      throw new NotFoundError("Revision not found");
     }
+    // Another entity's revision as the comparison base would write its
+    // settings into this connection's draft or merged history.
+    if (
+      targetRevision.target.type !== "sdk-connection" ||
+      targetRevision.target.id !== connection.id
+    ) {
+      throw new BadRequestError(
+        "Revision does not belong to this SDK connection",
+      );
+    }
+    const patchedSnapshot = applyPatchToSnapshot(
+      targetRevision.target.snapshot,
+      normalizeProposedChanges(targetRevision.target.proposedChanges),
+    );
+    settingsComparisonBase = {
+      ...currentState,
+      ...patchedSnapshot.sdkConnection,
+    };
   }
 
-  // Treat an absent incoming value as "not changed" (the form omits untouched
-  // fields), otherwise use deep equality. Strict comparisons per AGENTS.md:
-  // `== null` also swallowed a deliberate `null`, and treating an absent old
-  // value as changed reported `proxyHost: ""` against `undefined` as a change,
-  // so every idempotent save minted a revision.
+  // Absent means false for every optional boolean (payload builders test
+  // `=== true`) and the edit modals seed absent booleans as false, so an
+  // incoming `false` against an absent stored value is not a change — nor is
+  // "" or [] against an absent string/array. An absent incoming value is
+  // "not sent" (the modals omit untouched sections).
   const isAbsent = (v: unknown) => v === undefined || v === null;
+  const isEmptyValue = (v: unknown) =>
+    v === false || v === "" || isEqual(v, []);
   const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
     if (isAbsent(newVal)) return false;
-    if (isAbsent(oldVal)) return newVal !== "" && !isEqual(newVal, []);
+    if (isAbsent(oldVal)) return !isEmptyValue(newVal);
     return !isEqual(newVal, oldVal);
   };
 
@@ -287,11 +331,11 @@ export const putSDKConnection = async (
   const title = req.query.title;
   const revertedFrom = req.query.revertedFrom;
 
-  // All edits flow through the revision system: with no draft-intent flag we
-  // treat the request as an implicit auto-publish so the change is still
-  // tracked as a revision and merged immediately when approval isn't required.
   const wantsDraft = !!revisionId || forceCreateRevision;
-  const wantsMerge = bypassApproval || autoPublish || !wantsDraft;
+  const explicitPublish = bypassApproval || autoPublish;
+  // No draft-intent flag is an implicit publish: the change lands now or the
+  // request is refused. It never becomes a draft the caller didn't ask for.
+  const wantsMerge = explicitPublish || !wantsDraft;
 
   // Convert live webhooks to snapshot shape for comparison. `httpMethod` is
   // optional on the webhook schema and absent on rows predating it, while the
@@ -313,26 +357,44 @@ export const putSDKConnection = async (
     return value.map((wh) => sdkWebhookSnapshotValidator.parse(wh));
   };
 
-  // Determine if webhook changes are being requested in this call.
   const incomingWebhooks = parseIncomingWebhooks(req.body.sdkWebhooks);
   const hasWebhookChanges =
     incomingWebhooks !== null &&
     !isEqual(incomingWebhooks, liveWebhookSnapshots);
 
+  // Nothing changed and no empty draft was asked for: an explicit publish flag
+  // on an unchanged save (the edit modals always send one) is still a no-op.
   if (
     Object.keys(fieldsToUpdate).length === 0 &&
     !hasWebhookChanges &&
-    !forceCreateRevision &&
-    !bypassApproval &&
-    !autoPublish
+    !forceCreateRevision
   ) {
     return res.status(200).json({ status: 200 });
+  }
+
+  // The adapter's apply gates webhook writes on the env-scoped SDK-webhook
+  // atoms. Asked here so a caller who holds the connection atom but not those
+  // is refused before anything is minted or written.
+  if (hasWebhookChanges) {
+    const scope = {
+      projects: connection.projects,
+      environment: connection.environment,
+    };
+    if (
+      !context.permissions.canCreateSDKWebhook(scope) ||
+      !context.permissions.canUpdateSDKWebhook(scope) ||
+      !context.permissions.canDeleteSDKWebhook(scope)
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   // Build a coarse-replacement patch op: replace the entire sdkConnection
   // settings object atomically. This keeps `checkMergeConflicts` working
   // correctly (it extracts top-level field names from paths).
-  const currentSettingsSnapshot = buildSettingsSnapshotValue(currentState);
+  const currentSettingsSnapshot = buildSettingsSnapshotValue(
+    currentState,
+  ) as SDKConnectionSettingsRevisionSnapshot;
   // The op REPLACES the whole settings object, so it must be layered on the
   // state this request is editing — the draft's patched state when updating a
   // draft, not the live connection. Building it from `currentState` silently
@@ -341,15 +403,18 @@ export const putSDKConnection = async (
   const proposedSettingsSnapshot = buildSettingsSnapshotValue({
     ...settingsComparisonBase,
     ...fieldsToUpdate,
-  });
+  }) as SDKConnectionSettingsRevisionSnapshot;
 
   const patchOps: JsonPatchOperation[] = [];
+  // What landing this request writes, keyed like the composite snapshot.
+  const desiredChanges: Record<string, unknown> = {};
   if (!isEqual(proposedSettingsSnapshot, currentSettingsSnapshot)) {
     patchOps.push({
       op: "replace",
       path: "/sdkConnection",
       value: proposedSettingsSnapshot,
     });
+    desiredChanges.sdkConnection = proposedSettingsSnapshot;
   }
   if (hasWebhookChanges && incomingWebhooks) {
     patchOps.push({
@@ -357,6 +422,62 @@ export const putSDKConnection = async (
       path: "/sdkWebhooks",
       value: incomingWebhooks,
     });
+    desiredChanges.sdkWebhooks = incomingWebhooks;
+  }
+
+  const baselineSnapshot: SDKConnectionRevisionSnapshot = {
+    sdkConnection: currentSettingsSnapshot,
+    sdkWebhooks: liveWebhookSnapshots,
+  };
+  const adapter = getAdapter("sdk-connection");
+  const needsApproval = isApprovalRequiredForChange(
+    context,
+    baselineSnapshot,
+    proposedSettingsSnapshot,
+    patchOps,
+  );
+  // A move takes bypass authority in the destination scope too, so both the
+  // live and the proposed scope are asked — as the approval rule is above.
+  const canBypass =
+    adapter.canBypassApproval(context, baselineSnapshot) &&
+    adapter.canBypassApproval(context, {
+      sdkConnection: proposedSettingsSnapshot,
+      sdkWebhooks: [],
+    });
+
+  // Every publish gate runs before the draft is minted, so a refused publish
+  // leaves nothing behind. Publish authority for a connection is the same atom
+  // as edit authority (`manageSDKConnections`), already checked above.
+  if (wantsMerge && needsApproval) {
+    if (!explicitPublish) {
+      throw new BadRequestError(
+        "This change requires approval. Save it as a draft revision and submit it for review.",
+      );
+    }
+    if (!canBypass) {
+      context.permissions.throwPermissionError();
+    }
+  }
+  const willPublish = wantsMerge;
+
+  // Same rule as `publishRevision`: another draft's committed "lock other
+  // drafts" schedule blocks this landing unless the caller can bypass.
+  if (
+    willPublish &&
+    !canBypass &&
+    (await context.models.revisions.hasPublishLockingScheduledSibling(
+      {
+        type: "sdk-connection",
+        id: connection.id,
+        snapshot: baselineSnapshot,
+        proposedChanges: [],
+      },
+      "",
+    ))
+  ) {
+    throw new BadRequestError(
+      "Another draft of this SDK connection has a scheduled publish that locks other drafts. Cancel that schedule to publish this change.",
+    );
   }
 
   // Entity with pre-attached webhooks for composite snapshot building.
@@ -384,75 +505,65 @@ export const putSDKConnection = async (
       forceCreate: wantsMerge || forceCreateRevision,
       title,
       revertedFrom,
-      revisionId:
-        wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+      revisionId: wantsDraft && !explicitPublish ? revisionId : undefined,
     },
   );
 
-  const adapter = getAdapter("sdk-connection");
-
-  // Whether THIS revision needs approval is decided entirely by the adapter.
-  const needsApproval =
-    adapter.isApprovalRequiredForRevision?.(context, revision) ??
-    adapter.isApprovalRequired(context);
-
-  if (wantsMerge) {
-    // Build a minimal snapshot for the bypass check. Only sdkConnection.projects
-    // is examined by canBypassAcrossProjects so sdkWebhooks: [] is fine here.
-    const snapshotForBypass: SDKConnectionRevisionSnapshot = {
-      sdkConnection:
-        currentSettingsSnapshot as SDKConnectionSettingsRevisionSnapshot,
-      sdkWebhooks: [],
-    };
-    const canBypass = adapter.canBypassApproval(context, snapshotForBypass);
-
-    // bypassApproval / autoPublish may only skip a genuinely-required review
-    // when the caller can bypass approvals across the connection's projects.
-    if ((bypassApproval || autoPublish) && needsApproval && !canBypass) {
-      context.permissions.throwPermissionError();
-    }
-
-    const canImmediatelyMerge = !needsApproval || bypassApproval || autoPublish;
-
-    if (canImmediatelyMerge) {
-      // Only record a bypass when the caller used the explicit admin override.
-      const isBypass = needsApproval && bypassApproval;
-
-      if (Object.keys(fieldsToUpdate).length > 0) {
-        await editSDKConnection(
-          context,
-          connection,
-          fieldsToUpdate as EditSDKConnectionParams,
-        );
-      }
-
-      // Apply webhook changes directly when merging immediately.
-      if (hasWebhookChanges && incomingWebhooks) {
-        const currentSnapshot: SDKConnectionRevisionSnapshot = {
-          sdkConnection:
-            currentSettingsSnapshot as SDKConnectionSettingsRevisionSnapshot,
-          sdkWebhooks: liveWebhookSnapshots,
-        };
-        await adapter.applyChanges(context, currentSnapshot, {
-          sdkWebhooks: incomingWebhooks,
-        });
-      }
-
-      revision = await context.models.revisions.merge(
-        revision.id,
-        context.userId,
-        { bypass: isBypass },
-      );
-
-      return res.status(200).json({ status: 200, revision });
-    }
+  if (!willPublish) {
+    return res.status(202).json({
+      status: 202,
+      requiresApproval: needsApproval,
+      revision,
+    });
   }
 
-  return res.status(202).json({
-    status: 202,
-    requiresApproval: needsApproval,
-    revision,
+  // Claim the (CAS-guarded) merge before the live write so a concurrent
+  // discard can't orphan a half-applied change; reopen if the write fails.
+  // Kept for compensation: the claim overwrites `revision` with the merged row.
+  const priorRevision = revision;
+  revision = await context.models.revisions.merge(revision.id, context.userId, {
+    // Only record a bypass when the caller used the explicit admin override.
+    bypass: needsApproval && bypassApproval,
   });
+
+  let applied: ApplyChangesResult | undefined;
+  try {
+    await runGuardedWrite("sdk-connection", connection.id, () =>
+      adapter.applyChanges(context, baselineSnapshot, desiredChanges, {
+        guarded: true,
+        onPersisted: (result) => {
+          applied = result;
+        },
+      }),
+    );
+  } catch (e) {
+    try {
+      // The adapter reports the flat connection it wrote; ownership is judged
+      // per composite key, so hand compensation the landing's own shape. Live
+      // back first, then un-merge — ordering and guards live in
+      // `compensateFailedLanding`.
+      const settingsWritten = applied !== undefined && applied.written !== null;
+      await compensateFailedLanding({
+        context,
+        entityType: "sdk-connection",
+        entity: { id: connection.id, ...baselineSnapshot },
+        persisted: settingsWritten ? desiredChanges : null,
+        changes: desiredChanges,
+        unmerge: () =>
+          context.models.revisions.reopenAfterFailedApply(
+            revision.id,
+            context.userId,
+            priorRevision,
+            revision.dateUpdated,
+          ),
+      });
+    } catch {
+      // ignore — surface the original apply error
+    }
+    throw e;
+  }
+
+  return res.status(200).json({ status: 200, revision });
 };
 
 export const deleteSDKConnection = async (

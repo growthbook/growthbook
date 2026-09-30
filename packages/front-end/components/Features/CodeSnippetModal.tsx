@@ -101,6 +101,9 @@ export default function CodeSnippetModal({
   const [eventTracker, setEventTracker] = useState(
     currentConnection?.eventTracker || "",
   );
+  const [eventTrackerSaveError, setEventTrackerSaveError] = useState<
+    string | null
+  >(null);
 
   const [attributesOpen, setAttributesOpen] = useState(true);
 
@@ -119,6 +122,10 @@ export default function CodeSnippetModal({
           eventTracker,
           language: currentConnection?.languages || [],
         });
+        // The selection always drives the snippet; the write is a convenience
+        // the server may refuse (e.g. the connection's changes need review).
+        setEventTracker(value);
+        setEventTrackerSaveError(null);
         if (canUpdate && currentConnectionId) {
           await apiCall(`/sdk-connections/${currentConnectionId}`, {
             method: "PUT",
@@ -127,12 +134,13 @@ export default function CodeSnippetModal({
             }),
           });
         }
-        setEventTracker(value);
       } catch (e) {
-        setEventTracker(value);
+        setEventTrackerSaveError(
+          e instanceof Error ? e.message : "Could not save the event tracker",
+        );
       }
     },
-    [currentConnectionId, setEventTracker],
+    [apiCall, canUpdate, currentConnection, currentConnectionId, eventTracker],
   );
   useEffect(() => {
     if (!currentConnection) return;
@@ -263,6 +271,12 @@ export default function CodeSnippetModal({
           </div>
         </div>
         <div className="px-3">
+          {eventTrackerSaveError && (
+            <Callout status="warning" mb="3">
+              The event tracker was not saved to this SDK connection:{" "}
+              {eventTrackerSaveError}
+            </Callout>
+          )}
           {language === "other" ? (
             <div className="mb-4">
               <p>

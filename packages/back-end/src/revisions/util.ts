@@ -268,7 +268,7 @@ export async function createOrUpdateRevision(
     revisionId,
   } = options;
 
-  if (revisionId && !forceCreate) {
+  if (revisionId) {
     // Live-entity basis, matching the handlers that resolved this id: the
     // snapshot basis returns null for a moved entity, and falling through to
     // create would silently fork a new draft.
@@ -279,18 +279,19 @@ export async function createOrUpdateRevision(
       // never a new draft.
       throw new Error("Revision not found");
     }
-    if (targetRevision) {
-      // Guard against cross-entity writes: a caller could pass a revisionId
-      // that belongs to a different entity (same org) and we'd otherwise
-      // write entity A's proposed changes into entity B's draft. Reject
-      // any mismatched revision instead of silently corrupting the target.
-      if (
-        targetRevision.target.type !== entityType ||
-        targetRevision.target.id !== entity.id
-      ) {
-        throw new Error("Revision does not belong to the specified entity");
-      }
+    // Guard against cross-entity writes: a caller could pass a revisionId
+    // that belongs to a different entity (same org) and we'd otherwise
+    // write entity A's proposed changes into entity B's draft. Checked even
+    // when a fresh revision is forced, so the id can never front another
+    // entity's content into this one's history.
+    if (
+      targetRevision.target.type !== entityType ||
+      targetRevision.target.id !== entity.id
+    ) {
+      throw new Error("Revision does not belong to the specified entity");
+    }
 
+    if (!forceCreate) {
       // A deriver's derivation and its merge with the draft's existing changes
       // both have to happen inside the CAS loop, against the row being written.
       const finalChanges =
