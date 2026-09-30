@@ -6,12 +6,27 @@ It lives in this monorepo as `packages/dummy-shop` and uses the workspace SDKs (
 
 ## Quick start
 
+From the **repo root**, on a branch that includes `packages/dummy-shop` (e.g. this PR branch):
+
 ```bash
-# From repo root (after pnpm install + pnpm build:sdks or pnpm build:deps)
+pnpm install
 pnpm --filter dummy-shop dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+`predev` builds the workspace SDKs if `packages/sdk-*/dist` is missing. You can also build them yourself (run the command alone — do not paste trailing comments on the same line):
+
+```bash
+pnpm build:sdks
+```
+
+Then open [http://localhost:5173](http://localhost:5173).
+
+If Vite errors with `Failed to resolve entry for package "@growthbook/growthbook-react"`, the React SDK dist was not built (often because a previous `build:sdks` was interrupted). Fix with:
+
+```bash
+pnpm --filter @growthbook/growthbook-react run build
+pnpm --filter dummy-shop dev
+```
 
 The shop runs with sensible defaults when GrowthBook is unreachable or no SDK key is set (flags evaluate to off / fallback values).
 

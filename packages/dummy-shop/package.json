@@ -5,7 +5,9 @@
   "description": "Fake e-commerce storefront for GrowthBook dogfooding (flags, experiments, analytics)",
   "type": "module",
   "scripts": {
+    "predev": "node ./scripts/ensure-sdk-dist.mjs",
     "dev": "vite",
+    "prebuild": "node ./scripts/ensure-sdk-dist.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
