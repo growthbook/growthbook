@@ -170,6 +170,7 @@ export default function ContextualBanditResultsTable({
     results,
     latest,
     refresh,
+    cancel,
     refreshError,
   } = useContextualBanditResults(cb.id);
 
@@ -382,8 +383,12 @@ export default function ContextualBanditResultsTable({
       ) : null}
       <QueriesLastRun
         status={status}
-        dateCreated={queryLatest?.dateCreated}
-        latestQueryDate={queryLatest?.dateCreated}
+        dateCreated={
+          queryLatest ? getValidDate(queryLatest.dateCreated) : undefined
+        }
+        latestQueryDate={
+          queryLatest ? getValidDate(queryLatest.dateCreated) : undefined
+        }
         nextUpdate={
           cb.nextSnapshotAttempt
             ? getValidDate(cb.nextSnapshotAttempt)
@@ -418,7 +423,7 @@ export default function ContextualBanditResultsTable({
             queries: queryLatest?.queries ?? [],
             runStarted: queryLatest?.runStarted ?? null,
           }}
-          cancelEndpoint={`/api/v1/contextual-bandits/${cb.id}/cancel`}
+          cancelEndpoint={cancel}
           mutate={mutate}
           onSubmit={async () => {
             await refresh();

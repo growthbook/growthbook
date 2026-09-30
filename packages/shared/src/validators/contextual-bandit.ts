@@ -187,18 +187,6 @@ export const apiListContextualBanditsValidator = {
   paramsSchema: z.never(),
 };
 
-// Must match the list route generated from `crudActions` in
-// contextual-bandit.spec.ts.
-export const listContextualBanditsEndpoint = {
-  ...apiListContextualBanditsValidator,
-  responseSchema: z.object({
-    contextualBandits: z.array(apiContextualBanditValidator),
-  }),
-  operationId: "listContextualBandits",
-  method: "get" as const,
-  path: "/contextual-bandits",
-};
-
 export const apiCreateContextualBanditBody = z.strictObject({
   name: z.string(),
   description: z.string().optional(),
