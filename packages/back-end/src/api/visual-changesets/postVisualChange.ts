@@ -28,7 +28,7 @@ export const postVisualChange = createApiRequestHandler(
   if (!owner) {
     throw new Error(ownerNotFoundMessage(visualChangeset));
   }
-  if (!owner.canCreateChangeset()) {
+  if (!owner.canUpdate()) {
     req.context.permissions.throwPermissionError();
   }
   const auditLiveEdit = owner.requireWrite(req, {

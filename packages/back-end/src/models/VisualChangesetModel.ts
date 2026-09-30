@@ -602,7 +602,7 @@ export const deleteVisualChangesetById = async ({
   });
 };
 
-export async function findVisualChangesetsByOwner(
+async function findVisualChangesetsByOwner(
   owner: Pick<ChangesetOwner, "kind" | "id">,
   organization: string,
 ): Promise<VisualChangesetInterface[]> {
