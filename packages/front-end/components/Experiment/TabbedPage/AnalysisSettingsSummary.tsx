@@ -23,6 +23,7 @@ import {
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
+  isAutoSnapshotScheduled,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -274,7 +275,7 @@ export default function AnalysisSettingsSummary({
   const { incrementalRefresh, mutate: mutateIncrementalRefresh } =
     useIncrementalRefresh(isIncremental ? experiment.id : "");
   useEffect(() => {
-    // If dimensionless snapshto changes, re-fecth incremental refresh data
+    // If dimensionless snapshot changes, re-fetch incremental refresh data
     if (!isIncremental) return;
     mutateIncrementalRefresh();
   }, [isIncremental, dimensionless?.id, mutateIncrementalRefresh]);
@@ -880,9 +881,7 @@ export default function AnalysisSettingsSummary({
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
-                autoUpdateEnabled={
-                  experiment.autoSnapshots && !experiment.disableAutoSnapshots
-                }
+                autoUpdateEnabled={isAutoSnapshotScheduled(experiment)}
                 showAutoUpdateWidget={true}
                 failedString={
                   latest && !latest.queries.length && latest.error

@@ -558,11 +558,41 @@ describe("ramp schedule patch references", () => {
     expect(targeted.body.message).toMatch(/grp_missing/);
     expect(targeted.status).toBe(404);
 
+    // A null list would be stored as a rule that serves nowhere and breaks
+    // payload generation for the flag; only a list or allEnvironments scopes.
+    const nulled = await create({
+      name: "nulled",
+      featureId: FLAG,
+      ruleId: RULE.id,
+      steps: [step({ environments: null, coverage: 0.5 })],
+    });
+    expect(nulled.body.message).toMatch(/environments cannot be null/);
+    expect(nulled.status).toBe(400);
+
     expect(
       await mongoose.connection
         .collection("rampschedules")
         .countDocuments({ organization: ORG_ID }),
     ).toBe(0);
+  });
+
+  it("accepts the engine's own start-anchor spelling on REST create", async () => {
+    // A GET-then-POST clone replays anchors as `allEnvironments: true` with a
+    // null list; that pairing is a wildcard, not a null scope.
+    const res = await request(app)
+      .post("/api/v1/ramp-schedules")
+      .send({
+        name: "cloned",
+        featureId: FLAG,
+        ruleId: RULE.id,
+        startActions: [
+          { patch: { allEnvironments: true, environments: null, coverage: 0 } },
+        ],
+        steps: [step({ coverage: 0.5 })],
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.body.message).toBeUndefined();
+    expect(res.status).toBe(200);
   });
 
   it("checks a changed patch on the generated update but lets an echo of the stored plan through", async () => {

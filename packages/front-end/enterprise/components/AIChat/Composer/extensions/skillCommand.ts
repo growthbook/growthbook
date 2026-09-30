@@ -13,6 +13,8 @@ export interface SkillItem {
   kind: SkillKind;
   /** Parent domain for leaf skills; same as `id` for domain routers. */
   group?: string;
+  /** Off in org settings: past tokens still resolve, but the `/` menu hides it. */
+  enabled: boolean;
 }
 
 /** `flag-default-value` → "Flag default value". Sentence case, per the copy guide. */
@@ -22,6 +24,13 @@ export function skillDisplayName(id: string): string {
     .filter(Boolean)
     // "GrowthBook" is never "Growthbook" — the one spelling the copy guide pins.
     .map((w) => (w.toLowerCase() === "growthbook" ? "GrowthBook" : w));
+  // "Feature Flag" is a named resource, so it stays Title Case mid-sentence too.
+  for (let i = 1; i < words.length; i++) {
+    if (words[i - 1] === "feature" && /^flags?$/.test(words[i])) {
+      words[i - 1] = "Feature";
+      words[i] = "F" + words[i].slice(1);
+    }
+  }
   if (!words.length) return "";
   const [first, ...rest] = words;
   return [first.charAt(0).toUpperCase() + first.slice(1), ...rest].join(" ");

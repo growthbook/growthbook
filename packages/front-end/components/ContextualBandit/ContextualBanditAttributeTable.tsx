@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { MIN_UNITS_PER_VARIATION } from "shared/constants";
 import type { ContextualBanditSseStep } from "shared/experiments";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -71,8 +72,9 @@ function AttributeSplitsModal({
           </Text>
           <Text size="sm" color="text-low" as="div" mt="2">
             The splits on {splitsSubject} removed {attributeReduction} of the
-            total within-context error. Below is the list of splits that add up
-            to this reduction.
+            within-context error (summed over variations with at least{" "}
+            {MIN_UNITS_PER_VARIATION} units). Below is the list of splits that
+            add up to this reduction.
           </Text>
         </Box>
         {steps.map((step) => {
@@ -89,7 +91,6 @@ function AttributeSplitsModal({
             >
               <SseSplitDetails
                 step={step}
-                variant="detail"
                 percentReducedLabel={percentFormatter.format(
                   fractionRemoved(gain, rootSse),
                 )}
@@ -106,8 +107,8 @@ function AttributeSplitsModal({
 const DEFAULT_VISIBLE_ROWS = 5;
 
 /**
- * Ranks context attributes by the total SSE (within-context error) reduction
- * their splits contributed while the tree was built.
+ * Ranks context attributes by the SSE (within-context error)
+ * reduction their splits contributed while the tree was built.
  */
 export default function ContextualBanditAttributeTable({
   steps,

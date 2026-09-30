@@ -62,7 +62,7 @@ export async function putUpload(
     );
   }
 
-  // The user can upload images if they have permission to add comments globally, or in atleast 1 project
+  // The user can upload images if they have permission to add comments globally, or in at least 1 project
   if (!context.permissions.canAddComment([])) {
     context.permissions.throwPermissionError();
   }

@@ -68,7 +68,7 @@ import {
   assertFeatureValuesValidForPublish,
   getApiFeatureObj,
   getNextScheduledUpdate,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
   queueSDKPayloadRefresh,
   synthesizeRuleId,
 } from "back-end/src/services/features";
@@ -1100,10 +1100,24 @@ export const createFeatureEvent = async <
   data: CreateEventData<"feature", Event, FeatureInterface>;
 }) => {
   const event: CreateEventParams<"feature", Event> = await (async () => {
-    const groupMap = await getSavedGroupMap(eventData.context);
+    // Resolve targetingAllProjects into concrete ids so webhooks route by delivery scope.
+    const allProjectIds = await eventData.context.getAllProjectIds();
+
     const experimentMap = await getExperimentMapForFeature(
       eventData.context,
       eventData.data.object.id,
+    );
+    // The previous object is compiled from the same maps, so load for both.
+    const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+      eventData.context,
+      {
+        features: hasPreviousObject<"feature", Event, FeatureInterface>(
+          eventData.data,
+        )
+          ? [eventData.data.object, eventData.data.previous_object]
+          : [eventData.data.object],
+        experiments: experimentMap.values(),
+      },
     );
 
     const currentRevision = await getRevision({
@@ -1113,12 +1127,6 @@ export const createFeatureEvent = async <
       feature: eventData.data.object,
       version: eventData.data.object.version,
     });
-
-    const safeRolloutMap =
-      await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
-
-    // Resolve targetingAllProjects into concrete ids so webhooks route by delivery scope.
-    const allProjectIds = await eventData.context.getAllProjectIds();
 
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,

@@ -99,7 +99,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     userIdType: exposureQuery.userIdType,
   };
 
-  // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
+  // Only include metrics tied to this experiment, which is governed by the snapshotSettings.metricSettings
   // after the introduction of metric slices
   const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
     snapshotSettings,
@@ -415,11 +415,20 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       );
   }
 
+  prepareAnalysisData(
+    params: Pick<
+      ExperimentIncrementalRefreshExploratoryQueryParams,
+      "metricMap" | "variationNames"
+    >,
+  ): void {
+    this.metricMap = params.metricMap;
+    this.variationNames = params.variationNames;
+  }
+
   async startQueries(
     params: ExperimentIncrementalRefreshExploratoryQueryParams,
   ): Promise<Queries> {
-    this.metricMap = params.metricMap;
-    this.variationNames = params.variationNames;
+    this.prepareAnalysisData(params);
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
@@ -522,6 +531,8 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       this.model.id,
       { queries: this.model.queries, error },
       "unknown",
+      { concludedBy: this.concludedBy },
+      this.experimentUpdateExecutionLogger,
     );
     if (wrote) {
       await this.context.models.incrementalRefresh
@@ -567,6 +578,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       id: this.model.id,
       updates,
       failureCause,
+      conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

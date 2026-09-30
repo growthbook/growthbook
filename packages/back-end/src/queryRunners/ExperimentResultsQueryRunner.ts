@@ -511,9 +511,15 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     );
   }
 
-  async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
+  prepareAnalysisData(
+    params: Pick<ExperimentResultsQueryParams, "metricMap" | "variationNames">,
+  ): void {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
+  }
+
+  async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
+    this.prepareAnalysisData(params);
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
@@ -655,6 +661,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       this.model.id,
       { queries: this.model.queries, error },
       "unknown",
+      { concludedBy: this.concludedBy },
+      this.experimentUpdateExecutionLogger,
     );
   }
 
@@ -690,6 +698,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       id: this.model.id,
       updates,
       failureCause,
+      conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     // The cancel owns report.snapshot for a cancelled run: it deletes the run

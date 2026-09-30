@@ -2,19 +2,21 @@ import type { SqlDialect } from "shared/types/sql";
 import { buildFunnelSql } from "shared/enterprise";
 import { ExplorationConfig } from "shared/validators";
 import { FactTableInterface } from "shared/types/fact-table";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
-import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
-import { athenaDialect } from "back-end/src/integrations/dialects/athena";
-import { prestoDialect } from "back-end/src/integrations/dialects/presto";
-import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
-import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
-import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
-import { baseDialect } from "back-end/src/integrations/dialects/base";
-import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
-import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
-import { adobeExperiencePlatformQueryServiceDialect } from "back-end/src/integrations/dialects/adobeExperiencePlatformQueryService";
+import {
+  postgresDialect,
+  clickHouseDialect,
+  bigQueryDialect,
+  snowflakeDialect,
+  athenaDialect,
+  prestoDialect,
+  databricksDialect,
+  mysqlDialect,
+  redshiftDialect,
+  baseDialect,
+  mssqlDialect,
+  verticaDialect,
+  adobeExperiencePlatformQueryServiceDialect,
+} from "shared/dialects";
 
 // The funnel SQL depends on two dialect helpers beyond the array helpers:
 // `dateDiffMs` (emitted on every 2+ step funnel for time-from-previous stats)

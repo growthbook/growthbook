@@ -23,6 +23,7 @@ import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
+import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
@@ -104,6 +105,10 @@ router.get("/v1/openapi.yaml", (req, res) => {
 });
 
 router.use(authenticateApiRequestMiddleware as RequestHandler);
+
+// Usage telemetry for calls from the GrowthBook MCP server. Mounted before the
+// rate limiter so rate-limited calls are counted too.
+router.use(trackMcpRequestCompletion as unknown as RequestHandler);
 
 // Add API user to Sentry if configured
 if (SENTRY_DSN) {
