@@ -175,7 +175,7 @@ export default defineConfig([
   },
   {
     // Dogfood demo app: console is the intentional analytics / setup sink.
-    files: ["./packages/dummy-shop/**/*.{ts,tsx}"],
+    files: ["./packages/dummy-shop/**/*.{ts,tsx,js,mjs}"],
     rules: {
       "no-console": "off",
       "react/prop-types": "off",
