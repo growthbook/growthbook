@@ -17734,7 +17734,26 @@ paths:
                             type: string
                           queries:
                             type: array
-                            items: {}
+                            items:
+                              type: object
+                              properties:
+                                query:
+                                  type: string
+                                status:
+                                  type: string
+                                  enum:
+                                    - queued
+                                    - running
+                                    - failed
+                                    - partially-succeeded
+                                    - succeeded
+                                name:
+                                  type: string
+                              required:
+                                - query
+                                - status
+                                - name
+                              additionalProperties: false
                           runStarted:
                             anyOf:
                               - type: string

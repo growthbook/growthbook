@@ -84,5 +84,5 @@ export const contextualBanditApiSpec = {
     cancelContextualBanditEndpoint,
   ],
   navAfterTag: "experiments",
-} satisfies OpenApiModelSpec;
+} as const satisfies OpenApiModelSpec;
 export default contextualBanditApiSpec;

@@ -21,5 +21,5 @@ export const contextualBanditQueryApiSpec = {
     list: apiListContextualBanditQueriesValidator,
   },
   navAfterTag: "experiments",
-} satisfies OpenApiModelSpec;
+} as const satisfies OpenApiModelSpec;
 export default contextualBanditQueryApiSpec;

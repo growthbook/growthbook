@@ -6,15 +6,16 @@ import {
   ApiCreateZodObject,
   ApiUpdateZodObject,
   CrudAction,
-  getCrudConfig,
-  getDefaultCrudActionSummary,
-  getFullPath,
+  crudEndpoint,
+  customEndpoint,
+  getCrudReturnKey,
+  getEnabledCrudActions,
   OpenApiModelSpec,
 } from "shared/api-model";
-import { capitalizeFirstCharacter } from "shared/util";
 import { ModelName } from "back-end/src/services/context";
 import {
   ApiRequest,
+  BackEndApiEndpointSpec,
   RequestSchemas,
   createApiRequestHandler,
   OpenApiRoute,
@@ -98,86 +99,35 @@ export function getOpenApiRoutesForApiConfig(
   apiConfig: ApiModelConfig,
 ): OpenApiRoute[] {
   const routes: OpenApiRoute[] = [];
+  const spec = apiConfig.openApiSpec;
 
-  const tag =
-    apiConfig.openApiSpec.tag ??
-    capitalizeFirstCharacter(apiConfig.openApiSpec.modelPlural);
+  getEnabledCrudActions(spec).forEach((action) => {
+    const endpoint: BackEndApiEndpointSpec<
+      z.ZodTypeAny,
+      z.ZodTypeAny,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    > = crudEndpoint(spec, action);
+    const returnKey = getCrudReturnKey(spec, action);
+    const hasResponseOverride =
+      !!spec.crudValidatorOverrides?.[action]?.responseSchema;
+    const route = createApiRequestHandler(endpoint)(async (req) => {
+      const modelInstance = req.context.models[
+        apiConfig.modelKey
+      ] as unknown as MinimalApiModel;
+      const result = await modelInstance[defaultHandlers[action]](req);
+      if (hasResponseOverride) return result;
+      return { [returnKey]: result };
+    });
+    routes.push(route);
+  });
 
-  const crudConfig = getCrudConfig(apiConfig.openApiSpec);
-  crudConfig.forEach(
-    ({
-      action,
-      verb,
-      pathFragment,
-      validator,
-      returnKey,
-      returnSchema,
-      plural,
-      hasResponseOverride,
-    }) => {
-      const singularCapitalized = capitalizeFirstCharacter(
-        apiConfig.openApiSpec.modelSingular,
-      );
-      const pluralCapitalized = capitalizeFirstCharacter(
-        apiConfig.openApiSpec.modelPlural,
-      );
-      const deprecationDate = apiConfig.openApiSpec.crudDeprecations?.[action];
-      const route = createApiRequestHandler({
-        ...validator,
-        method: verb,
-        path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
-        operationId: `${action}${plural ? pluralCapitalized : singularCapitalized}`,
-        summary: getDefaultCrudActionSummary(
-          action,
-          apiConfig.openApiSpec.modelSingular,
-          apiConfig.openApiSpec.modelPlural,
-        ),
-        description: apiConfig.openApiSpec.crudDescriptions?.[action],
-        deprecated: deprecationDate !== undefined,
-        deprecationDate,
-        tags: [tag],
-        responseSchema: returnSchema,
-        possibleErrors: apiConfig.openApiSpec.possibleErrors?.[action],
-      })(async (req) => {
-        const modelInstance = req.context.models[
-          apiConfig.modelKey
-        ] as unknown as MinimalApiModel;
-        const result = await modelInstance[defaultHandlers[action]](req);
-        if (hasResponseOverride) return result as z.infer<typeof returnSchema>;
-        return { [returnKey]: result } as z.infer<typeof returnSchema>;
-      });
-      routes.push(route);
-    },
-  );
-
-  apiConfig.customHandlers?.forEach(
-    ({
-      pathFragment,
-      validator,
-      reqHandler,
-      verb,
-      operationId,
-      summary,
-      description,
-      zodReturnObject,
-      possibleErrors,
-      version,
-    }) => {
-      const route = createApiRequestHandler({
-        ...validator,
-        method: verb,
-        path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
-        operationId,
-        summary,
-        description,
-        tags: [tag],
-        responseSchema: zodReturnObject,
-        possibleErrors,
-        version,
-      })(reqHandler);
-      routes.push(route);
-    },
-  );
+  apiConfig.customHandlers?.forEach((handler) => {
+    const route = createApiRequestHandler(customEndpoint(spec, handler))(
+      handler.reqHandler,
+    );
+    routes.push(route);
+  });
 
   return routes;
 }

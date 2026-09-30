@@ -1,7 +1,8 @@
-import { z, ZodType } from "zod";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { apiBaseSchema } from "./validators/base-model";
-import { ApiErrorCode } from "./validators/api-errors";
+import { z } from "zod";
+import type { CreateProps, UpdateProps } from "shared/types/base-model";
+import type { apiBaseSchema } from "./validators/base-model";
+import type { ApiErrorCode } from "./validators/api-errors";
+import { capitalizeFirstCharacter } from "./util";
 import { HttpVerb, RequestSchemas } from "./api-spec";
 
 export const crudActions = [
@@ -66,7 +67,7 @@ export type CrudValidatorOverrides = Partial<
   Record<
     CrudAction,
     RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> & {
-      responseSchema?: ZodType;
+      responseSchema?: z.ZodType;
     }
   >
 >;
@@ -89,10 +90,12 @@ export type OpenApiEndpointSpec = {
 };
 
 /**
- * Lightweight API spec for OpenAPI doc generation.
+ * Lightweight API spec for a BaseModel's REST endpoints.
  * Contains only Zod schemas and metadata — no runtime handler code.
- * Lives in back-end/src/api/specs/ (or shared/src/validators/ when the
- * front-end needs it) and is mounted through the model's apiConfig.
+ * The back-end mounts it through the model's `apiConfig`; `crudEndpoint` and
+ * `customEndpoint` turn it into endpoints the front-end can call. Declare it
+ * `as const satisfies OpenApiModelSpec` when the front-end needs those
+ * endpoints, so the response keys keep their literal types.
  *
  * C/U don't extend from T to prevent restrictions on the actual body shapes
  * Concrete body types are inferred from the actual model config
@@ -113,9 +116,9 @@ export type OpenApiModelSpec<
   };
   pathBase: string;
   includeDefaultCrud?: boolean;
-  crudActions?: CrudAction[];
+  crudActions?: readonly CrudAction[];
   crudValidatorOverrides?: CrudValidatorOverrides;
-  customEndpoints?: OpenApiEndpointSpec[];
+  customEndpoints?: readonly OpenApiEndpointSpec[];
   /** Per-CRUD-action descriptions (longer form text shown below the summary in docs). */
   crudDescriptions?: Partial<Record<CrudAction, string>>;
   /** Marks CRUD actions deprecated. Values are RFC 8594 `Deprecation` header values (`"true"` or `"@<unix-timestamp>"`). */
@@ -132,87 +135,186 @@ export type OpenApiModelSpec<
   tag?: string;
 };
 
-const crudDefaults: Record<
+const crudRoutes = {
+  get: { method: "get", pathFragment: "/:id" },
+  create: { method: "post", pathFragment: "" },
+  list: { method: "get", pathFragment: "" },
+  delete: { method: "delete", pathFragment: "/:id" },
+  update: { method: "put", pathFragment: "/:id" },
+} as const satisfies Record<
   CrudAction,
-  { verb: HttpVerb; pathFragment: string; plural?: boolean }
-> = {
-  get: {
-    verb: "get",
-    pathFragment: "/:id",
-  },
-  create: {
-    verb: "post",
-    pathFragment: "",
-  },
-  list: {
-    verb: "get",
-    pathFragment: "",
-    plural: true,
-  },
-  delete: {
-    verb: "delete",
-    pathFragment: "/:id",
-  },
-  update: {
-    verb: "put",
-    pathFragment: "/:id",
-  },
-};
-type CrudActionConfig<A extends CrudAction = CrudAction> = {
-  action: A;
-  verb: HttpVerb;
-  pathFragment: string;
-  validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
-  returnKey: string;
-  returnSchema: ZodType;
-  plural: boolean | undefined;
-  hasResponseOverride: boolean;
-};
-export function getCrudConfig(spec: OpenApiModelSpec): CrudActionConfig[] {
-  const actions = spec.includeDefaultCrud
-    ? crudActions
-    : (spec.crudActions ?? []);
-  return actions.map((action) => {
-    const { verb, pathFragment, plural } = crudDefaults[action];
-    const validator = getCrudValidator(action, spec);
-    const returnKey =
-      action === "delete"
-        ? "deletedId"
-        : plural
-          ? spec.modelPlural
-          : spec.modelSingular;
-    const overrideResponse =
-      spec.crudValidatorOverrides?.[action]?.responseSchema;
-    const returnSchema =
-      overrideResponse ??
-      z.object({
-        [returnKey]:
-          action === "delete"
-            ? z.string()
-            : plural
-              ? z.array(spec.apiInterface)
-              : spec.apiInterface,
-      });
-    return {
-      action,
-      verb,
-      pathFragment,
-      validator,
-      returnKey,
-      returnSchema,
-      plural,
-      hasResponseOverride: !!overrideResponse,
-    };
-  });
-}
+  { method: HttpVerb; pathFragment: string }
+>;
 
-export function getFullPath(basePath: string, pathFragment: string): string {
+/** The CRUD actions a spec mounts; every action when the spec's type is too wide to tell. */
+export type EnabledCrudAction<S extends OpenApiModelSpec> = S extends {
+  includeDefaultCrud: true;
+}
+  ? CrudAction
+  : S extends { crudActions: readonly (infer A extends CrudAction)[] }
+    ? A
+    : OpenApiModelSpec extends S
+      ? CrudAction
+      : never;
+
+type CrudOverride<
+  S extends OpenApiModelSpec,
+  A extends CrudAction,
+> = S extends { crudValidatorOverrides: Record<A, infer O> } ? O : null;
+
+type CrudSlot<
+  S extends OpenApiModelSpec,
+  A extends CrudAction,
+  K extends keyof RequestSchemas<unknown, unknown, unknown>,
+> =
+  CrudOverride<S, A> extends null
+    ? K extends "bodySchema"
+      ? A extends "create"
+        ? S["schemas"]["createBody"]
+        : A extends "update"
+          ? S["schemas"]["updateBody"]
+          : DefaultCrudValidators[A][K]
+      : DefaultCrudValidators[A][K]
+    : CrudOverride<S, A> extends Record<K, infer V>
+      ? V
+      : undefined;
+
+type CrudReturnKey<
+  S extends OpenApiModelSpec,
+  A extends CrudAction,
+> = A extends "delete"
+  ? "deletedId"
+  : A extends "list"
+    ? S["modelPlural"]
+    : S["modelSingular"];
+
+type CrudResponse<S extends OpenApiModelSpec, A extends CrudAction> =
+  CrudOverride<S, A> extends { responseSchema: infer R }
+    ? R
+    : z.ZodObject<{
+        [K in CrudReturnKey<S, A>]: A extends "delete"
+          ? z.ZodString
+          : A extends "list"
+            ? z.ZodArray<S["apiInterface"]>
+            : S["apiInterface"];
+      }>;
+
+export type CrudEndpoint<S extends OpenApiModelSpec, A extends CrudAction> = {
+  paramsSchema: CrudSlot<S, A, "paramsSchema">;
+  bodySchema: CrudSlot<S, A, "bodySchema">;
+  querySchema: CrudSlot<S, A, "querySchema">;
+  responseSchema: CrudResponse<S, A>;
+  method: (typeof crudRoutes)[A]["method"];
+  path: string;
+  operationId: string;
+  summary: string;
+  description?: string;
+  deprecated: boolean;
+  deprecationDate?: string;
+  tags: string[];
+  possibleErrors?: readonly ApiErrorCode[];
+};
+
+function getFullPath(basePath: string, pathFragment: string): string {
   return ("/" + basePath + "/" + pathFragment)
     .replace(/\/{2,}/g, "/")
     .replace(/\/$/, "");
 }
 
-export function getCrudValidator(
+export function getApiModelTag(spec: OpenApiModelSpec): string {
+  return spec.tag ?? capitalizeFirstCharacter(spec.modelPlural);
+}
+
+export function getEnabledCrudActions(
+  spec: OpenApiModelSpec,
+): readonly CrudAction[] {
+  return spec.includeDefaultCrud ? crudActions : (spec.crudActions ?? []);
+}
+
+/** The key a default CRUD handler's result is returned under. */
+export function getCrudReturnKey(
+  spec: OpenApiModelSpec,
+  action: CrudAction,
+): string {
+  if (action === "delete") return "deletedId";
+  return action === "list" ? spec.modelPlural : spec.modelSingular;
+}
+
+/**
+ * The endpoint the back-end mounts for one CRUD action of a spec. `action`
+ * must be one the spec enables, so dropping it from the spec breaks callers.
+ */
+export function crudEndpoint<
+  S extends OpenApiModelSpec,
+  A extends EnabledCrudAction<S>,
+>(spec: S, action: A): CrudEndpoint<S, A> {
+  const { method, pathFragment } = crudRoutes[action];
+  const plural = action === "list";
+  const deprecationDate = spec.crudDeprecations?.[action];
+  // The response key is computed at runtime, so the cast is what carries the
+  // literal key (and the per-action schemas) that CrudEndpoint spells out.
+  return {
+    ...getCrudValidator(action, spec),
+    responseSchema:
+      spec.crudValidatorOverrides?.[action]?.responseSchema ??
+      z.object({
+        [getCrudReturnKey(spec, action)]:
+          action === "delete"
+            ? z.string()
+            : plural
+              ? z.array(spec.apiInterface)
+              : spec.apiInterface,
+      }),
+    method,
+    path: getFullPath(spec.pathBase, pathFragment),
+    operationId: `${action}${capitalizeFirstCharacter(
+      plural ? spec.modelPlural : spec.modelSingular,
+    )}`,
+    summary: getDefaultCrudActionSummary(
+      action,
+      spec.modelSingular,
+      spec.modelPlural,
+    ),
+    description: spec.crudDescriptions?.[action],
+    deprecated: deprecationDate !== undefined,
+    deprecationDate,
+    tags: [getApiModelTag(spec)],
+    possibleErrors: spec.possibleErrors?.[action],
+  } as CrudEndpoint<S, A>;
+}
+
+export type CustomEndpoint<E extends OpenApiEndpointSpec> = E["validator"] & {
+  responseSchema: E["zodReturnObject"];
+  method: E["verb"];
+  path: string;
+  operationId: string;
+  summary: string;
+  description?: string;
+  tags: string[];
+  possibleErrors?: readonly ApiErrorCode[];
+  version?: "v1" | "v2";
+};
+
+/** The endpoint the back-end mounts for one of a spec's custom endpoints. */
+export function customEndpoint<E extends OpenApiEndpointSpec>(
+  spec: OpenApiModelSpec,
+  endpoint: E,
+): CustomEndpoint<E> {
+  return {
+    ...endpoint.validator,
+    responseSchema: endpoint.zodReturnObject,
+    method: endpoint.verb,
+    path: getFullPath(spec.pathBase, endpoint.pathFragment),
+    operationId: endpoint.operationId,
+    summary: endpoint.summary,
+    description: endpoint.description,
+    tags: [getApiModelTag(spec)],
+    possibleErrors: endpoint.possibleErrors,
+    version: endpoint.version,
+  };
+}
+
+function getCrudValidator(
   action: CrudAction,
   spec: OpenApiModelSpec,
 ): RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> {
@@ -237,7 +339,7 @@ function getDefaultValidator(
   return base;
 }
 
-export function getDefaultCrudActionSummary(
+function getDefaultCrudActionSummary(
   action: CrudAction,
   modelSingular: string,
   modelPlural: string,
