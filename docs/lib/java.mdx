@@ -1307,7 +1307,9 @@ boolean enabled = gb.isOn("new-homepage", userContext);
 
 - `decryptionKey` is set
 - `stickyBucketService` is set
-- `refreshStrategy` is `FeatureRefreshStrategy.STALE_WHILE_REVALIDATE`
+- `refreshStrategy` is explicitly `FeatureRefreshStrategy.STALE_WHILE_REVALIDATE`
+
+Leave `refreshStrategy` unset, as in the example above. `remoteEval(true)` does not change that field. The validator reads `getRefreshStrategy()`, which is `null` until you set it, and `null` is allowed. `getRefreshingStrategy()` still reports `STALE_WHILE_REVALIDATE` when the field is unset, but remote evaluation does not use that default. Setting the strategy explicitly to `STALE_WHILE_REVALIDATE` is what makes `initialize()` return `false`.
 
 Sticky bucketing for this mode belongs on the remote evaluation backend. The client must not be given a `StickyBucketService`.
 
