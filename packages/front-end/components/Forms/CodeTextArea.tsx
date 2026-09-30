@@ -216,6 +216,7 @@ export type Props = CodeTextAreaFieldProps & {
   slimGutter?: boolean;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
+  onFormatShortcut?: () => void;
   wrapperClassName?: string;
   completions?: AceCompletion[];
   resizable?: boolean;
@@ -246,6 +247,7 @@ export default function CodeTextArea({
   setCursorData,
   fullHeight,
   onCtrlEnter,
+  onFormatShortcut,
   wrapperClassName,
   completions,
   resizable = false,
@@ -290,6 +292,17 @@ export default function CodeTextArea({
       },
     );
   }, [editor, onCtrlEnter]);
+
+  useEffect(() => {
+    if (!editor || !onFormatShortcut) return;
+
+    editor.commands.addCommand({
+      name: "format-shortcut",
+      bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
+      exec: onFormatShortcut,
+    });
+    return () => editor.commands.removeCommand("format-shortcut");
+  }, [editor, onFormatShortcut]);
 
   useEffect(() => {
     editor?.renderer.setScrollMargin(paddingTop, 0, 0, 0);

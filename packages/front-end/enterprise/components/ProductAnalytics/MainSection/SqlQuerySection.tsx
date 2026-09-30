@@ -67,6 +67,9 @@ function SqlQueryActions({
   onToggleAutocomplete: () => void;
   queryHelp?: ReactNode;
 }) {
+  const isMac =
+    typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
+
   return (
     <>
       {formatError ? (
@@ -98,7 +101,11 @@ function SqlQueryActions({
           </IconButton>
         }
       >
-        <DropdownMenuItem onClick={onFormat} disabled={!canFormat}>
+        <DropdownMenuItem
+          onClick={onFormat}
+          disabled={!canFormat}
+          shortcut={isMac ? "⇧⌘F" : "Ctrl+Shift+F"}
+        >
           Format
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onToggleAutocomplete}>
@@ -189,7 +196,11 @@ export default function SqlQuerySection({
 
   if (!dataset) return null;
 
+  const canFormat =
+    !loading && datasource ? canFormatSql(datasource.type) : false;
+
   const handleFormatClick = () => {
+    if (!localSql || !canFormat) return;
     const result = formatSql(localSql, datasource?.type);
     if (result.error) {
       setFormatError(result.error);
@@ -205,8 +216,6 @@ export default function SqlQuerySection({
     !!localSql.trim() &&
     !!draftExploreState.datasource &&
     canRunQueries;
-  const canFormat =
-    !loading && datasource ? canFormatSql(datasource.type) : false;
   const openExplore = (mode: SqlExploreMode) => {
     setSqlExploreMode(mode);
     markExploreSeen();
@@ -339,6 +348,7 @@ export default function SqlQuerySection({
                   void previewQuery(localSql);
                 }
               }}
+              onFormatShortcut={handleFormatClick}
               completions={autoCompletions}
               fullHeight
               paddingTop={8}
