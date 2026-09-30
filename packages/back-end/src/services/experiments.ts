@@ -162,6 +162,7 @@ import {
   PRESET_DECISION_CRITERIA,
   getPresetDecisionCriteriaForOrg,
 } from "shared/enterprise";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -1200,7 +1201,7 @@ export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
       visualChangesets.map((vc) =>
         syncVisualChangesWithVariations({
           visualChangeset: vc,
-          experiment: updated,
+          owner: new ExperimentChangesetOwner(context, updated),
           context,
         }),
       ),

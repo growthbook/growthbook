@@ -1,15 +1,16 @@
 import { z } from "zod";
 import {
   createVisualChangeset,
-  createVisualChangesetForCb,
   findVisualChangesetById,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+import {
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
 import { requireUserAuth } from "./requireUserAuth";
-import { requireCbEditable } from "./requireCbEditable";
 
 // Creates an additional visual changeset on an existing experiment so a
 // user can make different DOM changes on a different URL within the same
@@ -62,75 +63,40 @@ export const postCreateChangeset = createApiRequestHandler(validation)(async (
     return context.throwNotFoundError("Visual changeset not found");
   }
 
-  if (sourceChangeset.contextualBandit) {
-    const cb = await context.models.contextualBandits.getById(
-      sourceChangeset.contextualBandit,
-    );
-    if (!cb) return context.throwNotFoundError("Contextual bandit not found");
-    if (!context.permissions.canUpdateContextualBandit(cb, cb)) {
-      context.permissions.throwPermissionError();
-    }
-    requireCbEditable(context, cb);
+  const owner = await resolveChangesetOwner(context, sourceChangeset);
+  if (!owner)
+    return context.throwNotFoundError(ownerNotFoundMessage(sourceChangeset));
 
-    const changeset = await createVisualChangesetForCb({
-      contextualBandit: cb,
-      context,
-      urlPatterns,
-      editorUrl: pageUrl,
-    });
-
-    logger.info(
-      {
-        contextualBanditId: cb.id,
-        sourceChangesetId: visualChangesetId,
-        newChangesetId: changeset.id,
-        orgId: context.org.id,
-        userId: context.userId,
-      },
-      "[visual-editor-ai] changeset created on existing contextual bandit",
-    );
-
-    return {
-      visualChangeset: toVisualChangesetApiInterface(changeset),
-      editorRedirectUrl: appendChangesetParam(pageUrl, changeset.id),
-    };
-  }
-
-  const experiment = await getExperimentById(
-    context,
-    sourceChangeset.experiment,
-  );
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-
-  // Gate on both the experiment update (we flip hasVisualChangesets) and
+  // Gate on both the owner update (we flip hasVisualChangesets) and
   // the visual-change create.
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!owner.canCreateChangeset()) {
     context.permissions.throwPermissionError();
   }
-  if (
-    !context.permissions.canCreateVisualChange({ project: experiment.project })
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  const auditLiveEdit = owner.requireWrite(req, {
+    allowRunning: false,
+    visualChangesetId,
+  });
 
   // Omit `visualChanges` so createVisualChangeset auto-generates one empty
   // entry per current variation.
   const changeset = await createVisualChangeset({
-    experiment,
+    owner,
     context,
     urlPatterns,
     editorUrl: pageUrl,
   });
+  await auditLiveEdit();
 
   logger.info(
     {
-      experimentId: experiment.id,
+      ownerKind: owner.kind,
+      ownerId: owner.id,
       sourceChangesetId: visualChangesetId,
       newChangesetId: changeset.id,
       orgId: context.org.id,
       userId: context.userId,
     },
-    "[visual-editor-ai] changeset created on existing experiment",
+    "[visual-editor-ai] changeset created on existing owner",
   );
 
   return {

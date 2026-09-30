@@ -1,15 +1,10 @@
-import {
-  ExperimentInterfaceExcludingHoldouts,
-  getVisualChangesetValidator,
-} from "shared/validators";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getVisualChangesetValidator } from "shared/validators";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
-import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { toVisualEditorCbExperimentStub } from "back-end/src/services/visualEditorCbStub";
+import { resolveChangesetOwner } from "back-end/src/services/changesetOwner";
 
 export const getVisualChangeset = createApiRequestHandler(
   getVisualChangesetValidator,
@@ -26,41 +21,14 @@ export const getVisualChangeset = createApiRequestHandler(
     throw new Error("Could not find visualChangeset with given ID");
   }
 
-  if (visualChangeset.contextualBandit) {
-    if (includeExperiment <= 0) {
-      return {
-        visualChangeset: toVisualChangesetApiInterface(visualChangeset),
-      };
-    }
-    const cb = await req.context.models.contextualBandits.getById(
-      visualChangeset.contextualBandit,
-    );
-    if (!cb) {
-      return {
-        visualChangeset: toVisualChangesetApiInterface(visualChangeset),
-      };
-    }
-    return {
-      visualChangeset: toVisualChangesetApiInterface(visualChangeset),
-      experiment: toVisualEditorCbExperimentStub(cb),
-    };
-  }
-
-  const experiment =
+  const owner =
     includeExperiment > 0
-      ? await getExperimentById(req.context, visualChangeset.experiment)
+      ? await resolveChangesetOwner(req.context, visualChangeset)
       : null;
-
-  const apiExperiment =
-    experiment && experiment.type !== "holdout"
-      ? await toExperimentApiInterface(
-          req.context,
-          experiment as ExperimentInterfaceExcludingHoldouts,
-        )
-      : null;
+  const experiment = owner ? await owner.toEditorExperiment() : null;
 
   return {
     visualChangeset: toVisualChangesetApiInterface(visualChangeset),
-    ...(apiExperiment ? { experiment: apiExperiment } : {}),
+    ...(experiment ? { experiment } : {}),
   };
 });

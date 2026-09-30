@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
-import type { ContextualBanditInterface } from "shared/validators";
 import {
   findVisualChangesets,
   findVisualChangesetsByExperimentIds,
@@ -12,6 +11,11 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+import {
+  ChangesetOwner,
+  ContextualBanditChangesetOwner,
+  ExperimentChangesetOwner,
+} from "back-end/src/services/changesetOwner";
 import { requireUserAuth } from "./requireUserAuth";
 
 // Bootstrap data for the side panel's empty + switcher states: the user's
@@ -97,7 +101,12 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
     );
     experiments = await getExperimentsByIds(context, expIds);
   }
-  const experimentById = new Map(experiments.map((e) => [e.id, e]));
+  const ownerByKey = new Map<string, ChangesetOwner>(
+    experiments.map((e) => [
+      `experiment:${e.id}`,
+      new ExperimentChangesetOwner(context, e),
+    ]),
+  );
 
   const cbIds = Array.from(
     new Set(
@@ -106,13 +115,17 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
         .filter((id): id is string => !!id),
     ),
   );
-  const cbById = new Map<string, ContextualBanditInterface>();
   if (cbIds.length > 0) {
     const cbs = await Promise.all(
       cbIds.map((id) => context.models.contextualBandits.getById(id)),
     );
     for (const cb of cbs) {
-      if (cb) cbById.set(cb.id, cb);
+      if (cb) {
+        ownerByKey.set(
+          `contextual-bandit:${cb.id}`,
+          new ContextualBanditChangesetOwner(context, cb),
+        );
+      }
     }
   }
 
@@ -142,46 +155,29 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   };
   const recentExperiments: RecentRow[] = [];
   for (const cs of changesets) {
-    if (cs.contextualBandit) {
-      const cb = cbById.get(cs.contextualBandit);
-      if (!cb) continue;
-      const patterns = cs.urlPatterns ?? [];
-      const includes = patterns.filter((p) => p.include);
-      const primary = includes[0] ?? patterns[0] ?? null;
-      recentExperiments.push({
-        experimentId: cb.id,
-        experimentName: cb.name,
-        visualChangesetId: cs.id,
-        primaryUrl: primary?.pattern ?? null,
-        extraPatternCount: Math.max(0, patterns.length - 1),
-        urlPatterns: patterns,
-        project: cb.project || null,
-        status: cb.status,
-        updatedAt: toIso(cb.dateUpdated ?? cb.dateCreated),
-        editable: !cb.archived && cb.status !== "stopped",
-      });
-      continue;
-    }
-    if (!cs.experiment) continue;
-    const exp = experimentById.get(cs.experiment);
-    // Skip changesets whose experiment we can't read (deleted or no
+    const owner = cs.contextualBandit
+      ? ownerByKey.get(`contextual-bandit:${cs.contextualBandit}`)
+      : cs.experiment
+        ? ownerByKey.get(`experiment:${cs.experiment}`)
+        : undefined;
+    // Skip changesets whose owner we can't read (deleted or no
     // permission) — an orphan row the user can't open is a dead end.
-    if (!exp) continue;
+    if (!owner) continue;
     const patterns = cs.urlPatterns ?? [];
     // Prefer the first include rule as the "where it runs" label.
     const includes = patterns.filter((p) => p.include);
     const primary = includes[0] ?? patterns[0] ?? null;
     recentExperiments.push({
-      experimentId: exp.id,
-      experimentName: exp.name,
+      experimentId: owner.id,
+      experimentName: owner.name,
       visualChangesetId: cs.id,
       primaryUrl: primary?.pattern ?? null,
       extraPatternCount: Math.max(0, patterns.length - 1),
       urlPatterns: patterns,
-      project: exp.project || null,
-      status: exp.status,
-      updatedAt: toIso(exp.dateUpdated ?? exp.dateCreated),
-      editable: !exp.archived && exp.status === "draft",
+      project: owner.project || null,
+      status: owner.status,
+      updatedAt: toIso(owner.dateUpdated),
+      editable: owner.isEditable(),
     });
   }
   // Default (non-search) list: editable rows first (draft experiments,

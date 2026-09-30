@@ -1,9 +1,10 @@
 import { putVisualChangeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { requireVisualChangeWrite } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
-import { requireCbEditable } from "back-end/src/api/visual-editor-ai/requireCbEditable";
 import {
-  findExperimentByVisualChangesetId,
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
+import {
   findVisualChangesetById,
   updateVisualChange,
 } from "back-end/src/models/VisualChangesetModel";
@@ -24,41 +25,14 @@ export const putVisualChange = createApiRequestHandler(
     throw new Error("Visual Changeset not found");
   }
 
-  if (visualChangeset.contextualBandit) {
-    const cb = await req.context.models.contextualBandits.getById(
-      visualChangeset.contextualBandit,
-    );
-    if (!cb) {
-      throw new Error("Contextual Bandit not found");
-    }
-    if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
-      req.context.permissions.throwPermissionError();
-    }
-    requireCbEditable(req.context, cb);
-
-    const res = await updateVisualChange({
-      context: req.context,
-      changesetId,
-      visualChangeId,
-      payload,
-    });
-
-    return res;
+  const owner = await resolveChangesetOwner(req.context, visualChangeset);
+  if (!owner) {
+    throw new Error(ownerNotFoundMessage(visualChangeset));
   }
-
-  const experiment = await findExperimentByVisualChangesetId(
-    req.context,
-    changesetId,
-  );
-
-  if (!experiment) {
-    throw new Error("Experiment not found");
-  }
-
-  if (!req.context.permissions.canUpdateVisualChange(experiment)) {
+  if (!owner.canUpdate()) {
     req.context.permissions.throwPermissionError();
   }
-  const auditLiveEdit = requireVisualChangeWrite(req, experiment, {
+  const auditLiveEdit = owner.requireWrite(req, {
     allowRunning: !!allowRunningExperiment,
     visualChangesetId: changesetId,
   });

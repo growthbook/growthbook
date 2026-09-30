@@ -652,14 +652,14 @@ export function generateAutoExperimentsPayload({
         exp.persistQueryString = true;
       }
 
-      const metadata = buildPayloadMetadata<ExperimentMetadata>(
-        {
+      return finalizeAutoExperiment(exp, {
+        metadataSource: {
           project: e.project,
           customFields: e.customFields,
           tags: e.tags,
           statusUpdateSchedule: e.statusUpdateSchedule,
         },
-        {
+        metadataOptions: {
           includeProjectIdInMetadata,
           includeCustomFieldsInMetadata,
           allowedCustomFieldsInMetadata,
@@ -667,20 +667,9 @@ export function generateAutoExperimentsPayload({
           includeExperimentScheduleInMetadata,
         },
         projectsMap,
-      );
-      if (metadata) exp.metadata = metadata;
-
-      savedGroupStrategy.finalizeCondition(exp.condition);
-      savedGroupStrategy.finalizeCondition(exp.parentConditions);
-
-      if (capabilities !== undefined) {
-        const { removedExperimentKeys } = getPayloadAllowedKeys(capabilities);
-        if (removedExperimentKeys.length) {
-          return omit(exp, removedExperimentKeys) as AutoExperimentWithMetadata;
-        }
-      }
-
-      return exp;
+        savedGroupStrategy,
+        capabilities,
+      });
     });
 
   const cbSdkExperiments = generateCbVisualExperimentsPayload({
@@ -816,33 +805,58 @@ function generateCbVisualExperimentsPayload({
       exp.parentConditions = parsedPrerequisites;
     }
 
-    const metadata = buildPayloadMetadata<ExperimentMetadata>(
-      {
+    return finalizeAutoExperiment(exp, {
+      metadataSource: {
         project: cb.project,
         tags: cb.tags,
       },
-      {
+      metadataOptions: {
         includeProjectIdInMetadata,
         includeCustomFieldsInMetadata,
         allowedCustomFieldsInMetadata,
         includeTagsInMetadata,
       },
       projectsMap,
-    );
-    if (metadata) exp.metadata = metadata;
-
-    savedGroupStrategy.finalizeCondition(exp.condition);
-    savedGroupStrategy.finalizeCondition(exp.parentConditions);
-
-    if (capabilities !== undefined) {
-      const { removedExperimentKeys } = getPayloadAllowedKeys(capabilities);
-      if (removedExperimentKeys.length) {
-        return omit(exp, removedExperimentKeys) as AutoExperimentWithMetadata;
-      }
-    }
-
-    return exp;
+      savedGroupStrategy,
+      capabilities,
+    });
   });
+}
+
+function finalizeAutoExperiment(
+  exp: AutoExperimentWithMetadata,
+  {
+    metadataSource,
+    metadataOptions,
+    projectsMap,
+    savedGroupStrategy,
+    capabilities,
+  }: {
+    metadataSource: Parameters<typeof buildPayloadMetadata>[0];
+    metadataOptions: Parameters<typeof buildPayloadMetadata>[1];
+    projectsMap?: Map<string, ProjectInterface>;
+    savedGroupStrategy: SavedGroupPayloadStrategy;
+    capabilities?: SDKCapability[];
+  },
+): AutoExperimentWithMetadata {
+  const metadata = buildPayloadMetadata<ExperimentMetadata>(
+    metadataSource,
+    metadataOptions,
+    projectsMap,
+  );
+  if (metadata) exp.metadata = metadata;
+
+  savedGroupStrategy.finalizeCondition(exp.condition);
+  savedGroupStrategy.finalizeCondition(exp.parentConditions);
+
+  if (capabilities !== undefined) {
+    const { removedExperimentKeys } = getPayloadAllowedKeys(capabilities);
+    if (removedExperimentKeys.length) {
+      return omit(exp, removedExperimentKeys) as AutoExperimentWithMetadata;
+    }
+  }
+
+  return exp;
 }
 
 export async function getSavedGroupMap(

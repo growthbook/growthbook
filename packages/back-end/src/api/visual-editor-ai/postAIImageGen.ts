@@ -2,7 +2,10 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { getImageModelMeta } from "shared/ai";
 import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
 import { uploadFile } from "back-end/src/services/files";
 import { optimizeAIImage } from "back-end/src/services/imageOptimization";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
@@ -13,7 +16,6 @@ import { trackAIUsage } from "back-end/src/services/growthbook";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "./requireUserAuth";
-import { rejectAiForCb } from "./rejectForCb";
 
 // Token-equivalent cost per generated image, charged against the org's
 // daily AI budget. Matches Gemini's published ~1290 tokens/image; other
@@ -85,12 +87,10 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
 
-  if (changeset.contextualBandit) {
-    rejectAiForCb(context);
-  }
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-  if (!context.permissions.canUpdateVisualChange(experiment)) {
+  const owner = await resolveChangesetOwner(context, changeset);
+  if (!owner)
+    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
+  if (!owner.canUpdate()) {
     context.permissions.throwPermissionError();
   }
 

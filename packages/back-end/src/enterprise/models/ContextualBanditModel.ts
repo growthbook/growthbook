@@ -41,11 +41,11 @@ import {
   updateVariationsContextualBanditEndpoint,
 } from "back-end/src/api/specs/contextual-bandit.spec";
 import {
-  createVisualChangesetForCb,
+  createVisualChangeset,
   findVisualChangesetsByContextualBandit,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
-import { requireCbEditable } from "back-end/src/api/visual-editor-ai/requireCbEditable";
+import { ContextualBanditChangesetOwner } from "back-end/src/services/changesetOwner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   executeContextualBanditStart,
@@ -249,10 +249,14 @@ const BaseClass = MakeModelClass({
           if (!cb) {
             return req.context.throwNotFoundError();
           }
-          if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
+          const owner = new ContextualBanditChangesetOwner(req.context, cb);
+          if (!owner.canCreateChangeset()) {
             req.context.permissions.throwPermissionError();
           }
-          requireCbEditable(req.context, cb);
+          const auditLiveEdit = owner.requireWrite(req, {
+            allowRunning: false,
+            visualChangesetId: "",
+          });
 
           const urlPatterns: VisualChangesetURLPattern[] =
             req.body.urlPatterns.map((p) => ({
@@ -261,12 +265,13 @@ const BaseClass = MakeModelClass({
               include: p.include ?? true,
             }));
 
-          const visualChangeset = await createVisualChangesetForCb({
-            contextualBandit: cb,
+          const visualChangeset = await createVisualChangeset({
+            owner,
             urlPatterns,
             editorUrl: req.body.editorUrl,
             context: req.context,
           });
+          await auditLiveEdit();
 
           return {
             visualChangeset: toVisualChangesetApiInterface(visualChangeset),

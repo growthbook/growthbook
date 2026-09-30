@@ -5,7 +5,10 @@ import {
   findVisualChangesetById,
   updateVisualChange,
 } from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
 import {
   DeferredToolCallsError,
   parsePrompt,
@@ -27,13 +30,11 @@ import {
 } from "back-end/src/api/visual-editor-ai/toolLoopEnvelope";
 import { clientToolArgs } from "back-end/src/api/visual-editor-ai/aiTools/clientSideTools";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
-import { rejectAiForCb } from "back-end/src/api/visual-editor-ai/rejectForCb";
 import {
   buildVisualEditorTools,
   newImageTurnState,
   VISUAL_EDITOR_MAX_STEPS,
 } from "back-end/src/api/visual-editor-ai/aiTools";
-import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
 import {
   buildInsertJs,
@@ -802,17 +803,16 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
 
-  if (changeset.contextualBandit) {
-    rejectAiForCb(context);
-  }
-
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-  if (!context.permissions.canUpdateVisualChange(experiment)) {
+  const owner = await resolveChangesetOwner(context, changeset);
+  if (!owner)
+    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
+  if (!owner.canUpdate()) {
     context.permissions.throwPermissionError();
   }
   // Before the generation, so a doomed save doesn't burn AI quota first.
-  if (persist) requireDraftExperiment(context, experiment);
+  if (persist) {
+    owner.requireWrite(req, { allowRunning: false, visualChangesetId });
+  }
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.

@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { pickVisionModel } from "shared/ai";
 import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
 import {
   parsePrompt,
   secondsUntilAICanBeUsedAgainForModel,
@@ -17,7 +20,6 @@ import {
   renderFigmaNodeImage,
 } from "back-end/src/services/figma";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
-import { rejectFigmaForCb } from "back-end/src/api/visual-editor-ai/rejectForCb";
 import { scopeCss } from "back-end/src/api/visual-editor-ai/scopeCss";
 import {
   buildInsertJs,
@@ -333,13 +335,10 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
 
-  if (changeset.contextualBandit) {
-    rejectFigmaForCb(context);
-  }
-
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-  if (!context.permissions.canUpdateVisualChange(experiment)) {
+  const owner = await resolveChangesetOwner(context, changeset);
+  if (!owner)
+    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
+  if (!owner.canUpdate()) {
     context.permissions.throwPermissionError();
   }
 

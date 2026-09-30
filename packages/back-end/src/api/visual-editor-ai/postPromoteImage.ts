@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
 import { promoteFile } from "back-end/src/services/files";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { requireUserAuth } from "./requireUserAuth";
-import { rejectAiForCb } from "./rejectForCb";
 
 // Moves an AI-generated image out of the throwaway `gen/` quarantine prefix
 // into its permanent location when the user accepts the proposed mutation.
@@ -63,12 +65,10 @@ export const postPromoteImage = createApiRequestHandler(validation)(async (
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
 
-  if (changeset.contextualBandit) {
-    rejectAiForCb(context);
-  }
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-  if (!context.permissions.canUpdateVisualChange(experiment)) {
+  const owner = await resolveChangesetOwner(context, changeset);
+  if (!owner)
+    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
+  if (!owner.canUpdate()) {
     context.permissions.throwPermissionError();
   }
 

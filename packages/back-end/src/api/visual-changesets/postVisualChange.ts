@@ -1,11 +1,12 @@
 import uniqid from "uniqid";
 import { postVisualChangeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { requireVisualChangeWrite } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
-import { requireCbEditable } from "back-end/src/api/visual-editor-ai/requireCbEditable";
+import {
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
 import {
   createVisualChange,
-  findExperimentByVisualChangesetId,
   findVisualChangesetById,
 } from "back-end/src/models/VisualChangesetModel";
 
@@ -23,42 +24,14 @@ export const postVisualChange = createApiRequestHandler(
   // The opt-in flag gates the write; it is not part of the visual change.
   const { allowRunningExperiment, ...body } = req.body;
 
-  if (visualChangeset.contextualBandit) {
-    const cb = await req.context.models.contextualBandits.getById(
-      visualChangeset.contextualBandit,
-    );
-    if (!cb) {
-      throw new Error("Contextual Bandit not found");
-    }
-    if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
-      req.context.permissions.throwPermissionError();
-    }
-    requireCbEditable(req.context, cb);
-
-    const visualChangeId = body.id ?? uniqid("vc_");
-    const res = await createVisualChange(req.context, req.params.id, {
-      ...body,
-      id: visualChangeId,
-      description: body.description ?? "",
-      css: body.css ?? "",
-      domMutations: body.domMutations ?? [],
-    });
-    return { ...res, visualChangeId };
+  const owner = await resolveChangesetOwner(req.context, visualChangeset);
+  if (!owner) {
+    throw new Error(ownerNotFoundMessage(visualChangeset));
   }
-
-  const experiment = await findExperimentByVisualChangesetId(
-    req.context,
-    req.params.id,
-  );
-
-  if (!experiment) {
-    throw new Error("Experiment not found");
-  }
-
-  if (!req.context.permissions.canCreateVisualChange(experiment)) {
+  if (!owner.canCreateChangeset()) {
     req.context.permissions.throwPermissionError();
   }
-  const auditLiveEdit = requireVisualChangeWrite(req, experiment, {
+  const auditLiveEdit = owner.requireWrite(req, {
     allowRunning: !!allowRunningExperiment,
     visualChangesetId: req.params.id,
   });
