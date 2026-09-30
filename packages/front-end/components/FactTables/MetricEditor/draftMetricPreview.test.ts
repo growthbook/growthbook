@@ -148,17 +148,19 @@ it.each([
 );
 
 it.each([
+  { column: "", operator: "=" as const, values: [""] },
   { column: "country", operator: "=" as const, values: [] },
   { column: "country", operator: "=" as const, values: [""] },
-])("drops an unfilled inline filter placeholder: %j", (filter) => {
+])("blocks an unfilled filter the save would drop: %j", (filter) => {
   const values = draft();
   const complete = { column: "plan", operator: "=" as const, values: ["pro"] };
-  const preview = getDraftMetricPreview({
-    ...values,
-    metricType: "mean",
-    numerator: { ...values.numerator, rowFilters: [filter, complete] },
-  });
-  expect(preview?.numerator?.rowFilters).toEqual([complete]);
+  expect(
+    getDraftMetricPreview({
+      ...values,
+      metricType: "mean",
+      numerator: { ...values.numerator, rowFilters: [filter, complete] },
+    }),
+  ).toBeNull();
 });
 
 it("allows valueless operators and blocks an unfinished aggregate threshold", () => {

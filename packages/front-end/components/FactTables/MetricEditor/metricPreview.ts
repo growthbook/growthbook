@@ -185,6 +185,28 @@ export function getMetricPreviewConfig(
   };
 }
 
+// What the numerator and denominator of a previewed value mean, per day and
+// summed over the range. Null for types the preview shows as a single count.
+export function getMetricPreviewPartLabels(
+  metricType: FactMetricInterface["metricType"],
+): { numerator: string; denominator: string; denominatorTotal: string } | null {
+  if (metricType === "ratio") {
+    return {
+      numerator: "Numerator",
+      denominator: "Denominator",
+      denominatorTotal: "Denominator",
+    };
+  }
+  if (metricType === "mean") {
+    return {
+      numerator: "Total",
+      denominator: "Units",
+      denominatorTotal: "Unit-days",
+    };
+  }
+  return null;
+}
+
 export function getMetricPreviewSummary(
   rows: ProductAnalyticsResultRow[],
   metric: Pick<FactMetricInterface, "metricType" | "numerator">,

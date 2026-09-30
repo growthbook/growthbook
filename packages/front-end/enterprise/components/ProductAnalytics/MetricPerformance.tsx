@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiChartBar } from "react-icons/pi";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ExplorationConfig } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
@@ -27,6 +28,30 @@ const EMPTY_CONFIG: ExplorationConfig = {
   type: "metric",
   dataset: { type: "metric", values: [] },
 };
+
+// Relative heights of the placeholder bars, as a percent of the tallest.
+const PLACEHOLDER_BARS = [62, 68, 54, 75, 83, 46, 100];
+
+function PreviewEmptyState({ description }: { description: string }) {
+  return (
+    <Flex direction="column" align="center" gap="3" pb="2">
+      <div className={styles.placeholderBars} aria-hidden="true">
+        {PLACEHOLDER_BARS.map((height, i) => (
+          <span key={i} style={{ height: `${height}%` }} />
+        ))}
+      </div>
+      <span className={styles.emptyIcon} aria-hidden="true">
+        <PiChartBar size={20} />
+      </span>
+      <Text size="lg" weight="semibold" align="center">
+        Preview will appear here
+      </Text>
+      <Text color="text-mid" align="center">
+        {description}
+      </Text>
+    </Flex>
+  );
+}
 
 function PerformanceChart({
   config,
@@ -67,12 +92,14 @@ function PerformanceChart({
             : "Complete the metric definition and filters, then run the query."}
         </Callout>
       )}
-      <Flex align="center" justify="between" gap="2" wrap="wrap">
-        {controls}
-        <Text size="sm" color="text-mid" title="Last 7 complete days (UTC)">
-          Last 7 days (UTC)
-        </Text>
-      </Flex>
+      {(config || exploration) && (
+        <Flex align="center" justify="between" gap="2" wrap="wrap">
+          {controls}
+          <Text size="sm" color="text-mid" title="Last 7 complete days (UTC)">
+            Last 7 days (UTC)
+          </Text>
+        </Flex>
+      )}
       {exploration || loading ? (
         <ExplorerChart
           compact
@@ -82,13 +109,16 @@ function PerformanceChart({
           error={error}
         />
       ) : (
-        <Text color="text-mid">
-          {config
-            ? "Run the query to preview this metric."
-            : "Complete the metric definition and all filters to preview it."}
-        </Text>
+        <PreviewEmptyState
+          description={
+            config
+              ? "Run the query to see live sample data for the last 7 days."
+              : "Configure a filter to see live sample data for the last 7 days."
+          }
+        />
       )}
-      {error && !exploration && <Callout status="error">{error}</Callout>}
+      {/* ExplorerChart renders nothing for an error, so show it here. */}
+      {error && !loading && <Callout status="error">{error}</Callout>}
       <Box className={styles.footer}>
         <Button
           style={{ width: "100%" }}
@@ -167,7 +197,14 @@ export default function MetricPerformance({
   const datasource = getDatasourceById(datasourceId);
   if (!datasource)
     return (
-      <Text color="text-mid">Select a fact table to preview this metric.</Text>
+      <>
+        <PreviewEmptyState description="Select a fact table to see live sample data for the last 7 days." />
+        <Box className={styles.footer}>
+          <Button style={{ width: "100%" }} disabled>
+            Run query
+          </Button>
+        </Box>
+      </>
     );
   if (!permissions.canRunMetricQueries(datasource))
     return (
@@ -196,39 +233,6 @@ export default function MetricPerformance({
               }
               minWidth="0"
             >
-              {metric?.metricType === "funnel" && (
-                <ol className={styles.funnelSteps} aria-label="Funnel steps">
-                  {metric.funnelSettings?.steps.map((step, index) => {
-                    const table = getFactTableById(step.factTableId);
-                    const column = unit
-                      ? getMetricPreviewUnitLabel(unit, table).column
-                      : null;
-                    return (
-                      <li key={index}>
-                        <span className={styles.stepNumber} aria-hidden="true">
-                          {index + 1}
-                        </span>
-                        <Flex direction="column" gap="1" minWidth="0">
-                          <Text weight="semibold">
-                            {step.name || `Step ${index + 1}`}
-                            {step.optional ? " (optional)" : ""}
-                          </Text>
-                          <Text size="sm" color="text-mid">
-                            {table?.name ||
-                              step.factTableId ||
-                              "Select a fact table"}
-                          </Text>
-                          {column && (
-                            <Text size="sm" color="text-low">
-                              {column}
-                            </Text>
-                          )}
-                        </Flex>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
               {metric?.metricType === "ratio" && (
                 <Flex direction="column" gap="1">
                   <Text size="sm" weight="semibold" color="text-mid">

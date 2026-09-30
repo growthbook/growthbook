@@ -11,6 +11,7 @@ import type {
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
+import { ago, date, datetime } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
   extendDateBucketsForward,
@@ -61,7 +62,10 @@ import {
   getChartThemeColors,
   cssColorToHex,
 } from "@/enterprise/components/ProductAnalytics/chart-theme";
-import { getMetricPreviewSummary } from "@/components/FactTables/MetricEditor/metricPreview";
+import {
+  getMetricPreviewPartLabels,
+  getMetricPreviewSummary,
+} from "@/components/FactTables/MetricEditor/metricPreview";
 import {
   fillDailyBuckets,
   formatUtcWeekday,
@@ -285,6 +289,10 @@ export default function ExplorerChart({
     serverBigNumberTrends,
   ]);
 
+  const previewMetricType = previewMetric?.metricType ?? null;
+  const previewParts = previewMetricType
+    ? getMetricPreviewPartLabels(previewMetricType)
+    : null;
   const previewSummary =
     previewMetric && exploration
       ? getMetricPreviewSummary(exploration.result.rows, previewMetric)
@@ -743,6 +751,43 @@ export default function ExplorerChart({
     const xAxis = isHorizontalBar ? valueAxis : categoryAxisOption;
     const yAxis = isHorizontalBar ? categoryAxisOption : valueAxis;
 
+    // Metric preview bars: the day, its value, and the parts behind it.
+    const compactTooltip = () => {
+      const parts = previewMetricType
+        ? getMetricPreviewPartLabels(previewMetricType)
+        : null;
+      const cellsByDay = new Map(
+        rows.map((row) => [String(row.dimensions[0] ?? ""), row.values?.[0]]),
+      );
+      return {
+        appendTo: "body",
+        trigger: "axis",
+        padding: [10, 14],
+        backgroundColor: tooltipBackgroundColor,
+        textStyle: { color: textColor },
+        axisPointer: { type: "shadow" },
+        formatter: (params: unknown) => {
+          const point = (Array.isArray(params) ? params[0] : params) as {
+            name?: string;
+            value?: number;
+          };
+          const day = String(point?.name ?? "");
+          const cell = cellsByDay.get(day);
+          const lines = [
+            `<strong>${date(new Date(`${day.slice(0, 10)}T00:00:00Z`), "UTC")}</strong>`,
+            `Value: ${formatNumber(point?.value ?? 0)}`,
+          ];
+          if (parts) {
+            lines.push(
+              `${parts.numerator}: ${formatNumber(cell?.numerator ?? 0)}`,
+              `${parts.denominator}: ${formatNumber(cell?.denominator ?? 0)}`,
+            );
+          }
+          return lines.join("<br/>");
+        },
+      };
+    };
+
     const tooltipFormatter = buildExplorerChartTooltipFormatter({
       chartType,
       resolvedGranularity,
@@ -826,6 +871,7 @@ export default function ExplorerChart({
             },
           }
         : xAxis,
+      ...(compact ? { tooltip: compactTooltip() } : {}),
       yAxis: compact ? { ...valueAxis, show: false } : yAxis,
       series: compact
         ? sortedSeriesKeys.map((key) => ({
@@ -858,6 +904,7 @@ export default function ExplorerChart({
     tooltipBackgroundColor,
     animate,
     compact,
+    previewMetricType,
     customCategoryAxisName,
     valueAxisName,
     chartBoxSize,
@@ -1163,20 +1210,6 @@ export default function ExplorerChart({
                       <Text as="div" size="sm">
                         {previewSummary?.label}
                       </Text>
-                      {previewSummary?.denominator !== null &&
-                        previewSummary?.denominator !== undefined &&
-                        previewMetric?.metricType !== "proportion" && (
-                          <Text as="div" size="sm">
-                            {previewMetric?.metricType === "ratio"
-                              ? "Numerator / denominator"
-                              : "Total / unit-days"}
-                            : {formatNumber(previewSummary.numerator)} /{" "}
-                            {formatNumber(previewSummary.denominator)} ={" "}
-                            {previewSummary.quotient === null
-                              ? "—"
-                              : formatNumber(previewSummary.quotient)}
-                          </Text>
-                        )}
                       {previewMetric?.metricType === "proportion" && (
                         <Text as="div" size="sm">
                           Units matching the metric’s conditions each day, not
@@ -1199,8 +1232,25 @@ export default function ExplorerChart({
               </Flex>
               <Text as="div" size="sm" color="text-mid">
                 {previewSummary?.label}
-                {previewSummary?.date ? ` · ${previewSummary.date} (UTC)` : ""}
+                {previewSummary?.date && (
+                  <>
+                    {" · "}
+                    <Tooltip content={datetime(previewSummary.date)}>
+                      <span>{ago(previewSummary.date)}</span>
+                    </Tooltip>
+                  </>
+                )}
               </Text>
+              {previewParts &&
+                previewSummary &&
+                previewSummary.denominator !== null && (
+                  <Text as="div" size="sm" color="text-mid">
+                    {previewParts.numerator}:{" "}
+                    {formatNumber(previewSummary.numerator)} ·{" "}
+                    {previewParts.denominatorTotal}:{" "}
+                    {formatNumber(previewSummary.denominator)}
+                  </Text>
+                )}
             </Box>
           )}
           {compareReturnedNoData ? (
