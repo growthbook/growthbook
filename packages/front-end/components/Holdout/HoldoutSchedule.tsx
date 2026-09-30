@@ -2,7 +2,8 @@ import { Flex, Box } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getHoldoutStage } from "shared/util";
-import { format, differenceInMinutes } from "date-fns";
+import { differenceInMinutes } from "date-fns";
+import { format } from "date-fns-tz";
 import { ProgressBar, Segment } from "@/ui/ProgressBar";
 import Text from "@/ui/Text";
 import styles from "./HoldoutSchedule.module.scss";
@@ -135,7 +136,7 @@ export const HoldoutSchedule = ({
               </Text>
               <Text color={startDate ? "text-high" : "text-disabled"}>
                 {startDate
-                  ? format(startDate, "MMM d, yyyy 'at' h:mm a")
+                  ? format(startDate, "MMM d, yyyy 'at' h:mm a (z)")
                   : "Not scheduled"}
               </Text>
             </>
@@ -183,7 +184,10 @@ export const HoldoutSchedule = ({
               {startAnalysisPeriodDate ? (
                 <>
                   <Text color={dateRangeColor} weight="regular">
-                    {format(startAnalysisPeriodDate, "MMM d, yyyy 'at' h:mm a")}{" "}
+                    {format(
+                      startAnalysisPeriodDate,
+                      "MMM d, yyyy 'at' h:mm a (z)",
+                    )}{" "}
                     -{" "}
                   </Text>
                   <Text
@@ -193,7 +197,7 @@ export const HoldoutSchedule = ({
                     }
                   >
                     {stopDate
-                      ? format(stopDate, "MMM d, yyyy 'at' h:mm a")
+                      ? format(stopDate, "MMM d, yyyy 'at' h:mm a (z)")
                       : "No end scheduled"}
                   </Text>
                 </>
@@ -211,7 +215,7 @@ export const HoldoutSchedule = ({
               {stopDate ? (
                 <>
                   <Text color="text-low" weight="regular">
-                    {format(stopDate, "MMM d, yyyy 'at' h:mm a")}
+                    {format(stopDate, "MMM d, yyyy 'at' h:mm a (z)")}
                   </Text>
                 </>
               ) : (
@@ -228,7 +232,7 @@ export const HoldoutSchedule = ({
               {stopDate ? (
                 <>
                   <Text color="text-low" weight="regular">
-                    {format(stopDate, "MMM d, yyyy 'at' h:mm a")}
+                    {format(stopDate, "MMM d, yyyy 'at' h:mm a (z)")}
                   </Text>
                 </>
               ) : (

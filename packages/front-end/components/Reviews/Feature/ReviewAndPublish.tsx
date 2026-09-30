@@ -1035,7 +1035,7 @@ export default function ReviewAndPublish({
         body={
           <>
             {format(new Date(revision.scheduledPublishAt as Date), "PPp")} (
-            {timezoneShortLabel(new Date(revision.scheduledPublishAt as Date))})
+            {timezoneShortLabel(revision.scheduledPublishAt as Date)})
             {lockActive ? "" : " · pending approval"}
           </>
         }
@@ -2540,7 +2540,8 @@ export default function ReviewAndPublish({
               <Callout status="info" mb="2">
                 <strong>{experiment.name}</strong> will start on{" "}
                 <strong>
-                  {format(scheduledStartDate, "MMM d, yyyy 'at' h:mm a")}
+                  {format(scheduledStartDate, "MMM d, yyyy 'at' h:mm a")} (
+                  {timezoneShortLabel(scheduledStartDate)})
                 </strong>
                 .
               </Callout>

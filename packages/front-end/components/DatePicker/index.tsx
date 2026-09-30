@@ -35,9 +35,8 @@ type Props = {
   label2?: ReactNode;
   helpText?: ReactNode;
   /**
-   * Note under the field that the time is interpreted in the viewer's local
-   * timezone. Use on datetime pickers that schedule a future action, where a
-   * viewer might otherwise assume UTC or a fixed server timezone.
+   * Show the viewer's timezone (e.g. "(PDT)") beside the field, for pickers
+   * that schedule a future action. Ignored for ranges.
    */
   showTimezone?: boolean;
   inputWidth?: number;
@@ -250,6 +249,15 @@ export default function DatePicker({
 
   const isRange = !!setDate2 || !!fixedSpanMode;
 
+  /**
+   * Reads the typed value, not the debounced `date`, so editing across a DST
+   * boundary flips the label (EDT -> EST) with the field.
+   */
+  const timezoneLabel =
+    showTimezone && !isRange
+      ? timezoneShortLabel(parseDateInput(bufferedDate || date || new Date()))
+      : null;
+
   const rangeFieldValue = useMemo(() => {
     if (
       isRange &&
@@ -385,7 +393,7 @@ export default function DatePicker({
               ) : null}
               <div
                 style={
-                  clearButton && !isRange
+                  (clearButton || timezoneLabel) && !isRange
                     ? {
                         display: "flex",
                         alignItems: "center",
@@ -474,6 +482,11 @@ export default function DatePicker({
                     }}
                   />
                 </div>
+                {timezoneLabel && (
+                  <Text size="sm" color="text-low" whiteSpace="nowrap">
+                    ({timezoneLabel})
+                  </Text>
+                )}
                 {/* TODO: Support clearing date ranges as well. Clear button is meant to be a stop gap until we can add a clear button within the field itself */}
                 {clearButton && !isRange && (
                   <Button
@@ -589,12 +602,6 @@ export default function DatePicker({
         </Popover.Portal>
       </Popover.Root>
       {helpText && <small className="form-text text-muted">{helpText}</small>}
-      {showTimezone && (
-        <small className="form-text text-muted">
-          Time is in your local timezone (
-          {timezoneShortLabel(date ? parseDateInput(date) : new Date())})
-        </small>
-      )}
     </div>
   );
 }

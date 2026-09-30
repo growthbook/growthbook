@@ -669,13 +669,13 @@ export default function FeaturesOverview({
                         <>
                           This <strong>draft</strong> is scheduled to publish on{" "}
                           <strong>
-                            {datetime(revision.scheduledPublishAt as Date)} (
-                            {timezoneShortLabel(
-                              revision.scheduledPublishAt as Date,
-                            )}
-                            )
-                          </strong>
-                          {awaitingApproval ? " once approved" : ""}
+                            {datetime(revision.scheduledPublishAt as Date)}
+                          </strong>{" "}
+                          (
+                          {timezoneShortLabel(
+                            revision.scheduledPublishAt as Date,
+                          )}
+                          ){awaitingApproval ? " once approved" : ""}
                           {lockClauses.length
                             ? ` — ${lockClauses.join(" and ")}`
                             : ""}

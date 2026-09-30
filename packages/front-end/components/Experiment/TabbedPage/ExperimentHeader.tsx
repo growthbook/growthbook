@@ -853,7 +853,7 @@ export default function ExperimentHeader({
                 }
                 {format(
                   new Date(holdout.nextScheduledStatusUpdate.date),
-                  "MMM d, yyyy 'at' h:mm a",
+                  "MMM d, yyyy 'at' h:mm a (z)",
                 )}
               </Button>
             ) : (
