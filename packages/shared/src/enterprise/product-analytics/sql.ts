@@ -780,7 +780,11 @@ function getEventValueExpr(
 ): string {
   let rawValue: string;
   if (columnRef.column === "$$distinctUsers") {
-    if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
+    if (
+      columnRef.aggregateFilter &&
+      columnRef.aggregateFilterColumn &&
+      columnRef.aggregateFilterColumn !== "$$count"
+    ) {
       // Same expansion as an ordinary value column below, so a virtual column
       // inlines its expression instead of emitting a name the warehouse cannot
       // resolve. A plain column returns its own name, as before.
