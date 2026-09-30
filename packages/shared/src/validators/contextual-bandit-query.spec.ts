@@ -1,10 +1,10 @@
+import { OpenApiModelSpec } from "../api-model";
 import {
   apiContextualBanditQueryValidator,
   apiCreateContextualBanditQueryBody,
   apiListContextualBanditQueriesValidator,
   apiUpdateContextualBanditQueryBody,
-} from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+} from "./contextual-bandit-query";
 
 /** REST API surface for Contextual Bandit Queries under `/api/v1/contextual-bandit-queries/*`. */
 export const contextualBanditQueryApiSpec = {

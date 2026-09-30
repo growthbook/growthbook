@@ -193,7 +193,7 @@ export const apiListContextualBanditsValidator = {
 };
 
 // Must match the list route generated from `crudActions` in
-// back-end/src/api/specs/contextual-bandit.spec.ts.
+// contextual-bandit.spec.ts.
 export const listContextualBanditsEndpoint = {
   ...apiListContextualBanditsValidator,
   responseSchema: z.object({

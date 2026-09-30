@@ -1,36 +1,23 @@
 import { z, ZodType } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { apiBaseSchema, ApiErrorCode } from "shared/validators";
-import { capitalizeFirstCharacter } from "shared/util";
-import { ModelName } from "back-end/src/services/context";
-import {
-  ApiRequest,
-  RequestSchemas,
-  createApiRequestHandler,
-  OpenApiRoute,
-} from "back-end/src/util/handler";
-import {
-  CustomApiHandler,
-  CrudAction,
-  crudActions,
-  defaultHandlers,
-  HttpVerb,
-} from "./apiModelHandlers";
+import { apiBaseSchema } from "./validators/base-model";
+import { ApiErrorCode } from "./validators/api-errors";
+import { HttpVerb, RequestSchemas } from "./api-spec";
 
-// Avoids TypeScript intersecting all model handler signatures when resolving
-// the union returned by context.models[modelKey].
-type MinimalApiModel = Record<
-  (typeof defaultHandlers)[CrudAction],
-  (
-    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
-  ) => Promise<unknown>
->;
+export const crudActions = [
+  "get",
+  "create",
+  "list",
+  "delete",
+  "update",
+] as const;
+export type CrudAction = (typeof crudActions)[number];
 
 export type ApiBaseSchema = typeof apiBaseSchema;
-type ApiCreateZodObject<T extends ApiBaseSchema> = z.ZodType<
+export type ApiCreateZodObject<T extends ApiBaseSchema> = z.ZodType<
   CreateProps<z.infer<T>>
 >;
-type ApiUpdateZodObject<T extends ApiBaseSchema> = z.ZodType<
+export type ApiUpdateZodObject<T extends ApiBaseSchema> = z.ZodType<
   UpdateProps<z.infer<T>>
 >;
 /**
@@ -104,7 +91,8 @@ export type OpenApiEndpointSpec = {
 /**
  * Lightweight API spec for OpenAPI doc generation.
  * Contains only Zod schemas and metadata — no runtime handler code.
- * Lives in back-end/src/api/specs/ and is imported by the generate script.
+ * Lives in back-end/src/api/specs/ (or shared/src/validators/ when the
+ * front-end needs it) and is mounted through the model's apiConfig.
  *
  * C/U don't extend from T to prevent restrictions on the actual body shapes
  * Concrete body types are inferred from the actual model config
@@ -142,22 +130,6 @@ export type OpenApiModelSpec<
   navAfterTag?: string;
   /** Override the tag used on endpoints. Defaults to capitalizeFirstCharacter(modelPlural). Use when the spec-based model must share a tag with legacy hand-written routes (e.g. "ramp-schedules"). */
   tag?: string;
-};
-
-/**
- * Full API config for a model, combining the lightweight OpenAPI spec
- * with runtime concerns (model key, request handlers).
- */
-export type ApiModelConfig<
-  T extends ApiBaseSchema = ApiBaseSchema,
-  C extends
-    ApiCreateZodObject<ApiBaseSchema> = ApiCreateZodObject<ApiBaseSchema>,
-  U extends
-    ApiUpdateZodObject<ApiBaseSchema> = ApiUpdateZodObject<ApiBaseSchema>,
-> = {
-  modelKey: ModelName;
-  openApiSpec: OpenApiModelSpec<T, C, U>;
-  customHandlers?: CustomApiHandler[]; // Wrap config object with defineCustomApiHandler for proper type inference
 };
 
 const crudDefaults: Record<
@@ -234,98 +206,10 @@ export function getCrudConfig(spec: OpenApiModelSpec): CrudActionConfig[] {
   });
 }
 
-function getFullPath(basePath: string, pathFragment: string): string {
+export function getFullPath(basePath: string, pathFragment: string): string {
   return ("/" + basePath + "/" + pathFragment)
     .replace(/\/{2,}/g, "/")
     .replace(/\/$/, "");
-}
-
-export function getOpenApiRoutesForApiConfig(
-  apiConfig: ApiModelConfig,
-): OpenApiRoute[] {
-  const routes: OpenApiRoute[] = [];
-
-  const tag =
-    apiConfig.openApiSpec.tag ??
-    capitalizeFirstCharacter(apiConfig.openApiSpec.modelPlural);
-
-  const crudConfig = getCrudConfig(apiConfig.openApiSpec);
-  crudConfig.forEach(
-    ({
-      action,
-      verb,
-      pathFragment,
-      validator,
-      returnKey,
-      returnSchema,
-      plural,
-      hasResponseOverride,
-    }) => {
-      const singularCapitalized = capitalizeFirstCharacter(
-        apiConfig.openApiSpec.modelSingular,
-      );
-      const pluralCapitalized = capitalizeFirstCharacter(
-        apiConfig.openApiSpec.modelPlural,
-      );
-      const deprecationDate = apiConfig.openApiSpec.crudDeprecations?.[action];
-      const route = createApiRequestHandler({
-        ...validator,
-        method: verb,
-        path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
-        operationId: `${action}${plural ? pluralCapitalized : singularCapitalized}`,
-        summary: getDefaultCrudActionSummary(
-          action,
-          apiConfig.openApiSpec.modelSingular,
-          apiConfig.openApiSpec.modelPlural,
-        ),
-        description: apiConfig.openApiSpec.crudDescriptions?.[action],
-        deprecated: deprecationDate !== undefined,
-        deprecationDate,
-        tags: [tag],
-        responseSchema: returnSchema,
-        possibleErrors: apiConfig.openApiSpec.possibleErrors?.[action],
-      })(async (req) => {
-        const modelInstance = req.context.models[
-          apiConfig.modelKey
-        ] as unknown as MinimalApiModel;
-        const result = await modelInstance[defaultHandlers[action]](req);
-        if (hasResponseOverride) return result as z.infer<typeof returnSchema>;
-        return { [returnKey]: result } as z.infer<typeof returnSchema>;
-      });
-      routes.push(route);
-    },
-  );
-
-  apiConfig.customHandlers?.forEach(
-    ({
-      pathFragment,
-      validator,
-      reqHandler,
-      verb,
-      operationId,
-      summary,
-      description,
-      zodReturnObject,
-      possibleErrors,
-      version,
-    }) => {
-      const route = createApiRequestHandler({
-        ...validator,
-        method: verb,
-        path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
-        operationId,
-        summary,
-        description,
-        tags: [tag],
-        responseSchema: zodReturnObject,
-        possibleErrors,
-        version,
-      })(reqHandler);
-      routes.push(route);
-    },
-  );
-
-  return routes;
 }
 
 export function getCrudValidator(
