@@ -45,6 +45,7 @@ export const oauthAppPropsValidator = z
     clientName: z.string().trim().min(1).max(100),
     redirectUris: z.array(oauthAppRedirectUri).min(1).max(10),
     clientUri: z.string().url().optional().or(z.literal("")),
+    allowDelegation: z.boolean(),
   })
   .strict();
 
@@ -60,6 +61,8 @@ export const orgOAuthClientValidator = baseSchema.safeExtend({
   clientUri: z.string(),
   clientSecretHash: z.string(),
   createdBy: z.string(),
+  // Lets the app exchange its secret for a token acting as a member who has authorized it.
+  allowDelegation: z.boolean(),
 });
 
 export type OrgOAuthClientInterface = z.infer<typeof orgOAuthClientValidator>;
