@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  getDefaultSDKVersion,
+} from "shared/sdk-versioning";
 import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SDKConnectionFields, {
@@ -58,7 +61,15 @@ export default function CreateSDKConnectionModal({
   const [value, setValue] = useState<FormValue>(() => ({
     name: initialValue?.name ?? "",
     languages: initialValue?.languages ?? [],
-    sdkVersion: initialValue?.sdkVersion,
+    // As the full form: a single language seeds its default version, anything
+    // else seeds the generic one.
+    sdkVersion:
+      initialValue?.sdkVersion ??
+      getDefaultSDKVersion(
+        initialValue?.languages?.length === 1
+          ? initialValue.languages[0]
+          : "other",
+      ),
     environment: initialValue?.environment ?? environments[0]?.id ?? "",
     projects: initialValue?.projects ?? (project ? [project] : []),
     includeReferencedPrerequisites:
@@ -79,6 +90,7 @@ export default function CreateSDKConnectionModal({
   };
 
   const [languageError, setLanguageError] = useState<string | null>(null);
+  const [environmentError, setEnvironmentError] = useState<string | null>(null);
   // ModalStandard closes after every submit; when the caller keeps the modal
   // open, that close is swallowed while Cancel still closes.
   const submitted = useRef(false);
@@ -141,7 +153,7 @@ export default function CreateSDKConnectionModal({
 
   return (
     <ModalStandard
-      trackingEventModalType="create-sdk-connection"
+      trackingEventModalType=""
       open={true}
       close={() => {
         if (!autoCloseOnSubmit && submitted.current) return;
@@ -156,6 +168,12 @@ export default function CreateSDKConnectionModal({
           throw new Error("Please select an SDK language");
         }
         setLanguageError(null);
+        // The full form's environment select was `required`.
+        if (!value.environment) {
+          setEnvironmentError("Please select an environment");
+          throw new Error("Please select an environment");
+        }
+        setEnvironmentError(null);
         const plain = value.delivery === "plain";
         const body = {
           name: value.name,
@@ -185,7 +203,7 @@ export default function CreateSDKConnectionModal({
           { method: "POST", body: JSON.stringify(body) },
         );
         track("Create SDK Connection", {
-          source: "CreateSDKConnectionModal",
+          source: "SDKConnectionForm",
           languages: value.languages,
           encryptPayload: body.encryptPayload,
           hashSecureAttributes: body.hashSecureAttributes,
@@ -207,6 +225,7 @@ export default function CreateSDKConnectionModal({
           languageFilter={languageFilter}
           setLanguageFilter={setLanguageFilter}
           languageError={languageError}
+          environmentError={environmentError}
           edit={false}
           requireProjectSelection={requireProjectSelection}
         />

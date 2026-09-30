@@ -163,7 +163,14 @@ describe("sanitizeAdvancedForSave", () => {
       fullyCapable,
     );
     expect(result.allowedCustomFieldsInMetadata).toEqual([]);
-    expect(result.proxyHost).toBe("");
+  });
+
+  it("keeps the typed proxy host while the proxy is off", () => {
+    const result = sanitizeAdvancedForSave(
+      { ...allOn, proxyEnabled: false },
+      fullyCapable,
+    );
+    expect(result.proxyHost).toBe(allOn.proxyHost);
   });
 });
 

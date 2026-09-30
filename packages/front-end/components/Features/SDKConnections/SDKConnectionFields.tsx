@@ -59,6 +59,7 @@ export default function SDKConnectionFields({
   languageFilter,
   setLanguageFilter,
   languageError,
+  environmentError,
   edit,
   managedByVercel = false,
   requireProjectSelection = false,
@@ -68,6 +69,7 @@ export default function SDKConnectionFields({
   languageFilter: LanguageFilter;
   setLanguageFilter: (f: LanguageFilter) => void;
   languageError?: string | null;
+  environmentError?: string | null;
   /** Picks the permission that filters the project list, as the full form does. */
   edit: boolean;
   /**
@@ -246,6 +248,7 @@ export default function SDKConnectionFields({
         <Select
           label="Environment"
           placeholder="Choose one..."
+          error={environmentError ?? undefined}
           value={value.environment}
           setValue={(env) =>
             // Changing environment resets the project filter, unless Vercel

@@ -195,7 +195,7 @@ export default function EditSDKSettingsModal({
 
   return (
     <ModalStandard
-      trackingEventModalType="edit-sdk-settings"
+      trackingEventModalType=""
       open={true}
       close={close}
       header={`Edit ${CATEGORY_TITLES[section]}`}

@@ -63,6 +63,7 @@ export default function EditSDKOverviewModal({
     ...advancedValueFromConnection(connection),
   }));
   const [languageError, setLanguageError] = useState<string | null>(null);
+  const [environmentError, setEnvironmentError] = useState<string | null>(null);
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
     getConnectionLanguageFilter(connection.languages ?? []),
   );
@@ -90,7 +91,7 @@ export default function EditSDKOverviewModal({
 
   return (
     <ModalStandard
-      trackingEventModalType="edit-sdk-connection"
+      trackingEventModalType=""
       open={true}
       close={close}
       header="Edit SDK Connection"
@@ -104,6 +105,12 @@ export default function EditSDKOverviewModal({
           throw new Error("Please select an SDK language");
         }
         setLanguageError(null);
+        // The full form's environment select was `required`.
+        if (!value.environment) {
+          setEnvironmentError("Please select an environment");
+          throw new Error("Please select an environment");
+        }
+        setEnvironmentError(null);
         const plain = value.delivery === "plain";
         await save({
           name: value.name,
@@ -137,6 +144,7 @@ export default function EditSDKOverviewModal({
           languageFilter={languageFilter}
           setLanguageFilter={setLanguageFilter}
           languageError={languageError}
+          environmentError={environmentError}
           edit
           managedByVercel={isExternallyManaged}
           requireProjectSelection={requireProjectSelection}

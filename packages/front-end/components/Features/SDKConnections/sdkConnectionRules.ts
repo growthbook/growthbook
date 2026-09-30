@@ -181,6 +181,8 @@ export function sanitizeAdvancedForSave(
       (includeVisualExperiments || includeRedirectExperiments) &&
       v.includeDraftExperiments,
     proxyEnabled: v.proxyEnabled,
-    proxyHost: v.proxyEnabled ? v.proxyHost : "",
+    // The typed host is kept even while the proxy is off, as the full form
+    // did, so re-enabling it doesn't make someone retype it.
+    proxyHost: v.proxyHost,
   };
 }
