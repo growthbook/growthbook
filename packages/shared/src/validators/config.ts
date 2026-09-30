@@ -16,6 +16,10 @@ import {
   schemaValidationQueryFields,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_GENERIC_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // Per-source naming captured from an import, replayed on typed-projection export.
 // Presentation metadata only — never part of the schema contract, so never affects drift.
@@ -502,7 +506,11 @@ const postConfigApiBody = z
       )
       .optional(),
     scopedOverrides: apiScopedOverridesField.optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(MARKDOWN_GENERIC_DESCRIPTION)
+      .optional(),
     project: z.string().optional(),
     owner: optionalOwnerInputField,
     schema: configSchemaSourceValidator
@@ -535,7 +543,7 @@ const postConfigApiBody = z
 
 const updateConfigApiBody = z
   .object({
-    name: z.string().optional(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION).optional(),
     parent: z
       .string()
       .describe(
@@ -558,7 +566,11 @@ const updateConfigApiBody = z
         "Replace the ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches. Send the complete list; an empty array clears all overrides; omit to leave unchanged. Entries must reference existing configs, may not reference this config itself, and may not be unreachable.",
       )
       .optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(MARKDOWN_GENERIC_DESCRIPTION)
+      .optional(),
     project: z.string().optional(),
     owner: ownerInputField.optional(),
     schema: configSchemaSourceValidator

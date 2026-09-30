@@ -11,6 +11,12 @@ import {
   ownerInputField,
 } from "./owner-field";
 import { booleanQueryField, savedGroupTargeting } from "./shared";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_GENERIC_DESCRIPTION,
+  PROJECTS_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const holdoutLinkedItemValidator = z.object({
   dateAdded: z.date(),
@@ -109,7 +115,7 @@ export const createHoldoutInputValidator = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.array(z.string()).optional(),
   owner: optionalOwnerInputField,
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   skipAsDefaultHoldout: z.boolean().optional(),
 
   hashAttribute: z.string().optional(),
@@ -299,8 +305,15 @@ export const apiListHoldoutsValidator = {
 };
 
 export const apiCreateHoldoutBody = z.strictObject({
-  name: z.string().min(1, "Holdout name cannot be empty"),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  name: z
+    .string()
+    .min(1, "Holdout name cannot be empty")
+    .describe(GENERIC_NAME_DESCRIPTION),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(MARKDOWN_GENERIC_DESCRIPTION)
+    .optional(),
   projects: z
     .array(z.string())
     .describe(
@@ -308,7 +321,7 @@ export const apiCreateHoldoutBody = z.strictObject({
     )
     .optional(),
   owner: ownerInputField.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   skipAsDefaultHoldout: z
     .boolean()
     .describe(
@@ -350,11 +363,19 @@ export const apiCreateHoldoutBody = z.strictObject({
 export type ApiCreateHoldoutBody = z.infer<typeof apiCreateHoldoutBody>;
 
 export const apiUpdateHoldoutBody = z.strictObject({
-  name: z.string().min(1, "Holdout name cannot be empty").optional(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  projects: z.array(z.string()).optional(),
+  name: z
+    .string()
+    .min(1, "Holdout name cannot be empty")
+    .describe(GENERIC_NAME_DESCRIPTION)
+    .optional(),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(MARKDOWN_GENERIC_DESCRIPTION)
+    .optional(),
+  projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION).optional(),
   owner: ownerInputField.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   archived: z.boolean().optional(),
   skipAsDefaultHoldout: z
     .boolean()

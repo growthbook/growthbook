@@ -3,10 +3,21 @@ import { postSavedGroupValidator } from "shared/validators";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
+import { assertValidDescription } from "./validations";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req) => {
-    const { name, attributeKey, values, condition, owner, projects } = req.body;
+    const {
+      name,
+      description,
+      attributeKey,
+      values,
+      condition,
+      owner,
+      projects,
+    } = req.body;
+
+    assertValidDescription(description);
 
     if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
       req.context.permissions.throwPermissionError();
@@ -85,6 +96,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       type: type,
       values: values || [],
       groupName: name,
+      description,
       // Falls back to the authenticated user (only present for Personal Access
       // Tokens) when no owner is provided, otherwise stays empty.
       owner: owner || req.context.userId || "",

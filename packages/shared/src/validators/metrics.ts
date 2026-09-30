@@ -8,6 +8,11 @@ import {
 } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  METRIC_DESCRIPTION,
+  METRIC_NAME_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // Corresponds to schemas/Metric.yaml
 export const apiMetricValidator = namedSchema(
@@ -220,18 +225,18 @@ const postMetricBody = z
       )
       .optional(),
     owner: ownerInputField.optional(),
-    name: z.string().describe("Name of the metric"),
+    name: z.string().describe(METRIC_NAME_DESCRIPTION),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the metric")
+      .describe(METRIC_DESCRIPTION)
       .optional(),
     type: z
       .enum(["binomial", "count", "duration", "revenue"])
       .describe(
         "Type of metric. See [Metrics documentation](/app/metrics/legacy)",
       ),
-    tags: z.array(z.string()).describe("List of tags").optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     projects: z
       .array(z.string())
       .describe("List of project IDs for projects that can access this metric")
@@ -469,11 +474,11 @@ const putMetricBody = z
       )
       .optional(),
     owner: ownerInputField.optional(),
-    name: z.string().describe("Name of the metric").optional(),
+    name: z.string().describe(METRIC_NAME_DESCRIPTION).optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the metric")
+      .describe(METRIC_DESCRIPTION)
       .optional(),
     type: z
       .enum(["binomial", "count", "duration", "revenue"])
@@ -481,7 +486,7 @@ const putMetricBody = z
         "Type of metric. See [Metrics documentation](/app/metrics/legacy)",
       )
       .optional(),
-    tags: z.array(z.string()).describe("List of tags").optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     projects: z
       .array(z.string())
       .describe("List of project IDs for projects that can access this metric")

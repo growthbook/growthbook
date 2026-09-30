@@ -5,6 +5,14 @@ import { namedSchema } from "./openapi-helpers";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import {
+  EXPERIMENT_DESCRIPTION,
+  EXPERIMENT_NAME_DESCRIPTION,
+  EXPERIMENT_TRACKING_KEY_DESCRIPTION,
+  TAGS_DESCRIPTION,
+  VARIATION_KEY_DESCRIPTION,
+  VARIATION_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const MAX_CONTEXTUAL_BANDIT_LEAVES = 12;
 
@@ -188,22 +196,25 @@ export const apiListContextualBanditsValidator = {
 };
 
 export const apiCreateContextualBanditBody = z.strictObject({
-  name: z.string(),
-  description: z.string().optional(),
+  name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION),
+  description: z.string().describe(EXPERIMENT_DESCRIPTION).optional(),
   project: z.string().optional(),
   owner: ownerInputField.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
 
-  trackingKey: z.string(),
+  trackingKey: z.string().describe(EXPERIMENT_TRACKING_KEY_DESCRIPTION),
   hashAttribute: z.string().optional(),
 
   decisionMetric: z.string(),
 
   variations: z.array(
     z.object({
-      key: z.string(),
-      name: z.string(),
-      description: z.string().optional(),
+      key: z.string().describe(VARIATION_KEY_DESCRIPTION),
+      name: z.string().describe(VARIATION_NAME_DESCRIPTION),
+      description: z
+        .string()
+        .describe("What this variation changes.")
+        .optional(),
     }),
   ),
 

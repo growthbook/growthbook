@@ -93,6 +93,7 @@ export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
 
 // Max length for entity description fields (features, experiments, metrics, etc.)
 export const MAX_DESCRIPTION_LENGTH = 10000;
+export const MAX_FEATURE_KEY_LENGTH = 64;
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";

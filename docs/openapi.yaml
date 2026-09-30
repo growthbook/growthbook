@@ -76,6 +76,24 @@ info:
     ```
 
 
+    ## Naming and human review
+
+
+    People review what the API creates in the GrowthBook UI.
+
+
+    - Keep keys and names short (2-5 words). Feature keys and tracking keys are
+    permanent; use kebab-case.
+
+    - Put context (why, plan, tickets, links) in `description`, not in names or
+    keys.
+
+    - Group with `tags` and `project`, not name prefixes.
+
+    - Create Feature Flags disabled. Leave publishing and production changes to
+    a person unless asked.
+
+
     ## Errors
 
 
@@ -847,14 +865,19 @@ paths:
               properties:
                 id:
                   description: >-
-                    A unique key name for the feature. Feature keys can only
-                    include letters, numbers, hyphens, and underscores.
+                    Permanent key, shown as the feature's name in the UI and
+                    used in code. Keep it short (max 64 characters) and
+                    kebab-case (e.g. `checkout-express-pay`); letters, numbers,
+                    hyphens, and underscores only. Put context in `description`.
                   type: string
                   minLength: 1
+                  maxLength: 64
                 archived:
                   type: boolean
                 description:
-                  description: Description of the feature
+                  description: >-
+                    Markdown. What the flag gates and why, rollout plan, and
+                    links. Put context here, not in the key.
                   type: string
                   maxLength: 10000
                 owner:
@@ -912,7 +935,9 @@ paths:
                     - type: string
                     - type: 'null'
                 tags:
-                  description: List of associated tags
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -958,6 +983,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -1071,6 +1099,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -1206,6 +1237,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 id:
@@ -1376,6 +1410,9 @@ paths:
                                       - savedGroups
                                     additionalProperties: false
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -1619,6 +1656,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -1734,6 +1774,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -1871,6 +1914,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     id:
@@ -2043,6 +2089,9 @@ paths:
                                           - savedGroups
                                         additionalProperties: false
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -2412,7 +2461,9 @@ paths:
               type: object
               properties:
                 description:
-                  description: Description of the feature
+                  description: >-
+                    Markdown. What the flag gates and why, rollout plan, and
+                    links. Put context here, not in the key.
                   type: string
                   maxLength: 10000
                 archived:
@@ -2456,8 +2507,9 @@ paths:
                     - type: 'null'
                 tags:
                   description: >-
-                    List of associated tags. Will override tags completely with
-                    submitted list
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names. Replaces the existing tags
+                    completely.
                   type: array
                   items:
                     type: string
@@ -2502,6 +2554,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -2615,6 +2670,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -2750,6 +2808,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 id:
@@ -2920,6 +2981,9 @@ paths:
                                       - savedGroups
                                     additionalProperties: false
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -3163,6 +3227,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -3278,6 +3345,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -3415,6 +3485,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     id:
@@ -3587,6 +3660,9 @@ paths:
                                           - savedGroups
                                         additionalProperties: false
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -5204,6 +5280,9 @@ paths:
                     - type: object
                       properties:
                         description:
+                          description: >-
+                            Short note on why the rule exists (e.g. `Beta
+                            testers only`).
                           type: string
                         enabled:
                           type: boolean
@@ -5289,6 +5368,9 @@ paths:
                     - type: object
                       properties:
                         description:
+                          description: >-
+                            Short note on why the rule exists (e.g. `Beta
+                            testers only`).
                           type: string
                         enabled:
                           type: boolean
@@ -5428,6 +5510,9 @@ paths:
                     - type: object
                       properties:
                         description:
+                          description: >-
+                            Short note on why the rule exists (e.g. `Beta
+                            testers only`).
                           type: string
                         enabled:
                           type: boolean
@@ -6080,6 +6165,9 @@ paths:
                   type: object
                   properties:
                     description:
+                      description: >-
+                        Short note on why the rule exists (e.g. `Beta testers
+                        only`).
                       type: string
                     enabled:
                       type: boolean
@@ -8053,6 +8141,13 @@ paths:
         `allEnvironments` / `environments` scope fields.
 
 
+        ### Naming for human review
+
+
+        The `id` is the flag's permanent name in the UI and code. Keep it short
+        (`checkout-express-pay`) and put context in `description`.
+
+
         ### Config-backed features (Config mode)
 
 
@@ -8111,14 +8206,19 @@ paths:
               properties:
                 id:
                   description: >-
-                    A unique key name for the feature. Feature keys can only
-                    include letters, numbers, hyphens, and underscores.
+                    Permanent key, shown as the feature's name in the UI and
+                    used in code. Keep it short (max 64 characters) and
+                    kebab-case (e.g. `checkout-express-pay`); letters, numbers,
+                    hyphens, and underscores only. Put context in `description`.
                   type: string
                   minLength: 1
+                  maxLength: 64
                 archived:
                   type: boolean
                 description:
-                  description: Description of the feature
+                  description: >-
+                    Markdown. What the flag gates and why, rollout plan, and
+                    links. Put context here, not in the key.
                   type: string
                   maxLength: 10000
                 owner:
@@ -8189,7 +8289,9 @@ paths:
                     - type: string
                     - type: 'null'
                 tags:
-                  description: List of associated tags
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -8203,6 +8305,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           condition:
@@ -8357,6 +8462,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           condition:
@@ -8528,6 +8636,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           id:
@@ -8697,6 +8808,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           id:
@@ -9004,7 +9118,9 @@ paths:
               type: object
               properties:
                 description:
-                  description: Description of the feature
+                  description: >-
+                    Markdown. What the flag gates and why, rollout plan, and
+                    links. Put context here, not in the key.
                   type: string
                   maxLength: 10000
                 archived:
@@ -9057,8 +9173,9 @@ paths:
                     - type: 'null'
                 tags:
                   description: >-
-                    List of associated tags. Will override tags completely with
-                    submitted list
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names. Replaces the existing tags
+                    completely.
                   type: array
                   items:
                     type: string
@@ -9078,6 +9195,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           condition:
@@ -9232,6 +9352,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           condition:
@@ -9403,6 +9526,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           id:
@@ -9572,6 +9698,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           id:
@@ -10352,8 +10481,10 @@ paths:
               type: object
               properties:
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -10685,10 +10816,15 @@ paths:
               type: object
               properties:
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 description:
+                  description: >-
+                    Markdown. What the flag gates and why, rollout plan, and
+                    links. Put context here, not in the key.
                   type: string
                 owner:
                   description: >-
@@ -11939,6 +12075,9 @@ paths:
                   type: object
                   properties:
                     description:
+                      description: >-
+                        Short note on why the rule exists (e.g. `Beta testers
+                        only`).
                       type: string
                     enabled:
                       type: boolean
@@ -13514,6 +13653,7 @@ paths:
               type: object
               properties:
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 autoPublishOnApproval:
                   type: boolean
@@ -13682,6 +13822,7 @@ paths:
               type: object
               properties:
                 comment:
+                  description: Markdown. Why you approved or requested changes.
                   type: string
                 action:
                   type: string
@@ -14370,6 +14511,7 @@ paths:
               type: object
               properties:
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 bypassApproval:
                   description: >-
@@ -14553,8 +14695,10 @@ paths:
                     - draft
                     - publish
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -14654,8 +14798,10 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name (e.g. `Logged-out US visitor`).
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 isPublic:
@@ -14743,8 +14889,10 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name (e.g. `Logged-out US visitor`).
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 isPublic:
@@ -14893,6 +15041,16 @@ paths:
     post:
       operationId: postExperiment
       summary: Create a single experiment
+      description: >-
+        Creates a new experiment.
+
+
+        ### Naming for human review
+
+
+        Keep `name` short; put reasoning in `hypothesis` and context in
+        `description`. `trackingKey` is sent with exposure events, so keep it
+        short and stable.
       tags:
         - experiments
       requestBody:
@@ -14914,6 +15072,9 @@ paths:
                     templateId is not provided.
                   type: string
                 trackingKey:
+                  description: >-
+                    Stable key sent with exposure events. Short kebab-case,
+                    usually the feature key. Don't change after launch.
                   type: string
                 bypassDuplicateKeyCheck:
                   description: >-
@@ -14923,7 +15084,9 @@ paths:
                     as a rule.
                   type: boolean
                 name:
-                  description: Name of the experiment
+                  description: >-
+                    Short display name (e.g. `Express checkout button`). Put
+                    reasoning in `hypothesis` and context in `description`.
                   type: string
                 type:
                   type: string
@@ -14942,13 +15105,16 @@ paths:
                     fields.
                   type: string
                 hypothesis:
-                  description: Hypothesis of the experiment
+                  description: Markdown. If we change X, metric Y will move because Z.
                   type: string
                 description:
-                  description: Description of the experiment
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -15106,10 +15272,15 @@ paths:
                           precedence.
                         type: string
                       key:
+                        description: >-
+                          Stable key sent with exposure events (e.g. `0`, `1`).
+                          Don't change after launch.
                         type: string
                       name:
+                        description: Short label shown in results (e.g. `Control`).
                         type: string
                       description:
+                        description: What this variation changes.
                         type: string
                         maxLength: 10000
                       screenshots:
@@ -15139,6 +15310,7 @@ paths:
                     type: object
                     properties:
                       name:
+                        description: Short phase label (e.g. `Main`).
                         type: string
                       dateStarted:
                         format: date-time
@@ -15632,6 +15804,9 @@ paths:
                 assignmentQueryId:
                   type: string
                 trackingKey:
+                  description: >-
+                    Stable key sent with exposure events. Short kebab-case,
+                    usually the feature key. Don't change after launch.
                   type: string
                 bypassDuplicateKeyCheck:
                   description: >-
@@ -15641,7 +15816,9 @@ paths:
                     a rule.
                   type: boolean
                 name:
-                  description: Name of the experiment
+                  description: >-
+                    Short display name (e.g. `Express checkout button`). Put
+                    reasoning in `hypothesis` and context in `description`.
                   type: string
                 type:
                   type: string
@@ -15652,13 +15829,16 @@ paths:
                   description: Project ID which the experiment belongs to
                   type: string
                 hypothesis:
-                  description: Hypothesis of the experiment
+                  description: Markdown. If we change X, metric Y will move because Z.
                   type: string
                 description:
-                  description: Description of the experiment
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -15836,10 +16016,15 @@ paths:
                           precedence.
                         type: string
                       key:
+                        description: >-
+                          Stable key sent with exposure events (e.g. `0`, `1`).
+                          Don't change after launch.
                         type: string
                       name:
+                        description: Short label shown in results (e.g. `Control`).
                         type: string
                       description:
+                        description: What this variation changes.
                         type: string
                         maxLength: 10000
                       screenshots:
@@ -18264,10 +18449,12 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 name:
-                  description: Name of the metric
+                  description: >-
+                    Short display name (e.g. `Purchases per user`). Put the
+                    definition in `description`.
                   type: string
                 description:
-                  description: Description of the metric
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 type:
@@ -18281,7 +18468,9 @@ paths:
                     - duration
                     - revenue
                 tags:
-                  description: List of tags
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -18694,10 +18883,12 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 name:
-                  description: Name of the metric
+                  description: >-
+                    Short display name (e.g. `Purchases per user`). Put the
+                    definition in `description`.
                   type: string
                 description:
-                  description: Description of the metric
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 type:
@@ -18711,7 +18902,9 @@ paths:
                     - duration
                     - revenue
                 tags:
-                  description: List of tags
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -19236,7 +19429,7 @@ paths:
               type: object
               properties:
                 name:
-                  description: Name of the segment
+                  description: Short display name. Put details in `description`.
                   type: string
                 owner:
                   description: >-
@@ -19363,7 +19556,7 @@ paths:
               type: object
               properties:
                 name:
-                  description: Name of the segment
+                  description: Short display name. Put details in `description`.
                   type: string
                 owner:
                   description: >-
@@ -19516,7 +19709,7 @@ paths:
               type: object
               properties:
                 name:
-                  description: Name of the dimension
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
                   description: Description of the dimension
@@ -19613,7 +19806,7 @@ paths:
               type: object
               properties:
                 name:
-                  description: Name of the dimension
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
                   description: Description of the dimension
@@ -19759,8 +19952,10 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 publicId:
@@ -19864,10 +20059,10 @@ paths:
               type: object
               properties:
                 name:
-                  description: Project name.
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
-                  description: Project description.
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 publicId:
@@ -19992,10 +20187,12 @@ paths:
               type: object
               properties:
                 id:
-                  description: The ID of the new environment
+                  description: >-
+                    Permanent ID, shown as the environment name (e.g.
+                    `production`). Short lowercase slug.
                   type: string
                 description:
-                  description: The description of the new environment
+                  description: Put context here, not in the name.
                   type: string
                 toggleOnList:
                   description: Show on feature list page
@@ -20004,6 +20201,7 @@ paths:
                   description: Default state for new features
                   type: boolean
                 projects:
+                  description: Project IDs. Use projects instead of prefixing names.
                   type: array
                   items:
                     type: string
@@ -20051,7 +20249,7 @@ paths:
               type: object
               properties:
                 description:
-                  description: The description of the new environment
+                  description: Put context here, not in the name.
                   type: string
                 toggleOnList:
                   description: Show on feature list page
@@ -20060,6 +20258,7 @@ paths:
                   description: Default state for new features
                   type: boolean
                 projects:
+                  description: Project IDs. Use projects instead of prefixing names.
                   type: array
                   items:
                     type: string
@@ -20162,7 +20361,9 @@ paths:
               type: object
               properties:
                 property:
-                  description: The attribute property
+                  description: >-
+                    Permanent attribute name as your SDK passes it (e.g.
+                    `userId`).
                   type: string
                 datatype:
                   description: The attribute datatype
@@ -20177,7 +20378,7 @@ paths:
                     - number[]
                     - secureString[]
                 description:
-                  description: The description of the new attribute
+                  description: Markdown. Put context here, not in the name.
                   type: string
                 archived:
                   description: The attribute is archived
@@ -20201,10 +20402,14 @@ paths:
                     - date
                     - isoCountryCode
                 projects:
+                  description: Project IDs. Use projects instead of prefixing names.
                   type: array
                   items:
                     type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -20269,7 +20474,7 @@ paths:
                     - number[]
                     - secureString[]
                 description:
-                  description: The description of the new attribute
+                  description: Markdown. Put context here, not in the name.
                   type: string
                 archived:
                   description: The attribute is archived
@@ -20293,10 +20498,14 @@ paths:
                     - date
                     - isoCountryCode
                 projects:
+                  description: Project IDs. Use projects instead of prefixing names.
                   type: array
                   items:
                     type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -20403,6 +20612,9 @@ paths:
               type: object
               properties:
                 name:
+                  description: >-
+                    Short display name, usually app and platform (e.g. `Web
+                    app`).
                   type: string
                 language:
                   type: string
@@ -20531,6 +20743,9 @@ paths:
               type: object
               properties:
                 name:
+                  description: >-
+                    Short display name, usually app and platform (e.g. `Web
+                    app`).
                   type: string
                 language:
                   type: string
@@ -21534,7 +21749,14 @@ paths:
               type: object
               properties:
                 name:
-                  description: The display name of the Saved Group
+                  description: >-
+                    Short display name (e.g. `Internal employees`). Put details
+                    in `description`.
+                  type: string
+                description:
+                  description: >-
+                    Short note (max 100 characters) on who is in the group and
+                    why.
                   type: string
                 type:
                   description: >-
@@ -21736,7 +21958,14 @@ paths:
               type: object
               properties:
                 name:
-                  description: The display name of the Saved Group
+                  description: >-
+                    Short display name (e.g. `Internal employees`). Put details
+                    in `description`.
+                  type: string
+                description:
+                  description: >-
+                    Short note (max 100 characters) on who is in the group and
+                    why.
                   type: string
                 condition:
                   description: >-
@@ -22108,8 +22337,10 @@ paths:
               type: object
               properties:
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
               additionalProperties: false
       responses:
@@ -22261,10 +22492,15 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 name:
+                  description: >-
+                    Short display name (e.g. `Internal employees`). Put details
+                    in `description`.
                   type: string
                 owner:
                   description: >-
@@ -22274,6 +22510,9 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 description:
+                  description: >-
+                    Short note (max 100 characters) on who is in the group and
+                    why.
                   type: string
                 projects:
                   type: array
@@ -22333,8 +22572,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 condition:
                   description: The JSON-encoded condition for the saved group
@@ -22397,8 +22638,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 values:
                   type: array
@@ -22461,8 +22704,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 archived:
                   type: boolean
@@ -22535,8 +22780,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 items:
                   type: array
@@ -22598,8 +22845,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 items:
                   type: array
@@ -22735,6 +22984,7 @@ paths:
                     - request-changes
                     - comment
                 comment:
+                  description: Markdown. Why you approved or requested changes.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -23268,8 +23518,10 @@ paths:
                     - draft
                     - publish
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -23380,6 +23632,7 @@ paths:
                   additionalProperties:
                     type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 project:
@@ -23625,6 +23878,7 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 value:
                   type: string
@@ -23640,6 +23894,7 @@ paths:
                   additionalProperties:
                     type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 project:
@@ -24179,10 +24434,13 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 owner:
                   description: >-
@@ -24192,6 +24450,7 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                 project:
                   type: string
@@ -24251,8 +24510,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 value:
                   description: >-
@@ -24321,8 +24582,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 archived:
                   type: boolean
@@ -24504,6 +24767,7 @@ paths:
                     - request-changes
                     - comment
                 comment:
+                  description: Markdown. Why you approved or requested changes.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -25062,8 +25326,10 @@ paths:
                     - draft
                     - publish
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -25244,6 +25510,7 @@ paths:
                       - config
                     additionalProperties: false
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 project:
@@ -25865,6 +26132,7 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 parent:
                   description: >-
@@ -25928,6 +26196,7 @@ paths:
                       - config
                     additionalProperties: false
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 project:
@@ -26638,10 +26907,13 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 owner:
                   description: >-
@@ -26651,6 +26923,7 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                 project:
                   type: string
@@ -26774,8 +27047,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 value:
                   description: >-
@@ -26887,8 +27162,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 property:
                   description: Name of the property to set in this config's own value.
@@ -27060,8 +27337,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 schema:
                   $ref: '#/components/schemas/ConfigSchemaSource'
@@ -27170,8 +27449,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 source:
                   description: >-
@@ -27333,8 +27614,10 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 revisionComment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 archived:
                   type: boolean
@@ -27516,6 +27799,7 @@ paths:
                     - request-changes
                     - comment
                 comment:
+                  description: Markdown. Why you approved or requested changes.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -28093,8 +28377,10 @@ paths:
                     - draft
                     - publish
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -28946,9 +29232,10 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
-                  description: Description of the fact table
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 owner:
@@ -29121,9 +29408,10 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
-                  description: Description of the fact table
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 owner:
@@ -29328,6 +29616,7 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
                   description: Description of the fact table filter
@@ -29416,6 +29705,7 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
                   description: Description of the fact table filter
@@ -29512,6 +29802,7 @@ paths:
                   description: Display name for the column
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 numberFormat:
@@ -29585,6 +29876,7 @@ paths:
                   description: Display name for the column
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 numberFormat:
@@ -29887,8 +30179,12 @@ paths:
               type: object
               properties:
                 name:
+                  description: >-
+                    Short display name (e.g. `Purchases per user`). Put the
+                    definition in `description`.
                   type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 owner:
@@ -29903,6 +30199,9 @@ paths:
                   items:
                     type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -30613,8 +30912,12 @@ paths:
               type: object
               properties:
                 name:
+                  description: >-
+                    Short display name (e.g. `Purchases per user`). Put the
+                    definition in `description`.
                   type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 owner:
@@ -30629,6 +30932,9 @@ paths:
                   items:
                     type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -31467,9 +31773,10 @@ paths:
                         type: object
                         properties:
                           name:
+                            description: Short display name. Put details in `description`.
                             type: string
                           description:
-                            description: Description of the fact table
+                            description: Markdown. Put context here, not in the name.
                             type: string
                             maxLength: 10000
                           owner:
@@ -31611,6 +31918,7 @@ paths:
                         type: object
                         properties:
                           name:
+                            description: Short display name. Put details in `description`.
                             type: string
                           description:
                             description: Description of the fact table filter
@@ -31649,8 +31957,12 @@ paths:
                         type: object
                         properties:
                           name:
+                            description: >-
+                              Short display name (e.g. `Purchases per user`).
+                              Put the definition in `description`.
                             type: string
                           description:
+                            description: Markdown. Put context here, not in the name.
                             type: string
                             maxLength: 10000
                           owner:
@@ -31666,6 +31978,9 @@ paths:
                             items:
                               type: string
                           tags:
+                            description: >-
+                              Tags for filtering and grouping. Use these instead
+                              of encoding groups in names.
                             type: array
                             items:
                               type: string
@@ -36663,6 +36978,7 @@ paths:
                     organization.
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                 status:
                   type: string
@@ -51449,8 +51765,12 @@ paths:
               type: object
               properties:
                 name:
+                  description: >-
+                    Short display name (e.g. `Express checkout button`). Put
+                    reasoning in `hypothesis` and context in `description`.
                   type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                 project:
                   type: string
@@ -51462,10 +51782,16 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
                 trackingKey:
+                  description: >-
+                    Stable key sent with exposure events. Short kebab-case,
+                    usually the feature key. Don't change after launch.
                   type: string
                 hashAttribute:
                   type: string
@@ -51477,10 +51803,15 @@ paths:
                     type: object
                     properties:
                       key:
+                        description: >-
+                          Stable key sent with exposure events (e.g. `0`, `1`).
+                          Don't change after launch.
                         type: string
                       name:
+                        description: Short label shown in results (e.g. `Control`).
                         type: string
                       description:
+                        description: What this variation changes.
                         type: string
                     required:
                       - key
@@ -52089,13 +52420,17 @@ paths:
               type: object
               properties:
                 id:
-                  description: The unique key for the custom field
+                  description: >-
+                    Permanent key used in API payloads (e.g. `jira_ticket`).
+                    Lowercase letters, numbers, hyphens, and underscores. Put
+                    the label in `name`.
                   type: string
                   minLength: 1
                 name:
                   description: The display name of the custom field
                   type: string
                 description:
+                  description: Help text shown under the field.
                   type: string
                 placeholder:
                   type: string
@@ -52303,6 +52638,7 @@ paths:
                   description: The display name of the custom field
                   type: string
                 description:
+                  description: Help text shown under the field.
                   type: string
                 placeholder:
                   type: string
@@ -52463,15 +52799,21 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
                 projects:
+                  description: Project IDs. Use projects instead of prefixing names.
                   type: array
                   items:
                     type: string
@@ -52523,15 +52865,21 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
                 projects:
+                  description: Project IDs. Use projects instead of prefixing names.
                   type: array
                   items:
                     type: string
@@ -52651,10 +52999,12 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 createdBy:
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                 role:
                   description: The global role for members of this team
@@ -52788,10 +53138,12 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 createdBy:
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                 role:
                   description: The global role for members of this team
@@ -53087,8 +53439,10 @@ paths:
                   type: object
                   properties:
                     name:
+                      description: Short display name (e.g. `Checkout test`).
                       type: string
                     description:
+                      description: When to use this template.
                       type: string
                       maxLength: 10000
                   required:
@@ -53099,11 +53453,20 @@ paths:
                   enum:
                     - standard
                 hypothesis:
+                  description: >-
+                    Default hypothesis. Markdown. If we change X, metric Y will
+                    move because Z.
                   type: string
                 description:
+                  description: >-
+                    Default description. Markdown. Put context here, not in the
+                    name.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -53253,8 +53616,10 @@ paths:
                   type: object
                   properties:
                     name:
+                      description: Short display name (e.g. `Checkout test`).
                       type: string
                     description:
+                      description: When to use this template.
                       type: string
                       maxLength: 10000
                   required:
@@ -53265,11 +53630,20 @@ paths:
                   enum:
                     - standard
                 hypothesis:
+                  description: >-
+                    Default hypothesis. Markdown. If we change X, metric Y will
+                    move because Z.
                   type: string
                 description:
+                  description: >-
+                    Default description. Markdown. Put context here, not in the
+                    name.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -53468,8 +53842,10 @@ paths:
                             type: object
                             properties:
                               name:
+                                description: Short display name (e.g. `Checkout test`).
                                 type: string
                               description:
+                                description: When to use this template.
                                 type: string
                                 maxLength: 10000
                             required:
@@ -53480,11 +53856,20 @@ paths:
                             enum:
                               - standard
                           hypothesis:
+                            description: >-
+                              Default hypothesis. Markdown. If we change X,
+                              metric Y will move because Z.
                             type: string
                           description:
+                            description: >-
+                              Default description. Markdown. Put context here,
+                              not in the name.
                             type: string
                             maxLength: 10000
                           tags:
+                            description: >-
+                              Tags for filtering and grouping. Use these instead
+                              of encoding groups in names.
                             type: array
                             items:
                               type: string
@@ -60381,12 +60766,15 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                   minLength: 1
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 projects:
+                  description: Project IDs. Use projects instead of prefixing names.
                   type: array
                   items:
                     type: string
@@ -60398,6 +60786,9 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -60543,9 +60934,11 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                   minLength: 1
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 projects:
@@ -60563,6 +60956,9 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -65785,6 +66181,7 @@ components:
       type: object
       properties:
         description:
+          description: Short note on why the rule exists (e.g. `Beta testers only`).
           type: string
         enabled:
           type: boolean
@@ -65892,6 +66289,7 @@ components:
       type: object
       properties:
         description:
+          description: Short note on why the rule exists (e.g. `Beta testers only`).
           type: string
         enabled:
           type: boolean
@@ -65987,6 +66385,7 @@ components:
       type: object
       properties:
         description:
+          description: Short note on why the rule exists (e.g. `Beta testers only`).
           type: string
         enabled:
           type: boolean
@@ -70287,6 +70686,7 @@ components:
             name)
           type: string
         description:
+          description: Put context here, not in the name.
           type: string
           maxLength: 10000
         alwaysInlineFilter:
@@ -70422,6 +70822,7 @@ components:
             name)
           type: string
         description:
+          description: Put context here, not in the name.
           type: string
           maxLength: 10000
         alwaysInlineFilter:

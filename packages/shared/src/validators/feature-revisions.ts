@@ -19,6 +19,7 @@ import {
   FEATURE_V1_DEPRECATED,
 } from "./features";
 import { ownerInputField } from "./owner-field";
+import { RULE_DESCRIPTION } from "./api-field-descriptions";
 
 // ---- Shared param schemas ----
 
@@ -365,7 +366,7 @@ const scheduleShorthand = z
   .strict();
 
 const commonRuleFields = {
-  description: z.string().optional(),
+  description: z.string().describe(RULE_DESCRIPTION).optional(),
   enabled: z.boolean().optional(),
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
@@ -497,7 +498,7 @@ export const postFeatureRevisionRulesReorderValidator = {
 // them in a patch.
 const rulePatchSchema = z
   .object({
-    description: z.string().optional(),
+    description: z.string().describe(RULE_DESCRIPTION).optional(),
     enabled: z.boolean().optional(),
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),

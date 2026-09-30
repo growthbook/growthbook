@@ -9,6 +9,11 @@ import {
 } from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  METRIC_DESCRIPTION,
+  METRIC_NAME_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // Shared sub-schemas for fact metric column references
 
@@ -653,11 +658,15 @@ export const factMetricCreateArchivedField = z
 
 // Corresponds to payload-schemas/PostFactMetricPayload.yaml
 export const postFactMetricBodyFields = z.object({
-  name: z.string(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  name: z.string().describe(METRIC_NAME_DESCRIPTION),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(METRIC_DESCRIPTION)
+    .optional(),
   owner: ownerInputField.optional(),
   projects: z.array(z.string()).optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   metricType: apiMetricTypeEnum,
   numerator: postNumeratorRef.nullable().optional(),
   denominator: postDenominatorRef.optional(),

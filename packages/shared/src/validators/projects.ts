@@ -5,6 +5,10 @@ import { baseSchema } from "./base-model";
 import { paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  PLAIN_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const statsEnginesValidator = z.enum(statsEngines);
 
@@ -76,8 +80,12 @@ export type ApiProject = z.infer<typeof apiProjectValidator>;
 // Corresponds to payload-schemas/PostProjectPayload.yaml
 const postProjectBody = z
   .object({
-    name: z.string(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(PLAIN_DESCRIPTION)
+      .optional(),
     publicId: z
       .string()
       .describe(
@@ -120,11 +128,11 @@ const postProjectBody = z
 // Corresponds to payload-schemas/PutProjectPayload.yaml
 const putProjectBody = z
   .object({
-    name: z.string().describe("Project name.").optional(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION).optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Project description.")
+      .describe(PLAIN_DESCRIPTION)
       .optional(),
     publicId: z
       .string()

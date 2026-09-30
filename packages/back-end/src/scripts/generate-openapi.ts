@@ -575,6 +575,15 @@ curl https://api.growthbook.io/api/v1/features \\
 -H "Authorization: Bearer secret_abc123DEF456"
 \`\`\`
 
+## Naming and human review
+
+People review what the API creates in the GrowthBook UI.
+
+- Keep keys and names short (2-5 words). Feature keys and tracking keys are permanent; use kebab-case.
+- Put context (why, plan, tickets, links) in \`description\`, not in names or keys.
+- Group with \`tags\` and \`project\`, not name prefixes.
+- Create Feature Flags disabled. Leave publishing and production changes to a person unless asked.
+
 ## Errors
 
 The API may return the following error status codes:
