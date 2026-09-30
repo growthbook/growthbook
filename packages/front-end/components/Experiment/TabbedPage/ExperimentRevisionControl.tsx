@@ -4,41 +4,27 @@ import { PiCaretDownBold } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-  LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
 import { isManagedByExperiment } from "shared/util";
 import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
+import StatusDot from "@/components/Experiment/StatusDot";
 import { hasUnpublishedChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { useLiveView } from "./ExperimentEdits";
 import { valuesAreSetup } from "./useExperimentEditing";
-
-function LiveDot() {
-  return (
-    <Box
-      style={{
-        flexShrink: 0,
-        width: 8,
-        height: 8,
-        borderRadius: "50%",
-        background: "var(--green-9)",
-      }}
-    />
-  );
-}
+import { getValuesDraftStage, ValuesDraftStage } from "./valuesStatus";
 
 // Where the unpublished changes stand, in the viewer's terms.
-function draftState(draft: LinkedFeaturePendingDraft): string {
-  if (draft.hasMergeConflict || draft.rebaseRequired) {
-    return "Out of date with live";
-  }
-  if (!draft.pendingApproval) return "Not yet published";
-  if (draft.status === "pending-review") return "Awaiting review";
-  if (draft.status === "changes-requested") return "Changes requested";
-  if (draft.status === "approved") return "Approved, not yet published";
-  return "Not yet sent for review";
-}
+const DRAFT_STAGE_LABELS: Record<ValuesDraftStage, string> = {
+  conflict: "Out of date with live",
+  stale: "Out of date with live",
+  unreviewed: "Not yet published",
+  unsent: "Not yet sent for review",
+  "pending-review": "Awaiting review",
+  "changes-requested": "Changes requested",
+  "short-of-approval": "More approvals needed",
+  approved: "Approved, not yet published",
+};
 
 /**
  * PROTOTYPE: which version the page shows, once there's a choice: a running
@@ -67,10 +53,10 @@ export default function ExperimentRevisionControl({
     {
       key: "draft",
       live: false,
-      dot: <UnpublishedDot />,
+      dot: <StatusDot color="var(--amber-9)" />,
       label: "Unpublished changes",
       detail: managedDraft
-        ? draftState(managedDraft)
+        ? DRAFT_STAGE_LABELS[getValuesDraftStage(managedDraft)]
         : changed.length === 1
           ? `A draft on ${changed[0].feature.id}`
           : `Drafts on ${changed.length} Feature Flags`,
@@ -78,7 +64,7 @@ export default function ExperimentRevisionControl({
     {
       key: "live",
       live: true,
-      dot: <LiveDot />,
+      dot: <StatusDot color="var(--green-9)" />,
       label: "Live",
       detail: "What this experiment serves now",
     },

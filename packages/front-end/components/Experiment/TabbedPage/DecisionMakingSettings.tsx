@@ -36,6 +36,19 @@ export type ExperimentMetricInterfaceWithComputedTargetMDE = Omit<
   metricTargetMDE: number;
 };
 
+/** Whether the decision framework, and so each goal's target MDE, applies. */
+export function useDecisionFrameworkApplies(
+  experiment: Pick<ExperimentInterfaceStringDates, "type">,
+): boolean {
+  const { organization, hasCommercialFeature } = useUser();
+  return (
+    !!organization?.settings?.decisionFrameworkEnabled &&
+    hasCommercialFeature("decision-framework") &&
+    experiment.type !== "multi-armed-bandit" &&
+    experiment.type !== "holdout"
+  );
+}
+
 /**
  * What the decision-making settings read back: each goal's target MDE, the
  * decision criteria and the end-of-experiment plan. Null where the experiment
@@ -47,8 +60,9 @@ export function useDecisionMakingSummary(
 ) {
   const { getExperimentMetricById, getMetricById, metricGroups } =
     useDefinitions();
-  const { organization, hasCommercialFeature } = useUser();
+  const { organization } = useUser();
   const { getDecisionCriteria } = useRunningExperimentStatus();
+  const applies = useDecisionFrameworkApplies(experiment);
 
   const expandedGoals = useMemo(
     () =>
@@ -59,16 +73,7 @@ export function useDecisionMakingSummary(
     [experiment.goalMetrics, metricGroups, ssrPolyfills?.metricGroups],
   );
 
-  const hasDecisionFramework =
-    organization?.settings?.decisionFrameworkEnabled &&
-    hasCommercialFeature("decision-framework");
-  if (
-    !hasDecisionFramework ||
-    experiment.type === "multi-armed-bandit" ||
-    experiment.type === "holdout"
-  ) {
-    return null;
-  }
+  if (!applies) return null;
 
   const metricById = (id: string) =>
     ssrPolyfills?.getExperimentMetricById?.(id) || getExperimentMetricById(id);

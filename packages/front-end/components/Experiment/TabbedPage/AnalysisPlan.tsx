@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiCaretDownFill, PiLockSimple, PiPencilSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
-import { expandMetricGroups, getMetricLink } from "shared/experiments";
+import { getMetricLink } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentAnalysisSettingsDraft,
@@ -38,6 +38,7 @@ import {
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
+import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
 
 type MetricField = "goalMetrics" | "secondaryMetrics" | "guardrailMetrics";
 type PlanField = "datasource" | "exposureQueryId" | MetricField;
@@ -72,9 +73,8 @@ export default function AnalysisPlan({
     getExperimentMetricById,
     getSegmentById,
     getProjectById,
-    metricGroups,
   } = useDefinitions();
-  const { organization, hasCommercialFeature } = useUser();
+  const { organization } = useUser();
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
 
@@ -91,14 +91,9 @@ export default function AnalysisPlan({
     advanced && "decisionFrameworkSettings" in advanced
       ? advanced.decisionFrameworkSettings
       : experiment.decisionFrameworkSettings;
-  // Only where the decision framework runs does a goal's target MDE matter.
-  const targetMDEOverrides =
-    organization.settings?.decisionFrameworkEnabled &&
-    hasCommercialFeature("decision-framework") &&
-    experiment.type !== "multi-armed-bandit" &&
-    experiment.type !== "holdout"
-      ? (decisionFrameworkSettings?.decisionFrameworkMetricOverrides ?? [])
-      : undefined;
+  const targetMDEOverrides = useDecisionFrameworkApplies(experiment)
+    ? (decisionFrameworkSettings?.decisionFrameworkMetricOverrides ?? [])
+    : undefined;
   const statsEngine = getScopedSettings({
     organization,
     project: getProjectById(experiment.project || "") ?? undefined,
@@ -346,9 +341,6 @@ export default function AnalysisPlan({
           targetMDEOverrides={targetMDEOverrides}
           close={() => setOverridesFor(null)}
           stageChanges={(next, nextTargetMDEs) => {
-            const goalIds = new Set(
-              expandMetricGroups(goalMetrics, metricGroups),
-            );
             // The same bounds the full settings modal stages through, so only
             // well-formed overrides reach the draft.
             const parsed = experimentAnalysisSettingsDraft.parse({
@@ -357,13 +349,7 @@ export default function AnalysisPlan({
                 ? {
                     decisionFrameworkSettings: {
                       ...decisionFrameworkSettings,
-                      // A metric that's no longer a goal keeps what it had.
-                      decisionFrameworkMetricOverrides: [
-                        ...(targetMDEOverrides ?? []).filter(
-                          (o) => !goalIds.has(o.id),
-                        ),
-                        ...nextTargetMDEs,
-                      ],
+                      decisionFrameworkMetricOverrides: nextTargetMDEs,
                     },
                   }
                 : {}),

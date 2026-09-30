@@ -3,7 +3,6 @@ import type {
   LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
 import type { EventUser } from "shared/types/events/event-types";
-import { isInReviewCycle } from "shared/enterprise";
 import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
 
 type StatusDraft = Pick<
@@ -16,13 +15,37 @@ type StatusDraft = Pick<
   | "staleApproval"
 >;
 
+/** Where the Values flag's draft stands, its trouble with live first. */
+export type ValuesDraftStage =
+  | "conflict"
+  | "stale"
+  // No review required.
+  | "unreviewed"
+  | "unsent"
+  | "pending-review"
+  | "changes-requested"
+  | "short-of-approval"
+  | "approved";
+
+export function getValuesDraftStage(draft: StatusDraft): ValuesDraftStage {
+  if (draft.hasMergeConflict) return "conflict";
+  if (draft.rebaseRequired) return "stale";
+  if (!draft.pendingApproval) return "unreviewed";
+  if (draft.status === "pending-review") return "pending-review";
+  if (draft.status === "changes-requested") return "changes-requested";
+  if (draft.status === "approved") {
+    return draftApprovalSatisfied(draft) ? "approved" : "short-of-approval";
+  }
+  return "unsent";
+}
+
 /**
  * Whether the Values flag's draft has a review to open: once it's been sent
  * for one, or while it's stuck on live.
  */
 export function hasValuesReview(draft: StatusDraft): boolean {
-  if (draft.hasMergeConflict || draft.rebaseRequired) return true;
-  return draft.pendingApproval && isInReviewCycle(draft.status);
+  const stage = getValuesDraftStage(draft);
+  return stage !== "unreviewed" && stage !== "unsent";
 }
 
 // Who acted on the review, and how long ago, formatted.
@@ -112,8 +135,9 @@ export function getValuesStatus({
   }
 
   const { draft } = managed;
+  const stage = getValuesDraftStage(draft);
   const subject = launches ? "Variation values" : "Unpublished changes";
-  if (draft.hasMergeConflict) {
+  if (stage === "conflict") {
     return {
       ...base,
       tone: "error",
@@ -121,7 +145,7 @@ export function getValuesStatus({
       cta: open("Review changes"),
     };
   }
-  if (draft.rebaseRequired) {
+  if (stage === "stale") {
     return {
       ...base,
       tone: "draft",
@@ -135,7 +159,7 @@ export function getValuesStatus({
     };
   }
 
-  if (!draft.pendingApproval) {
+  if (stage === "unreviewed") {
     // Before launch they simply go live with the start.
     if (launches || !hasUnpublished) return null;
     return {
@@ -148,7 +172,7 @@ export function getValuesStatus({
     };
   }
 
-  if (draft.status === "pending-review") {
+  if (stage === "pending-review") {
     return {
       ...base,
       tone: "draft",
@@ -162,7 +186,7 @@ export function getValuesStatus({
           : open("View review"),
     };
   }
-  if (draft.status === "changes-requested") {
+  if (stage === "changes-requested") {
     const canResend = managed.canRequestReview;
     return {
       ...base,
@@ -175,11 +199,11 @@ export function getValuesStatus({
         : open("View review"),
     };
   }
-  if (draft.status === "approved") {
+  if (stage === "short-of-approval" || stage === "approved") {
     const byline = managed.verdict
       ? { verb: "Approved by", event: managed.verdict }
       : null;
-    if (!draftApprovalSatisfied(draft)) {
+    if (stage === "short-of-approval") {
       return {
         ...base,
         tone: "draft",

@@ -13,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import { toPercentField } from "@/services/metricOverrides";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import {
   EditMetricsFormInterface,
@@ -48,7 +49,7 @@ export default function MetricOverridesModal({
   close: () => void;
   stageChanges: (
     overrides: MetricOverride[],
-    // Every goal metric's target MDE override, when they're editable here.
+    // Every metric's target MDE override, when goals' are editable here.
     targetMDEOverrides?: DecisionFrameworkMetricOverrides[],
   ) => void;
 }) {
@@ -69,17 +70,18 @@ export default function MetricOverridesModal({
   const goalIds = targetMDEOverrides
     ? expandMetricGroups(metrics.goalMetrics, metricGroups)
     : [];
+  const goalTargetMDEs = (targetMDEOverrides ?? []).flatMap(
+    ({ id, targetMDE }) =>
+      targetMDE !== undefined && goalIds.includes(id)
+        ? [{ id, targetMDE }]
+        : [],
+  );
   // Target MDEs live elsewhere, so a goal metric overriding only that still
   // needs its card.
   const withCards = [
     ...overrides,
-    ...(targetMDEOverrides ?? [])
-      .filter(
-        (o) =>
-          o.targetMDE !== undefined &&
-          goalIds.includes(o.id) &&
-          !overrides.some((m) => m.id === o.id),
-      )
+    ...goalTargetMDEs
+      .filter((o) => !overrides.some((m) => m.id === o.id))
       .map((o) => ({ id: o.id })),
   ];
 
@@ -102,9 +104,7 @@ export default function MetricOverridesModal({
         settings,
       ),
       targetMDEs: Object.fromEntries(
-        (targetMDEOverrides ?? [])
-          .filter((o) => o.targetMDE !== undefined && goalIds.includes(o.id))
-          .map((o) => [o.id, Number(((o.targetMDE ?? 0) * 100).toFixed(9))]),
+        goalTargetMDEs.map((o) => [o.id, toPercentField(o.targetMDE)]),
       ),
     },
   });
@@ -141,12 +141,16 @@ export default function MetricOverridesModal({
         stageChanges(
           next,
           targetMDEOverrides
-            ? goalIds.flatMap((id) => {
-                const percent = value.targetMDEs?.[id];
-                return percent === undefined || Number.isNaN(percent)
-                  ? []
-                  : [{ id, targetMDE: percent / 100 }];
-              })
+            ? [
+                // A metric that's no longer a goal keeps what it had.
+                ...targetMDEOverrides.filter((o) => !goalIds.includes(o.id)),
+                ...goalIds.flatMap((id) => {
+                  const percent = value.targetMDEs?.[id];
+                  return percent === undefined || Number.isNaN(percent)
+                    ? []
+                    : [{ id, targetMDE: percent / 100 }];
+                }),
+              ]
             : undefined,
         );
       })}

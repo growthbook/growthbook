@@ -103,7 +103,6 @@ export default function useStartGate({
   };
 
   return {
-    summary,
     checklistLoading,
     scheduledStartAt,
     schedule,

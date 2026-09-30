@@ -27,7 +27,10 @@ import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import styles from "./PreLaunchChecklist.module.scss";
-import { usePreLaunchChecklist } from "./PreLaunchChecklistProvider";
+import {
+  useChecklistSummary,
+  usePreLaunchChecklist,
+} from "./PreLaunchChecklistProvider";
 import {
   ChecklistAction,
   CheckListItem,
@@ -264,7 +267,6 @@ export function PreLaunchChecklistPanel({
 }) {
   const {
     experiment,
-    checklist,
     summary: fullSummary,
     loading,
     loadError,
@@ -272,9 +274,7 @@ export function PreLaunchChecklistPanel({
     toggleError,
   } = usePreLaunchChecklist();
   const [showCompleted, setShowCompleted] = useState(false);
-  const summary = omit
-    ? summarizeChecklist(checklist.filter((item) => !omit(item)))
-    : fullSummary;
+  const summary = useChecklistSummary(omit);
 
   if (loading) return <LoadingSpinner />;
 

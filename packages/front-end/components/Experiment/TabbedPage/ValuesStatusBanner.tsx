@@ -42,13 +42,23 @@ type Resolved = {
   run: (() => Promise<void> | void) | null;
 };
 
+// What the page shows, whoever's flags they are.
+function useViewedChanges({ experiment, linkedFeatures }: Props) {
+  const { live } = useLiveView();
+  return {
+    experimentStatus: experiment.status,
+    viewingLive: live,
+    hasUnpublished: linkedFeatures.some(hasUnpublishedChanges),
+  };
+}
+
 function useManagedStatus(
   props: Props & { managed: LinkedFeatureInfo },
 ): Resolved {
-  const { experiment, linkedFeatures, managed, mutate, openReview } = props;
+  const { experiment, managed, mutate, openReview } = props;
   const review = useManagedFlagReview({ experiment, info: managed, mutate });
   const { userId } = useUser();
-  const { live } = useLiveView();
+  const viewed = useViewedChanges(props);
   const draft = managed.pendingDraft;
 
   // Newest first; a retracted verdict no longer stands.
@@ -66,9 +76,7 @@ function useManagedStatus(
   const submit = review.submit;
   const status = draft
     ? getValuesStatus({
-        experimentStatus: experiment.status,
-        viewingLive: live,
-        hasUnpublished: linkedFeatures.some(hasUnpublishedChanges),
+        ...viewed,
         managed: {
           draft,
           canRequestReview: submit?.action === "request-review",
@@ -94,17 +102,9 @@ function useManagedStatus(
   };
 }
 
-function useUnmanagedStatus({ experiment, linkedFeatures }: Props): Resolved {
-  const { live } = useLiveView();
-  return {
-    status: getValuesStatus({
-      experimentStatus: experiment.status,
-      viewingLive: live,
-      hasUnpublished: linkedFeatures.some(hasUnpublishedChanges),
-      managed: null,
-    }),
-    run: null,
-  };
+function useUnmanagedStatus(props: Props): Resolved {
+  const viewed = useViewedChanges(props);
+  return { status: getValuesStatus({ ...viewed, managed: null }), run: null };
 }
 
 function StatusCta({

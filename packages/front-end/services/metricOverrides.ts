@@ -1,5 +1,6 @@
 import { MetricOverride } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
+import { DecisionFrameworkMetricOverrides } from "shared/types/experiment";
 
 export const METRIC_OVERRIDE_COLOR = "var(--blue-9)";
 
@@ -20,6 +21,10 @@ export interface OverrideRow {
 }
 
 const percent = (fraction: number) => `${Number((fraction * 100).toFixed(4))}%`;
+
+/** A stored fraction as a percent field's value, without float noise. */
+export const toPercentField = (fraction: number) =>
+  Number((fraction * 100).toFixed(9));
 
 const hours = (n: number) => `${n} hour${n === 1 ? "" : "s"}`;
 
@@ -182,7 +187,7 @@ export function describeMetricSettings(
 /** The metrics an experiment actually overrides, by id; target MDEs count too. */
 export function getOverriddenMetricIds(
   overrides: MetricOverride[] | undefined,
-  targetMDEOverrides: { id: string; targetMDE?: number }[] = [],
+  targetMDEOverrides: DecisionFrameworkMetricOverrides[] = [],
 ): Set<string> {
   return new Set([
     ...(overrides ?? [])

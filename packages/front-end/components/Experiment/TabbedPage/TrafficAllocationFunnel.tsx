@@ -505,8 +505,8 @@ export default function TrafficAllocationFunnel({
     ? environmentStatesDiffer(servedValueFeature)
     : false;
 
-  // The toggle offers a draft only when something it shows actually moved:
-  // any linked flag counts, since the value rows show every flag's draft.
+  // A draft to show only when something it shows actually moved: any linked
+  // flag counts, since the value rows show every flag's draft.
   const hasDraftChanges = useMemo(
     () => pickedFeatures.some(hasUnpublishedChanges),
     [pickedFeatures],
@@ -519,7 +519,7 @@ export default function TrafficAllocationFunnel({
   const canEditExperiment = canEditExperimentHere && !viewingLive;
   const canEditFlagValues = canEditFlagValuesHere && !viewingLive;
   const editInline = editInlineHere && !viewingLive;
-  // With nothing unpublished the toggle goes, and the page edits again.
+  // With nothing unpublished there's no Live view, and the page edits again.
   useEffect(() => {
     if ((!hasDraftChanges || setup) && live) setLive(false);
   }, [hasDraftChanges, setup, live, setLive]);

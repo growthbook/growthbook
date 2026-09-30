@@ -83,6 +83,7 @@ import { useEditsBlockedReason } from "./ExperimentEdits";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { StartExperiment } from "./useStartExperiment";
 import StartExperimentPopover from "./StartExperimentPopover";
+import { hasStatusSchedule } from "./RunningScheduleLink";
 import { REVIEW_TAB_PATH } from "./useExperimentReviewRoute";
 import { ExperimentTab } from ".";
 
@@ -156,16 +157,15 @@ const DisabledHealthTabTooltip = ({
  * edits hold it until they're saved or discarded.
  */
 function StoredActionItem({
-  blockedReason,
   onClick,
   color,
   children,
 }: {
-  blockedReason: string | null;
   onClick: () => void | Promise<void>;
   color?: "red";
   children: ReactNode;
 }) {
+  const blockedReason = useEditsBlockedReason();
   return (
     <DropdownMenuItem
       onClick={onClick}
@@ -551,18 +551,27 @@ export default function ExperimentHeader({
   const showHoldoutActions =
     isHoldout && canRunExperiment && (showHoldoutOverride || showForceStatus);
   const hasExperimentSchedule = !!experiment.statusUpdateSchedule?.startAt;
-  const experimentHasAnySchedule = Object.values(
-    experiment.statusUpdateSchedule ?? {},
-  ).some((value) => value !== null);
-
   const hasAnySchedule = isHoldout
     ? holdoutHasSchedule
-    : experimentHasAnySchedule;
+    : hasStatusSchedule(experiment);
   const nextScheduledStartDate =
     experiment.nextScheduledStatusUpdate?.type === "start" &&
     experiment.nextScheduledStatusUpdate?.date
       ? new Date(experiment.nextScheduledStatusUpdate.date)
       : null;
+  // A holdout starts from its modal; anything else, from the start popover.
+  const startButton = (
+    <Button
+      variant={checklistReady ? "solid" : "soft"}
+      onClick={isHoldout ? () => setShowStartExperiment(true) : undefined}
+      disabled={!!editsBlocked}
+      icon={hasExperimentSchedule ? undefined : <MdRocketLaunch />}
+    >
+      {hasExperimentSchedule
+        ? "Approve for Scheduled Start"
+        : `Start ${isHoldout ? "Holdout" : "Experiment"}`}
+    </Button>
+  );
 
   const runningExperimentDecisionBanner =
     experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
@@ -983,18 +992,7 @@ export default function ExperimentHeader({
                   !reviewing ? (
                   <Tooltip shouldDisplay={!!editsBlocked} body={editsBlocked}>
                     {isHoldout ? (
-                      <Button
-                        variant={checklistReady ? "solid" : "soft"}
-                        onClick={() => setShowStartExperiment(true)}
-                        disabled={!!editsBlocked}
-                        icon={
-                          hasExperimentSchedule ? undefined : <MdRocketLaunch />
-                        }
-                      >
-                        {hasExperimentSchedule
-                          ? "Approve for Scheduled Start"
-                          : "Start Holdout"}
-                      </Button>
+                      startButton
                     ) : (
                       <StartExperimentPopover
                         experiment={experiment}
@@ -1006,21 +1004,7 @@ export default function ExperimentHeader({
                         valuesStatus={startValuesStatus}
                         open={startOpen}
                         setOpen={setStartOpen}
-                        trigger={
-                          <Button
-                            variant={checklistReady ? "solid" : "soft"}
-                            disabled={!!editsBlocked}
-                            icon={
-                              hasExperimentSchedule ? undefined : (
-                                <MdRocketLaunch />
-                              )
-                            }
-                          >
-                            {hasExperimentSchedule
-                              ? "Approve for Scheduled Start"
-                              : "Start Experiment"}
-                          </Button>
-                        }
+                        trigger={startButton}
                       />
                     )}
                   </Tooltip>
@@ -1061,7 +1045,6 @@ export default function ExperimentHeader({
                 <DropdownMenuGroup>
                   {showEditStatus && (
                     <StoredActionItem
-                      blockedReason={editsBlocked}
                       onClick={() => {
                         setStatusModal(true);
                         setDropdownOpen(false);
@@ -1072,7 +1055,6 @@ export default function ExperimentHeader({
                   )}
                   {showEditPhase && (
                     <StoredActionItem
-                      blockedReason={editsBlocked}
                       onClick={() => {
                         editPhases?.();
                         setDropdownOpen(false);
@@ -1083,7 +1065,6 @@ export default function ExperimentHeader({
                   )}
                   {showScheduleItem && (
                     <StoredActionItem
-                      blockedReason={editsBlocked}
                       onClick={() => {
                         editSchedule?.();
                         setDropdownOpen(false);
@@ -1134,7 +1115,6 @@ export default function ExperimentHeader({
                       ))}
                     {showForceStatus && (
                       <StoredActionItem
-                        blockedReason={editsBlocked}
                         onClick={() => {
                           setStatusModal(true);
                           setDropdownOpen(false);
@@ -1220,7 +1200,6 @@ export default function ExperimentHeader({
               ) : null}
               {showSaveAsTemplateButton && !isHoldout && (
                 <StoredActionItem
-                  blockedReason={editsBlocked}
                   onClick={() => {
                     setShowTemplateForm(true);
                     setDropdownOpen(false);
@@ -1231,7 +1210,6 @@ export default function ExperimentHeader({
               )}
               {showShareButton && !isHoldout && (
                 <StoredActionItem
-                  blockedReason={editsBlocked}
                   onClick={() => {
                     setShareModalOpen(true);
                     setDropdownOpen(false);
@@ -1242,7 +1220,6 @@ export default function ExperimentHeader({
               )}
               {showShareableReportButton && !isHoldout && (
                 <StoredActionItem
-                  blockedReason={editsBlocked}
                   onClick={async () => {
                     const res = await apiCall<{ report: ReportInterface }>(
                       `/experiments/report/${snapshot.id}`,
@@ -1269,7 +1246,6 @@ export default function ExperimentHeader({
                 <>
                   <DropdownMenuGroup>
                     <StoredActionItem
-                      blockedReason={editsBlocked}
                       onClick={() => {
                         setShowBanditModal(true);
                         setDropdownOpen(false);
@@ -1290,7 +1266,6 @@ export default function ExperimentHeader({
               <DropdownMenuGroup>
                 {duplicate && (
                   <StoredActionItem
-                    blockedReason={editsBlocked}
                     onClick={() => {
                       setDropdownOpen(false);
                       duplicate();
@@ -1301,7 +1276,6 @@ export default function ExperimentHeader({
                 )}
                 {canRunExperiment && (
                   <StoredActionItem
-                    blockedReason={editsBlocked}
                     onClick={() => {
                       setShowArchiveModal(true);
                       setDropdownOpen(false);
@@ -1312,7 +1286,6 @@ export default function ExperimentHeader({
                 )}
                 {hasUpdatePermissions && experiment.archived && (
                   <StoredActionItem
-                    blockedReason={editsBlocked}
                     onClick={() => {
                       setShowArchiveModal(true);
                       setDropdownOpen(false);
@@ -1323,7 +1296,6 @@ export default function ExperimentHeader({
                 )}
                 {canDeleteExperiment && (
                   <StoredActionItem
-                    blockedReason={editsBlocked}
                     color="red"
                     onClick={() => {
                       setShowDeleteModal(true);

@@ -455,7 +455,7 @@ export default function Implementation({
     !experiment.nextScheduledStatusUpdate &&
     permissionsUtil.canViewFeatureModal(experiment.project);
 
-  // The funnel's environments and draft toggle describe exactly one implementation.
+  // The funnel's environments describe exactly one implementation.
   const soleLinkedFeature =
     linkedFeatures.length === 1 &&
     !experiment.hasVisualChangesets &&

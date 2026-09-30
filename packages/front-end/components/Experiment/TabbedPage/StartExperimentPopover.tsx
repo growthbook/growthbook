@@ -6,7 +6,6 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { isManagedByExperiment } from "shared/util";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -21,12 +20,10 @@ import {
   ChecklistCountBadge,
   PreLaunchChecklistPanel,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
-import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import {
-  isFlagDraftItem,
-  summarizeChecklist,
-} from "@/components/PreLaunchChecklist/checklistSummary";
+import { useChecklistSummary } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import { isFlagDraftItem } from "@/components/PreLaunchChecklist/checklistSummary";
 import { useAuth } from "@/services/auth";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
 import { getStartTitle } from "./startActions";
@@ -37,7 +34,7 @@ import {
   StartUpgradeCallout,
   useStartSummaryRows,
 } from "./StartSections";
-import { scheduledTime } from "./RunningScheduleLink";
+import { scheduledEnd, scheduledTime } from "./RunningScheduleLink";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 
 // getAffectedEnvsForExperiment's answer for "every environment".
@@ -206,17 +203,8 @@ function useSummaryRows(
       value: allEnvs ? "All environments" : envs.join(", "),
     });
   }
-  const schedule = experiment.statusUpdateSchedule;
-  if (schedule?.stopAt || schedule?.stopAfter) {
-    rows.push({
-      key: "end",
-      label: "Ends",
-      inline: true,
-      value: schedule.stopAt
-        ? scheduledTime(schedule.stopAt)
-        : `${schedule.stopAfter?.value} ${schedule.stopAfter?.unit} after start`,
-    });
-  }
+  const end = scheduledEnd(experiment.statusUpdateSchedule);
+  if (end) rows.push({ key: "end", label: "Ends", inline: true, value: end });
   return rows;
 }
 
@@ -232,7 +220,6 @@ function StartContent({
 }: ContentProps & { close: () => void }) {
   const gate = useStartGate({ experiment, linkedFeatures, start });
   const editsBlocked = useEditsBlockedReason();
-  const { checklist } = usePreLaunchChecklist();
   const rows = useSummaryRows(experiment, envs);
   const [error, setError] = useState<string | null>(null);
   const [container, setContainer] = useState<HTMLElement | null>(null);
@@ -243,7 +230,7 @@ function StartContent({
     : null;
   const pastSchedule = !startApproved && gate.schedule === "past" && dateLabel;
   const managedId =
-    linkedFeatures.find((f) => isManagedByExperiment(f.feature, experiment.id))
+    useManagedExperimentFlags({ experiment, linkedFeatures }).managedFeature
       ?.feature.id ?? null;
   // The values' own row stands in for their To Do rows.
   const omitted =
@@ -251,9 +238,7 @@ function StartContent({
       ? (item: Parameters<typeof isFlagDraftItem>[0]) =>
           isFlagDraftItem(item, managedId)
       : undefined;
-  const shown = omitted
-    ? summarizeChecklist(checklist.filter((item) => !omitted(item)))
-    : gate.summary;
+  const shown = useChecklistSummary(omitted);
   // Starting publishes what's stored, not what's staged.
   const blockedReason = editsBlocked ?? start.banditBlockedReason;
   const { bypassLabel, waivesApproval } = gate.actions;

@@ -11,7 +11,10 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { MetricOverride } from "shared/validators";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  DecisionFrameworkMetricOverrides,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { StatsEngine } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -102,7 +105,7 @@ export function MetricOverrideTooltipContent({
   /** Given, a metric also lists the settings it isn't overriding. */
   settingsScope?: MetricSettingsScope;
   /** Given, for goal metrics, each one's target MDE reads as its first override. */
-  targetMDEOverrides?: { id: string; targetMDE?: number }[];
+  targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
 }) {
   const {
     getExperimentMetricById,

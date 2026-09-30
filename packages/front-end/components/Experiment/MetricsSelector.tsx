@@ -1,5 +1,6 @@
 import { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
+import { DecisionFrameworkMetricOverrides } from "shared/types/experiment";
 import {
   ExperimentMetricDefinition,
   getFactMetricFactTableIds,
@@ -196,7 +197,7 @@ const MetricsSelector: FC<{
    * Given, for goal metrics, a target MDE counts as an override: it outlines
    * the chip and leads the card.
    */
-  targetMDEOverrides?: { id: string; targetMDE?: number }[];
+  targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
 }> = ({
   datasource,
   project,

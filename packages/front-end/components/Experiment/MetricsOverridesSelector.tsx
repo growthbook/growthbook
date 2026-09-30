@@ -37,6 +37,7 @@ import Table, {
 import TextField, { TextFieldProps } from "@/ui/TextField";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import { toPercentField } from "@/services/metricOverrides";
 import { getDefaultMetricOverridesFormValue } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 import styles from "./MetricsOverridesSelector.module.scss";
@@ -233,8 +234,8 @@ function OverrideCard({
     ? form.watch(targetMDEPath)
     : undefined;
   const targetMDEOverridden = !!targetMDEPath && targetMDE !== undefined;
-  const defaultTargetMDE = Number(
-    ((metricDefinition?.targetMDE ?? DEFAULT_TARGET_MDE) * 100).toFixed(9),
+  const defaultTargetMDE = toPercentField(
+    metricDefinition?.targetMDE ?? DEFAULT_TARGET_MDE,
   );
   const retention = !!metricDefinition && isRetentionMetric(metricDefinition);
   const minWindow =

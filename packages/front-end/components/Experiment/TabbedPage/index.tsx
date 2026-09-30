@@ -253,6 +253,12 @@ function TabbedPageContents({
     hasValuesReview(managedFlagWithDraft.pendingDraft);
   const reviewable =
     !experiment.archived && experiment.type !== "holdout" && valuesReview;
+  const valuesStatusProps = {
+    experiment,
+    linkedFeatures,
+    managed: managedFlagWithDraft,
+    mutate,
+  };
   const { reviewing, openReview } = useExperimentReviewRoute({
     tab,
     tabPath,
@@ -741,10 +747,7 @@ function TabbedPageContents({
           detailsWidth={detailsWidth}
           startValuesStatus={
             <ValuesStatusRow
-              experiment={experiment}
-              linkedFeatures={linkedFeatures}
-              managed={managedFlagWithDraft}
-              mutate={mutate}
+              {...valuesStatusProps}
               openReview={reviewable ? () => openReview("start") : null}
             />
           }
@@ -789,10 +792,7 @@ function TabbedPageContents({
               experiment.type !== "holdout" &&
               !experiment.archived ? (
                 <ValuesStatusBanner
-                  experiment={experiment}
-                  linkedFeatures={linkedFeatures}
-                  managed={managedFlagWithDraft}
-                  mutate={mutate}
+                  {...valuesStatusProps}
                   openReview={reviewable ? () => openReview("banner") : null}
                 />
               ) : null}

@@ -45,6 +45,16 @@ export function usePreLaunchChecklist(): PreLaunchChecklistContextValue {
   return ctx;
 }
 
+/** The checklist's summary, less the rows a surface shows its own way. */
+export function useChecklistSummary(
+  omit?: (item: CheckListItem) => boolean,
+): ChecklistSummary {
+  const { checklist, summary } = usePreLaunchChecklist();
+  return omit
+    ? summarizeChecklist(checklist.filter((item) => !omit(item)))
+    : summary;
+}
+
 export interface PreLaunchChecklistProviderProps {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];

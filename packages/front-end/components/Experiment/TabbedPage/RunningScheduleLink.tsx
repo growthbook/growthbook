@@ -8,6 +8,16 @@ import Text from "@/ui/Text";
 export const scheduledTime = (value: string | Date) =>
   format(new Date(value), "MMM d, yyyy 'at' h:mm a (z)");
 
+/** When a schedule ends: a date, or a span after the start. */
+export const scheduledEnd = (
+  schedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
+) =>
+  schedule?.stopAt
+    ? scheduledTime(schedule.stopAt)
+    : schedule?.stopAfter
+      ? `${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
+      : null;
+
 export const hasStatusSchedule = (experiment: ExperimentInterfaceStringDates) =>
   Object.values(experiment.statusUpdateSchedule ?? {}).some(
     (value) => value !== null,
@@ -30,13 +40,12 @@ export default function RunningScheduleLink({
   // the experiment running, so it says so rather than implying a future stop.
   const endPassed =
     !!schedule?.stopAt && new Date(schedule.stopAt) <= new Date();
-  const endSummary = schedule?.stopAt
-    ? endPassed
-      ? `Ended ${scheduledTime(schedule.stopAt)} — kept running`
-      : `Ends ${scheduledTime(schedule.stopAt)}`
-    : schedule?.stopAfter
-      ? `Ends ${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
-      : null;
+  const end = scheduledEnd(schedule);
+  const endSummary = !end
+    ? null
+    : endPassed
+      ? `Ended ${end} — kept running`
+      : `Ends ${end}`;
 
   return (
     <Link onClick={editSchedule}>

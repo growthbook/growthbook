@@ -293,25 +293,20 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
 function EnvironmentSetting({ value }: { value: boolean | null }) {
   return (
     <Flex align="center" justify="center">
-      <Box style={{ display: "flex" }}>
-        {value === null ? (
-          <Text size="sm" color="text-low">
-            —
-          </Text>
-        ) : (
-          // Same marks as a feature rule's environment badges.
-          <Box aria-label={value ? "On" : "Off"} style={{ display: "flex" }}>
-            {value ? (
-              <FaRegCircleCheck
-                size={14}
-                style={{ color: "var(--green-11)" }}
-              />
-            ) : (
-              <FaRegCircleXmark size={14} style={{ color: "var(--gray-8)" }} />
-            )}
-          </Box>
-        )}
-      </Box>
+      {value === null ? (
+        <Text size="sm" color="text-low">
+          —
+        </Text>
+      ) : (
+        // Same marks as a feature rule's environment badges.
+        <Box aria-label={value ? "On" : "Off"} style={{ display: "flex" }}>
+          {value ? (
+            <FaRegCircleCheck size={14} style={{ color: "var(--green-11)" }} />
+          ) : (
+            <FaRegCircleXmark size={14} style={{ color: "var(--gray-8)" }} />
+          )}
+        </Box>
+      )}
     </Flex>
   );
 }

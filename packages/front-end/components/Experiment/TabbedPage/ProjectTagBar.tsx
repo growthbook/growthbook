@@ -23,6 +23,7 @@ import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
 import RunningScheduleLink, {
   hasStatusSchedule,
+  scheduledEnd,
   scheduledTime,
 } from "@/components/Experiment/TabbedPage/RunningScheduleLink";
 import Link from "@/ui/Link";
@@ -319,11 +320,7 @@ function DraftSchedule({
   const hasSchedule = hasStatusSchedule(experiment);
   const startPassed =
     !!schedule?.startAt && new Date(schedule.startAt) < new Date();
-  const end = schedule?.stopAt
-    ? scheduledTime(schedule.stopAt)
-    : schedule?.stopAfter
-      ? `${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
-      : null;
+  const end = scheduledEnd(schedule);
   return (
     <>
       {schedule?.startAt ? (
