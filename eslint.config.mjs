@@ -174,6 +174,15 @@ export default defineConfig([
     },
   },
   {
+    // Dogfood demo app: console is the intentional analytics / setup sink.
+    files: ["./packages/dummy-shop/**/*.{ts,tsx}"],
+    rules: {
+      "no-console": "off",
+      "react/prop-types": "off",
+      "react/react-in-jsx-scope": "off",
+    },
+  },
+  {
     files: [
       "./packages/sdk-js/rollup.config.js",
       "./packages/sdk-react/rollup.config.js",
