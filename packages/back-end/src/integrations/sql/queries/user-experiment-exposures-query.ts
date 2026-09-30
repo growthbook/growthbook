@@ -39,7 +39,7 @@ export function getUserExperimentExposuresQuery(
             const dimensionSelectString = dimensionSelects.join(", ");
 
             return `
-              SELECT timestamp, experiment_id, variation_id, ${dimensionSelectString} FROM (
+              SELECT ${tableAlias}.timestamp, ${tableAlias}.experiment_id, ${tableAlias}.variation_id, ${dimensionSelectString} FROM (
                 ${compileSqlTemplate(
                   exposureQuery.query,
                   {
@@ -48,13 +48,13 @@ export function getUserExperimentExposuresQuery(
                   dialect,
                 )}
               ) ${tableAlias}
-              WHERE ${dialect.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${dialect.toTimestamp(startDate)}
+              WHERE ${dialect.castToString(`${tableAlias}.${exposureQuery.userIdType}`)} = '${params.unitId}' AND ${tableAlias}.timestamp >= ${dialect.toTimestamp(startDate)}
             `;
           })
           .join("\nUNION ALL\n")}
       )
       SELECT * FROM __userExposures 
-      ORDER BY timestamp DESC 
+      ORDER BY __userExposures.timestamp DESC 
       LIMIT ${SQL_ROW_LIMIT}
       `,
     dialect.formatDialect,
