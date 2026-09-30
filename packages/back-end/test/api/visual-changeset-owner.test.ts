@@ -2,10 +2,6 @@ import request from "supertest";
 import { VisualChangesetModel } from "back-end/src/models/VisualChangesetModel";
 import { setupApp } from "./api.setup";
 
-// Every visual-editor handler goes through resolveChangesetOwner. These specs
-// run the same requests against an experiment-owned and a CB-owned changeset
-// and expect the same permission, status-gate and write outcomes from both.
-
 const mockGetExperimentById = jest.fn();
 const mockUpdateExperiment = jest.fn();
 

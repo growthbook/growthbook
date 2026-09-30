@@ -1009,10 +1009,6 @@ export async function activatePendingContextualBanditVariations(
   const pendingIds = cb.variations.filter(isPendingVariation).map((v) => v.id);
   if (!pendingIds.length) return { activatedIds: [], updated: cb };
 
-  // An arm activates once it is live on every linked feature and, when the
-  // CB has visual changesets, once at least one of them holds a non-empty
-  // change for it. A CB with neither has nothing gating activation, so
-  // pending arms activate immediately.
   const liveArmInfo = await getLiveArmIdsByLinkedFeature(context, cb);
   const liveOnFeatures = liveArmInfo.length
     ? pendingIds.filter((id) => liveArmInfo.every((i) => i.liveArmIds.has(id)))

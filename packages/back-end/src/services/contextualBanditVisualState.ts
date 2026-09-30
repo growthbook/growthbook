@@ -9,12 +9,6 @@ import {
   syncVisualChangesWithVariations,
 } from "back-end/src/models/VisualChangesetModel";
 
-/**
- * The one reaction to "this CB's visual state changed": its arm set moved
- * (add / remove) or one of its changesets was written. Runs the changeset
- * sync, the pending-arm activation check and the payload refresh, in that
- * order, and returns the CB as it stands afterwards.
- */
 export async function onContextualBanditVisualStateChanged(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,

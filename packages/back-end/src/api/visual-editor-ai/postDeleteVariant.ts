@@ -32,9 +32,9 @@ const validation = {
   excludeFromSpec: true,
 };
 
-// Removes a variation from the owner and its visualChange from the
-// changeset. The owner write lands first and is rolled back if the
-// changeset write fails.
+// Removes a variation from the owner plus its matching visual change. The
+// inverse of postAddVariant. Returns the refreshed changeset + experiment so
+// the side panel re-renders in one round-trip.
 export const postDeleteVariant = createApiRequestHandler(validation)(async (
   req,
 ) => {
@@ -70,8 +70,6 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     );
   }
 
-  // Build from a fresh read: the owner write may already have dropped the
-  // entry from this changeset (contextual bandits sync on removal).
   const current =
     (await findVisualChangesetById(visualChangesetId, req.organization.id)) ??
     changeset;

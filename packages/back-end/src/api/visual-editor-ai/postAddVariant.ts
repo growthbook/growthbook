@@ -88,9 +88,6 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     );
   }
 
-  // The owner write may have synced an empty entry for the new variation
-  // into this changeset already (contextual bandits do), so build from a
-  // fresh read and replace that entry rather than appending beside it.
   const current =
     (await findVisualChangesetById(visualChangesetId, req.organization.id)) ??
     changeset;

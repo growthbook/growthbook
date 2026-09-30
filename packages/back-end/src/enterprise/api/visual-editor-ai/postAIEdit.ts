@@ -223,8 +223,6 @@ const bodySchema = z
     streamingMode: z.boolean().optional(),
     // Save the result rather than returning it for the caller to persist.
     persist: z.boolean().optional(),
-    // With `persist`, also accept the save when the owner is running. Same
-    // opt-in the changeset endpoints take; the write is audited.
     allowRunningExperiment: z.boolean().optional(),
     // Bytes so the back-end never fetches; `url` is the hosted copy for placing it.
     attachments: z

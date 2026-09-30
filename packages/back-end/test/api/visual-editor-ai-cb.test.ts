@@ -2,9 +2,6 @@ import request from "supertest";
 import { VisualChangesetModel } from "back-end/src/models/VisualChangesetModel";
 import { setupApp } from "./api.setup";
 
-// The AI endpoints resolve a CB-owned changeset through the same owner
-// adapter as experiments. The LLM is mocked; the gates and the save are real.
-
 const mockParsePrompt = jest.fn();
 
 jest.mock("back-end/src/enterprise/services/ai", () => {

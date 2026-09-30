@@ -72,9 +72,6 @@ export const postCreateChangeset = createApiRequestHandler(validation)(async (
   if (!owner.canCreateChangeset()) {
     context.permissions.throwPermissionError();
   }
-  // A new changeset starts empty, so it changes nothing live; running
-  // owners are accepted without the opt-in but still need run permission
-  // and get audited, as any other live write does.
   const auditLiveEdit = owner.requireWrite(req, {
     allowRunning: true,
     visualChangesetId,
