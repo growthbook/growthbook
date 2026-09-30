@@ -199,7 +199,7 @@ export default function SqlQuerySection({
   const canFormat =
     !loading && datasource ? canFormatSql(datasource.type) : false;
 
-  const handleFormatClick = () => {
+  const handleFormat = () => {
     if (!localSql || !canFormat) return;
     const result = formatSql(localSql, datasource?.type);
     if (result.error) {
@@ -322,7 +322,7 @@ export default function SqlQuerySection({
             formatError={formatError}
             isAutocompleteEnabled={isAutocompleteEnabled}
             loading={loading}
-            onFormat={handleFormatClick}
+            onFormat={handleFormat}
             onRun={() => void previewQuery(localSql)}
             onToggleAutocomplete={() =>
               setIsAutocompleteEnabled(!isAutocompleteEnabled)
@@ -348,7 +348,7 @@ export default function SqlQuerySection({
                   void previewQuery(localSql);
                 }
               }}
-              onFormatShortcut={handleFormatClick}
+              onFormatShortcut={handleFormat}
               completions={autoCompletions}
               fullHeight
               paddingTop={8}
