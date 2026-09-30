@@ -1,9 +1,12 @@
 import request from "supertest";
+import type { Request } from "express";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   getLatestSDKVersion,
   getSDKCapabilities,
   getSDKVersions,
 } from "shared/sdk-versioning";
+import { ReqContextClass } from "back-end/src/services/context";
 import {
   toApiSDKConnectionInterface,
   findSDKConnectionsByOrganization,
@@ -65,6 +68,33 @@ describe("sdk-connections API", () => {
   });
 
   const org = { id: "org", environments: [{ id: "production" }] };
+
+  // PUT lands through the revision engine, which needs a real context (models,
+  // permissions, premium gating). Admin so authority checks pass by default.
+  const buildContext = ({
+    settings = {},
+    premium = false,
+  }: {
+    settings?: Record<string, unknown>;
+    premium?: boolean;
+  } = {}) => {
+    const context = new ReqContextClass({
+      org: {
+        ...org,
+        name: "SDK Connections",
+        ownerEmail: "test@test.com",
+        url: "",
+        dateCreated: new Date(),
+        members: [],
+        settings: { environments: org.environments, ...settings },
+      } as unknown as OrganizationInterface,
+      auditUser: { type: "api_key", apiKey: "key_test" },
+      role: "admin",
+      req: { query: {}, headers: {}, body: {} } as unknown as Request,
+    });
+    context.hasPremiumFeature = () => premium;
+    return context;
+  };
 
   it("can list all sdk-connections", async () => {
     setReqContext({ org });
@@ -386,18 +416,10 @@ describe("sdk-connections API", () => {
   });
 
   describe("requireProjectForSdkConnections enabled", () => {
-    const requireProjectContext = (overrides = {}) =>
-      setReqContext({
-        org: {
-          ...org,
-          settings: { requireProjectForSdkConnections: true },
-        },
-        permissions: {
-          canCreateSDKConnection: () => true,
-          canUpdateSDKConnection: () => true,
-        },
-        ...overrides,
-      });
+    const requireProjectContext = () =>
+      setReqContext(
+        buildContext({ settings: { requireProjectForSdkConnections: true } }),
+      );
 
     it("fails to create new sdk-connections without a project", async () => {
       requireProjectContext();
@@ -472,13 +494,11 @@ describe("sdk-connections API", () => {
   });
 
   it("can update sdk-connections", async () => {
-    const context = {
-      org,
-      permissions: { canUpdateSDKConnection: () => true },
-    };
+    const context = buildContext();
     setReqContext(context);
 
     const existing = sdkConnectionFactory.build({
+      organization: org.id,
       name: "my-connection",
       environment: org.environments[0].id,
       language: "javascript",
@@ -491,6 +511,9 @@ describe("sdk-connections API", () => {
 
     editSDKConnection.mockImplementation((_, __, v) => {
       updated = { ...sdkConnectionFactory.build(v), id: existing.id };
+      // The landing re-reads the connection after the write and compares its
+      // stamp, so the "database" has to hand back what was written.
+      findSDKConnectionById.mockReturnValue(updated);
       return updated;
     });
 
@@ -513,10 +536,124 @@ describe("sdk-connections API", () => {
       context,
       existing,
       await originalValidatePutPayload(context, update, existing),
+      { casOnDateUpdated: existing.dateUpdated ?? null },
     );
     expect(response.body).toEqual({
       sdkConnection: mockApiSDKConnectionInterface(updated),
     });
+  });
+
+  describe("approval flows on update", () => {
+    const existingConnection = () =>
+      sdkConnectionFactory.build({
+        organization: org.id,
+        name: "my-connection",
+        environment: org.environments[0].id,
+        sdkVersion: "latest-version",
+      });
+
+    const withRule = (environments: string[]) => ({
+      approvalFlows: {
+        sdkConnections: [{ required: true, projects: [], environments }],
+      },
+    });
+
+    beforeEach(() => {
+      getLatestSDKVersion.mockReturnValue("latest-version");
+      editSDKConnection.mockImplementation((_, existing, v) => ({
+        ...existing,
+        ...v,
+      }));
+    });
+
+    it("lets an out-of-scope edit through when the rule covers another environment", async () => {
+      setReqContext(
+        buildContext({ settings: withRule(["staging"]), premium: true }),
+      );
+      const existing = existingConnection();
+      findSDKConnectionById.mockReturnValue(existing);
+
+      const response = await request(app)
+        .put(`/api/v1/sdk-connections/${existing.id}`)
+        .send({ name: "my-new-connection" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(200);
+      expect(editSDKConnection).toHaveBeenCalled();
+      expect(response.body.bypassedGates).toBeUndefined();
+    });
+
+    it("refuses an in-scope edit without bypass authority", async () => {
+      const context = buildContext({
+        settings: withRule([org.environments[0].id]),
+        premium: true,
+      });
+      context.permissions.canBypassSDKConnectionApprovalChecks = () => false;
+      setReqContext(context);
+      const existing = existingConnection();
+      findSDKConnectionById.mockReturnValue(existing);
+
+      const response = await request(app)
+        .put(`/api/v1/sdk-connections/${existing.id}`)
+        .send({ name: "my-new-connection" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toMatch(
+        /This organization requires approvals on SDK connections/,
+      );
+      expect(editSDKConnection).not.toHaveBeenCalled();
+    });
+
+    it("lands an in-scope edit with bypass authority and reports the bypassed gate", async () => {
+      setReqContext(
+        buildContext({
+          settings: withRule([org.environments[0].id]),
+          premium: true,
+        }),
+      );
+      const existing = existingConnection();
+      findSDKConnectionById.mockReturnValue(existing);
+
+      const response = await request(app)
+        .put(`/api/v1/sdk-connections/${existing.id}`)
+        .send({ name: "my-new-connection" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(200);
+      expect(response.body.bypassedGates).toEqual([
+        {
+          type: "approval-required",
+          outcome: "bypassed",
+          via: "bypassApprovalPermission",
+        },
+      ]);
+    });
+  });
+
+  it("archives sdk-connections through PUT", async () => {
+    setReqContext(buildContext());
+    getLatestSDKVersion.mockReturnValue("latest-version");
+    const existing = sdkConnectionFactory.build({
+      organization: org.id,
+      environment: org.environments[0].id,
+      sdkVersion: "latest-version",
+    });
+    findSDKConnectionById.mockReturnValue(existing);
+    editSDKConnection.mockImplementation((_, c, v) => ({ ...c, ...v }));
+
+    const response = await request(app)
+      .put(`/api/v1/sdk-connections/${existing.id}`)
+      .send({ archived: true })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(editSDKConnection).toHaveBeenCalledWith(
+      expect.anything(),
+      existing,
+      expect.objectContaining({ archived: true }),
+      { casOnDateUpdated: existing.dateUpdated ?? null },
+    );
   });
 
   it("checks for permission when updating sdk-connections", async () => {
@@ -554,12 +691,36 @@ describe("sdk-connections API", () => {
     expect(response.body).toEqual({ message: "permission error" });
   });
 
-  it("can delete sdk-connections", async () => {
+  it("can delete archived sdk-connections", async () => {
     const context = {
       org,
       permissions: { canDeleteSDKConnection: () => true },
     };
     setReqContext(context);
+
+    const existing = sdkConnectionFactory.build({
+      name: "my-connection",
+      environment: org.environments[0].id,
+      language: "javascript",
+      archived: true,
+    });
+
+    findSDKConnectionById.mockReturnValue(existing);
+
+    const response = await request(app)
+      .delete(`/api/v1/sdk-connections/${existing.id}`)
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(deleteSDKConnectionModel).toHaveBeenCalledWith(context, existing);
+    expect(response.body).toEqual({ deletedId: existing.id });
+  });
+
+  it("refuses to delete an sdk-connection that is not archived", async () => {
+    setReqContext({
+      org,
+      permissions: { canDeleteSDKConnection: () => true },
+    });
 
     const existing = sdkConnectionFactory.build({
       name: "my-connection",
@@ -573,9 +734,9 @@ describe("sdk-connections API", () => {
       .delete(`/api/v1/sdk-connections/${existing.id}`)
       .set("Authorization", "Bearer foo");
 
-    expect(response.status).toBe(200);
-    expect(deleteSDKConnectionModel).toHaveBeenCalledWith(context, existing);
-    expect(response.body).toEqual({ deletedId: existing.id });
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/Archive the SDK connection/);
+    expect(deleteSDKConnectionModel).not.toHaveBeenCalled();
   });
 
   it("checks for permissions when deleting sdk-connections", async () => {

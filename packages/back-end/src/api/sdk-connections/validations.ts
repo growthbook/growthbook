@@ -6,6 +6,7 @@ import {
 import { sdkLanguages } from "shared/constants";
 import {
   CreateSDKConnectionParams,
+  EditSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
@@ -41,7 +42,8 @@ type CreateSdkConnectionPayload = Omit<
   CreateSDKConnectionParams,
   "organization"
 >;
-type UpdateSdkConnectionPayload = Partial<CreateSdkConnectionPayload>;
+type UpdateSdkConnectionPayload = Partial<CreateSdkConnectionPayload> &
+  Pick<EditSDKConnectionParams, "archived">;
 
 interface CreateSdkConnectionRequestBody
   extends CapabilitiesParams,
@@ -65,6 +67,7 @@ interface CreateSdkConnectionRequestBody
   includeReferencedPrerequisites?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
+  archived?: boolean;
 }
 
 const premiumOverrides: {

@@ -1232,6 +1232,7 @@
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
+              "api/SdkConnectionApprovalRule_model",
               "api/Segment_model",
               "api/Settings_model",
               "api/Targeting Rule_model",

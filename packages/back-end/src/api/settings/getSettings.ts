@@ -4,6 +4,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   toApiRequireReviews,
   toApiSavedGroupApprovals,
+  toApiSdkConnectionApprovals,
 } from "./approvalRuleShapes";
 
 export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
@@ -32,8 +33,7 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
       savedGroups: toApiSavedGroupApprovals(
         req.context.org.settings?.approvalFlows?.savedGroups ?? [],
       ),
-      // Read back what the PUT accepts, so a round-trip doesn't drop rules.
-      sdkConnections: toApiSavedGroupApprovals(
+      sdkConnections: toApiSdkConnectionApprovals(
         req.context.org.settings?.approvalFlows?.sdkConnections ?? [],
       ),
     },

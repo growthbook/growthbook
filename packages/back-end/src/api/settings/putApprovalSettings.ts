@@ -11,6 +11,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   toApiRequireReviews,
   toApiSavedGroupApprovals,
+  toApiSdkConnectionApprovals,
 } from "./approvalRuleShapes";
 
 export const putApprovalSettings = createApiRequestHandler(
@@ -94,6 +95,9 @@ export const putApprovalSettings = createApiRequestHandler(
     approvalFlows: {
       savedGroups: toApiSavedGroupApprovals(
         stored.approvalFlows?.savedGroups ?? [],
+      ),
+      sdkConnections: toApiSdkConnectionApprovals(
+        stored.approvalFlows?.sdkConnections ?? [],
       ),
     },
     targetingReviewMode: stored.targetingReviewMode ?? [],

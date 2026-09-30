@@ -52,17 +52,35 @@ export const apiTargetingReviewRule = namedSchema(
     .strict(),
 );
 
+const approvalFlowRuleFields = {
+  required: z.boolean(),
+  projects: z.array(z.string()).optional(),
+  resetReviewOnChange: z.boolean().optional(),
+  requireMetadataReview: z.boolean().optional(),
+  blockSelfApproval: z.boolean().optional(),
+  autopublishOnApproval: z.boolean().optional(),
+  requiredApproverTeams: z.array(z.string()).optional(),
+};
+
 export const apiSavedGroupApprovalRule = namedSchema(
   "SavedGroupApprovalRule",
+  z.object(approvalFlowRuleFields).strict(),
+);
+
+// A connection serves exactly one environment, so its rules also scope by
+// environment. Its own schema so reads serialize `environments` rather than
+// dropping it through the saved-group pick list.
+export const apiSdkConnectionApprovalRule = namedSchema(
+  "SdkConnectionApprovalRule",
   z
     .object({
-      required: z.boolean(),
-      projects: z.array(z.string()).optional(),
-      resetReviewOnChange: z.boolean().optional(),
-      requireMetadataReview: z.boolean().optional(),
-      blockSelfApproval: z.boolean().optional(),
-      autopublishOnApproval: z.boolean().optional(),
-      requiredApproverTeams: z.array(z.string()).optional(),
+      ...approvalFlowRuleFields,
+      environments: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Environment IDs this rule applies to. Omitted or empty means every environment.",
+        ),
     })
     .strict(),
 );
@@ -70,15 +88,7 @@ export const apiSavedGroupApprovalRule = namedSchema(
 export const apiApprovalFlows = z
   .object({
     savedGroups: z.array(apiSavedGroupApprovalRule),
-    // SDK-connection rules additionally scope by environment, since a
-    // connection serves exactly one.
-    sdkConnections: z
-      .array(
-        apiSavedGroupApprovalRule.extend({
-          environments: z.array(z.string()).optional(),
-        }),
-      )
-      .optional(),
+    sdkConnections: z.array(apiSdkConnectionApprovalRule).optional(),
   })
   .strict();
 

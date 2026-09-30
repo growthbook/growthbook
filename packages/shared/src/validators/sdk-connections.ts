@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+  publishBypassedGatesField,
+} from "./shared";
 import { namedSchema } from "./openapi-helpers";
 import { payloadFormatValidator, webhookMethods } from "./webhooks";
 
@@ -76,6 +80,12 @@ export const apiSdkConnectionValidator = namedSchema(
           "How Saved Groups are written into this connection's payload. `referencesV2` needs an SDK version that supports it; the payload steps down to `referencesV1` if not.",
         ),
       includeReferencedPrerequisites: z.boolean().optional(),
+      archived: z
+        .boolean()
+        .optional()
+        .describe(
+          "An archived connection serves no payload. A connection must be archived before it can be deleted.",
+        ),
     })
     .strict(),
 );
@@ -245,7 +255,17 @@ const postSdkConnectionBody = z
   .strict();
 
 // Corresponds to payload-schemas/PutSdkConnectionPayload.yaml
-const putSdkConnectionBody = postSdkConnectionBody.partial();
+const putSdkConnectionBody = postSdkConnectionBody
+  .partial()
+  .extend({
+    archived: z
+      .boolean()
+      .optional()
+      .describe(
+        "Archive (true) or restore (false) the connection. Archiving takes the same authority as deleting it; restoring takes publish authority. A connection must be archived before it can be deleted.",
+      ),
+  })
+  .strict();
 
 const idParams = z
   .object({
@@ -317,9 +337,12 @@ export const putSdkConnectionValidator = {
   responseSchema: z
     .object({
       sdkConnection: apiSdkConnectionValidator,
+      bypassedGates: publishBypassedGatesField,
     })
     .strict(),
   summary: "Update a single sdk connection",
+  description:
+    "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's projects and environment, the request is refused unless the API key's role holds the `bypassApprovalSDKConnections` permission or the organization has enabled 'REST API always bypasses approval requirements'; open a draft from the SDK connection page instead. Set `archived` to archive or restore the connection.",
   operationId: "putSdkConnection",
   tags: ["sdk-connections"],
   method: "put" as const,
@@ -336,6 +359,8 @@ export const deleteSdkConnectionValidator = {
     })
     .strict(),
   summary: "Deletes a single SDK connection",
+  description:
+    "The connection must already be archived (`PUT /sdk-connections/{id}` with `archived: true`), so that taking an SDK offline is a reviewable step when the organization requires approvals. Deleting an archived connection needs no approval.",
   operationId: "deleteSdkConnection",
   tags: ["sdk-connections"],
   method: "delete" as const,

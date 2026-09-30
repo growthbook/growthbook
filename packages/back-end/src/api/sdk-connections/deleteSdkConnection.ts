@@ -5,8 +5,6 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
-import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 
 export const deleteSdkConnection = createApiRequestHandler(
   deleteSdkConnectionValidator,
@@ -20,26 +18,13 @@ export const deleteSdkConnection = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  // Same archive-before-delete rule the interactive route enforces: deleting a
-  // live connection takes an SDK offline with no staged, reviewable step.
+  // Archive-then-delete, as in the interactive route: the archive is the
+  // reviewable step, so the hard delete of an archived connection needs none.
   if (!sdkConnection.archived) {
-    throw new BadRequestError("Archive the SDK connection before deleting it.");
-  }
-
-  const adapter = getAdapter("sdk-connection");
-  if (adapter.isApprovalRequired(req.context)) {
-    const canBypass =
-      canUseRestApiBypassSetting(req) ||
-      req.context.permissions.canBypassSDKConnectionApprovalChecks({
-        projects: sdkConnection.projects,
-      });
-    if (!canBypass) {
-      throw new BadRequestError(
-        "This organization requires approvals on SDK connections. " +
-          "Archive and delete through a draft, or use an API key whose role " +
-          "holds the bypassApprovalSDKConnections permission.",
-      );
-    }
+    throw new BadRequestError(
+      "Archive the SDK connection before deleting it " +
+        "(PUT /sdk-connections/{id} with `archived: true`).",
+    );
   }
 
   await deleteSDKConnectionModel(req.context, sdkConnection);
