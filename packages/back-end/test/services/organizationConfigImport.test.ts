@@ -126,6 +126,35 @@ describe("organization config import", () => {
     );
   });
 
+  it("rejects a malformed projectRoles instead of dropping the override", async () => {
+    const config = {
+      organization: {
+        settings: {
+          defaultRole: {
+            role: "engineer",
+            limitAccessByEnvironment: false,
+            environments: [],
+            // Object instead of an array: must be rejected, not silently
+            // stripped into engineer-everywhere.
+            projectRoles: {
+              "restricted-project": {
+                project: "restricted-project",
+                role: "noaccess",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            },
+          },
+        },
+      },
+    } as unknown as ConfigFile;
+
+    await expect(
+      importConfig(getContextForAgendaJobByOrgObject(organization), config),
+    ).rejects.toThrow(/defaultRole/i);
+    expect(storedOrganization.settings?.defaultRole).toBeUndefined();
+  });
+
   it.each(["unknown", "staging"])(
     "rejects a default role referencing %s when absent from the imported environments",
     async (environment) => {

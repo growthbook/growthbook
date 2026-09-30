@@ -187,26 +187,30 @@ const ROLE_RULE_FIELDS = [
 export function pickDefaultRoleFields(
   defaultRole: MemberRoleWithProjects,
 ): MemberRoleWithProjects {
+  // Strip unknown keys from well-formed rules, but pass a malformed (non-array)
+  // role list through unchanged so schema validation rejects it instead of
+  // silently dropping the override.
   const pickRules = (rules: unknown) =>
-    Array.isArray(rules)
-      ? rules.map((r) => pick(r, ROLE_RULE_FIELDS))
-      : undefined;
+    Array.isArray(rules) ? rules.map((r) => pick(r, ROLE_RULE_FIELDS)) : rules;
+  const projectRoles = defaultRole.projectRoles as unknown;
   return {
     ...pick(defaultRole, ROLE_RULE_FIELDS),
     ...(defaultRole.additionalRoles
       ? { additionalRoles: pickRules(defaultRole.additionalRoles) }
       : {}),
-    ...(Array.isArray(defaultRole.projectRoles)
+    ...(defaultRole.projectRoles
       ? {
-          projectRoles: defaultRole.projectRoles.map((p) => ({
-            ...pick(p, [...ROLE_RULE_FIELDS, "project"]),
-            ...(p.additionalRoles
-              ? { additionalRoles: pickRules(p.additionalRoles) }
-              : {}),
-          })),
+          projectRoles: Array.isArray(projectRoles)
+            ? projectRoles.map((p) => ({
+                ...pick(p, [...ROLE_RULE_FIELDS, "project"]),
+                ...(p.additionalRoles
+                  ? { additionalRoles: pickRules(p.additionalRoles) }
+                  : {}),
+              }))
+            : projectRoles,
         }
       : {}),
-  };
+  } as MemberRoleWithProjects;
 }
 
 export function normalizeDefaultRole(
