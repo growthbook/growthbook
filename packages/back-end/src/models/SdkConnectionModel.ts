@@ -212,8 +212,21 @@ export async function findSDKConnectionsByIds(
   return docs.map(toInterface);
 }
 
+// Not org-scoped — authenticated callers must scope to their own org.
 export async function findSDKConnectionByKey(key: string) {
   const doc = await SDKConnectionModel.findOne({ key });
+  return doc ? toInterface(doc) : null;
+}
+
+// Org-scoped only; does not check project-read (unlike findSDKConnectionById).
+export async function findSDKConnectionByKeyForOrg(
+  context: ReqContext | ApiReqContext,
+  key: string,
+) {
+  const doc = await SDKConnectionModel.findOne({
+    organization: context.org.id,
+    key,
+  });
   return doc ? toInterface(doc) : null;
 }
 
