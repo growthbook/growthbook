@@ -10,6 +10,8 @@ import {
   getDefaultRole,
   pickDefaultRoleFields,
   assertDefaultRoleListsAreArrays,
+  withDefaultRoleDefaults,
+  pruneRoleEnvironments,
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
@@ -1348,10 +1350,20 @@ export async function sanitizeDefaultRoleUpdate(
   } catch (e) {
     throw new Error(`Invalid defaultRole: ${e.message}`);
   }
-  const submitted = pickDefaultRoleFields(defaultRole);
+  const clean = (role: MemberRoleWithProjects) =>
+    withDefaultRoleDefaults(pickDefaultRoleFields(role));
+  const submitted = clean(defaultRole);
   const stored = context.org.settings?.defaultRole;
-  if (stored && sameRoleValue(submitted, pickDefaultRoleFields(stored))) {
-    settings.defaultRole = getDefaultRole(context.org);
+  if (stored && sameRoleValue(submitted, clean(stored))) {
+    const validEnvironments = (
+      settings.environments ??
+      context.org.settings?.environments ??
+      []
+    ).map((e) => e.id);
+    settings.defaultRole = pruneRoleEnvironments(
+      getDefaultRole(context.org),
+      validEnvironments,
+    );
     return;
   }
   // Validate as submitted so unknown roles error instead of being dropped.

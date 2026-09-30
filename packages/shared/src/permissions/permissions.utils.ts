@@ -229,6 +229,61 @@ export function assertDefaultRoleListsAreArrays(
   }
 }
 
+// Maps a transform over every role rule (top level, additionalRoles, and each
+// projectRole plus its additionalRoles).
+function mapRoleRules(
+  defaultRole: MemberRoleWithProjects,
+  fn: <
+    T extends { limitAccessByEnvironment?: boolean; environments?: string[] },
+  >(
+    rule: T,
+  ) => T,
+): MemberRoleWithProjects {
+  return {
+    ...fn(defaultRole),
+    ...(defaultRole.additionalRoles
+      ? { additionalRoles: defaultRole.additionalRoles.map(fn) }
+      : {}),
+    ...(defaultRole.projectRoles
+      ? {
+          projectRoles: defaultRole.projectRoles.map((p) => ({
+            ...fn(p),
+            ...(p.additionalRoles
+              ? { additionalRoles: p.additionalRoles.map(fn) }
+              : {}),
+          })),
+        }
+      : {}),
+  };
+}
+
+// Legacy configs stored a role as just { role }; fill the required fields so it
+// still validates instead of failing the whole import.
+export function withDefaultRoleDefaults(
+  defaultRole: MemberRoleWithProjects,
+): MemberRoleWithProjects {
+  return mapRoleRules(defaultRole, (rule) => ({
+    ...rule,
+    limitAccessByEnvironment: rule.limitAccessByEnvironment ?? false,
+    environments: rule.environments ?? [],
+  }));
+}
+
+// Drops references to environments that won't exist after the write, so an
+// unchanged default role isn't left pointing at a removed environment.
+export function pruneRoleEnvironments(
+  defaultRole: MemberRoleWithProjects,
+  validEnvironments: string[],
+): MemberRoleWithProjects {
+  const valid = new Set(validEnvironments);
+  return mapRoleRules(defaultRole, (rule) => ({
+    ...rule,
+    ...(rule.environments
+      ? { environments: rule.environments.filter((e) => valid.has(e)) }
+      : {}),
+  }));
+}
+
 export function normalizeDefaultRole(
   defaultRole: MemberRoleWithProjects,
   org: Partial<OrganizationInterface>,

@@ -155,6 +155,44 @@ describe("organization config import", () => {
     expect(storedOrganization.settings?.defaultRole).toBeUndefined();
   });
 
+  it("fills defaults for a minimal legacy default role", async () => {
+    await importConfig(getContextForAgendaJobByOrgObject(organization), {
+      organization: { settings: { defaultRole: { role: "engineer" } } },
+    } as unknown as ConfigFile);
+
+    expect(storedOrganization.settings?.defaultRole).toEqual({
+      role: "engineer",
+      limitAccessByEnvironment: false,
+      environments: [],
+    });
+  });
+
+  it("prunes a default-role environment that the same import removes", async () => {
+    const org = cloneDeep(organization);
+    const defaultRole = {
+      role: "engineer",
+      limitAccessByEnvironment: true,
+      environments: ["production"],
+    };
+    org.settings = { ...org.settings, defaultRole };
+    storedOrganization = cloneDeep(org);
+
+    await importConfig(getContextForAgendaJobByOrgObject(org), {
+      organization: {
+        settings: {
+          environments: [{ id: "staging", description: "" }],
+          defaultRole,
+        },
+      },
+    });
+
+    expect(storedOrganization.settings?.defaultRole).toEqual({
+      role: "engineer",
+      limitAccessByEnvironment: true,
+      environments: [],
+    });
+  });
+
   it.each(["unknown", "staging"])(
     "rejects a default role referencing %s when absent from the imported environments",
     async (environment) => {
