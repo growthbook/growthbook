@@ -72,7 +72,10 @@ import {
 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
+import {
+  onContextualBanditVisualStateChanged,
+  refreshLinkedFeaturePayloads,
+} from "back-end/src/services/contextualBanditChanges";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -1295,11 +1298,7 @@ export async function executeContextualBanditVariationChange(
     ));
   }
 
-  await refreshLinkedFeaturePayloads(
-    context,
-    updated,
-    "contextualBandit.refresh",
-  );
+  updated = await onContextualBanditVisualStateChanged(context, updated);
 
   return {
     updated,

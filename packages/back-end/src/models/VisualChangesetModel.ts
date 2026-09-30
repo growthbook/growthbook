@@ -561,6 +561,11 @@ export const syncVisualChangesWithVariations = async ({
     return visualChange ? visualChange : genNewVisualChange(variation);
   });
 
+  const unchanged =
+    newVisualChanges.length === visualChanges.length &&
+    newVisualChanges.every((vc, i) => vc === visualChanges[i]);
+  if (unchanged) return;
+
   await updateVisualChangeset({
     context,
     visualChangeset: visualChangeset,

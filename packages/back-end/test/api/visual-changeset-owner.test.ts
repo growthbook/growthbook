@@ -114,26 +114,35 @@ const mockCbGetById = jest.fn();
 const mockCbUpdate = jest.fn();
 
 describe("visual changeset owner adapter", () => {
-  const { app, setReqContext } = setupApp();
+  const { app, auditMock, setReqContext } = setupApp();
 
-  const permissions = (grant: boolean) => ({
-    canUpdateVisualChange: () => grant,
-    canCreateVisualChange: () => grant,
-    canUpdateExperiment: () => grant,
-    canRunExperiment: () => grant,
-    canUpdateContextualBandit: () => grant,
-    canRunContextualBandit: () => grant,
-    throwPermissionError: () => {
-      throw new Error("permission error");
-    },
-  });
+  const permissions = (
+    grant: boolean,
+    overrides: Record<string, boolean> = {},
+  ) => {
+    const value = (name: string) => () => overrides[name] ?? grant;
+    return {
+      canUpdateVisualChange: value("canUpdateVisualChange"),
+      canCreateVisualChange: value("canCreateVisualChange"),
+      canUpdateExperiment: value("canUpdateExperiment"),
+      canRunExperiment: value("canRunExperiment"),
+      canUpdateContextualBandit: value("canUpdateContextualBandit"),
+      canRunContextualBandit: value("canRunContextualBandit"),
+      throwPermissionError: () => {
+        throw new Error("permission error");
+      },
+    };
+  };
 
-  const setContext = (grant = true) => {
+  const setContext = (
+    grant = true,
+    overrides: Record<string, boolean> = {},
+  ) => {
     setReqContext({
       org: ORG,
       organization: ORG,
       userId: "u_1",
-      permissions: permissions(grant),
+      permissions: permissions(grant, overrides),
       hasPremiumFeature: () => true,
       getAllProjectIds: async () => [],
       models: {
@@ -173,6 +182,10 @@ describe("visual changeset owner adapter", () => {
     const doc = await VisualChangesetModel.findOne({ id: CHANGESET_ID });
     return doc?.toJSON();
   };
+  const readTreatmentChange = async () =>
+    (await readChangeset()).visualChanges.find(
+      (vc: { variation: string }) => vc.variation === TREATMENT_ID,
+    );
 
   beforeEach(() => {
     setContext(true);
@@ -196,9 +209,7 @@ describe("visual changeset owner adapter", () => {
         )
         .send({ variation: TREATMENT_ID, css: "h1 { color: red; }" });
       expect(res.status).toBe(200);
-      expect((await readChangeset()).visualChanges[0].css).toBe(
-        "h1 { color: red; }",
-      );
+      expect((await readTreatmentChange()).css).toBe("h1 { color: red; }");
     });
 
     it("rejects a visual change save without update permission", async () => {
@@ -211,7 +222,7 @@ describe("visual changeset owner adapter", () => {
         .send({ variation: TREATMENT_ID, css: "h1 { color: red; }" });
       expect(res.status).not.toBe(200);
       expect(res.body.message).toMatch(/permission error/);
-      expect((await readChangeset()).visualChanges[0].css).toBe("");
+      expect((await readTreatmentChange()).css).toBe("");
     });
 
     it("rejects a visual change save on a stopped owner", async () => {
@@ -223,7 +234,7 @@ describe("visual changeset owner adapter", () => {
         )
         .send({ variation: TREATMENT_ID, css: "h1 { color: red; }" });
       expect(res.status).toBe(400);
-      expect((await readChangeset()).visualChanges[0].css).toBe("");
+      expect((await readTreatmentChange()).css).toBe("");
     });
 
     it("rejects a visual change save on an archived owner", async () => {
@@ -245,7 +256,67 @@ describe("visual changeset owner adapter", () => {
       expect(res.status).toBe(200);
       const saved = await readChangeset();
       expect(saved.visualChanges).toHaveLength(2);
-      expect(saved.visualChanges[1].variation).toBe(CONTROL_ID);
+      expect(
+        saved.visualChanges.find(
+          (vc: { variation: string }) => vc.variation === CONTROL_ID,
+        ).css,
+      ).toBe(".x { display: none; }");
+    });
+
+    it("rejects a live edit on a running owner without the opt-in", async () => {
+      await seedChangeset(owner);
+      owner.seedOwner({ status: "running" });
+      const res = await request(app)
+        .put(
+          `/api/v1/visual-changesets/${CHANGESET_ID}/visual-change/${VISUAL_CHANGE_ID}`,
+        )
+        .send({ variation: TREATMENT_ID, css: "h1 { color: red; }" });
+      expect(res.status).toBe(400);
+      expect((await readTreatmentChange()).css).toBe("");
+      expect(auditMock).not.toHaveBeenCalled();
+    });
+
+    it("accepts and audits a live edit on a running owner with the opt-in", async () => {
+      await seedChangeset(owner);
+      owner.seedOwner({ status: "running" });
+      const res = await request(app)
+        .put(
+          `/api/v1/visual-changesets/${CHANGESET_ID}/visual-change/${VISUAL_CHANGE_ID}`,
+        )
+        .send({
+          variation: TREATMENT_ID,
+          css: "h1 { color: red; }",
+          allowRunningExperiment: true,
+        });
+      expect(res.status).toBe(200);
+      expect((await readTreatmentChange()).css).toBe("h1 { color: red; }");
+      expect(auditMock).toHaveBeenCalledTimes(1);
+      const details = JSON.parse(auditMock.mock.calls[0][0].details);
+      expect(details.context).toMatchObject({
+        visualChangesetId: CHANGESET_ID,
+        liveVisualChangeEdit: true,
+      });
+    });
+
+    it("rejects a live edit with the opt-in but no run permission", async () => {
+      await seedChangeset(owner);
+      owner.seedOwner({ status: "running" });
+      setContext(true, {
+        canRunExperiment: false,
+        canRunContextualBandit: false,
+      });
+      const res = await request(app)
+        .put(
+          `/api/v1/visual-changesets/${CHANGESET_ID}/visual-change/${VISUAL_CHANGE_ID}`,
+        )
+        .send({
+          variation: TREATMENT_ID,
+          css: "h1 { color: red; }",
+          allowRunningExperiment: true,
+        });
+      expect(res.status).not.toBe(200);
+      expect(res.body.message).toMatch(/permission error/);
+      expect((await readTreatmentChange()).css).toBe("");
     });
 
     it("updates the changeset's url patterns", async () => {

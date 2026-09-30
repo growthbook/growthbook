@@ -460,6 +460,12 @@ export const apiContextualBanditPostVisualChangesetsValidator = {
           })
           .passthrough(),
       ),
+      allowRunningExperiment: z
+        .boolean()
+        .describe(
+          "Also accept the write when the contextual bandit is running. Off by default; when set, the changeset reaches live traffic immediately and the caller needs the runExperiments permission on the org's environments; the write is audited.",
+        )
+        .optional(),
     })
     .passthrough(),
   querySchema: z.never(),

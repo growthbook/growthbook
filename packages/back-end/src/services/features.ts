@@ -761,7 +761,8 @@ function generateCbVisualExperimentsPayload({
       savedGroups: cb.savedGroups,
     });
 
-    const cbVariations = cb.variations;
+    const cbVariations = getActiveVariations(cb.variations);
+    if (cbVariations.length === 0) return null;
 
     const variations = cbVariations.map((v) => {
       const match = visualChangeset.visualChanges.find(

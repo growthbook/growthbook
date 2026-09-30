@@ -25,7 +25,10 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
+import { onContextualBanditVisualStateChanged } from "back-end/src/services/contextualBanditChanges";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { getEnvironments } from "back-end/src/util/organization.util";
+import { logger } from "back-end/src/util/logger";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
@@ -489,16 +492,45 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   }
   requireWrite(
     req: WriteReq,
-    _opts: { allowRunning: boolean; visualChangesetId: string },
+    {
+      allowRunning,
+      visualChangesetId,
+    }: { allowRunning: boolean; visualChangesetId: string },
   ): () => Promise<void> {
-    if (this.archived || this.status === "stopped") {
+    const cb = this.cb;
+    if (cb.archived || cb.status === "stopped") {
       req.context.throwBadRequestError(
         `Only draft or running contextual bandits can have their visual changes edited (this contextual bandit is ${
-          this.archived ? "archived" : this.status
+          cb.archived ? "archived" : cb.status
         }).`,
       );
     }
-    return async () => {};
+    if (cb.status !== "running") return async () => {};
+    if (!allowRunning) {
+      req.context.throwBadRequestError(
+        "This contextual bandit is running, so its visual changes reach live traffic immediately. Confirm the live edit to save.",
+      );
+    }
+    const envs = getEnvironments(req.context.org).map((e) => e.id);
+    if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
+      req.context.permissions.throwPermissionError();
+    }
+    return () =>
+      req
+        .audit({
+          event: "contextualBandit.update",
+          entity: { object: "contextualBandit", id: cb.id },
+          details: auditDetailsUpdate(cb, cb, {
+            visualChangesetId,
+            liveVisualChangeEdit: true,
+          }),
+        })
+        .catch((err) =>
+          logger.error(
+            { err, contextualBanditId: cb.id, visualChangesetId },
+            "Failed to audit a live visual change edit",
+          ),
+        );
   }
 
   async setHasVisualChangesets(value: boolean): Promise<void> {
@@ -509,11 +541,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   }
 
   async refreshPayloads(): Promise<void> {
-    await refreshLinkedFeaturePayloads(
-      this.context,
-      this.cb,
-      "contextualBandit.refresh",
-    );
+    this.cb = await onContextualBanditVisualStateChanged(this.context, this.cb);
   }
 
   async rename(name: string): Promise<string> {

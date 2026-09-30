@@ -14,6 +14,7 @@ const ContextualBanditVisualChangesetModal: FC<{
     <VisualChangesetModal
       mode="add"
       createUrl={`/api/v1/contextual-bandits/${cb.id}/visual-changesets`}
+      allowRunningExperiment={cb.status === "running"}
       mutate={mutate}
       close={close}
       onCreate={onCreate}

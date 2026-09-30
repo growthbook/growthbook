@@ -254,7 +254,7 @@ const BaseClass = MakeModelClass({
             req.context.permissions.throwPermissionError();
           }
           const auditLiveEdit = owner.requireWrite(req, {
-            allowRunning: false,
+            allowRunning: !!req.body.allowRunningExperiment,
             visualChangesetId: "",
           });
 

@@ -19,6 +19,7 @@ const VisualChangesetModal: FC<{
   experiment?: ExperimentInterfaceStringDates;
   visualChangeset?: VisualChangesetInterface;
   createUrl?: string;
+  allowRunningExperiment?: boolean;
   mutate: () => void;
   close: () => void;
   onCreate?: (vc: VisualChangesetInterface) => void;
@@ -29,6 +30,7 @@ const VisualChangesetModal: FC<{
   experiment,
   visualChangeset,
   createUrl,
+  allowRunningExperiment,
   mutate,
   close,
   onCreate,
@@ -68,9 +70,14 @@ const VisualChangesetModal: FC<{
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const payload = {
+    const payload: {
+      editorUrl: string;
+      urlPatterns: typeof value.urlPatterns;
+      allowRunningExperiment?: boolean;
+    } = {
       editorUrl: value.editorUrl,
       urlPatterns: value.urlPatterns,
+      ...(allowRunningExperiment ? { allowRunningExperiment: true } : {}),
     };
     if (!showAdvanced) {
       payload.urlPatterns = [
