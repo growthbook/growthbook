@@ -90,6 +90,29 @@ describe("markRevisionAsPublished", () => {
     return doc?.status;
   }
 
+  it("records the merge when the draft is behind live", async () => {
+    const bob = { id: "fr_bob", type: "force", value: "b" };
+    const live = { ...feature, version: 2, rules: [bob] } as FeatureInterface;
+
+    await markRevisionAsPublished(
+      context,
+      live,
+      asRead(),
+      context.auditUser,
+      undefined,
+      { result: { rules: [bob] as never }, environmentIds: ["production"] },
+    );
+
+    const doc = await mongoose.connection
+      .collection("featurerevisions")
+      .findOne({ organization: ORG_ID, featureId: feature.id, version: 2 });
+    expect(doc).toMatchObject({
+      status: "published",
+      baseVersion: 2,
+      rules: [bob],
+    });
+  });
+
   it("publishes a revision it read unchanged, and returns the stamp that landed", async () => {
     const stamp = await markRevisionAsPublished(
       context,

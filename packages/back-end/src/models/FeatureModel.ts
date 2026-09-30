@@ -3789,6 +3789,13 @@ export async function prevalidatePublishRevision({
         revision,
         context.auditUser,
         comment,
+        {
+          result,
+          environmentIds: getApplicableEnvIds(
+            getEnvironments(context.org),
+            feature,
+          ),
+        },
       ),
     },
     original: revision,
@@ -4403,6 +4410,13 @@ async function publishRevisionInner({
       revision,
       context.auditUser,
       comment,
+      {
+        result,
+        environmentIds: getApplicableEnvIds(
+          getEnvironments(context.org),
+          feature,
+        ),
+      },
     );
     revisionStatusRewind = {
       what: "revision status",

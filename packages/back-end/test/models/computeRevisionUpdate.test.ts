@@ -610,6 +610,53 @@ describe("computeRevisionPublishChanges", () => {
 
     expect(changes.comment).toBe("original");
   });
+
+  const alice = { id: "fr_alice", type: "force", value: "a" };
+  const bob = { id: "fr_bob", type: "force", value: "b" };
+
+  it("rebases the record onto live when the draft is behind it", () => {
+    const live = {
+      ...FEATURE,
+      version: 2,
+      defaultValue: "live",
+      rules: [bob],
+      environmentSettings: { production: { enabled: true } },
+    } as unknown as FeatureInterface;
+
+    const changes = computeRevisionPublishChanges(
+      live,
+      makeRevision({ baseVersion: 1, rules: [alice] as never }),
+      user,
+      "",
+      {
+        result: { rules: [alice, bob] as never },
+        environmentIds: ["production"],
+      },
+    );
+
+    expect(changes).toMatchObject({
+      status: "published",
+      baseVersion: 2,
+      defaultValue: "live",
+      rules: [alice, bob],
+      environmentsEnabled: { production: true },
+    });
+  });
+
+  it("leaves the record alone when the draft is current", () => {
+    const live = { ...FEATURE, version: 1 } as unknown as FeatureInterface;
+
+    const changes = computeRevisionPublishChanges(
+      live,
+      makeRevision({ baseVersion: 1, rules: [alice] as never }),
+      user,
+      "",
+      { result: { rules: [alice] as never }, environmentIds: ["production"] },
+    );
+
+    expect(changes.baseVersion).toBeUndefined();
+    expect(changes.rules).toBeUndefined();
+  });
 });
 
 describe("computeRevisionUpdate revert marker", () => {

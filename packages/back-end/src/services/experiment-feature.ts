@@ -3,7 +3,6 @@ import {
   autoMerge,
   AutoMergeResult,
   evaluatePublishGovernance,
-  fillRevisionFromFeature,
   getMatchingRules,
   liveRevisionFromFeature,
   MatchingRule,
@@ -398,16 +397,21 @@ async function assessRevisionApprovalForAutoPublish(
   });
 }
 
-function mergeDraftForAutoPublish(
+export function mergeDraftForAutoPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   live: FeatureRevisionInterface,
   base: FeatureRevisionInterface,
 ): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
+  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+    feature,
+    live,
+    base,
+  );
   const mergeResult = autoMerge(
-    liveRevisionFromFeature(live, feature),
-    fillRevisionFromFeature(base, feature),
+    mergeLive,
+    mergeBase,
     revision,
     context.environments,
     {},
@@ -706,7 +710,6 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   const drafts = cb.pendingFeatureDrafts ?? [];
   if (!drafts.length) return { published: [], failed: [] };
 
-  const orgEnvIds = context.environments;
   const failed: PendingDraftFailure[] = [];
   const ready: ResolvedDraft[] = [];
   const cbModel = context.models.contextualBandits;
@@ -747,14 +750,20 @@ export async function publishPendingFeatureDraftsForContextualBandit(
       feature,
       revision,
     });
+    const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
+      context,
+      feature,
+      revision,
+      live,
+      base,
+    );
     const approval = await assessRevisionApprovalForAutoPublish(
       context,
       feature,
       revision,
       live,
       base,
-      mergeDraftForAutoPublish(context, feature, revision, live, base)
-        .mergeResult,
+      mergeResult,
     );
     if (!approval.satisfied) {
       logger.warn(
@@ -771,6 +780,14 @@ export async function publishPendingFeatureDraftsForContextualBandit(
         "Cannot auto-publish pending feature draft: approval requirements not met",
       );
       failed.push({ featureId, revisionVersion, reason: "needs-approval" });
+      continue;
+    }
+    if (rebaseRequired) {
+      logger.warn(
+        { contextualBanditId: cb.id, featureId, revisionVersion },
+        "Cannot auto-publish pending feature draft: rebase with live required before publishing",
+      );
+      failed.push({ featureId, revisionVersion, reason: "needs-rebase" });
       continue;
     }
 
@@ -812,18 +829,21 @@ export async function publishPendingFeatureDraftsForContextualBandit(
       feature,
       revision,
     });
-    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+    const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
+      context,
       feature,
+      revision,
       live,
       base,
     );
-    const mergeResult = autoMerge(
-      mergeLive,
-      mergeBase,
-      revision,
-      orgEnvIds,
-      {},
-    );
+    if (rebaseRequired) {
+      logger.warn(
+        { contextualBanditId: cb.id, featureId, revisionVersion },
+        "Cannot auto-publish pending feature draft: rebase with live required after an earlier publish advanced the feature",
+      );
+      failed.push({ featureId, revisionVersion, reason: "needs-rebase" });
+      break;
+    }
     if (!mergeResult.success) {
       logger.warn(
         {

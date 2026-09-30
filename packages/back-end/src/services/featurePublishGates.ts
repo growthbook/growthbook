@@ -592,6 +592,7 @@ export async function collectFeaturePublishGates({
         revision,
         publisher ?? context.auditUser,
         comment ?? "",
+        { result: plan.mergeResult, environmentIds: plan.environmentIds },
       ),
     },
     original: revision,

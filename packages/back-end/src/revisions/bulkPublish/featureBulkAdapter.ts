@@ -110,6 +110,11 @@ import type {
 const detachKey = (d: RevisionRampDetachAction) =>
   `${d.rampScheduleId}:${d.ruleId}`;
 
+const publishRebase = (desired: FeatureDesiredState) => ({
+  result: desired.plan.mergeResult,
+  environmentIds: desired.plan.environmentIds,
+});
+
 type FeatureDesiredState = {
   mergeResult: MergeResultChanges;
   plan: FeatureMergePlan;
@@ -413,18 +418,27 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     return gates;
   },
 
-  async claim(context, revision, baseline, { comment, entityPreImage }) {
-    const { claimed, claimStamp } = await claimFeatureRevisionAsPublished(
-      entityPreImage as unknown as FeatureInterface,
-      rawRevision(revision),
-      context.auditUser,
-      {
-        status: baseline.revisionStatus,
-        dateUpdated: baseline.revisionDateUpdated,
-      },
-      comment,
-    );
+  async claim(
+    context,
+    revision,
+    baseline,
+    { comment, entityPreImage, desiredState },
+  ) {
+    const desired = desiredState as unknown as FeatureDesiredState;
+    const { claimed, claimStamp, changes } =
+      await claimFeatureRevisionAsPublished(
+        entityPreImage as unknown as FeatureInterface,
+        rawRevision(revision),
+        context.auditUser,
+        {
+          status: baseline.revisionStatus,
+          dateUpdated: baseline.revisionDateUpdated,
+        },
+        comment,
+        publishRebase(desired),
+      );
     revision.claimStamp = claimStamp;
+    revision.claimChanges = changes;
     return claimed;
   },
 
@@ -867,6 +881,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       context,
       raw,
       context.auditUser,
+      revision.claimChanges
+        ? { changes: revision.claimChanges, rebase: publishRebase(desired) }
+        : undefined,
     );
     const finalRevision = await getPublishedRevisionForEvents(
       context,

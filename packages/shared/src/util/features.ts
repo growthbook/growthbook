@@ -9,6 +9,7 @@ import {
   ContextualBanditRefRule,
   ExperimentRefRule,
   RevisionMetadata,
+  RevisionChanges,
   ApiFeature,
 } from "shared/validators";
 import {
@@ -2144,6 +2145,73 @@ export function pruneOrphanedRampActions<T extends { ruleId?: string }>(
     }
   }
   return { kept, pruned };
+}
+
+export type RebasedRevisionChanges = Required<
+  Pick<
+    RevisionChanges,
+    | "baseVersion"
+    | "defaultValue"
+    | "rules"
+    | "environmentsEnabled"
+    | "prerequisites"
+    | "archived"
+    | "metadata"
+    | "holdout"
+  >
+> &
+  Pick<RevisionChanges, "rampActions">;
+
+// A draft re-expressed on top of live, the way a rebase records it: every field
+// filled from the live feature, the merge result on top, and ramp actions whose
+// rule the merge dropped pruned. `logValue` is what the rebase log entry holds.
+export function rebasedRevisionChanges({
+  feature,
+  revision,
+  liveVersion,
+  result,
+  environmentIds,
+}: {
+  feature: FeatureInterface;
+  revision: Pick<FeatureRevisionInterface, "rampActions">;
+  liveVersion: number;
+  result: MergeResultChanges;
+  environmentIds: string[];
+}): { changes: RebasedRevisionChanges; logValue: string } {
+  const rules = result.rules ?? feature.rules ?? [];
+  const environmentsEnabled: Record<string, boolean> = {};
+  environmentIds.forEach((env) => {
+    environmentsEnabled[env] =
+      result.environmentsEnabled?.[env] ??
+      feature.environmentSettings?.[env]?.enabled ??
+      false;
+  });
+  const liveMetadata = featureMetadataEnvelope(feature);
+  const { kept, pruned } = pruneOrphanedRampActions(
+    revision.rampActions,
+    rules,
+  );
+  return {
+    changes: {
+      baseVersion: liveVersion,
+      defaultValue: result.defaultValue ?? feature.defaultValue,
+      rules,
+      environmentsEnabled,
+      prerequisites: result.prerequisites ?? feature.prerequisites ?? [],
+      archived: result.archived ?? feature.archived ?? false,
+      metadata: result.metadata
+        ? { ...liveMetadata, ...result.metadata }
+        : liveMetadata,
+      holdout:
+        "holdout" in result
+          ? (result.holdout ?? null)
+          : (feature.holdout ?? null),
+      ...(pruned.length > 0 ? { rampActions: kept } : {}),
+    },
+    logValue: JSON.stringify(
+      pruned.length > 0 ? { ...result, prunedRampActions: pruned } : result,
+    ),
+  };
 }
 
 export function autoMerge(

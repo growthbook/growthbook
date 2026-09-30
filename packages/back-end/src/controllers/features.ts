@@ -26,7 +26,6 @@ import {
   checkIfRevisionNeedsReview,
   draftRevertedFromVersion,
   evaluatePublishGovernance,
-  featureMetadataEnvelope,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
@@ -49,10 +48,10 @@ import {
   namespacesToMap,
   normalizeTargetingInUpdates,
   normalizeTargetingProjects,
-  pruneOrphanedRampActions,
   reconcileMergeBaselines,
   computeFeatureHealth,
   FeatureHealthStateEntry,
+  rebasedRevisionChanges,
 } from "shared/util";
 import {
   statusFromStandingVerdicts,
@@ -1147,58 +1146,23 @@ export async function postFeatureRebase(
     context.permissions.throwPermissionError();
   }
 
-  const newRules: FeatureRule[] =
-    mergeResult.result.rules ?? feature.rules ?? [];
-  const newEnvironmentsEnabled: Record<string, boolean> = {};
-  environmentIds.forEach((env) => {
-    newEnvironmentsEnabled[env] =
-      mergeResult.result.environmentsEnabled?.[env] ??
-      feature.environmentSettings?.[env]?.enabled ??
-      false;
+  const { changes: rebaseChanges, logValue } = rebasedRevisionChanges({
+    feature,
+    revision,
+    liveVersion: live.version,
+    result: mergeResult.result,
+    environmentIds,
   });
-
-  // Build complete metadata snapshot: start from live feature, overlay any
-  // metadata fields the merge result explicitly changed.
-  const featureMetadataSnapshot: RevisionMetadata =
-    featureMetadataEnvelope(feature);
-  const newMetadata: RevisionMetadata = mergeResult.result.metadata
-    ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
-    : featureMetadataSnapshot;
-
-  // The merge can drop a rule that a pending ramp action targets (e.g. live
-  // deleted it). Prune those orphaned actions rather than carrying dead
-  // intent forward; the prune is recorded in the rebase log entry below.
-  const { kept: keptRampActions, pruned: prunedRampActions } =
-    pruneOrphanedRampActions(revision.rampActions, newRules);
-
   await updateRevision(
     context,
     feature,
     revision,
-    {
-      baseVersion: live.version,
-      defaultValue: mergeResult.result.defaultValue ?? feature.defaultValue,
-      rules: newRules,
-      environmentsEnabled: newEnvironmentsEnabled,
-      prerequisites:
-        mergeResult.result.prerequisites ?? feature.prerequisites ?? [],
-      archived: mergeResult.result.archived ?? feature.archived ?? false,
-      metadata: newMetadata,
-      holdout:
-        "holdout" in mergeResult.result
-          ? mergeResult.result.holdout
-          : (feature.holdout ?? null),
-      ...(prunedRampActions.length > 0 ? { rampActions: keptRampActions } : {}),
-    },
+    rebaseChanges,
     {
       user: res.locals.eventAudit,
       action: "rebase",
       subject: `on top of revision #${live.version}`,
-      value: JSON.stringify(
-        prunedRampActions.length > 0
-          ? { ...mergeResult.result, prunedRampActions }
-          : mergeResult.result,
-      ),
+      value: logValue,
     },
     // Rebase is permitted while a "lock edits" schedule is active.
     { bypassScheduleLock: true, rebase: { live, merged: mergeResult.result } },

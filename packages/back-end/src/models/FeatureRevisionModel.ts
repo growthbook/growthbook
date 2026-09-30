@@ -11,6 +11,7 @@ import {
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
   MergeResultChanges,
+  rebasedRevisionChanges,
 } from "shared/util";
 import {
   FeatureInterface,
@@ -1651,14 +1652,34 @@ export async function updateRevision(
 }
 
 // Pure computation of the changes markRevisionAsPublished() will validate and persist
+// The merge a publish lands, so the published record can hold it.
+export type PublishRebase = {
+  result: MergeResultChanges;
+  environmentIds: string[];
+};
+
 export function computeRevisionPublishChanges(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
+  rebase?: PublishRebase,
 ): Partial<FeatureRevisionInterface> {
+  // A draft behind live publishes its merge with live, so the record is
+  // rebased onto live the way a manual rebase would have written it.
+  const rebased =
+    rebase && revision.baseVersion !== feature.version
+      ? rebasedRevisionChanges({
+          feature,
+          revision,
+          liveVersion: feature.version,
+          result: rebase.result,
+          environmentIds: rebase.environmentIds,
+        }).changes
+      : null;
   return {
-    ...getFeatureRevisionValueUpdatesForPublish(feature, revision),
+    ...rebased,
+    ...getFeatureRevisionValueUpdatesForPublish(feature, rebased ?? revision),
     status: "published",
     publishedBy: user,
     datePublished: new Date(),
@@ -1676,6 +1697,7 @@ export async function markRevisionAsPublished(
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
+  rebase?: PublishRebase,
 ): Promise<Date | null> {
   // "re-publish" only applies to a revision that was already live; publishing
   // an approved (or otherwise in-flight) draft for the first time is a "publish".
@@ -1686,6 +1708,7 @@ export async function markRevisionAsPublished(
     revision,
     user,
     comment,
+    rebase,
   );
 
   await runValidateFeatureRevisionHooks({
@@ -1713,6 +1736,7 @@ export async function markRevisionAsPublished(
     );
   }
 
+  logRebaseAtPublish(context, revision, changes, user, rebase);
   // Fire and forget - no route that marks the revision as published expects the log to be there immediately
   // Note: no comment in the payload — publish events are plain lifecycle
   // markers. Any publish-time comment only feeds the revision description
@@ -1733,6 +1757,39 @@ export async function markRevisionAsPublished(
   await dispatchRevisionPublishedHook(context, revision);
 
   return claimStamp;
+}
+
+// The rebase a publish performed on a draft behind live, logged ahead of the
+// publish entry the way a manual rebase is.
+export function logRebaseAtPublish(
+  context: ReqContext | ApiReqContext,
+  revision: Pick<
+    FeatureRevisionInterface,
+    "featureId" | "version" | "baseVersion"
+  >,
+  changes: Pick<Partial<FeatureRevisionInterface>, "baseVersion">,
+  user: EventUser,
+  rebase?: PublishRebase,
+): void {
+  if (
+    !rebase ||
+    changes.baseVersion === undefined ||
+    changes.baseVersion === revision.baseVersion
+  ) {
+    return;
+  }
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "rebase",
+      subject: `on top of revision #${changes.baseVersion} at publish`,
+      user,
+      value: JSON.stringify(rebase.result),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog");
+    });
 }
 
 // The guarded publish transition, shared by every path that claims one: single
@@ -1803,12 +1860,23 @@ export async function claimFeatureRevisionAsPublished(
   user: EventUser,
   expected: { status: string; dateUpdated: Date },
   comment?: string,
-): Promise<{ claimed: boolean; claimStamp: Date | null }> {
-  return applyRevisionPublishClaim(
+  rebase?: PublishRebase,
+): Promise<{
+  claimed: boolean;
+  claimStamp: Date | null;
+  changes: Partial<FeatureRevisionInterface>;
+}> {
+  const changes = computeRevisionPublishChanges(
+    feature,
     revision,
-    computeRevisionPublishChanges(feature, revision, user, comment),
-    expected,
+    user,
+    comment,
+    rebase,
   );
+  return {
+    ...(await applyRevisionPublishClaim(revision, changes, expected)),
+    changes,
+  };
 }
 
 // Compensation for a failed bulk publish: put a claimed revision back to its
@@ -1890,8 +1958,21 @@ export async function emitFeatureRevisionPublishedSideEffects(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   user: EventUser,
+  rebasedOnto?: {
+    changes: Partial<FeatureRevisionInterface>;
+    rebase: PublishRebase;
+  },
 ): Promise<void> {
   const action = revision.status === "published" ? "re-publish" : "publish";
+  if (rebasedOnto) {
+    logRebaseAtPublish(
+      context,
+      revision,
+      rebasedOnto.changes,
+      user,
+      rebasedOnto.rebase,
+    );
+  }
   context.models.featureRevisionLogs
     .create({
       featureId: revision.featureId,
