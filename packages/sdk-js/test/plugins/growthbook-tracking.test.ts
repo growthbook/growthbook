@@ -200,7 +200,7 @@ describe("growthbookTrackingPlugin", () => {
     gb.destroy();
   });
 
-  it("Skips logging duplicate Feature Evaluted events", async () => {
+  it("Skips logging duplicate Feature Evaluated events", async () => {
     const plugin = growthbookTrackingPlugin();
 
     const gb = new GrowthBook({
@@ -212,7 +212,7 @@ describe("growthbookTrackingPlugin", () => {
       },
     });
 
-    // Skips feature evalutead events with the same properties
+    // Skips feature evaluated events with the same properties
     gb.logEvent(EVENT_FEATURE_EVALUATED, { foo: "bar" });
     gb.logEvent(EVENT_FEATURE_EVALUATED, { foo: "bar" });
     gb.logEvent(EVENT_FEATURE_EVALUATED, { foo: "baz" });

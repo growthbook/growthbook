@@ -291,7 +291,10 @@ import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
-import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import {
+  assertCanPublishPendingFeatureDrafts,
+  getChangesToStartExperiment,
+} from "back-end/src/services/experiments";
 import {
   approveScheduledExperimentStart,
   validateExperimentChange,
@@ -1391,7 +1394,7 @@ export async function postFeatureRequestReview(
     context.permissions.throwPermissionError();
   }
   if (revision.status !== "draft") {
-    throw new Error("Can only request review if is a draft");
+    throw new Error("Can only request review if it is a draft");
   }
   const enableAutoPublish =
     !!autoPublishOnApproval &&
@@ -1554,7 +1557,7 @@ export async function postFeatureReviewOrComment(
   }
 
   if (createdByUser?.id === context.userId && review !== "Comment") {
-    throw Error("cannot submit a review for your self");
+    throw Error("cannot submit a review for yourself");
   }
 
   // Block contributors from self-approving when the org setting is enabled.
@@ -2577,6 +2580,7 @@ export async function postFeaturePublish(
       ) {
         context.permissions.throwPermissionError();
       }
+      await assertCanPublishPendingFeatureDrafts(context, experiment);
     }
 
     // Pre-flight: check for merge conflicts in OTHER pending feature drafts
@@ -5804,7 +5808,7 @@ export async function putFeature(
 
   // FIXME: We skip validation because project is updated in a different place than where
   // we define custom fields, and that would prevent the user from doing either update.
-  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
+  // Ideally we validate custom fields every time, but we need to update our UI to support that.
   if (
     shouldValidateCustomFieldsOnUpdate({
       existingCustomFieldValues: feature.customFields,

@@ -456,9 +456,9 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
-  // User who staged it; the job runs the change on their authority, as the
-  // scheduled feature publish runs on its arming user's. Absent for org keys.
+  // Who armed it, a user or an org API key; the job fires and audits as them.
   scheduledBy: z.string().optional(),
+  scheduledByApiKey: z.string().optional(),
 });
 
 export const experimentInterface = z
@@ -1780,7 +1780,7 @@ const postExperimentStartBody = z
     skipChecklist: z
       .boolean()
       .describe(
-        "If true, skips validating the experiment satisifies all pre-launch checklist items",
+        "If true, skips validating the experiment satisfies all pre-launch checklist items",
       )
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
@@ -2295,7 +2295,7 @@ export const postExperimentSnapshotValidator = {
       triggeredBy: z
         .enum(["manual", "schedule"])
         .describe(
-          'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
+          'Set to "schedule" if you want this request to trigger notifications and other events as if it were a scheduled update. Defaults to manual.',
         )
         .optional(),
       dimension: z

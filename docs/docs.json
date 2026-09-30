@@ -133,9 +133,11 @@
                       "event-trackers/heap",
                       "event-trackers/jitsu",
                       "event-trackers/keenio",
+                      "event-trackers/langfuse",
                       "guide/matomo",
                       "guide/mixpanel",
                       "event-trackers/mparticle",
+                      "event-trackers/phoenix",
                       "guide/rudderstack",
                       "event-trackers/segment",
                       "event-trackers/snowplow",
@@ -290,6 +292,7 @@
                     "group": "AI Agents",
                     "root": "integrations/ai-agents",
                     "pages": [
+                      "integrations/ai-agents/wizard",
                       "integrations/mcp",
                       "integrations/ai-agents/agent-skills"
                     ]
@@ -305,7 +308,8 @@
                   "tools/cli",
                   "integrations/clarity",
                   "integrations/jira",
-                  "integrations/ai"
+                  "integrations/ai",
+                  "integrations/llm-tracing"
                 ]
               },
               {

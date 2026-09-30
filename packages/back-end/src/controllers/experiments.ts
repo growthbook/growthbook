@@ -507,7 +507,7 @@ export async function postSimilarExperiments(
       includeArchived: false,
     },
   );
-  // filter to only experiments that have hypothesises, and enough words to make a good search:
+  // filter to only experiments that have hypotheses, and enough words to make a good search:
   const filteredPreviousExps = previousExperiments.filter((e) => {
     const words =
       (e.hypothesis || "").split(" ").length + (e.name || "").split(" ").length;
@@ -1619,7 +1619,7 @@ export async function postExperiment(
 
   // FIXME: We skip validation because project is updated in a different place than where
   // we define custom fields, and that would prevent the user from doing either update.
-  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
+  // Ideally we validate custom fields every time, but we need to update our UI to support that.
   if (
     shouldValidateCustomFieldsOnUpdate({
       existingCustomFieldValues: experiment.customFields,
@@ -1961,11 +1961,7 @@ export async function postExperiment(
     }
   });
 
-  normalizeStatusUpdateScheduleChanges(
-    experiment,
-    changes,
-    context.userId || undefined,
-  );
+  normalizeStatusUpdateScheduleChanges(experiment, changes, context);
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.
@@ -4362,7 +4358,7 @@ export async function postExperimentFeatureValues(
         {},
       );
 
-      // This should never happen since we only allow auto-publising new revisions, but guard against it just in case
+      // This should never happen since we only allow auto-publishing new revisions, but guard against it just in case
       if (!mergeResult.success) {
         res.status(400).json({
           status: 400,
