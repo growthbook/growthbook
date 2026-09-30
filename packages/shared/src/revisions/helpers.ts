@@ -856,6 +856,18 @@ export function coauthorIds(
   return (contributors ?? []).filter((id) => !!id && id !== authorId);
 }
 
+// A live connection stores `false` / `""` / `[]` where a snapshot built
+// elsewhere (REST) may omit the field; neither is a settings change.
+const isAbsentSdkSetting = (value: unknown): boolean =>
+  value === undefined ||
+  value === null ||
+  value === false ||
+  value === "" ||
+  (Array.isArray(value) && value.length === 0);
+
+const sdkSettingsFieldEqual = (a: unknown, b: unknown): boolean =>
+  isEqual(a, b) || (isAbsentSdkSetting(a) && isAbsentSdkSetting(b));
+
 /**
  * Returns true when the only change in the revision is the SDK-connection
  * display name (the sole "metadata" field). Almost every other field affects
@@ -905,10 +917,10 @@ export const isSdkConnectionRevisionMetadataOnly = (
   const allKeys = new Set([...Object.keys(proposed), ...Object.keys(baseline)]);
   for (const key of allKeys) {
     if (skipKeys.has(key)) continue;
-    if (!isEqual(proposed[key], baseline[key])) return false;
+    if (!sdkSettingsFieldEqual(proposed[key], baseline[key])) return false;
   }
   // Require the name to have actually changed (otherwise zero real changes).
-  return !isEqual(proposed["name"], baseline["name"]);
+  return !sdkSettingsFieldEqual(proposed["name"], baseline["name"]);
 };
 
 // ---------------------------------------------------------------------------

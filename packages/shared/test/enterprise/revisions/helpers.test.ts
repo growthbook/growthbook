@@ -16,6 +16,7 @@ import {
   isAutopublishOnApprovalEnabled,
   isSavedGroupRevisionMetadataOnly,
   isConstantRevisionMetadataOnly,
+  isSdkConnectionRevisionMetadataOnly,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -1028,6 +1029,100 @@ describe("revisions helpers", () => {
           { op: "replace", path: "/name", value: "v2" },
           { op: "replace", path: "/value", value: "v" },
         ]),
+      ).toBe(false);
+    });
+  });
+
+  describe("isSdkConnectionRevisionMetadataOnly", () => {
+    const baseline = {
+      sdkConnection: {
+        name: "Prod",
+        environment: "production",
+        projects: [] as string[],
+        encryptPayload: false,
+        proxyHost: "",
+      },
+      sdkWebhooks: [],
+    };
+    const replaceSettings = (
+      value: Record<string, unknown>,
+    ): JsonPatchOperation[] => [
+      { op: "replace", path: "/sdkConnection", value },
+    ];
+
+    it("returns false without a baseline snapshot", () => {
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({ ...baseline.sdkConnection, name: "Renamed" }),
+        ),
+      ).toBe(false);
+    });
+
+    it("returns true for a name-only change", () => {
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({ ...baseline.sdkConnection, name: "Renamed" }),
+          baseline,
+        ),
+      ).toBe(true);
+    });
+
+    it("treats false / empty string / empty array as equal to absent", () => {
+      // A draft built elsewhere (REST) omits fields the live connection
+      // stores as `false`, `""` or `[]`.
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({ name: "Renamed", environment: "production" }),
+          baseline,
+        ),
+      ).toBe(true);
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({
+            ...baseline.sdkConnection,
+            name: "Renamed",
+            encryptPayload: null,
+            proxyHost: undefined,
+          }),
+          baseline,
+        ),
+      ).toBe(true);
+    });
+
+    it("returns false when a setting really changes alongside the name", () => {
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({
+            ...baseline.sdkConnection,
+            name: "Renamed",
+            encryptPayload: true,
+          }),
+          baseline,
+        ),
+      ).toBe(false);
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({ ...baseline.sdkConnection, projects: ["p1"] }),
+          baseline,
+        ),
+      ).toBe(false);
+    });
+
+    it("returns false when nothing changed or a webhook op is present", () => {
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({ ...baseline.sdkConnection }),
+          baseline,
+        ),
+      ).toBe(false);
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          [
+            ...replaceSettings({ ...baseline.sdkConnection, name: "Renamed" }),
+            { op: "replace", path: "/sdkWebhooks", value: [] },
+          ],
+          baseline,
+        ),
       ).toBe(false);
     });
   });

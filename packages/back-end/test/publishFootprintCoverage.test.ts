@@ -6,6 +6,7 @@ const ATOM_SUFFIX: Record<string, string> = {
   "saved-group": "SavedGroups",
   constant: "Constants",
   config: "Configs",
+  "sdk-connection": "SDKConnections",
 };
 
 describe("publish footprint covers every environment-scoped family", () => {

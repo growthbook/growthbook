@@ -174,11 +174,8 @@ export function canCommentOnRevision(
   context: Context,
   snapshot: Record<string, unknown>,
 ): boolean {
-  const projects =
-    (snapshot.projects as string[] | undefined) ??
-    (snapshot.project ? [snapshot.project as string] : []);
   return (
-    context.permissions.canAddComment(projects) ||
+    context.permissions.canAddComment(entityProjects(snapshot)) ||
     canDoRevisionAction(type, "draft", context, snapshot) ||
     canDoRevisionAction(type, "review", context, snapshot, null)
   );
@@ -657,16 +654,8 @@ export function revisionApprovalsCoverChange(
   revision: Revision,
 ): { hasCoveringApproval: boolean; uncoveredApprovers: string[] } {
   const environments = reviewFootprintFor(context, revision);
-  const snapshot = revision.target.snapshot as {
-    project?: string;
-    projects?: string[];
-  };
   // Authority over a multi-project entity is the intersection, not the first.
-  const projects = snapshot.projects?.length
-    ? snapshot.projects
-    : snapshot.project
-      ? [snapshot.project]
-      : [];
+  const projects = entityProjects(revision.target.snapshot);
   return assessApprovalCoverage({
     org: context.org,
     teams: context.teams ?? [],
