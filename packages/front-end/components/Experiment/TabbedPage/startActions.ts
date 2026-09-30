@@ -12,27 +12,35 @@ export function getStartSchedule(
   return scheduledStartAt > now ? "future" : "past";
 }
 
-/**
- * The review's title, which also labels the buttons that open it: starting a
- * draft, or publishing a running one's value changes.
- */
+/** The review's title: a draft's variation values, or a running one's changes to them. */
 export function getExperimentReviewTitle(
+  experiment: Pick<ExperimentInterfaceStringDates, "status">,
+): string {
+  return experiment.status === "draft"
+    ? "Review variation values"
+    : "Review & publish value changes";
+}
+
+/** The start popover's title: starting now, or approving a future start. */
+export function getStartTitle(
   experiment: Pick<
     ExperimentInterfaceStringDates,
-    "type" | "status" | "statusUpdateSchedule" | "nextScheduledStatusUpdate"
+    "type" | "statusUpdateSchedule" | "nextScheduledStatusUpdate"
   >,
   now: Date,
 ): string {
-  if (experiment.status !== "draft") return "Review & publish value changes";
-  // Bandit is a named resource; experiment is a common noun.
-  const noun =
-    experiment.type === "multi-armed-bandit" ? "Bandit" : "experiment";
   const startAt = experiment.statusUpdateSchedule?.startAt;
   const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
-  return !startApproved &&
+  if (
+    !startApproved &&
     getStartSchedule(startAt ? new Date(startAt) : null, now) === "future"
-    ? `Review & schedule ${noun}`
-    : `Review & start ${noun}`;
+  ) {
+    return "Approve scheduled start";
+  }
+  // Bandit is a named resource; experiment is a common noun.
+  return experiment.type === "multi-armed-bandit"
+    ? "Start Bandit"
+    : "Start experiment";
 }
 
 export type StartChecklist = {

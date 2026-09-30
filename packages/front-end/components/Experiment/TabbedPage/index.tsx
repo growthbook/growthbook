@@ -5,7 +5,6 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined } from "shared/util";
-import { isInReviewCycle } from "shared/enterprise";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -14,7 +13,7 @@ import { DifferenceType } from "shared/types/stats";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -34,25 +33,16 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useAuth } from "@/services/auth";
-import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
-import Button from "@/ui/Button";
-import Tooltip from "@/ui/Tooltip";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
-import {
-  revisionStatusColor,
-  revisionStatusLabel,
-} from "@/components/Reviews/RevisionStatusBadge";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
@@ -64,12 +54,14 @@ import {
 } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { ManagedFlagRenameProvider } from "@/components/Experiment/ManagedFlagRename";
-import { draftApprovalSatisfied } from "@/components/Experiment/LinkedChanges/useManagedFlagReview";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
 import useExperimentReviewRoute from "./useExperimentReviewRoute";
 import useStartExperiment from "./useStartExperiment";
-import ExperimentReview, { scrollToReviewCard } from "./ExperimentReview";
+import ExperimentReview from "./ExperimentReview";
+import ValuesReviewBanner from "./ValuesReviewBanner";
+import ValuesDraftBanner, { VALUES_DRAFT_BANNER_ID } from "./ValuesDraftBanner";
+import { hasValuesReview } from "./valuesBanner";
 import ExperimentDetailsPanel, {
   DetailsPanelTab,
 } from "./ExperimentDetailsPanel";
@@ -78,7 +70,6 @@ import {
   experimentFieldChanges,
   HoldoutDraft,
   ImplementationTypeDraft,
-  useEditsBlockedReason,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 import UnsavedEditsBar from "./UnsavedEditsBar";
@@ -253,62 +244,11 @@ function TabbedPageContents({
   const managedFlagWithDraft = managedFeature?.pendingDraft
     ? managedFeature
     : null;
-  const managedDraft = managedFlagWithDraft?.pendingDraft;
-  const managedApprovalBlocking =
-    !!managedDraft?.pendingApproval && !draftApprovalSatisfied(managedDraft);
-  // Auto-publish refuses these outright, so they outrank the approval state.
-  const managedDraftBlocked = managedDraft?.hasMergeConflict
-    ? "conflict"
-    : managedDraft?.rebaseRequired
-      ? "stale"
-      : null;
-  // Both gates together: approval alone publishes nothing on a draft.
-  const managedNextStep = managedDraftBlocked
-    ? managedDraftBlocked === "conflict"
-      ? "The draft has a merge conflict. Discard it from the review, or convert the Feature Flag to unmanaged and resolve it on its page."
-      : managedDraft?.staleApproval
-        ? "The Feature Flag changed after these values were approved. Update them from live and get re-approval."
-        : "The Feature Flag changed since these values were drafted. Update them from live before publishing."
-    : managedApprovalBlocking
-      ? experiment.status === "draft"
-        ? "They need approval, then go live when the experiment starts."
-        : "They need approval before they go live."
-      : experiment.status === "draft"
-        ? "They go live when the experiment starts."
-        : "Publish them to go live.";
-  // The banner is for once the values are with reviewers, or when something's
-  // wrong. Before that, handing them off is the author's call.
-  const managedInReview =
-    !!managedDraft?.pendingApproval && isInReviewCycle(managedDraft.status);
-  const showManagedBanner =
-    !!managedFlagWithDraft && (!!managedDraftBlocked || managedInReview);
-  const reviewBlocked = useEditsBlockedReason();
-  const permissionsUtil = usePermissionsUtil();
-  const allEnvironments = useEnvironments();
-  // Holdouts keep their start modal.
+  const valuesReview =
+    !!managedFlagWithDraft?.pendingDraft &&
+    hasValuesReview(managedFlagWithDraft.pendingDraft);
   const reviewable =
-    !experiment.archived &&
-    experiment.type !== "holdout" &&
-    (experiment.status === "draft" || !!managedFlagWithDraft);
-  // Only the step into review, or a publish that needs none. Once the values
-  // are with reviewers, the banner leads to the review.
-  const managedHandoffLabel =
-    !managedFlagWithDraft || showManagedBanner || !reviewable
-      ? null
-      : managedDraft?.pendingApproval
-        ? permissionsUtil.canEditFeatureDrafts(managedFlagWithDraft.feature)
-          ? "Request review"
-          : null
-        : experiment.status !== "draft" &&
-            permissionsUtil.canPublishFeature(
-              managedFlagWithDraft.feature,
-              getEnabledEnvironments(
-                managedFlagWithDraft.feature,
-                allEnvironments,
-              ),
-            )
-          ? "Publish changes"
-          : null;
+    !experiment.archived && experiment.type !== "holdout" && valuesReview;
   const { reviewing, openReview } = useExperimentReviewRoute({
     tab,
     tabPath,
@@ -569,11 +509,11 @@ function TabbedPageContents({
     newPhase,
     onStarted: () => setTabAndScroll("results"),
   });
-  const { clearStartFailures } = start;
-  // A failure belongs to the review it was shown in.
+  // The header's Start anchors it, and the review hides that.
+  const [startOpen, setStartOpen] = useState(false);
   useEffect(() => {
-    if (reviewing) return clearStartFailures;
-  }, [reviewing, clearStartFailures]);
+    if (reviewing) setStartOpen(false);
+  }, [reviewing]);
 
   const persistTabPath = useCallback(
     (path: string) => {
@@ -665,12 +605,14 @@ function TabbedPageContents({
       canEdit={canEditExperiment}
       editTargeting={editTargeting}
       editSchedule={editSchedule}
+      // Its To Do shows only off the review, in the rail and the start popover.
+      // Before the values are sent, Setup's banner is where they go.
       openManagedApproval={
-        managedFlagWithDraft && reviewable
-          ? reviewing
-            ? scrollToReviewCard
-            : () => openReview("todo")
-          : undefined
+        reviewable
+          ? () => openReview("todo")
+          : managedFlagWithDraft
+            ? () => setTabAndScroll("overview", VALUES_DRAFT_BANNER_ID)
+            : undefined
       }
       editVariationValues={() => setTabAndScroll("overview", FLAG_VALUES_ID)}
       openImplementation={() => setTabAndScroll("overview", IMPLEMENTATION_ID)}
@@ -733,7 +675,14 @@ function TabbedPageContents({
             mutate={mutate}
             source={trackSource}
             holdout={holdout}
-            openReview={reviewable ? () => openReview("edit-status") : null}
+            openStart={
+              experiment.type !== "holdout"
+                ? () => {
+                    if (reviewing) setTabAndScroll("overview");
+                    setStartOpen(true);
+                  }
+                : null
+            }
           />
         )}
         {featureModal && (
@@ -768,7 +717,8 @@ function TabbedPageContents({
           setDetailsOpen={showDetailsPanel ? toggleDetailsPanel : undefined}
           start={start}
           reviewing={reviewing}
-          openReview={openReview}
+          startOpen={startOpen}
+          setStartOpen={setStartOpen}
           editPhases={editPhases}
           healthNotificationCount={healthNotificationCount}
           linkedFeatures={linkedFeatures}
@@ -776,8 +726,18 @@ function TabbedPageContents({
           urlRedirects={urlRedirects}
           showDashboardView={dashboardView}
           editSchedule={editSchedule}
+          valuesBanner={
+            managedFlagWithDraft && valuesReview ? (
+              <ValuesReviewBanner
+                experiment={experiment}
+                info={managedFlagWithDraft}
+                mutate={mutate}
+                reviewing={reviewing}
+                openReview={reviewable ? () => openReview("banner") : null}
+              />
+            ) : null
+          }
         />
-
         <Box
           mx="auto"
           width="100%"
@@ -812,53 +772,23 @@ function TabbedPageContents({
                 dashboardView && "pt-0",
               )}
             >
+              {managedFlagWithDraft &&
+              tab === "overview" &&
+              !reviewing &&
+              !dashboardView &&
+              !experiment.archived ? (
+                <ValuesDraftBanner
+                  experiment={experiment}
+                  info={managedFlagWithDraft}
+                  mutate={mutate}
+                />
+              ) : null}
               {experiment.type !== "holdout" &&
                 tab !== "dashboards" &&
                 !dashboardView &&
                 !reviewing && (
                   <CustomMarkdown page={"experiment"} variables={variables} />
                 )}
-              {showManagedBanner && !reviewing ? (
-                <Callout
-                  status={
-                    managedDraftBlocked === "conflict"
-                      ? "error"
-                      : managedDraftBlocked || managedApprovalBlocking
-                        ? "warning"
-                        : "info"
-                  }
-                  mt="3"
-                  contentAlign="center"
-                  action={
-                    reviewable ? (
-                      <Tooltip
-                        content={reviewBlocked}
-                        enabled={!!reviewBlocked}
-                      >
-                        <Button
-                          onClick={() => openReview("banner")}
-                          disabled={!!reviewBlocked}
-                        >
-                          Review changes
-                        </Button>
-                      </Tooltip>
-                    ) : undefined
-                  }
-                >
-                  <Flex align="center" gap="2">
-                    This experiment has unpublished variation values.{" "}
-                    {managedNextStep}
-                    {managedDraft?.pendingApproval &&
-                      managedDraftBlocked !== "conflict" && (
-                        <Badge
-                          label={revisionStatusLabel(managedDraft.status)}
-                          color={revisionStatusColor(managedDraft.status)}
-                          radius="full"
-                        />
-                      )}
-                  </Flex>
-                </Callout>
-              ) : null}
               {showStoppedBanner && (
                 <div className="pt-3">
                   <StoppedExperimentBanner
@@ -887,18 +817,12 @@ function TabbedPageContents({
                   </Callout>
                 )}
 
-              {reviewing ? (
+              {reviewing && managedFlagWithDraft ? (
                 <ExperimentReview
                   experiment={experiment}
-                  linkedFeatures={linkedFeatures}
-                  visualChangesets={visualChangesets}
-                  urlRedirects={urlRedirects}
-                  envs={envs}
+                  info={managedFlagWithDraft}
                   mutate={mutate}
-                  valuesDraft={managedFlagWithDraft}
-                  start={start}
                   exit={() => setTabAndScroll("overview")}
-                  editSchedule={editSchedule ?? null}
                 />
               ) : null}
               {dashboardView && (
@@ -952,14 +876,6 @@ function TabbedPageContents({
                   envs={envs}
                   visualChangesetEnvStates={visualChangesetEnvStates}
                   urlRedirectEnvStates={urlRedirectEnvStates}
-                  managedHandoff={
-                    managedHandoffLabel
-                      ? {
-                          label: managedHandoffLabel,
-                          open: () => openReview("implementation"),
-                        }
-                      : null
-                  }
                 />
               </div>
               {isBandit && !dashboardView ? (

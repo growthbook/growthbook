@@ -12,7 +12,6 @@ import {
 import {
   getChecklistTier,
   isBypassableStartItem,
-  isPendingApprovalItem,
   nextManualChecklist,
   summarizeChecklist,
 } from "@/components/PreLaunchChecklist/checklistSummary";
@@ -42,36 +41,28 @@ describe("summarizeChecklist", () => {
   ];
   const keys = (list: CheckListItem[]) => list.map((i) => i.key);
 
-  it.each([
-    {
-      name: "everything",
-      waive: undefined,
-      blocking: ["conflict", "pendingApproval:f1", "staleVariationValues:f1"],
-      remaining: 5,
-    },
-    {
-      name: "with approvals waived",
-      waive: isPendingApprovalItem,
-      blocking: ["conflict", "staleVariationValues:f1"],
-      remaining: 4,
-    },
-    {
-      // A conflict is never the admin's to override.
-      name: "with an admin's start bypass",
-      waive: isBypassableStartItem,
-      blocking: ["conflict"],
-      remaining: 3,
-    },
-  ])("sorts $name into tiers", ({ waive, blocking, remaining }) => {
-    const summary = summarizeChecklist(items, waive);
-    expect(keys(summary.incomplete.blocking)).toEqual(blocking);
+  it("sorts items into tiers", () => {
+    const summary = summarizeChecklist(items);
+    expect(keys(summary.incomplete.blocking)).toEqual([
+      "conflict",
+      "pendingApproval:f1",
+      "staleVariationValues:f1",
+    ]);
     expect(keys(summary.incomplete.recommended)).toEqual(["goalMetric"]);
     expect(keys(summary.incomplete.optional)).toEqual(["visualEditorChanges"]);
     expect(keys(summary.flagged)).toEqual(["sdkConnection"]);
     expect(keys(summary.complete)).toEqual(["targeting"]);
     // Optional items count; a done row with a warning doesn't.
-    expect(summary.remaining).toBe(remaining);
-    expect(summary.blocking).toBe(blocking.length);
+    expect(summary.remaining).toBe(5);
+    expect(summary.blocking).toBe(3);
+  });
+
+  // A conflict is never the admin's to override.
+  it("lets an admin's start bypass waive only approval and stale values", () => {
+    expect(keys(items.filter(isBypassableStartItem))).toEqual([
+      "pendingApproval:f1",
+      "staleVariationValues:f1",
+    ]);
   });
 });
 

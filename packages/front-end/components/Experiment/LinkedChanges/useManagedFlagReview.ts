@@ -21,7 +21,10 @@ import {
   isInReviewCycle,
 } from "shared/enterprise";
 import { RampScheduleInterface } from "shared/validators";
-import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
+import {
+  draftApprovalSatisfied,
+  getReviewAndPublishState,
+} from "@/components/Reviews/reviewAndPublishState";
 import {
   findActiveVerdict,
   scanVerdictRetractions,
@@ -36,14 +39,6 @@ import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 
 export type ManagedFlagReview = ReturnType<typeof useManagedFlagReview>;
-
-/** The publish gate's answer when there is one; "approved" can still be short of a team or an environment. */
-export function draftApprovalSatisfied(draft: {
-  approval?: { satisfied: boolean } | null;
-  status: string;
-}): boolean {
-  return draft.approval?.satisfied ?? draft.status === "approved";
-}
 
 /** The review state and actions of an experiment's Values flag draft. */
 export default function useManagedFlagReview({

@@ -27,10 +27,7 @@ export type ChecklistSummary = {
   blocking: number;
 };
 
-export function summarizeChecklist(
-  items: CheckListItem[],
-  waive?: (item: CheckListItem) => boolean,
-): ChecklistSummary {
+export function summarizeChecklist(items: CheckListItem[]): ChecklistSummary {
   const incomplete: ChecklistSummary["incomplete"] = {
     blocking: [],
     recommended: [],
@@ -39,7 +36,6 @@ export function summarizeChecklist(
   const flagged: CheckListItem[] = [];
   const complete: CheckListItem[] = [];
   items.forEach((item) => {
-    if (waive?.(item)) return;
     if (item.status === "incomplete") {
       incomplete[getChecklistTier(item)].push(item);
     } else if (item.warning) {
@@ -62,7 +58,7 @@ export function summarizeChecklist(
 
 export const STALE_VALUES_ITEM_PREFIX = "staleVariationValues:";
 
-export function isPendingApprovalItem(item: Pick<CheckListItem, "key">) {
+function isPendingApprovalItem(item: Pick<CheckListItem, "key">) {
   return item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX);
 }
 

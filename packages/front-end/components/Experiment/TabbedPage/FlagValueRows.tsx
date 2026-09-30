@@ -79,7 +79,7 @@ import {
   VALUE_TYPE_LABELS,
 } from "@/components/Features/valueTypes";
 import cornerStyles from "@/components/Features/CornerActions.module.scss";
-import { draftApprovalSatisfied } from "@/components/Experiment/LinkedChanges/useManagedFlagReview";
+import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
 import {
   FlagEnvironmentsDraft,
   useLiveView,

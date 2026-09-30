@@ -6,10 +6,7 @@ import {
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import {
-  isBypassableStartItem,
-  isPendingApprovalItem,
-} from "@/components/PreLaunchChecklist/checklistSummary";
+import { isBypassableStartItem } from "@/components/PreLaunchChecklist/checklistSummary";
 import {
   getStartActions,
   getStartSchedule,
@@ -111,7 +108,6 @@ export default function useStartGate({
     scheduledStartAt,
     schedule,
     upgrade,
-    awaitingApproval: approvalRows.some(isPendingApprovalItem),
     bypassed,
     setBypassed,
     actions,

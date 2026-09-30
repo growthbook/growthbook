@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  getExperimentReviewTitle,
+  getStartTitle,
   getStartActions,
   getStartSchedule,
   ServerChecklistItem,
@@ -240,9 +240,9 @@ describe("withServerChecklist", () => {
   });
 });
 
-type TitleInput = Parameters<typeof getExperimentReviewTitle>[0];
+type TitleInput = Parameters<typeof getStartTitle>[0];
 
-describe("getExperimentReviewTitle", () => {
+describe("getStartTitle", () => {
   const approvedStart = {
     type: "start",
     date: future.toISOString(),
@@ -250,62 +250,48 @@ describe("getExperimentReviewTitle", () => {
   it.each([
     {
       name: "a draft with no schedule",
-      status: "draft",
       startAt: null,
       next: null,
-      expected: "Review & start experiment",
+      expected: "Start experiment",
     },
     {
       name: "a draft Bandit",
       type: "multi-armed-bandit",
-      status: "draft",
       startAt: null,
       next: null,
-      expected: "Review & start Bandit",
+      expected: "Start Bandit",
     },
     {
       name: "a draft awaiting its schedule's approval",
-      status: "draft",
       startAt: future,
       next: null,
-      expected: "Review & schedule experiment",
+      expected: "Approve scheduled start",
     },
     {
       name: "a draft whose schedule is approved",
-      status: "draft",
       startAt: future,
       next: approvedStart,
-      expected: "Review & start experiment",
+      expected: "Start experiment",
     },
     {
       name: "a draft whose schedule has passed",
-      status: "draft",
       startAt: past,
       next: null,
-      expected: "Review & start experiment",
-    },
-    {
-      name: "a running experiment",
-      status: "running",
-      startAt: future,
-      next: null,
-      expected: "Review & publish value changes",
+      expected: "Start experiment",
     },
   ] as {
     name: string;
     type?: ExperimentInterfaceStringDates["type"];
-    status: ExperimentInterfaceStringDates["status"];
     startAt: Date | null;
     next: TitleInput["nextScheduledStatusUpdate"];
     expected: string;
   }[])(
     "titles $name $expected",
-    ({ type = "standard", status, startAt, next, expected }) => {
+    ({ type = "standard", startAt, next, expected }) => {
       expect(
-        getExperimentReviewTitle(
+        getStartTitle(
           {
             type,
-            status,
             statusUpdateSchedule: startAt
               ? { startAt: startAt.toISOString() }
               : null,

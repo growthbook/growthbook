@@ -84,6 +84,7 @@ import EditExperimentInfoModal from "./EditExperimentInfoModal";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { StartExperiment } from "./useStartExperiment";
+import StartExperimentPopover from "./StartExperimentPopover";
 import { REVIEW_TAB_PATH } from "./useExperimentReviewRoute";
 import { ExperimentTab } from ".";
 
@@ -106,7 +107,8 @@ export interface Props {
   /** The review is part of Setup: its tab stays selected, and clicking it leaves. */
   reviewing: boolean;
   /** Where an experiment starts; holdouts start from a modal. */
-  openReview: (source: string) => void;
+  startOpen: boolean;
+  setStartOpen: (open: boolean) => void;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
   healthNotificationCount: number;
@@ -116,6 +118,8 @@ export interface Props {
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
+  // The Values flag's unpublished draft, above the tabs.
+  valuesBanner?: ReactNode;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -167,7 +171,8 @@ export default function ExperimentHeader({
   editTargeting,
   start,
   reviewing,
-  openReview,
+  startOpen,
+  setStartOpen,
   editPhases,
   healthNotificationCount,
   linkedFeatures,
@@ -176,6 +181,7 @@ export default function ExperimentHeader({
   holdout,
   showDashboardView,
   editSchedule,
+  valuesBanner,
 }: Props) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -973,22 +979,47 @@ export default function ExperimentHeader({
                   canRunExperiment &&
                   !reviewing ? (
                   <Tooltip shouldDisplay={!!editsBlocked} body={editsBlocked}>
-                    <Button
-                      variant={checklistReady ? "solid" : "soft"}
-                      onClick={() =>
-                        isHoldout
-                          ? setShowStartExperiment(true)
-                          : openReview("header")
-                      }
-                      disabled={!!editsBlocked}
-                      icon={
-                        hasExperimentSchedule ? undefined : <MdRocketLaunch />
-                      }
-                    >
-                      {hasExperimentSchedule
-                        ? "Approve for Scheduled Start"
-                        : `Start ${isHoldout ? "Holdout" : "Experiment"}`}
-                    </Button>
+                    {isHoldout ? (
+                      <Button
+                        variant={checklistReady ? "solid" : "soft"}
+                        onClick={() => setShowStartExperiment(true)}
+                        disabled={!!editsBlocked}
+                        icon={
+                          hasExperimentSchedule ? undefined : <MdRocketLaunch />
+                        }
+                      >
+                        {hasExperimentSchedule
+                          ? "Approve for Scheduled Start"
+                          : "Start Holdout"}
+                      </Button>
+                    ) : (
+                      <StartExperimentPopover
+                        experiment={experiment}
+                        linkedFeatures={linkedFeatures}
+                        envs={envs}
+                        start={start}
+                        editSchedule={
+                          editSchedule ? () => setShowScheduleModal(true) : null
+                        }
+                        open={startOpen}
+                        setOpen={setStartOpen}
+                        trigger={
+                          <Button
+                            variant={checklistReady ? "solid" : "soft"}
+                            disabled={!!editsBlocked}
+                            icon={
+                              hasExperimentSchedule ? undefined : (
+                                <MdRocketLaunch />
+                              )
+                            }
+                          >
+                            {hasExperimentSchedule
+                              ? "Approve for Scheduled Start"
+                              : "Start Experiment"}
+                          </Button>
+                        }
+                      />
+                    )}
                   </Tooltip>
                 ) : null}
                 {experiment.status === "stopped" && experiment.results ? (
@@ -1313,6 +1344,11 @@ export default function ExperimentHeader({
         {scheduledEndPassedBanner ? (
           <Box pt="1" pb="1">
             {scheduledEndPassedBanner}
+          </Box>
+        ) : null}
+        {valuesBanner ? (
+          <Box pt="2" pb="3">
+            {valuesBanner}
           </Box>
         ) : null}
       </div>

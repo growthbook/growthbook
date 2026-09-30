@@ -1,36 +1,22 @@
-import { Fragment, ReactNode, useState } from "react";
+import { ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   PiArrowLeft,
   PiCaretDownBold,
   PiChatCircle,
-  PiCode,
-  PiFlask,
-  PiListChecks,
   PiTag,
 } from "react-icons/pi";
-import {
-  getLatestPhaseVariations,
-  hasTargetingConfigured,
-} from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { canCommentOnRevisionEntity } from "shared/permissions";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
-import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import {
-  isPendingApprovalItem,
-  summarizeChecklist,
-} from "@/components/PreLaunchChecklist/checklistSummary";
-import type { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import EventUser from "@/components/Avatar/EventUser";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -49,15 +35,10 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import {
-  ChecklistCountBadge,
-  PreLaunchChecklistPanel,
-} from "@/components/PreLaunchChecklist/PreLaunchChecklist";
-import {
   TABS_BAR_HEIGHT_PX,
   TABS_HEADER_HEIGHT_PX,
 } from "@/components/Layout/constants";
 import useManagedFlagReview, {
-  draftApprovalSatisfied,
   ManagedFlagReview,
 } from "@/components/Experiment/LinkedChanges/useManagedFlagReview";
 import {
@@ -65,84 +46,18 @@ import {
   ManagedFlagReviewComments,
   ManagedValues,
 } from "@/components/Experiment/LinkedChanges/ManagedFlagReviewParts";
-import { useEditsBlockedReason } from "./ExperimentEdits";
-import SetupFieldRow from "./SetupFieldRow";
-import { scheduledTime } from "./RunningScheduleLink";
-import {
-  LinkedChangesSummary,
-  StartChecklistFailures,
-  StartFailures,
-  StartSummaryRow,
-  StartUpgradeCallout,
-  useStartSummaryRows,
-} from "./StartSections";
 import { getExperimentReviewTitle } from "./startActions";
-import useStartGate from "./useStartGate";
-import { StartExperiment } from "./useStartExperiment";
-
-export const EXPERIMENT_REVIEW_VALUES_ID = "experiment-review-values";
-
-export function scrollToReviewValues() {
-  document
-    .getElementById(EXPERIMENT_REVIEW_VALUES_ID)
-    ?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-const EXPERIMENT_REVIEW_CARD_ID = "experiment-review-card";
-
-// "nearest": the sticky card is usually in view already.
-export function scrollToReviewCard() {
-  document
-    .getElementById(EXPERIMENT_REVIEW_CARD_ID)
-    ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-}
+import { useEditsBlockedReason } from "./ExperimentEdits";
 
 // Under the sticky header and tab bar, with a gap.
 const CARD_TOP_PX = TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX + 16;
 
-// getAffectedEnvsForExperiment's answer for "every environment".
-const ALL_ENVIRONMENTS = "__ALL__";
-
-type StartGate = ReturnType<typeof useStartGate>;
-type SummaryRow = Pick<StartSummaryRow, "key" | "label" | "value">;
-type ValuesReview = { info: LinkedFeatureInfo; review: ManagedFlagReview };
-
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  linkedFeatures: LinkedFeatureInfo[];
-  visualChangesets: VisualChangesetInterface[];
-  urlRedirects: URLRedirectInterface[];
-  envs: string[];
-  mutate: () => void;
   // The Values flag, while it has unpublished values.
-  valuesDraft: LinkedFeatureInfo | null;
-  start: StartExperiment;
+  info: LinkedFeatureInfo;
+  mutate: () => void;
   exit: () => void;
-  editSchedule: (() => void) | null;
-}
-
-/**
- * What stands between a draft and starting it, or between a running
- * experiment's unpublished values and publishing them.
- */
-export default function ExperimentReview(props: Props) {
-  return props.valuesDraft ? (
-    <WithValuesReview {...props} info={props.valuesDraft} />
-  ) : (
-    <ReviewPage {...props} values={null} />
-  );
-}
-
-function WithValuesReview({
-  info,
-  ...props
-}: Props & { info: LinkedFeatureInfo }) {
-  const review = useManagedFlagReview({
-    experiment: props.experiment,
-    info,
-    mutate: props.mutate,
-  });
-  return <ReviewPage {...props} values={{ info, review }} />;
 }
 
 function SectionHeading({ icon, title }: { icon: ReactNode; title: string }) {
@@ -157,211 +72,42 @@ function SectionHeading({ icon, title }: { icon: ReactNode; title: string }) {
 }
 
 function Section({
-  id,
   icon,
   title,
-  badge,
   headingInContent = false,
   children,
 }: {
-  id?: string;
   icon: ReactNode;
   title: string;
-  badge?: ReactNode;
   // The content draws the heading itself, e.g. in its table's header.
   headingInContent?: boolean;
   children: ReactNode;
 }) {
   return (
-    <Box id={id} pt="3" pb="4" style={{ scrollMarginTop: "100px" }}>
+    <Box pt="3" pb="4">
       {headingInContent ? null : (
-        <Flex align="center" gap="2" mb="2">
+        <Box mb="2">
           <SectionHeading icon={icon} title={title} />
-          {badge}
-        </Flex>
+        </Box>
       )}
       {children}
     </Box>
   );
 }
 
-// Sized and spaced to read as the heading of the rows under it.
-function GroupTitle({ children }: { children: string }) {
-  return (
-    <Text as="div" size="lg" weight="semibold" color="text-high" mt="5" mb="1">
-      {children}
-    </Text>
-  );
-}
-
-// Spaced like the Values table's rows, so the sections read alike.
-function SummaryRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <Box py="1">
-      <SetupFieldRow label={label} content="text">
-        {children}
-      </SetupFieldRow>
-    </Box>
-  );
-}
-
-function ReviewPage({
+/**
+ * The Values flag's unpublished values and their review. A draft's go live
+ * when it starts, from the header's Start; a running one's publish here.
+ */
+export default function ExperimentReview({
   experiment,
-  linkedFeatures,
-  visualChangesets,
-  urlRedirects,
-  envs,
-  values,
-  start,
+  info,
+  mutate,
   exit,
-  editSchedule,
-}: Props & { values: ValuesReview | null }) {
-  const gate = useStartGate({ experiment, linkedFeatures, start });
+}: Props) {
+  const review = useManagedFlagReview({ experiment, info, mutate });
   const editsBlocked = useEditsBlockedReason();
-  const review = values?.review ?? null;
   const isDraft = experiment.status === "draft";
-  const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
-  const title = getExperimentReviewTitle(experiment, new Date());
-  const dateLabel = gate.scheduledStartAt
-    ? scheduledTime(gate.scheduledStartAt)
-    : null;
-
-  const scheduleLink = (text: string) =>
-    editSchedule ? <Link onClick={editSchedule}>{text}</Link> : text;
-  const pastSchedule =
-    isDraft &&
-    !startApproved &&
-    gate.schedule === "past" &&
-    start.canRunExperiment &&
-    dateLabel;
-
-  const managedId = values?.info.feature.id ?? null;
-  // Approving the values is what this page is for, so its To Do skips the row
-  // that would only link back here. The start still counts it.
-  const { checklist } = usePreLaunchChecklist();
-  const omitTodo = (item: CheckListItem) =>
-    isPendingApprovalItem(item) && item.featureId === managedId;
-  const todoSummary = summarizeChecklist(checklist, omitTodo);
-  // Their container only takes room when one of them shows.
-  const hasCallouts =
-    start.pendingDraftFailures.length > 0 ||
-    start.checklistFailures.length > 0 ||
-    !!pastSchedule ||
-    (isDraft && !!gate.upgrade);
-  const hasOtherChanges =
-    linkedFeatures.some((f) => f.feature.id !== managedId) ||
-    visualChangesets.length > 0 ||
-    urlRedirects.length > 0;
-
-  const sections: { key: string; node: ReactNode }[] = [];
-  if (isDraft) {
-    sections.push({
-      key: "todo",
-      node: (
-        <Section
-          icon={<PiListChecks />}
-          title="To Do"
-          badge={
-            <ChecklistCountBadge
-              remaining={gate.checklistLoading ? null : todoSummary.remaining}
-              blocking={todoSummary.blocking > 0}
-            />
-          }
-        >
-          <Flex direction="column" gap="3">
-            <PreLaunchChecklistPanel size="md" layout="rows" omit={omitTodo} />
-          </Flex>
-        </Section>
-      ),
-    });
-    sections.push({
-      key: "summary",
-      node: (
-        <Section
-          icon={<PiFlask />}
-          title={
-            experiment.type === "multi-armed-bandit"
-              ? "Bandit summary"
-              : "Experiment summary"
-          }
-        >
-          <ReviewSummary
-            experiment={experiment}
-            // The Values section shows where the Values flag runs.
-            envs={values ? [] : envs}
-          />
-        </Section>
-      ),
-    });
-  }
-  if (values) {
-    sections.push({
-      key: "values",
-      node: (
-        <Section
-          id={EXPERIMENT_REVIEW_VALUES_ID}
-          icon={<PiTag />}
-          title="Values"
-          // A live flag's diff has a header row to carry it.
-          headingInContent={!isDraft}
-        >
-          <ManagedValues
-            info={values.info}
-            variations={getLatestPhaseVariations(experiment)}
-            showChanges={!isDraft}
-            heading={<SectionHeading icon={<PiTag />} title="Values" />}
-          />
-        </Section>
-      ),
-    });
-  }
-  if (isDraft && hasOtherChanges) {
-    sections.push({
-      key: "implementation",
-      node: (
-        <Section icon={<PiCode />} title="Implementation">
-          <LinkedChangesSummary
-            experiment={experiment}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            scheduledInFuture={gate.schedule === "future"}
-          />
-        </Section>
-      ),
-    });
-  }
-  if (values) {
-    sections.push({
-      key: "comments",
-      node: (
-        <Section icon={<PiChatCircle />} title="Comments">
-          <Flex direction="column" gap="4">
-            <ManagedFlagReviewComments review={values.review} />
-            <AddReviewComment
-              experimentId={experiment.id}
-              info={values.info}
-              review={values.review}
-            />
-          </Flex>
-        </Section>
-      ),
-    });
-  }
-
-  const actions = getCardActions({
-    experiment,
-    review,
-    gate,
-    start,
-    editsBlocked,
-  });
 
   return (
     <Box pt="3" pb="6">
@@ -381,159 +127,49 @@ function ReviewPage({
             </Link>
             <Separator orientation="vertical" size="2" />
             <Heading as="h3" size="sm" mb="0">
-              {title}
+              {getExperimentReviewTitle(experiment)}
             </Heading>
           </Flex>
-          {gate.schedule === "future" && !startApproved && dateLabel ? (
-            <Text as="div" color="text-low" mt="1">
-              Scheduled to start {dateLabel}
-            </Text>
-          ) : null}
-          <Flex direction="column" gap="3" mt={hasCallouts ? "3" : "0"}>
-            <StartFailures
-              failures={start.pendingDraftFailures}
-              managedFeatureId={managedId}
-              onReviewValues={values ? scrollToReviewValues : null}
-            />
-            <StartChecklistFailures items={start.checklistFailures} />
-            {pastSchedule ? (
-              <Callout status="warning">
-                The scheduled start date{" "}
-                <Text weight="semibold">{dateLabel}</Text> has passed.{" "}
-                {gate.checklistLoading || gate.upgrade ? (
-                  <>{scheduleLink("Update the schedule")}.</>
-                ) : gate.actions.hardBlocked ? (
-                  <>
-                    Resolve the items below, or{" "}
-                    {scheduleLink("update the schedule")}.
-                  </>
-                ) : (
-                  <>
-                    Click <Text weight="semibold">{gate.actions.label}</Text> to
-                    start the experiment immediately, or{" "}
-                    {scheduleLink("update the schedule")}.
-                  </>
-                )}
-              </Callout>
-            ) : null}
-            {isDraft ? <StartUpgradeCallout upgrade={gate.upgrade} /> : null}
-          </Flex>
-          {sections.map((section, i) => (
-            <Fragment key={section.key}>
-              {i > 0 ? <Separator size="4" my="3" /> : null}
-              {section.node}
-            </Fragment>
-          ))}
-        </Box>
-        {review || actions.primary || actions.startNote ? (
-          <Box
-            id={EXPERIMENT_REVIEW_CARD_ID}
-            width={{ initial: "100%", md: "360px" }}
-            minWidth={{ initial: "0", md: "360px" }}
-            flexShrink="0"
-            style={{ position: "sticky", top: CARD_TOP_PX }}
+          <Section
+            icon={<PiTag />}
+            title="Values"
+            // A live flag's diff has a header row to carry it.
+            headingInContent={!isDraft}
           >
-            <ReviewCard
-              experiment={experiment}
-              values={values}
-              actions={actions}
-              editsBlocked={editsBlocked}
+            <ManagedValues
+              info={info}
+              variations={getLatestPhaseVariations(experiment)}
+              showChanges={!isDraft}
+              heading={<SectionHeading icon={<PiTag />} title="Values" />}
             />
-          </Box>
-        ) : null}
+          </Section>
+          <Separator size="4" my="3" />
+          <Section icon={<PiChatCircle />} title="Comments">
+            <Flex direction="column" gap="4">
+              <ManagedFlagReviewComments review={review} />
+              <AddReviewComment
+                experimentId={experiment.id}
+                info={info}
+                review={review}
+              />
+            </Flex>
+          </Section>
+        </Box>
+        <Box
+          width={{ initial: "100%", md: "360px" }}
+          minWidth={{ initial: "0", md: "360px" }}
+          flexShrink="0"
+          style={{ position: "sticky", top: CARD_TOP_PX }}
+        >
+          <ReviewCard
+            experimentId={experiment.id}
+            info={info}
+            review={review}
+            editsBlocked={editsBlocked}
+          />
+        </Box>
       </Flex>
     </Box>
-  );
-}
-
-/** What the start changes for live traffic: who, where, and when. */
-function ReviewSummary({
-  experiment,
-  envs,
-}: {
-  experiment: ExperimentInterfaceStringDates;
-  envs: string[];
-}) {
-  const phase = experiment.phases?.[experiment.phases.length - 1];
-  const startRows = useStartSummaryRows(experiment);
-  // The schedule modal's own words for no date.
-  const schedule = experiment.statusUpdateSchedule;
-  const scheduleRows: SummaryRow[] = [
-    {
-      key: "start",
-      label: "Start",
-      value: schedule?.startAt
-        ? scheduledTime(schedule.startAt)
-        : "Immediately",
-    },
-    {
-      key: "end",
-      label: "End",
-      value: schedule?.stopAt
-        ? scheduledTime(schedule.stopAt)
-        : schedule?.stopAfter
-          ? `${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
-          : "When stopped",
-    },
-  ];
-  const traffic: SummaryRow[] = [...startRows];
-  if (phase) {
-    if (!hasTargetingConfigured(phase)) {
-      traffic.push({
-        key: "targeting",
-        label: "Targeting",
-        value: (
-          <Text color="text-mid">
-            <em>Everyone</em>
-          </Text>
-        ),
-      });
-    }
-    traffic.push({
-      key: "assignmentAttribute",
-      label: "Assignment attribute",
-      value: (
-        <Text color="text-high">
-          {[experiment.hashAttribute || "id", experiment.fallbackAttribute]
-            .filter(Boolean)
-            .join(", ")}
-        </Text>
-      ),
-    });
-  }
-  // Visual Editor changes and redirects serve everywhere.
-  const allEnvs = envs.includes(ALL_ENVIRONMENTS);
-  if (envs.length > 0) {
-    traffic.push({
-      key: "environments",
-      label: envs.length === 1 && !allEnvs ? "Environment" : "Environments",
-      value: (
-        <Text color="text-high">
-          {allEnvs ? "All environments" : envs.join(", ")}
-        </Text>
-      ),
-    });
-  }
-
-  return (
-    <>
-      {traffic.length > 0 ? (
-        <>
-          <GroupTitle>Traffic and targeting</GroupTitle>
-          {traffic.map((row) => (
-            <SummaryRow key={row.key} label={row.label}>
-              {row.value}
-            </SummaryRow>
-          ))}
-        </>
-      ) : null}
-      <GroupTitle>Schedule</GroupTitle>
-      {scheduleRows.map((row) => (
-        <SummaryRow key={row.key} label={row.label}>
-          <Text color="text-high">{row.value}</Text>
-        </SummaryRow>
-      ))}
-    </>
   );
 }
 
@@ -596,139 +232,55 @@ function AddReviewComment({
   );
 }
 
-type CardActions = ReturnType<typeof getCardActions>;
-
-/** Which of the card's actions this viewer gets, and what the primary does. */
-function getCardActions({
-  experiment,
-  review,
-  gate,
-  start,
-  editsBlocked,
-}: {
-  experiment: ExperimentInterfaceStringDates;
-  review: ManagedFlagReview | null;
-  gate: StartGate;
-  start: StartExperiment;
-  editsBlocked: string | null;
-}) {
-  const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
-  const canStart =
-    experiment.status === "draft" && start.canRunExperiment && !startApproved;
-  // As the feature hides Publish before approval, unless an admin can bypass.
-  const showStart =
-    canStart && (!gate.awaitingApproval || gate.actions.waivesApproval);
-  const valuesAwaitApproval =
-    !!review?.requireReviews && !draftApprovalSatisfied(review);
-  const requestReview =
-    review?.submit?.action === "request-review" ? review.submit : null;
-  const publish = review?.submit?.action === "publish" ? review.submit : null;
-  const showPublish =
-    !!review &&
-    !review.publishIsLaunch &&
-    (!!publish || review.adminBypassAvailable);
-
-  // One bypass: a draft's is the start's, a running experiment's the publish's.
-  const bypass = showStart
-    ? gate.actions.bypassLabel
-      ? {
-          label: gate.actions.bypassLabel,
-          waivesApproval: gate.actions.waivesApproval,
-          value: gate.bypassed,
-          set: gate.setBypassed,
-        }
-      : null
-    : showPublish && review?.adminBypassAvailable
-      ? {
-          label: "Bypass remaining checks and publish now",
-          waivesApproval: true,
-          value: review.adminBypass,
-          set: review.setAdminBypass,
-        }
-      : null;
-  // Starting publishes what's stored, not what's staged.
-  const blockedReason =
-    editsBlocked ?? (showStart ? start.banditBlockedReason : null);
-  const primary = showStart
-    ? {
-        label: gate.actions.label,
-        disabled: gate.actions.disabled || !!blockedReason,
-        run: gate.runPrimary,
-      }
-    : showPublish
-      ? {
-          label: "Publish now",
-          disabled: !publish?.enabled || !!blockedReason,
-          run: () => publish?.run(),
-        }
-      : null;
-
-  return {
-    requestReview,
-    bypass,
-    blockedReason,
-    primary,
-    // Where Start will be, since the header's is hidden here.
-    startNote:
-      canStart && !showStart
-        ? valuesAwaitApproval
-          ? "Start is available once the values are approved."
-          : "Start is available once the Feature Flag drafts are approved."
-        : experiment.status === "draft" &&
-            start.canRunExperiment &&
-            startApproved
-          ? "Approved to start on the scheduled date. Edit the schedule to start sooner."
-          : null,
-  };
-}
-
 /**
  * The feature review's actions card, lighter: the values' status and people,
- * their next step, then starting (or, once running, publishing).
+ * their next step, and once running, publishing them.
  */
 function ReviewCard({
-  experiment,
-  values,
-  actions,
+  experimentId,
+  info,
+  review,
   editsBlocked,
 }: {
-  experiment: ExperimentInterfaceStringDates;
-  values: ValuesReview | null;
-  actions: CardActions;
+  experimentId: string;
+  info: LinkedFeatureInfo;
+  review: ManagedFlagReview;
   editsBlocked: string | null;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [discardConfirm, setDiscardConfirm] = useState(false);
-  const review = values?.review ?? null;
-  const { requestReview, bypass, blockedReason, primary, startNote } = actions;
+  const publish = review.submit?.action === "publish" ? review.submit : null;
+  // A draft's values publish when it starts.
+  const showPublish =
+    !review.publishIsLaunch && (!!publish || review.adminBypassAvailable);
+  const bypass = showPublish && review.adminBypassAvailable;
+  const bypassing = bypass && review.adminBypass;
 
-  const statusColor = review ? revisionStatusColor(review.status) : null;
-  const statusIcon = review ? revisionStatusIcon(review.status) : null;
+  const statusColor = revisionStatusColor(review.status);
+  const statusIcon = revisionStatusIcon(review.status);
   // Mirrors DivergenceNotice, which draws nothing for a current draft.
   const diverged =
-    !!review?.governance &&
+    !!review.governance &&
     (review.governance.divergence !== "current" ||
       review.governance.staleApproval);
   // A conflicted draft can't be updated from live, so discarding is the fix.
   const canDiscard =
-    !!review?.canManage && review.governance?.divergence === "conflict";
+    review.canManage && review.governance?.divergence === "conflict";
   const reviewLinks =
-    !!review && (review.state.canRecallReview || review.state.canUndoReview);
+    review.state.canRecallReview || review.state.canUndoReview;
   const hasBody =
-    !!review?.requireReviews ||
+    review.requireReviews ||
     reviewLinks ||
-    !!requestReview ||
-    !!review?.canReview ||
-    !!review?.showApprovalBand ||
+    review.canReview ||
+    review.showApprovalBand ||
     diverged ||
-    !!primary ||
-    !!startNote ||
+    showPublish ||
     !!error ||
-    !!review?.error;
+    !!review.error;
 
   return (
     <Box className="appbox" mb="0" style={{ overflow: "hidden" }}>
-      {discardConfirm && review ? (
+      {discardConfirm ? (
         <ConfirmDialog
           title="Discard unpublished variation values?"
           content="This throws away the unpublished draft. Live values are unchanged."
@@ -740,7 +292,7 @@ function ReviewCard({
           onCancel={() => setDiscardConfirm(false)}
         />
       ) : null}
-      {review && statusColor ? (
+      {statusColor ? (
         <CardHeader background={`var(--${statusColor}-a3)`}>
           <Flex
             align="center"
@@ -762,31 +314,16 @@ function ReviewCard({
       ) : null}
       {hasBody ? (
         <Flex direction="column" gap="4" p="4">
-          {review ? <ManagedFlagReviewers review={review} /> : null}
-          {requestReview ? (
-            <Tooltip content={editsBlocked} enabled={!!editsBlocked}>
-              <Button
-                variant="soft"
-                style={{ width: "100%" }}
-                onClick={requestReview.run}
-                setError={setError}
-                disabled={!requestReview.enabled || !!editsBlocked}
-              >
-                {requestReview.label}
-              </Button>
-            </Tooltip>
-          ) : null}
-          {review?.canReview &&
-          values &&
-          !(bypass?.waivesApproval && bypass.value) ? (
+          <ManagedFlagReviewers review={review} />
+          {review.canReview && !bypassing ? (
             <ReviewCommentPopover
-              submitUrl={`/experiment/${experiment.id}/managed-flag/submit-review`}
-              storageKey={`review-comment:${values.info.feature.id}:${review.version}`}
+              submitUrl={`/experiment/${experimentId}/managed-flag/submit-review`}
+              storageKey={`review-comment:${info.feature.id}:${review.version}`}
               isBlockedContributor={review.isBlockedContributor}
               onSuccess={() => review.refresh()}
               trigger={
                 <Button
-                  variant={primary && !primary.disabled ? "outline" : "solid"}
+                  variant={publish?.enabled ? "outline" : "solid"}
                   style={{ width: "100%" }}
                   icon={<PiCaretDownBold />}
                   iconPosition="right"
@@ -798,7 +335,7 @@ function ReviewCard({
               align="center"
             />
           ) : null}
-          {review && reviewLinks ? (
+          {reviewLinks ? (
             <Flex direction="column" gap="1">
               {review.state.canRecallReview ? (
                 <Text size="sm" color="text-mid">
@@ -826,13 +363,12 @@ function ReviewCard({
               ) : null}
             </Flex>
           ) : null}
-          {review?.showApprovalBand ? (
+          {review.showApprovalBand ? (
             <Box>
               <ApprovalStatusBand
                 // Nobody need wait for a reviewer an admin can bypass.
                 phase={
-                  review.approvalBandPhase === "waiting" &&
-                  bypass?.waivesApproval
+                  review.approvalBandPhase === "waiting" && bypass
                     ? "draft"
                     : review.approvalBandPhase
                 }
@@ -847,16 +383,14 @@ function ReviewCard({
               />
             </Box>
           ) : null}
-          {diverged && review?.governance && values ? (
+          {diverged && review.governance ? (
             <DivergenceNotice
               governance={review.governance}
               onUpdateFromLive={review.updateFromLive}
               updating={review.rebasing}
               canRebase={review.canManage}
-              liveVersion={values.info.feature.version}
-              baseVersion={
-                review.revision?.baseVersion ?? values.info.feature.version
-              }
+              liveVersion={info.feature.version}
+              baseVersion={review.revision?.baseVersion ?? info.feature.version}
             />
           ) : null}
           {canDiscard ? (
@@ -867,63 +401,45 @@ function ReviewCard({
               to start over from the live values.
             </Text>
           ) : null}
-          {startNote ? (
-            <Box
-              pt={review ? "4" : "0"}
-              style={
-                review ? { borderTop: "1px solid var(--gray-a5)" } : undefined
-              }
-            >
-              <Text size="sm" color="text-low">
-                {startNote}
-              </Text>
-            </Box>
-          ) : null}
-          {primary ? (
+          {showPublish ? (
             <Flex
               direction="column"
               gap="3"
-              pt={review ? "4" : "0"}
-              style={
-                review ? { borderTop: "1px solid var(--gray-a5)" } : undefined
-              }
+              pt="4"
+              style={{ borderTop: "1px solid var(--gray-a5)" }}
             >
               {bypass ? (
                 <Checkbox
                   label={
-                    bypass.waivesApproval ? (
-                      <span style={{ color: "var(--red-11)" }}>
-                        {bypass.label}
-                      </span>
-                    ) : (
-                      bypass.label
-                    )
+                    <span style={{ color: "var(--red-11)" }}>
+                      Bypass remaining checks and publish now
+                    </span>
                   }
                   weight="regular"
-                  value={bypass.value}
-                  setValue={(val) => bypass.set(!!val)}
+                  value={review.adminBypass}
+                  setValue={(val) => review.setAdminBypass(!!val)}
                 />
               ) : null}
-              <Tooltip content={blockedReason} enabled={!!blockedReason}>
+              <Tooltip content={editsBlocked} enabled={!!editsBlocked}>
                 <Button
                   style={{ width: "100%" }}
-                  onClick={primary.run}
+                  onClick={() => publish?.run()}
                   setError={setError}
-                  disabled={primary.disabled}
+                  disabled={!publish?.enabled || !!editsBlocked}
                 >
-                  {primary.label}
+                  Publish now
                 </Button>
               </Tooltip>
             </Flex>
           ) : null}
-          {error || review?.error ? (
+          {error || review.error ? (
             <Flex direction="column" gap="2">
               {error ? (
                 <Callout status="error" size="sm">
                   {error}
                 </Callout>
               ) : null}
-              {review?.error ? (
+              {review.error ? (
                 <Callout status="error" size="sm">
                   {review.error}
                 </Callout>

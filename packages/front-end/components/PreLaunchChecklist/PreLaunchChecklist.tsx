@@ -13,9 +13,8 @@ import {
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { format } from "date-fns-tz";
 import clsx from "clsx";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
-import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -170,22 +169,17 @@ function CompletedItems({
   );
 }
 
-/**
- * The checklist grouped by what each item means for starting: stacked under
- * titles, or as `rows` with each group's name in the page's label column.
- */
+/** The checklist grouped by what each item means for starting. */
 export function ChecklistItems({
   summary,
   size,
-  layout = "stacked",
-  showCompleted = false,
+  completed = "hidden",
   onToggleManual = null,
 }: {
   summary: ChecklistSummary;
   size: ChecklistSize;
-  layout?: "stacked" | "rows";
-  // Stacked only; rows fold the done items into their own row.
-  showCompleted?: boolean;
+  // Listed as their own group, folded behind their count, or left out.
+  completed?: "shown" | "folded" | "hidden";
   // null when the viewer can't check tasks off.
   onToggleManual?: ((manualKey: string, checked: boolean) => void) | null;
 }) {
@@ -198,42 +192,7 @@ export function ChecklistItems({
         ...summary.flagged.filter((item) => getChecklistTier(item) === tier),
       ],
     }));
-  if (layout === "rows") {
-    return (
-      <Box>
-        {sections
-          .filter((section) => section.items.length > 0)
-          .map((section) => (
-            <SetupFieldRow
-              key={section.key}
-              label={section.title}
-              content="text"
-            >
-              <Flex direction="column" gap="2">
-                {section.items.map((item) => (
-                  <ChecklistRow
-                    key={item.key}
-                    item={item}
-                    size={size}
-                    onToggleManual={onToggleManual}
-                  />
-                ))}
-              </Flex>
-            </SetupFieldRow>
-          ))}
-        {summary.complete.length > 0 ? (
-          <SetupFieldRow label="Completed" content="text">
-            <CompletedItems
-              items={summary.complete}
-              size={size}
-              onToggleManual={onToggleManual}
-            />
-          </SetupFieldRow>
-        ) : null}
-      </Box>
-    );
-  }
-  if (showCompleted) {
+  if (completed === "shown") {
     sections.push({
       key: "completed",
       title: "Completed",
@@ -260,6 +219,13 @@ export function ChecklistItems({
             ))}
           </Flex>
         ))}
+      {completed === "folded" && summary.complete.length > 0 ? (
+        <CompletedItems
+          items={summary.complete}
+          size={size}
+          onToggleManual={onToggleManual}
+        />
+      ) : null}
     </Flex>
   );
 }
@@ -284,28 +250,24 @@ export function ChecklistCountBadge({
   );
 }
 
-/** The details rail's To Do tab, or the review's To Do section. */
+/** The details rail's To Do tab, or the start popover's To Do. */
 export function PreLaunchChecklistPanel({
   size = "sm",
-  layout = "stacked",
-  omit,
+  foldCompleted = false,
 }: {
   size?: ChecklistSize;
-  layout?: "stacked" | "rows";
-  // Rows the surface already covers, e.g. the review's own approval.
-  omit?: (item: CheckListItem) => boolean;
+  // Done items behind their count instead of a switch, where room is short.
+  foldCompleted?: boolean;
 }) {
   const {
     experiment,
-    checklist,
-    summary: fullSummary,
+    summary,
     loading,
     loadError,
     toggleManualItem,
     toggleError,
   } = usePreLaunchChecklist();
   const [showCompleted, setShowCompleted] = useState(false);
-  const summary = omit ? summarizeChecklist(checklist, omit) : fullSummary;
 
   if (loading) return <LoadingSpinner />;
 
@@ -317,7 +279,7 @@ export function PreLaunchChecklistPanel({
 
   return (
     <>
-      {summary.complete.length > 0 && layout === "stacked" ? (
+      {summary.complete.length > 0 && !foldCompleted ? (
         <Switch
           size={size}
           value={showCompleted}
@@ -338,17 +300,15 @@ export function PreLaunchChecklistPanel({
         </HelperText>
       ) : summary.remaining === 0 ? (
         <Callout status="success" size="sm" icon={<PiCheckBold />}>
-          {/* What's hidden here, e.g. the review's approval, still counts. */}
-          {fullSummary.remaining > 0
-            ? "No other unresolved items remain."
-            : "All items are complete."}
+          All items are complete.
         </Callout>
       ) : null}
       <ChecklistItems
         summary={summary}
         size={size}
-        layout={layout}
-        showCompleted={showCompleted}
+        completed={
+          foldCompleted ? "folded" : showCompleted ? "shown" : "hidden"
+        }
         onToggleManual={toggleManualItem}
       />
       {toggleError ? (

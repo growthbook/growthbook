@@ -14,7 +14,6 @@ import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import { getExperimentReviewTitle } from "@/components/Experiment/TabbedPage/startActions";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -23,7 +22,7 @@ export interface Props {
   source?: string;
   holdout?: HoldoutInterfaceStringDates;
   // Where a draft experiment starts, so its checks aren't skipped here.
-  openReview: (() => void) | null;
+  openStart: (() => void) | null;
 }
 
 export default function EditStatusModal({
@@ -32,7 +31,7 @@ export default function EditStatusModal({
   mutate,
   source,
   holdout,
-  openReview,
+  openStart,
 }: Props) {
   const isHoldout = experiment.type === "holdout";
   const form = useForm<{
@@ -52,9 +51,9 @@ export default function EditStatusModal({
     },
   });
   const { apiCall } = useAuth();
-  const startsInReview =
+  const startsElsewhere =
     !isHoldout &&
-    !!openReview &&
+    !!openStart &&
     experiment.status === "draft" &&
     form.watch("status") === "running";
   const hasLinkedChanges =
@@ -97,8 +96,8 @@ export default function EditStatusModal({
           dateEnded: string;
           holdoutRunningStatus?: "running" | "analysis-period";
         }) => {
-          if (startsInReview) {
-            openReview();
+          if (startsElsewhere) {
+            openStart();
             return;
           }
           const status = value.status;
@@ -131,12 +130,8 @@ export default function EditStatusModal({
           }
         },
       )}
-      cta={
-        startsInReview
-          ? getExperimentReviewTitle(experiment, new Date())
-          : "Update"
-      }
-      ctaColor={startsInReview ? "violet" : "red"}
+      cta={startsElsewhere ? "Continue" : "Update"}
+      ctaColor={startsElsewhere ? "violet" : "red"}
     >
       {isHoldout && (
         <Box mb="4">
@@ -147,7 +142,7 @@ export default function EditStatusModal({
           </Text>
         </Box>
       )}
-      {hasLinkedChanges && !startsInReview && (
+      {hasLinkedChanges && !startsElsewhere && (
         <Callout status="warning" mb="4">
           Changes you make here will immediately affect any linked Feature Flags
           or Visual Changes.
