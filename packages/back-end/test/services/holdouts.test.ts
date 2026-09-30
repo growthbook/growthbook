@@ -67,6 +67,12 @@ const assignmentDatasource = {
           userIdType: "user_id",
           userIdTypes: ["anonymous_id"],
         },
+        {
+          id: "eq_single",
+          name: "Single",
+          userIdType: "user_id",
+          userIdTypes: ["user_id"],
+        },
       ],
     },
   },
@@ -568,12 +574,31 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
       await updateHoldoutWithExperiment(makeAssignmentContext(), {
         holdout: makeRollbackHoldout(),
         experiment,
-        body: { assignmentQueryId: "eq_b" } as ApiUpdateHoldoutBody,
+        body: { assignmentQueryId: "eq_single" } as ApiUpdateHoldoutBody,
       });
 
       const { changes } = mockUpdateExperiment.mock.calls[0][0];
-      expect(changes).toMatchObject({ exposureQueryId: "eq_b" });
+      expect(changes).toMatchObject({ exposureQueryId: "eq_single" });
       expect(changes).toHaveProperty("exposureQueryIdentifierType", undefined);
+    });
+
+    it("rejects switching by flat id to a query that declares several identifier types", async () => {
+      const experiment = makeRollbackExperiment({
+        datasource: "ds_1",
+        exposureQueryId: "eq_a",
+        exposureQueryIdentifierType: "company_id",
+      });
+
+      await expect(
+        updateHoldoutWithExperiment(makeAssignmentContext(), {
+          holdout: makeRollbackHoldout(),
+          experiment,
+          body: { assignmentQueryId: "eq_b" } as ApiUpdateHoldoutBody,
+        }),
+      ).rejects.toThrow(
+        'Assignment query "B" declares several identifier types (user_id, anonymous_id). Set assignmentQuery.identifierType to choose one.',
+      );
+      expect(mockUpdateExperiment).not.toHaveBeenCalled();
     });
 
     it("keeps an implicit holdout implicit when the update echoes its resolved identifier", async () => {
