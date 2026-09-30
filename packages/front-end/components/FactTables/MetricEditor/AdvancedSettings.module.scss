@@ -1,5 +1,36 @@
-.setting > :last-child,
-.setting :global(.form-group):last-child,
-.setting :global(.appbox):last-child {
-  margin-bottom: 0;
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+}
+
+.caret {
+  flex-shrink: 0;
+  color: var(--gray-11);
+  transition: transform 0.15s;
+
+  details[open] > .summary & {
+    transform: rotate(180deg);
+  }
+}
+
+// Settings sit in one card, split by rules instead of a box apiece.
+.setting {
+  & + & {
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--gray-a4);
+  }
+
+  > :last-child,
+  :global(.form-group):last-child,
+  :global(.appbox):last-child {
+    margin-bottom: 0;
+  }
 }
