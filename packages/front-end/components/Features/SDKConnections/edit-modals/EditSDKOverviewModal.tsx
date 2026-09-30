@@ -42,12 +42,6 @@ export default function EditSDKOverviewModal({
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
-  const { draftSelector, save } = useSdkConnectionRevisionFlow({
-    connection,
-    mutate,
-    ...revisionProps,
-  });
-
   // Same shape as the create modal, so the two share both form sections.
   const [value, setValue] = useState<FormValue>(() => ({
     name: connection.name,
@@ -62,6 +56,13 @@ export default function EditSDKOverviewModal({
     hashSecureAttributes: !!connection.hashSecureAttributes,
     ...advancedValueFromConnection(connection),
   }));
+  const { draftSelector, save } = useSdkConnectionRevisionFlow({
+    connection,
+    mutate,
+    // Approval is judged on where the connection is being moved to as well.
+    proposedScope: { projects: value.projects, environment: value.environment },
+    ...revisionProps,
+  });
   const [languageError, setLanguageError] = useState<string | null>(null);
   const [environmentError, setEnvironmentError] = useState<string | null>(null);
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(

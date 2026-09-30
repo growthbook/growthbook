@@ -39,6 +39,7 @@ import EditSDKOverviewModal from "@/components/Features/SDKConnections/edit-moda
 import EditSDKSettingsModal, {
   SDKConnectionEditSection,
 } from "@/components/Features/SDKConnections/edit-modals/EditSDKSettingsModal";
+import { canBypassSdkConnectionApproval } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
@@ -211,10 +212,9 @@ export default function SDKConnectionPage() {
   const { data, mutate, error } = useSDKConnections();
   // The live webhooks are part of the revision snapshot, so the page needs them
   // to build an accurate merge target for diffing and conflict detection.
-  const { data: webhookData } = useApi<{ webhooks?: WebhookInterface[] }>(
-    `/sdk-connections/${sdkid}/webhooks`,
-    { shouldRun: () => !!sdkid },
-  );
+  const { data: webhookData, mutate: mutateWebhooks } = useApi<{
+    webhooks?: WebhookInterface[];
+  }>(`/sdk-connections/${sdkid}/webhooks`, { shouldRun: () => !!sdkid });
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -251,10 +251,18 @@ export default function SDKConnectionPage() {
   const approvalRequired = !!matchedRule;
   const metadataReviewRequired = matchedRule?.requireMetadataReview ?? true;
 
+  // Publishing lands webhook changes too, so the live entity refresh must
+  // revalidate the webhooks key or draft-added rows stay invisible.
+  const mutateLive = () => {
+    mutate();
+    mutateWebhooks();
+  };
+
   const revisionState = useSDKConnectionRevision(
     connection?.id,
-    mutate,
+    mutateLive,
     connection,
+    { autoSelectDrafts: hasApprovalsFeature },
   );
   const {
     selectedApprovalFlow: selectedRevision,
@@ -271,36 +279,79 @@ export default function SDKConnectionPage() {
 
   const hasRevisions = allRevisions.length > 0;
 
-  // Per-revision approval gate: a metadata-only revision (name only) can be
-  // published without review when `requireMetadataReview` is off. Mirrors the
-  // server-side rule in the sdk-connection adapter.
-  const selectedRevisionRequiresApproval =
-    !!selectedRevision &&
-    approvalRequired &&
-    (metadataReviewRequired ||
-      // The baseline is required: without it the helper conservatively
-      // returns false, which made this constantly `approvalRequired` and left
-      // `requireMetadataReview: false` with no observable effect in the UI
-      // even though the server honoured it.
-      !isSdkConnectionRevisionMetadataOnly(
-        selectedRevision.target.proposedChanges,
-        selectedRevision.target.snapshot as Record<string, unknown>,
-      ));
+  // Per-revision approval gate, mirroring the adapter's
+  // isApprovalRequiredForRevision: the rule is matched against the draft's
+  // baseline scope OR its effective (proposed) scope, so a draft that moves
+  // the connection into a gated environment/project needs review even when
+  // the live connection does not. A metadata-only revision (name only) can be
+  // published without review when `requireMetadataReview` is off.
+  const selectedRevisionScopes = useMemo(() => {
+    if (!selectedRevision) return null;
+    const baseline = selectedRevision.target.snapshot as
+      | SDKConnectionRevisionSnapshot
+      | undefined;
+    const effective = applyTopLevelPatchOps(
+      (baseline ?? {}) as unknown as Record<string, unknown>,
+      selectedRevision.target.proposedChanges,
+    ) as unknown as SDKConnectionRevisionSnapshot;
+    return {
+      baseline: baseline?.sdkConnection ?? {},
+      effective: effective.sdkConnection ?? {},
+    };
+  }, [selectedRevision]);
+
+  const selectedRevisionRequiresApproval = useMemo(() => {
+    if (!selectedRevision || !selectedRevisionScopes || !hasApprovalsFeature)
+      return false;
+    const rule =
+      getSdkConnectionApprovalRule(
+        settings.approvalFlows,
+        selectedRevisionScopes.baseline,
+      ) ??
+      getSdkConnectionApprovalRule(
+        settings.approvalFlows,
+        selectedRevisionScopes.effective,
+      );
+    if (!rule) return false;
+    if (rule.requireMetadataReview ?? true) return true;
+    // The baseline is required: without it the helper conservatively
+    // returns false.
+    return !isSdkConnectionRevisionMetadataOnly(
+      selectedRevision.target.proposedChanges,
+      selectedRevision.target.snapshot as Record<string, unknown>,
+    );
+  }, [
+    selectedRevision,
+    selectedRevisionScopes,
+    hasApprovalsFeature,
+    settings.approvalFlows,
+  ]);
 
   const canAdminPublish =
     approvalRequired &&
     !!connection &&
-    (user?.role === "admin" ||
-      (connection.projects.length
-        ? connection.projects.every((p) =>
-            permissionsUtil.canBypassSDKConnectionApprovalChecks({
-              project: p || "",
-            }),
-          )
-        : permissionsUtil.canBypassSDKConnectionApprovalChecks({
-            project: "",
-          })));
+    canBypassSdkConnectionApproval(
+      permissionsUtil,
+      user?.role,
+      connection.projects ?? [],
+    );
   const canAutoPublish = !approvalRequired || canAdminPublish;
+
+  // Bypass for the selected draft needs authority in both the live projects
+  // and the ones the draft moves the connection into.
+  const canBypassSelectedRevision =
+    !selectedRevisionRequiresApproval ||
+    (!!connection &&
+      canBypassSdkConnectionApproval(
+        permissionsUtil,
+        user?.role,
+        connection.projects ?? [],
+      ) &&
+      canBypassSdkConnectionApproval(
+        permissionsUtil,
+        user?.role,
+        selectedRevisionScopes?.effective.projects ?? [],
+      ));
 
   const displayRevision = useMemo(() => {
     if (selectedRevision) return selectedRevision;
@@ -365,7 +416,14 @@ export default function SDKConnectionPage() {
     !connection.managedBy?.type;
   const isExternallyManaged = !!connection.managedBy?.type;
 
-  const displayedConn = displayedConnection ?? connection;
+  // Whether to surface revision/approval UI. Without the feature, edits just
+  // auto-publish and the page behaves as before (minus archive-then-delete),
+  // rendering live state even if `?v=` points at an open draft.
+  const showRevisionUI = hasApprovalsFeature && hasRevisions;
+
+  const displayedConn = showRevisionUI
+    ? (displayedConnection ?? connection)
+    : connection;
   const displayedName = displayedConn.name;
   const displayedArchived = !!displayedConn.archived;
 
@@ -380,10 +438,6 @@ export default function SDKConnectionPage() {
   const sdkDocSection = displayedConn.languages?.[0]
     ? languageMapping[displayedConn.languages[0]]?.docs
     : undefined;
-
-  // Whether to surface revision/approval UI. Without the feature, edits just
-  // auto-publish and the page behaves as before (minus archive-then-delete).
-  const showRevisionUI = hasApprovalsFeature && hasRevisions;
 
   // Per-section edit modal routing. Each section opens its dedicated modal.
   const openEditSection = (section: SDKConnectionEditSection | "overview") => {
@@ -673,9 +727,11 @@ export default function SDKConnectionPage() {
           <Box mt="4">
             <SdkWebhooks
               connection={connection}
-              approvalRequired={approvalRequired}
+              approvalRequired={
+                approvalRequired || selectedRevisionRequiresApproval
+              }
               onRevisionCreated={onRevisionCreated}
-              selectedRevision={selectedRevision}
+              selectedRevision={showRevisionUI ? selectedRevision : null}
             />
           </Box>
         </TabsContent>
@@ -691,14 +747,18 @@ export default function SDKConnectionPage() {
                 entityNoun="SDK Connection"
                 requiresApproval={selectedRevisionRequiresApproval}
                 canEditEntity={canUpdate}
-                canBypassApproval={canAutoPublish}
+                canBypassApproval={canBypassSelectedRevision}
                 selectRevision={selectFlow}
                 onPublish={handlePublish}
                 onDiscard={handleDiscard}
                 onReopen={handleReopen}
                 onCompareRevisions={() => setShowCompareModal(true)}
                 mutate={async () => {
-                  await Promise.all([mutateRevisions(), mutate()]);
+                  await Promise.all([
+                    mutateRevisions(),
+                    mutate(),
+                    mutateWebhooks(),
+                  ]);
                 }}
               />
             </Box>

@@ -5,6 +5,7 @@ export function useSDKConnectionRevision(
   sdkConnectionId: string | undefined,
   sdkConnectionMutate: () => void,
   connection?: SDKConnectionInterface,
+  { autoSelectDrafts = true }: { autoSelectDrafts?: boolean } = {},
 ) {
   return useEntityRevision({
     entityType: "sdk-connection",
@@ -14,5 +15,6 @@ export function useSDKConnectionRevision(
     // SDK connections have no owner; the synthetic initial revision rarely
     // shows since the backend backfills a baseline revision on create.
     ownerId: "",
+    autoSelectDrafts,
   });
 }

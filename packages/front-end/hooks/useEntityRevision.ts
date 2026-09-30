@@ -32,6 +32,7 @@ export function useEntityRevision<T extends RevisableEntity>({
   entityMutate,
   entity,
   ownerId = "",
+  autoSelectDrafts = true,
 }: {
   entityType: Revision["target"]["type"];
   entityId: string | undefined;
@@ -40,6 +41,9 @@ export function useEntityRevision<T extends RevisableEntity>({
   // Author used for the synthetic initial revision. Saved groups pass the
   // group owner; entities without an owner (e.g. SDK connections) pass "".
   ownerId?: string;
+  // When false (no revision UI, e.g. the approvals feature lapsed) the page
+  // opens on live instead of the author's open draft.
+  autoSelectDrafts?: boolean;
 }) {
   const { userId } = useUser();
   const router = useRouter();
@@ -168,16 +172,27 @@ export function useEntityRevision<T extends RevisableEntity>({
       return;
     }
 
-    const authoredOpenRevision = openRevisions
-      .filter((revision) => revision.authorId === userId)
-      .sort(
-        (a, b) =>
-          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
-      )[0];
+    const authoredOpenRevision = autoSelectDrafts
+      ? openRevisions
+          .filter((revision) => revision.authorId === userId)
+          .sort(
+            (a, b) =>
+              new Date(b.dateUpdated).getTime() -
+              new Date(a.dateUpdated).getTime(),
+          )[0]
+      : undefined;
 
     updateUrl(authoredOpenRevision ?? null, { replace: true });
     initializedDefaultSelectionFor.current = entityId;
-  }, [entityId, userId, data, openRevisions, hasSelectionInUrl, updateUrl]);
+  }, [
+    entityId,
+    userId,
+    data,
+    openRevisions,
+    hasSelectionInUrl,
+    updateUrl,
+    autoSelectDrafts,
+  ]);
 
   // If the URL `?v=` points to a version that doesn't exist (deleted / invalid
   // URL), reset to live. Skip this when `v` equals the live version (live view)
