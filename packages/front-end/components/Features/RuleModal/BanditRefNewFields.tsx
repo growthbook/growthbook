@@ -1,6 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { useEffect } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { CustomField } from "shared/types/custom-fields";
 import {
   FeatureInterface,
   FeaturePrerequisite,
@@ -51,6 +52,7 @@ import RuleProjectScopeField, {
   type ProjectScopeProps,
 } from "@/components/Features/RuleModal/ProjectScopeField";
 import Callout from "@/ui/Callout";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 
 export default function BanditRefNewFields({
   step,
@@ -80,6 +82,9 @@ export default function BanditRefNewFields({
   setVariations,
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
+  customFields,
+  customFieldValues,
+  setCustomFields,
   envScope,
   projectScope,
   onRuleCyclicChange,
@@ -110,6 +115,9 @@ export default function BanditRefNewFields({
   setVariations: (v: SortableVariation[]) => void;
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
+  customFields?: CustomField[];
+  customFieldValues?: Record<string, string>;
+  setCustomFields?: (customFields: Record<string, string>) => void;
   envScope?: EnvScopeProps;
   projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
@@ -190,6 +198,14 @@ export default function BanditRefNewFields({
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
           {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
+
+          {!!customFields?.length && (
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues ?? {}}
+              onChange={setCustomFields ? setCustomFields : () => {}}
+            />
+          )}
         </>
       ) : null}
 
