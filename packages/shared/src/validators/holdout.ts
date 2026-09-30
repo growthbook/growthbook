@@ -13,7 +13,7 @@ import {
 import { booleanQueryField, savedGroupTargeting } from "./shared";
 import {
   GENERIC_NAME_DESCRIPTION,
-  MARKDOWN_GENERIC_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
   PROJECTS_DESCRIPTION,
   TAGS_DESCRIPTION,
 } from "./api-field-descriptions";
@@ -115,7 +115,7 @@ export const createHoldoutInputValidator = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.array(z.string()).optional(),
   owner: optionalOwnerInputField,
-  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
+  tags: z.array(z.string()).optional(),
   skipAsDefaultHoldout: z.boolean().optional(),
 
   hashAttribute: z.string().optional(),
@@ -312,7 +312,7 @@ export const apiCreateHoldoutBody = z.strictObject({
   description: z
     .string()
     .max(MAX_DESCRIPTION_LENGTH)
-    .describe(MARKDOWN_GENERIC_DESCRIPTION)
+    .describe(MARKDOWN_DESCRIPTION)
     .optional(),
   projects: z
     .array(z.string())
@@ -371,7 +371,7 @@ export const apiUpdateHoldoutBody = z.strictObject({
   description: z
     .string()
     .max(MAX_DESCRIPTION_LENGTH)
-    .describe(MARKDOWN_GENERIC_DESCRIPTION)
+    .describe(MARKDOWN_DESCRIPTION)
     .optional(),
   projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION).optional(),
   owner: ownerInputField.optional(),

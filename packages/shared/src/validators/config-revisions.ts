@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   booleanQueryField,
   paginationQueryFields,
@@ -27,7 +28,7 @@ import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 import {
   GENERIC_NAME_DESCRIPTION,
-  MARKDOWN_GENERIC_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
   REVIEW_COMMENT_DESCRIPTION,
   REVISION_COMMENT_DESCRIPTION,
   REVISION_TITLE_DESCRIPTION,
@@ -501,7 +502,11 @@ export const putConfigRevisionMetadataValidator = {
       ...newDraftMetadataFields,
       name: z.string().describe(GENERIC_NAME_DESCRIPTION).optional(),
       owner: ownerInputField.optional(),
-      description: z.string().describe(MARKDOWN_GENERIC_DESCRIPTION).optional(),
+      description: z
+        .string()
+        .max(MAX_DESCRIPTION_LENGTH)
+        .describe(MARKDOWN_DESCRIPTION)
+        .optional(),
       project: z.string().optional(),
       parent: z
         .string()

@@ -579,9 +579,9 @@ curl https://api.growthbook.io/api/v1/features \\
 
 People review what the API creates in the GrowthBook UI.
 
-- Keep keys and names short (2-5 words). Feature keys and tracking keys are permanent; use kebab-case.
+- Keep keys and names short (2-5 words). Feature keys and tracking keys are permanent; follow your organization's key format, or kebab-case if there is none.
 - Put context (why, plan, tickets, links) in \`description\`, not in names or keys.
-- Group with \`tags\` and \`project\`, not name prefixes.
+- Group with tags and projects (\`tags\`, \`project\` or \`projects\` per endpoint), not name prefixes.
 - Create Feature Flags disabled. Leave publishing and production changes to a person unless asked.
 
 ## Errors

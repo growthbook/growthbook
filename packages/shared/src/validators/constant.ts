@@ -15,7 +15,7 @@ import {
 import { namedSchema } from "./openapi-helpers";
 import {
   GENERIC_NAME_DESCRIPTION,
-  MARKDOWN_GENERIC_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
 } from "./api-field-descriptions";
 
 // A raw `string` (interpolated as `{{ @const:key }}`) or a `json` object (merged
@@ -370,7 +370,7 @@ export const constantValidator = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(MARKDOWN_GENERIC_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     // Single project (or unset = global), mirroring features.
     project: z.string().optional(),
@@ -480,7 +480,7 @@ const postConstantApiBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(MARKDOWN_GENERIC_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     project: z.string().optional(),
     owner: optionalOwnerInputField,
@@ -500,7 +500,7 @@ const updateConstantApiBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(MARKDOWN_GENERIC_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     project: z.string().optional(),
     owner: ownerInputField.optional(),

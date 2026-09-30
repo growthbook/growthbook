@@ -10,7 +10,7 @@ import {
 
 import { namedSchema } from "./openapi-helpers";
 import {
-  METRIC_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
   METRIC_NAME_DESCRIPTION,
   TAGS_DESCRIPTION,
 } from "./api-field-descriptions";
@@ -662,7 +662,7 @@ export const postFactMetricBodyFields = z.object({
   description: z
     .string()
     .max(MAX_DESCRIPTION_LENGTH)
-    .describe(METRIC_DESCRIPTION)
+    .describe(MARKDOWN_DESCRIPTION)
     .optional(),
   owner: ownerInputField.optional(),
   projects: z.array(z.string()).optional(),

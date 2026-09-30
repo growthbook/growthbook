@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-  MAX_DESCRIPTION_LENGTH,
-  MAX_FEATURE_KEY_LENGTH,
-} from "shared/constants";
+import { MAX_DESCRIPTION_LENGTH, FEATURE_KEY_PATTERN } from "shared/constants";
 import {
   FEATURE_DESCRIPTION,
   FEATURE_KEY_DESCRIPTION,
@@ -697,10 +694,7 @@ export const postFeatureBodyV2 = z
     id: z
       .string()
       .min(1)
-      .max(
-        MAX_FEATURE_KEY_LENGTH,
-        `Feature keys must be ${MAX_FEATURE_KEY_LENGTH} characters or fewer. Use a short key and put context in \`description\`.`,
-      )
+      .meta({ pattern: FEATURE_KEY_PATTERN })
       .describe(FEATURE_KEY_DESCRIPTION),
     archived: z.boolean().optional(),
     description: z

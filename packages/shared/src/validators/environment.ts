@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
 import {
+  ENVIRONMENT_PROJECTS_DESCRIPTION,
   PLAIN_DESCRIPTION,
-  PROJECTS_DESCRIPTION,
 } from "./api-field-descriptions";
 
 export const updateEnvOrderValidator = z
@@ -20,7 +20,7 @@ export const updateEnvValidator = z.object({
       description: z.string(),
       toggleOnList: z.boolean().optional(),
       defaultState: z.any().optional(),
-      projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION).optional(),
+      projects: z.array(z.string()).optional(),
     })
     .strict(),
 });
@@ -31,7 +31,7 @@ export const environment = z
     description: z.string(),
     toggleOnList: z.boolean().optional(),
     defaultState: z.boolean().optional(),
-    projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION).optional(),
+    projects: z.array(z.string()).optional(),
     parent: z.string().optional(),
   })
   .strict();
@@ -77,7 +77,10 @@ const postEnvironmentBody = z
       .boolean()
       .describe("Default state for new features")
       .optional(),
-    projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION).optional(),
+    projects: z
+      .array(z.string())
+      .describe(ENVIRONMENT_PROJECTS_DESCRIPTION)
+      .optional(),
     parent: z
       .string()
       .describe(
@@ -96,7 +99,10 @@ const putEnvironmentBody = z
       .boolean()
       .describe("Default state for new features")
       .optional(),
-    projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION).optional(),
+    projects: z
+      .array(z.string())
+      .describe(ENVIRONMENT_PROJECTS_DESCRIPTION)
+      .optional(),
   })
   .strict();
 

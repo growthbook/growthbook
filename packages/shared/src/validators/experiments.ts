@@ -24,11 +24,12 @@ import {
 
 import { componentSchema, namedSchema } from "./openapi-helpers";
 import {
-  EXPERIMENT_DESCRIPTION,
   EXPERIMENT_HYPOTHESIS_DESCRIPTION,
   EXPERIMENT_NAME_DESCRIPTION,
   EXPERIMENT_TRACKING_KEY_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
   TAGS_DESCRIPTION,
+  VARIATION_DESCRIPTION,
   VARIATION_KEY_DESCRIPTION,
   VARIATION_NAME_DESCRIPTION,
 } from "./api-field-descriptions";
@@ -1360,7 +1361,7 @@ const apiVariationInput = z.object({
   description: z
     .string()
     .max(MAX_DESCRIPTION_LENGTH)
-    .describe("What this variation changes.")
+    .describe(VARIATION_DESCRIPTION)
     .optional(),
   screenshots: z
     .array(
@@ -1469,7 +1470,7 @@ const postExperimentBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(EXPERIMENT_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     metrics: z.array(z.string()).optional(),
@@ -1604,7 +1605,7 @@ const updateExperimentBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(EXPERIMENT_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     metrics: z.array(z.string()).optional(),

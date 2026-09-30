@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  MAX_DESCRIPTION_LENGTH,
+  MAX_SAVED_GROUP_DESCRIPTION_LENGTH,
+} from "shared/constants";
 import {
   ownerEmailField,
   ownerField,
@@ -136,7 +139,11 @@ export type ApiSavedGroup = z.infer<typeof apiSavedGroupValidator>;
 const postSavedGroupBody = z
   .object({
     name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION),
-    description: z.string().describe(SAVED_GROUP_DESCRIPTION).optional(),
+    description: z
+      .string()
+      .max(MAX_SAVED_GROUP_DESCRIPTION_LENGTH)
+      .describe(SAVED_GROUP_DESCRIPTION)
+      .optional(),
     type: z
       .enum(["condition", "list"])
       .describe(

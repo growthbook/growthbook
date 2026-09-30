@@ -83,12 +83,14 @@ info:
 
 
     - Keep keys and names short (2-5 words). Feature keys and tracking keys are
-    permanent; use kebab-case.
+    permanent; follow your organization's key format, or kebab-case if there is
+    none.
 
     - Put context (why, plan, tickets, links) in `description`, not in names or
     keys.
 
-    - Group with `tags` and `project`, not name prefixes.
+    - Group with tags and projects (`tags`, `project` or `projects` per
+    endpoint), not name prefixes.
 
     - Create Feature Flags disabled. Leave publishing and production changes to
     a person unless asked.
@@ -864,14 +866,14 @@ paths:
               type: object
               properties:
                 id:
+                  pattern: ^[a-zA-Z0-9_.:|-]+$
                   description: >-
                     Permanent key, shown as the feature's name in the UI and
-                    used in code. Keep it short (max 64 characters) and
-                    kebab-case (e.g. `checkout-express-pay`); letters, numbers,
-                    hyphens, and underscores only. Put context in `description`.
+                    used in code. Keep it short and follow your organization's
+                    key format if it has one, otherwise kebab-case (e.g.
+                    `checkout-express-pay`). Put context in `description`.
                   type: string
                   minLength: 1
-                  maxLength: 64
                 archived:
                   type: boolean
                 description:
@@ -8205,14 +8207,14 @@ paths:
               type: object
               properties:
                 id:
+                  pattern: ^[a-zA-Z0-9_.:|-]+$
                   description: >-
                     Permanent key, shown as the feature's name in the UI and
-                    used in code. Keep it short (max 64 characters) and
-                    kebab-case (e.g. `checkout-express-pay`); letters, numbers,
-                    hyphens, and underscores only. Put context in `description`.
+                    used in code. Keep it short and follow your organization's
+                    key format if it has one, otherwise kebab-case (e.g.
+                    `checkout-express-pay`). Put context in `description`.
                   type: string
                   minLength: 1
-                  maxLength: 64
                 archived:
                   type: boolean
                 description:
@@ -20201,7 +20203,9 @@ paths:
                   description: Default state for new features
                   type: boolean
                 projects:
-                  description: Project IDs. Use projects instead of prefixing names.
+                  description: >-
+                    Limits which projects can use this environment. Omit to
+                    allow all projects.
                   type: array
                   items:
                     type: string
@@ -20258,7 +20262,9 @@ paths:
                   description: Default state for new features
                   type: boolean
                 projects:
-                  description: Project IDs. Use projects instead of prefixing names.
+                  description: >-
+                    Limits which projects can use this environment. Omit to
+                    allow all projects.
                   type: array
                   items:
                     type: string
@@ -21758,6 +21764,7 @@ paths:
                     Short note (max 100 characters) on who is in the group and
                     why.
                   type: string
+                  maxLength: 100
                 type:
                   description: >-
                     The type of Saved Group (inferred from other arguments if
@@ -24452,6 +24459,7 @@ paths:
                 description:
                   description: Markdown. Put context here, not in the name.
                   type: string
+                  maxLength: 10000
                 project:
                   type: string
               additionalProperties: false
@@ -26925,6 +26933,7 @@ paths:
                 description:
                   description: Markdown. Put context here, not in the name.
                   type: string
+                  maxLength: 10000
                 project:
                   type: string
                 parent:
@@ -51765,9 +51774,7 @@ paths:
               type: object
               properties:
                 name:
-                  description: >-
-                    Short display name (e.g. `Express checkout button`). Put
-                    reasoning in `hypothesis` and context in `description`.
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
                   description: Markdown. Put context here, not in the name.

@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   statsEngines,
   MAX_DESCRIPTION_LENGTH,
-  MAX_FEATURE_KEY_LENGTH,
+  FEATURE_KEY_PATTERN,
 } from "shared/constants";
 import { eventUser } from "./event-user";
 import {
@@ -1665,10 +1665,7 @@ const postFeatureBody = z
     id: z
       .string()
       .min(1)
-      .max(
-        MAX_FEATURE_KEY_LENGTH,
-        `Feature keys must be ${MAX_FEATURE_KEY_LENGTH} characters or fewer. Use a short key and put context in \`description\`.`,
-      )
+      .meta({ pattern: FEATURE_KEY_PATTERN })
       .describe(FEATURE_KEY_DESCRIPTION),
     archived: z.boolean().optional(),
     description: z

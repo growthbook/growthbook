@@ -14,7 +14,7 @@ import {
 } from "./aggregated-fact-table-run";
 import {
   GENERIC_NAME_DESCRIPTION,
-  MARKDOWN_GENERIC_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
   PLAIN_DESCRIPTION,
 } from "./api-field-descriptions";
 
@@ -1230,7 +1230,7 @@ export const postFactTableBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(MARKDOWN_GENERIC_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     owner: ownerInputField.optional(),
     projects: z
@@ -1276,7 +1276,7 @@ const updateFactTableBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(MARKDOWN_GENERIC_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     owner: ownerInputField.optional(),
     projects: z

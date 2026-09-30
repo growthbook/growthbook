@@ -3,7 +3,6 @@ import { postSavedGroupValidator } from "shared/validators";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
-import { assertValidDescription } from "./validations";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req) => {
@@ -16,8 +15,6 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       owner,
       projects,
     } = req.body;
-
-    assertValidDescription(description);
 
     if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
       req.context.permissions.throwPermissionError();

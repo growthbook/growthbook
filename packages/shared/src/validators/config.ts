@@ -18,7 +18,7 @@ import {
 import { namedSchema } from "./openapi-helpers";
 import {
   GENERIC_NAME_DESCRIPTION,
-  MARKDOWN_GENERIC_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
 } from "./api-field-descriptions";
 
 // Per-source naming captured from an import, replayed on typed-projection export.
@@ -509,7 +509,7 @@ const postConfigApiBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(MARKDOWN_GENERIC_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     project: z.string().optional(),
     owner: optionalOwnerInputField,
@@ -569,7 +569,7 @@ const updateConfigApiBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(MARKDOWN_GENERIC_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     project: z.string().optional(),
     owner: ownerInputField.optional(),

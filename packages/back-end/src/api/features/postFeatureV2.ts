@@ -1,4 +1,8 @@
 import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+} from "shared/constants";
+import {
   validateFeatureValue,
   getRuleAttributeScopeProjectIds,
   normalizeTargetingProjects,
@@ -71,10 +75,8 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
 
-    if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-      throw new Error(
-        "Feature keys can only include letters, numbers, hyphens, and underscores.",
-      );
+    if (!new RegExp(FEATURE_KEY_PATTERN).test(req.body.id)) {
+      throw new Error(FEATURE_KEY_PATTERN_ERROR);
     }
 
     const orgEnvs = getEnvironments(req.context.org);

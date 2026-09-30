@@ -6,10 +6,11 @@ import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import {
-  EXPERIMENT_DESCRIPTION,
-  EXPERIMENT_NAME_DESCRIPTION,
   EXPERIMENT_TRACKING_KEY_DESCRIPTION,
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
   TAGS_DESCRIPTION,
+  VARIATION_DESCRIPTION,
   VARIATION_KEY_DESCRIPTION,
   VARIATION_NAME_DESCRIPTION,
 } from "./api-field-descriptions";
@@ -196,8 +197,8 @@ export const apiListContextualBanditsValidator = {
 };
 
 export const apiCreateContextualBanditBody = z.strictObject({
-  name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION),
-  description: z.string().describe(EXPERIMENT_DESCRIPTION).optional(),
+  name: z.string().describe(GENERIC_NAME_DESCRIPTION),
+  description: z.string().describe(MARKDOWN_DESCRIPTION).optional(),
   project: z.string().optional(),
   owner: ownerInputField.optional(),
   tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
@@ -211,10 +212,7 @@ export const apiCreateContextualBanditBody = z.strictObject({
     z.object({
       key: z.string().describe(VARIATION_KEY_DESCRIPTION),
       name: z.string().describe(VARIATION_NAME_DESCRIPTION),
-      description: z
-        .string()
-        .describe("What this variation changes.")
-        .optional(),
+      description: z.string().describe(VARIATION_DESCRIPTION).optional(),
     }),
   ),
 

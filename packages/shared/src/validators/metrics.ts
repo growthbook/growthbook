@@ -9,7 +9,7 @@ import {
 
 import { namedSchema } from "./openapi-helpers";
 import {
-  METRIC_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
   METRIC_NAME_DESCRIPTION,
   TAGS_DESCRIPTION,
 } from "./api-field-descriptions";
@@ -229,7 +229,7 @@ const postMetricBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(METRIC_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     type: z
       .enum(["binomial", "count", "duration", "revenue"])
@@ -478,7 +478,7 @@ const putMetricBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe(METRIC_DESCRIPTION)
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     type: z
       .enum(["binomial", "count", "duration", "revenue"])

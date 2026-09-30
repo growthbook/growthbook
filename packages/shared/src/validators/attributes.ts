@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
 import {
-  MARKDOWN_GENERIC_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
   PROJECTS_DESCRIPTION,
   TAGS_DESCRIPTION,
 } from "./api-field-descriptions";
@@ -60,7 +60,7 @@ const postAttributeBody = z
         "secureString[]",
       ])
       .describe("The attribute datatype"),
-    description: z.string().describe(MARKDOWN_GENERIC_DESCRIPTION).optional(),
+    description: z.string().describe(MARKDOWN_DESCRIPTION).optional(),
     archived: z.boolean().describe("The attribute is archived").optional(),
     hashAttribute: z
       .boolean()
@@ -98,7 +98,7 @@ const putAttributeBody = z
       ])
       .describe("The attribute datatype")
       .optional(),
-    description: z.string().describe(MARKDOWN_GENERIC_DESCRIPTION).optional(),
+    description: z.string().describe(MARKDOWN_DESCRIPTION).optional(),
     archived: z.boolean().describe("The attribute is archived").optional(),
     hashAttribute: z
       .boolean()
