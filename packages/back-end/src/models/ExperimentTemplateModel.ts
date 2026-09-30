@@ -59,7 +59,7 @@ async function toTemplateWriteBody<T extends ApiTemplateBody>(
         exposureQueryId: flat.exposureQueryId,
         identifierType: flat.exposureQueryIdentifierType,
       },
-      onOmitted: body.exposureQuery ? "requireUnambiguous" : "defaultToFirst",
+      onOmitted: "requireUnambiguous",
       field: "exposureQuery",
     });
   // Always keyed: on update, undefined clears an identifier the new selection

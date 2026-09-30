@@ -365,7 +365,7 @@ export async function createHoldoutWithExperiment(
     onOmitted = "defaultToFirst",
   }: {
     /**
-     * REST's grouped assignmentQuery must name an identifier when ambiguous.
+     * REST bodies must name an identifier when ambiguous.
      */
     onOmitted?: "defaultToFirst" | "requireUnambiguous";
   } = {},
@@ -713,9 +713,7 @@ export async function updateHoldoutWithExperiment(
             exposureQueryId: effectiveQueryId,
             identifierType: assignmentQueryInput.identifierType,
           },
-          onOmitted: body.assignmentQuery
-            ? "requireUnambiguous"
-            : "defaultToFirst",
+          onOmitted: "requireUnambiguous",
           field: "assignmentQuery",
         },
       );

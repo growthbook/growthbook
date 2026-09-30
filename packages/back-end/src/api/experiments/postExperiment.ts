@@ -138,7 +138,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
      * req.body without the grouped assignmentQuery, which assignmentQueryInput
      * already folded into the flat fields. Read these, not req.body.
      */
-    const { assignmentQuery, ...body } = req.body;
+    const body = omit(req.body, "assignmentQuery");
     const fields = {
       ...(template ? templateToPostExperimentDefaults(template) : {}),
       ...body,
@@ -184,9 +184,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
           {
             exposureQueryId: assignmentQueryId,
             identifierType: requestedIdentifierType,
-            onOmitted: assignmentQuery
-              ? "requireUnambiguous"
-              : "defaultToFirst",
+            onOmitted: template ? "defaultToFirst" : "requireUnambiguous",
             /**
              * Errors name the template's field: a template's selection is set
              * on the template, not in this body.

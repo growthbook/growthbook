@@ -1,3 +1,4 @@
+import { omit } from "lodash";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   parseAssignmentQueryInput,
@@ -72,9 +73,8 @@ export const updateExperiment = createApiRequestHandler(
    * req.body without the grouped assignmentQuery, which assignmentQueryInput
    * already folded into the flat fields. Read these, not req.body.
    */
-  const { assignmentQuery, ...body } = req.body;
   const payload: UpdateExperimentApiPayload = {
-    ...body,
+    ...omit(req.body, "assignmentQuery"),
     assignmentQueryId: assignmentQueryInput.id,
   };
 
@@ -137,7 +137,7 @@ export const updateExperiment = createApiRequestHandler(
             payload.assignmentQueryId ?? experiment.exposureQueryId,
           identifierType: assignmentQueryInput.identifierType,
         },
-        onOmitted: assignmentQuery ? "requireUnambiguous" : "defaultToFirst",
+        onOmitted: "requireUnambiguous",
         field: "assignmentQuery",
       },
     );

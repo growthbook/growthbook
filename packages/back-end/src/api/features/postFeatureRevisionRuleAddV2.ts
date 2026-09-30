@@ -269,9 +269,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         flattenExposureQueryInput(validatableFields),
         req.context,
         null,
-        validatableFields.exposureQuery
-          ? "requireUnambiguous"
-          : "defaultToFirst",
+        "requireUnambiguous",
       );
 
       const defaultRampSteps = [

@@ -5394,7 +5394,11 @@ paths:
                               additionalProperties: false
                             exposureQueryId:
                               deprecated: true
-                              description: 'Deprecated: use `exposureQuery`.'
+                              description: >-
+                                Deprecated: use `exposureQuery`. Rejected when
+                                selecting a different assignment query that
+                                declares several identifier types; set
+                                `exposureQuery.identifierType` instead.
                               type: string
                             guardrailMetricIds:
                               minItems: 1
@@ -5997,7 +6001,11 @@ paths:
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use `exposureQuery`.'
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
                           type: string
                       required:
                         - datasourceId
@@ -6700,7 +6708,11 @@ paths:
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use `exposureQuery`.'
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
                           type: string
                       required:
                         - datasourceId
@@ -7445,7 +7457,11 @@ paths:
                       additionalProperties: false
                     exposureQueryId:
                       deprecated: true
-                      description: 'Deprecated: use `exposureQuery`.'
+                      description: >-
+                        Deprecated: use `exposureQuery`. Rejected when selecting
+                        a different assignment query that declares several
+                        identifier types; set `exposureQuery.identifierType`
+                        instead.
                       type: string
                   required:
                     - datasourceId
@@ -11920,7 +11936,11 @@ paths:
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use `exposureQuery`.'
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
                           type: string
                       required:
                         - datasourceId
@@ -12648,7 +12668,11 @@ paths:
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use `exposureQuery`.'
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
                           type: string
                       required:
                         - datasourceId
@@ -13403,7 +13427,11 @@ paths:
                       additionalProperties: false
                     exposureQueryId:
                       deprecated: true
-                      description: 'Deprecated: use `exposureQuery`.'
+                      description: >-
+                        Deprecated: use `exposureQuery`. Rejected when selecting
+                        a different assignment query that declares several
+                        identifier types; set `exposureQuery.identifierType`
+                        instead.
                       type: string
                   required:
                     - datasourceId
@@ -15129,8 +15157,10 @@ paths:
                 assignmentQueryId:
                   deprecated: true
                   description: >-
-                    Deprecated: use `assignmentQuery`. Can only be set if a
-                    templateId is not provided.
+                    Deprecated: use `assignmentQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `assignmentQuery.identifierType` instead. Can
+                    only be set if a templateId is not provided.
                   type: string
                 trackingKey:
                   type: string
@@ -15874,7 +15904,10 @@ paths:
                   additionalProperties: false
                 assignmentQueryId:
                   deprecated: true
-                  description: 'Deprecated: use `assignmentQuery`.'
+                  description: >-
+                    Deprecated: use `assignmentQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `assignmentQuery.identifierType` instead.
                   type: string
                 trackingKey:
                   type: string
@@ -33606,7 +33639,11 @@ paths:
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use `exposureQuery`.'
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
                           type: string
                         guardrailMetricIds:
                           minItems: 1
@@ -35402,7 +35439,10 @@ paths:
                   additionalProperties: false
                 exposureQueryId:
                   deprecated: true
-                  description: 'Deprecated: use `exposureQuery`.'
+                  description: >-
+                    Deprecated: use `exposureQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `exposureQuery.identifierType` instead.
                   type: string
               required:
                 - datasourceId
@@ -49944,7 +49984,10 @@ paths:
                   additionalProperties: false
                 exposureQueryId:
                   deprecated: true
-                  description: 'Deprecated: use `exposureQuery`.'
+                  description: >-
+                    Deprecated: use `exposureQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `exposureQuery.identifierType` instead.
                   type: string
                 hashAttribute:
                   type: string
@@ -50136,7 +50179,10 @@ paths:
                   additionalProperties: false
                 exposureQueryId:
                   deprecated: true
-                  description: 'Deprecated: use `exposureQuery`.'
+                  description: >-
+                    Deprecated: use `exposureQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `exposureQuery.identifierType` instead.
                   type: string
                 hashAttribute:
                   type: string
@@ -50379,7 +50425,11 @@ paths:
                             additionalProperties: false
                           exposureQueryId:
                             deprecated: true
-                            description: 'Deprecated: use `exposureQuery`.'
+                            description: >-
+                              Deprecated: use `exposureQuery`. Rejected when
+                              selecting a different assignment query that
+                              declares several identifier types; set
+                              `exposureQuery.identifierType` instead.
                             type: string
                           hashAttribute:
                             type: string
@@ -55975,7 +56025,11 @@ paths:
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use `exposureQuery`.'
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
                           type: string
                       required:
                         - datasourceId
@@ -56307,7 +56361,11 @@ paths:
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use `exposureQuery`.'
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
                           type: string
                       required:
                         - datasourceId
@@ -56963,7 +57021,11 @@ paths:
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
-                          description: 'Deprecated: use `exposureQuery`.'
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
                           type: string
                       required:
                         - datasourceId
@@ -57436,7 +57498,10 @@ paths:
                   additionalProperties: false
                 assignmentQueryId:
                   deprecated: true
-                  description: 'Deprecated: use `assignmentQuery`.'
+                  description: >-
+                    Deprecated: use `assignmentQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `assignmentQuery.identifierType` instead.
                   type: string
                 goalMetrics:
                   type: array
@@ -57624,7 +57689,10 @@ paths:
                   additionalProperties: false
                 assignmentQueryId:
                   deprecated: true
-                  description: 'Deprecated: use `assignmentQuery`.'
+                  description: >-
+                    Deprecated: use `assignmentQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `assignmentQuery.identifierType` instead.
                   type: string
                 goalMetrics:
                   type: array
@@ -63207,7 +63275,10 @@ components:
               additionalProperties: false
             exposureQueryId:
               deprecated: true
-              description: 'Deprecated: use `exposureQuery`.'
+              description: >-
+                Deprecated: use `exposureQuery`. Rejected when selecting a
+                different assignment query that declares several identifier
+                types; set `exposureQuery.identifierType` instead.
               type: string
             guardrailMetricIds:
               minItems: 1

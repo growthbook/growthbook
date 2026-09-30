@@ -493,7 +493,7 @@ export class HoldoutModel extends BaseClass {
             )
           : undefined,
       },
-      { onOmitted: body.assignmentQuery ? "requireUnambiguous" : undefined },
+      { onOmitted: "requireUnambiguous" },
     );
 
     // Applied after creation so it is validated against the real stored stage.

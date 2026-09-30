@@ -96,7 +96,9 @@ export function apiAssignmentQueryInputFields<F extends AssignmentQueryField>(
       .optional(),
     [`${field}Id`]: z
       .string()
-      .describe(`${deprecatedDescription(field)}${suffix}`)
+      .describe(
+        `${deprecatedDescription(field)} Rejected when selecting a different assignment query that declares several identifier types; set \`${field}.identifierType\` instead.${suffix}`,
+      )
       .optional()
       .meta({ deprecated: true }),
   } as InputFields<F>;

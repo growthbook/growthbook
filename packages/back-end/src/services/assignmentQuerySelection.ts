@@ -172,7 +172,7 @@ export async function resolveApiMonitoringConfig<
       exposureQueryId: rest.exposureQueryId,
       identifierType: exposureQueryIdentifierType,
     },
-    onOmitted: mc.exposureQuery ? "requireUnambiguous" : "defaultToFirst",
+    onOmitted: "requireUnambiguous",
     field: "exposureQuery",
   });
   return identifierType === undefined

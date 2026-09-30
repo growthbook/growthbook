@@ -921,12 +921,6 @@ describe("experiments API", () => {
                   userIdType: "user_id",
                   userIdTypes: ["anonymous_id"],
                 },
-                {
-                  id: "eq_unfrozen",
-                  name: "Unfrozen",
-                  userIdType: "",
-                  userIdTypes: ["company_id", "user_id"],
-                },
               ],
             },
           },
@@ -940,15 +934,17 @@ describe("experiments API", () => {
           .send({ trackingKey: "exp_new", name: "New", variations, ...body })
           .set("Authorization", "Bearer foo");
 
-      it("leaves a flat-id create implicit when the query declares its legacy identifier", async () => {
+      it("rejects a flat-id create on a query that declares several identifier types", async () => {
         const res = await post({
           datasourceId: "ds_123",
           assignmentQueryId: "eq_multi",
         });
 
-        expect(res.status).toBe(200);
-        expect(createdData()).toMatchObject({ exposureQueryId: "eq_multi" });
-        expect(createdData().exposureQueryIdentifierType).toBeUndefined();
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(
+          'Assignment query "Multi" declares several identifier types (user_id, anonymous_id). Set assignmentQuery.identifierType to choose one.',
+        );
+        expect(createExperiment).not.toHaveBeenCalled();
       });
 
       it("rejects a flat-id create on a query that dropped its legacy identifier", async () => {
@@ -962,17 +958,6 @@ describe("experiments API", () => {
           'Assignment query "Dropped" no longer declares its default identifier type "user_id". Set assignmentQuery.identifierType to choose one.',
         );
         expect(createExperiment).not.toHaveBeenCalled();
-      });
-
-      it("leaves a flat-id create implicit on a query with no legacy identifier", async () => {
-        const res = await post({
-          datasourceId: "ds_123",
-          assignmentQueryId: "eq_unfrozen",
-        });
-
-        expect(res.status).toBe(200);
-        expect(createdData()).toMatchObject({ exposureQueryId: "eq_unfrozen" });
-        expect(createdData().exposureQueryIdentifierType).toBeUndefined();
       });
 
       it("leaves a template-derived create implicit when the template is", async () => {
@@ -2157,18 +2142,37 @@ describe("experiments API", () => {
       });
 
       it("clears the old identifier when repointing by flat id to an implicit query", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...withSelection,
+          exposureQueryId: "eq_multi",
+          exposureQueryIdentifierType: "user_id",
+        });
+
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ assignmentQueryId: "eq_single" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+        const { changes } = (updateExperiment as jest.Mock).mock.calls[0][0];
+        expect(changes).toMatchObject({ exposureQueryId: "eq_single" });
+        expect(changes).toHaveProperty(
+          "exposureQueryIdentifierType",
+          undefined,
+        );
+      });
+
+      it("rejects repointing by flat id to a query that declares several identifier types", async () => {
         const res = await request(app)
           .post("/api/v1/experiments/exp_123")
           .send({ assignmentQueryId: "eq_multi" })
           .set("Authorization", "Bearer foo");
 
-        expect(res.status).toBe(200);
-        const { changes } = (updateExperiment as jest.Mock).mock.calls[0][0];
-        expect(changes).toMatchObject({ exposureQueryId: "eq_multi" });
-        expect(changes).toHaveProperty(
-          "exposureQueryIdentifierType",
-          undefined,
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain(
+          "declares several identifier types (anonymous_id, user_id)",
         );
+        expect(updateExperiment).not.toHaveBeenCalled();
       });
 
       it("rejects repointing by flat id to a query that dropped its legacy identifier", async () => {
