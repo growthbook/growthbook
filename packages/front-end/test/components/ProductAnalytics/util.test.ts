@@ -492,14 +492,43 @@ describe("validateDimensions", () => {
     ).toEqual([]);
   });
 
-  it("drops a dimension when the fact table can't be resolved at all, by default", () => {
+  it("keeps dimensions when the fact table can't be resolved at all", () => {
     const config = makeConfig([
       { dimensionType: "static", column: "country", values: ["US"] },
     ]);
 
     expect(
       validateDimensions(config, () => null, noFactMetric).dimensions,
-    ).toEqual([]);
+    ).toEqual(config.dimensions);
+  });
+
+  it("keeps dimensions on a sql dataset with no known columnTypes", () => {
+    const config: ExplorationConfig = {
+      ...makeConfig([
+        { dimensionType: "dynamic", column: "country", maxValues: 5 },
+      ]),
+      type: "sql",
+      dataset: {
+        type: "sql",
+        sql: "SELECT * FROM events",
+        timestampColumn: null,
+        columnTypes: {},
+        values: [
+          {
+            type: "sql",
+            name: "value",
+            rowFilters: [],
+            valueType: "count",
+            valueColumn: null,
+            unit: null,
+          },
+        ],
+      },
+    };
+
+    expect(
+      validateDimensions(config, () => null, noFactMetric).dimensions,
+    ).toEqual(config.dimensions);
   });
 });
 

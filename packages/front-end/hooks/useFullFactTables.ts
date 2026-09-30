@@ -1,15 +1,18 @@
 import { useCallback, useMemo } from "react";
 import { FactTableInterface } from "shared/types/fact-table";
 import useApi from "@/hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 // Full fact tables (real jsonFields) for a small id set. The org-wide
 // definitions payload strips jsonFields, so the picker/validator cannot
-// use getFactTableById from useDefinitions() for nested JSON columns.
+// rely on getFactTableById from useDefinitions() for nested JSON columns.
+// Like useFullFactTable, getById falls back to the slim definition until the
+// full table arrives, so callers always have at least the top-level columns.
 export default function useFullFactTables(ids: string[]) {
+  const { getFactTableById } = useDefinitions();
   const unique = [...new Set(ids.filter(Boolean))].sort();
-  const uniqueKey = unique.join(",");
   const { data } = useApi<{ factTables: FactTableInterface[] }>(
-    `/fact-tables/full?ids=${unique.map(encodeURIComponent).join(",")}`,
+    `/fact-tables?ids=${unique.map(encodeURIComponent).join(",")}`,
     { shouldRun: () => unique.length > 0 },
   );
 
@@ -19,30 +22,19 @@ export default function useFullFactTables(ids: string[]) {
     return map;
   }, [data]);
 
-  const currentResolved = unique.length === 0 || data !== undefined;
-
   const getById = useCallback(
     (id: string): Omit<FactTableInterface, "sql"> | null =>
-      byId.get(id) ?? null,
+      byId.get(id) ?? getFactTableById(id),
+    [byId, getFactTableById],
+  );
+
+  // True only when every id has its full table. An id the server omitted
+  // (deleted, or no read permission) stays false: we can't validate against
+  // it, which is different from validating against nothing.
+  const isLoadedFor = useCallback(
+    (checkIds: string[]) => checkIds.every((id) => !id || byId.has(id)),
     [byId],
   );
 
-  const isLoadedFor = useCallback(
-    (checkIds: string[]) => {
-      const needed = [...new Set(checkIds.filter(Boolean))];
-      if (!needed.length) return true;
-      return needed.every(
-        (id) =>
-          byId.has(id) ||
-          (currentResolved && uniqueKey.split(",").includes(id)),
-      );
-    },
-    [byId, currentResolved, uniqueKey],
-  );
-
-  return {
-    getById,
-    isLoaded: currentResolved,
-    isLoadedFor,
-  };
+  return { getById, isLoadedFor };
 }

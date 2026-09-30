@@ -747,9 +747,12 @@ export function validateDimensions(
   );
   const maxDims = getMaxDimensions(config.dataset);
 
-  let validDimensions = config.dimensions.filter((d) =>
-    dimensionColumnIsAvailable(d, columns),
-  );
+  // No columns means we can't validate (unresolvable fact table, or a sql /
+  // data_source dataset before columnTypes are known), not that every column
+  // is gone — keep saved dimensions rather than silently dropping them.
+  let validDimensions = columns.length
+    ? config.dimensions.filter((d) => dimensionColumnIsAvailable(d, columns))
+    : config.dimensions;
   if (validDimensions.length > maxDims) {
     validDimensions = validDimensions.slice(0, maxDims);
   }

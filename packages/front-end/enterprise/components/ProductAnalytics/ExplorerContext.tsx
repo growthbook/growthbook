@@ -451,19 +451,10 @@ export function ExplorerProvider({
   const commonColumns = useMemo(() => {
     return getAvailableDimensionColumns(
       draftExploreState.dataset,
-      fullFactTablesLoadedFor(relevantFactTableIds)
-        ? getFullFactTableById
-        : getFactTableById,
+      getFullFactTableById,
       getFactMetricById,
     );
-  }, [
-    draftExploreState.dataset,
-    fullFactTablesLoadedFor,
-    relevantFactTableIds,
-    getFullFactTableById,
-    getFactTableById,
-    getFactMetricById,
-  ]);
+  }, [draftExploreState.dataset, getFullFactTableById, getFactMetricById]);
 
   const cleanedDraftExploreState = useMemo(() => {
     return cleanConfigForSubmission(draftExploreState);
