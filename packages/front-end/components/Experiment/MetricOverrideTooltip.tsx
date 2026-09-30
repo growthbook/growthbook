@@ -14,7 +14,10 @@ import { MetricOverride } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { StatsEngine } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
-import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_TARGET_MDE,
+} from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { metricTypeLabel } from "@/services/metrics";
 import {
@@ -86,6 +89,7 @@ export function MetricOverrideTooltipContent({
   members,
   filterConversionWindowMetrics,
   settingsScope,
+  targetMDEOverrides,
 }: {
   id: string;
   overrides: MetricOverride[];
@@ -97,6 +101,8 @@ export function MetricOverrideTooltipContent({
   filterConversionWindowMetrics?: boolean;
   /** Given, a metric also lists the settings it isn't overriding. */
   settingsScope?: MetricSettingsScope;
+  /** Given, for goal metrics, each one's target MDE reads as its first override. */
+  targetMDEOverrides?: { id: string; targetMDE?: number }[];
 }) {
   const {
     getExperimentMetricById,
@@ -109,8 +115,13 @@ export function MetricOverrideTooltipContent({
   const group = getMetricGroupById(id);
   const metric = group ? null : getExperimentMetricById(id);
   const memberIds = group ? group.metrics : [id];
+  const targetMDEFor = (mid: string) =>
+    targetMDEOverrides?.find((o) => o.id === mid)?.targetMDE;
   const rowsFor = (mid: string) =>
-    describeMetricOverride(overrides.find((o) => o.id === mid) ?? { id: mid });
+    describeMetricOverride(
+      overrides.find((o) => o.id === mid) ?? { id: mid },
+      targetMDEFor(mid),
+    );
   const hasOverrides = memberIds.some((mid) => rowsFor(mid).length > 0);
 
   const settingRows = (() => {
@@ -154,9 +165,13 @@ export function MetricOverrideTooltipContent({
           mean: priorSettings?.mean ?? 0,
           stddev: priorSettings?.stddev ?? DEFAULT_PROPER_PRIOR_STDDEV,
         },
+        targetMDE: targetMDEOverrides
+          ? (metric.targetMDE ?? DEFAULT_TARGET_MDE)
+          : undefined,
       },
       statsEngine,
       overrides.find((o) => o.id === id),
+      targetMDEFor(id),
     );
   })();
 

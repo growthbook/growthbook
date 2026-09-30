@@ -20,7 +20,10 @@ import {
 } from "shared/util";
 import track from "@/services/track";
 import VariationLabel from "@/ui/VariationLabel";
-import { STALE_VALUES_ITEM_PREFIX } from "./checklistSummary";
+import {
+  MERGE_CONFLICT_ITEM_PREFIX,
+  STALE_VALUES_ITEM_PREFIX,
+} from "./checklistSummary";
 
 export type ChecklistAction =
   | { onClick: () => void }
@@ -243,7 +246,7 @@ export function getChecklistItems({
         .filter((f) => f.state === "draft" && f.hasMergeConflict)
         .forEach((f) => {
           items.push({
-            key: `mergeConflict:${f.feature.id}`,
+            key: `${MERGE_CONFLICT_ITEM_PREFIX}${f.feature.id}`,
             status: "incomplete",
             type: "auto",
             required: true,

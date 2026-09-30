@@ -51,3 +51,19 @@ export function environmentStatesDiffer(
     info.liveEnvironmentStates,
   );
 }
+
+/** Whether the flag's draft moves anything the experiment page shows. */
+export function hasUnpublishedChanges(
+  info: Pick<
+    LinkedFeatureInfo,
+    "values" | "liveValues" | "pendingDraft" | "liveEnvironmentStates"
+  >,
+): boolean {
+  if (!info.pendingDraft) return false;
+  return (
+    getVariationValueChanges(
+      info,
+      (info.pendingDraft.values ?? []).map((v) => v.variationId),
+    ).some((c) => c.unpublished) || environmentStatesDiffer(info)
+  );
+}

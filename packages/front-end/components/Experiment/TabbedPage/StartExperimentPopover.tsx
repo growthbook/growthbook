@@ -1,5 +1,7 @@
-import { ReactNode, useState } from "react";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Fragment, ReactNode, useState } from "react";
+import omit from "lodash/omit";
+import { format } from "date-fns";
+import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -11,21 +13,29 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import {
   ChecklistCountBadge,
   PreLaunchChecklistPanel,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import {
+  isFlagDraftItem,
+  summarizeChecklist,
+} from "@/components/PreLaunchChecklist/checklistSummary";
+import { useAuth } from "@/services/auth";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
 import { getStartTitle } from "./startActions";
 import {
   StartChecklistFailures,
   StartFailures,
-  StartSummary,
   StartSummaryRow,
   StartUpgradeCallout,
+  useStartSummaryRows,
 } from "./StartSections";
 import { scheduledTime } from "./RunningScheduleLink";
 import { useEditsBlockedReason } from "./ExperimentEdits";
@@ -39,6 +49,9 @@ type ContentProps = {
   envs: string[];
   start: StartExperiment;
   editSchedule: (() => void) | null;
+  mutate: () => void;
+  // The Values flag's review status and next step; its To Do rows give way.
+  valuesStatus?: ReactNode;
 };
 
 export type Props = ContentProps & {
@@ -66,10 +79,9 @@ export default function StartExperimentPopover({
       content={<StartContent {...props} close={() => setOpen(false)} />}
       side="bottom"
       align="end"
-      showArrow={false}
       contentStyle={{
-        padding: 16,
-        width: 440,
+        padding: 20,
+        width: 480,
         maxWidth: "calc(100vw - 32px)",
         maxHeight: "calc(100vh - 140px)",
         overflowY: "auto",
@@ -78,23 +90,110 @@ export default function StartExperimentPopover({
   );
 }
 
-function useExtraSummaryRows(
+// In the date field's local format.
+const toLocalInput = (date: Date) => format(date, "yyyy-MM-dd'T'HH:mm");
+
+/** Now, or a date the popover saves as the schedule's start. */
+function StartTimeField({
+  experiment,
+  mutate,
+  container,
+  setError,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  mutate: () => void;
+  // The popover, so the select's menu opens inside it.
+  container: HTMLElement | null;
+  setError: (error: string | null) => void;
+}) {
+  const { apiCall } = useAuth();
+  const startAt = experiment.statusUpdateSchedule?.startAt;
+  const [draft, setDraft] = useState(() =>
+    startAt ? toLocalInput(new Date(startAt)) : "",
+  );
+
+  const save = async (next: Date | null) => {
+    setError(null);
+    if (next && next <= new Date()) {
+      setError("Pick a start time in the future.");
+      return;
+    }
+    const rest = omit(experiment.statusUpdateSchedule ?? {}, "startAt");
+    try {
+      await apiCall(`/experiment/${experiment.id}`, {
+        method: "POST",
+        body: JSON.stringify({
+          statusUpdateSchedule: next
+            ? { ...rest, startAt: next.toISOString() }
+            : rest.stopAt || rest.stopAfter
+              ? rest
+              : null,
+        }),
+      });
+      mutate();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  return (
+    <Flex align="center" gap="2" wrap="wrap">
+      <Select
+        value={startAt ? "date" : "now"}
+        setValue={(value) => {
+          if (value === "now") {
+            setDraft("");
+            void save(null);
+            return;
+          }
+          // The next whole hour, a ready default to adjust.
+          const next = new Date();
+          next.setHours(next.getHours() + 1, 0, 0, 0);
+          setDraft(toLocalInput(next));
+          void save(next);
+        }}
+        container={container}
+        size="sm"
+      >
+        <SelectItem value="now">Immediately</SelectItem>
+        <SelectItem value="date">On a date</SelectItem>
+      </Select>
+      {startAt ? (
+        <TextField
+          type="datetime-local"
+          size="sm"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          // On leaving the field, so a half-typed time isn't saved.
+          onBlur={() => {
+            const next = draft ? new Date(draft) : null;
+            if (
+              next &&
+              !Number.isNaN(next.getTime()) &&
+              next.toISOString() !== new Date(startAt).toISOString()
+            ) {
+              void save(next);
+            }
+          }}
+        />
+      ) : null}
+    </Flex>
+  );
+}
+
+function useSummaryRows(
   experiment: ExperimentInterfaceStringDates,
   envs: string[],
 ): StartSummaryRow[] {
-  const rows: StartSummaryRow[] = [];
+  const rows = [...useStartSummaryRows(experiment)];
   if (experiment.phases?.length) {
     rows.push({
       key: "assignmentAttribute",
       label: "Assignment attribute",
       inline: true,
-      value: (
-        <Text>
-          {[experiment.hashAttribute || "id", experiment.fallbackAttribute]
-            .filter(Boolean)
-            .join(", ")}
-        </Text>
-      ),
+      value: [experiment.hashAttribute || "id", experiment.fallbackAttribute]
+        .filter(Boolean)
+        .join(", "),
     });
   }
   // Visual Editor changes and redirects serve everywhere.
@@ -104,7 +203,7 @@ function useExtraSummaryRows(
       key: "environments",
       label: envs.length === 1 && !allEnvs ? "Environment" : "Environments",
       inline: true,
-      value: <Text>{allEnvs ? "All environments" : envs.join(", ")}</Text>,
+      value: allEnvs ? "All environments" : envs.join(", "),
     });
   }
   const schedule = experiment.statusUpdateSchedule;
@@ -113,13 +212,9 @@ function useExtraSummaryRows(
       key: "end",
       label: "Ends",
       inline: true,
-      value: (
-        <Text>
-          {schedule.stopAt
-            ? scheduledTime(schedule.stopAt)
-            : `${schedule.stopAfter?.value} ${schedule.stopAfter?.unit} after start`}
-        </Text>
-      ),
+      value: schedule.stopAt
+        ? scheduledTime(schedule.stopAt)
+        : `${schedule.stopAfter?.value} ${schedule.stopAfter?.unit} after start`,
     });
   }
   return rows;
@@ -131,12 +226,16 @@ function StartContent({
   envs,
   start,
   editSchedule,
+  mutate,
+  valuesStatus,
   close,
 }: ContentProps & { close: () => void }) {
   const gate = useStartGate({ experiment, linkedFeatures, start });
   const editsBlocked = useEditsBlockedReason();
-  const extraRows = useExtraSummaryRows(experiment, envs);
+  const { checklist } = usePreLaunchChecklist();
+  const rows = useSummaryRows(experiment, envs);
   const [error, setError] = useState<string | null>(null);
+  const [container, setContainer] = useState<HTMLElement | null>(null);
 
   const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
   const dateLabel = gate.scheduledStartAt
@@ -146,36 +245,34 @@ function StartContent({
   const managedId =
     linkedFeatures.find((f) => isManagedByExperiment(f.feature, experiment.id))
       ?.feature.id ?? null;
+  // The values' own row stands in for their To Do rows.
+  const omitted =
+    valuesStatus && managedId
+      ? (item: Parameters<typeof isFlagDraftItem>[0]) =>
+          isFlagDraftItem(item, managedId)
+      : undefined;
+  const shown = omitted
+    ? summarizeChecklist(checklist.filter((item) => !omitted(item)))
+    : gate.summary;
   // Starting publishes what's stored, not what's staged.
   const blockedReason = editsBlocked ?? start.banditBlockedReason;
   const { bypassLabel, waivesApproval } = gate.actions;
 
+  const openSchedule = editSchedule
+    ? () => {
+        close();
+        editSchedule();
+      }
+    : null;
   const scheduleLink = (text: string) =>
-    editSchedule ? (
-      <Link
-        onClick={() => {
-          close();
-          editSchedule();
-        }}
-      >
-        {text}
-      </Link>
-    ) : (
-      text
-    );
+    openSchedule ? <Link onClick={openSchedule}>{text}</Link> : text;
 
   return (
-    <Flex direction="column" gap="3">
-      <Box>
-        <Heading as="h4" size="sm" mb="0">
-          {getStartTitle(experiment, new Date())}
-        </Heading>
-        {gate.schedule === "future" && !startApproved && dateLabel ? (
-          <Text as="div" size="sm" color="text-low" mt="1">
-            Scheduled to start {dateLabel}
-          </Text>
-        ) : null}
-      </Box>
+    <Flex ref={setContainer} direction="column" gap="4">
+      <Heading as="h4" size="sm" mb="0">
+        {getStartTitle(experiment, new Date())}
+      </Heading>
+
       <StartFailures
         failures={start.pendingDraftFailures}
         managedFeatureId={managedId}
@@ -201,38 +298,74 @@ function StartContent({
         </Callout>
       ) : null}
       <StartUpgradeCallout upgrade={gate.upgrade} />
-      <StartSummary experiment={experiment} extraRows={extraRows} />
-      <Separator size="4" />
-      <Flex align="center" gap="2">
-        <Text weight="semibold" color="text-high">
-          To Do
-        </Text>
-        <ChecklistCountBadge
-          remaining={gate.checklistLoading ? null : gate.summary.remaining}
-          blocking={gate.summary.blocking > 0}
-        />
-      </Flex>
-      <Flex
-        direction="column"
-        gap="3"
-        // An item's link goes to where it's resolved, so the popover gets out
-        // of the way; folding the completed ones stays here.
-        onClickCapture={(e) => {
-          if ((e.target as HTMLElement).closest("a:not([aria-expanded])")) {
-            close();
-          }
-        }}
+
+      <Grid
+        columns="max-content minmax(0, 1fr)"
+        gapX="4"
+        gapY="3"
+        align="center"
       >
-        <PreLaunchChecklistPanel size="sm" foldCompleted />
-      </Flex>
+        <Text color="text-low">Start</Text>
+        {openSchedule && !startApproved ? (
+          <Flex align="center" gap="3" wrap="wrap">
+            <StartTimeField
+              experiment={experiment}
+              mutate={mutate}
+              container={container}
+              setError={setError}
+            />
+            <Link onClick={openSchedule}>More options</Link>
+          </Flex>
+        ) : (
+          <Text color="text-high">{dateLabel ?? "Immediately"}</Text>
+        )}
+        {rows.map((row) => (
+          <Fragment key={row.key}>
+            <Text color="text-low">{row.label}</Text>
+            <Box style={{ color: "var(--color-text-high)", minWidth: 0 }}>
+              {row.value}
+            </Box>
+          </Fragment>
+        ))}
+      </Grid>
+
       <Separator size="4" />
+
+      <Flex direction="column" gap="3">
+        <Flex align="center" gap="2">
+          <Text weight="semibold" color="text-high">
+            To Do
+          </Text>
+          <ChecklistCountBadge
+            remaining={gate.checklistLoading ? null : shown.remaining}
+            blocking={shown.blocking > 0}
+          />
+        </Flex>
+        {valuesStatus}
+        <Flex
+          direction="column"
+          gap="3"
+          // An item's link goes to where it's resolved, so the popover gets
+          // out of the way; folding the completed ones stays here.
+          onClickCapture={(e) => {
+            if ((e.target as HTMLElement).closest("a:not([aria-expanded])")) {
+              close();
+            }
+          }}
+        >
+          <PreLaunchChecklistPanel size="md" foldCompleted omit={omitted} />
+        </Flex>
+      </Flex>
+
+      <Separator size="4" />
+
       {startApproved ? (
-        <Text size="sm" color="text-low">
+        <Text color="text-low">
           Approved to start on the scheduled date. Edit the schedule to start
           sooner.
         </Text>
       ) : (
-        <>
+        <Flex direction="column" gap="3">
           {bypassLabel ? (
             <Checkbox
               label={
@@ -269,7 +402,7 @@ function StartContent({
               </Button>
             </Tooltip>
           </Flex>
-        </>
+        </Flex>
       )}
     </Flex>
   );

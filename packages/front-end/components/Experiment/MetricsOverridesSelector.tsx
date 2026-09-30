@@ -6,6 +6,7 @@ import { useFieldArray, UseFormReturn } from "react-hook-form";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import { isUndefined } from "lodash";
 import {
@@ -61,6 +62,7 @@ export default function MetricsOverridesSelector({
   datasource = experiment.datasource,
   statsEngine,
   highlightMetricId = null,
+  targetMDEGoalIds,
 }: {
   experiment: ExperimentInterfaceStringDates;
   // eslint-disable-next-line
@@ -73,6 +75,11 @@ export default function MetricsOverridesSelector({
   statsEngine: StatsEngine;
   /** A metric whose card is outlined for a moment as it opens. */
   highlightMetricId?: string | null;
+  /**
+   * Given, these goal metrics' cards lead with their target MDE, kept in the
+   * form's `targetMDEs` apart from the other overrides.
+   */
+  targetMDEGoalIds?: string[];
 }) {
   const {
     metrics: metricDefinitions,
@@ -130,10 +137,14 @@ export default function MetricsOverridesSelector({
         metricOverrides.fields.map((_, i) => {
           const path = `${fieldMap["metricOverrides"]}.${i}`;
           const id = form.watch(`${path}.id`);
+          const targetMDEPath = targetMDEGoalIds?.includes(id)
+            ? `targetMDEs.${id}`
+            : null;
           return (
             <OverrideCard
               key={i}
               path={path}
+              targetMDEPath={targetMDEPath}
               form={form}
               metricDefinition={
                 allMetricDefinitions.find((md) => md.id === id) ?? null
@@ -145,7 +156,10 @@ export default function MetricsOverridesSelector({
                 "regression-adjustment",
               )}
               bayesian={statsEngine === "bayesian"}
-              onRemove={() => metricOverrides.remove(i)}
+              onRemove={() => {
+                metricOverrides.remove(i);
+                if (targetMDEPath) form.setValue(targetMDEPath, undefined);
+              }}
             />
           );
         })}
@@ -186,6 +200,7 @@ export default function MetricsOverridesSelector({
 /** Each overridden setting is a row; the rest are offered in a select below. */
 function OverrideCard({
   path,
+  targetMDEPath,
   form,
   metricDefinition,
   allMetricDefinitions,
@@ -196,6 +211,8 @@ function OverrideCard({
   onRemove,
 }: {
   path: string;
+  // A goal metric's target MDE, in percent, where the decision framework runs.
+  targetMDEPath: string | null;
   // eslint-disable-next-line
   form: UseFormReturn<any>;
   metricDefinition: ExperimentMetricDefinition | null;
@@ -212,6 +229,13 @@ function OverrideCard({
       form.setValue(field(name), value),
     );
   const mo = form.watch(path);
+  const targetMDE: number | undefined = targetMDEPath
+    ? form.watch(targetMDEPath)
+    : undefined;
+  const targetMDEOverridden = !!targetMDEPath && targetMDE !== undefined;
+  const defaultTargetMDE = Number(
+    ((metricDefinition?.targetMDE ?? DEFAULT_TARGET_MDE) * 100).toFixed(9),
+  );
   const retention = !!metricDefinition && isRetentionMetric(metricDefinition);
   const minWindow =
     metricDefinition && isFactMetric(metricDefinition) ? 0 : 0.125;
@@ -326,6 +350,11 @@ function OverrideCard({
   );
 
   const addable = [
+    !!targetMDEPath &&
+      !targetMDEOverridden && {
+        label: "Target MDE",
+        add: () => form.setValue(targetMDEPath, defaultTargetMDE),
+      },
     !windowOverridden && {
       label: "Metric window",
       add: () =>
@@ -376,6 +405,26 @@ function OverrideCard({
           </TableRow>
         </TableHeader>
         <TableBody>
+          {targetMDEPath && targetMDEOverridden ? (
+            <OverrideRow
+              label="Target MDE"
+              tooltip="The smallest lift this experiment should reliably detect. Smaller values need more data and longer run times."
+              onClear={() => form.setValue(targetMDEPath, undefined)}
+              choice={null}
+            >
+              <Box width={`${SELECT_WIDTH}px`}>
+                <TextField
+                  type="number"
+                  step="any"
+                  min={0}
+                  placeholder={`Default ${defaultTargetMDE}`}
+                  append={<Text color="text-low">%</Text>}
+                  {...form.register(targetMDEPath, { valueAsNumber: true })}
+                />
+              </Box>
+            </OverrideRow>
+          ) : null}
+
           {windowOverridden ? (
             <OverrideRow
               label="Metric window"

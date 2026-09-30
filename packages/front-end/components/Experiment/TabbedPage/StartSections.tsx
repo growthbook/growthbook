@@ -160,7 +160,13 @@ export function useStartSummaryRows(
       <Text>
         {Math.floor(latestPhase.coverage * 100)}% included
         {!isBandit && (
-          <>, {formatTrafficSplit(latestPhase.variationWeights, 2)} split</>
+          <>
+            ,{" "}
+            {formatTrafficSplit(latestPhase.variationWeights, 2, {
+              trim: true,
+            })}{" "}
+            split
+          </>
         )}
       </Text>
     ),
@@ -196,12 +202,10 @@ export function useStartSummaryRows(
 
 export function StartSummary({
   experiment,
-  extraRows = [],
 }: {
   experiment: ExperimentInterfaceStringDates;
-  extraRows?: StartSummaryRow[];
 }) {
-  const rows = [...useStartSummaryRows(experiment), ...extraRows];
+  const rows = useStartSummaryRows(experiment);
   if (!rows.length) return null;
   return (
     <Flex direction="column" gap="4">

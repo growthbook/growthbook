@@ -94,9 +94,6 @@ export interface Props {
   hideCopyButton?: boolean;
   // String only: copy overlaid on the field instead of under it.
   actionsOverlay?: ActionsOverlay;
-  // String only: rendered over the field (below any label row); the caller
-  // positions it.
-  fieldOverlay?: ReactNode;
   // Boolean, string and number: the field's border state, with no message.
   outlineStyle?: "default" | "error" | "warning";
   /** Number fields fill their container rather than sitting at a fixed width. */
@@ -156,7 +153,6 @@ export default function FeatureValueField({
   codeInputDefaultHeight,
   hideCopyButton = false,
   actionsOverlay,
-  fieldOverlay,
   outlineStyle,
   fullWidth = false,
   inlineConstantButton = false,
@@ -1008,23 +1004,20 @@ export default function FeatureValueField({
 
   const overlayActions = !!actionsOverlay && (!copyHidden || constantInActions);
   const overlaidField =
-    valueType === "string" && (overlayActions || fieldOverlay) ? (
+    valueType === "string" && overlayActions ? (
       <CornerActions
         overlay={actionsOverlay}
         position={{ bottom: 0, right: 0 }}
         gap="2"
         actions={
-          overlayActions ? (
-            <>
-              {/* In a span like the copy button's tooltip, so both sit on one line. */}
-              {constantInActions ? <span>{stringInsertButton}</span> : null}
-              {copyHidden ? null : copyButton}
-            </>
-          ) : null
+          <>
+            {/* In a span like the copy button's tooltip, so both sit on one line. */}
+            {constantInActions ? <span>{stringInsertButton}</span> : null}
+            {copyHidden ? null : copyButton}
+          </>
         }
       >
         {field}
-        {fieldOverlay}
       </CornerActions>
     ) : (
       field

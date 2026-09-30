@@ -87,9 +87,6 @@ export default function InlineMarkdownField({
   let body: ReactNode;
   if (!editable) {
     if (!savedValue) {
-      // In a column of metadata an empty row still reads as a field; on the
-      // page on its own it would just be noise, unless it can be filled in.
-      if (!stacked && !editOnDemand) return null;
       body = (
         <Text
           weight="regular"

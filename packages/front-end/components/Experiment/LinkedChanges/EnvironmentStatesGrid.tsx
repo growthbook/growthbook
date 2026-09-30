@@ -16,7 +16,6 @@ import {
   FaRegCircleCheck,
   FaRegCircleXmark,
 } from "react-icons/fa6";
-import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
@@ -290,18 +289,11 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
   );
 }
 
-// One of an environment's two settings: on, off, or unknown (null), with a
-// mark beside it when a draft moves it.
-function EnvironmentSetting({
-  value,
-  moved,
-}: {
-  value: boolean | null;
-  moved: boolean;
-}) {
+// One of an environment's two settings: on, off, or unknown (null).
+function EnvironmentSetting({ value }: { value: boolean | null }) {
   return (
     <Flex align="center" justify="center">
-      <Box position="relative" style={{ display: "flex" }}>
+      <Box style={{ display: "flex" }}>
         {value === null ? (
           <Text size="sm" color="text-low">
             —
@@ -319,20 +311,6 @@ function EnvironmentSetting({
             )}
           </Box>
         )}
-        {/* Beside the mark, not in the flow, so the mark stays centered. */}
-        {moved ? (
-          <Box
-            position="absolute"
-            style={{
-              left: "100%",
-              top: "50%",
-              transform: "translateY(-50%)",
-              marginLeft: 4,
-            }}
-          >
-            <UnpublishedDot tooltip="Changed from live" />
-          </Box>
-        ) : null}
       </Box>
     </Flex>
   );
@@ -364,17 +342,13 @@ function EnvironmentName({
 export function EnvironmentInputsPopover({
   environmentStates,
   environmentInputs,
-  changed,
   note,
 }: {
   environmentStates: FeatureEnvironmentState[];
   environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
-  // Which settings a draft moves, per environment.
-  changed: Record<string, { flag: boolean; rule: boolean }>;
   note?: string | null;
 }) {
   const active = environmentStates.filter((e) => e.isActive).length;
-  const anyChanged = Object.values(changed).some((c) => c.flag || c.rule);
   return (
     <Popover
       openOnHover
@@ -382,11 +356,7 @@ export function EnvironmentInputsPopover({
       align="end"
       avoidCollisions={false}
       trigger={
-        <EnvironmentsCount
-          active={active}
-          total={environmentStates.length}
-          changed={anyChanged}
-        />
+        <EnvironmentsCount active={active} total={environmentStates.length} />
       }
       content={
         // The two settings get fixed columns so their marks line up.
@@ -413,14 +383,10 @@ export function EnvironmentInputsPopover({
             return (
               <Fragment key={env}>
                 <EnvironmentName env={env} isActive={isActive} />
-                <EnvironmentSetting
-                  value={input ? input.flagEnabled : null}
-                  moved={!!changed[env]?.flag}
-                />
+                <EnvironmentSetting value={input ? input.flagEnabled : null} />
                 {/* A rule that doesn't target the environment is off there too. */}
                 <EnvironmentSetting
                   value={input ? input.rule === "on" : null}
-                  moved={!!changed[env]?.rule}
                 />
                 <Flex align="center" gap="1">
                   <EnvironmentStateIcon isActive={isActive} />
@@ -451,12 +417,8 @@ const EnvironmentsCount = forwardRef<
   HTMLAttributes<HTMLSpanElement> & {
     active: number;
     total: number;
-    changed?: boolean;
   }
->(function EnvironmentsCount(
-  { active, total, changed = false, ...props },
-  ref,
-) {
+>(function EnvironmentsCount({ active, total, ...props }, ref) {
   return (
     <span
       ref={ref}
@@ -468,7 +430,6 @@ const EnvironmentsCount = forwardRef<
         gap: "var(--space-1)",
       }}
     >
-      {changed ? <UnpublishedDot /> : null}
       <Text size="sm" color="text-low">
         Environments {active}/{total}
       </Text>

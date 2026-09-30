@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import clsx from "clsx";
 import {
   ExperimentInterfaceStringDates,
@@ -39,7 +38,6 @@ import VariationsTable, {
 } from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
@@ -51,7 +49,6 @@ import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsMod
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
 import Link from "@/ui/Link";
-import SegmentedControl from "@/ui/SegmentedControl";
 import {
   EnvironmentStateChips,
   environmentStateTense,
@@ -61,7 +58,7 @@ import {
 } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import {
   environmentStatesDiffer,
-  getVariationValueChanges,
+  hasUnpublishedChanges,
 } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -108,8 +105,6 @@ export interface Props {
   stageVariations?: (variations: Variation[]) => void;
   /** Environment scopes staged per flag. */
   flagEnvironments?: FlagEnvironmentsDraft;
-  /** Where the values toggle renders, beside the section's heading. */
-  headerActionsTarget?: HTMLElement | null;
   /** The page's staged holdout. */
   holdoutDraft?: HoldoutDraft;
   /** Whether the experiment can leave its holdout here. */
@@ -336,7 +331,6 @@ export default function TrafficAllocationFunnel({
   pendingManagedFlag = false,
   stageVariations,
   flagEnvironments,
-  headerActionsTarget,
   holdoutDraft,
   canStageHoldout = false,
   canJoinHoldout = false,
@@ -514,16 +508,7 @@ export default function TrafficAllocationFunnel({
   // The toggle offers a draft only when something it shows actually moved:
   // any linked flag counts, since the value rows show every flag's draft.
   const hasDraftChanges = useMemo(
-    () =>
-      pickedFeatures.some(
-        (info) =>
-          !!info.pendingDraft &&
-          (getVariationValueChanges(
-            info,
-            (info.pendingDraft.values ?? []).map((v) => v.variationId),
-          ).some((c) => c.unpublished) ||
-            environmentStatesDiffer(info)),
-      ),
+    () => pickedFeatures.some(hasUnpublishedChanges),
     [pickedFeatures],
   );
   const setup = valuesAreSetup(experiment);
@@ -556,19 +541,6 @@ export default function TrafficAllocationFunnel({
     : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
   const environmentsAreDraft = preferDraft && environmentsDiffer && !setup;
 
-  // A managed flag has one draft; the count is the others not shown.
-  const draftDetail = (() => {
-    const draft = servedValueFeature?.pendingDraft;
-    if (!draft || managedFeature) return { name: undefined, note: undefined };
-    const others = draft.otherDraftCount ?? 0;
-    return {
-      // In a sentence a draft goes by its number.
-      name: `Revision ${draft.version}`,
-      note: others
-        ? `${others} other draft${others > 1 ? "s" : ""} of this Feature Flag also include this experiment`
-        : undefined,
-    };
-  })();
   const stagedScope = servedValueFeature
     ? (flagEnvironments?.value[servedValueFeature.feature.id] ?? null)
     : null;
@@ -670,41 +642,6 @@ export default function TrafficAllocationFunnel({
   const variationWeights = phase.variationWeights ?? [];
   const coverage = phase.coverage ?? 1;
 
-  // Beside the section's heading when it offers a place, else atop the box.
-  // Only flag values have an unpublished version to show.
-  const actions = setup ? null : hasDraftChanges ? (
-    <SegmentedControl
-      aria-label="Values shown"
-      value={preferDraft ? "draft" : "live"}
-      setValue={(v) => setLive(v === "live")}
-      options={[
-        {
-          value: "draft",
-          label: (
-            <Flex align="center" gap="2">
-              <UnpublishedDot />
-              Unpublished
-            </Flex>
-          ),
-        },
-        { value: "live", label: "Live values" },
-      ]}
-    />
-  ) : linkedFeatures.length > 0 || pendingManagedFlag ? (
-    // Nothing unpublished to compare, so the one view the page shows.
-    <SegmentedControl
-      aria-label="Values shown"
-      value="only"
-      setValue={() => undefined}
-      options={[
-        {
-          value: "only",
-          label: linkedFeatures.length > 0 ? "Live values" : "Unpublished",
-        },
-      ]}
-    />
-  ) : null;
-
   return (
     <Frame style={{ backgroundColor: "var(--gray-a2)", border: "none" }}>
       {choosingHoldout ? (
@@ -729,35 +666,12 @@ export default function TrafficAllocationFunnel({
           }}
         />
       )}
-      {actions && headerActionsTarget ? (
-        createPortal(actions, headerActionsTarget)
-      ) : actions ? (
-        <Flex justify="end" align="center" mb="4">
-          {actions}
-        </Flex>
-      ) : null}
       <Flex direction="column">
         <Flex align="center" direction="column">
           {/* An archived Feature Flag serves nothing; its row says why. */}
           {environmentStates.length > 0 &&
           servedValueFeature?.state !== "archived" ? (
             <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
-              {(environmentsAreDraft || shownScope) && (
-                <UnpublishedDot
-                  tooltip={
-                    shownScope
-                      ? managedFeature
-                        ? "Not saved yet."
-                        : draftDetail.name
-                          ? `Not saved yet. Saving adds it to ${draftDetail.name}.`
-                          : "Not saved yet. Saving starts a new draft."
-                      : draftDetail.name
-                        ? `${draftDetail.name} changes these environments.`
-                        : "Unpublished environment changes."
-                  }
-                  note={draftDetail.note}
-                />
-              )}
               <Text color="text-high" weight="semibold">
                 Environments:
               </Text>

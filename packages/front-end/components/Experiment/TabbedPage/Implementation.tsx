@@ -208,10 +208,6 @@ export default function Implementation({
         : storedLinkedFeatures,
     [storedLinkedFeatures, hidesManagedFlag, managedId],
   );
-  // Filled by the traffic funnel's values toggle.
-  const [headerActions, setHeaderActions] = useState<HTMLDivElement | null>(
-    null,
-  );
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
   const [editMetadataIndex, setEditMetadataIndex] = useState<number | null>(
@@ -401,16 +397,16 @@ export default function Implementation({
       : storedExperiment,
     storedLinkedFeatures,
   );
-  // Said where the type can't change at all; left out where nothing edits.
+  // Only where unarchiving would let it change; without permission the menu
+  // would hold nothing but a no.
   const typeUnavailableReason =
-    chooseType ||
-    !implementationTypeDraft ||
-    disableEditing ||
-    storedExperiment.type === "holdout"
-      ? null
-      : storedExperiment.archived
-        ? "Unarchive this experiment to change its implementation type."
-        : "You don't have permission to change this experiment's implementation type.";
+    !chooseType &&
+    !!implementationTypeDraft &&
+    !disableEditing &&
+    storedExperiment.type !== "holdout" &&
+    storedExperiment.archived
+      ? "Unarchive this experiment to change its implementation type."
+      : null;
 
   const canEditExperiment =
     !experiment.archived &&
@@ -658,12 +654,9 @@ export default function Implementation({
         className="my-4"
         style={{ scrollMarginTop: "100px" }}
       >
-        <Flex justify="between" align="center" gap="3" mb="2">
-          <Heading as="h4" size="sm" color="text-high" mb="0">
-            Implementation
-          </Heading>
-          <div ref={setHeaderActions} />
-        </Flex>
+        <Heading as="h4" size="sm" color="text-high" mb="2">
+          Implementation
+        </Heading>
         {changingType && implementationTypeDraft ? (
           <ChangeImplementationTypeModal
             initialType={changingType === "current" ? undefined : changingType}
@@ -679,7 +672,6 @@ export default function Implementation({
         ) : null}
         {showTrafficFunnel ? (
           <TrafficAllocationFunnel
-            headerActionsTarget={headerActions}
             holdoutDraft={holdoutDraft}
             canStageHoldout={canStageHoldout}
             canJoinHoldout={canJoinHoldout}

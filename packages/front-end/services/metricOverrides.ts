@@ -5,6 +5,7 @@ export const METRIC_OVERRIDE_COLOR = "var(--blue-9)";
 
 /** Which setting a row is about, so an override can stand in for it. */
 type MetricSettingKey =
+  | "targetMDE"
   | "window"
   | "delay"
   | "winRisk"
@@ -28,10 +29,24 @@ const cuped = (enabled?: boolean, days?: number) =>
 const prior = (proper?: boolean, mean?: number, stddev?: number) =>
   proper ? `Proper (mean ${mean ?? 0}, sd ${stddev ?? 1})` : "Improper";
 
-/** A field left unset keeps the metric's own setting, so it isn't listed. */
-export function describeMetricOverride(o: MetricOverride): OverrideRow[] {
+const targetMDERow = (targetMDE: number): OverrideRow => ({
+  key: "targetMDE",
+  label: "Target MDE",
+  value: percent(targetMDE),
+});
+
+/**
+ * A field left unset keeps the metric's own setting, so it isn't listed. A goal
+ * metric's target MDE is kept apart from the rest by the decision framework,
+ * but reads as the first of its overrides.
+ */
+export function describeMetricOverride(
+  o: MetricOverride,
+  targetMDE?: number,
+): OverrideRow[] {
   const rows: OverrideRow[] = [];
 
+  if (targetMDE !== undefined) rows.push(targetMDERow(targetMDE));
   if (o.windowType !== undefined) {
     if (o.windowType === "") {
       rows.push({ key: "window", label: "Metric window", value: "None" });
@@ -97,6 +112,8 @@ export interface MetricSettingsInput {
   /** Left out where the organization can't use CUPED at all. */
   cuped: { enabled: boolean; days: number } | null;
   prior: { proper: boolean; mean: number; stddev: number };
+  /** A goal metric's own target MDE, where the decision framework uses one. */
+  targetMDE?: number;
 }
 
 /**
@@ -107,9 +124,11 @@ export function describeMetricSettings(
   s: MetricSettingsInput,
   statsEngine: StatsEngine,
   override: MetricOverride | undefined,
+  targetMDEOverride?: number,
 ): OverrideRow[] {
   const bayesian = statsEngine === "bayesian";
   const rows: OverrideRow[] = [
+    ...(s.targetMDE !== undefined ? [targetMDERow(s.targetMDE)] : []),
     s.windowType
       ? {
           key: "window",
@@ -153,18 +172,24 @@ export function describeMetricSettings(
   }
 
   const overridden = new Set(
-    (override ? describeMetricOverride(override) : []).map((r) => r.key),
+    describeMetricOverride(override ?? { id: "" }, targetMDEOverride).map(
+      (r) => r.key,
+    ),
   );
   return rows.filter((r) => !overridden.has(r.key));
 }
 
-/** The metrics an experiment actually overrides, by id. */
+/** The metrics an experiment actually overrides, by id; target MDEs count too. */
 export function getOverriddenMetricIds(
   overrides: MetricOverride[] | undefined,
+  targetMDEOverrides: { id: string; targetMDE?: number }[] = [],
 ): Set<string> {
-  return new Set(
-    (overrides ?? [])
+  return new Set([
+    ...(overrides ?? [])
       .filter((o) => describeMetricOverride(o).length > 0)
       .map((o) => o.id),
-  );
+    ...targetMDEOverrides
+      .filter((o) => o.targetMDE !== undefined)
+      .map((o) => o.id),
+  ]);
 }

@@ -236,6 +236,8 @@ function CustomClearIndicator(props: ClearIndicatorProps<ColorOption, true>) {
 function CustomMultiValueRemove(
   props: React.ComponentProps<typeof components.MultiValueRemove>,
 ) {
+  // Nothing to remove from a field that can't change.
+  if (props.selectProps.isDisabled) return null;
   return (
     <span style={{ display: "flex", alignSelf: "stretch" }}>
       <components.MultiValueRemove
@@ -460,6 +462,22 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             : ReactSelectProps.styles.control(base, state)),
           minHeight: usesLegacyHeight ? 36 : sizeMinHeight[resolvedSize],
         }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        multiValueLabel: (base: any, state: any) => {
+          const styled = customStyles?.multiValueLabel
+            ? customStyles.multiValueLabel(
+                ReactSelectProps.styles.multiValueLabel(base),
+                state,
+              )
+            : ReactSelectProps.styles.multiValueLabel(base);
+          // With no remove button, the label closes the tag as it opens it.
+          return state.selectProps.isDisabled
+            ? {
+                ...styled,
+                paddingRight: styled.paddingLeft ?? base.paddingLeft,
+              }
+            : styled;
+        },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         valueContainer: (base: any) => ({
           ...base,

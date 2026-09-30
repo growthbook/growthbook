@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiCaretDownFill, PiPencilSimple } from "react-icons/pi";
+import { PiCaretDownFill, PiLockSimple, PiPencilSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
-import { getMetricLink } from "shared/experiments";
+import { expandMetricGroups, getMetricLink } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentAnalysisSettingsDraft,
@@ -24,6 +24,7 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -71,8 +72,9 @@ export default function AnalysisPlan({
     getExperimentMetricById,
     getSegmentById,
     getProjectById,
+    metricGroups,
   } = useDefinitions();
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
 
@@ -85,6 +87,18 @@ export default function AnalysisPlan({
     (advanced && "metricOverrides" in advanced
       ? advanced.metricOverrides
       : experiment.metricOverrides) ?? [];
+  const decisionFrameworkSettings =
+    advanced && "decisionFrameworkSettings" in advanced
+      ? advanced.decisionFrameworkSettings
+      : experiment.decisionFrameworkSettings;
+  // Only where the decision framework runs does a goal's target MDE matter.
+  const targetMDEOverrides =
+    organization.settings?.decisionFrameworkEnabled &&
+    hasCommercialFeature("decision-framework") &&
+    experiment.type !== "multi-armed-bandit" &&
+    experiment.type !== "holdout"
+      ? (decisionFrameworkSettings?.decisionFrameworkMetricOverrides ?? [])
+      : undefined;
   const statsEngine = getScopedSettings({
     organization,
     project: getProjectById(experiment.project || "") ?? undefined,
@@ -209,6 +223,21 @@ export default function AnalysisPlan({
   });
 
   const selectedDatasource = getDatasourceById(datasource);
+  // Set, but in a project the viewer can't see; so is its assignment query.
+  const hiddenDatasource = !!datasource && !selectedDatasource;
+  const restricted = (
+    <Tooltip content="This data source is in a project you don't have access to.">
+      <Flex as="span" align="center" gap="1" style={{ display: "inline-flex" }}>
+        <PiLockSimple />
+        <em>Restricted</em>
+      </Flex>
+    </Tooltip>
+  );
+  const datasourceLabel = selectedDatasource
+    ? selectedDatasource.name
+    : hiddenDatasource
+      ? restricted
+      : "None";
   const exposureQueries = selectedDatasource?.settings?.queries?.exposure ?? [];
   const exposureQuery = exposureQueries.find((q) => q.id === exposureQueryId);
 
@@ -283,6 +312,9 @@ export default function AnalysisPlan({
         includeFacts
         includeGroups
         metricOverrides={metricOverrides}
+        targetMDEOverrides={
+          field === "goalMetrics" ? targetMDEOverrides : undefined
+        }
         onManageOverrides={canEdit ? setOverridesFor : undefined}
         settingsScope={settingsScope}
         disabled={!canEdit}
@@ -311,16 +343,32 @@ export default function AnalysisPlan({
               : metricOverrides
           }
           focusMetricIds={overridesFor}
+          targetMDEOverrides={targetMDEOverrides}
           close={() => setOverridesFor(null)}
-          stageChanges={(next) => {
+          stageChanges={(next, nextTargetMDEs) => {
+            const goalIds = new Set(
+              expandMetricGroups(goalMetrics, metricGroups),
+            );
             // The same bounds the full settings modal stages through, so only
             // well-formed overrides reach the draft.
-            const { metricOverrides: parsed } =
-              experimentAnalysisSettingsDraft.parse({ metricOverrides: next });
-            setAdvanced((prev) => ({
-              ...(prev ?? {}),
-              metricOverrides: parsed,
-            }));
+            const parsed = experimentAnalysisSettingsDraft.parse({
+              metricOverrides: next,
+              ...(nextTargetMDEs
+                ? {
+                    decisionFrameworkSettings: {
+                      ...decisionFrameworkSettings,
+                      // A metric that's no longer a goal keeps what it had.
+                      decisionFrameworkMetricOverrides: [
+                        ...(targetMDEOverrides ?? []).filter(
+                          (o) => !goalIds.has(o.id),
+                        ),
+                        ...nextTargetMDEs,
+                      ],
+                    },
+                  }
+                : {}),
+            });
+            setAdvanced((prev) => ({ ...(prev ?? {}), ...parsed }));
             setOverridesFor(null);
           }}
         />
@@ -384,40 +432,43 @@ export default function AnalysisPlan({
               <Text as="label" weight="medium" color="text-low" mb="0">
                 Data source:
               </Text>
-              <DropdownMenu
-                disabled={!canEdit}
-                menuPlacement="end"
-                variant="soft"
-                trigger={
-                  <Link
-                    type="button"
-                    style={{ color: "var(--color-text-high)" }}
-                  >
-                    <Text mr="1">{selectedDatasource?.name || "None"}</Text>
-                    <PiCaretDownFill />
-                  </Link>
-                }
-              >
-                <DropdownMenuGroup>
-                  {[
-                    { id: "", name: "None" },
-                    ...datasources.filter((d) => d.id !== demoDataSourceId),
-                  ].map((d) => (
-                    <DropdownMenuItem
-                      key={d.id || "none"}
-                      onClick={() => {
-                        if (d.id === datasource) return;
-                        touch("datasource", "exposureQueryId");
-                        setDatasource(d.id);
-                        // The old query belongs to the old source.
-                        setExposureQueryId("");
-                      }}
+              {canEdit ? (
+                <DropdownMenu
+                  menuPlacement="end"
+                  variant="soft"
+                  trigger={
+                    <Link
+                      type="button"
+                      style={{ color: "var(--color-text-high)" }}
                     >
-                      {d.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuGroup>
-              </DropdownMenu>
+                      <Text mr="1">{datasourceLabel}</Text>
+                      <PiCaretDownFill />
+                    </Link>
+                  }
+                >
+                  <DropdownMenuGroup>
+                    {[
+                      { id: "", name: "None" },
+                      ...datasources.filter((d) => d.id !== demoDataSourceId),
+                    ].map((d) => (
+                      <DropdownMenuItem
+                        key={d.id || "none"}
+                        onClick={() => {
+                          if (d.id === datasource) return;
+                          touch("datasource", "exposureQueryId");
+                          setDatasource(d.id);
+                          // The old query belongs to the old source.
+                          setExposureQueryId("");
+                        }}
+                      >
+                        {d.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenu>
+              ) : (
+                <Text color="text-high">{datasourceLabel}</Text>
+              )}
             </Flex>
             {canEdit ? (
               <Button
@@ -434,66 +485,73 @@ export default function AnalysisPlan({
         <SetupFieldRow
           label="Assignment Query"
           tooltip="Defines who is in the experiment and how they are identified."
+          content={hiddenDatasource ? "text" : undefined}
         >
-          <SelectField
-            value={exposureQueryId}
-            onChange={(value) => {
-              touch("exposureQueryId");
-              setExposureQueryId(value);
-            }}
-            required
-            sort={false}
-            // Without this a discard leaves the old name in the closed
-            // control: react-select goes uncontrolled on an undefined value.
-            forceUndefinedValueToNull
-            placeholder="Select assignment query..."
-            options={
-              linked && matching.length > 0
-                ? [
-                    {
-                      label: `Keyed to ${hashAttribute}`,
-                      options: matching.map((q) => ({
-                        value: q.id,
-                        label: q.name,
-                      })),
-                    },
-                    ...(other.length > 0
-                      ? [
-                          {
-                            label: "Other assignment queries",
-                            options: other.map((q) => ({
-                              value: q.id,
-                              label: q.name,
-                            })),
-                          },
-                        ]
-                      : []),
-                  ]
-                : exposureQueries.map((q) => ({
-                    value: q.id,
-                    label: q.name,
-                  }))
-            }
-            formatOptionLabel={({ label, value }) => {
-              const userIdType = exposureQueries.find(
-                (e) => e.id === value,
-              )?.userIdType;
-              return (
-                <>
-                  {label}
-                  {userIdType ? (
-                    <span
-                      className="text-muted small float-right position-relative"
-                      style={{ top: 3 }}
-                    >
-                      Identifier Type: <code>{userIdType}</code>
-                    </span>
-                  ) : null}
-                </>
-              );
-            }}
-            disabled={!canEdit || !selectedDatasource}
-          />
+          {hiddenDatasource ? (
+            <Text color="text-high">
+              {exposureQueryId ? restricted : <em>None</em>}
+            </Text>
+          ) : (
+            <SelectField
+              value={exposureQueryId}
+              onChange={(value) => {
+                touch("exposureQueryId");
+                setExposureQueryId(value);
+              }}
+              required
+              sort={false}
+              // Without this a discard leaves the old name in the closed
+              // control: react-select goes uncontrolled on an undefined value.
+              forceUndefinedValueToNull
+              placeholder="Select assignment query..."
+              options={
+                linked && matching.length > 0
+                  ? [
+                      {
+                        label: `Keyed to ${hashAttribute}`,
+                        options: matching.map((q) => ({
+                          value: q.id,
+                          label: q.name,
+                        })),
+                      },
+                      ...(other.length > 0
+                        ? [
+                            {
+                              label: "Other assignment queries",
+                              options: other.map((q) => ({
+                                value: q.id,
+                                label: q.name,
+                              })),
+                            },
+                          ]
+                        : []),
+                    ]
+                  : exposureQueries.map((q) => ({
+                      value: q.id,
+                      label: q.name,
+                    }))
+              }
+              formatOptionLabel={({ label, value }) => {
+                const userIdType = exposureQueries.find(
+                  (e) => e.id === value,
+                )?.userIdType;
+                return (
+                  <>
+                    {label}
+                    {userIdType ? (
+                      <span
+                        className="text-muted small float-right position-relative"
+                        style={{ top: 3 }}
+                      >
+                        Identifier Type: <code>{userIdType}</code>
+                      </span>
+                    ) : null}
+                  </>
+                );
+              }}
+              disabled={!canEdit || !selectedDatasource}
+            />
+          )}
           {mismatched ? (
             <HelperText status="warning" size="sm" mt="1">
               This experiment buckets on <code>{hashAttribute}</code>, which is

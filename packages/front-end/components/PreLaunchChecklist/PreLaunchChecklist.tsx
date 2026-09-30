@@ -254,20 +254,27 @@ export function ChecklistCountBadge({
 export function PreLaunchChecklistPanel({
   size = "sm",
   foldCompleted = false,
+  omit,
 }: {
   size?: ChecklistSize;
   // Done items behind their count instead of a switch, where room is short.
   foldCompleted?: boolean;
+  // Rows the surface shows its own way, e.g. the start popover's values.
+  omit?: (item: CheckListItem) => boolean;
 }) {
   const {
     experiment,
-    summary,
+    checklist,
+    summary: fullSummary,
     loading,
     loadError,
     toggleManualItem,
     toggleError,
   } = usePreLaunchChecklist();
   const [showCompleted, setShowCompleted] = useState(false);
+  const summary = omit
+    ? summarizeChecklist(checklist.filter((item) => !omit(item)))
+    : fullSummary;
 
   if (loading) return <LoadingSpinner />;
 
@@ -300,7 +307,10 @@ export function PreLaunchChecklistPanel({
         </HelperText>
       ) : summary.remaining === 0 ? (
         <Callout status="success" size="sm" icon={<PiCheckBold />}>
-          All items are complete.
+          {/* What's shown apart from here still counts. */}
+          {fullSummary.remaining > 0
+            ? "No other unresolved items remain."
+            : "All items are complete."}
         </Callout>
       ) : null}
       <ChecklistItems

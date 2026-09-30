@@ -17,6 +17,12 @@
   align-items: center;
   min-height: 36px;
   box-sizing: border-box;
+
+  // The value spans the frame, so its actions reach the far end.
+  > * {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
 }
 
 .editValue {

@@ -192,6 +192,11 @@ const MetricsSelector: FC<{
   onManageOverrides?: (metricIds: string[]) => void;
   /** Lets a chosen metric's card list the settings it's analysed with. */
   settingsScope?: MetricSettingsScope;
+  /**
+   * Given, for goal metrics, a target MDE counts as an override: it outlines
+   * the chip and leads the card.
+   */
+  targetMDEOverrides?: { id: string; targetMDE?: number }[];
 }> = ({
   datasource,
   project,
@@ -215,6 +220,7 @@ const MetricsSelector: FC<{
   metricOverrides,
   onManageOverrides,
   settingsScope,
+  targetMDEOverrides,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
@@ -230,7 +236,10 @@ const MetricsSelector: FC<{
   const { hasCommercialFeature } = useUser();
 
   const overriddenChips = useMemo(() => {
-    const overridden = getOverriddenMetricIds(metricOverrides);
+    const overridden = getOverriddenMetricIds(
+      metricOverrides,
+      targetMDEOverrides,
+    );
     return new Set(
       selected.filter((id) =>
         (getMetricGroupById(id)?.metrics ?? [id]).some((mid) =>
@@ -238,7 +247,7 @@ const MetricsSelector: FC<{
         ),
       ),
     );
-  }, [metricOverrides, selected, getMetricGroupById]);
+  }, [metricOverrides, targetMDEOverrides, selected, getMetricGroupById]);
 
   const metricListContainsGroup = selected.some((metric) =>
     isMetricGroupId(metric),
@@ -572,6 +581,7 @@ const MetricsSelector: FC<{
               overrides={metricOverrides}
               onManageOverrides={onManageOverrides}
               settingsScope={settingsScope}
+              targetMDEOverrides={targetMDEOverrides}
               members={metricsWithJoinableStatus}
               filterConversionWindowMetrics={filterConversionWindowMetrics}
             />
@@ -588,6 +598,7 @@ const MetricsSelector: FC<{
       metricOverrides,
       onManageOverrides,
       settingsScope,
+      targetMDEOverrides,
     ],
   );
 

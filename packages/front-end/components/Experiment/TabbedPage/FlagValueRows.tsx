@@ -33,8 +33,6 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ForceSummary from "@/components/Features/ForceSummary";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
-import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import {
   EnvironmentInputsPopover,
   environmentStateTense,
@@ -98,11 +96,20 @@ import {
   variationLabel,
 } from "./variationValues";
 import styles from "./FlagValueRows.module.scss";
-import { valuesAreSetup } from "./useExperimentEditing";
 
 const JSON_ACTIONS: ActionsOverlay = {
   revealOnHover: true,
   style: { bottom: -9, right: 2, gap: "var(--space-2)" },
+};
+// A read-only one-liner has no corner to spare, so copy sits at its end.
+const ONE_LINE_ACTIONS: ActionsOverlay = {
+  revealOnHover: true,
+  style: {
+    top: "50%",
+    bottom: "auto",
+    right: 2,
+    transform: "translateY(-50%)",
+  },
 };
 const STRING_ACTIONS: ActionsOverlay = {
   revealOnHover: true,
@@ -450,22 +457,6 @@ function FlagValueRow({
     () => ({ ...feature, valueType: shownType, defaultValue: shownSparseBase }),
     [feature, shownType, shownSparseBase],
   );
-  const setup = valuesAreSetup(experiment);
-  const draftIds = useMemo(
-    () =>
-      new Set(
-        fromDraft && !setup
-          ? getVariationValueChanges(
-              { ...info, pendingDraft },
-              variations.map((v) => v.id),
-            )
-              .filter((c) => c.unpublished)
-              .map((c) => c.variationId)
-          : [],
-      ),
-    [info, pendingDraft, variations, fromDraft, setup],
-  );
-
   const lockedBySchedule = fromDraft && pendingDraft.lockedBySchedule;
   const onFlag = info.state === "live" || info.state === "draft";
   const editable =
@@ -903,12 +894,10 @@ function FlagValueRow({
       rule: input.rule !== live.rule,
     };
   };
-  const changedEnvironments = Object.fromEntries(
-    environmentStates.map(({ env }) => [env, changedInputs(env)]),
-  );
-  const environmentsChanged = Object.values(changedEnvironments).some(
-    (c) => c.flag || c.rule,
-  );
+  const environmentsChanged = environmentStates.some(({ env }) => {
+    const changed = changedInputs(env);
+    return changed.flag || changed.rule;
+  });
   // Only a change the draft makes needs saying when it lands.
   const environmentsTiming = !environmentsChanged
     ? null
@@ -1098,7 +1087,6 @@ function FlagValueRow({
                       <EnvironmentInputsPopover
                         environmentStates={environmentStates}
                         environmentInputs={environmentInputs}
-                        changed={changedEnvironments}
                         note={environmentsTiming}
                       />
                     ) : null}
@@ -1242,19 +1230,6 @@ function FlagValueRow({
           <Grid columns={VARIATION_GRID_COLUMNS} gap="4" align="start">
             {variations.map((v) => {
               const value = shownValueFor(v.id);
-              // On the value's corner, so it takes no room in the row.
-              const draftDot =
-                draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
-                  <Box
-                    position="absolute"
-                    style={{ top: -3, right: -3, zIndex: 1, lineHeight: 0 }}
-                  >
-                    <UnpublishedDot tooltip="Unpublished draft value" />
-                  </Box>
-                ) : null;
-              // A linked string's constant picker sits beside it, so the field
-              // itself carries the dot.
-              const dotOnField = !managed && editable && shownType === "string";
               const duplicate = duplicateIds.has(v.id);
               // Managed values fill their card, framed like a field even when
               // read-only; linked read-only scalars stay bare text.
@@ -1308,7 +1283,6 @@ function FlagValueRow({
                         actionsOverlay={
                           managed ? MANAGED_STRING_ACTIONS : STRING_ACTIONS
                         }
-                        fieldOverlay={dotOnField ? draftDot : undefined}
                         outlineStyle={duplicate ? "error" : undefined}
                         fullWidth
                       />
@@ -1339,7 +1313,9 @@ function FlagValueRow({
                             }
                             fontSize="0.7rem"
                             lineHeight={1.3}
-                            actionsOverlay={JSON_ACTIONS}
+                            actionsOverlay={
+                              isJson ? JSON_ACTIONS : ONE_LINE_ACTIONS
+                            }
                           />
                         )}
                         {editable && isJson ? (
@@ -1362,7 +1338,6 @@ function FlagValueRow({
                         ) : null}
                       </Box>
                     )}
-                    {dotOnField ? null : draftDot}
                   </Box>
                 </Flex>
               );

@@ -58,6 +58,18 @@ describe("describeMetricOverride", () => {
     ]);
   });
 
+  it("reads a goal metric's target MDE first", () => {
+    expect(
+      describeMetricOverride({ id: "met_a", delayHours: 2 }, 0.05).map((r) => [
+        r.key,
+        r.value,
+      ]),
+    ).toEqual([
+      ["targetMDE", "5%"],
+      ["delay", "2 hours"],
+    ]);
+  });
+
   it("ignores override values whose override flag is off", () => {
     expect(
       describeMetricOverride({
@@ -84,6 +96,15 @@ describe("getOverriddenMetricIds", () => {
 
   it("is empty without overrides", () => {
     expect(getOverriddenMetricIds(undefined)).toEqual(new Set());
+  });
+
+  it("counts a target MDE override alone", () => {
+    expect(
+      getOverriddenMetricIds(
+        [{ id: "met_a" }],
+        [{ id: "met_a", targetMDE: 0.05 }, { id: "met_b" }],
+      ),
+    ).toEqual(new Set(["met_a"]));
   });
 });
 
@@ -146,6 +167,20 @@ describe("describeMetricSettings", () => {
         undefined,
       )[0].value,
     ).toBe("72 hours");
+  });
+
+  it("leads with a goal metric's target MDE, until it's overridden", () => {
+    const goal = { ...settings, targetMDE: 0.1 };
+    expect(describeMetricSettings(goal, "frequentist", undefined)[0]).toEqual({
+      key: "targetMDE",
+      label: "Target MDE",
+      value: "10%",
+    });
+    expect(
+      describeMetricSettings(goal, "frequentist", undefined, 0.05).map(
+        (r) => r.key,
+      ),
+    ).toEqual(["window", "cuped"]);
   });
 
   it("drops each setting the override stands in for, and nothing else", () => {

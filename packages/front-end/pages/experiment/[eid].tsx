@@ -106,7 +106,8 @@ const ExperimentPage = (): ReactElement => {
   const canEditExperiment =
     permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
 
-  let canRunExperiment = !experiment.archived;
+  // The server asks for both: edit rights, and run rights where it serves.
+  let canRunExperiment = canEditExperiment;
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;

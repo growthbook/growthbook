@@ -89,7 +89,8 @@ const BanditExperimentPage = (): ReactElement => {
     permissionsUtil.canViewExperimentModal(experiment.project) &&
     !experiment.archived;
 
-  let canRunExperiment = !experiment.archived;
+  // The server asks for both: edit rights, and run rights where it serves.
+  let canRunExperiment = canEditExperiment;
   if (data.envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, data.envs)) {
       canRunExperiment = false;

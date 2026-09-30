@@ -69,9 +69,16 @@ export function trafficSplitPercentages(weights: number[]): number[] {
   return weights.map((w) => +((w / sum) * 100));
 }
 
-export function formatTrafficSplit(weights: number[], decimals = 0): string {
+/** `trim` drops trailing zeros, so up to `decimals` rather than always that many. */
+export function formatTrafficSplit(
+  weights: number[],
+  decimals = 0,
+  { trim = false }: { trim?: boolean } = {},
+): string {
   return trafficSplitPercentages(weights)
-    .map((w) => w.toFixed(decimals))
+    .map((w) =>
+      trim ? String(Number(w.toFixed(decimals))) : w.toFixed(decimals),
+    )
     .join(" / ");
 }
 

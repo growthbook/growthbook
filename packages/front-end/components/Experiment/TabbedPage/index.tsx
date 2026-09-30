@@ -59,9 +59,13 @@ import useExperimentEditing from "./useExperimentEditing";
 import useExperimentReviewRoute from "./useExperimentReviewRoute";
 import useStartExperiment from "./useStartExperiment";
 import ExperimentReview from "./ExperimentReview";
-import ValuesReviewBanner from "./ValuesReviewBanner";
-import ValuesDraftBanner, { VALUES_DRAFT_BANNER_ID } from "./ValuesDraftBanner";
-import { hasValuesReview } from "./valuesBanner";
+import ExperimentRevisionControl from "./ExperimentRevisionControl";
+import {
+  VALUES_STATUS_BANNER_ID,
+  ValuesStatusBanner,
+  ValuesStatusRow,
+} from "./ValuesStatusBanner";
+import { hasValuesReview } from "./valuesStatus";
 import ExperimentDetailsPanel, {
   DetailsPanelTab,
 } from "./ExperimentDetailsPanel";
@@ -611,7 +615,7 @@ function TabbedPageContents({
         reviewable
           ? () => openReview("todo")
           : managedFlagWithDraft
-            ? () => setTabAndScroll("overview", VALUES_DRAFT_BANNER_ID)
+            ? () => setTabAndScroll("overview", VALUES_STATUS_BANNER_ID)
             : undefined
       }
       editVariationValues={() => setTabAndScroll("overview", FLAG_VALUES_ID)}
@@ -726,16 +730,23 @@ function TabbedPageContents({
           urlRedirects={urlRedirects}
           showDashboardView={dashboardView}
           editSchedule={editSchedule}
-          valuesBanner={
-            managedFlagWithDraft && valuesReview ? (
-              <ValuesReviewBanner
+          revisionControl={
+            experiment.type !== "holdout" && linkedFeatures.length > 0 ? (
+              <ExperimentRevisionControl
                 experiment={experiment}
-                info={managedFlagWithDraft}
-                mutate={mutate}
-                reviewing={reviewing}
-                openReview={reviewable ? () => openReview("banner") : null}
+                linkedFeatures={linkedFeatures}
               />
             ) : null
+          }
+          detailsWidth={detailsWidth}
+          startValuesStatus={
+            <ValuesStatusRow
+              experiment={experiment}
+              linkedFeatures={linkedFeatures}
+              managed={managedFlagWithDraft}
+              mutate={mutate}
+              openReview={reviewable ? () => openReview("start") : null}
+            />
           }
         />
         <Box
@@ -772,15 +783,17 @@ function TabbedPageContents({
                 dashboardView && "pt-0",
               )}
             >
-              {managedFlagWithDraft &&
-              tab === "overview" &&
+              {tab === "overview" &&
               !reviewing &&
               !dashboardView &&
+              experiment.type !== "holdout" &&
               !experiment.archived ? (
-                <ValuesDraftBanner
+                <ValuesStatusBanner
                   experiment={experiment}
-                  info={managedFlagWithDraft}
+                  linkedFeatures={linkedFeatures}
+                  managed={managedFlagWithDraft}
                   mutate={mutate}
+                  openReview={reviewable ? () => openReview("banner") : null}
                 />
               ) : null}
               {experiment.type !== "holdout" &&
