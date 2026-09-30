@@ -311,7 +311,6 @@ export default function PayloadSecurityField({
                     or a CDN edge worker.
                   </Callout>
                 )}
-                {cipherOptions}
                 {activeCipherOptions.length > 0 && (
                   <Callout status="warning" size="sm">
                     <strong>{activeCipherOptions.join(", ")}</strong>{" "}
@@ -341,7 +340,7 @@ export default function PayloadSecurityField({
           const patch: Partial<PayloadSecurityValue> = { delivery: mode };
           if (mode === "plain" || mode === "remote") {
             // As the full form's tabs: Plain Text and Remote Eval both clear
-            // the cipher options (they can be re-enabled under Remote Eval).
+            // the cipher options; only Ciphered offers them.
             patch.encryptPayload = false;
             patch.hashSecureAttributes = false;
           } else if (
