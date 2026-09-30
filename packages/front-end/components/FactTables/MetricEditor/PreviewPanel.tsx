@@ -53,7 +53,11 @@ export default function PreviewPanel({
   const [view, setView] = useState<"preview" | "sql">("preview");
   const liveDraftMetric = draft ? getDraftMetricPreview(draft) : null;
   const settledDraftMetric = useSettledPreviewMetric(liveDraftMetric);
-  const previewMetric = draft ? settledDraftMetric : (metric ?? null);
+  // An incomplete draft disables the preview at once instead of after the
+  // debounce, so a half-filled filter can't run the last settled query.
+  const previewMetric = draft
+    ? liveDraftMetric && settledDraftMetric
+    : (metric ?? null);
   const currentMetric = draft ?? metric;
   const caveatMetric = draft ? liveDraftMetric : (metric ?? null);
   const caveat = caveatMetric ? getMetricPreviewCaveat(caveatMetric) : null;
@@ -62,22 +66,20 @@ export default function PreviewPanel({
     : null;
 
   return (
-    <Frame className={styles.panel} p="0" mb="0">
+    <Frame className={styles.panel} px="0" py="0" mb="0">
       <Tabs
         className={styles.tabRoot}
         value={view}
         onValueChange={(v) => setView(v as "preview" | "sql")}
       >
-        <Flex direction="column" gap="2" className={styles.header}>
-          <Flex justify="between" align="center">
-            <Heading as="h4" size="sm" mb="0">
-              Preview
-            </Heading>
-            <TabsList className={styles.tabs}>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-              <TabsTrigger value="sql">SQL</TabsTrigger>
-            </TabsList>
-          </Flex>
+        <Flex justify="between" align="center" className={styles.header}>
+          <Heading as="h4" size="sm" mb="0">
+            Preview
+          </Heading>
+          <TabsList className={styles.tabs}>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+            <TabsTrigger value="sql">SQL</TabsTrigger>
+          </TabsList>
         </Flex>
 
         <Box className={styles.content} width="100%">
@@ -153,6 +155,9 @@ export default function PreviewPanel({
                   </Callout>
                 )}
                 <MetricPerformance
+                  // A different metric type is a different query shape: start
+                  // over from the empty state instead of flagging stale results.
+                  key={currentMetric?.metricType}
                   metric={previewMetric}
                   datasourceId={currentMetric?.datasource ?? ""}
                   draft={!!draft}
