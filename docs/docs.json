@@ -1027,6 +1027,16 @@
                 ]
               },
               {
+                "group": "Interleaving Queries",
+                "pages": [
+                  "api/InterleavingQueries/operation/getInterleavingQuery",
+                  "api/InterleavingQueries/operation/updateInterleavingQuery",
+                  "api/InterleavingQueries/operation/deleteInterleavingQuery",
+                  "api/InterleavingQueries/operation/listInterleavingQueries",
+                  "api/InterleavingQueries/operation/createInterleavingQuery"
+                ]
+              },
+              {
                 "group": "Custom Fields",
                 "pages": [
                   "api/CustomFields/operation/listCustomFields",
@@ -1202,6 +1212,7 @@
               "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/InterleavingQuery_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",

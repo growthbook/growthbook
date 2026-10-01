@@ -90,6 +90,13 @@ export interface SqlDialect {
   stringMatch: StringMatchFn;
   globMatch: GlobMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  // JSON-array support for interleaving exposure queries (optional; absence
+  // means the warehouse does not support interleaving analysis yet).
+  // Returns a join clause that unnests `jsonColumn` (one row per element)
+  // exposing each element as `itemAlias`.
+  unnestJsonArray?: (jsonColumn: string, itemAlias: string) => string;
+  // Extracts a scalar field from an unnested JSON element as text.
+  jsonArrayFieldText?: (itemAlias: string, field: string) => string;
   evalBoolean: (col: string, value: boolean) => string;
   dateTrunc: (
     column: string,

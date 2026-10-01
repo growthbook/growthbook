@@ -60,6 +60,8 @@ export type QueryType =
 
   // 2 additional queries associated with having pipeline mode "ephemeral" enabled
   | "experimentUnits"
+  // Per-metric sufficient-statistics query for an interleaving experiment
+  | "interleavingMetric"
   | "experimentDropUnitsTable"
 
   // Queries associated with an experiment update using incremental refresh

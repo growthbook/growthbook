@@ -49,6 +49,8 @@ import {
   ExperimentAggregateUnitsQueryParams,
   ContextualBanditSrmQueryParams,
   ContextualBanditSrmQueryResponse,
+  InterleavingMetricQueryParams,
+  InterleavingMetricQueryResponse,
   ExperimentDimension,
   ExternalIdCallback,
   DimensionSlicesQueryResponse,
@@ -161,6 +163,7 @@ import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/dr
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-aggregate-units-query";
 import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
+import { getInterleavingMetricQuery as getInterleavingMetricQueryFromSql } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentFactMetricsQuery as getExperimentFactMetricsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
@@ -754,6 +757,28 @@ export default abstract class SqlIntegration
     };
   }
 
+  async runInterleavingMetricQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<InterleavingMetricQueryResponse> {
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
+    return {
+      rows: rows.map((row) => {
+        const out: Record<string, number> = {};
+        Object.entries(row).forEach(([key, value]) => {
+          out[key] = parseFloat(value as string) || 0;
+        });
+        return out;
+      }),
+      statistics,
+    };
+  }
+
   async runContextualBanditSrmQuery(
     query: string,
     setExternalId: ExternalIdCallback,
@@ -1021,6 +1046,10 @@ export default abstract class SqlIntegration
 
   getContextualBanditSrmQuery(params: ContextualBanditSrmQueryParams): string {
     return getContextualBanditSrmQueryFromSql(this.getSqlDialect(), params);
+  }
+
+  getInterleavingMetricQuery(params: InterleavingMetricQueryParams): string {
+    return getInterleavingMetricQueryFromSql(this.getSqlDialect(), params);
   }
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
