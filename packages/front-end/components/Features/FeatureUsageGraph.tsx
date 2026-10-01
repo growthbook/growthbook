@@ -316,6 +316,67 @@ function mostRecentPublishAt(
   return published.length ? Math.max(...published) : null;
 }
 
+/**
+ * FAKE DATA: the environments the dummy usage splits across — the flag's
+ * enabled ones, "production" first when present (groupWeights gives it the
+ * lion's share). Falls back to production alone.
+ */
+function dummyEnvironments(feature: FeatureInterface): string[] {
+  const enabled = Object.entries(feature.environmentSettings ?? {})
+    .filter(([, settings]) => settings?.enabled)
+    .map(([id]) => id);
+  if (!enabled.length) return ["production"];
+  return enabled.includes("production")
+    ? ["production", ...enabled.filter((e) => e !== "production")]
+    : enabled;
+}
+
+/**
+ * FAKE DATA: dummy usage narrowed to some environments, the way the endpoint
+ * narrows real usage. The dummy dimensions are drawn independently, so each
+ * bucket's other series are scaled by the selected environments' share of
+ * that bucket, and the environment series keeps only the selected groups.
+ * Null leaves the data as drawn.
+ */
+function scopeDummyUsage(
+  data: FeatureUsageData,
+  environments: string[] | null,
+): FeatureUsageData {
+  if (!environments) return data;
+  const keep = new Set(environments);
+  const shares = data.byEnvironment.map((point) => {
+    const all = Object.values(point.v).reduce((s, n) => s + n, 0);
+    const kept = Object.entries(point.v)
+      .filter(([env]) => keep.has(env))
+      .reduce((s, [, n]) => s + n, 0);
+    return all > 0 ? kept / all : 0;
+  });
+  const scale = (series: FeatureUsageDataPoint[]) =>
+    series.map((point, i) => ({
+      t: point.t,
+      v: Object.fromEntries(
+        Object.entries(point.v).map(([k, n]) => [
+          k,
+          Math.round(n * (shares[i] ?? 0)),
+        ]),
+      ),
+    }));
+  const byValue = scale(data.byValue);
+  return {
+    ...data,
+    byValue,
+    bySource: scale(data.bySource),
+    byRuleId: scale(data.byRuleId),
+    byEnvironment: data.byEnvironment.map((point) => ({
+      t: point.t,
+      v: Object.fromEntries(
+        Object.entries(point.v).filter(([env]) => keep.has(env)),
+      ),
+    })),
+    total: sumSeries(byValue),
+  };
+}
+
 function sumSeries(series: FeatureUsageDataPoint[]): number {
   return series.reduce(
     (total, point) => total + Object.values(point.v).reduce((s, v) => s + v, 0),
@@ -375,8 +436,9 @@ function getDummyData(
     { key: "value" as const, groups: Array.from(values) },
     { key: "source" as const, groups: Array.from(sources) },
     { key: "ruleId" as const, groups: Array.from(ruleIds) },
-    // Two environments rather than one so the dimension has something to stack.
-    { key: "environment" as const, groups: ["production", "staging"] },
+    // The flag's own enabled environments, so the environment controls have
+    // real values to act on (the Diagnostics stream fixture does the same).
+    { key: "environment" as const, groups: dummyEnvironments(feature) },
   ];
 
   const stepAt = mostRecentPublishAt(revisions);
@@ -874,12 +936,15 @@ export function FeatureUsageProvider({
 
   const featureUsage =
     useDummyData && feature
-      ? getDummyData(
-          feature,
-          lookback,
-          revisions,
-          forceTruncation,
-          rolloutScenario,
+      ? scopeDummyUsage(
+          getDummyData(
+            feature,
+            lookback,
+            revisions,
+            forceTruncation,
+            rolloutScenario,
+          ),
+          usageEnvironments,
         )
       : data?.usage;
 
@@ -962,7 +1027,10 @@ export function FeatureUsageProvider({
 
   const ruleFeatureUsage =
     useDummyData && feature
-      ? getDummyData(feature, RULE_TRAFFIC_LOOKBACK, revisions, false)
+      ? scopeDummyUsage(
+          getDummyData(feature, RULE_TRAFFIC_LOOKBACK, revisions, false),
+          ruleTrafficEnvironments,
+        )
       : ruleReusesMain
         ? data?.usage
         : ruleData?.usage;
