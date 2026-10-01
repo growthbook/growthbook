@@ -44,7 +44,7 @@ In the example below, the Default Value was set to `foo` when you first created 
 
 <CommercialFeature feature="require-approvals" />
 
-With Approval flows, you can require approval before publishing any change to an existing feature flag. Approval flows help reduce errors by making sure changes to features have been viewed and approved by someone else in your organization.
+With Approval flows, you can require approval before publishing any change to an existing feature flag. Approval flows help reduce errors by making sure changes to features have been viewed and approved by someone else in your organization. You can also require approval when a new Feature Flag starts on in a gated environment; see [Approval on create](#approval-on-create).
 
 ### Settings
 
@@ -62,6 +62,8 @@ Each rule for Feature Flags, Configs, and Constants has the following options:
 The **Global** section below the rules holds settings that span every rule. One of them concerns [Targeting Projects](/features/environments#delivering-a-feature-to-multiple-projects):
 
 - **Apply approval requirements from Targeting Projects** (on by default) — A Feature Flag delivered into other Projects must also satisfy those Projects' approval rules before publishing. A Targeting Project with a rule of its own must additionally be approved by one of its own reviewers, and those reviewers may review the draft. When off, only the flag's primary Project's rules and reviewers apply. Also available on the [REST API](/api#tag/settings) as `targetingReviewMode`.
+
+One related setting lives under **Settings → General → Feature Flags** instead, because part of it applies on every plan: **Require explicit environments and approval on create**. Where these rules apply, it makes a new Feature Flag that starts on in a gated environment need approval too. See [Approval on create](#approval-on-create).
 
 ![Approval flow organization settings](/static/images/features/approval-flows/org-settings.png)
 
@@ -150,6 +152,17 @@ requirements** is on.
 Once published, a green "Live" badge confirms the version is published and active.
 
 ![Green badge indicating the published version is live](/static/images/features/approval-flows/revision-live-badge.png)
+
+### Approval on create
+
+A new Feature Flag that starts on in an environment is live there as soon as it is created. To review that the same way as turning the environment on later, turn on **Require explicit environments and approval on create** under **Settings → General → Feature Flags**. New organizations have it on; existing organizations have it off until they turn it on.
+
+With the setting on, a new Feature Flag that starts on in an environment needs approval whenever turning that environment on for an existing Feature Flag would. The same rules decide it: the environments in the rule, **Require approval for** enabled environment changes, and the rules of strict Targeting Projects. A user with **Bypass draft approvals** can still create it in one step, and so can API keys while **REST API always bypasses approval requirements** is on.
+
+- **In the app**, the environment's checkbox is unavailable when you create the Feature Flag. Create it with that environment off, then turn it on through a reviewed draft.
+- **Through the REST API**, the create is rejected with `create_requires_approval` (422). Send `"requestReview": true` to create the Feature Flag off in those environments, plus a draft that turns them on and requests review. The response returns that draft as `draft`. `requestReview` works whether or not the setting is on.
+
+The setting also makes REST API writes state environments explicitly instead of defaulting them. See [Environments](/features/environments#default-state-for-new-features).
 
 ### Visualize Changes with Compare Revisions
 
