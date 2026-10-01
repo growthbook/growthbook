@@ -31,6 +31,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          package-manager-cache: false
 
       - name: Test drift checker
         run: node --test scripts/check-agent-skills-drift.test.mjs
