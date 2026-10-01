@@ -175,6 +175,7 @@ const DataSourcesPage: FC = () => {
         <h1>Data Sources</h1>
         <div className="ml-auto" />
         {filteredDatasources.length === 0 &&
+          !showDataSourceOptions &&
           !hasFileConfig() &&
           !demoDataSourceExists && (
             <Button
@@ -200,6 +201,7 @@ const DataSourcesPage: FC = () => {
             </Button>
           )}
         {filteredDatasources.length === 0 &&
+        !showDataSourceOptions &&
         demoDataSourceExists &&
         demoProjectId &&
         demoDataSourceId ? (

@@ -4,8 +4,6 @@ import { Flex } from "@radix-ui/themes";
 import {
   PiArrowSquareOut,
   PiCheck,
-  PiCircleDashed,
-  PiCircleFill,
   PiInfo,
   PiLightning,
   PiMinus,
@@ -13,6 +11,7 @@ import {
   PiSlidersHorizontal,
 } from "react-icons/pi";
 import { DataSourceType } from "shared/types/datasource";
+import { CommercialFeature } from "shared/enterprise";
 import { supportsEventForwarder } from "shared/util";
 import Table, {
   TableBody,
@@ -29,6 +28,8 @@ import Text from "@/ui/Text";
 import { dataSourceConnections } from "@/services/eventSchema";
 import { DocLink, DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import { GBPremiumBadge } from "@/components/Icons";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
@@ -37,6 +38,7 @@ import {
   DataSourceOptionKey,
   useDataSourceOptionEligibility,
 } from "./useDataSourceOptionEligibility";
+import SampleDataSourceLink from "./SampleDataSourceLink";
 
 const OPTION_KEYS: DataSourceOptionKey[] = [
   "managed",
@@ -57,6 +59,7 @@ const OPTION_HEADS: Record<
     badge: string;
     description: string;
     docSection: DocSection;
+    commercialFeature?: CommercialFeature;
   }
 > = {
   managed: {
@@ -73,6 +76,7 @@ const OPTION_HEADS: Record<
     description:
       "GrowthBook manages the pipeline. Data is stored in your warehouse.",
     docSection: "eventForwarder",
+    commercialFeature: "events-forwarder",
   },
   custom: {
     icon: <PiSlidersHorizontal size={16} />,
@@ -85,16 +89,14 @@ const OPTION_HEADS: Record<
 
 const OPTION_COLUMN_STYLE = { borderLeft: "1px solid var(--gray-a5)" };
 
-type Indicator = "filled" | "dashed" | "yes" | "no";
+type Indicator = "yes" | "no";
 
 const INDICATOR_ICONS: Record<Indicator, ReactNode> = {
-  filled: <PiCircleFill size={10} color="var(--violet-9)" />,
-  dashed: <PiCircleDashed size={12} color="var(--gray-9)" />,
   yes: <PiCheck size={16} color="var(--green-11)" />,
   no: <PiMinus size={16} color="var(--gray-9)" />,
 };
 
-type ComparisonCell = { indicator?: Indicator; text: string; italic?: boolean };
+type ComparisonCell = { indicator?: Indicator; text: string; detail?: string };
 
 const COMPARISON_ROWS: {
   label: string;
@@ -106,9 +108,9 @@ const COMPARISON_ROWS: {
     tooltip:
       "Events are records of what users do in your app, like viewing an experiment or making a purchase. This is where your app sends them.",
     cells: {
-      managed: { indicator: "filled", text: "GrowthBook" },
-      "event-forwarder": { indicator: "filled", text: "GrowthBook" },
-      custom: { indicator: "dashed", text: "Your data pipeline" },
+      managed: { text: "GrowthBook" },
+      "event-forwarder": { text: "GrowthBook" },
+      custom: { text: "Your data pipeline" },
     },
   },
   {
@@ -116,19 +118,12 @@ const COMPARISON_ROWS: {
     tooltip:
       "Where your event data is kept. GrowthBook runs experiment analysis against this storage.",
     cells: {
-      managed: { indicator: "filled", text: "GrowthBook's Managed Warehouse" },
-      "event-forwarder": { indicator: "dashed", text: "Your warehouse" },
-      custom: { indicator: "dashed", text: "Your warehouse" },
-    },
-  },
-  {
-    label: "Warehouses supported",
-    cells: {
-      managed: { indicator: "no", text: "Not required", italic: true },
+      managed: { text: "GrowthBook" },
       "event-forwarder": {
-        text: eventForwarderConnections.map((o) => o.display).join(", "),
+        text: "Your warehouse",
+        detail: eventForwarderConnections.map((o) => o.display).join(", "),
       },
-      custom: { text: "Any SQL source" },
+      custom: { text: "Your warehouse", detail: "Any SQL source" },
     },
   },
   {
@@ -143,8 +138,15 @@ const COMPARISON_ROWS: {
   },
 ];
 
-function OptionHead({ option }: { option: DataSourceOptionKey }) {
-  const { icon, name, badge, description, docSection } = OPTION_HEADS[option];
+function OptionHead({
+  option,
+  upgradeRequired,
+}: {
+  option: DataSourceOptionKey;
+  upgradeRequired: boolean;
+}) {
+  const { icon, name, badge, description, docSection, commercialFeature } =
+    OPTION_HEADS[option];
   return (
     <Flex direction="column" gap="2" align="start">
       <Flex align="center" gap="2">
@@ -164,9 +166,12 @@ function OptionHead({ option }: { option: DataSourceOptionKey }) {
         <Text size="lg" weight="semibold">
           {name}
         </Text>
+        {upgradeRequired && commercialFeature ? (
+          <PaidFeatureBadge commercialFeature={commercialFeature} />
+        ) : null}
       </Flex>
       <Badge label={badge} color="violet" variant="soft" />
-      <Text size="sm" color="text-mid" weight="regular">
+      <Text color="text-mid" weight="regular">
         {description}{" "}
         <DocLink docSection={docSection}>
           <span style={{ whiteSpace: "nowrap" }}>
@@ -207,16 +212,18 @@ function LabelWithTooltip({
   );
 }
 
-function ComparisonCellContent({ indicator, text, italic }: ComparisonCell) {
+function ComparisonCellContent({ indicator, text, detail }: ComparisonCell) {
   return (
     <Flex align="center" gap="2">
       {indicator ? INDICATOR_ICONS[indicator] : null}
-      <Text
-        color={indicator === "no" ? "text-mid" : undefined}
-        fontStyle={italic ? "italic" : undefined}
-      >
-        {text}
-      </Text>
+      <Flex direction="column">
+        <Text color={indicator === "no" ? "text-mid" : undefined}>{text}</Text>
+        {detail ? (
+          <Text size="sm" color="text-mid">
+            {detail}
+          </Text>
+        ) : null}
+      </Flex>
     </Flex>
   );
 }
@@ -224,8 +231,11 @@ function ComparisonCellContent({ indicator, text, italic }: ComparisonCell) {
 export default function DataSourceOptionsTable() {
   const router = useRouter();
   const { mutateDefinitions } = useDefinitions();
-  const { options: eligibility, pricingFootnote } =
-    useDataSourceOptionEligibility();
+  const {
+    options: eligibility,
+    showPricing,
+    pricingFootnote,
+  } = useDataSourceOptionEligibility();
 
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
   const [newDataSourceForm, setNewDataSourceForm] = useState<{
@@ -249,7 +259,7 @@ export default function DataSourceOptionsTable() {
         setNewDataSourceForm({ allowedTypes: eventForwarderTypes }),
     },
     custom: {
-      label: "Connect your warehouse",
+      label: "Set up Custom Data Source",
       variant: "outline",
       onClick: () => setNewDataSourceForm({}),
     },
@@ -258,6 +268,7 @@ export default function DataSourceOptionsTable() {
   const renderAction = (option: DataSourceOptionKey) => {
     const { availability } = eligibility[option];
     let { label, variant, onClick } = setUpActions[option];
+    let icon: ReactNode = null;
     const reason =
       availability.status === "unavailable" ? availability.reason : null;
 
@@ -268,6 +279,7 @@ export default function DataSourceOptionsTable() {
     } else if (availability.status === "upgrade-required") {
       label = "Upgrade to Pro";
       variant = "outline";
+      icon = <GBPremiumBadge />;
       onClick = () => setUpgradeOpen(true);
     }
 
@@ -279,6 +291,8 @@ export default function DataSourceOptionsTable() {
       >
         <Button
           variant={variant}
+          icon={icon}
+          iconPosition="right"
           disabled={!!reason}
           style={{ width: "100%" }}
           onClick={onClick}
@@ -317,18 +331,29 @@ export default function DataSourceOptionsTable() {
       <Heading as="h2" size="md" mb="1">
         Choose How to Connect Your Data
       </Heading>
-      <Text as="p" color="text-mid" mb="4">
+      <Text as="p" color="text-mid" mb="2">
         All three options use the same stats engine and experiment reports. You
         can add more Data Sources later.
       </Text>
+      <SampleDataSourceLink />
 
-      <Table variant="surface" layout="fixed" style={{ minWidth: 820 }}>
+      <Table
+        variant="surface"
+        layout="fixed"
+        style={{ minWidth: 820, maxWidth: 1200 }}
+      >
         <TableHeader>
           <TableRow align="start">
             <TableColumnHeader style={{ width: 190 }} />
             {OPTION_KEYS.map((option) => (
               <TableColumnHeader key={option} style={OPTION_COLUMN_STYLE}>
-                <OptionHead option={option} />
+                <OptionHead
+                  option={option}
+                  upgradeRequired={
+                    eligibility[option].availability.status ===
+                    "upgrade-required"
+                  }
+                />
               </TableColumnHeader>
             ))}
           </TableRow>
@@ -352,26 +377,28 @@ export default function DataSourceOptionsTable() {
               ))}
             </TableRow>
           ))}
-          <TableRow align="center">
-            <TableRowHeaderCell>
-              <Text weight="medium">Event pricing</Text>
-            </TableRowHeaderCell>
-            {OPTION_KEYS.map((option) => {
-              const { headline, detail } = eligibility[option].pricing;
-              return (
-                <TableCell key={option} style={OPTION_COLUMN_STYLE}>
-                  <Text as="div" weight="semibold">
-                    {headline}
-                  </Text>
-                  {detail ? (
-                    <Text as="div" color="text-mid">
-                      {detail}
+          {showPricing ? (
+            <TableRow align="center">
+              <TableRowHeaderCell>
+                <Text weight="medium">Event pricing</Text>
+              </TableRowHeaderCell>
+              {OPTION_KEYS.map((option) => {
+                const { headline, detail } = eligibility[option].pricing;
+                return (
+                  <TableCell key={option} style={OPTION_COLUMN_STYLE}>
+                    <Text as="div" weight="semibold">
+                      {headline}
                     </Text>
-                  ) : null}
-                </TableCell>
-              );
-            })}
-          </TableRow>
+                    {detail ? (
+                      <Text as="div" color="text-mid">
+                        {detail}
+                      </Text>
+                    ) : null}
+                  </TableCell>
+                );
+              })}
+            </TableRow>
+          ) : null}
           <TableRow align="start">
             <TableRowHeaderCell />
             {OPTION_KEYS.map((option) => (

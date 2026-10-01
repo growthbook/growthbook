@@ -20,6 +20,13 @@ const NO_PERMISSION: DataSourceOptionAvailability = {
   reason: "You don't have permission to add Data Sources in this project.",
 };
 
+function noAccess(name: string): DataSourceOptionAvailability {
+  return {
+    status: "unavailable",
+    reason: `Your organization already has a ${name}. Ask an admin for access.`,
+  };
+}
+
 const LEGACY_PRO_PLAN: DataSourceOptionAvailability = {
   status: "unavailable",
   reason:
@@ -28,9 +35,16 @@ const LEGACY_PRO_PLAN: DataSourceOptionAvailability = {
 
 export function useDataSourceOptionEligibility(): {
   options: Record<DataSourceOptionKey, DataSourceOptionEligibility>;
+  showPricing: boolean;
   pricingFootnote: string | null;
 } {
-  const { datasources, project, projects } = useDefinitions();
+  const {
+    datasources,
+    project,
+    projects,
+    hasManagedWarehouse,
+    hasEventForwarder,
+  } = useDefinitions();
   const { effectiveAccountPlan, license, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -56,6 +70,8 @@ export function useDataSourceOptionEligibility(): {
       status: "already-set-up",
       datasourceId: existingManagedWarehouse.id,
     };
+  } else if (hasManagedWarehouse) {
+    managed = noAccess("Managed Warehouse");
   } else if (!canCreate) {
     managed = NO_PERMISSION;
   } else if (isLegacyProPlan) {
@@ -74,6 +90,8 @@ export function useDataSourceOptionEligibility(): {
       status: "already-set-up",
       datasourceId: existingEventForwarder.id,
     };
+  } else if (hasEventForwarder) {
+    eventForwarder = noAccess("Event Forwarder");
   } else if (!canCreate) {
     eventForwarder = NO_PERMISSION;
   } else if (isLegacyProPlan) {
@@ -107,6 +125,8 @@ export function useDataSourceOptionEligibility(): {
         pricing: { headline: "No per-event cost", detail: null },
       },
     },
+    // Enterprise usage is billed per contract, so list pricing doesn't apply.
+    showPricing: plan !== "enterprise",
     pricingFootnote: isPaidPlan
       ? null
       : "* The Starter plan is capped at the included limit. Upgrade to Pro to unlock usage-based billing above the included limit.",
