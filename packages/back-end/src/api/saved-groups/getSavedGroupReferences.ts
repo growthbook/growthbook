@@ -13,6 +13,7 @@ export const getSavedGroupReferences = createApiRequestHandler(
   return {
     features: refs.features,
     experiments: refs.experiments,
+    contextualBandits: refs.contextualBandits,
     savedGroups: refs.savedGroups,
   };
 });

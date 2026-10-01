@@ -40,6 +40,7 @@ const feature = {
 describe("markRevisionAsPublished", () => {
   setupApp();
   let context: ReqContextClass;
+  const noRebase = { result: {}, environmentIds: ["production"] };
 
   const baseline = new Date(Date.now() - 60_000);
 
@@ -96,6 +97,7 @@ describe("markRevisionAsPublished", () => {
       feature,
       asRead(),
       context.auditUser,
+      noRebase,
     );
 
     expect(await storedStatus()).toBe("published");
@@ -109,11 +111,23 @@ describe("markRevisionAsPublished", () => {
 
   it("refuses a second publish of the same revision", async () => {
     const read = asRead();
-    await markRevisionAsPublished(context, feature, read, context.auditUser);
+    await markRevisionAsPublished(
+      context,
+      feature,
+      read,
+      context.auditUser,
+      noRebase,
+    );
 
     // The same in-memory revision a concurrent request would still be holding.
     await expect(
-      markRevisionAsPublished(context, feature, read, context.auditUser),
+      markRevisionAsPublished(
+        context,
+        feature,
+        read,
+        context.auditUser,
+        noRebase,
+      ),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
@@ -128,7 +142,13 @@ describe("markRevisionAsPublished", () => {
     // Same status, newer content: the caller computed what to publish from the
     // version it read, so a same-status edit has to abort the claim too.
     await expect(
-      markRevisionAsPublished(context, feature, asRead(), context.auditUser),
+      markRevisionAsPublished(
+        context,
+        feature,
+        asRead(),
+        context.auditUser,
+        noRebase,
+      ),
     ).rejects.toBeInstanceOf(ConflictError);
     expect(await storedStatus()).toBe("draft");
   });
@@ -142,7 +162,13 @@ describe("markRevisionAsPublished", () => {
       );
 
     await expect(
-      markRevisionAsPublished(context, feature, asRead(), context.auditUser),
+      markRevisionAsPublished(
+        context,
+        feature,
+        asRead(),
+        context.auditUser,
+        noRebase,
+      ),
     ).rejects.toBeInstanceOf(ConflictError);
     expect(await storedStatus()).toBe("discarded");
   });
@@ -163,6 +189,7 @@ describe("markRevisionAsPublished", () => {
       feature,
       asRead({ status: "published" }),
       context.auditUser,
+      noRebase,
     );
 
     expect(stamp).not.toBeNull();

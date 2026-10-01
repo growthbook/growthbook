@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiAssignmentQueryInputFields } from "./assignment-query-field";
 import {
   featurePrerequisite,
   savedGroupTargeting,
@@ -414,7 +415,7 @@ const safeRolloutCreateInput = z
     safeRolloutFields: z
       .object({
         datasourceId: z.string(),
-        exposureQueryId: z.string(),
+        ...apiAssignmentQueryInputFields("exposureQuery"),
         guardrailMetricIds: z.array(z.string()).min(1),
         maxDuration: z
           .object({

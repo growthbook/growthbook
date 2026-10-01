@@ -86,10 +86,12 @@ if (feature.tags.length === 0) {
 Because execution continues after `addWarning`, you can raise warnings and still `throw` later in the same hook.
 
 A warning or thrown error can include links in Markdown syntax, such as a link
-to your internal guidelines. In the app, only `http://` and `https://` links are
-shown as links, and they open in a new tab. A REST API client receives the raw
-text. Links are also rendered in any user-entered text your hook adds to the
-message, such as an experiment name.
+to your internal guidelines. In the app, `http://` and `https://` links and
+paths that start with `/` are shown as links, and they open in a new tab. A
+path such as `/experiment/${experiment.id}` opens that page on your own
+GrowthBook instance. A REST API client receives the raw text. Links are also
+rendered in any user-entered text your hook adds to the message, such as an
+experiment name.
 
 ```js
 if (!feature.description) {

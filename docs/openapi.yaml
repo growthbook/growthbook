@@ -750,6 +750,11 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/SavedGroupApprovalRule"
       />
+  - name: SavedGroupReferenceResource_model
+    x-displayName: Saved Group Reference Resource
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SavedGroupReferenceResource" />
   - name: SavedGroupReferences_model
     x-displayName: Saved Group References
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroupReferences" />
@@ -5449,7 +5454,40 @@ paths:
                           properties:
                             datasourceId:
                               type: string
+                            exposureQuery:
+                              description: >-
+                                The assignment query, grouping its ID with the
+                                identifier type analyzed on. Mutually exclusive
+                                with the deprecated `exposureQueryId`.
+                              type: object
+                              properties:
+                                id:
+                                  description: >-
+                                    The ID of one of the data source's
+                                    assignment queries.
+                                  type: string
+                                identifierType:
+                                  description: >-
+                                    The identifier type to analyze on, which the
+                                    query must declare. Required when selecting
+                                    a different assignment query that declares
+                                    several. Otherwise defaults to the current
+                                    identifier type, or the query's only one.
+                                    Null is treated as omitted, so a response's
+                                    value can be sent back.
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                              required:
+                                - id
+                              additionalProperties: false
                             exposureQueryId:
+                              deprecated: true
+                              description: >-
+                                Deprecated: use `exposureQuery`. Rejected when
+                                selecting a different assignment query that
+                                declares several identifier types; set
+                                `exposureQuery.identifierType` instead.
                               type: string
                             guardrailMetricIds:
                               minItems: 1
@@ -5498,7 +5536,6 @@ paths:
                               additionalProperties: false
                           required:
                             - datasourceId
-                            - exposureQueryId
                             - guardrailMetricIds
                             - maxDuration
                           additionalProperties: false
@@ -5979,8 +6016,6 @@ paths:
                       properties:
                         datasourceId:
                           type: string
-                        exposureQueryId:
-                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -6029,9 +6064,43 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        exposureQuery:
+                          description: >-
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
+                          type: object
+                          properties:
+                            id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
+                              type: string
+                            identifierType:
+                              description: >-
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - id
+                          additionalProperties: false
+                        exposureQueryId:
+                          deprecated: true
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
+                          type: string
                       required:
                         - datasourceId
-                        - exposureQueryId
                         - guardrailMetricIds
                       additionalProperties: false
                     lockdownConfig:
@@ -6657,8 +6726,6 @@ paths:
                       properties:
                         datasourceId:
                           type: string
-                        exposureQueryId:
-                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -6707,9 +6774,43 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        exposureQuery:
+                          description: >-
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
+                          type: object
+                          properties:
+                            id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
+                              type: string
+                            identifierType:
+                              description: >-
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - id
+                          additionalProperties: false
+                        exposureQueryId:
+                          deprecated: true
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
+                          type: string
                       required:
                         - datasourceId
-                        - exposureQueryId
                         - guardrailMetricIds
                       additionalProperties: false
                     lockdownConfig:
@@ -7375,8 +7476,6 @@ paths:
                   properties:
                     datasourceId:
                       type: string
-                    exposureQueryId:
-                      type: string
                     guardrailMetricIds:
                       minItems: 1
                       type: array
@@ -7425,9 +7524,42 @@ paths:
                         - rollback
                         - hold
                         - warn
+                    exposureQuery:
+                      description: >-
+                        The assignment query, grouping its ID with the
+                        identifier type analyzed on. Mutually exclusive with the
+                        deprecated `exposureQueryId`.
+                      type: object
+                      properties:
+                        id:
+                          description: >-
+                            The ID of one of the data source's assignment
+                            queries.
+                          type: string
+                        identifierType:
+                          description: >-
+                            The identifier type to analyze on, which the query
+                            must declare. Required when selecting a different
+                            assignment query that declares several. Otherwise
+                            defaults to the current identifier type, or the
+                            query's only one. Null is treated as omitted, so a
+                            response's value can be sent back.
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                      required:
+                        - id
+                      additionalProperties: false
+                    exposureQueryId:
+                      deprecated: true
+                      description: >-
+                        Deprecated: use `exposureQuery`. Rejected when selecting
+                        a different assignment query that declares several
+                        identifier types; set `exposureQuery.identifierType`
+                        instead.
+                      type: string
                   required:
                     - datasourceId
-                    - exposureQueryId
                     - guardrailMetricIds
                   additionalProperties: false
                 lockdownConfig:
@@ -11870,8 +12002,6 @@ paths:
                       properties:
                         datasourceId:
                           type: string
-                        exposureQueryId:
-                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -11920,9 +12050,43 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        exposureQuery:
+                          description: >-
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
+                          type: object
+                          properties:
+                            id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
+                              type: string
+                            identifierType:
+                              description: >-
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - id
+                          additionalProperties: false
+                        exposureQueryId:
+                          deprecated: true
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
+                          type: string
                       required:
                         - datasourceId
-                        - exposureQueryId
                         - guardrailMetricIds
                       additionalProperties: false
                     lockdownConfig:
@@ -12573,8 +12737,6 @@ paths:
                       properties:
                         datasourceId:
                           type: string
-                        exposureQueryId:
-                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -12623,9 +12785,43 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        exposureQuery:
+                          description: >-
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
+                          type: object
+                          properties:
+                            id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
+                              type: string
+                            identifierType:
+                              description: >-
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - id
+                          additionalProperties: false
+                        exposureQueryId:
+                          deprecated: true
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
+                          type: string
                       required:
                         - datasourceId
-                        - exposureQueryId
                         - guardrailMetricIds
                       additionalProperties: false
                     lockdownConfig:
@@ -13301,8 +13497,6 @@ paths:
                   properties:
                     datasourceId:
                       type: string
-                    exposureQueryId:
-                      type: string
                     guardrailMetricIds:
                       minItems: 1
                       type: array
@@ -13351,9 +13545,42 @@ paths:
                         - rollback
                         - hold
                         - warn
+                    exposureQuery:
+                      description: >-
+                        The assignment query, grouping its ID with the
+                        identifier type analyzed on. Mutually exclusive with the
+                        deprecated `exposureQueryId`.
+                      type: object
+                      properties:
+                        id:
+                          description: >-
+                            The ID of one of the data source's assignment
+                            queries.
+                          type: string
+                        identifierType:
+                          description: >-
+                            The identifier type to analyze on, which the query
+                            must declare. Required when selecting a different
+                            assignment query that declares several. Otherwise
+                            defaults to the current identifier type, or the
+                            query's only one. Null is treated as omitted, so a
+                            response's value can be sent back.
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                      required:
+                        - id
+                      additionalProperties: false
+                    exposureQueryId:
+                      deprecated: true
+                      description: >-
+                        Deprecated: use `exposureQuery`. Rejected when selecting
+                        a different assignment query that declares several
+                        identifier types; set `exposureQuery.identifierType`
+                        instead.
+                      type: string
                   required:
                     - datasourceId
-                    - exposureQueryId
                     - guardrailMetricIds
                   additionalProperties: false
                 lockdownConfig:
@@ -15067,11 +15294,38 @@ paths:
                     ID for the [DataSource](#tag/DataSource_model). Can only be
                     set if a templateId is not provided.
                   type: string
-                assignmentQueryId:
+                assignmentQuery:
                   description: >-
-                    The ID property of one of the assignment query objects
-                    associated with the datasource. Can only be set if a
-                    templateId is not provided.
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `assignmentQueryId`. Can only be set if a templateId is not
+                    provided.
+                  type: object
+                  properties:
+                    id:
+                      description: The ID of one of the data source's assignment queries.
+                      type: string
+                    identifierType:
+                      description: >-
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - id
+                  additionalProperties: false
+                assignmentQueryId:
+                  deprecated: true
+                  description: >-
+                    Deprecated: use `assignmentQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `assignmentQuery.identifierType` instead. Can
+                    only be set if a templateId is not provided.
                   type: string
                 trackingKey:
                   description: >-
@@ -15803,7 +16057,36 @@ paths:
                     Can only be set if existing experiment does not have a
                     datasource
                   type: string
+                assignmentQuery:
+                  description: >-
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `assignmentQueryId`.
+                  type: object
+                  properties:
+                    id:
+                      description: The ID of one of the data source's assignment queries.
+                      type: string
+                    identifierType:
+                      description: >-
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - id
+                  additionalProperties: false
                 assignmentQueryId:
+                  deprecated: true
+                  description: >-
+                    Deprecated: use `assignmentQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `assignmentQuery.identifierType` instead.
                   type: string
                 trackingKey:
                   description: >-
@@ -22184,17 +22467,7 @@ paths:
                   features:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        name:
-                          type: string
-                        project:
-                          type: string
-                      required:
-                        - id
-                      additionalProperties: false
+                      $ref: '#/components/schemas/SavedGroupReferenceResource'
                   experiments:
                     type: array
                     items:
@@ -22213,6 +22486,10 @@ paths:
                       required:
                         - id
                       additionalProperties: false
+                  contextualBandits:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedGroupReferenceResource'
                   savedGroups:
                     type: array
                     items:
@@ -22220,6 +22497,7 @@ paths:
                 required:
                   - features
                   - experiments
+                  - contextualBandits
                   - savedGroups
                 additionalProperties: false
       x-codeSamples:
@@ -33675,7 +33953,40 @@ paths:
                       properties:
                         datasourceId:
                           type: string
+                        exposureQuery:
+                          description: >-
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
+                          type: object
+                          properties:
+                            id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
+                              type: string
+                            identifierType:
+                              description: >-
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - id
+                          additionalProperties: false
                         exposureQueryId:
+                          deprecated: true
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
                           type: string
                         guardrailMetricIds:
                           minItems: 1
@@ -33720,7 +34031,6 @@ paths:
                             - rollback
                       required:
                         - datasourceId
-                        - exposureQueryId
                         - guardrailMetricIds
                       additionalProperties: false
                     - type: 'null'
@@ -34717,8 +35027,6 @@ paths:
                         properties:
                           datasourceId:
                             type: string
-                          exposureQueryId:
-                            type: string
                           guardrailMetricIds:
                             minItems: 1
                             type: array
@@ -34767,10 +35075,40 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          exposureQuery:
+                            description: >-
+                              The assignment query, grouping its ID with the
+                              identifier type analyzed on.
+                            type: object
+                            properties:
+                              id:
+                                description: >-
+                                  The ID of one of the data source's assignment
+                                  queries.
+                                type: string
+                              identifierType:
+                                description: >-
+                                  The identifier type analyzed on. Null when
+                                  none can be resolved: no assignment query is
+                                  selected, or a record saved before identifier
+                                  types were stored points at a query that no
+                                  longer exists.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                            required:
+                              - id
+                              - identifierType
+                            additionalProperties: false
+                          exposureQueryId:
+                            description: 'Deprecated: use `exposureQuery`.'
+                            deprecated: true
+                            type: string
                         required:
                           - datasourceId
-                          - exposureQueryId
                           - guardrailMetricIds
+                          - exposureQuery
+                          - exposureQueryId
                         additionalProperties: false
                       - type: 'null'
                   experimentHealthAction:
@@ -35099,8 +35437,6 @@ paths:
                         properties:
                           datasourceId:
                             type: string
-                          exposureQueryId:
-                            type: string
                           guardrailMetricIds:
                             minItems: 1
                             type: array
@@ -35149,10 +35485,40 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          exposureQuery:
+                            description: >-
+                              The assignment query, grouping its ID with the
+                              identifier type analyzed on.
+                            type: object
+                            properties:
+                              id:
+                                description: >-
+                                  The ID of one of the data source's assignment
+                                  queries.
+                                type: string
+                              identifierType:
+                                description: >-
+                                  The identifier type analyzed on. Null when
+                                  none can be resolved: no assignment query is
+                                  selected, or a record saved before identifier
+                                  types were stored points at a query that no
+                                  longer exists.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                            required:
+                              - id
+                              - identifierType
+                            additionalProperties: false
+                          exposureQueryId:
+                            description: 'Deprecated: use `exposureQuery`.'
+                            deprecated: true
+                            type: string
                         required:
                           - datasourceId
-                          - exposureQueryId
                           - guardrailMetricIds
+                          - exposureQuery
+                          - exposureQueryId
                         additionalProperties: false
                       - type: 'null'
                   experimentHealthAction:
@@ -35336,13 +35702,11 @@ paths:
             schema:
               description: >-
                 Full replacement of the monitoring configuration. `datasourceId`
-                and `exposureQueryId` cannot be changed while a monitoring
+                and `exposureQuery` cannot be changed while a monitoring
                 experiment is active — stop the schedule first.
               type: object
               properties:
                 datasourceId:
-                  type: string
-                exposureQueryId:
                   type: string
                 guardrailMetricIds:
                   minItems: 1
@@ -35392,9 +35756,39 @@ paths:
                     - rollback
                     - hold
                     - warn
+                exposureQuery:
+                  description: >-
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `exposureQueryId`.
+                  type: object
+                  properties:
+                    id:
+                      description: The ID of one of the data source's assignment queries.
+                      type: string
+                    identifierType:
+                      description: >-
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - id
+                  additionalProperties: false
+                exposureQueryId:
+                  deprecated: true
+                  description: >-
+                    Deprecated: use `exposureQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `exposureQuery.identifierType` instead.
+                  type: string
               required:
                 - datasourceId
-                - exposureQueryId
                 - guardrailMetricIds
               additionalProperties: false
       responses:
@@ -35543,8 +35937,6 @@ paths:
                         properties:
                           datasourceId:
                             type: string
-                          exposureQueryId:
-                            type: string
                           guardrailMetricIds:
                             minItems: 1
                             type: array
@@ -35593,10 +35985,40 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          exposureQuery:
+                            description: >-
+                              The assignment query, grouping its ID with the
+                              identifier type analyzed on.
+                            type: object
+                            properties:
+                              id:
+                                description: >-
+                                  The ID of one of the data source's assignment
+                                  queries.
+                                type: string
+                              identifierType:
+                                description: >-
+                                  The identifier type analyzed on. Null when
+                                  none can be resolved: no assignment query is
+                                  selected, or a record saved before identifier
+                                  types were stored points at a query that no
+                                  longer exists.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                            required:
+                              - id
+                              - identifierType
+                            additionalProperties: false
+                          exposureQueryId:
+                            description: 'Deprecated: use `exposureQuery`.'
+                            deprecated: true
+                            type: string
                         required:
                           - datasourceId
-                          - exposureQueryId
                           - guardrailMetricIds
+                          - exposureQuery
+                          - exposureQueryId
                         additionalProperties: false
                       - type: 'null'
                   experimentHealthAction:
@@ -35928,8 +36350,6 @@ paths:
                         properties:
                           datasourceId:
                             type: string
-                          exposureQueryId:
-                            type: string
                           guardrailMetricIds:
                             minItems: 1
                             type: array
@@ -35978,10 +36398,40 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          exposureQuery:
+                            description: >-
+                              The assignment query, grouping its ID with the
+                              identifier type analyzed on.
+                            type: object
+                            properties:
+                              id:
+                                description: >-
+                                  The ID of one of the data source's assignment
+                                  queries.
+                                type: string
+                              identifierType:
+                                description: >-
+                                  The identifier type analyzed on. Null when
+                                  none can be resolved: no assignment query is
+                                  selected, or a record saved before identifier
+                                  types were stored points at a query that no
+                                  longer exists.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                            required:
+                              - id
+                              - identifierType
+                            additionalProperties: false
+                          exposureQueryId:
+                            description: 'Deprecated: use `exposureQuery`.'
+                            deprecated: true
+                            type: string
                         required:
                           - datasourceId
-                          - exposureQueryId
                           - guardrailMetricIds
+                          - exposureQuery
+                          - exposureQueryId
                         additionalProperties: false
                       - type: 'null'
                   experimentHealthAction:
@@ -53485,7 +53935,36 @@ paths:
                     type: string
                 datasource:
                   type: string
+                exposureQuery:
+                  description: >-
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `exposureQueryId`.
+                  type: object
+                  properties:
+                    id:
+                      description: The ID of one of the data source's assignment queries.
+                      type: string
+                    identifierType:
+                      description: >-
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - id
+                  additionalProperties: false
                 exposureQueryId:
+                  deprecated: true
+                  description: >-
+                    Deprecated: use `exposureQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `exposureQuery.identifierType` instead.
                   type: string
                 hashAttribute:
                   type: string
@@ -53662,7 +54141,36 @@ paths:
                     type: string
                 datasource:
                   type: string
+                exposureQuery:
+                  description: >-
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `exposureQueryId`.
+                  type: object
+                  properties:
+                    id:
+                      description: The ID of one of the data source's assignment queries.
+                      type: string
+                    identifierType:
+                      description: >-
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - id
+                  additionalProperties: false
                 exposureQueryId:
+                  deprecated: true
+                  description: >-
+                    Deprecated: use `exposureQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `exposureQuery.identifierType` instead.
                   type: string
                 hashAttribute:
                   type: string
@@ -53765,7 +54273,6 @@ paths:
                 - templateMetadata
                 - type
                 - datasource
-                - exposureQueryId
                 - statsEngine
                 - targeting
               additionalProperties: false
@@ -53888,7 +54395,40 @@ paths:
                               type: string
                           datasource:
                             type: string
+                          exposureQuery:
+                            description: >-
+                              The assignment query, grouping its ID with the
+                              identifier type analyzed on. Mutually exclusive
+                              with the deprecated `exposureQueryId`.
+                            type: object
+                            properties:
+                              id:
+                                description: >-
+                                  The ID of one of the data source's assignment
+                                  queries.
+                                type: string
+                              identifierType:
+                                description: >-
+                                  The identifier type to analyze on, which the
+                                  query must declare. Required when selecting a
+                                  different assignment query that declares
+                                  several. Otherwise defaults to the current
+                                  identifier type, or the query's only one. Null
+                                  is treated as omitted, so a response's value
+                                  can be sent back.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                            required:
+                              - id
+                            additionalProperties: false
                           exposureQueryId:
+                            deprecated: true
+                            description: >-
+                              Deprecated: use `exposureQuery`. Rejected when
+                              selecting a different assignment query that
+                              declares several identifier types; set
+                              `exposureQuery.identifierType` instead.
                             type: string
                           hashAttribute:
                             type: string
@@ -53991,7 +54531,6 @@ paths:
                           - templateMetadata
                           - type
                           - datasource
-                          - exposureQueryId
                           - statsEngine
                           - targeting
                         additionalProperties: false
@@ -59408,8 +59947,6 @@ paths:
                       properties:
                         datasourceId:
                           type: string
-                        exposureQueryId:
-                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -59458,9 +59995,43 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        exposureQuery:
+                          description: >-
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
+                          type: object
+                          properties:
+                            id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
+                              type: string
+                            identifierType:
+                              description: >-
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - id
+                          additionalProperties: false
+                        exposureQueryId:
+                          deprecated: true
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
+                          type: string
                       required:
                         - datasourceId
-                        - exposureQueryId
                         - guardrailMetricIds
                       additionalProperties: false
                     - type: 'null'
@@ -59712,8 +60283,6 @@ paths:
                       properties:
                         datasourceId:
                           type: string
-                        exposureQueryId:
-                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -59762,9 +60331,43 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        exposureQuery:
+                          description: >-
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
+                          type: object
+                          properties:
+                            id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
+                              type: string
+                            identifierType:
+                              description: >-
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - id
+                          additionalProperties: false
+                        exposureQueryId:
+                          deprecated: true
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
+                          type: string
                       required:
                         - datasourceId
-                        - exposureQueryId
                         - guardrailMetricIds
                       additionalProperties: false
                     - type: 'null'
@@ -60340,8 +60943,6 @@ paths:
                       properties:
                         datasourceId:
                           type: string
-                        exposureQueryId:
-                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -60390,9 +60991,43 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        exposureQuery:
+                          description: >-
+                            The assignment query, grouping its ID with the
+                            identifier type analyzed on. Mutually exclusive with
+                            the deprecated `exposureQueryId`.
+                          type: object
+                          properties:
+                            id:
+                              description: >-
+                                The ID of one of the data source's assignment
+                                queries.
+                              type: string
+                            identifierType:
+                              description: >-
+                                The identifier type to analyze on, which the
+                                query must declare. Required when selecting a
+                                different assignment query that declares
+                                several. Otherwise defaults to the current
+                                identifier type, or the query's only one. Null
+                                is treated as omitted, so a response's value can
+                                be sent back.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - id
+                          additionalProperties: false
+                        exposureQueryId:
+                          deprecated: true
+                          description: >-
+                            Deprecated: use `exposureQuery`. Rejected when
+                            selecting a different assignment query that declares
+                            several identifier types; set
+                            `exposureQuery.identifierType` instead.
+                          type: string
                       required:
                         - datasourceId
-                        - exposureQueryId
                         - guardrailMetricIds
                       additionalProperties: false
                     - type: 'null'
@@ -60842,7 +61477,36 @@ paths:
                     additionalProperties: false
                 datasourceId:
                   type: string
+                assignmentQuery:
+                  description: >-
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `assignmentQueryId`.
+                  type: object
+                  properties:
+                    id:
+                      description: The ID of one of the data source's assignment queries.
+                      type: string
+                    identifierType:
+                      description: >-
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - id
+                  additionalProperties: false
                 assignmentQueryId:
+                  deprecated: true
+                  description: >-
+                    Deprecated: use `assignmentQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `assignmentQuery.identifierType` instead.
                   type: string
                 goalMetrics:
                   type: array
@@ -61009,7 +61673,36 @@ paths:
                     additionalProperties: false
                 datasourceId:
                   type: string
+                assignmentQuery:
+                  description: >-
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on. Mutually exclusive with the deprecated
+                    `assignmentQueryId`.
+                  type: object
+                  properties:
+                    id:
+                      description: The ID of one of the data source's assignment queries.
+                      type: string
+                    identifierType:
+                      description: >-
+                        The identifier type to analyze on, which the query must
+                        declare. Required when selecting a different assignment
+                        query that declares several. Otherwise defaults to the
+                        current identifier type, or the query's only one. Null
+                        is treated as omitted, so a response's value can be sent
+                        back.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - id
+                  additionalProperties: false
                 assignmentQueryId:
+                  deprecated: true
+                  description: >-
+                    Deprecated: use `assignmentQuery`. Rejected when selecting a
+                    different assignment query that declares several identifier
+                    types; set `assignmentQuery.identifierType` instead.
                   type: string
                 goalMetrics:
                   type: array
@@ -64003,8 +64696,6 @@ components:
                     properties:
                       datasourceId:
                         type: string
-                      exposureQueryId:
-                        type: string
                       guardrailMetricIds:
                         minItems: 1
                         type: array
@@ -64053,10 +64744,39 @@ components:
                           - rollback
                           - hold
                           - warn
+                      exposureQuery:
+                        description: >-
+                          The assignment query, grouping its ID with the
+                          identifier type analyzed on.
+                        type: object
+                        properties:
+                          id:
+                            description: >-
+                              The ID of one of the data source's assignment
+                              queries.
+                            type: string
+                          identifierType:
+                            description: >-
+                              The identifier type analyzed on. Null when none
+                              can be resolved: no assignment query is selected,
+                              or a record saved before identifier types were
+                              stored points at a query that no longer exists.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - id
+                          - identifierType
+                        additionalProperties: false
+                      exposureQueryId:
+                        description: 'Deprecated: use `exposureQuery`.'
+                        deprecated: true
+                        type: string
                     required:
                       - datasourceId
-                      - exposureQueryId
                       - guardrailMetricIds
+                      - exposureQuery
+                      - exposureQueryId
                     additionalProperties: false
                   lockdownConfig:
                     type: object
@@ -64460,8 +65180,6 @@ components:
                     properties:
                       datasourceId:
                         type: string
-                      exposureQueryId:
-                        type: string
                       guardrailMetricIds:
                         minItems: 1
                         type: array
@@ -64510,10 +65228,39 @@ components:
                           - rollback
                           - hold
                           - warn
+                      exposureQuery:
+                        description: >-
+                          The assignment query, grouping its ID with the
+                          identifier type analyzed on.
+                        type: object
+                        properties:
+                          id:
+                            description: >-
+                              The ID of one of the data source's assignment
+                              queries.
+                            type: string
+                          identifierType:
+                            description: >-
+                              The identifier type analyzed on. Null when none
+                              can be resolved: no assignment query is selected,
+                              or a record saved before identifier types were
+                              stored points at a query that no longer exists.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - id
+                          - identifierType
+                        additionalProperties: false
+                      exposureQueryId:
+                        description: 'Deprecated: use `exposureQuery`.'
+                        deprecated: true
+                        type: string
                     required:
                       - datasourceId
-                      - exposureQueryId
                       - guardrailMetricIds
+                      - exposureQuery
+                      - exposureQueryId
                     additionalProperties: false
                   lockdownConfig:
                     type: object
@@ -65530,8 +66277,6 @@ components:
                     properties:
                       datasourceId:
                         type: string
-                      exposureQueryId:
-                        type: string
                       guardrailMetricIds:
                         minItems: 1
                         type: array
@@ -65580,10 +66325,39 @@ components:
                           - rollback
                           - hold
                           - warn
+                      exposureQuery:
+                        description: >-
+                          The assignment query, grouping its ID with the
+                          identifier type analyzed on.
+                        type: object
+                        properties:
+                          id:
+                            description: >-
+                              The ID of one of the data source's assignment
+                              queries.
+                            type: string
+                          identifierType:
+                            description: >-
+                              The identifier type analyzed on. Null when none
+                              can be resolved: no assignment query is selected,
+                              or a record saved before identifier types were
+                              stored points at a query that no longer exists.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - id
+                          - identifierType
+                        additionalProperties: false
+                      exposureQueryId:
+                        description: 'Deprecated: use `exposureQuery`.'
+                        deprecated: true
+                        type: string
                     required:
                       - datasourceId
-                      - exposureQueryId
                       - guardrailMetricIds
+                      - exposureQuery
+                      - exposureQueryId
                     additionalProperties: false
                   lockdownConfig:
                     type: object
@@ -65987,8 +66761,6 @@ components:
                     properties:
                       datasourceId:
                         type: string
-                      exposureQueryId:
-                        type: string
                       guardrailMetricIds:
                         minItems: 1
                         type: array
@@ -66037,10 +66809,39 @@ components:
                           - rollback
                           - hold
                           - warn
+                      exposureQuery:
+                        description: >-
+                          The assignment query, grouping its ID with the
+                          identifier type analyzed on.
+                        type: object
+                        properties:
+                          id:
+                            description: >-
+                              The ID of one of the data source's assignment
+                              queries.
+                            type: string
+                          identifierType:
+                            description: >-
+                              The identifier type analyzed on. Null when none
+                              can be resolved: no assignment query is selected,
+                              or a record saved before identifier types were
+                              stored points at a query that no longer exists.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - id
+                          - identifierType
+                        additionalProperties: false
+                      exposureQueryId:
+                        description: 'Deprecated: use `exposureQuery`.'
+                        deprecated: true
+                        type: string
                     required:
                       - datasourceId
-                      - exposureQueryId
                       - guardrailMetricIds
+                      - exposureQuery
+                      - exposureQueryId
                     additionalProperties: false
                   lockdownConfig:
                     type: object
@@ -66462,7 +67263,35 @@ components:
           properties:
             datasourceId:
               type: string
+            exposureQuery:
+              description: >-
+                The assignment query, grouping its ID with the identifier type
+                analyzed on. Mutually exclusive with the deprecated
+                `exposureQueryId`.
+              type: object
+              properties:
+                id:
+                  description: The ID of one of the data source's assignment queries.
+                  type: string
+                identifierType:
+                  description: >-
+                    The identifier type to analyze on, which the query must
+                    declare. Required when selecting a different assignment
+                    query that declares several. Otherwise defaults to the
+                    current identifier type, or the query's only one. Null is
+                    treated as omitted, so a response's value can be sent back.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+              required:
+                - id
+              additionalProperties: false
             exposureQueryId:
+              deprecated: true
+              description: >-
+                Deprecated: use `exposureQuery`. Rejected when selecting a
+                different assignment query that declares several identifier
+                types; set `exposureQuery.identifierType` instead.
               type: string
             guardrailMetricIds:
               minItems: 1
@@ -66511,7 +67340,6 @@ components:
               additionalProperties: false
           required:
             - datasourceId
-            - exposureQueryId
             - guardrailMetricIds
             - maxDuration
           additionalProperties: false
@@ -66947,7 +67775,31 @@ components:
       properties:
         datasourceId:
           type: string
+        assignmentQuery:
+          description: >-
+            The assignment query, grouping its ID with the identifier type
+            analyzed on.
+          type: object
+          properties:
+            id:
+              description: The ID of one of the data source's assignment queries.
+              type: string
+            identifierType:
+              description: >-
+                The identifier type analyzed on. Null when none can be resolved:
+                no assignment query is selected, or a record saved before
+                identifier types were stored points at a query that no longer
+                exists.
+              anyOf:
+                - type: string
+                - type: 'null'
+          required:
+            - id
+            - identifierType
+          additionalProperties: false
         assignmentQueryId:
+          description: 'Deprecated: use `assignmentQuery`.'
+          deprecated: true
           type: string
         experimentId:
           type: string
@@ -67022,6 +67874,7 @@ components:
           $ref: '#/components/schemas/ExperimentMetric'
       required:
         - datasourceId
+        - assignmentQuery
         - assignmentQueryId
         - experimentId
         - segmentId
@@ -68585,7 +69438,12 @@ components:
               description:
                 type: string
                 maxLength: 10000
+              identifierTypes:
+                type: array
+                items:
+                  type: string
               identifierType:
+                deprecated: true
                 type: string
               sql:
                 type: string
@@ -68599,6 +69457,7 @@ components:
               - id
               - name
               - description
+              - identifierTypes
               - identifierType
               - sql
               - includesNameColumns
@@ -69182,6 +70041,18 @@ components:
         - userId
         - action
         - dateCreated
+      additionalProperties: false
+    SavedGroupReferenceResource:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        project:
+          type: string
+      required:
+        - id
       additionalProperties: false
     Constant:
       type: object
@@ -72955,8 +73826,6 @@ components:
               properties:
                 datasourceId:
                   type: string
-                exposureQueryId:
-                  type: string
                 guardrailMetricIds:
                   minItems: 1
                   type: array
@@ -73005,10 +73874,37 @@ components:
                     - rollback
                     - hold
                     - warn
+                exposureQuery:
+                  description: >-
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on.
+                  type: object
+                  properties:
+                    id:
+                      description: The ID of one of the data source's assignment queries.
+                      type: string
+                    identifierType:
+                      description: >-
+                        The identifier type analyzed on. Null when none can be
+                        resolved: no assignment query is selected, or a record
+                        saved before identifier types were stored points at a
+                        query that no longer exists.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - id
+                    - identifierType
+                  additionalProperties: false
+                exposureQueryId:
+                  description: 'Deprecated: use `exposureQuery`.'
+                  deprecated: true
+                  type: string
               required:
                 - datasourceId
-                - exposureQueryId
                 - guardrailMetricIds
+                - exposureQuery
+                - exposureQueryId
               additionalProperties: false
             - type: 'null'
         experimentHealthAction:
@@ -73375,8 +74271,31 @@ components:
             trackingKey:
               description: Tracking key used to identify experiment exposures
               type: string
+            exposureQuery:
+              description: >-
+                The assignment query, grouping its ID with the identifier type
+                analyzed on.
+              type: object
+              properties:
+                id:
+                  description: The ID of one of the data source's assignment queries.
+                  type: string
+                identifierType:
+                  description: >-
+                    The identifier type analyzed on. Null when none can be
+                    resolved: no assignment query is selected, or a record saved
+                    before identifier types were stored points at a query that
+                    no longer exists.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+              required:
+                - id
+                - identifierType
+              additionalProperties: false
             exposureQueryId:
-              description: Datasource exposure query ID (Assignment Table)
+              deprecated: true
+              description: 'Deprecated: use `exposureQuery`.'
               type: string
             segment:
               description: Segment ID to filter users by
@@ -77810,7 +78729,31 @@ components:
             type: string
         datasource:
           type: string
+        exposureQuery:
+          description: >-
+            The assignment query, grouping its ID with the identifier type
+            analyzed on.
+          type: object
+          properties:
+            id:
+              description: The ID of one of the data source's assignment queries.
+              type: string
+            identifierType:
+              description: >-
+                The identifier type analyzed on. Null when none can be resolved:
+                no assignment query is selected, or a record saved before
+                identifier types were stored points at a query that no longer
+                exists.
+              anyOf:
+                - type: string
+                - type: 'null'
+          required:
+            - id
+            - identifierType
+          additionalProperties: false
         exposureQueryId:
+          description: 'Deprecated: use `exposureQuery`.'
+          deprecated: true
           type: string
         hashAttribute:
           type: string
@@ -77917,6 +78860,7 @@ components:
         - templateMetadata
         - type
         - datasource
+        - exposureQuery
         - exposureQueryId
         - statsEngine
         - targeting
@@ -80072,8 +81016,6 @@ components:
               properties:
                 datasourceId:
                   type: string
-                exposureQueryId:
-                  type: string
                 guardrailMetricIds:
                   minItems: 1
                   type: array
@@ -80122,10 +81064,37 @@ components:
                     - rollback
                     - hold
                     - warn
+                exposureQuery:
+                  description: >-
+                    The assignment query, grouping its ID with the identifier
+                    type analyzed on.
+                  type: object
+                  properties:
+                    id:
+                      description: The ID of one of the data source's assignment queries.
+                      type: string
+                    identifierType:
+                      description: >-
+                        The identifier type analyzed on. Null when none can be
+                        resolved: no assignment query is selected, or a record
+                        saved before identifier types were stored points at a
+                        query that no longer exists.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - id
+                    - identifierType
+                  additionalProperties: false
+                exposureQueryId:
+                  description: 'Deprecated: use `exposureQuery`.'
+                  deprecated: true
+                  type: string
               required:
                 - datasourceId
-                - exposureQueryId
                 - guardrailMetricIds
+                - exposureQuery
+                - exposureQueryId
               additionalProperties: false
             - type: 'null'
         lockdownConfig:
@@ -80318,7 +81287,31 @@ components:
             additionalProperties: false
         datasourceId:
           type: string
+        assignmentQuery:
+          description: >-
+            The assignment query, grouping its ID with the identifier type
+            analyzed on.
+          type: object
+          properties:
+            id:
+              description: The ID of one of the data source's assignment queries.
+              type: string
+            identifierType:
+              description: >-
+                The identifier type analyzed on. Null when none can be resolved:
+                no assignment query is selected, or a record saved before
+                identifier types were stored points at a query that no longer
+                exists.
+              anyOf:
+                - type: string
+                - type: 'null'
+          required:
+            - id
+            - identifierType
+          additionalProperties: false
         assignmentQueryId:
+          description: 'Deprecated: use `assignmentQuery`.'
+          deprecated: true
           type: string
         goalMetrics:
           type: array
@@ -80480,6 +81473,7 @@ components:
         - hashAttribute
         - targetingCondition
         - datasourceId
+        - assignmentQuery
         - assignmentQueryId
         - goalMetrics
         - secondaryMetrics
@@ -81129,17 +82123,7 @@ components:
         features:
           type: array
           items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-            required:
-              - id
-            additionalProperties: false
+            $ref: '#/components/schemas/SavedGroupReferenceResource'
         experiments:
           type: array
           items:
@@ -81158,6 +82142,10 @@ components:
             required:
               - id
             additionalProperties: false
+        contextualBandits:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedGroupReferenceResource'
         savedGroups:
           type: array
           items:
@@ -81177,8 +82165,23 @@ components:
       required:
         - features
         - experiments
+        - contextualBandits
         - savedGroups
       additionalProperties: false
+      $defs:
+        SavedGroupReferenceResource:
+          id: SavedGroupReferenceResource
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            project:
+              type: string
+          required:
+            - id
+          additionalProperties: false
     ConstantReferences:
       type: object
       properties:
@@ -84016,6 +85019,7 @@ x-tagGroups:
       - Safe Rollout Rule_model
       - SavedGroup_model
       - SavedGroupApprovalRule_model
+      - SavedGroupReferenceResource_model
       - SavedGroupReferences_model
       - SavedGroupRevision_model
       - SavedGroupRevisionActivityLogEntry_model
