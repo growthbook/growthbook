@@ -17,6 +17,7 @@ import {
   isSavedGroupRevisionMetadataOnly,
   isConstantRevisionMetadataOnly,
   isSdkConnectionRevisionMetadataOnly,
+  isSdkConnectionRevisionReviewExempt,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -1029,6 +1030,74 @@ describe("revisions helpers", () => {
           { op: "replace", path: "/name", value: "v2" },
           { op: "replace", path: "/value", value: "v" },
         ]),
+      ).toBe(false);
+    });
+  });
+
+  describe("isSdkConnectionRevisionReviewExempt", () => {
+    const baseline = {
+      sdkConnection: {
+        name: "Prod",
+        environment: "production",
+        projects: [] as string[],
+        eventTracker: "segment",
+      },
+      sdkWebhooks: [],
+    };
+    const replaceSettings = (
+      value: Record<string, unknown>,
+    ): JsonPatchOperation[] => [
+      { op: "replace", path: "/sdkConnection", value },
+    ];
+
+    it("exempts a change to the event tracker alone", () => {
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          replaceSettings({ ...baseline.sdkConnection, eventTracker: "ga4" }),
+          baseline,
+        ),
+      ).toBe(true);
+    });
+
+    it("does not exempt the event tracker changed with anything else", () => {
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          replaceSettings({
+            ...baseline.sdkConnection,
+            eventTracker: "ga4",
+            name: "Renamed",
+          }),
+          baseline,
+        ),
+      ).toBe(false);
+    });
+
+    it("does not exempt a rename, a no-op, or a webhook change", () => {
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          replaceSettings({ ...baseline.sdkConnection, name: "Renamed" }),
+          baseline,
+        ),
+      ).toBe(false);
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          replaceSettings({ ...baseline.sdkConnection }),
+          baseline,
+        ),
+      ).toBe(false);
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          [{ op: "replace", path: "/sdkWebhooks", value: [] }],
+          baseline,
+        ),
+      ).toBe(false);
+    });
+
+    it("is conservative without a baseline", () => {
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          replaceSettings({ ...baseline.sdkConnection, eventTracker: "ga4" }),
+        ),
       ).toBe(false);
     });
   });

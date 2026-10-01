@@ -13,6 +13,7 @@ import {
   SdkConnectionApprovalScope,
   applyTopLevelPatchOps,
   isSdkConnectionRevisionMetadataOnly,
+  isSdkConnectionRevisionReviewExempt,
   orgHasAnySdkConnectionApproval,
   sdkConnectionMatchesApprovalScope,
 } from "shared/enterprise";
@@ -233,6 +234,14 @@ function sdkConnectionReviewRequirement(
     return { required: false, rules: [] };
   }
   const baseline = revision.target.snapshot as SDKConnectionRevisionSnapshot;
+  if (
+    isSdkConnectionRevisionReviewExempt(
+      revision.target.proposedChanges,
+      baseline as unknown as Record<string, unknown>,
+    )
+  ) {
+    return { required: false, rules: [] };
+  }
   const rules = rulesMatchingScopes(context, [
     baseline.sdkConnection,
     settingsAfter(baseline, revision.target.proposedChanges),

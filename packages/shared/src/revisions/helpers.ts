@@ -869,59 +869,77 @@ const sdkSettingsFieldEqual = (a: unknown, b: unknown): boolean =>
   isEqual(a, b) || (isAbsentSdkSetting(a) && isAbsentSdkSetting(b));
 
 /**
- * Returns true when the only change in the revision is the SDK-connection
- * display name (the sole "metadata" field). Almost every other field affects
- * the generated payload, so only the name is exempt. Archiving and webhook
- * changes are intentionally excluded — they always require review when
- * approval is enabled.
- *
- * With the nested snapshot structure, connection settings are stored as a
- * coarse `replace /sdkConnection` patch containing the entire new settings
- * object. To determine which fields actually changed we compare against the
- * `baselineSnapshot.sdkConnection` supplied by the caller (both the adapter
- * and the frontend have the revision's snapshot available). Without a
- * baseline we conservatively return `false` (require review).
+ * The settings keys a revision changes, compared against the baseline
+ * snapshot's `sdkConnection`. Connection settings are stored as one coarse
+ * `replace /sdkConnection` op, so the diff is computed field by field. Returns
+ * null when the revision touches webhooks, has any other op shape, or there is
+ * no baseline to compare against, so callers can stay conservative.
  */
-export const isSdkConnectionRevisionMetadataOnly = (
+const sdkConnectionChangedSettingKeys = (
   proposedChanges: JsonPatchOperation[] | unknown,
   baselineSnapshot?: Record<string, unknown>,
-): boolean => {
+): string[] | null => {
   const ops = normalizeProposedChanges(proposedChanges);
-  if (ops.length === 0) return false;
+  if (ops.length !== 1) return null;
+  const [connOp] = ops;
+  if (connOp.path !== "/sdkConnection" || connOp.op !== "replace") return null;
 
-  // Any webhook op means something more than metadata changed.
-  if (ops.some((op) => op.path === "/sdkWebhooks")) return false;
-
-  // Expect exactly one `replace /sdkConnection` op.
-  const connOp = ops.find(
-    (op) => op.path === "/sdkConnection" && op.op === "replace",
-  );
-  if (!connOp || ops.length > 1) return false;
-
-  // Need the baseline settings object to know which fields changed.
   const baseline = baselineSnapshot?.["sdkConnection"] as
     | Record<string, unknown>
     | undefined;
-  if (!baseline) return false;
+  if (!baseline) return null;
 
   const proposed = ("value" in connOp ? connOp.value : undefined) as
     | Record<string, unknown>
     | undefined;
   if (!proposed || typeof proposed !== "object" || Array.isArray(proposed)) {
-    return false;
+    return null;
   }
 
-  // Metadata-only if every field is identical to the baseline except `name`
-  // and system-managed fields (`dateUpdated`, `dateCreated`).
-  const skipKeys = new Set(["name", "dateUpdated", "dateCreated"]);
+  const systemKeys = new Set(["dateUpdated", "dateCreated"]);
   const allKeys = new Set([...Object.keys(proposed), ...Object.keys(baseline)]);
-  for (const key of allKeys) {
-    if (skipKeys.has(key)) continue;
-    if (!sdkSettingsFieldEqual(proposed[key], baseline[key])) return false;
-  }
-  // Require the name to have actually changed (otherwise zero real changes).
-  return !sdkSettingsFieldEqual(proposed["name"], baseline["name"]);
+  return [...allKeys].filter(
+    (key) =>
+      !systemKeys.has(key) &&
+      !sdkSettingsFieldEqual(proposed[key], baseline[key]),
+  );
 };
+
+const changesOnly = (
+  keys: string[] | null,
+  allowed: ReadonlySet<string>,
+): boolean => !!keys && keys.length > 0 && keys.every((k) => allowed.has(k));
+
+/**
+ * Returns true when the only change in the revision is the SDK-connection
+ * display name (the sole "metadata" field). Almost every other field affects
+ * the generated payload, so only the name is exempt. Archiving and webhook
+ * changes are intentionally excluded — they always require review when
+ * approval is enabled. Without a baseline this conservatively returns false.
+ */
+export const isSdkConnectionRevisionMetadataOnly = (
+  proposedChanges: JsonPatchOperation[] | unknown,
+  baselineSnapshot?: Record<string, unknown>,
+): boolean =>
+  changesOnly(
+    sdkConnectionChangedSettingKeys(proposedChanges, baselineSnapshot),
+    new Set(["name"]),
+  );
+
+// Settings that only shape the setup snippet shown in the app and never reach
+// the SDK payload, so changing them needs no review under any rule.
+const SDK_CONNECTION_REVIEW_EXEMPT_KEYS: ReadonlySet<string> = new Set([
+  "eventTracker",
+]);
+
+export const isSdkConnectionRevisionReviewExempt = (
+  proposedChanges: JsonPatchOperation[] | unknown,
+  baselineSnapshot?: Record<string, unknown>,
+): boolean =>
+  changesOnly(
+    sdkConnectionChangedSettingKeys(proposedChanges, baselineSnapshot),
+    SDK_CONNECTION_REVIEW_EXEMPT_KEYS,
+  );
 
 // ---------------------------------------------------------------------------
 // SDK-connection approval scoping (project + environment, SDK-connection only)

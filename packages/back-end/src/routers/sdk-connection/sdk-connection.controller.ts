@@ -25,6 +25,7 @@ import {
   JsonPatchOperation,
   getSdkConnectionApprovalRule,
   isSdkConnectionRevisionMetadataOnly,
+  isSdkConnectionRevisionReviewExempt,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -197,11 +198,10 @@ function isApprovalRequiredForChange(
     getSdkConnectionApprovalRule(approvalFlows, baseline.sdkConnection) ??
     getSdkConnectionApprovalRule(approvalFlows, proposedSettings);
   if (!rule) return false;
+  const snapshot = baseline as unknown as Record<string, unknown>;
+  if (isSdkConnectionRevisionReviewExempt(patchOps, snapshot)) return false;
   if (rule.requireMetadataReview ?? true) return true;
-  return !isSdkConnectionRevisionMetadataOnly(
-    patchOps,
-    baseline as unknown as Record<string, unknown>,
-  );
+  return !isSdkConnectionRevisionMetadataOnly(patchOps, snapshot);
 }
 
 export const putSDKConnection = async (

@@ -17,6 +17,7 @@ import {
   applyTopLevelPatchOps,
   getSdkConnectionApprovalRule,
   isSdkConnectionRevisionMetadataOnly,
+  isSdkConnectionRevisionReviewExempt,
 } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -313,13 +314,13 @@ export default function SDKConnectionPage() {
         selectedRevisionScopes.effective,
       );
     if (!rule) return false;
+    const { proposedChanges, snapshot } = selectedRevision.target;
+    const baseline = snapshot as Record<string, unknown>;
+    if (isSdkConnectionRevisionReviewExempt(proposedChanges, baseline)) {
+      return false;
+    }
     if (rule.requireMetadataReview ?? true) return true;
-    // The baseline is required: without it the helper conservatively
-    // returns false.
-    return !isSdkConnectionRevisionMetadataOnly(
-      selectedRevision.target.proposedChanges,
-      selectedRevision.target.snapshot as Record<string, unknown>,
-    );
+    return !isSdkConnectionRevisionMetadataOnly(proposedChanges, baseline);
   }, [
     selectedRevision,
     selectedRevisionScopes,
