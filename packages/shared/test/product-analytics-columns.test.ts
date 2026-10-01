@@ -1,9 +1,15 @@
 import {
   dimensionColumnIsAvailable,
   getAvailableDimensionColumns,
+  getFactTableColumnSummaries,
+  getFactTableDimensionColumns,
   getRelevantFactTableIds,
+  sanitizeDimensions,
 } from "shared/enterprise";
-import { ExplorationDataset } from "shared/validators/product-analytics";
+import {
+  ExplorationConfig,
+  ExplorationDataset,
+} from "shared/validators/product-analytics";
 import {
   ColumnInterface,
   FactTableInterface,
@@ -535,5 +541,170 @@ describe("dimensionColumnIsAvailable", () => {
         columns,
       ),
     ).toBe(false);
+  });
+});
+
+describe("getFactTableColumnSummaries", () => {
+  it("lists every non-deleted column and JSON sub-path, flagging groupable ones", () => {
+    expect(
+      getFactTableColumnSummaries(
+        [numeratorFt],
+        getFactTableDimensionColumns(numeratorFt),
+      ),
+    ).toEqual([
+      {
+        column: "amount",
+        name: "amount",
+        datatype: "number",
+        groupable: false,
+      },
+      {
+        column: "country",
+        name: "Country",
+        datatype: "string",
+        groupable: true,
+      },
+      { column: "props", name: "Props", datatype: "json", groupable: false },
+      {
+        column: "props.plan",
+        name: "Props.plan",
+        datatype: "string",
+        groupable: true,
+      },
+      {
+        column: "props.score",
+        name: "Props.score",
+        datatype: "number",
+        groupable: false,
+      },
+      {
+        column: "user_id",
+        name: "user_id",
+        datatype: "string",
+        groupable: false,
+      },
+    ]);
+  });
+
+  it("keeps only columns that resolve on every fact table", () => {
+    const other = makeFactTable({
+      id: "other_ft",
+      columns: [
+        makeColumn({ column: "amount", datatype: "number" }),
+        makeColumn({
+          column: "props",
+          datatype: "json",
+          jsonFields: { score: { datatype: "number" } },
+        }),
+      ],
+    });
+    expect(
+      getFactTableColumnSummaries([numeratorFt, other], []).map(
+        (c) => c.column,
+      ),
+    ).toEqual(["amount", "props", "props.score"]);
+  });
+
+  it("returns [] with no fact tables", () => {
+    expect(getFactTableColumnSummaries([], [])).toEqual([]);
+  });
+});
+
+describe("sanitizeDimensions", () => {
+  const getFactTableById = (id: string) =>
+    id === "numerator_ft" ? numeratorFt : null;
+  const makeConfig = (
+    dimensions: ExplorationConfig["dimensions"],
+    valueCount = 1,
+  ): ExplorationConfig => ({
+    type: "fact_table",
+    datasource: "ds_1",
+    chartType: "line",
+    showAs: "total",
+    dateRange: {
+      predefined: "last7Days",
+      startDate: null,
+      endDate: null,
+      lookbackValue: null,
+      lookbackUnit: null,
+    },
+    dimensions,
+    dataset: {
+      type: "fact_table",
+      factTableId: "numerator_ft",
+      values: Array.from({ length: valueCount }, (_, i) => ({
+        name: `v${i}`,
+        type: "fact_table" as const,
+        rowFilters: [],
+        valueType: "count" as const,
+        unit: null,
+        valueColumn: null,
+      })),
+    },
+  });
+  const sanitize = (
+    config: ExplorationConfig,
+    granularities = ["auto", "day"],
+  ) => sanitizeDimensions(config, getFactTableById, () => null, granularities);
+
+  it("returns the same config and no warnings when nothing changes", () => {
+    const config = makeConfig([
+      { dimensionType: "date", column: null, dateGranularity: "day" },
+      { dimensionType: "dynamic", column: "props.plan", maxValues: 5 },
+    ]);
+    expect(sanitize(config)).toEqual({ config, warnings: [] });
+  });
+
+  it("drops dimensions whose column doesn't resolve", () => {
+    const { config, warnings } = sanitize(
+      makeConfig([
+        { dimensionType: "dynamic", column: "amount", maxValues: 5 },
+        { dimensionType: "dynamic", column: "country", maxValues: 5 },
+      ]),
+    );
+    expect(config.dimensions).toEqual([
+      { dimensionType: "dynamic", column: "country", maxValues: 5 },
+    ]);
+    expect(warnings[0]).toContain('"amount"');
+  });
+
+  it("caps dimensions at 1 when there are multiple values", () => {
+    const { config, warnings } = sanitize(
+      makeConfig(
+        [
+          { dimensionType: "date", column: null, dateGranularity: "day" },
+          { dimensionType: "dynamic", column: "country", maxValues: 5 },
+        ],
+        2,
+      ),
+    );
+    expect(config.dimensions).toHaveLength(1);
+    expect(warnings[0]).toContain("limit of 1");
+  });
+
+  it("resets an invalid date granularity to auto", () => {
+    const { config, warnings } = sanitize(
+      makeConfig([
+        { dimensionType: "date", column: null, dateGranularity: "hour" },
+      ]),
+    );
+    expect(config.dimensions).toEqual([
+      { dimensionType: "date", column: null, dateGranularity: "auto" },
+    ]);
+    expect(warnings).toHaveLength(1);
+  });
+
+  it("keeps dimensions when the fact table can't be resolved", () => {
+    const config = makeConfig([
+      { dimensionType: "dynamic", column: "anything", maxValues: 5 },
+    ]);
+    expect(
+      sanitizeDimensions(
+        config,
+        () => null,
+        () => null,
+        ["auto"],
+      ).config,
+    ).toBe(config);
   });
 });

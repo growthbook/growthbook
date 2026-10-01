@@ -140,7 +140,7 @@ export type FactTableDefinition = Omit<
   columns: FactTableColumnDefinition[];
 };
 
-// Slim shape returned by GET /fact-tables/full — just enough to resolve
+// Slim shape returned by GET /fact-tables?ids= — just enough to resolve
 // dimension/column availability (real `jsonFields`, unlike FactTableDefinition)
 // for a small id set, without shipping `sql` or the rest of the org-wide
 // metadata (name, datasource, tags, ...).

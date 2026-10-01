@@ -2,6 +2,7 @@ import { isEqual } from "lodash";
 import {
   FactTableInterface,
   FactMetricInterface,
+  FactTableColumnType,
 } from "shared/types/fact-table";
 import {
   SqlDataset,
@@ -73,6 +74,56 @@ export function expandFactTableColumns(
   return result;
 }
 
+export interface FactTableColumnSummary {
+  column: string;
+  name: string;
+  datatype: FactTableColumnType;
+  groupable: boolean;
+}
+
+/**
+ * Every column (any datatype, including dotted JSON sub-paths) that resolves
+ * on all of `factTables` — the set usable in row filters. `groupable` marks
+ * the ones that are also in `groupableColumns` (from
+ * `getAvailableDimensionColumns*`), so one list serves filters and group-bys.
+ */
+export function getFactTableColumnSummaries(
+  factTables: DimensionFactTable[],
+  groupableColumns: AvailableDimensionColumn[],
+): FactTableColumnSummary[] {
+  const [first, ...rest] = factTables;
+  if (!first) return [];
+  const groupable = new Set(groupableColumns.map((c) => c.column));
+  const result: FactTableColumnSummary[] = [];
+  const add = (column: string, name: string, datatype: FactTableColumnType) =>
+    result.push({
+      column,
+      name,
+      datatype,
+      groupable: groupable.has(column),
+    });
+
+  first.columns
+    .filter((c) => !c.deleted)
+    .forEach((c) => {
+      add(c.column, c.name || c.column, c.datatype);
+      if (c.datatype !== "json") return;
+      Object.entries(c.jsonFields ?? {}).forEach(([field, info]) =>
+        add(
+          `${c.column}.${field}`,
+          `${c.name || c.column}.${field}`,
+          info.datatype,
+        ),
+      );
+    });
+
+  return result
+    .filter((c) =>
+      rest.every((ft) => factTableHasResolvableColumn(ft, c.column)),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function excludeUserIdTypes(
   columns: AvailableDimensionColumn[],
   userIdTypes: Set<string>,
@@ -80,6 +131,16 @@ function excludeUserIdTypes(
   return columns
     .filter((c) => !userIdTypes.has(c.column))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Columns valid to group by on a single fact table (user id columns excluded).
+export function getFactTableDimensionColumns(
+  factTable: DimensionFactTable,
+): AvailableDimensionColumn[] {
+  return excludeUserIdTypes(
+    expandFactTableColumns(factTable),
+    new Set(factTable.userIdTypes ?? []),
+  );
 }
 
 /**
@@ -156,17 +217,11 @@ export function getAvailableDimensionColumns(
 ): AvailableDimensionColumn[] {
   if (!dataset) return [];
 
-  const userIdTypes = new Set<string>();
-  let candidates: AvailableDimensionColumn[] | null = null;
-
   switch (dataset.type) {
     case "fact_table": {
       if (!dataset.values.length) return [];
       const ft = getFactTableById(dataset.factTableId || "");
-      if (!ft) return [];
-      ft.userIdTypes?.forEach((u) => userIdTypes.add(u));
-      candidates = expandFactTableColumns(ft);
-      break;
+      return ft ? getFactTableDimensionColumns(ft) : [];
     }
     case "metric": {
       if (!dataset.values.length) return [];
@@ -179,19 +234,20 @@ export function getAvailableDimensionColumns(
     case "data_source":
     case "sql": {
       if (!dataset.values.length) return [];
-      candidates = Object.entries(dataset.columnTypes)
-        .filter(([, datatype]) =>
-          dataset.type === "sql" ? datatype !== "other" : datatype === "string",
-        )
-        .map(([name, datatype]) => ({ column: name, name, datatype }));
-      break;
+      return excludeUserIdTypes(
+        Object.entries(dataset.columnTypes)
+          .filter(([, datatype]) =>
+            dataset.type === "sql"
+              ? datatype !== "other"
+              : datatype === "string",
+          )
+          .map(([name, datatype]) => ({ column: name, name, datatype })),
+        new Set(),
+      );
     }
     case "journey": {
       const ft = getFactTableById(dataset.factTableId || "");
-      if (!ft) return [];
-      ft.userIdTypes?.forEach((u) => userIdTypes.add(u));
-      candidates = expandFactTableColumns(ft);
-      break;
+      return ft ? getFactTableDimensionColumns(ft) : [];
     }
     case "funnel": {
       if (!dataset.steps.length) return [];
@@ -199,18 +255,13 @@ export function getAvailableDimensionColumns(
       const ft = initialStep?.factTableId
         ? getFactTableById(initialStep.factTableId)
         : null;
-      if (!ft) return [];
-      ft.userIdTypes?.forEach((u) => userIdTypes.add(u));
-      candidates = expandFactTableColumns(ft);
-      break;
+      return ft ? getFactTableDimensionColumns(ft) : [];
     }
     default: {
       const _exhaustive: never = dataset;
       return _exhaustive;
     }
   }
-
-  return excludeUserIdTypes(candidates || [], userIdTypes);
 }
 
 /**

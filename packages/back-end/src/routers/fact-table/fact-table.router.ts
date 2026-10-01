@@ -17,6 +17,8 @@ import * as rawFactTableController from "./fact-table.controller";
 
 const router = express.Router();
 
+const MAX_FACT_TABLE_IDS = 50;
+
 const factTableController = wrapController(rawFactTableController);
 
 const factTableParams = z.object({ id: z.string() }).strict();
@@ -39,7 +41,16 @@ router.post(
 router.get(
   "/fact-tables",
   validateRequestMiddleware({
-    query: z.object({ ids: z.string().optional() }).strict(),
+    query: z
+      .object({
+        ids: z
+          .string()
+          .refine((ids) => ids.split(",").length <= MAX_FACT_TABLE_IDS, {
+            message: `At most ${MAX_FACT_TABLE_IDS} ids`,
+          })
+          .optional(),
+      })
+      .strict(),
   }),
   factTableController.getFactTables,
 );
