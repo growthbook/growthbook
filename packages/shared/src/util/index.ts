@@ -253,7 +253,8 @@ export function getExperimentSdkConnections<T extends { projects: string[] }>(
   linkedFeatures: LinkedFeatureInfo[],
 ): T[] {
   const projects = new Set([experimentProject || ""]);
-  for (const { feature } of linkedFeatures) {
+  for (const { feature, state } of linkedFeatures) {
+    if (state === "discarded" || state === "archived") continue;
     const delivery = getTargetingProjectIds(feature);
     if (delivery === null) return connections;
     delivery.forEach((p) => projects.add(p));

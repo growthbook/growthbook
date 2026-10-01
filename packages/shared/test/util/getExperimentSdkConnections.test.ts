@@ -1,12 +1,15 @@
-import { LinkedFeatureInfo } from "shared/types/experiment";
+import { LinkedFeatureInfo, LinkedFeatureState } from "shared/types/experiment";
 import { getExperimentSdkConnections } from "../../src/util";
 
 const conn = (id: string, projects: string[]) => ({ id, projects });
-const linked = (feature: {
-  project?: string;
-  targetingProjects?: string[];
-  targetingAllProjects?: boolean;
-}) => ({ feature }) as unknown as LinkedFeatureInfo;
+const linked = (
+  feature: {
+    project?: string;
+    targetingProjects?: string[];
+    targetingAllProjects?: boolean;
+  },
+  state: LinkedFeatureState = "live",
+) => ({ feature, state }) as unknown as LinkedFeatureInfo;
 
 const connections = [
   conn("unscoped", []),
@@ -53,6 +56,17 @@ describe("getExperimentSdkConnections", () => {
         ]),
       ),
     ).toEqual(["unscoped", "a", "b", "c"]);
+  });
+
+  it("ignores discarded and archived linked features", () => {
+    expect(
+      ids(
+        getExperimentSdkConnections(connections, "prj_a", [
+          linked({ project: "prj_b", targetingAllProjects: true }, "discarded"),
+          linked({ project: "prj_c" }, "archived"),
+        ]),
+      ),
+    ).toEqual(["unscoped", "a"]);
   });
 
   it("only keeps unscoped connections for an experiment and features with no project", () => {
