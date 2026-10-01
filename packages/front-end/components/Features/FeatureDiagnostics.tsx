@@ -1658,8 +1658,9 @@ export default function FeatureDiagnostics({
 
       {showFeatureUsage && diagnosticsState === "filtered" && (
         <Callout status="info" mb="4">
-          No evaluations match this time frame. Try a longer time frame, or
-          clear a filter.
+          {/* Names only what actually narrows the results. Add Filter does
+              not reach the data yet, so it is not offered as a cause. */}
+          No evaluations in this time frame. Try a longer time frame.
         </Callout>
       )}
 
