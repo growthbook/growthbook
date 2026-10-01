@@ -1658,14 +1658,14 @@ export type PublishRebase = {
   environmentIds: string[];
 };
 
-// A draft behind live publishes its merge with live, so its record is rebased
-// onto live the way a manual rebase writes it. Null when the draft is current.
-function publishRebase(
+// What the publish lands, written on the record the way a manual rebase writes
+// it: the merge over live, project scopes scrubbed. A current draft keeps its
+// base version and lands its own content.
+function landedRecord(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   rebase: PublishRebase,
 ) {
-  if (revision.baseVersion === feature.version) return null;
   return rebasedRevisionChanges({
     feature,
     revision,
@@ -1702,10 +1702,10 @@ export function computeRevisionPublishChanges(
   comment: string | undefined,
   rebase: PublishRebase,
 ): Partial<FeatureRevisionInterface> {
-  const rebased = publishRebase(feature, revision, rebase)?.changes ?? null;
+  const landed = landedRecord(feature, revision, rebase).changes;
   return {
-    ...rebased,
-    ...getFeatureRevisionValueUpdatesForPublish(feature, rebased ?? revision),
+    ...landed,
+    ...getFeatureRevisionValueUpdatesForPublish(feature, landed),
     status: "published",
     publishedBy: user,
     datePublished: new Date(),
@@ -1794,8 +1794,7 @@ async function logRebaseAtPublish(
   user: EventUser,
   rebase: PublishRebase,
 ): Promise<void> {
-  const rebased = publishRebase(feature, revision, rebase);
-  if (!rebased) return;
+  if (revision.baseVersion === feature.version) return;
   try {
     await context.models.featureRevisionLogs.create({
       featureId: revision.featureId,
@@ -1803,7 +1802,7 @@ async function logRebaseAtPublish(
       action: "rebase",
       subject: `on top of revision #${feature.version} at publish`,
       user,
-      value: rebased.logValue,
+      value: landedRecord(feature, revision, rebase).logValue,
     });
   } catch (e) {
     logger.error(e, "Error creating revisionlog");

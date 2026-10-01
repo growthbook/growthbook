@@ -102,7 +102,7 @@ describe("publishing a draft behind live", () => {
   });
 
   // Bob published v2 over v1 while Alice's draft, based on v1, sat open.
-  async function seedBehindLive(aliceRule: object) {
+  async function seedBehindLive(aliceRule: object, draftBase = 1) {
     await features().insertOne({
       id: "flag",
       organization: ORG_ID,
@@ -138,7 +138,7 @@ describe("publishing a draft behind live", () => {
     await revisions().insertMany([
       revision(1, 0, "published", []),
       revision(2, 1, "published", [bob]),
-      revision(3, 1, "draft", [aliceRule]),
+      revision(3, draftBase, "draft", [aliceRule]),
     ]);
   }
 
@@ -207,24 +207,29 @@ describe("publishing a draft behind live", () => {
     expect(await repairs()).toEqual([]);
   });
 
-  it("drops a deleted project scope from the record as it does from the feature", async () => {
-    await seedBehindLive({
-      ...alice,
-      allProjects: false,
-      projects: ["prj_gone"],
-    });
-    const ctx = context();
-    await publishDraft(ctx);
+  it.each([
+    ["behind live", 1],
+    ["current", 2],
+  ])(
+    "drops a deleted project scope from a %s draft's record as it does from the feature",
+    async (_label, draftBase) => {
+      await seedBehindLive(
+        { ...alice, allProjects: false, projects: ["prj_gone"] },
+        draftBase,
+      );
+      const ctx = context();
+      await publishDraft(ctx);
 
-    const scope = (
-      doc: { rules?: { id: string; projects?: string[] }[] } | null,
-    ) => doc?.rules?.find((r) => r.id === "fr_alice")?.projects;
-    expect(scope(await storedFeature())).toEqual([]);
-    expect(scope(await publishedRecord())).toEqual([]);
+      const scope = (
+        doc: { rules?: { id: string; projects?: string[] }[] } | null,
+      ) => doc?.rules?.find((r) => r.id === "fr_alice")?.projects;
+      expect(scope(await storedFeature())).toEqual([]);
+      expect(scope(await publishedRecord())).toEqual([]);
 
-    await loadFlagPage(ctx, "flag");
-    expect(await repairs()).toEqual([]);
-  });
+      await loadFlagPage(ctx, "flag");
+      expect(await repairs()).toEqual([]);
+    },
+  );
 
   it("still heals a legacy document whose environment rules shadow its live record", async () => {
     const fresh = { ...rule("fr_fresh", "production"), allEnvironments: true };

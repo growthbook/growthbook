@@ -647,7 +647,7 @@ describe("computeRevisionPublishChanges", () => {
     });
   });
 
-  it("leaves the record alone when the draft is current", () => {
+  it("keeps a current draft's base version and lands its content", () => {
     const changes = computeRevisionPublishChanges(
       current,
       makeRevision({ baseVersion: 1, rules: [alice] as never }),
@@ -656,8 +656,7 @@ describe("computeRevisionPublishChanges", () => {
       { result: { rules: [alice] as never }, environmentIds: ["production"] },
     );
 
-    expect(changes.baseVersion).toBeUndefined();
-    expect(changes.rules).toBeUndefined();
+    expect(changes).toMatchObject({ baseVersion: 1, rules: [alice] });
   });
 });
 
