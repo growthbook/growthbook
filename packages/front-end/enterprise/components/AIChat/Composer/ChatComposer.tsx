@@ -90,6 +90,8 @@ export interface ChatComposerProps {
   autocomplete?: boolean;
   /** Recent turns steer the continuation. */
   conversationId?: string;
+  /** Assistant message awaiting a reply; an empty draft then suggests a whole reply. */
+  replyTo?: string;
 }
 
 type ActiveSuggestion =
@@ -150,6 +152,7 @@ function ChatComposer(
     skillItems,
     autocomplete = false,
     conversationId,
+    replyTo,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
 ) {
@@ -174,6 +177,7 @@ function ChatComposer(
     enabled:
       autocomplete && caretAtEnd && !loading && !disabled && !suggestionVisible,
     conversationId,
+    replyTo,
   });
   const ghost = suggestionVisible || !caretAtEnd ? "" : ghostText;
   const ghostId = useId();

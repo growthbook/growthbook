@@ -595,6 +595,12 @@ export default function AgentPanel({
             }
           : null;
   const persistedTurns = groupMessagesByTurn(messages);
+  // Once the assistant has answered, an empty draft can suggest the whole reply.
+  const lastMessage = messages[messages.length - 1];
+  const lastAssistantMessageId =
+    !loading && lastMessage?.role === "assistant" && !lastMessage.isError
+      ? lastMessage.id
+      : undefined;
   const confirmationPending =
     confirmPrompt !== null && (!confirmPrompt.resolved || loading);
   const interactionPending =
@@ -878,6 +884,7 @@ export default function AgentPanel({
         mentionItemsReady={mentionItemsReady}
         skillItems={skillItems}
         autocomplete={aiAutocompleteEnabled}
+        replyTo={lastAssistantMessageId}
         conversationId={conversationId}
         value={input}
         onChange={setInput}

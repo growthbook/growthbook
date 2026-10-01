@@ -55,6 +55,11 @@
       color: var(--gray-a9);
     }
 
+    // A suggested reply in an empty composer replaces the placeholder.
+    p:global(.is-empty):has(:global(.composer-ghost))::before {
+      display: none;
+    }
+
     // Autocomplete continuation plus its Tab keycap, inline after the caret.
     :global(.composer-ghost) {
       pointer-events: none;

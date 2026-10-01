@@ -34,10 +34,16 @@ export function useAutocomplete({
   text,
   enabled,
   conversationId,
+  replyTo,
 }: {
   text: string;
   enabled: boolean;
   conversationId?: string;
+  /**
+   * Id of the assistant message awaiting a reply. While set, an empty draft
+   * gets a whole suggested reply (the likeliest answer to what was asked).
+   */
+  replyTo?: string;
 }): { ghost: string; accept: () => void; dismiss: () => void } {
   const { apiCall } = useAuth();
   // The same hints the chat request sends: the page, so "this experiment"
@@ -47,7 +53,7 @@ export function useAutocomplete({
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const pausedUntil = useRef(0);
   const stopped = useRef(false);
-  const scope = [conversationId, currentPage, datasourceId].join("|");
+  const scope = [conversationId, currentPage, datasourceId, replyTo].join("|");
   const current = suggestion?.scope === scope ? suggestion : null;
   const ghost = remainingCompletion(text, current);
 
@@ -57,7 +63,7 @@ export function useAutocomplete({
       stopped.current ||
       ghost ||
       text === current?.base ||
-      text.trim().split(/\s+/).length < MIN_WORDS
+      (text.trim() ? text.trim().split(/\s+/).length < MIN_WORDS : !replyTo)
     ) {
       return;
     }
@@ -119,6 +125,7 @@ export function useAutocomplete({
     conversationId,
     currentPage,
     datasourceId,
+    replyTo,
     scope,
     ghost,
     current?.base,
