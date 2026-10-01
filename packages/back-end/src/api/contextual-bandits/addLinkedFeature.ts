@@ -7,6 +7,7 @@ import {
   assertValidRuleWrite,
   withStagedSchema,
 } from "back-end/src/api/features/validations";
+import { checkRuleScope } from "back-end/src/api/features/v2Shared";
 import {
   linkFeatureToContextualBandit,
   targetRevisionHasContextualBanditRule,
@@ -40,6 +41,7 @@ export const addContextualBanditLinkedFeature = createApiRequestHandler(
   }
 
   const { variations, autoPublish, draftVersion } = req.body;
+  checkRuleScope(req, req.body);
 
   const forceNewDraft = draftVersion === undefined;
 

@@ -12,14 +12,22 @@ import {
   parsePlainJSONObject,
   isScheduledRule,
   findStoredRuleCounterpart,
+  environmentAppliesToScope,
 } from "shared/util";
+import type { EnvironmentApplicabilityScope } from "shared/util";
 import isEqual from "lodash/isEqual";
 import { getLatestPhaseVariations } from "shared/experiments";
 import type { ExperimentInterface } from "shared/types/experiment";
+import type { Environment } from "shared/types/organization";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  applySafetyCheck,
+  formatList,
+  type SafetyCheckRequest,
+} from "back-end/src/util/apiSafetyChecks";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -214,6 +222,7 @@ export type ApiRuleV2Input = z.infer<typeof postFeatureRuleV2>;
 //   - allEnvironments:false                       → single/multi-env list (default [])
 //   - undefined + environments:[...]              → infer allEnvironments:false
 //   - undefined + undefined                       → default to allEnvironments:true
+//     (`checkRuleScopes` rejects this first under strictEnvironmentChecks)
 // The contradictory `{ allEnvironments:true, environments:[...] }` is normalized
 // in favor of allEnvironments:true (environments[] dropped).
 export function resolveScopeFromInput(
@@ -248,6 +257,102 @@ export function resolveProjectScopeFromInput(
     return { allProjects: false, projects };
   }
   return { allProjects: true, projects: undefined };
+}
+
+type RuleScopeInput = { allEnvironments?: boolean; environments?: string[] };
+
+// `environments: []` and `allEnvironments: false` are explicit; only leaving
+// out both lets resolveScopeFromInput widen a rule to every environment.
+export function findRulesMissingScope(rules: RuleScopeInput[]): number[] {
+  return rules.flatMap((rule, i) =>
+    rule.allEnvironments === undefined && rule.environments === undefined
+      ? [i]
+      : [],
+  );
+}
+
+export function checkRuleScopes(
+  req: SafetyCheckRequest,
+  rules: RuleScopeInput[],
+): void {
+  const missing = findRulesMissingScope(rules);
+  if (!missing.length) return;
+  const one = missing.length === 1;
+  reportMissingRuleScope(req, missing, {
+    subject: one
+      ? `Rule ${missing[0] + 1} has`
+      : `Rules ${formatList(missing.map((i) => String(i + 1)))} have`,
+    one,
+    path: one ? `rules.${missing[0]}` : "rules",
+  });
+}
+
+// For an endpoint that takes a single rule, found at `path` in the body.
+export function checkRuleScope(
+  req: SafetyCheckRequest,
+  rule: RuleScopeInput,
+  path?: string,
+): void {
+  if (!findRulesMissingScope([rule]).length) return;
+  reportMissingRuleScope(req, [0], {
+    subject: "The rule has",
+    one: true,
+    path,
+  });
+}
+
+function reportMissingRuleScope(
+  req: SafetyCheckRequest,
+  rules: number[],
+  { subject, one, path }: { subject: string; one: boolean; path?: string },
+): void {
+  const it = one ? "it" : "each one";
+  applySafetyCheck(req, "rule_scope_required", {
+    violated: true,
+    message: `${subject} no environment scope. List the environments ${it} should run in with \`environments\`, or set \`allEnvironments: true\` to run ${one ? "it" : "them"} everywhere, production included.`,
+    notice: `${subject} no environment scope, so ${one ? "it runs" : "they run"} in every environment, production included. List the environments ${it} should run in with \`environments\`, or set \`allEnvironments: true\` to keep ${one ? "it" : "them"} everywhere.`,
+    path,
+    details: { rules },
+  });
+}
+
+// `environments` is every environment the new Feature Flag can be in;
+// `missing` is the ones the request gives no `enabled` value.
+export function findEnvironmentsMissingState(
+  orgEnvironments: Environment[],
+  feature: EnvironmentApplicabilityScope,
+  incoming: Record<string, { enabled?: boolean } | undefined> | undefined,
+): { missing: string[]; environments: string[] } {
+  const environments = orgEnvironments
+    .filter((env) => environmentAppliesToScope(env, feature))
+    .map((env) => env.id);
+  return {
+    environments,
+    missing: environments.filter(
+      (id) => typeof incoming?.[id]?.enabled !== "boolean",
+    ),
+  };
+}
+
+export function checkEnvironmentStates(
+  req: SafetyCheckRequest,
+  orgEnvironments: Environment[],
+  feature: EnvironmentApplicabilityScope,
+  incoming: Record<string, { enabled?: boolean } | undefined> | undefined,
+): void {
+  const { missing, environments } = findEnvironmentsMissingState(
+    orgEnvironments,
+    feature,
+    incoming,
+  );
+  if (!missing.length) return;
+  applySafetyCheck(req, "environment_state_required", {
+    violated: true,
+    message: `Say whether this Feature Flag is on or off in each environment. Missing: ${missing.join(", ")}. Set \`enabled\` to true or false for each one under \`environments\`.`,
+    notice: `The request doesn't say whether this Feature Flag is on or off in ${formatList(missing)}, so ${missing.length === 1 ? "that environment" : "each of those environments"} used its "Default state for new features" setting. Set \`enabled\` to true or false for each one under \`environments\`.`,
+    path: "environments",
+    details: { missing, environments },
+  });
 }
 
 // Convert a v2 API rule input to the internal `FeatureRule` shape. New rules

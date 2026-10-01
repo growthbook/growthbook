@@ -382,26 +382,44 @@ export function isRuleEnabled(
   return true;
 }
 
+// The state each environment starts in on a REST create. The authority check
+// and the write both read it, so they cannot disagree about an omitted
+// environment. `requireExplicit` (strictEnvironmentChecks) never falls back to
+// `defaultState`: an omitted environment starts off.
+export function resolveApiCreateEnvironmentStates(
+  baseEnvs: Environment[],
+  // Only `enabled` is read, so both the v1 and v2 request bodies fit.
+  incomingEnvs: Record<string, { enabled?: boolean } | undefined> | undefined,
+  { requireExplicit }: { requireExplicit: boolean },
+): Record<string, boolean> {
+  return Object.fromEntries(
+    baseEnvs.map((e) => [
+      e.id,
+      incomingEnvs?.[e.id]?.enabled ??
+        (requireExplicit ? false : !!e.defaultState),
+    ]),
+  );
+}
+
+// A footprint built only from explicit `enabled: true` entries would under-count
+// an omitted environment enabled by its `defaultState`.
+export function getApiCreateEnabledEnvironments(
+  baseEnvs: Environment[],
+  incomingEnvs: Record<string, { enabled?: boolean } | undefined> | undefined,
+  options: { requireExplicit: boolean },
+): string[] {
+  return Object.entries(
+    resolveApiCreateEnvironmentStates(baseEnvs, incomingEnvs, options),
+  )
+    .filter(([, enabled]) => enabled)
+    .map(([id]) => id);
+}
+
 // Environments an archive takes the flag out of service in: the ones it both
 // applies to and is enabled in. A disabled environment already omits the feature
 // from its payload, so archiving changes nothing there — the same reason the
 // review gate scopes an archive to its enabled environments. Shared by every
 // path that can land an archive so they demand identical authority.
-// The environments a REST create will actually switch on. An omitted
-// environment still lands enabled when its `defaultState` says so — mirroring
-// `createInterfaceEnvSettingsFromApiEnvSettings` — so a footprint built only
-// from explicit `enabled: true` entries under-counts, and a caller with Create
-// in dev could omit environments entirely and produce a production-enabled flag.
-export function getApiCreateEnabledEnvironments(
-  baseEnvs: Environment[],
-  // Only `enabled` is read, so both the v1 and v2 request bodies fit.
-  incomingEnvs?: Record<string, { enabled?: boolean } | undefined>,
-): string[] {
-  return baseEnvs
-    .filter((e) => incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState)
-    .map((e) => e.id);
-}
-
 export function getArchiveFootprint(
   feature: FeatureInterface,
   org: OrganizationInterface,

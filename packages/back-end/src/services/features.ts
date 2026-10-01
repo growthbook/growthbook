@@ -173,6 +173,7 @@ import {
   featuresWithPrerequisiteClosure,
   getPrerequisiteIdsInFeatures,
   getReferenceIdsInFeatures,
+  resolveApiCreateEnvironmentStates,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
@@ -3760,16 +3761,13 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
   feature: FeatureInterface,
   baseEnvs: Environment[],
-  incomingEnvs: ApiFeatureEnvSettings,
+  incomingEnvs: Record<string, { enabled?: boolean } | undefined>,
+  options: { requireExplicit: boolean },
 ): FeatureInterface["environmentSettings"] =>
-  baseEnvs.reduce(
-    (acc, e) => ({
-      ...acc,
-      [e.id]: {
-        enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
-      },
-    }),
-    {} as Record<string, FeatureEnvironment>,
+  Object.fromEntries(
+    Object.entries(
+      resolveApiCreateEnvironmentStates(baseEnvs, incomingEnvs, options),
+    ).map(([id, enabled]): [string, FeatureEnvironment] => [id, { enabled }]),
   );
 
 export const updateInterfaceEnvSettingsFromApiEnvSettings = (

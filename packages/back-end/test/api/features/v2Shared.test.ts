@@ -12,14 +12,20 @@ import {
   assertValidRuleExperimentIds,
   assertValidRuleProjectIds,
   validateEnvRulesScheduleRules,
+  checkEnvironmentStates,
+  checkRuleScope,
+  checkRuleScopes,
   composeConfigBacking,
   extractRevisionMetadata,
+  findEnvironmentsMissingState,
+  findRulesMissingScope,
   mapV2ApiRuleToFeatureRule,
   resolveScopeFromInput,
   validateRulesScheduleRules,
   experimentRefChanged,
 } from "back-end/src/api/features/v2Shared";
 import { BadRequestError } from "back-end/src/util/errors";
+import { takeApiNotices } from "back-end/src/util/apiSafetyChecks";
 
 // ---------------------------------------------------------------------------
 // Pure-function unit tests for the v2 API mapping/extraction helpers.
@@ -73,6 +79,181 @@ describe("resolveScopeFromInput", () => {
       allEnvironments: true,
       environments: undefined,
     });
+  });
+});
+
+const safetyCheckReq = (strictEnvironmentChecks: boolean) => ({
+  context: { org: { id: "org_1", settings: { strictEnvironmentChecks } } },
+});
+
+function thrownBy(fn: () => void): unknown {
+  try {
+    fn();
+  } catch (e) {
+    return e;
+  }
+  throw new Error("Expected the call to throw");
+}
+
+describe("findRulesMissingScope", () => {
+  it("flags a rule that sets neither scope field", () => {
+    expect(
+      findRulesMissingScope([
+        { allEnvironments: true },
+        {},
+        { environments: ["dev"] },
+      ]),
+    ).toEqual([1]);
+  });
+
+  it("treats allEnvironments: false as explicit", () => {
+    expect(findRulesMissingScope([{ allEnvironments: false }])).toEqual([]);
+  });
+
+  it("treats environments: [] as explicit", () => {
+    expect(findRulesMissingScope([{ environments: [] }])).toEqual([]);
+  });
+});
+
+describe("checkRuleScopes", () => {
+  it("rejects with every unscoped rule while the setting is on", () => {
+    const error = thrownBy(() =>
+      checkRuleScopes(safetyCheckReq(true), [
+        {},
+        { allEnvironments: true },
+        {},
+      ]),
+    );
+    expect(error).toMatchObject({
+      status: 400,
+      code: "rule_scope_required",
+      details: { rules: [0, 2] },
+    });
+    expect((error as Error).message).toMatch(
+      /^Rules 1 and 3 have no environment scope\. List the environments each one should run in with `environments`/,
+    );
+  });
+
+  it("names a single-rule endpoint's rule as 'the rule'", () => {
+    const error = thrownBy(() =>
+      checkRuleScope(safetyCheckReq(true), {}, "rule"),
+    );
+    expect((error as Error).message).toBe(
+      "The rule has no environment scope. List the environments it should run in with `environments`, or set `allEnvironments: true` to run it everywhere, production included.",
+    );
+  });
+
+  it("records a notice at the rule's path while the setting is off", () => {
+    const req = safetyCheckReq(false);
+    checkRuleScopes(req, [{ environments: ["dev"] }, {}]);
+    expect(takeApiNotices(req)).toEqual([
+      {
+        code: "rule_scope_required",
+        path: "rules.1",
+        message: expect.stringMatching(
+          /^Rule 2 has no environment scope, so it runs in every environment, production included\./,
+        ),
+      },
+    ]);
+  });
+
+  it("does nothing when every rule is scoped", () => {
+    const req = safetyCheckReq(true);
+    checkRuleScopes(req, [{ allEnvironments: true }, { environments: [] }]);
+    expect(takeApiNotices(req)).toEqual([]);
+  });
+});
+
+describe("findEnvironmentsMissingState", () => {
+  const envs = [
+    { id: "dev", description: "" },
+    { id: "production", description: "" },
+    { id: "eu", description: "", projects: ["prj_eu"] },
+  ];
+  const feature = { project: "prj_a" };
+
+  it("requires every environment when none are sent", () => {
+    expect(findEnvironmentsMissingState(envs, feature, undefined)).toEqual({
+      environments: ["dev", "production"],
+      missing: ["dev", "production"],
+    });
+  });
+
+  it("treats an empty environments object the same way", () => {
+    expect(findEnvironmentsMissingState(envs, feature, {}).missing).toEqual([
+      "dev",
+      "production",
+    ]);
+  });
+
+  it("requires `enabled`, not just the key", () => {
+    expect(
+      findEnvironmentsMissingState(envs, feature, {
+        dev: {},
+        production: { enabled: false },
+      }).missing,
+    ).toEqual(["dev"]);
+  });
+
+  it("does not require an environment outside the project", () => {
+    const result = findEnvironmentsMissingState(envs, feature, {
+      dev: { enabled: true },
+      production: { enabled: false },
+    });
+    expect(result).toEqual({
+      environments: ["dev", "production"],
+      missing: [],
+    });
+  });
+
+  it("requires an environment the project's targeting reaches", () => {
+    expect(
+      findEnvironmentsMissingState(
+        envs,
+        { project: "prj_a", targetingProjects: ["prj_eu"] },
+        { dev: { enabled: true }, production: { enabled: true } },
+      ).missing,
+    ).toEqual(["eu"]);
+  });
+});
+
+describe("checkEnvironmentStates", () => {
+  const envs = [
+    { id: "dev", description: "" },
+    { id: "production", description: "" },
+  ];
+
+  it("rejects without suggesting a value while the setting is on", () => {
+    const error = thrownBy(() =>
+      checkEnvironmentStates(
+        safetyCheckReq(true),
+        envs,
+        {},
+        {
+          dev: { enabled: true },
+        },
+      ),
+    );
+    expect(error).toMatchObject({
+      status: 400,
+      code: "environment_state_required",
+      details: { missing: ["production"], environments: ["dev", "production"] },
+    });
+    expect((error as Error).message).toBe(
+      "Say whether this Feature Flag is on or off in each environment. Missing: production. Set `enabled` to true or false for each one under `environments`.",
+    );
+  });
+
+  it("records a notice while the setting is off", () => {
+    const req = safetyCheckReq(false);
+    checkEnvironmentStates(req, envs, {}, undefined);
+    expect(takeApiNotices(req)).toEqual([
+      {
+        code: "environment_state_required",
+        path: "environments",
+        message: expect.stringContaining("dev and production"),
+      },
+    ]);
   });
 });
 

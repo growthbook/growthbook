@@ -4,6 +4,7 @@ import { crudEndpoint, customEndpoint } from "../api-model";
 import { booleanQueryField } from "../validators/shared";
 import { contextualLeafClauseValidator } from "../validators/contextual-bandit-event";
 import { queryPointerValidator } from "../validators/queries";
+import { withNotices } from "../validators/api-safety-checks";
 import {
   contextualBanditEventResponseShape,
   contextualBanditIdAndEventParam,
@@ -297,14 +298,16 @@ export const addContextualBanditLinkedFeature = {
     .strict(),
   querySchema: z.never(),
   paramsSchema: contextualBanditIdAndFeatureParam,
-  responseSchema: z
-    .object({
-      featureId: z.string(),
-      ruleId: z.string(),
-      revisionVersion: z.number(),
-      published: z.boolean(),
-    })
-    .strict(),
+  responseSchema: withNotices(
+    z
+      .object({
+        featureId: z.string(),
+        ruleId: z.string(),
+        revisionVersion: z.number(),
+        published: z.boolean(),
+      })
+      .strict(),
+  ),
   summary: "Link a feature to a Contextual Bandit",
   description:
     "Adds a `contextual-bandit-ref` rule to the bottom of the feature's rule list and links the feature to this contextual bandit. The rule lands in a draft revision that auto-publishes when the contextual bandit starts, unless `autoPublish` is set. Targeting (condition, Saved Groups, prerequisites, coverage) is inherited from the contextual bandit and cannot be set on the rule.",
@@ -312,6 +315,7 @@ export const addContextualBanditLinkedFeature = {
   tags: ["ContextualBandits"],
   method: "post" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
+  possibleErrors: ["rule_scope_required"] as const,
 };
 
 export const updateContextualBanditLinkedFeature = {
@@ -335,7 +339,7 @@ export const updateContextualBanditLinkedFeature = {
     .strict(),
   summary: "Replace a Contextual Bandit's rule on a linked feature",
   description:
-    "Replaces every `contextual-bandit-ref` rule pointing at this contextual bandit on the feature, keeping each rule's id and position in the rule list. Every field is replaced, so omitted optional fields revert to their defaults. Returns a 400 when the feature has no such rule on the target revision, or when it has several that are not identical to each other. The change lands in a draft revision that auto-publishes when the contextual bandit starts, unless `autoPublish` is set. Targeting (condition, Saved Groups, prerequisites, coverage) is inherited from the contextual bandit and cannot be set on the rule.",
+    "Replaces every `contextual-bandit-ref` rule pointing at this contextual bandit on the feature, keeping each rule's id and position in the rule list. Every field is replaced, so omitted optional fields revert to their defaults, except the environment scope: omit both `allEnvironments` and `environments` to keep the rule's current environments. Returns a 400 when the feature has no such rule on the target revision, or when it has several that are not identical to each other. The change lands in a draft revision that auto-publishes when the contextual bandit starts, unless `autoPublish` is set. Targeting (condition, Saved Groups, prerequisites, coverage) is inherited from the contextual bandit and cannot be set on the rule.",
   operationId: "updateContextualBanditLinkedFeature",
   tags: ["ContextualBandits"],
   method: "put" as const,
