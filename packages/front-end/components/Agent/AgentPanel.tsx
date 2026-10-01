@@ -411,18 +411,27 @@ export default function AgentPanel({
   // The ref is only read inside event handlers, never during render.
   feedbackConversationIdRef.current = conversationId;
 
-  // When the assistant ends on a list of options, an empty draft offers the
-  // likeliest one word for word; no model call.
+  // An empty draft offers the assistant's likeliest option word for word, no
+  // model call: a pending askUser prompt's recommended (else first) option,
+  // or the "(recommended)" item when the last message ended on a plain list.
   const suggestedReply = useMemo(() => {
+    if (loading) return undefined;
+    if (askPrompt && !askPrompt.resolved) {
+      const pick =
+        askPrompt.options.find((o) => o.recommended) ?? askPrompt.options[0];
+      return pick
+        ? { key: `ask-${askPrompt.seq}`, text: pick.label }
+        : undefined;
+    }
     const last = messages[messages.length - 1];
-    if (loading || last?.role !== "assistant" || last.isError) return undefined;
+    if (last?.role !== "assistant" || last.isError) return undefined;
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     const text = suggestedReplyFromOptions(
       getMessageText(last),
       lastUser ? getMessageText(lastUser) : "",
     );
     return text ? { key: last.id, text } : undefined;
-  }, [messages, loading]);
+  }, [askPrompt, messages, loading]);
 
   // Panel stays mounted while closed; listeners need the container to exist.
   const { scrollContainerRef, handleScroll, resumeAutoScroll } = useAutoScroll({

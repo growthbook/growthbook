@@ -43,6 +43,13 @@ describe("suggestedReplyFromOptions", () => {
       ),
     ).toBe("An AI feature in GrowthBook itself (like this AI assistant)");
   });
+  it("prefers the option the agent marked as recommended, tag removed", () => {
+    expect(
+      suggestedReplyFromOptions(
+        "- The checkout experiment\n- The onboarding experiment (recommended)\n- Something else",
+      ),
+    ).toBe("The onboarding experiment");
+  });
   it("skips generic options and handles numbered lists", () => {
     expect(
       suggestedReplyFromOptions(

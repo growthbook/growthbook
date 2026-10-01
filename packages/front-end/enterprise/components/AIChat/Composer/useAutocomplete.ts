@@ -21,14 +21,16 @@ export interface Suggestion {
 
 // Options nobody would send as a reply.
 const GENERIC_OPTION = /^(something|anything|none|other|not sure|no\b)/i;
+// The agent is asked to tag its pick in plain-text lists.
+const RECOMMENDED = /\s*\(recommended\)\s*/i;
 
 /**
  * When the assistant ends on a list of options, the likeliest reply is one of
- * them, word for word — no model call needed. Prefers options about
- * GrowthBook itself or "this …" (the entity on screen), then those sharing
- * words with what the user last said; ties go to the first.
+ * them, word for word — no model call needed. The agent's "(recommended)"
+ * tag wins; otherwise prefer options about GrowthBook itself or "this …"
+ * (the entity on screen), then those sharing words with what the user last
+ * said; ties go to the first.
  */
-// ponytail: lexical scoring; let the agent mark a recommended option if this misfires.
 export function suggestedReplyFromOptions(
   assistantText: string,
   lastUserText = "",
@@ -36,8 +38,14 @@ export function suggestedReplyFromOptions(
   const options = assistantText
     .split("\n")
     .map((l) => l.match(/^\s*(?:[-*•]|\d+[.)])\s+(.+?)\s*$/)?.[1])
-    .filter((o): o is string => !!o && !GENERIC_OPTION.test(o));
+    .filter(
+      (o): o is string =>
+        !!o && !GENERIC_OPTION.test(o.replace(RECOMMENDED, "").trim()),
+    );
   if (!options.length) return undefined;
+  const marked = options.find((o) => RECOMMENDED.test(o));
+  if (marked)
+    return marked.replace(RECOMMENDED, " ").replace(/\?+$/, "").trim();
   const userWords = new Set(
     lastUserText
       .toLowerCase()
