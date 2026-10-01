@@ -1,7 +1,7 @@
 export type MarkdownLinkSegment = string | { label: string; href: string };
 
 // Finds `[label](destination)`; the destination may contain one level of `(…)`.
-const MARKDOWN_LINK = /\[([^\]]+)\]\(((?:[^\s()]|\([^\s()]*\))+)\)/g;
+const MARKDOWN_LINK = /\[([^[\]]+)\]\(((?:[^\s()]|\([^\s()]*\))+)\)/g;
 
 export function isAllowedHref(href: string): boolean {
   // `//host` and `/\host` look relative, but browsers send them to another site.

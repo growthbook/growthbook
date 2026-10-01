@@ -25,4 +25,13 @@ describe("splitMarkdownLinks", () => {
       ".",
     ]);
   });
+
+  it("keeps a stray `[` before a link out of the label", () => {
+    expect(
+      splitMarkdownLinks("Name [WIP is invalid. See [guide](/docs/x)"),
+    ).toEqual([
+      "Name [WIP is invalid. See ",
+      { label: "guide", href: "/docs/x" },
+    ]);
+  });
 });
