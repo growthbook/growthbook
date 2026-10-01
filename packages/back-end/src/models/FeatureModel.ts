@@ -21,6 +21,8 @@ import {
   publishRampDetaches,
   rampTargetsDetachedBy,
   toRampAttachments,
+  toMonitoringSelection,
+  withKeptIdentifierType,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -34,6 +36,7 @@ import {
   RampStartAction,
   RampStepAction,
   resolveStartApproval,
+  RampMonitoringConfig,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -252,6 +255,19 @@ featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
+
+export function withKeptMonitoringIdentifier(
+  previous: RampMonitoringConfig | null | undefined,
+  next: RampMonitoringConfig,
+): RampMonitoringConfig {
+  const { identifierType } = withKeptIdentifierType(
+    previous ? toMonitoringSelection(previous) : null,
+    toMonitoringSelection(next),
+  );
+  return identifierType
+    ? { ...next, exposureQueryIdentifierType: identifierType }
+    : next;
+}
 
 export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   "Feature",
@@ -3259,9 +3275,19 @@ async function createRampSchedulesForRevision(
           ? new Date(updateAction.cutoffDate)
           : null
         : (existingSchedule?.cutoffDate ?? null);
+    /**
+     * The action's config replaces the stored one whole. Re-sending the ramp's
+     * query without an identifier keeps the stored one, as the REST path does,
+     * so a draft saved without an identifier doesn't move the ramp to the
+     * legacy default.
+     */
     const nextMonitoringConfig =
       updateAction.monitoringConfig !== undefined
-        ? updateAction.monitoringConfig
+        ? updateAction.monitoringConfig &&
+          withKeptMonitoringIdentifier(
+            existingSchedule?.monitoringConfig,
+            updateAction.monitoringConfig,
+          )
         : existingSchedule?.monitoringConfig;
     // Resolve the post-edit approval strategy (tri-state; see resolveStartApproval).
     // When still on and unapproved, the ramp must NOT start now.
