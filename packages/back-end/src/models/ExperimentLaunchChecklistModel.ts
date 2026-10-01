@@ -108,7 +108,7 @@ export async function updateExperimentLaunchChecklist(
   updatedByUserId: string,
   checklistId: string,
   tasks: ChecklistTask[],
-  hiddenDefaultTasks: DefaultChecklistTaskKey[],
+  hiddenDefaultTasks: DefaultChecklistTaskKey[] | null,
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null =
     await ExperimentLaunchChecklistModel.findOneAndUpdate(
@@ -120,7 +120,7 @@ export async function updateExperimentLaunchChecklist(
         dateUpdated: new Date(),
         updatedByUserId,
         tasks,
-        hiddenDefaultTasks,
+        ...(hiddenDefaultTasks !== null && { hiddenDefaultTasks }),
       },
     );
 

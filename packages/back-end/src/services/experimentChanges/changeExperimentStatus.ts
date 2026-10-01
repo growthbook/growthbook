@@ -243,6 +243,10 @@ export async function getExperimentStartChecklistStatus(
   const hidden = new Set<string>(
     isBandit ? [] : (checklist?.hiddenDefaultTasks ?? []),
   );
+  // Visual Editor changes and URL Redirects only reach users through an SDK Connection
+  if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
+    hidden.delete("sdkConnection");
+  }
 
   const items: StartChecklistItemStatus[] = [];
   const pushDefault = (item: StartChecklistItemStatus) => {

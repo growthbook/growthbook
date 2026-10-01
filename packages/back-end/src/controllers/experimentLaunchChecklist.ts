@@ -210,7 +210,10 @@ export async function putExperimentLaunchChecklist(
     userId,
     id,
     tasks,
-    parseHiddenDefaultTasks(hiddenDefaultTasks),
+    // Leave the saved list alone when a client doesn't send one
+    (hiddenDefaultTasks ?? null) === null
+      ? null
+      : parseHiddenDefaultTasks(hiddenDefaultTasks),
   );
 
   return res.status(200).json({
