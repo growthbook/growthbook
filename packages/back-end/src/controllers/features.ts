@@ -31,6 +31,7 @@ import {
   filterProjectsByEnvironmentWithNull,
   getAffectedEnvsForExperiment,
   getApplicableEnvIds,
+  getCreateReviewRequirement,
   getRuleAttributeScopeProjectIds,
   getDependentExperiments,
   getDependentFeatures,
@@ -257,6 +258,10 @@ import {
   markSDKConnectionUsed,
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
+import {
+  formatList,
+  strictEnvironmentChecksOn,
+} from "back-end/src/util/apiSafetyChecks";
 import { yieldEventLoop } from "back-end/src/util/yield";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
@@ -990,6 +995,24 @@ export async function postFeatures(
       environmentIds.includes(env),
     ),
   );
+
+  if (strictEnvironmentChecksOn(org)) {
+    const { environments: gated } = getCreateReviewRequirement({
+      feature,
+      orgEnvironments: allEnvironments,
+      settings: org.settings,
+      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+    });
+    if (
+      gated.length &&
+      !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
+    ) {
+      const list = formatList(gated);
+      throw new Error(
+        `Turning on ${list} for a new Feature Flag requires approval. Create it with ${list} off, then turn ${gated.length === 1 ? "it" : "them"} on through a reviewed draft.`,
+      );
+    }
+  }
 
   await assertCanCreateFeatureInState({ context, feature, environmentIds });
   // After the gate so an unreadable id cannot be probed for existence.

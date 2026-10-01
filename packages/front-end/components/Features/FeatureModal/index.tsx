@@ -16,16 +16,19 @@ import {
   getConfigBackingKey,
   getConfigBackingPatch,
   getConfigSubtree,
+  getCreateReviewRequirement,
   setConfigBacking,
   stripConfigExtends,
   orderConfigsByLineage,
   isScopedConfig,
 } from "shared/util";
+import type { OrganizationSettings } from "shared/types/organization";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
@@ -47,6 +50,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
 import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import FeatureKeyField from "./FeatureKeyField";
@@ -64,16 +68,48 @@ export type Props = {
   features?: FeatureInterface[];
 };
 
+// With strictEnvironmentChecks on, the environments a new Feature Flag in this
+// scope can only start enabled in through review.
+function getReviewGatedEnvironments({
+  environments,
+  settings,
+  requireApprovalsLicensed,
+  scope,
+}: {
+  environments: ReturnType<typeof useEnvironments>;
+  settings: OrganizationSettings;
+  requireApprovalsLicensed: boolean;
+  scope: Pick<
+    FeatureInterface,
+    "project" | "targetingAllProjects" | "targetingProjects"
+  >;
+}): string[] {
+  if (!settings.strictEnvironmentChecks) return [];
+  return getCreateReviewRequirement({
+    feature: {
+      ...scope,
+      environmentSettings: Object.fromEntries(
+        environments.map((e) => [e.id, { enabled: true }]),
+      ),
+    },
+    orgEnvironments: environments,
+    settings,
+    requireApprovalsLicensed,
+  }).environments;
+}
+
 const genEnvironmentSettings = ({
   environments,
   featureToDuplicate,
   permissions,
   project,
+  reviewGatedEnvironments,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   featureToDuplicate?: FeatureInterface;
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
+  reviewGatedEnvironments: string[];
 }): Record<string, FeatureEnvironment> => {
   const envSettings: Record<string, FeatureEnvironment> = {};
 
@@ -82,7 +118,12 @@ const genEnvironmentSettings = ({
     // starts ENABLED in an environment is a publish there, so create authority
     // alone must not default it on — the checkbox renders disabled, leaving the
     // user unable to untick a default they never chose, and submit answers 403.
-    const mayEnable = canEnableEnvironmentOnCreate(permissions, project, e.id);
+    const mayEnable = canEnableEnvironmentOnCreate(
+      permissions,
+      project,
+      e.id,
+      reviewGatedEnvironments,
+    );
     const defaultEnabled = mayEnable ? (e.defaultState ?? true) : false;
     const enabled = mayEnable
       ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
@@ -100,11 +141,13 @@ const genFormDefaultValues = ({
   permissions: permissionsUtil,
   featureToDuplicate,
   project,
+  reviewGatedEnvironments,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
+  reviewGatedEnvironments: string[];
 }): Pick<
   FeatureInterface,
   | "valueType"
@@ -126,6 +169,7 @@ const genFormDefaultValues = ({
     featureToDuplicate,
     permissions: permissionsUtil,
     project,
+    reviewGatedEnvironments,
   });
   const customFieldValues = featureToDuplicate?.customFields ?? {};
 
@@ -186,13 +230,22 @@ export default function FeatureModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { requireProjectForFeatures } = useOrgSettings();
+  const orgSettings = useOrgSettings();
+  const { requireProjectForFeatures } = orgSettings;
+  const { hasCommercialFeature } = useUser();
+  const requireApprovalsLicensed = hasCommercialFeature("require-approvals");
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     featureToDuplicate,
     project,
+    reviewGatedEnvironments: getReviewGatedEnvironments({
+      environments,
+      settings: orgSettings,
+      requireApprovalsLicensed,
+      scope: featureToDuplicate ?? { project },
+    }),
   });
 
   const [showDescription, setShowDescription] = useState(
@@ -229,11 +282,44 @@ export default function FeatureModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
+  const targetingAllProjects = form.watch("targetingAllProjects");
+  const targetingProjects = form.watch("targetingProjects");
 
-  // Changing the project changes which environments this user may enable —
-  // toggles switched on under the old project would otherwise sit enabled but
-  // uneditable (the checkbox disables) and 403 on submit. Force any environment
-  // the new project's rule refuses back off.
+  const reviewGatedEnvironments = useMemo(
+    () =>
+      getReviewGatedEnvironments({
+        environments,
+        settings: orgSettings,
+        requireApprovalsLicensed,
+        scope: {
+          project: selectedProject,
+          targetingAllProjects,
+          targetingProjects,
+        },
+      }),
+    [
+      environments,
+      orgSettings,
+      requireApprovalsLicensed,
+      selectedProject,
+      targetingAllProjects,
+      targetingProjects,
+    ],
+  );
+  // The environments only review keeps this user from turning on.
+  const needsReviewToEnable = permissionsUtil.canBypassFlagApprovalChecks(
+    { project: selectedProject },
+    "feature",
+  )
+    ? []
+    : reviewGatedEnvironments.filter((env) =>
+        canEnableEnvironmentOnCreate(permissionsUtil, selectedProject, env),
+      );
+
+  // Changing the project (or its targeting) changes which environments this
+  // user may enable — toggles switched on before would otherwise sit enabled
+  // but uneditable (the checkbox disables) and fail on submit. Force any
+  // environment the new scope refuses back off.
   useEffect(() => {
     const current = form.getValues("environmentSettings");
     let changed = false;
@@ -241,7 +327,12 @@ export default function FeatureModal({
     for (const envId of Object.keys(next)) {
       if (
         next[envId]?.enabled &&
-        !canEnableEnvironmentOnCreate(permissionsUtil, selectedProject, envId)
+        !canEnableEnvironmentOnCreate(
+          permissionsUtil,
+          selectedProject,
+          envId,
+          reviewGatedEnvironments,
+        )
       ) {
         next[envId] = { ...next[envId], enabled: false };
         changed = true;
@@ -249,7 +340,7 @@ export default function FeatureModal({
     }
     if (changed) form.setValue("environmentSettings", next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProject]);
+  }, [selectedProject, reviewGatedEnvironments.join(",")]);
 
   // "config" is a UI authoring type: stored as valueType "json" but the default
   // value must be backed by a config. Tracked separately from the stored type.
@@ -642,7 +733,13 @@ export default function FeatureModal({
                 // can differ once the user picks a project in the modal.
                 selectedProject,
                 environmentId,
+                reviewGatedEnvironments,
               )
+            }
+            disabledReason={(environmentId) =>
+              needsReviewToEnable.includes(environmentId)
+                ? "Turning this on for a new Feature Flag requires approval. Turn it on through a reviewed draft after creating."
+                : undefined
             }
             environmentSettings={environmentSettings}
             environments={environments}
@@ -652,6 +749,11 @@ export default function FeatureModal({
               form.setValue("environmentSettings", environmentSettings);
             }}
           />
+          {needsReviewToEnable.length > 0 && (
+            <HelperText status="info" size="sm" mb="3">
+              {`Turning on ${needsReviewToEnable.join(", ")} requires approval. Create the Feature Flag, then turn ${needsReviewToEnable.length === 1 ? "it" : "them"} on through a reviewed draft.`}
+            </HelperText>
+          )}
         </Box>
 
         {customFields.length > 0 && (
