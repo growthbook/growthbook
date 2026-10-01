@@ -1,9 +1,10 @@
 import Link from "@/ui/Link";
 
-// Only http(s) targets, so text can't smuggle in a javascript: URL.
-const MARKDOWN_LINK = /\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g;
+// http(s) or root-relative only; `//` and `/\` are rejected because browsers treat them as another host.
+const MARKDOWN_LINK =
+  /\[([^\]]+)\]\(((?:https?:\/\/|\/(?![/\\]))(?:[^\s()]|\([^\s()]*\))*)\)/g;
 
-// Renders `[text](https://…)` Markdown links; the rest stays plain text.
+// Renders `[text](https://…)` and `[text](/path)` Markdown links; the rest stays plain text.
 export default function MarkdownLinks({ text }: { text: string }) {
   // split() with two capture groups yields [text, label, url, text, label, url, …].
   const parts = text.split(MARKDOWN_LINK);
