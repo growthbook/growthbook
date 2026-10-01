@@ -89,16 +89,20 @@ describe("a ramp on a rule with no environment scope", () => {
   const TARGET_ID = "target_legacy";
   let ctx: ReqContextClass;
 
-  // The stored rule, as the payload builder reads it.
-  async function expectLegacyRuleServesEverywhere() {
+  // The stored rules, as the payload builder reads them: the legacy rule still
+  // serves everywhere and the scoped sibling keeps its own scope.
+  async function expectStoredScopesIntact() {
     const feature = await mongoose.connection
       .collection("features")
       .findOne({ id: FLAG });
-    const rule = (feature?.rules as FeatureRule[]).find(
-      (r) => r.id === LEGACY_RULE.id,
-    )!;
+    const rules = feature?.rules as FeatureRule[];
+    const rule = rules.find((r) => r.id === LEGACY_RULE.id)!;
     expect(rule.environments).not.toBeNull();
     expect(ruleFootprint(rule, envs)).toEqual(envs);
+    expect(rules.find((r) => r.id === SCOPED_SIBLING.id)).toMatchObject({
+      allEnvironments: false,
+      environments: ["production"],
+    });
     return rule;
   }
 
@@ -151,12 +155,12 @@ describe("a ramp on a rule with no environment scope", () => {
     // Starting applies the first step at once.
     const started = await startSchedule(ctx, schedule);
     expect(started.status).toBe("running");
-    const stepped = await expectLegacyRuleServesEverywhere();
+    const stepped = await expectStoredScopesIntact();
     expect((stepped as { coverage?: number }).coverage).toBe(0.5);
 
     const rolledBack = await rollbackSchedule(ctx, started, "test");
     expect(rolledBack.status).toBe("rolled-back");
-    const restored = await expectLegacyRuleServesEverywhere();
+    const restored = await expectStoredScopesIntact();
     expect((restored as { coverage?: number }).coverage).toBe(1);
   });
 });
