@@ -100,15 +100,15 @@ export default function SafeRolloutFields({
     (ds) => ds.id === form.watch("safeRolloutFields.datasourceId"),
   );
   const settings = useOrgSettings();
+  const { setValue } = form;
   const setExposureQueryId = useCallback(
-    (value: string) =>
-      form.setValue("safeRolloutFields.exposureQueryId", value),
-    [form],
+    (value: string) => setValue("safeRolloutFields.exposureQueryId", value),
+    [setValue],
   );
   const setExposureQueryIdentifierType = useCallback(
     (value: string | undefined) =>
-      form.setValue("safeRolloutFields.exposureQueryIdentifierType", value),
-    [form],
+      setValue("safeRolloutFields.exposureQueryIdentifierType", value),
+    [setValue],
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource: dataSource,
