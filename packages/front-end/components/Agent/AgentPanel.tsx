@@ -23,7 +23,7 @@ import track from "@/services/track";
 import { useUser } from "@/services/UserContext";
 import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
-import { useAISettings } from "@/hooks/useOrgSettings";
+import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
 import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -215,6 +215,7 @@ export default function AgentPanel({
   const stepsExpandedRef = useRef(false);
   const router = useRouter();
   const { defaultAIModel } = useAISettings();
+  const { aiAutocompleteEnabled = true } = useOrgSettings();
   // Read latest pathname inside the callback (not at render) so the URL
   // captured matches where the user is when they hit send, not where they
   // were when the panel rendered.
@@ -876,7 +877,7 @@ export default function AgentPanel({
         mentionItems={mentionItems}
         mentionItemsReady={mentionItemsReady}
         skillItems={skillItems}
-        autocomplete
+        autocomplete={aiAutocompleteEnabled}
         conversationId={conversationId}
         value={input}
         onChange={setInput}

@@ -19,7 +19,7 @@ import { runAIEnabledGates } from "back-end/src/enterprise/services/ai-access";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getRecentFeatureIds } from "back-end/src/models/FeatureModel";
-import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
+import { getRecentMetricNames } from "back-end/src/models/MetricModel";
 
 // The chat handler itself
 export const postChat = postGeneralAgentChat;
@@ -51,21 +51,29 @@ Reply with the draft unchanged if there is no good continuation.`;
 
 const ORG_CONTEXT_LIMIT = 15;
 
-/** The org's most relevant entity names, so suggestions point at real things. */
-// ponytail: four queries per call; cache per org for a minute if this shows up in latency.
-async function orgContextForAutocomplete(context: ReqContext): Promise<string> {
-  const [datasources, features, experiments, metrics] = await Promise.all([
-    getDataSourcesByOrganization(context),
-    getRecentFeatureIds(context, ORG_CONTEXT_LIMIT),
-    getAllExperiments(context, {
-      limit: ORG_CONTEXT_LIMIT,
-      sortBy: { dateUpdated: -1 },
-    }),
-    Promise.all([
-      context.models.factMetrics.getAllSorted(),
-      getMetricsByOrganization(context, { includeArchived: false }),
-    ]).then(([fact, legacy]) => [...fact, ...legacy]),
-  ]);
+/**
+ * The org's most relevant entity names, so suggestions point at real things.
+ * Metrics are scoped to the active PA datasource when the client has one.
+ */
+// ponytail: five queries per call; cache per org for a minute if this shows up in latency.
+async function orgContextForAutocomplete(
+  context: ReqContext,
+  datasourceId?: string,
+): Promise<string> {
+  const [datasources, features, experiments, factMetrics, legacyMetrics] =
+    await Promise.all([
+      getDataSourcesByOrganization(context),
+      getRecentFeatureIds(context, ORG_CONTEXT_LIMIT),
+      getAllExperiments(context, {
+        limit: ORG_CONTEXT_LIMIT,
+        sortBy: { dateUpdated: -1 },
+      }),
+      context.models.factMetrics.getRecentForPrompt({
+        limit: ORG_CONTEXT_LIMIT,
+        datasourceId,
+      }),
+      getRecentMetricNames(context, { limit: ORG_CONTEXT_LIMIT, datasourceId }),
+    ]);
   const line = (label: string, names: string[]) =>
     `${label}: ${names.length ? names.slice(0, ORG_CONTEXT_LIMIT).join(", ") : "(none)"}`;
   return [
@@ -79,9 +87,10 @@ async function orgContextForAutocomplete(context: ReqContext): Promise<string> {
       experiments.map((e) => e.name),
     ),
     line(
-      "Metrics",
-      metrics.map((m) => m.name),
+      "Fact metrics",
+      factMetrics.map((m) => m.name),
     ),
+    line("Legacy metrics", legacyMetrics),
   ].join("\n");
 }
 
@@ -112,11 +121,19 @@ export const postAutocomplete = async (
     text: string;
     conversationId?: string;
     currentPage?: string;
+    datasourceId?: string;
   }>,
   res: Response,
 ) => {
   const context = getContextFromReq(req);
   if (!(await runAIEnabledGates(context, res))) return;
+  // Opt-out separate from AI as a whole: every pause in typing is a call.
+  if (context.org.settings?.aiAutocompleteEnabled === false) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI Assistant autocomplete is turned off for this organization",
+    });
+  }
 
   const secondsUntilReset = await secondsUntilAICanBeUsedAgainForPrompt(
     context,
@@ -130,13 +147,13 @@ export const postAutocomplete = async (
     });
   }
 
-  const { text, conversationId, currentPage } = req.body;
+  const { text, conversationId, currentPage, datasourceId } = req.body;
   // getById is owner-scoped, so another user's conversation reads as missing.
   const [conversation, orgContext] = await Promise.all([
     conversationId
       ? context.models.aiConversations.getById(conversationId)
       : null,
-    orgContextForAutocomplete(context),
+    orgContextForAutocomplete(context, datasourceId),
   ]);
   const history = (conversation?.messages ?? [])
     .filter(

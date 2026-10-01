@@ -53,6 +53,7 @@ router.post(
         text: z.string().min(1).max(2000),
         conversationId: z.string().min(1).optional(),
         currentPage: z.string().max(2048).optional(),
+        datasourceId: z.string().min(1).optional(),
       })
       .strict(),
   }),

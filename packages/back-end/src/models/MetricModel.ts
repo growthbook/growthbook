@@ -402,6 +402,34 @@ async function findMetrics(
   );
 }
 
+/**
+ * Names for prompts: official first, then most recently updated; archived
+ * excluded. Mongo only — config.yml metrics aren't included.
+ */
+export async function getRecentMetricNames(
+  context: ReqContext | ApiReqContext,
+  { limit, datasourceId }: { limit: number; datasourceId?: string },
+): Promise<string[]> {
+  const docs = await getCollection(COLLECTION)
+    .find(
+      {
+        organization: context.org.id,
+        status: { $ne: "archived" },
+        ...(datasourceId ? { datasource: datasourceId } : {}),
+      },
+      {
+        projection: { _id: 0, name: 1, projects: 1 },
+        // managedBy is "" when not official, so descending puts "admin"/"api" first.
+        sort: { managedBy: -1, dateUpdated: -1 },
+        limit,
+      },
+    )
+    .toArray();
+  return docs
+    .filter((m) => context.permissions.canReadMultiProjectResource(m.projects))
+    .map((m) => m.name);
+}
+
 export async function getMetricsByOrganization(
   context: ReqContext | ApiReqContext,
   options?: {

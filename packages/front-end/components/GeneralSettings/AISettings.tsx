@@ -402,6 +402,33 @@ export default function AISettings({
                 </Flex>
               )}
               {form.watch("aiEnabled") && aiAgreedTo && (
+                <Flex gap="3" align="start" mb="4" mt="2">
+                  <Box>
+                    <Checkbox
+                      value={form.watch("aiAutocompleteEnabled") ?? true}
+                      setValue={(v) =>
+                        form.setValue("aiAutocompleteEnabled", v)
+                      }
+                      id="toggle-aiAutocompleteEnabled"
+                      disabled={!canEdit}
+                      mt="1"
+                    />
+                  </Box>
+                  <Flex direction="column">
+                    <Text size="3" weight="medium">
+                      <label htmlFor="toggle-aiAutocompleteEnabled">
+                        AI Assistant autocomplete
+                      </label>
+                    </Text>
+                    <Text>
+                      Suggest how to finish a message as users type in the AI
+                      Assistant. Each pause in typing is an AI call, so this
+                      adds to usage even when suggestions aren&apos;t accepted.
+                    </Text>
+                  </Flex>
+                </Flex>
+              )}
+              {form.watch("aiEnabled") && aiAgreedTo && (
                 <AgentSkillsSettings canEdit={canEdit} />
               )}
 

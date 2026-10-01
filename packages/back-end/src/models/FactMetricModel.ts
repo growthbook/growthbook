@@ -267,6 +267,24 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     return this._find(filter, { sort: { id: 1 } });
   }
 
+  /** Names for prompts: official first, then most recently updated; archived excluded. */
+  public getRecentForPrompt({
+    limit,
+    datasourceId,
+  }: {
+    limit: number;
+    datasourceId?: string;
+  }) {
+    return this._find(
+      {
+        archived: { $ne: true },
+        ...(datasourceId ? { datasource: datasourceId } : {}),
+      },
+      // managedBy is "" when not official, so descending puts "admin"/"api" first.
+      { sort: { managedBy: -1, dateUpdated: -1 }, limit },
+    );
+  }
+
   public static upgradeFactMetricDoc(
     doc: LegacyFactMetricInterface,
   ): FactMetricInterface {
