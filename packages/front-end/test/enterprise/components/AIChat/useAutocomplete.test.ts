@@ -53,7 +53,7 @@ describe("suggestedReplyFromOptions", () => {
   it("skips generic options and handles numbered lists", () => {
     expect(
       suggestedReplyFromOptions(
-        "1. Something else\n2. The checkout experiment",
+        "Which one?\n1. Something else\n2. The checkout experiment",
       ),
     ).toBe("The checkout experiment");
   });
