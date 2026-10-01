@@ -310,9 +310,6 @@ export function PreLaunchChecklistForDraftFeature({
   }>(`/experiment/${experiment.id}`);
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const connections = (sdkConnectionsData?.connections ?? []).filter(
-    (c) => !c.projects.length || c.projects.includes(experiment.project || ""),
-  );
 
   const isLoading = checklistLoading || expLoading;
 
@@ -324,10 +321,10 @@ export function PreLaunchChecklistForDraftFeature({
         visualChangesets: [],
         checklist: checklistData?.checklist,
         checkLinkedChanges: true,
-        connections,
+        connections: sdkConnectionsData?.connections ?? [],
         publishingFeatureId: feature.id,
       }),
-    [experiment, experimentData, checklistData, connections, feature.id],
+    [experiment, experimentData, checklistData, sdkConnectionsData, feature.id],
   );
 
   const hasHardBlockers = checklist.some(

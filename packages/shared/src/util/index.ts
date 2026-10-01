@@ -246,6 +246,21 @@ export function experimentHasLiveLinkedChanges(
   return true;
 }
 
+// SDK Connections that serve the experiment's project or any linked feature's project
+export function getExperimentSdkConnections<T extends { projects: string[] }>(
+  connections: T[],
+  experimentProject: string | undefined,
+  linkedFeatures: LinkedFeatureInfo[],
+): T[] {
+  const projects = new Set([
+    experimentProject || "",
+    ...linkedFeatures.map((f) => f.feature.project || ""),
+  ]);
+  return connections.filter(
+    (c) => !c.projects.length || c.projects.some((p) => projects.has(p)),
+  );
+}
+
 export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: FeatureInterface[] = [],

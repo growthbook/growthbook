@@ -93,16 +93,6 @@ export function PreLaunchChecklistProvider({
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [analysisModal, setAnalysisModal] = useState(false);
 
-  const projectConnections = useMemo(
-    () =>
-      connections.filter(
-        (connection) =>
-          !connection.projects.length ||
-          connection.projects.includes(experiment.project || ""),
-      ),
-    [connections, experiment.project],
-  );
-
   const checklist: CheckListItem[] = useMemo(() => {
     if (!isActive) return [];
     // Merge the GB checklist items with org's custom checklist items
@@ -116,7 +106,7 @@ export function PreLaunchChecklistProvider({
       editTargeting,
       openSetupTab,
       checkLinkedChanges: true,
-      connections: projectConnections,
+      connections,
       setShowSdkForm,
       setShowScheduleModal: canEditExperiment
         ? setShowScheduleModal
@@ -132,7 +122,7 @@ export function PreLaunchChecklistProvider({
     visualChangesets,
     urlRedirects,
     canEditExperiment,
-    projectConnections,
+    connections,
   ]);
 
   const incompleteChecklistItems = useMemo(

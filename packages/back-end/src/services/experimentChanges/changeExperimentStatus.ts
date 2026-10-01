@@ -14,7 +14,10 @@ import {
   ChecklistStatus,
   ExperimentStartChecklistStatus,
 } from "shared/validators";
-import { experimentHasLiveLinkedChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getExperimentSdkConnections,
+} from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -229,11 +232,10 @@ export async function getExperimentStartChecklistStatus(
     experiment,
     arming ? { publisher: context } : {},
   );
-  // Only connections that serve this experiment's project count, matching the UI checklist
-  const sdkConnections = (
-    await findSDKConnectionsByOrganization(context)
-  ).filter(
-    (c) => !c.projects.length || c.projects.includes(experiment.project || ""),
+  const sdkConnections = getExperimentSdkConnections(
+    await findSDKConnectionsByOrganization(context),
+    experiment.project,
+    linkedFeatures,
   );
   const isBandit = experiment.type === "multi-armed-bandit";
 

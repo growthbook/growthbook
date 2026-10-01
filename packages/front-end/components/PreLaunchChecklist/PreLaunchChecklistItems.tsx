@@ -9,7 +9,11 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getExperimentSdkConnections,
+  hasVisualChanges,
+} from "shared/util";
 import track from "@/services/track";
 import Link from "@/ui/Link";
 
@@ -39,7 +43,7 @@ export function getChecklistItems({
   linkedFeatures,
   visualChangesets,
   urlRedirects = [],
-  connections,
+  connections: allConnections,
   editTargeting,
   openSetupTab,
   setAnalysisModal,
@@ -67,6 +71,17 @@ export function getChecklistItems({
   publishingFeatureId?: string;
 }) {
   const isBandit = experiment.type === "multi-armed-bandit";
+  const connections = getExperimentSdkConnections(
+    allConnections,
+    experiment.project,
+    linkedFeatures,
+  );
+  // Visual Editor changes and URL Redirects are only served to the experiment's own project
+  const projectConnections = getExperimentSdkConnections(
+    allConnections,
+    experiment.project,
+    [],
+  );
 
   function isChecklistItemComplete(
     // Some items we check completion for automatically, others require users to manually check an item as complete
@@ -477,7 +492,7 @@ export function getChecklistItems({
   if (hasAnyVisualChanges) {
     items.push({
       type: "auto",
-      status: connections.some((c) => c.includeVisualExperiments)
+      status: projectConnections.some((c) => c.includeVisualExperiments)
         ? "complete"
         : "incomplete",
       display: (
@@ -493,7 +508,7 @@ export function getChecklistItems({
   if (urlRedirects.length > 0) {
     items.push({
       type: "auto",
-      status: connections.some((c) => c.includeRedirectExperiments)
+      status: projectConnections.some((c) => c.includeRedirectExperiments)
         ? "complete"
         : "incomplete",
       display: (
