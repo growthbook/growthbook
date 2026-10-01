@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
 
       - uses: actions/setup-node@v5
         with:
@@ -36,13 +38,20 @@ jobs:
       - name: Test drift checker
         run: node --test scripts/check-agent-skills-drift.test.mjs
 
+      # A PR is checked out as a merge commit with the current base branch;
+      # its first parent is that base. pull_request.base.sha can be older.
       - name: Read the base revision
         id: base
         env:
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           LOCK=packages/back-end/agent-skills.lock.json
-          git fetch --depth=1 origin "$BASE_SHA"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            BASE_SHA=$(git rev-parse HEAD^1)
+          else
+            BASE_SHA=$PUSH_BEFORE
+            git fetch --depth=1 origin "$BASE_SHA"
+          fi
           git show "$BASE_SHA:packages/back-end/generated/spec.yaml" > "$RUNNER_TEMP/base-spec.yaml"
           BASE_PIN=$(git show "$BASE_SHA:$LOCK" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).commit")
           HEAD_PIN=$(node -p "require('./$LOCK').commit")
