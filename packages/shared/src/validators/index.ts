@@ -75,6 +75,7 @@ export * from "./environment";
 export * from "./exec-report";
 export * from "./experiment-template";
 export * from "./metric-analysis";
+export * from "./population";
 export * from "./population-data";
 export * from "./presentation-theme";
 export * from "./url-redirects";
