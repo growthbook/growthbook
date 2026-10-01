@@ -4,15 +4,22 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
+  areAdditionalRolesValid,
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
+  pickDefaultRoleFields,
+  assertDefaultRoleListsAreArrays,
+  withDefaultRoleDefaults,
+  pruneRoleEnvironments,
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
+  sameRoleValue,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
   hasNoDuplicateProjects,
+  memberRoleWithProjects,
 } from "shared/validators";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -59,6 +66,7 @@ import {
   MemberRoleWithProjects,
   MetricDefaults,
   OrganizationInterface,
+  OrganizationSettings,
   PendingMember,
   ProjectMemberRole,
 } from "shared/types/organization";
@@ -114,6 +122,7 @@ import {
   updateDimension,
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { PaymentRequiredError } from "back-end/src/util/errors";
 import { migrateApiKey } from "back-end/src/util/api-key.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
@@ -786,20 +795,17 @@ export async function addMemberToOrg({
   environments,
   limitAccessByEnvironment,
   projectRoles,
+  additionalRoles,
   externalId,
   managedByIdp,
   teams = [],
 }: {
   organization: OrganizationInterface;
   userId: string;
-  role: string;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-  projectRoles?: ProjectMemberRole[];
   externalId?: string;
   managedByIdp?: boolean;
   teams?: string[];
-}) {
+} & MemberRoleWithProjects) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
     return;
@@ -808,7 +814,8 @@ export async function addMemberToOrg({
   // Ensure roles are valid
   if (
     !isRoleValid(role, organization) ||
-    !areProjectRolesValid(projectRoles, organization)
+    !areProjectRolesValid(projectRoles, organization) ||
+    !areAdditionalRolesValid(additionalRoles, organization)
   ) {
     throw new Error("Invalid role");
   }
@@ -822,6 +829,7 @@ export async function addMemberToOrg({
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    additionalRoles,
     dateCreated: new Date(),
     externalId,
     managedByIdp,
@@ -958,16 +966,13 @@ export async function addPendingMemberToOrg({
   environments,
   limitAccessByEnvironment,
   projectRoles,
+  additionalRoles,
 }: {
   organization: OrganizationInterface;
   name: string;
   userId: string;
   email: string;
-  role: string;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-  projectRoles?: ProjectMemberRole[];
-}) {
+} & MemberRoleWithProjects) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
     return;
@@ -980,7 +985,8 @@ export async function addPendingMemberToOrg({
   // Ensure roles are valid
   if (
     !isRoleValid(role, organization) ||
-    !areProjectRolesValid(projectRoles, organization)
+    !areProjectRolesValid(projectRoles, organization) ||
+    !areAdditionalRolesValid(additionalRoles, organization)
   ) {
     throw new Error("Invalid role");
   }
@@ -995,11 +1001,47 @@ export async function addPendingMemberToOrg({
       limitAccessByEnvironment,
       environments,
       projectRoles,
+      additionalRoles,
       dateCreated: new Date(),
     },
   ];
 
   await updateOrganization(organization.id, { pendingMembers });
+}
+
+// Spread the default role first so explicit organization/userId always win.
+export async function addMemberToOrgWithDefaultRole({
+  organization,
+  userId,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+}) {
+  await addMemberToOrg({
+    ...getDefaultRole(organization),
+    organization,
+    userId,
+  });
+}
+
+export async function addPendingMemberToOrgWithDefaultRole({
+  organization,
+  userId,
+  name,
+  email,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+  name: string;
+  email: string;
+}) {
+  await addPendingMemberToOrg({
+    ...getDefaultRole(organization),
+    organization,
+    userId,
+    name,
+    email,
+  });
 }
 
 export async function acceptInvite(key: string, userId: string, email: string) {
@@ -1035,6 +1077,7 @@ export async function acceptInvite(key: string, userId: string, email: string) {
       limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
       environments: invite.environments || [],
       projectRoles: invite.projectRoles,
+      additionalRoles: invite.additionalRoles,
       teams: invite.teams,
       dateCreated: new Date(),
     },
@@ -1099,7 +1142,8 @@ export async function inviteUser({
   // Ensure roles are valid
   if (
     !isRoleValid(role, organization) ||
-    !areProjectRolesValid(projectRoles, organization)
+    !areProjectRolesValid(projectRoles, organization) ||
+    !areAdditionalRolesValid(additionalRoles, organization)
   ) {
     throw new Error("Invalid role");
   }
@@ -1259,6 +1303,82 @@ function validateConfig(context: ReqContext, config: ConfigFile) {
   return errors;
 }
 
+export async function assertCanUpdateDefaultRole(
+  context: ReqContext | ApiReqContext,
+  defaultRole: MemberRoleWithProjects,
+  environments: OrganizationSettings["environments"] = context.org.settings
+    ?.environments,
+) {
+  const { org } = context;
+
+  if (!context.hasPremiumFeature("sso")) {
+    throw new Error(
+      "Must have a commercial License Key to update the organization's default role.",
+    );
+  }
+
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const current = getDefaultRole(org);
+  assertRoleChangeAllowed(org, current.role, defaultRole.role);
+
+  assertMemberRoleInfoValid(
+    { ...org, settings: { ...org.settings, environments } },
+    defaultRole,
+  );
+  // Only re-check project rules that changed, so a round-tripped stale rule
+  // doesn't block unrelated edits.
+  await assertProjectRulesReferenceProjects(
+    context,
+    current.projectRoles,
+    defaultRole.projectRoles,
+  );
+}
+
+// Runs the PUT /organization/default-role checks before a generic settings
+// write (PUT /organization, config import) merges the default role in.
+export async function sanitizeDefaultRoleUpdate(
+  context: ReqContext | ApiReqContext,
+  settings: OrganizationSettings,
+) {
+  const { defaultRole } = settings;
+  if (defaultRole === undefined || defaultRole === null) {
+    // Don't persist null; reads would fall back to collaborator with no check.
+    delete settings.defaultRole;
+    return;
+  }
+  try {
+    assertDefaultRoleListsAreArrays(defaultRole);
+  } catch (e) {
+    throw new Error(`Invalid defaultRole: ${e.message}`);
+  }
+  const clean = (role: MemberRoleWithProjects) =>
+    withDefaultRoleDefaults(pickDefaultRoleFields(role));
+  const submitted = clean(defaultRole);
+  const stored = context.org.settings?.defaultRole;
+  if (stored && sameRoleValue(submitted, clean(stored))) {
+    const validEnvironments = (
+      settings.environments ??
+      context.org.settings?.environments ??
+      []
+    ).map((e) => e.id);
+    settings.defaultRole = pruneRoleEnvironments(
+      getDefaultRole(context.org),
+      validEnvironments,
+    );
+    return;
+  }
+  // Validate as submitted so unknown roles error instead of being dropped.
+  const parsed = memberRoleWithProjects.safeParse(submitted);
+  if (!parsed.success) {
+    throw new Error(`Invalid defaultRole: ${errorStringFromZodResult(parsed)}`);
+  }
+  await assertCanUpdateDefaultRole(context, parsed.data, settings.environments);
+  settings.defaultRole = parsed.data;
+}
+
 export async function importConfig(
   context: ReqContext | ApiReqContext,
   config: ConfigFile,
@@ -1270,6 +1390,7 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
+    await sanitizeDefaultRoleUpdate(context, config.organization.settings);
     const settings = {
       ...organization.settings,
       ...config.organization.settings,
@@ -1600,12 +1721,11 @@ export async function addMemberFromSSOConnection(
       (m) => m.id === req.userId,
     );
     if (!alreadyPending) {
-      await addPendingMemberToOrg({
+      await addPendingMemberToOrgWithDefaultRole({
         organization,
         name: req.name || "",
         email: req.email || "",
         userId: req.userId,
-        ...getDefaultRole(organization),
       });
       try {
         const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
@@ -1623,10 +1743,9 @@ export async function addMemberFromSSOConnection(
     return null;
   }
 
-  await addMemberToOrg({
+  await addMemberToOrgWithDefaultRole({
     organization,
     userId: req.userId,
-    ...getDefaultRole(organization),
   });
   try {
     await sendNewMemberEmail(
