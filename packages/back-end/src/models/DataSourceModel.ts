@@ -280,29 +280,15 @@ export async function removeProjectFromDatasources(
   );
 
   // Also drop the project from assignment query scopes; a stale reference left
-  // behind would fail the scope check on the next data source save.
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    organization,
-    "settings.queries.exposure.projects": project,
-  });
-  for (const doc of docs) {
-    const datasource = toInterface(doc);
-    const prunedExposure = (datasource.settings.queries?.exposure ?? []).map(
-      (q) =>
-        q.projects?.includes(project)
-          ? { ...q, projects: q.projects.filter((p) => p !== project) }
-          : q,
-    );
-    await DataSourceModel.updateOne(
-      { id: datasource.id, organization },
-      {
-        $set: {
-          "settings.queries.exposure": prunedExposure,
-          dateUpdated: new Date(),
-        },
-      },
-    );
-  }
+  // behind would fail the scope check on the next data source save. A separate
+  // update, since `$[]` errors on data sources without an exposure array.
+  await DataSourceModel.updateMany(
+    { organization, "settings.queries.exposure.projects": project },
+    {
+      $pull: { "settings.queries.exposure.$[].projects": project },
+      $set: { dateUpdated: new Date() },
+    },
+  );
 
   await touchDefinitionsVersion(organization);
 }
