@@ -1705,7 +1705,7 @@ export default abstract class SqlIntegration
       `
     CREATE TABLE ${params.unitsTableFullName}
     (
-      ${exposureQuery.userIdType} ${this.getSqlDialect().getDataType("string")}
+      ${exposureQuery.identifierType} ${this.getSqlDialect().getDataType("string")}
       , variation ${this.getSqlDialect().getDataType("string")}
       , first_exposure_timestamp ${this.getSqlDialect().getDataType("timestamp")}
       ${
@@ -1739,13 +1739,13 @@ export default abstract class SqlIntegration
       this.datasource.settings,
       {
         objects: [
-          [exposureQuery.userIdType],
+          [exposureQuery.identifierType],
           // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
           segment ? [segment.userIdType || "user_id"] : [],
         ],
         from: settings.startDate,
         to: settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
+        forcedBaseIdType: exposureQuery.identifierType,
         experimentId: settings.experimentId,
       },
     );
@@ -2046,7 +2046,7 @@ export default abstract class SqlIntegration
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
-    const baseIdType = params.exposureQuery.userIdType;
+    const baseIdType = params.exposureQuery.identifierType;
     const sortedMetrics = params.metrics.sort((a, b) =>
       a.id.localeCompare(b.id),
     );
@@ -2091,7 +2091,7 @@ export default abstract class SqlIntegration
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string {
-    const baseIdType = params.exposureQuery.userIdType;
+    const baseIdType = params.exposureQuery.identifierType;
     // Sort by metric id so column order is stable across runs even when the
     // caller hands us metrics in any order.
     const sortedMetrics = [...params.metrics].sort((a, b) =>
@@ -2198,12 +2198,12 @@ export default abstract class SqlIntegration
       this.getSqlDialect(),
       this.datasource.settings,
       {
-        objects: [[exposureQuery.userIdType], factTable?.userIdTypes || []],
+        objects: [[exposureQuery.identifierType], factTable?.userIdTypes || []],
         // TODO(incremental-refresh): this gets all identities from history
         // of experiment, which we think is right, but could be improved
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
+        forcedBaseIdType: exposureQuery.identifierType,
         experimentId: params.settings.experimentId,
       },
     );
@@ -2665,7 +2665,7 @@ export default abstract class SqlIntegration
     );
 
     const idTypeObjects = [
-      [exposureQuery.userIdType],
+      [exposureQuery.identifierType],
       ...unitDimensions.map((d) => [d.dimension.userIdType]),
     ];
 
@@ -2676,7 +2676,7 @@ export default abstract class SqlIntegration
         objects: idTypeObjects,
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
+        forcedBaseIdType: exposureQuery.identifierType,
         experimentId: params.settings.experimentId,
       },
     );

@@ -12,6 +12,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { getAllVariations } from "shared/experiments";
+import { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
 import {
   getExperimentById,
@@ -34,6 +35,7 @@ import {
 } from "back-end/src/models/ReportModel";
 import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/ExperimentReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
   getContextForAgendaJobByOrgId,
@@ -113,6 +115,15 @@ export async function postReportFromSnapshot(
     // Not every caller sends a dimension
     dimension: reportArgs.dimension ?? snapshot.dimension ?? undefined,
   } as ExperimentReportAnalysisSettings;
+  // Legacy experiments store no identifier; keep the one the snapshot ran on.
+  if (
+    !_experimentAnalysisSettings.exposureQueryIdentifierType &&
+    snapshot.settings.exposureQueryId ===
+      _experimentAnalysisSettings.exposureQueryId
+  ) {
+    _experimentAnalysisSettings.exposureQueryIdentifierType =
+      snapshot.settings.exposureQueryIdentifierType;
+  }
   if (!_experimentAnalysisSettings.dateStarted) {
     _experimentAnalysisSettings.dateStarted =
       experiment.phases?.[phaseIndex]?.dateStarted ?? new Date();
@@ -429,6 +440,39 @@ export async function refreshReport(
   throw new Error("Invalid report type");
 }
 
+type ReportAssignmentQuerySelection = {
+  datasource: string;
+  exposureQueryId: string;
+  exposureQueryIdentifierType?: string;
+};
+
+/**
+ * `next` is merged over the stored settings, so the body's own identifier is
+ * passed separately: the merged one would carry the old identifier to a new
+ * query.
+ */
+async function applyReportAssignmentQuery(
+  context: ReqContext,
+  previous: ReportAssignmentQuerySelection,
+  next: ReportAssignmentQuerySelection,
+  requestedIdentifierType: string | undefined,
+) {
+  const toSelection = (s: ReportAssignmentQuerySelection) => ({
+    datasource: s.datasource,
+    exposureQueryId: s.exposureQueryId,
+    identifierType: s.exposureQueryIdentifierType,
+  });
+  const { identifierType } = await resolveAssignmentQueryIdentifier(context, {
+    previous: toSelection(previous),
+    next: { ...toSelection(next), identifierType: requestedIdentifierType },
+    onOmitted: "defaultToFirst",
+  });
+  // `next` is saved whole: an absent key clears the stored identifier, where an
+  // undefined one would persist as null.
+  if (identifierType === undefined) delete next.exposureQueryIdentifierType;
+  else next.exposureQueryIdentifierType = identifierType;
+}
+
 export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
   res: Response,
@@ -528,6 +572,15 @@ export async function putReport(
       }
     }
 
+    if (updates.experimentAnalysisSettings) {
+      await applyReportAssignmentQuery(
+        context,
+        report.experimentAnalysisSettings,
+        updates.experimentAnalysisSettings,
+        data.experimentAnalysisSettings?.exposureQueryIdentifierType,
+      );
+    }
+
     updates.dateUpdated = new Date();
 
     await updateReport(org.id, req.params.id, updates);
@@ -572,6 +625,13 @@ export async function putReport(
         !!updates.args?.regressionAdjustmentEnabled;
       updates.args.settingsForSnapshotMetrics =
         updates.args?.settingsForSnapshotMetrics || [];
+
+      await applyReportAssignmentQuery(
+        context,
+        report.args,
+        updates.args,
+        req.body.args?.exposureQueryIdentifierType,
+      );
 
       needsRun = true;
     }
