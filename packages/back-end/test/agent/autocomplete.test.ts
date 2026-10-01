@@ -41,6 +41,9 @@ describe("cleanCompletion", () => {
   it("returns nothing for an unchanged draft", () => {
     expect(cleanCompletion("create a flag", "create a flag")).toBe("");
   });
+  it("returns nothing when the output is a truncated echo of the draft", () => {
+    expect(cleanCompletion("I want to under", "I want to understand")).toBe("");
+  });
 });
 
 describe("contextKindsForPage", () => {

@@ -722,15 +722,16 @@ export async function getRecentFeatureIds(
     targetingAllProjects: 1,
   })
     .sort({ dateUpdated: -1 })
-    .limit(limit)
     .lean<
       Pick<
         FeatureInterface,
         "id" | "project" | "targetingProjects" | "targetingAllProjects"
       >[]
     >();
+  // Permission filter before the limit, or unreadable rows would eat the slots.
   return docs
     .filter((f) => context.permissions.canReadTargetingScopedResource(f))
+    .slice(0, limit)
     .map((f) => f.id);
 }
 

@@ -15,8 +15,8 @@ export interface Suggestion {
   /** The draft the completion was generated for. */
   base: string;
   completion: string;
-  /** The conversation it was generated in; a suggestion from another one is stale. */
-  conversationId?: string;
+  /** Conversation, page and datasource it was generated for; any change makes it stale. */
+  scope?: string;
 }
 
 /** What's left to show once the user has typed part of the suggestion themselves. */
@@ -47,8 +47,8 @@ export function useAutocomplete({
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const pausedUntil = useRef(0);
   const stopped = useRef(false);
-  const current =
-    suggestion?.conversationId === conversationId ? suggestion : null;
+  const scope = [conversationId, currentPage, datasourceId].join("|");
+  const current = suggestion?.scope === scope ? suggestion : null;
   const ghost = remainingCompletion(text, current);
 
   useEffect(() => {
@@ -95,7 +95,7 @@ export function useAutocomplete({
         );
         if (ctrl.signal.aborted) return;
         const completion = res?.completion ?? "";
-        setSuggestion({ base: text, completion, conversationId });
+        setSuggestion({ base: text, completion, scope });
         if (completion) {
           track("AI Autocomplete Suggested", {
             draftLength: text.length,
@@ -119,6 +119,7 @@ export function useAutocomplete({
     conversationId,
     currentPage,
     datasourceId,
+    scope,
     ghost,
     current?.base,
     apiCall,
@@ -133,9 +134,8 @@ export function useAutocomplete({
         draftLength: text.length,
         completionLength: ghost.length,
       });
-      setSuggestion({ base: text + ghost, completion: "", conversationId });
+      setSuggestion({ base: text + ghost, completion: "", scope });
     },
-    dismiss: () =>
-      setSuggestion({ base: text, completion: "", conversationId }),
+    dismiss: () => setSuggestion({ base: text, completion: "", scope }),
   };
 }

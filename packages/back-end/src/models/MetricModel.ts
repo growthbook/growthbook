@@ -421,12 +421,13 @@ export async function getRecentMetricNames(
         projection: { _id: 0, name: 1, projects: 1 },
         // managedBy is "" when not official, so descending puts "admin"/"api" first.
         sort: { managedBy: -1, dateUpdated: -1 },
-        limit,
       },
     )
     .toArray();
+  // Permission filter before the limit, or unreadable rows would eat the slots.
   return docs
     .filter((m) => context.permissions.canReadMultiProjectResource(m.projects))
+    .slice(0, limit)
     .map((m) => m.name);
 }
 

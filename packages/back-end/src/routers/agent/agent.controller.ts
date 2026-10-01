@@ -150,7 +150,16 @@ export function cleanCompletion(raw: string, draft: string): string {
     .replace(/^\s*["'“”`]+|["'“”`]+$/g, "")
     .trimStart();
   const d = draft.trimStart();
-  const echoed = full.toLowerCase().startsWith(d.toLowerCase());
+  const lowerFull = full.toLowerCase();
+  const lowerDraft = d.toLowerCase();
+  // Output ran out mid-echo: nothing useful to append.
+  if (
+    lowerFull.length < lowerDraft.length &&
+    lowerDraft.startsWith(lowerFull)
+  ) {
+    return "";
+  }
+  const echoed = lowerFull.startsWith(lowerDraft);
   // No echo: the model sent just a continuation, so assume it starts a new word.
   const out = echoed
     ? full.slice(d.length)
@@ -220,8 +229,9 @@ export const postAutocomplete = async (
     type: "chat-autocomplete",
     isDefaultPrompt: true,
     temperature: 0.2,
-    // Draft echo plus one short sentence; anything longer is the model rambling.
-    maxOutputTokens: 120,
+    // Room to echo the draft (~3 chars per token, generous) plus one short
+    // sentence; anything longer is the model rambling.
+    maxOutputTokens: Math.ceil(text.length / 3) + 80,
     instructions: AUTOCOMPLETE_INSTRUCTIONS,
     prompt: `Assistant skills:\n${skills}\n\nThis organization has:\n${orgContext}\n\nCurrent page: ${currentPage?.trim() || "(unknown)"}\n\nRecent conversation:\n${history || "(none)"}\n\nDraft:\n${text}`,
   });
