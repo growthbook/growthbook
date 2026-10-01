@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - packages/back-end/generated/spec.yaml
+      - packages/back-end/agent-skills.lock.json
       - scripts/check-agent-skills-drift*.mjs
       - .github/workflows/agent-skills-drift.yml
   push:
@@ -59,13 +60,13 @@ jobs:
       - name: Notify growthbook/skills
         if: github.event_name == 'push' && steps.check.outputs.affected == 'true'
         env:
-          GH_TOKEN: ${{ secrets.SKILLS_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.SKILLS_BOT_TOKEN }}
           REPO_TOKEN: ${{ github.token }}
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
-            echo "::notice::SKILLS_DISPATCH_TOKEN is not set; skipping the skills sync dispatch."
+            echo "::notice::SKILLS_BOT_TOKEN is not set; skipping the skills sync dispatch."
             exit 0
           fi
           PR=$(GH_TOKEN="$REPO_TOKEN" gh api "repos/$GITHUB_REPOSITORY/commits/$AFTER/pulls" --jq '.[0].number // ""')

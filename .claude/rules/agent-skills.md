@@ -6,6 +6,10 @@ paths:
   - "docs/statistics/**"
   - "docs/experimentation-analysis/**"
   - "docs/features/**"
+  - "docs/app/experiment-results.mdx"
+  - "docs/app/experiment-decisions.mdx"
+  - "docs/app/sticky-bucketing.mdx"
+  - "docs/app/metrics.mdx"
   - "docs/api/introduction.mdx"
 ---
 

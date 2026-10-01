@@ -1,0 +1,62 @@
+name: Bump agent skills
+on:
+  schedule:
+    - cron: "0 15 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Compare the pinned commit with growthbook/skills main
+        id: compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LOCK=packages/back-end/agent-skills.lock.json
+          REPOSITORY=$(node -p "require('./$LOCK').repository")
+          CURRENT=$(node -p "require('./$LOCK').commit")
+          LATEST=$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)
+          if [ "$CURRENT" = "$LATEST" ]; then
+            echo "Agent skills are up to date at $CURRENT."
+            exit 0
+          fi
+          node -e '
+            const fs = require("fs");
+            const [file, commit] = process.argv.slice(1);
+            const lock = JSON.parse(fs.readFileSync(file, "utf8"));
+            fs.writeFileSync(file, JSON.stringify({ ...lock, commit }, null, 2) + "\n");
+          ' "$LOCK" "$LATEST"
+          {
+            echo "Bumps \`$LOCK\` to the latest [$REPOSITORY](https://github.com/$REPOSITORY) \`main\`, so the in-app assistant ships the current skills."
+            echo
+            echo "[Compare ${CURRENT:0:7}...${LATEST:0:7}](https://github.com/$REPOSITORY/compare/$CURRENT...$LATEST)"
+            echo
+            gh api "repos/$REPOSITORY/compare/$CURRENT...$LATEST" \
+              --jq '.commits[] | "- \(.commit.message | split("\n")[0]) (\(.sha[0:7]))"'
+          } > "$RUNNER_TEMP/pr-body.md"
+          echo "bump=true" >> "$GITHUB_OUTPUT"
+
+      # PRs opened with the default token do not trigger CI, so prefer the bot token.
+      - name: Open or update the bump PR
+        if: steps.compare.outputs.bump == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.SKILLS_BOT_TOKEN || github.token }}
+          branch: bot/bump-agent-skills
+          title: Bump agent skills
+          commit-message: Bump agent skills
+          body-path: ${{ runner.temp }}/pr-body.md
+          add-paths: packages/back-end/agent-skills.lock.json
+          delete-branch: true
