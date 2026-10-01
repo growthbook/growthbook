@@ -240,11 +240,13 @@ export async function getExperimentStartChecklistStatus(
       (await getExperimentLaunchChecklist(context.org.id, ""))
     : null;
   // Bandits can't run without their defaults (a live linked change and a goal metric)
-  const hideDefaults = !isBandit && !!checklist?.hideDefaultTasks;
+  const hidden = new Set<string>(
+    isBandit ? [] : (checklist?.hiddenDefaultTasks ?? []),
+  );
 
   const items: StartChecklistItemStatus[] = [];
   const pushDefault = (item: StartChecklistItemStatus) => {
-    if (!hideDefaults) items.push(item);
+    if (!hidden.has(item.key)) items.push(item);
   };
 
   pushDefault({

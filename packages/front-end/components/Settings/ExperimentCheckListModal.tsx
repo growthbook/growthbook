@@ -1,10 +1,12 @@
 import {
   ChecklistTask,
+  DefaultChecklistTaskKey,
   ExperimentLaunchChecklistInterface,
 } from "shared/types/experimentLaunchChecklist";
+import { DEFAULT_CHECKLIST_TASK_LABELS } from "shared/constants";
 import { useEffect, useState } from "react";
 import { FaPlusCircle } from "react-icons/fa";
-import { Box, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
@@ -39,7 +41,9 @@ export default function ExperimentCheckListModal({
   const [experimentLaunchChecklist, setExperimentLaunchChecklist] = useState<
     ChecklistTask[]
   >([]);
-  const [hideDefaultTasks, setHideDefaultTasks] = useState(false);
+  const [hiddenDefaultTasks, setHiddenDefaultTasks] = useState<
+    DefaultChecklistTaskKey[]
+  >([]);
   const [newTaskInput, setNewTaskInput] = useState<ChecklistTask | undefined>(
     undefined,
   );
@@ -52,7 +56,7 @@ export default function ExperimentCheckListModal({
     if (checklist?.id) {
       await apiCall(`/experiments/launch-checklist/${checklist.id}`, {
         method: "PUT",
-        body: JSON.stringify({ tasks, hideDefaultTasks }),
+        body: JSON.stringify({ tasks, hiddenDefaultTasks }),
       });
     } else {
       await apiCall(`/experiments/launch-checklist`, {
@@ -60,7 +64,7 @@ export default function ExperimentCheckListModal({
         body: JSON.stringify({
           tasks,
           projectId: projectParams?.projectId,
-          hideDefaultTasks,
+          hiddenDefaultTasks,
         }),
       });
     }
@@ -73,7 +77,7 @@ export default function ExperimentCheckListModal({
 
       if (data.checklist) {
         setExperimentLaunchChecklist(data.checklist.tasks);
-        setHideDefaultTasks(!!data.checklist.hideDefaultTasks);
+        setHiddenDefaultTasks(data.checklist.hiddenDefaultTasks ?? []);
       }
     }
   }, [data]);
@@ -106,13 +110,34 @@ export default function ExperimentCheckListModal({
             <div className="d-flex align-items-center justify-content-between pb-1">
               <h4>Pre-Launch Requirements</h4>
             </div>
-            <Checkbox
-              mb="4"
-              label="Hide built-in checklist items"
-              description="Only require the tasks below. Bandit requirements and items for linked features, Visual Editor changes, and URL Redirects still apply."
-              value={hideDefaultTasks}
-              setValue={setHideDefaultTasks}
-            />
+            <Text as="p" weight="medium" mb="1">
+              Built-in items
+            </Text>
+            <Text as="p" size="2" color="gray" mb="2">
+              Uncheck any your experiments don&apos;t need. Bandits always
+              require all of them.
+            </Text>
+            <Flex direction="column" gap="2" mb="4">
+              {(
+                Object.keys(
+                  DEFAULT_CHECKLIST_TASK_LABELS,
+                ) as DefaultChecklistTaskKey[]
+              ).map((key) => (
+                <Checkbox
+                  key={key}
+                  label={DEFAULT_CHECKLIST_TASK_LABELS[key]}
+                  value={!hiddenDefaultTasks.includes(key)}
+                  setValue={(shown) =>
+                    setHiddenDefaultTasks((prev) =>
+                      shown ? prev.filter((k) => k !== key) : [...prev, key],
+                    )
+                  }
+                />
+              ))}
+            </Flex>
+            <Text as="p" weight="medium" mb="1">
+              Custom tasks
+            </Text>
             <Box mb="2">
               {!experimentLaunchChecklist?.length ? (
                 <Text as="span" className="text-muted font-italic">

@@ -5,7 +5,10 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import {
+  DefaultChecklistTaskKey,
+  ExperimentLaunchChecklistInterface,
+} from "shared/types/experimentLaunchChecklist";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
@@ -117,16 +120,16 @@ export function getChecklistItems({
   }
   const items: CheckListItem[] = [];
   // Bandits can't run without their defaults (a live linked change and a goal metric)
-  const hideDefaults = !isBandit && !!checklist?.hideDefaultTasks;
-  const pushDefault = (item: CheckListItem) => {
-    if (!hideDefaults) items.push(item);
+  const hidden = new Set(isBandit ? [] : (checklist?.hiddenDefaultTasks ?? []));
+  const pushDefault = (key: DefaultChecklistTaskKey, item: CheckListItem) => {
+    if (!hidden.has(key)) items.push(item);
   };
 
   if (!isBandit) {
     const hasDatasource = !!experiment.datasource;
     const hasAssignmentTable = !!experiment.exposureQueryId;
 
-    pushDefault({
+    pushDefault("datasource", {
       type: "auto",
       key: "datasource",
       required: true,
@@ -143,7 +146,7 @@ export function getChecklistItems({
       ),
     });
 
-    pushDefault({
+    pushDefault("exposureQuery", {
       type: "auto",
       key: "exposureQuery",
       required: true,
@@ -161,7 +164,7 @@ export function getChecklistItems({
     });
 
     if (hasDatasource && hasAssignmentTable) {
-      pushDefault({
+      pushDefault("goalMetric", {
         type: "auto",
         key: "goalMetric",
         required: true,
@@ -190,7 +193,7 @@ export function getChecklistItems({
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
       experiment.hasURLRedirects;
-    pushDefault({
+    pushDefault("linkedChanges", {
       display: (
         <>
           Add at least one{isBandit && " live"}{" "}
@@ -431,7 +434,7 @@ export function getChecklistItems({
 
   // Experiment has phases
   const hasPhases = experiment.phases.length > 0;
-  pushDefault({
+  pushDefault("targeting", {
     display: (
       <>
         {editTargeting ? (
@@ -455,7 +458,7 @@ export function getChecklistItems({
   });
 
   const verifiedConnections = connections.some((c) => c.connected);
-  pushDefault({
+  pushDefault("sdkConnection", {
     type: "auto",
     key: "has-connection",
     status: connections.length ? "complete" : "incomplete",

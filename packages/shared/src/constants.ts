@@ -1,5 +1,6 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
+import { DefaultChecklistTaskKey } from "shared/types/experimentLaunchChecklist";
 import {
   ApprovalFlowConfigurations,
   LearningStatus,
@@ -339,3 +340,17 @@ export const entityEvents = {
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
 
 export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;
+
+// Built-in pre-launch checklist items an org or project checklist can hide
+export const DEFAULT_CHECKLIST_TASK_LABELS: Record<
+  DefaultChecklistTaskKey,
+  string
+> = {
+  datasource: "Select a Data Source",
+  exposureQuery: "Select an experiment assignment table",
+  goalMetric: "Add at least one goal metric",
+  linkedChanges:
+    "Add a linked Feature Flag, Visual Editor change, or URL redirect",
+  targeting: "Configure variation assignment and targeting",
+  sdkConnection: "Add an SDK Connection",
+};

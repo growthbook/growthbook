@@ -1,3 +1,11 @@
+export type DefaultChecklistTaskKey =
+  | "datasource"
+  | "exposureQuery"
+  | "goalMetric"
+  | "linkedChanges"
+  | "targeting"
+  | "sdkConnection";
+
 export interface ChecklistTask {
   task: string;
   completionType: "manual" | "auto";
@@ -22,5 +30,5 @@ export interface ExperimentLaunchChecklistInterface {
   updatedByUserId: string;
   tasks: ChecklistTask[];
   projectId: string;
-  hideDefaultTasks?: boolean;
+  hiddenDefaultTasks?: DefaultChecklistTaskKey[];
 }

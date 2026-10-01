@@ -3,6 +3,7 @@ import uniqid from "uniqid";
 import { omit } from "lodash";
 import {
   ChecklistTask,
+  DefaultChecklistTaskKey,
   ExperimentLaunchChecklistInterface,
 } from "shared/types/experimentLaunchChecklist";
 import { ReqContext } from "back-end/types/request";
@@ -15,7 +16,7 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
   dateUpdated: Date,
   updatedByUserId: String,
   projectId: String, //TODO: This won't be used until we add support for project-level checklists
-  hideDefaultTasks: Boolean,
+  hiddenDefaultTasks: [String],
   tasks: [
     {
       task: String,
@@ -59,7 +60,7 @@ export async function createExperimentLaunchChecklist(
   createdByUserId: string,
   tasks: ChecklistTask[],
   projectId: string,
-  hideDefaultTasks: boolean,
+  hiddenDefaultTasks: DefaultChecklistTaskKey[],
 ): Promise<ExperimentLaunchChecklistInterface> {
   const doc: ExperimentLaunchChecklistDocument =
     await ExperimentLaunchChecklistModel.create({
@@ -71,7 +72,7 @@ export async function createExperimentLaunchChecklist(
       createdByUserId,
       tasks,
       projectId,
-      hideDefaultTasks,
+      hiddenDefaultTasks,
     });
 
   return toInterface(doc);
@@ -107,7 +108,7 @@ export async function updateExperimentLaunchChecklist(
   updatedByUserId: string,
   checklistId: string,
   tasks: ChecklistTask[],
-  hideDefaultTasks: boolean,
+  hiddenDefaultTasks: DefaultChecklistTaskKey[],
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null =
     await ExperimentLaunchChecklistModel.findOneAndUpdate(
@@ -119,7 +120,7 @@ export async function updateExperimentLaunchChecklist(
         dateUpdated: new Date(),
         updatedByUserId,
         tasks,
-        hideDefaultTasks,
+        hiddenDefaultTasks,
       },
     );
 

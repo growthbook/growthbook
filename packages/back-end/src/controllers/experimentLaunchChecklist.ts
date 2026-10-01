@@ -1,6 +1,10 @@
 import { Response } from "express";
 import { ExperimentInterface } from "shared/types/experiment";
-import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
+import { DEFAULT_CHECKLIST_TASK_LABELS } from "shared/constants";
+import {
+  ChecklistTask,
+  DefaultChecklistTaskKey,
+} from "shared/types/experimentLaunchChecklist";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -18,17 +22,23 @@ import {
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 
+function parseHiddenDefaultTasks(keys: unknown): DefaultChecklistTaskKey[] {
+  if (!Array.isArray(keys)) return [];
+  const known = Object.keys(DEFAULT_CHECKLIST_TASK_LABELS);
+  return keys.filter((k): k is DefaultChecklistTaskKey => known.includes(k));
+}
+
 export async function postExperimentLaunchChecklist(
   req: AuthRequest<{
     tasks: ChecklistTask[];
     projectId?: string;
-    hideDefaultTasks?: boolean;
+    hiddenDefaultTasks?: unknown;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const { tasks, projectId, hideDefaultTasks } = req.body;
+  const { tasks, projectId, hiddenDefaultTasks } = req.body;
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     context.throwPlanDoesNotAllowError(
@@ -73,7 +83,7 @@ export async function postExperimentLaunchChecklist(
     userId,
     tasks,
     projectId || "",
-    !!hideDefaultTasks,
+    parseHiddenDefaultTasks(hiddenDefaultTasks),
   );
 
   return res.status(200).json({
@@ -157,14 +167,14 @@ export async function getExperimentCheckList(
 
 export async function putExperimentLaunchChecklist(
   req: AuthRequest<
-    { tasks: ChecklistTask[]; hideDefaultTasks?: boolean },
+    { tasks: ChecklistTask[]; hiddenDefaultTasks?: unknown },
     { id: string }
   >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const { tasks, hideDefaultTasks } = req.body;
+  const { tasks, hiddenDefaultTasks } = req.body;
 
   const { id } = req.params;
 
@@ -200,7 +210,7 @@ export async function putExperimentLaunchChecklist(
     userId,
     id,
     tasks,
-    !!hideDefaultTasks,
+    parseHiddenDefaultTasks(hiddenDefaultTasks),
   );
 
   return res.status(200).json({
