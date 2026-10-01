@@ -8,11 +8,16 @@ import type {
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import type {
   ApiExperiment,
+  ApiVisualEditorCbExperimentStub,
   ContextualBanditInterface,
   ExperimentInterfaceExcludingHoldouts,
   PhaseVariation,
 } from "shared/validators";
-import { getVisibleVariations } from "shared/experiments";
+import {
+  canEditContextualBanditVisualChanges,
+  getVisibleVariations,
+} from "shared/experiments";
+import { getAffectedEnvsForExperiment } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -29,7 +34,7 @@ import { logger } from "back-end/src/util/logger";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { requireVisualChangeWrite } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
+import { BadRequestError } from "back-end/src/util/errors";
 
 export type ChangesetOwnerKind = "experiment" | "contextual-bandit";
 
@@ -43,24 +48,6 @@ type ChangesetPayloadEvent = "created" | "updated" | "deleted";
 type WriteReq = {
   context: ApiReqContext;
   audit: (data: AuditInterfaceInput) => Promise<void>;
-};
-
-type EditorExperiment = {
-  id: string;
-  trackingKey: string;
-  name: string;
-  status: string;
-  project: string;
-  hashAttribute: string;
-  hashVersion: 2;
-  type: "contextual-bandit";
-  variations: Array<{
-    variationId: string;
-    key: string;
-    name: string;
-    description: string;
-    status?: OwnerVariation["status"];
-  }>;
 };
 
 type PromptContext = {
@@ -84,9 +71,10 @@ export interface ChangesetOwner {
   editableVariations(): OwnerVariation[];
   isEditable(): boolean;
 
-  canUpdate(): boolean;
+  canUpdateVisualChange(): boolean;
   canUpdateOwner(): boolean;
   canCreateChangeset(): boolean;
+  assertCanCreateChangeset(): void;
   canManageVariations(): boolean;
   requireWrite(
     req: WriteReq,
@@ -104,14 +92,18 @@ export interface ChangesetOwner {
     name?: string;
     sourceVariationId?: string;
   }): Promise<{ id: string; name: string }>;
-  removeVariation(id: string): Promise<{ rollback?: () => Promise<void> }>;
+  removeVariation(id: string): Promise<RemoveVariationResult>;
   renameVariation(id: string, name: string): Promise<string>;
 
-  toEditorExperiment(): Promise<ApiExperiment | EditorExperiment | null>;
+  toEditorExperiment(): Promise<
+    ApiExperiment | ApiVisualEditorCbExperimentStub | null
+  >;
   promptContext(): PromptContext;
 }
 
 type Ctx = ReqContext | ApiReqContext;
+
+type RemoveVariationResult = { rollback?: () => Promise<void> };
 
 export class ExperimentChangesetOwner implements ChangesetOwner {
   readonly kind = "experiment" as const;
@@ -146,12 +138,13 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     return !this.archived && this.status === "draft";
   }
 
-  canUpdate(): boolean {
+  canUpdateVisualChange(): boolean {
     return this.context.permissions.canUpdateVisualChange(this.experiment);
   }
   canUpdateOwner(): boolean {
     return this.context.permissions.canUpdateExperiment(this.experiment, {});
   }
+  assertCanCreateChangeset(): void {}
   canCreateChangeset(): boolean {
     return (
       this.context.permissions.canUpdateExperiment(this.experiment, {}) &&
@@ -286,9 +279,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     return { id: newVariationId, name: newVariationName };
   }
 
-  async removeVariation(
-    variationId: string,
-  ): Promise<{ rollback: () => Promise<void> }> {
+  async removeVariation(variationId: string): Promise<RemoveVariationResult> {
     const experiment = this.experiment;
     const idx = experiment.variations.findIndex((v) => v.id === variationId);
     if (idx < 0) {
@@ -446,20 +437,29 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
     return getVisibleVariations(this.cb.variations);
   }
   isEditable(): boolean {
-    return !this.archived && this.status !== "stopped";
+    return canEditContextualBanditVisualChanges(this.cb);
   }
 
-  canUpdate(): boolean {
+  canUpdateVisualChange(): boolean {
     return this.context.permissions.canUpdateContextualBandit(this.cb, this.cb);
   }
   canUpdateOwner(): boolean {
-    return this.canUpdate();
+    return this.canUpdateVisualChange();
   }
   canCreateChangeset(): boolean {
-    return this.canUpdate();
+    return this.canUpdateVisualChange();
+  }
+  assertCanCreateChangeset(): void {
+    if (!canEditContextualBanditVisualChanges(this.cb)) {
+      throw new BadRequestError(
+        `Only draft or running contextual bandits can have visual changes added (this contextual bandit is ${
+          this.cb.archived ? "archived" : this.cb.status
+        }).`,
+      );
+    }
   }
   canManageVariations(): boolean {
-    return this.canUpdate();
+    return this.canUpdateVisualChange();
   }
   requireWrite(
     req: WriteReq,
@@ -469,7 +469,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
     }: { allowRunning: boolean; visualChangesetId: string },
   ): () => Promise<void> {
     const cb = this.cb;
-    if (cb.archived || cb.status === "stopped") {
+    if (!canEditContextualBanditVisualChanges(cb)) {
       req.context.throwBadRequestError(
         `Only draft or running contextual bandits can have their visual changes edited (this contextual bandit is ${
           cb.archived ? "archived" : cb.status
@@ -555,7 +555,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
     return { id: added.id, name: added.name };
   }
 
-  async removeVariation(variationId: string): Promise<{ rollback?: never }> {
+  async removeVariation(variationId: string): Promise<RemoveVariationResult> {
     const { updated } = await executeContextualBanditVariationChange(
       this.context,
       this.cb,
@@ -581,7 +581,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
     return trimmed;
   }
 
-  async toEditorExperiment(): Promise<EditorExperiment> {
+  async toEditorExperiment(): Promise<ApiVisualEditorCbExperimentStub> {
     return {
       id: this.cb.id,
       trackingKey: this.cb.trackingKey,
@@ -644,4 +644,60 @@ function renormalizeWeights(weights: number[]): number[] {
   const drift = Number((1 - base.reduce((a, b) => a + b, 0)).toFixed(4));
   base[0] = Number((base[0] + drift).toFixed(4));
   return base;
+}
+
+function requireDraftExperiment(
+  context: ApiReqContext,
+  experiment: { status: string; archived: boolean },
+  { allowRunning = false }: { allowRunning?: boolean } = {},
+): void {
+  if (allowRunning && !experiment.archived && experiment.status === "running") {
+    return;
+  }
+  if (experiment.archived || experiment.status !== "draft") {
+    context.throwBadRequestError(
+      `Only draft experiments can have their visual changes edited (this experiment is ${
+        experiment.archived ? "archived" : experiment.status
+      }). Set it back to draft in GrowthBook to make changes.`,
+    );
+  }
+}
+
+function requireVisualChangeWrite(
+  req: {
+    context: ApiReqContext;
+    audit: (data: AuditInterfaceInput) => Promise<void>;
+  },
+  experiment: ExperimentInterface,
+  {
+    allowRunning,
+    visualChangesetId,
+  }: { allowRunning: boolean; visualChangesetId: string },
+): () => Promise<void> {
+  requireDraftExperiment(req.context, experiment, { allowRunning });
+  if (experiment.status !== "running") return async () => {};
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment: { ...experiment, hasVisualChangesets: true },
+    orgEnvironments: getEnvironments(req.context.org),
+  });
+  if (!req.context.permissions.canRunExperiment(experiment, envs)) {
+    req.context.permissions.throwPermissionError();
+  }
+  return () =>
+    req
+      .audit({
+        event: "experiment.update",
+        entity: { object: "experiment", id: experiment.id },
+        details: auditDetailsUpdate(experiment, experiment, {
+          visualChangesetId,
+          liveVisualChangeEdit: true,
+        }),
+      })
+      .catch((err) =>
+        logger.error(
+          { err, experimentId: experiment.id, visualChangesetId },
+          "Failed to audit a live visual change edit",
+        ),
+      );
 }

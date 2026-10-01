@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { pickVisionModel } from "shared/ai";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
-import {
-  ownerNotFoundMessage,
-  resolveChangesetOwner,
-} from "back-end/src/services/changesetOwner";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import {
   parsePrompt,
   secondsUntilAICanBeUsedAgainForModel,
@@ -328,17 +324,11 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const changeset = await findVisualChangesetById(
+  const { changeset, owner } = await loadChangesetWithOwner(
+    context,
     visualChangesetId,
-    req.organization.id,
   );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const owner = await resolveChangesetOwner(context, changeset);
-  if (!owner)
-    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
-  if (!owner.canUpdate()) {
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
 

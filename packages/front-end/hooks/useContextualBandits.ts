@@ -1,13 +1,13 @@
 import {
   ApiContextualBanditInterface,
   listContextualBanditsEndpoint,
+  listContextualBanditVisualChangesetsEndpoint,
 } from "shared/validators";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
 import type { ContextualBanditResultsView } from "shared/experiments";
 import type { LinkedFeatureInfo } from "shared/types/experiment";
-import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { useAuth } from "@/services/auth";
 import { useRestApi } from "@/services/restApi";
 import useApi from "./useApi";
@@ -153,16 +153,11 @@ export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
   };
 }
 
-export type ContextualBanditVisualChangesetsResponse = {
-  visualChangesets: VisualChangesetInterface[];
-};
-
 export function useContextualBanditVisualChangesets(cbId: string | undefined) {
-  const { data, error, mutate } =
-    useApi<ContextualBanditVisualChangesetsResponse>(
-      cbId ? `/api/v1/contextual-bandits/${cbId}/visual-changesets` : "",
-      { shouldRun: () => !!cbId },
-    );
+  const { data, error, mutate } = useRestApi(
+    listContextualBanditVisualChangesetsEndpoint,
+    cbId ? { params: { id: cbId } } : null,
+  );
 
   return {
     loading: !!cbId && !error && !data,

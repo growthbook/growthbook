@@ -5,10 +5,10 @@ import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
 import {
   ApiContextualBanditInterface,
+  ApiVisualChangeset,
   getDroppedContextualAttributes,
   getEffectiveContextualAttributes,
 } from "shared/validators";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -108,7 +108,6 @@ export default function ContextualBanditDetailPage({
   setFeatureModal,
   canAddFeature = false,
   visualChangesets = [],
-  visualChangesetsMutate,
   setVisualChangesetModal,
   canAddVisualChangeset = false,
 }: {
@@ -127,8 +126,7 @@ export default function ContextualBanditDetailPage({
   linkedFeaturesMutate?: () => void;
   setFeatureModal?: (open: boolean) => void;
   canAddFeature?: boolean;
-  visualChangesets?: VisualChangesetInterface[];
-  visualChangesetsMutate?: () => void;
+  visualChangesets?: ApiVisualChangeset[];
   setVisualChangesetModal?: (open: boolean) => void;
   canAddVisualChangeset?: boolean;
 }) {
@@ -604,7 +602,6 @@ export default function ContextualBanditDetailPage({
               visualChangesets={visualChangesets}
               canEdit={canAddVisualChangeset}
               setVisualChangesetModal={setVisualChangesetModal}
-              mutate={visualChangesetsMutate}
             />
 
             <OverviewSection

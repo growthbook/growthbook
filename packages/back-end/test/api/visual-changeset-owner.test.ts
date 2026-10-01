@@ -445,6 +445,35 @@ describe("visual changeset owner adapter", () => {
     });
   });
 
+  describe("changeset creation on a stopped owner", () => {
+    const createChangeset = () =>
+      request(app)
+        .post("/api/v1/visual-editor/create-changeset")
+        .send({
+          visualChangesetId: CHANGESET_ID,
+          pageUrl: "https://example.com/checkout",
+          urlPatterns: [{ pattern: "https://example.com/checkout" }],
+        });
+
+    it("still creates a changeset on a stopped experiment", async () => {
+      OWNERS[0].seedOwner({ status: "stopped" });
+      await seedChangeset(OWNERS[0]);
+      const res = await createChangeset();
+      expect(res.status).toBe(200);
+    });
+
+    it("refuses to create a changeset on a stopped contextual bandit", async () => {
+      OWNERS[1].seedOwner({ status: "stopped" });
+      await seedChangeset(OWNERS[1]);
+      const res = await createChangeset();
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/stopped/);
+      expect(
+        await VisualChangesetModel.countDocuments({ contextualBandit: "cb_1" }),
+      ).toBe(1);
+    });
+  });
+
   describe("contextual bandit owner variations", () => {
     it("exposes each arm's status on the editor stub", async () => {
       OWNERS[1].seedOwner({

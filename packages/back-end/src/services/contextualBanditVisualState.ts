@@ -1,8 +1,8 @@
 import { ContextualBanditInterface } from "shared/validators";
+import { getVisibleVariations } from "shared/experiments";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { activatePendingContextualBanditVariations } from "back-end/src/enterprise/services/contextualBandits";
-import { ContextualBanditChangesetOwner } from "back-end/src/services/changesetOwner";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import {
   findVisualChangesetsByContextualBandit,
@@ -15,19 +15,19 @@ export async function onContextualBanditVisualStateChanged(
 ): Promise<ContextualBanditInterface> {
   let current = cb;
   if (current.hasVisualChangesets) {
-    const owner = new ContextualBanditChangesetOwner(context, current);
+    const variations = getVisibleVariations(current.variations);
     const changesets = await findVisualChangesetsByContextualBandit(
       current.id,
       context.org.id,
     );
     for (const changeset of changesets) {
       await syncVisualChangesWithVariations({
-        owner,
+        owner: null,
+        variations,
         context,
         visualChangeset: changeset,
       });
     }
-    current = owner.cb;
     ({ updated: current } = await activatePendingContextualBanditVariations(
       context,
       current,

@@ -5,10 +5,7 @@ import {
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import {
-  ownerNotFoundMessage,
-  resolveChangesetOwner,
-} from "back-end/src/services/changesetOwner";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { requireUserAuth } from "./requireUserAuth";
 
 const bodySchema = z
@@ -44,16 +41,10 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const changeset = await findVisualChangesetById(
+  const { changeset, owner } = await loadChangesetWithOwner(
+    context,
     visualChangesetId,
-    req.organization.id,
   );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const owner = await resolveChangesetOwner(context, changeset);
-  if (!owner)
-    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
 
   // Mutates the owner AND the changeset — both gates required.
   if (!owner.canManageVariations()) {
@@ -79,14 +70,7 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     );
   }
 
-  let added: { id: string; name: string };
-  try {
-    added = await owner.addVariation({ name, sourceVariationId });
-  } catch (e) {
-    return context.throwBadRequestError(
-      e instanceof Error ? e.message : String(e),
-    );
-  }
+  const added = await owner.addVariation({ name, sourceVariationId });
 
   const current =
     (await findVisualChangesetById(visualChangesetId, req.organization.id)) ??

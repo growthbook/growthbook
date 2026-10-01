@@ -2,7 +2,10 @@ import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { banditStageType, screenshot, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
-import { apiVisualChangesetValidator } from "./visual-changesets";
+import {
+  apiVisualChangesetValidator,
+  postVisualChangesetBody,
+} from "./visual-changesets";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import {
@@ -444,30 +447,7 @@ export const apiContextualBanditPostVisualChangesetsValidator = {
   paramsSchema: z.strictObject({
     id: z.string().describe("The Contextual Bandit id"),
   }),
-  bodySchema: z
-    .object({
-      editorUrl: z
-        .string()
-        .describe(
-          "URL of the page opened in the visual editor when creating this changeset",
-        ),
-      urlPatterns: z.array(
-        z
-          .object({
-            include: z.boolean().optional(),
-            type: z.enum(["simple", "regex"]),
-            pattern: z.string(),
-          })
-          .passthrough(),
-      ),
-      allowRunningExperiment: z
-        .boolean()
-        .describe(
-          "Also accept the write when the contextual bandit is running. Off by default; when set, the changeset reaches live traffic immediately and the caller needs the runExperiments permission on the org's environments; the write is audited.",
-        )
-        .optional(),
-    })
-    .passthrough(),
+  bodySchema: postVisualChangesetBody,
   querySchema: z.never(),
 };
 
@@ -486,6 +466,14 @@ export const apiContextualBanditListVisualChangesetsValidator = {
 export const apiContextualBanditListVisualChangesetsReturn = z.object({
   visualChangesets: z.array(apiVisualChangesetValidator),
 });
+
+export const listContextualBanditVisualChangesetsEndpoint = {
+  ...apiContextualBanditListVisualChangesetsValidator,
+  responseSchema: apiContextualBanditListVisualChangesetsReturn,
+  operationId: "listContextualBanditVisualChangesets",
+  method: "get" as const,
+  path: "/contextual-bandits/:id/visual-changesets",
+};
 
 const contextualBanditIdAndSnapshotParam = z
   .object({

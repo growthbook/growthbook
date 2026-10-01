@@ -1,15 +1,11 @@
 import { z } from "zod";
 import {
   createVisualChangeset,
-  findVisualChangesetById,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
-import {
-  ownerNotFoundMessage,
-  resolveChangesetOwner,
-} from "back-end/src/services/changesetOwner";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { requireUserAuth } from "./requireUserAuth";
 
 // Creates an additional visual changeset on an existing experiment so a
@@ -55,27 +51,14 @@ export const postCreateChangeset = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const sourceChangeset = await findVisualChangesetById(
-    visualChangesetId,
-    req.organization.id,
-  );
-  if (!sourceChangeset) {
-    return context.throwNotFoundError("Visual changeset not found");
-  }
-
-  const owner = await resolveChangesetOwner(context, sourceChangeset);
-  if (!owner)
-    return context.throwNotFoundError(ownerNotFoundMessage(sourceChangeset));
+  const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
 
   // Gate on both the owner update (we flip hasVisualChangesets) and
   // the visual-change create.
   if (!owner.canCreateChangeset()) {
     context.permissions.throwPermissionError();
   }
-  const auditLiveEdit = owner.requireWrite(req, {
-    allowRunning: true,
-    visualChangesetId,
-  });
+  owner.assertCanCreateChangeset();
 
   // Omit `visualChanges` so createVisualChangeset auto-generates one empty
   // entry per current variation.
@@ -85,7 +68,6 @@ export const postCreateChangeset = createApiRequestHandler(validation)(async (
     urlPatterns,
     editorUrl: pageUrl,
   });
-  await auditLiveEdit();
 
   logger.info(
     {

@@ -142,8 +142,11 @@ import {
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
+  buildCbVisualAutoExperiment,
   CB_PAYLOAD_WARN_BYTES,
   CB_PAYLOAD_WARN_FRACTION,
+  CbVisualExperiment,
+  filterCbVisualExperimentsByProject,
   measureContextualBanditPayload,
   recordContextualBanditPayloadMetrics,
 } from "back-end/src/services/contextualBanditPayload";
@@ -438,21 +441,6 @@ export type URLRedirectExperiment = {
   experiment: ExperimentInterface;
   urlRedirect: URLRedirectInterface;
 };
-export type CbVisualExperiment = {
-  type: "cb-visual";
-  contextualBandit: ContextualBanditInterface;
-  visualChangeset: VisualChangesetInterface;
-};
-
-function filterCbVisualExperimentsByProject(
-  cbVisualExperiments: CbVisualExperiment[],
-  projectList: string[],
-): CbVisualExperiment[] {
-  if (!projectList.length) return cbVisualExperiments;
-  return cbVisualExperiments.filter((e) =>
-    projectList.includes(e.contextualBandit.project || ""),
-  );
-}
 
 export function generateAutoExperimentsPayload({
   visualExperiments,
@@ -761,46 +749,13 @@ function generateCbVisualExperimentsPayload({
       savedGroups: cb.savedGroups,
     });
 
-    const cbVariations = getActiveVariations(cb.variations);
-    if (cbVariations.length === 0) return null;
-
-    const variations = cbVariations.map((v) => {
-      const match = visualChangeset.visualChanges.find(
-        (vc) => vc.variation === v.id,
-      );
-      return {
-        css: match?.css || "",
-        js: match?.js || "",
-        domMutations: match?.domMutations || [],
-      };
-    }) as AutoExperiment["variations"];
-
-    const weights = cb.variationWeights
-      ? pairedWeightsToPositional(cb.variationWeights, cbVariations)
-      : undefined;
-
-    const exp: AutoExperimentWithMetadata = {
-      key: cb.trackingKey,
+    const exp = buildCbVisualAutoExperiment({
+      cbVisualExperiment: data,
       changeId: sha256(`${cb.trackingKey}_cb-visual_${visualChangeset.id}`, ""),
-      status: cb.status,
-      variations,
-      hashVersion: 2,
-      hashAttribute: cb.hashAttribute,
-      disableStickyBucketing: true,
-      urlPatterns: visualChangeset.urlPatterns,
-      weights,
-      meta: cbVariations.map((v) =>
-        includeExperimentNames === true
-          ? { key: v.key, name: v.name }
-          : { key: v.key },
-      ),
-      seed: cb.seed,
-      ...(includeExperimentNames === true ? { name: cb.name } : {}),
-      phase: "0",
       condition,
-      coverage: cb.coverage,
-      contextualBanditRef: cb.id,
-    };
+      includeExperimentNames,
+    });
+    if (!exp) return null;
 
     if (parsedPrerequisites.length) {
       exp.parentConditions = parsedPrerequisites;
@@ -4196,7 +4151,7 @@ export const reduceExperimentsWithPrerequisites = <
   return newExperiments;
 };
 
-export const getInlinePrerequisitesReductionInfo = (
+const getInlinePrerequisitesReductionInfo = (
   prerequisites: FeaturePrerequisite[],
   featuresMap: Map<string, FeatureInterface>,
   environment: string,

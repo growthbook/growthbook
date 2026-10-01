@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import React, { ReactElement, useState } from "react";
+import { canEditContextualBanditVisualChanges } from "shared/experiments";
 import {
   useContextualBandit,
   useContextualBanditLinkedFeatures,
@@ -25,7 +26,7 @@ import ContextualBanditAnalysisMetricsModal from "@/components/ContextualBandit/
 import ContextualBanditTrafficTargetingModal from "@/components/ContextualBandit/ContextualBanditTrafficTargetingModal";
 import ContextualBanditVariationsModal from "@/components/ContextualBandit/ContextualBanditVariationsModal";
 import LinkFeatureToContextualBanditModal from "@/components/Features/FeatureModal/LinkFeatureToContextualBanditModal";
-import ContextualBanditVisualChangesetModal from "@/components/ContextualBandit/ContextualBanditVisualChangesetModal";
+import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 
 const ContextualBanditPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -97,6 +98,8 @@ const ContextualBanditPage = (): ReactElement => {
   const canEdit =
     permissionsUtil.canViewContextualBanditModal(cb.project) && !cb.archived;
   const canEditVariations = canEdit && cb.status !== "stopped";
+  const canAddVisualChanges =
+    canEdit && canEditContextualBanditVisualChanges(cb);
   const canRun =
     !cb.archived &&
     permissionsUtil.canRunContextualBandit({ project: cb.project }, envs);
@@ -138,10 +141,11 @@ const ContextualBanditPage = (): ReactElement => {
             canEdit ? (open) => setFeatureModalOpen(open) : undefined
           }
           visualChangesets={visualChangesets}
-          visualChangesetsMutate={mutateVisualChangesets}
-          canAddVisualChangeset={canEdit}
+          canAddVisualChangeset={canAddVisualChanges}
           setVisualChangesetModal={
-            canEdit ? (open) => setVisualChangesetModalOpen(open) : undefined
+            canAddVisualChanges
+              ? (open) => setVisualChangesetModalOpen(open)
+              : undefined
           }
         />
       </div>
@@ -240,8 +244,9 @@ const ContextualBanditPage = (): ReactElement => {
         />
       )}
       {visualChangesetModalOpen && (
-        <ContextualBanditVisualChangesetModal
-          cb={cb}
+        <VisualChangesetModal
+          mode="add"
+          createUrl={`/api/v1/contextual-bandits/${cb.id}/visual-changesets`}
           mutate={() => {
             mutate();
             mutateVisualChangesets();

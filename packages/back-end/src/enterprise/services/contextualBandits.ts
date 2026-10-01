@@ -31,6 +31,7 @@ import {
   generateVariationId,
   reconcileMergeBaselines,
   validateFeatureValue,
+  visualChangeHasContent,
 } from "shared/util";
 import {
   assertAtLeastTwoVariations,
@@ -1058,7 +1059,7 @@ async function filterArmsWithVisualContent(
   const withContent = new Set<string>();
   for (const changeset of changesets) {
     for (const vc of changeset.visualChanges) {
-      if (!!vc.css || !!vc.js || !!vc.domMutations.length) {
+      if (visualChangeHasContent(vc)) {
         withContent.add(vc.variation);
       }
     }

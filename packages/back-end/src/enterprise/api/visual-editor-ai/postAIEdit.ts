@@ -1,14 +1,8 @@
 import { z } from "zod";
 import type { ModelMessage } from "ai";
 import { pickVisionModel } from "shared/ai";
-import {
-  findVisualChangesetById,
-  updateVisualChange,
-} from "back-end/src/models/VisualChangesetModel";
-import {
-  ownerNotFoundMessage,
-  resolveChangesetOwner,
-} from "back-end/src/services/changesetOwner";
+import { updateVisualChange } from "back-end/src/models/VisualChangesetModel";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import {
   DeferredToolCallsError,
   parsePrompt,
@@ -798,17 +792,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     );
   }
 
-  const changeset = await findVisualChangesetById(
+  const { changeset, owner } = await loadChangesetWithOwner(
+    context,
     visualChangesetId,
-    req.organization.id,
   );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const owner = await resolveChangesetOwner(context, changeset);
-  if (!owner)
-    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
-  if (!owner.canUpdate()) {
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
   // Before the generation, so a doomed save doesn't burn AI quota first.
@@ -1290,6 +1278,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       const change = currentChange;
       await updateVisualChange({
         context,
+        owner,
         changesetId: visualChangesetId,
         visualChangeId: change.id,
         payload: {

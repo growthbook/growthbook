@@ -14,29 +14,22 @@ import Callout from "@/ui/Callout";
 
 const defaultType = "simple";
 
-const VisualChangesetModal: FC<{
-  mode: "add" | "edit";
-  experiment?: ExperimentInterfaceStringDates;
-  visualChangeset?: VisualChangesetInterface;
-  createUrl?: string;
-  allowRunningExperiment?: boolean;
-  mutate: () => void;
-  close: () => void;
-  onCreate?: (vc: VisualChangesetInterface) => void;
-  cta?: string;
-  source?: string;
-}> = ({
-  mode,
-  experiment,
-  visualChangeset,
-  createUrl,
-  allowRunningExperiment,
-  mutate,
-  close,
-  onCreate,
-  cta,
-  source,
-}) => {
+type CreateTarget =
+  | { experiment: ExperimentInterfaceStringDates }
+  | { createUrl: string };
+
+const VisualChangesetModal: FC<
+  CreateTarget & {
+    mode: "add" | "edit";
+    visualChangeset?: VisualChangesetInterface;
+    mutate: () => void;
+    close: () => void;
+    onCreate?: (vc: VisualChangesetInterface) => void;
+    cta?: string;
+    source?: string;
+  }
+> = (props) => {
+  const { mode, visualChangeset, mutate, close, onCreate, cta, source } = props;
   const { apiCall } = useAuth();
 
   let forceAdvancedMode = false;
@@ -70,14 +63,9 @@ const VisualChangesetModal: FC<{
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const payload: {
-      editorUrl: string;
-      urlPatterns: typeof value.urlPatterns;
-      allowRunningExperiment?: boolean;
-    } = {
+    const payload = {
       editorUrl: value.editorUrl,
       urlPatterns: value.urlPatterns,
-      ...(allowRunningExperiment ? { allowRunningExperiment: true } : {}),
     };
     if (!showAdvanced) {
       payload.urlPatterns = [
@@ -86,7 +74,9 @@ const VisualChangesetModal: FC<{
     }
     if (mode === "add") {
       const createPath =
-        createUrl ?? `/experiments/${experiment?.id}/visual-changeset`;
+        "createUrl" in props
+          ? props.createUrl
+          : `/experiments/${props.experiment.id}/visual-changeset`;
       const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
         createPath,
         {

@@ -4,7 +4,7 @@ import pick from "lodash/pick";
 import pickBy from "lodash/pickBy";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { hasVisualChanges } from "shared/util";
+import { hasVisualChanges, isDefined } from "shared/util";
 import {
   VisualChange,
   VisualChangesetInterface,
@@ -15,12 +15,11 @@ import {
   ContextualBanditInterface,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
-import { CbVisualExperiment } from "back-end/src/services/features";
+import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
-import {
+import type {
   ChangesetOwner,
   OwnerVariation,
-  resolveChangesetOwner,
 } from "back-end/src/services/changesetOwner";
 import { ApiReqContext } from "back-end/types/api";
 
@@ -229,7 +228,7 @@ export async function getAllCbVisualExperiments(
   if (!changesets.length) return [];
 
   const cbIds = Array.from(
-    new Set(changesets.map((c) => c.contextualBandit).filter(isDefinedString)),
+    new Set(changesets.map((c) => c.contextualBandit).filter(isDefined)),
   );
 
   const cbs = await Promise.all(
@@ -251,14 +250,11 @@ export async function getAllCbVisualExperiments(
   return out;
 }
 
-function isDefinedString(v: string | undefined | null): v is string {
-  return typeof v === "string" && v.length > 0;
-}
-
 export async function createVisualChange(
   context: ReqContext | ApiReqContext,
   id: string,
   visualChange: VisualChange,
+  owner: ChangesetOwner | null,
 ): Promise<{ nModified: number }> {
   const organization = context.org.id;
   const visualChangeset = await findVisualChangesetById(id, organization);
@@ -279,9 +275,9 @@ export async function createVisualChange(
   );
 
   await onVisualChangesetUpdate({
-    context,
     oldVisualChangeset: visualChangeset,
     newVisualChangeset: { ...visualChangeset, visualChanges },
+    owner,
   });
 
   return { nModified: res.modifiedCount };
@@ -289,11 +285,13 @@ export async function createVisualChange(
 
 export async function updateVisualChange({
   context,
+  owner,
   changesetId,
   visualChangeId,
   payload,
 }: {
   context: ReqContext | ApiReqContext;
+  owner: ChangesetOwner | null;
   changesetId: string;
   visualChangeId: string;
   payload: Partial<VisualChange>;
@@ -332,9 +330,9 @@ export async function updateVisualChange({
   );
 
   await onVisualChangesetUpdate({
-    context,
     oldVisualChangeset: visualChangeset,
     newVisualChangeset: { ...visualChangeset, visualChanges },
+    owner,
   });
 
   return { nModified: res.modifiedCount };
@@ -486,7 +484,7 @@ export const updateVisualChangeset = async ({
   await onVisualChangesetUpdate({
     oldVisualChangeset: visualChangeset,
     newVisualChangeset: updatedVisualChangeset,
-    context,
+    owner,
     bypassWebhooks,
   });
 
@@ -505,14 +503,14 @@ const onVisualChangesetCreate = async ({
 };
 
 const onVisualChangesetUpdate = async ({
-  context,
   oldVisualChangeset,
   newVisualChangeset,
+  owner,
   bypassWebhooks = false,
 }: {
-  context: ReqContext | ApiReqContext;
   oldVisualChangeset: VisualChangesetInterface;
   newVisualChangeset: VisualChangesetInterface;
+  owner: ChangesetOwner | null;
   bypassWebhooks?: boolean;
 }) => {
   if (bypassWebhooks) return;
@@ -520,22 +518,20 @@ const onVisualChangesetUpdate = async ({
   if (!visualChangesetsHaveChanges({ oldVisualChangeset, newVisualChangeset }))
     return;
 
-  const owner = await resolveChangesetOwner(context, newVisualChangeset);
   if (!owner) return;
   await owner.refreshPayloads("updated", newVisualChangeset.id);
 };
 
 const onVisualChangesetDelete = async ({
-  context,
   visualChangeset,
+  owner,
 }: {
-  context: ReqContext | ApiReqContext;
   visualChangeset: VisualChangesetInterface;
+  owner: ChangesetOwner | null;
 }) => {
   // if there were no visual changes before deleting, return early
   if (!hasVisualChanges(visualChangeset.visualChanges)) return;
 
-  const owner = await resolveChangesetOwner(context, visualChangeset);
   if (!owner) return;
   await owner.refreshPayloads("deleted", visualChangeset.id);
 };
@@ -544,14 +540,15 @@ const onVisualChangesetDelete = async ({
 // visual changes to be in sync
 export const syncVisualChangesWithVariations = async ({
   owner,
+  variations,
   context,
   visualChangeset,
 }: {
-  owner: ChangesetOwner;
+  owner: ChangesetOwner | null;
+  variations: Pick<OwnerVariation, "id">[];
   context: ReqContext | ApiReqContext;
   visualChangeset: VisualChangesetInterface;
 }) => {
-  const variations = owner.editableVariations();
   const { visualChanges } = visualChangeset;
   const visualChangesByVariationId = keyBy(visualChanges, "variation");
   const newVisualChanges = variations.map((variation) => {
@@ -597,8 +594,8 @@ export const deleteVisualChangesetById = async ({
   }
 
   await onVisualChangesetDelete({
-    context,
     visualChangeset,
+    owner,
   });
 };
 

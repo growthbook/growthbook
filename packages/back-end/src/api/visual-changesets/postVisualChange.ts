@@ -28,7 +28,7 @@ export const postVisualChange = createApiRequestHandler(
   if (!owner) {
     throw new Error(ownerNotFoundMessage(visualChangeset));
   }
-  if (!owner.canUpdate()) {
+  if (!owner.canUpdateVisualChange()) {
     req.context.permissions.throwPermissionError();
   }
   const auditLiveEdit = owner.requireWrite(req, {
@@ -38,13 +38,18 @@ export const postVisualChange = createApiRequestHandler(
 
   const visualChangeId = body.id ?? uniqid("vc_");
 
-  const res = await createVisualChange(req.context, req.params.id, {
-    ...body,
-    id: visualChangeId,
-    description: body.description ?? "",
-    css: body.css ?? "",
-    domMutations: body.domMutations ?? [],
-  });
+  const res = await createVisualChange(
+    req.context,
+    req.params.id,
+    {
+      ...body,
+      id: visualChangeId,
+      description: body.description ?? "",
+      css: body.css ?? "",
+      domMutations: body.domMutations ?? [],
+    },
+    owner,
+  );
   await auditLiveEdit();
 
   return { ...res, visualChangeId };

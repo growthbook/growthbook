@@ -1202,6 +1202,7 @@ export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
         syncVisualChangesWithVariations({
           visualChangeset: vc,
           owner: new ExperimentChangesetOwner(context, updated),
+          variations: updated.variations,
           context,
         }),
       ),

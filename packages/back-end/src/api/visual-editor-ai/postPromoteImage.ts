@@ -1,9 +1,5 @@
 import { z } from "zod";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
-import {
-  ownerNotFoundMessage,
-  resolveChangesetOwner,
-} from "back-end/src/services/changesetOwner";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { promoteFile } from "back-end/src/services/files";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { requireUserAuth } from "./requireUserAuth";
@@ -61,14 +57,8 @@ export const postPromoteImage = createApiRequestHandler(validation)(async (
     throw new Error("filePath must not contain parent-directory segments");
   }
 
-  const changeset = await findVisualChangesetById(visualChangesetId, org.id);
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const owner = await resolveChangesetOwner(context, changeset);
-  if (!owner)
-    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
-  if (!owner.canUpdate()) {
+  const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
 

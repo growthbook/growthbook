@@ -1,10 +1,6 @@
 import { z } from "zod";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import {
-  ownerNotFoundMessage,
-  resolveChangesetOwner,
-} from "back-end/src/services/changesetOwner";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { requireUserAuth } from "./requireUserAuth";
 
 // Renames only the display `name` — tracking key is intentionally left
@@ -37,17 +33,7 @@ export const postRenameExperiment = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const changeset = await findVisualChangesetById(
-    visualChangesetId,
-    req.organization.id,
-  );
-  if (!changeset) {
-    return context.throwNotFoundError("Visual changeset not found");
-  }
-
-  const owner = await resolveChangesetOwner(context, changeset);
-  if (!owner)
-    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
+  const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
 
   // Rename lives on the owner, not the changeset, so gate on the
   // owner's update permission (not canUpdateVisualChange).

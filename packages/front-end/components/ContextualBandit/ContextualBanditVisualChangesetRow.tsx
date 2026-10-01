@@ -1,5 +1,9 @@
-import { ApiContextualBanditInterface } from "shared/validators";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import {
+  ApiContextualBanditInterface,
+  ApiVisualChangeset,
+} from "shared/validators";
+import { visualChangeHasContent } from "shared/util";
+import { canEditContextualBanditVisualChanges } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import Avatar from "@/ui/Avatar";
 import Button from "@/ui/Button";
@@ -13,20 +17,16 @@ export default function ContextualBanditVisualChangesetRow({
   visualChangeset,
 }: {
   cb: ApiContextualBanditInterface;
-  visualChangeset: VisualChangesetInterface;
-  mutate?: () => void;
+  visualChangeset: ApiVisualChangeset;
 }) {
   const { component: Icon, radixColor } = ICON_PROPERTIES["visual-editor"];
 
   const changesCount = visualChangeset.visualChanges.filter(
-    (vc) =>
-      (vc.css && vc.css.trim().length > 0) ||
-      (vc.js && vc.js.trim().length > 0) ||
-      (vc.domMutations && vc.domMutations.length > 0),
+    visualChangeHasContent,
   ).length;
 
-  const canLaunchEditor =
-    !cb.archived && cb.status !== "stopped";
+  const changesetId = visualChangeset.id;
+  const canLaunchEditor = canEditContextualBanditVisualChanges(cb);
 
   const primaryUrl =
     visualChangeset.urlPatterns.find((p) => p.include)?.pattern ||
@@ -50,10 +50,13 @@ export default function ContextualBanditVisualChangesetRow({
               : "no changes yet"}
           </Text>
         </Flex>
-        {canLaunchEditor && (
+        {canLaunchEditor && changesetId && (
           <OpenVisualEditorLink
             useRadix={false}
-            visualChangeset={visualChangeset}
+            visualChangeset={{
+              id: changesetId,
+              editorUrl: visualChangeset.editorUrl,
+            }}
             useLink={true}
             button={<Button variant="ghost">Launch Visual Editor</Button>}
           />

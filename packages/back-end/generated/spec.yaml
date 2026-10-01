@@ -48289,6 +48289,9 @@ paths:
                     this changeset
                   type: string
                 urlPatterns:
+                  description: >-
+                    URL patterns that determine which pages this visual
+                    changeset applies to
                   type: array
                   items:
                     type: object

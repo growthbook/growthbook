@@ -1,10 +1,6 @@
 import { z } from "zod";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import {
-  ownerNotFoundMessage,
-  resolveChangesetOwner,
-} from "back-end/src/services/changesetOwner";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { requireUserAuth } from "./requireUserAuth";
 
 const bodySchema = z
@@ -35,16 +31,7 @@ export const postRenameVariant = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const changeset = await findVisualChangesetById(
-    visualChangesetId,
-    req.organization.id,
-  );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const owner = await resolveChangesetOwner(context, changeset);
-  if (!owner)
-    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
+  const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
 
   if (!owner.canUpdateOwner()) {
     context.permissions.throwPermissionError();
@@ -54,14 +41,7 @@ export const postRenameVariant = createApiRequestHandler(validation)(async (
     visualChangesetId,
   });
 
-  let renamed: string;
-  try {
-    renamed = await owner.renameVariation(variationId, name);
-  } catch (e) {
-    return context.throwBadRequestError(
-      e instanceof Error ? e.message : String(e),
-    );
-  }
+  const renamed = await owner.renameVariation(variationId, name);
   await auditLiveEdit();
 
   return { variationId, name: renamed };

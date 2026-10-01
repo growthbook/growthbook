@@ -1,5 +1,7 @@
-import { ApiContextualBanditInterface } from "shared/validators";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import {
+  ApiContextualBanditInterface,
+  ApiVisualChangeset,
+} from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -12,13 +14,11 @@ export default function ContextualBanditVisualChangesets({
   visualChangesets,
   canEdit,
   setVisualChangesetModal,
-  mutate,
 }: {
   cb: ApiContextualBanditInterface;
-  visualChangesets: VisualChangesetInterface[];
+  visualChangesets: ApiVisualChangeset[];
   canEdit?: boolean;
   setVisualChangesetModal?: (open: boolean) => void;
-  mutate?: () => void;
 }) {
   return (
     <Frame>
@@ -27,10 +27,7 @@ export default function ContextualBanditVisualChangesets({
           Visual Changes
         </Heading>
         {canEdit && setVisualChangesetModal ? (
-          <Button
-            variant="ghost"
-            onClick={() => setVisualChangesetModal(true)}
-          >
+          <Button variant="ghost" onClick={() => setVisualChangesetModal(true)}>
             Add Visual Change
           </Button>
         ) : null}
@@ -53,7 +50,6 @@ export default function ContextualBanditVisualChangesets({
             key={vc.id}
             cb={cb}
             visualChangeset={vc}
-            mutate={mutate}
           />
         ))
       )}

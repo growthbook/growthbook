@@ -253,11 +253,7 @@ const BaseClass = MakeModelClass({
           if (!owner.canCreateChangeset()) {
             req.context.permissions.throwPermissionError();
           }
-          const auditLiveEdit = owner.requireWrite(req, {
-            allowRunning: !!req.body.allowRunningExperiment,
-            visualChangesetId: "",
-          });
-
+          owner.assertCanCreateChangeset();
           const urlPatterns: VisualChangesetURLPattern[] =
             req.body.urlPatterns.map((p) => ({
               type: p.type,
@@ -271,7 +267,6 @@ const BaseClass = MakeModelClass({
             editorUrl: req.body.editorUrl,
             context: req.context,
           });
-          await auditLiveEdit();
 
           return {
             visualChangeset: toVisualChangesetApiInterface(visualChangeset),

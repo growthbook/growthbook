@@ -40,7 +40,7 @@ export const putVisualChangeset = createApiRequestHandler(
   if (!owner) {
     throw new Error(ownerNotFoundMessage(visualChangeset));
   }
-  if (!owner.canUpdate()) {
+  if (!owner.canUpdateVisualChange()) {
     req.context.permissions.throwPermissionError();
   }
   // Re-checked on every save so a stale editor can't clobber a test started since it loaded.

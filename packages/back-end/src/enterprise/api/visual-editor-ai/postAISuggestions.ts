@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import {
   parsePrompt,
@@ -9,10 +8,7 @@ import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
-import {
-  ownerNotFoundMessage,
-  resolveChangesetOwner,
-} from "back-end/src/services/changesetOwner";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 
 const pageHintsSchema = z.object({
   url: z.string().optional(),
@@ -185,17 +181,8 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const changeset = await findVisualChangesetById(
-    visualChangesetId,
-    req.organization.id,
-  );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const owner = await resolveChangesetOwner(context, changeset);
-  if (!owner)
-    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
-  if (!owner.canUpdate()) {
+  const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
   const currentExperiment = owner.promptContext();
