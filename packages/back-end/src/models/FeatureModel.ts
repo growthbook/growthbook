@@ -21,6 +21,8 @@ import {
   publishRampDetaches,
   rampTargetsDetachedBy,
   toRampAttachments,
+  toMonitoringSelection,
+  withKeptIdentifierType,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -34,6 +36,7 @@ import {
   RampStartAction,
   RampStepAction,
   resolveStartApproval,
+  RampMonitoringConfig,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -196,6 +199,7 @@ import {
   hasPublishLockingScheduledSibling,
   markRevisionAsPublished,
   computeRevisionPublishChanges,
+  liveRevisionBeforePublish,
   restoreFeatureRevisionAfterFailedBulkPublish,
   updateRevision,
   createRevision,
@@ -252,6 +256,19 @@ featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
+
+export function withKeptMonitoringIdentifier(
+  previous: RampMonitoringConfig | null | undefined,
+  next: RampMonitoringConfig,
+): RampMonitoringConfig {
+  const { identifierType } = withKeptIdentifierType(
+    previous ? toMonitoringSelection(previous) : null,
+    toMonitoringSelection(next),
+  );
+  return identifierType
+    ? { ...next, exposureQueryIdentifierType: identifierType }
+    : next;
+}
 
 export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   "Feature",
@@ -2096,6 +2113,42 @@ export function computeRevisionMergeChanges(
   return { changes, hasChanges, removeHoldout };
 }
 
+// removeProjectFromFeatures only scrubs live features, so a revision staged
+// before a project deletion can still carry the dead id. Dropped from the merge
+// before anything consumes it, so the document and the record agree. Rules
+// that lose nothing are returned as is, so a repeat scrub is an identity.
+export async function scrubDeadProjectScopes(
+  context: ReqContext | ApiReqContext,
+  result: MergeResultChanges,
+): Promise<MergeResultChanges> {
+  const scopedRules = (result.rules ?? []).some((r) =>
+    Array.isArray((r as { projects?: string[] }).projects),
+  );
+  const targeting = result.metadata?.targetingProjects;
+  if (!scopedRules && !targeting) return result;
+  const valid = new Set(await context.getAllProjectIds());
+  const keep = (ids: string[]) => {
+    const kept = ids.filter((p) => valid.has(p));
+    return kept.length === ids.length ? ids : kept;
+  };
+  return {
+    ...result,
+    ...(scopedRules
+      ? {
+          rules: result.rules?.map((r) => {
+            const projects = (r as { projects?: string[] }).projects;
+            if (!Array.isArray(projects)) return r;
+            const kept = keep(projects);
+            return kept === projects ? r : { ...r, projects: kept };
+          }),
+        }
+      : {}),
+    ...(targeting
+      ? { metadata: { ...result.metadata, targetingProjects: keep(targeting) } }
+      : {}),
+  };
+}
+
 // Apply a revision merge result to the feature document.
 export async function applyRevisionChanges(
   context: ReqContext | ApiReqContext,
@@ -2115,31 +2168,8 @@ export async function applyRevisionChanges(
     context,
     feature,
     revision,
-    result,
+    await scrubDeadProjectScopes(context, result),
   );
-
-  // removeProjectFromFeatures only scrubs live features, so a revision staged
-  // before a project deletion can still carry the dead id — drop it on publish
-  // rather than restoring it into the live feature.
-  const rulesHaveProjectScope = (changes.rules ?? []).some((r) =>
-    Array.isArray((r as { projects?: string[] }).projects),
-  );
-  if (changes.targetingProjects || rulesHaveProjectScope) {
-    const validProjectIds = new Set(await context.getAllProjectIds());
-    if (changes.targetingProjects) {
-      changes.targetingProjects = changes.targetingProjects.filter((p) =>
-        validProjectIds.has(p),
-      );
-    }
-    if (rulesHaveProjectScope) {
-      changes.rules = changes.rules?.map((r) => {
-        const projects = (r as { projects?: string[] }).projects;
-        return Array.isArray(projects)
-          ? { ...r, projects: projects.filter((p) => validProjectIds.has(p)) }
-          : r;
-      });
-    }
-  }
 
   // Every branch below is a landing, so its FIRST write is guarded on the
   // pre-image `feature` — same rule as the generic entities' guarded landings:
@@ -3259,9 +3289,19 @@ async function createRampSchedulesForRevision(
           ? new Date(updateAction.cutoffDate)
           : null
         : (existingSchedule?.cutoffDate ?? null);
+    /**
+     * The action's config replaces the stored one whole. Re-sending the ramp's
+     * query without an identifier keeps the stored one, as the REST path does,
+     * so a draft saved without an identifier doesn't move the ramp to the
+     * legacy default.
+     */
     const nextMonitoringConfig =
       updateAction.monitoringConfig !== undefined
-        ? updateAction.monitoringConfig
+        ? updateAction.monitoringConfig &&
+          withKeptMonitoringIdentifier(
+            existingSchedule?.monitoringConfig,
+            updateAction.monitoringConfig,
+          )
         : existingSchedule?.monitoringConfig;
     // Resolve the post-edit approval strategy (tri-state; see resolveStartApproval).
     // When still on and unapproved, the ramp must NOT start now.
@@ -3789,9 +3829,16 @@ export async function prevalidatePublishRevision({
         revision,
         context.auditUser,
         comment,
+        {
+          result,
+          environmentIds: getApplicableEnvIds(
+            getEnvironments(context.org),
+            feature,
+          ),
+        },
       ),
     },
-    original: revision,
+    original: liveRevisionBeforePublish(revision, feature),
   });
 }
 
@@ -4054,7 +4101,7 @@ async function publishRevisionInner({
   context,
   feature,
   revision,
-  result,
+  result: proposed,
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
@@ -4063,6 +4110,11 @@ async function publishRevisionInner({
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
+  const result = await scrubDeadProjectScopes(context, proposed);
+  const environmentIds = getApplicableEnvIds(
+    getEnvironments(context.org),
+    feature,
+  );
 
   // Resolved before the landing gate and any mutation: the ramps a revert
   // detaches reach environments its rule diff may not, and a failed read must
@@ -4101,10 +4153,7 @@ async function publishRevisionInner({
         // The live feature's own rules are the baseline the merge lands on.
         filledLiveRules: feature.rules ?? [],
         result,
-        environmentIds: getApplicableEnvIds(
-          getEnvironments(context.org),
-          feature,
-        ),
+        environmentIds,
         // The draft's ramp actions reach environments no rule diff mentions.
         rampActions: [
           ...(revision.rampActions ?? []),
@@ -4402,6 +4451,7 @@ async function publishRevisionInner({
       feature,
       revision,
       context.auditUser,
+      { result, environmentIds },
       comment,
     );
     revisionStatusRewind = {

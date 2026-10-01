@@ -235,7 +235,12 @@ const BanditExperimentPage = (): ReactElement => {
           }
           mutate={mutate}
           current={experiment.project}
-          apiEndpoint={`/experiment/${experiment.id}`}
+          save={(project) =>
+            apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({ project }),
+            })
+          }
           additionalMessage={
             experiment.status !== "draft" &&
             (experiment.linkedFeatures?.length ||
