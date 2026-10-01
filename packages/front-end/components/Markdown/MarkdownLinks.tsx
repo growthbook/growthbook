@@ -1,24 +1,19 @@
 import Link from "@/ui/Link";
-
-// http(s) or root-relative only; `//` and `/\` are rejected because browsers treat them as another host.
-const MARKDOWN_LINK =
-  /\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+|\/(?![/\\])(?:[^\s()]|\([^\s()]*\))*)\)/g;
+import { splitMarkdownLinks } from "./markdownLinks";
 
 // Renders `[text](https://…)` and `[text](/path)` Markdown links; the rest stays plain text.
 export default function MarkdownLinks({ text }: { text: string }) {
-  // split() with two capture groups yields [text, label, url, text, label, url, …].
-  const parts = text.split(MARKDOWN_LINK);
   return (
     <>
-      {parts.map((part, i) => {
-        if (i % 3 === 0) return part;
-        if (i % 3 === 2) return null;
-        return (
-          <Link key={i} href={parts[i + 1]} external>
-            {part}
+      {splitMarkdownLinks(text).map((segment, i) =>
+        typeof segment === "string" ? (
+          segment
+        ) : (
+          <Link key={i} href={segment.href} external>
+            {segment.label}
           </Link>
-        );
-      })}
+        ),
+      )}
     </>
   );
 }
