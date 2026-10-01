@@ -57,6 +57,7 @@ import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
+import { matchesUsageRowFilter } from "./featureDiagnosticsStream";
 import styles from "./FeatureUsageGraph.module.scss";
 
 /**
@@ -334,51 +335,88 @@ function dummyEnvironments(feature: FeatureInterface): string[] {
     : enabled;
 }
 
+/** Which dummy series a filterable field lives in. */
+const DUMMY_SERIES: Record<
+  string,
+  "byValue" | "bySource" | "byRuleId" | "byEnvironment"
+> = {
+  value: "byValue",
+  source: "bySource",
+  ruleId: "byRuleId",
+  environment: "byEnvironment",
+};
+
 /**
- * FAKE DATA: dummy usage narrowed to some environments, the way the endpoint
- * narrows real usage. The dummy dimensions are drawn independently, so each
- * bucket's other series are scaled by the selected environments' share of
- * that bucket, and the environment series keeps only the selected groups.
- * Null leaves the data as drawn.
+ * FAKE DATA: dummy usage narrowed the way the endpoint narrows real usage —
+ * by environment (chip / tab row) and by Add Filter. The dummy dimensions are
+ * drawn independently, so each narrowing keeps only its matching groups in
+ * its own series and scales every other series by the matching share of each
+ * bucket. Variation has no dummy series, so a variation filter cannot narrow
+ * the dummy chart (it still narrows the dummy stream rows).
  */
 function scopeDummyUsage(
   data: FeatureUsageData,
   environments: string[] | null,
+  rowFilters: FeatureUsageRowFilter[] | null = null,
 ): FeatureUsageData {
-  if (!environments) return data;
-  const keep = new Set(environments);
-  const shares = data.byEnvironment.map((point) => {
-    const all = Object.values(point.v).reduce((s, n) => s + n, 0);
-    const kept = Object.entries(point.v)
-      .filter(([env]) => keep.has(env))
-      .reduce((s, [, n]) => s + n, 0);
-    return all > 0 ? kept / all : 0;
+  const scopes: {
+    series: keyof typeof DUMMY_SERIES_KEYS;
+    keep: (g: string) => boolean;
+  }[] = [];
+  if (environments) {
+    const keep = new Set(environments);
+    scopes.push({ series: "byEnvironment", keep: (g) => keep.has(g) });
+  }
+  (rowFilters ?? []).forEach((f) => {
+    const series = DUMMY_SERIES[f.column];
+    if (series) {
+      scopes.push({ series, keep: (g) => matchesUsageRowFilter(g, f) });
+    }
   });
-  const scale = (series: FeatureUsageDataPoint[]) =>
-    series.map((point, i) => ({
+  if (!scopes.length) return data;
+
+  let out = data;
+  scopes.forEach(({ series, keep }) => {
+    const target = out[series];
+    const shares = target.map((point) => {
+      const all = Object.values(point.v).reduce((sum, n) => sum + n, 0);
+      const kept = Object.entries(point.v)
+        .filter(([g]) => keep(g))
+        .reduce((sum, [, n]) => sum + n, 0);
+      return all > 0 ? kept / all : 0;
+    });
+    const scale = (points: FeatureUsageDataPoint[]) =>
+      points.map((point, i) => ({
+        t: point.t,
+        v: Object.fromEntries(
+          Object.entries(point.v).map(([k, n]) => [
+            k,
+            Math.round(n * (shares[i] ?? 0)),
+          ]),
+        ),
+      }));
+    const narrowed = target.map((point) => ({
       t: point.t,
-      v: Object.fromEntries(
-        Object.entries(point.v).map(([k, n]) => [
-          k,
-          Math.round(n * (shares[i] ?? 0)),
-        ]),
-      ),
+      v: Object.fromEntries(Object.entries(point.v).filter(([g]) => keep(g))),
     }));
-  const byValue = scale(data.byValue);
-  return {
-    ...data,
-    byValue,
-    bySource: scale(data.bySource),
-    byRuleId: scale(data.byRuleId),
-    byEnvironment: data.byEnvironment.map((point) => ({
-      t: point.t,
-      v: Object.fromEntries(
-        Object.entries(point.v).filter(([env]) => keep.has(env)),
-      ),
-    })),
-    total: sumSeries(byValue),
-  };
+    const next = { ...out } as FeatureUsageData;
+    (
+      Object.keys(DUMMY_SERIES_KEYS) as (keyof typeof DUMMY_SERIES_KEYS)[]
+    ).forEach((key) => {
+      next[key] = key === series ? narrowed : scale(out[key]);
+    });
+    next.total = sumSeries(next.byValue);
+    out = next;
+  });
+  return out;
 }
+
+const DUMMY_SERIES_KEYS = {
+  byValue: true,
+  bySource: true,
+  byRuleId: true,
+  byEnvironment: true,
+} as const;
 
 function sumSeries(series: FeatureUsageDataPoint[]): number {
   return series.reduce(
@@ -962,6 +1000,7 @@ export function FeatureUsageProvider({
             rolloutScenario,
           ),
           usageEnvironments,
+          usageRowFilters,
         )
       : data?.usage;
 

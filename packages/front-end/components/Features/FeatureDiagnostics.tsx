@@ -1289,7 +1289,7 @@ export default function FeatureDiagnostics({
     if (
       !useDummyData ||
       !displayResults ||
-      (!streamNarrowing && !streamEnvironments)
+      (!streamNarrowing && !streamEnvironments && !usageRowFilters.length)
     ) {
       return displayResults;
     }
@@ -1301,6 +1301,18 @@ export default function FeatureDiagnostics({
       if (
         streamEnvironments &&
         !streamEnvironments.includes(String(row.environment))
+      ) {
+        return false;
+      }
+      // Add Filter, with the server's semantics (stored text; empty rule is
+      // "null"), so the demo's stream moves with the filter row.
+      if (
+        !usageRowFilters.every((f) =>
+          matchesUsageRowFilter(
+            row[f.column] === undefined ? undefined : String(row[f.column]),
+            f,
+          ),
+        )
       ) {
         return false;
       }
@@ -1316,7 +1328,13 @@ export default function FeatureDiagnostics({
       }
       return true;
     });
-  }, [useDummyData, displayResults, streamNarrowing, streamEnvironments]);
+  }, [
+    useDummyData,
+    displayResults,
+    streamNarrowing,
+    streamEnvironments,
+    usageRowFilters,
+  ]);
 
   /**
    * The managed warehouse's projection is fixed, so its columns are a fixed
