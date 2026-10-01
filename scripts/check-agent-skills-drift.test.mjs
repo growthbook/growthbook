@@ -4,115 +4,224 @@ import {
   analyze,
   extractSkillReferences,
   hasBlockingDrift,
-  parseSpecOperations,
+  parseSpec,
+  stripDocText,
+  toJson,
 } from "./check-agent-skills-drift.mjs";
 
-const spec = (paths) =>
-  ["openapi: 3.1.0", "paths:", ...paths, "components:", "  schemas: {}"].join(
-    "\n",
-  );
+const spec = (paths, schemas = []) =>
+  [
+    "openapi: 3.1.0",
+    "paths:",
+    ...paths,
+    "components:",
+    "  schemas:",
+    ...schemas,
+  ].join("\n");
 
-const HEAD = spec([
-  "  /v1/experiments/{id}:",
-  "    get:",
-  "      operationId: getExperiment",
-  "    post:",
-  "      operationId: updateExperiment",
-  "  /v2/features/{id}/revisions/{version}/rules:",
-  "    post:",
-  "      operationId: addRule",
-  "      summary: changed",
-  "  /v1/features:",
-  "    get:",
-  "      deprecated: true",
-]);
+const REVISION = [
+  "    Revision:",
+  "      type: object",
+  "      properties:",
+  "        version:",
+  "          type: integer",
+];
 
-const BASE = spec([
-  "  /v1/experiments/{id}:",
-  "    get:",
-  "      operationId: getExperiment",
-  "    post:",
-  "      operationId: updateExperiment",
-  "    delete:",
-  "      operationId: deleteExperiment",
-  "  /v2/features/{id}/revisions/{version}/rules:",
-  "    post:",
-  "      operationId: addRule",
-  "  /v1/features:",
-  "    get:",
-  "      deprecated: true",
-]);
+const HEAD = spec(
+  [
+    "  /v1/experiments/{id}:",
+    "    get:",
+    "      operationId: getExperiment",
+    "    post:",
+    "      operationId: updateExperiment",
+    "  /v2/features/{id}/revisions/{version}:",
+    "    get:",
+    "      operationId: getRevision",
+    "      responses:",
+    "        '200':",
+    "          $ref: '#/components/schemas/Revision'",
+    "  /v2/features/{id}/revisions/{version}/rules:",
+    "    post:",
+    "      operationId: addRule",
+    "      description: Adds a rule.",
+    "  /v1/features:",
+    "    get:",
+    "      deprecated: true",
+  ],
+  REVISION,
+);
+
+const BASE = spec(
+  [
+    "  /v1/experiments/{id}:",
+    "    get:",
+    "      operationId: getExperiment",
+    "    post:",
+    "      operationId: updateExperiment",
+    "    delete:",
+    "      operationId: deleteExperiment",
+    "  /v2/features/{id}/revisions/latest:",
+    "    get:",
+    "      operationId: getLatestRevision",
+    "  /v2/features/{id}/revisions/{version}:",
+    "    get:",
+    "      operationId: getRevision",
+    "      responses:",
+    "        '200':",
+    "          $ref: '#/components/schemas/Revision'",
+    "  /v2/features/{id}/revisions/{version}/rules:",
+    "    post:",
+    "      operationId: addRule",
+    "      description: >",
+    "        Adds a rule to",
+    "        the draft.",
+    "  /v1/features:",
+    "    get:",
+    "      operationId: listFeatures",
+  ],
+  REVISION.map((line) => line.replace("integer", "string")),
+);
 
 const SKILL = [
   "gb-call POST '/api/v2/features/<flag-id>/revisions/new/rules' -",
   "Call `GET /api/v1/experiments/exp_123`.",
   "Drafts: `DELETE /api/v1/experiments/<id>`.",
+  "Latest: GET /api/v2/features/<id>/revisions/latest",
+  "Inspect: GET /v2/features/<id>/revisions/3",
   "Legacy: GET /api/v1/features?limit=10",
   "Missing: GET /api/v2/flag-revisions.",
   "Prose shorthand like POST /start is ignored.",
 ].join("\n");
 
-test("parses operations and deprecation", () => {
-  const ops = parseSpecOperations(HEAD);
+const skillFiles = [{ file: "skills/x.md", text: SKILL }];
+
+test("parses operations, deprecation and components", () => {
+  const { operations, components } = parseSpec(HEAD);
   assert.deepEqual(
-    [...ops.keys()],
+    [...operations.keys()],
     [
       "GET /v1/experiments/{id}",
       "POST /v1/experiments/{id}",
+      "GET /v2/features/{id}/revisions/{version}",
       "POST /v2/features/{id}/revisions/{version}/rules",
       "GET /v1/features",
     ],
   );
-  assert.equal(ops.get("GET /v1/features").deprecated, true);
+  assert.equal(operations.get("GET /v1/features").deprecated, true);
+  assert.deepEqual([...components.keys()], ["schemas/Revision"]);
 });
 
-test("extracts only absolute /api references", () => {
-  const refs = extractSkillReferences(SKILL);
+test("extracts /api and bare /vN references, not prose shorthand", () => {
   assert.deepEqual(
-    refs.map((r) => `${r.method} ${r.path}`),
+    extractSkillReferences(SKILL).map((r) => `${r.method} ${r.path}`),
     [
       "POST /v2/features/<flag-id>/revisions/new/rules",
       "GET /v1/experiments/exp_123",
       "DELETE /v1/experiments/<id>",
+      "GET /v2/features/<id>/revisions/latest",
+      "GET /v2/features/<id>/revisions/3",
       "GET /v1/features",
       "GET /v2/flag-revisions",
     ],
   );
 });
 
-test("reports missing, deprecated and impacted operations", () => {
+test("strips doc text but keeps properties named description", () => {
+  const body = [
+    "      description: >",
+    "        Long text",
+    "      summary: Short",
+    "      properties:",
+    "        description:",
+    "          type: string",
+  ].join("\n");
+  assert.equal(
+    stripDocText(body),
+    [
+      "      properties:",
+      "        description:",
+      "          type: string",
+    ].join("\n"),
+  );
+});
+
+test("reports removed, re-routed, newly deprecated and component changes", () => {
   const result = analyze({
-    skillFiles: [{ file: "skills/x.md", text: SKILL }],
-    operations: parseSpecOperations(HEAD),
-    baseOperations: parseSpecOperations(BASE),
+    skillFiles,
+    spec: parseSpec(HEAD),
+    baseSpec: parseSpec(BASE),
   });
   assert.deepEqual(
-    result.missing.map((m) => m.label),
-    ["DELETE /api/v1/experiments/<id>", "GET /api/v2/flag-revisions"],
+    result.missing.map((m) => `${m.method} ${m.path}`),
+    ["DELETE /v1/experiments/<id>", "GET /v2/flag-revisions"],
   );
   assert.deepEqual(
-    result.deprecated.map((d) => d.label),
-    ["GET /api/v1/features"],
+    result.deprecated.map((m) => `${m.method} ${m.path}`),
+    ["GET /v1/features"],
   );
   assert.deepEqual(
     Object.fromEntries(
       [...result.impacted].map(([key, { kind }]) => [key, kind]),
     ),
     {
-      "POST /v2/features/{id}/revisions/{version}/rules": "changed",
       "DELETE /v1/experiments/{id}": "removed",
+      "GET /v2/features/{id}/revisions/latest": "removed",
+      "GET /v2/features/{id}/revisions/{version}": "changed",
+      "GET /v1/features": "deprecated",
     },
   );
-  assert.equal(hasBlockingDrift(result, true), true);
+  assert.equal(hasBlockingDrift(result, { hasBase: true }), true);
 });
 
-test("pre-existing missing references do not block a PR", () => {
+test("description-only edits do not count as changes", () => {
+  const result = analyze({
+    skillFiles: [
+      {
+        file: "skills/x.md",
+        text: "POST /api/v2/features/<id>/revisions/new/rules",
+      },
+    ],
+    spec: parseSpec(HEAD),
+    baseSpec: parseSpec(BASE),
+  });
+  assert.equal(result.impacted.size, 0);
+});
+
+test("pre-existing missing references do not block an API PR", () => {
   const result = analyze({
     skillFiles: [{ file: "skills/x.md", text: "GET /api/v2/flag-revisions" }],
-    operations: parseSpecOperations(HEAD),
-    baseOperations: parseSpecOperations(HEAD),
+    spec: parseSpec(HEAD),
+    baseSpec: parseSpec(HEAD),
   });
   assert.equal(result.missing.length, 1);
-  assert.equal(hasBlockingDrift(result, true), false);
-  assert.equal(hasBlockingDrift(result, false), true);
+  assert.equal(hasBlockingDrift(result, { hasBase: true }), false);
+  assert.equal(hasBlockingDrift(result, { hasBase: false }), true);
+});
+
+test("baseline comparison flags new findings even when the count is unchanged", () => {
+  const baseline = [
+    { file: "skills/x.md", text: "GET /api/v2/flag-revisions" },
+  ];
+  const swapped = [
+    { file: "skills/x.md", text: "POST /api/v2/features/<id>/toggle-all" },
+  ];
+  const result = analyze({
+    skillFiles: swapped,
+    spec: parseSpec(HEAD),
+    baselineSkillFiles: baseline,
+  });
+  assert.equal(result.missing.length, 1);
+  assert.deepEqual(
+    result.introduced.map((f) => f.path),
+    ["/v2/features/<id>/toggle-all"],
+  );
+  assert.equal(hasBlockingDrift(result, { hasBaseline: true }), true);
+
+  const same = analyze({
+    skillFiles: baseline,
+    spec: parseSpec(HEAD),
+    baselineSkillFiles: baseline,
+  });
+  assert.equal(hasBlockingDrift(same, { hasBaseline: true }), false);
+  assert.deepEqual(toJson(same).introduced, []);
 });

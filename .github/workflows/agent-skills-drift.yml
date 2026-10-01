@@ -11,9 +11,15 @@ on:
     paths:
       - packages/back-end/generated/spec.yaml
 
+# Each push to main gets its own group so a queued run is never replaced
+# before it can notify growthbook/skills.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   drift:
@@ -21,12 +27,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Checkout GrowthBook skills
-        uses: actions/checkout@v5
-        with:
-          repository: growthbook/skills
-          path: skills-src
 
       - uses: actions/setup-node@v5
         with:
@@ -36,43 +36,73 @@ jobs:
       - name: Test drift checker
         run: node --test scripts/check-agent-skills-drift.test.mjs
 
-      # On PRs, fail when the PR removes an operation a skill uses. After a
-      # merge to main, report only; the skills repo is notified below.
-      - name: Check skills against the OpenAPI spec
-        id: check
+      - name: Read the base revision
+        id: base
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-          STRICT: ${{ github.event_name == 'pull_request' && '--strict' || '' }}
         run: |
+          LOCK=packages/back-end/agent-skills.lock.json
           git fetch --depth=1 origin "$BASE_SHA"
           git show "$BASE_SHA:packages/back-end/generated/spec.yaml" > "$RUNNER_TEMP/base-spec.yaml"
+          BASE_PIN=$(git show "$BASE_SHA:$LOCK" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).commit")
+          HEAD_PIN=$(node -p "require('./$LOCK').commit")
+          echo "pin=$BASE_PIN" >> "$GITHUB_OUTPUT"
+          if [ "$BASE_PIN" != "$HEAD_PIN" ]; then
+            echo "pin_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The pinned commit is what deploy and preview ship.
+      - uses: ./.github/actions/checkout-agent-skills
+
+      - name: Checkout the previously pinned skills
+        if: steps.base.outputs.pin_changed == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: growthbook/skills
+          ref: ${{ steps.base.outputs.pin }}
+          path: skills-base
+
+      # On PRs, fail when a skill uses an operation the PR removes or
+      # deprecates, or when a lock bump pins skills with new broken calls.
+      - name: Check the pinned skills against the OpenAPI spec
+        env:
+          STRICT: ${{ github.event_name == 'pull_request' && '--strict' || '' }}
+          BASELINE: ${{ steps.base.outputs.pin_changed == 'true' && '--baseline-skills skills-base' || '' }}
+        run: |
           set +e
+          # shellcheck disable=SC2086
           node scripts/check-agent-skills-drift.mjs --skills skills-src \
-            --base-spec "$RUNNER_TEMP/base-spec.yaml" $STRICT > "$RUNNER_TEMP/report.md"
+            --base-spec "$RUNNER_TEMP/base-spec.yaml" $BASELINE $STRICT > "$RUNNER_TEMP/report.md"
           status=$?
           set -e
           cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
           if grep -q "### Skills affected by this change" "$RUNNER_TEMP/report.md"; then
-            echo "affected=true" >> "$GITHUB_OUTPUT"
             echo "::warning title=Agent skills affected::This change modifies REST operations used by growthbook/skills. See the job summary."
           fi
-          exit $status
+          exit "$status"
+
+      # The sync job edits growthbook/skills main, so decide whether to
+      # notify it from main rather than from the pin.
+      - name: Checkout growthbook/skills main
+        if: github.event_name == 'push'
+        uses: actions/checkout@v5
+        with:
+          repository: growthbook/skills
+          path: skills-main
 
       - name: Notify growthbook/skills
-        if: github.event_name == 'push' && steps.check.outputs.affected == 'true'
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.SKILLS_BOT_TOKEN }}
-          REPO_TOKEN: ${{ github.token }}
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.sha }}
         run: |
+          node scripts/check-agent-skills-drift.mjs --skills skills-main \
+            --base-spec "$RUNNER_TEMP/base-spec.yaml" --json > "$RUNNER_TEMP/main.json"
+          if [ "$(node -p "require('$RUNNER_TEMP/main.json').impacted.length")" = "0" ]; then
+            echo "No growthbook/skills main skill uses a changed operation."
+            exit 0
+          fi
           if [ -z "$GH_TOKEN" ]; then
             echo "::notice::SKILLS_BOT_TOKEN is not set; skipping the skills sync dispatch."
             exit 0
           fi
-          PR=$(GH_TOKEN="$REPO_TOKEN" gh api "repos/$GITHUB_REPOSITORY/commits/$AFTER/pulls" --jq '.[0].number // ""')
-          gh api repos/growthbook/skills/dispatches \
-            -f event_type=growthbook-api-changed \
-            -f "client_payload[before]=$BEFORE" \
-            -f "client_payload[after]=$AFTER" \
-            -f "client_payload[pr]=$PR"
+          gh api repos/growthbook/skills/dispatches -f event_type=growthbook-api-changed

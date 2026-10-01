@@ -1,0 +1,20 @@
+# Sources the growthbook/skills skills depend on. The growthbook/skills sync
+# job reviews commits that touch these paths; keep .claude/rules/agent-skills.md
+# in step. Docs entries mirror the map in growthbook/skills CLAUDE.md.
+packages/back-end/src/api
+packages/shared/src/validators
+packages/back-end/generated/spec.yaml
+docs/api/introduction.mdx
+docs/features
+docs/experiments.mdx
+docs/running-experiments
+docs/statistics
+docs/experimentation-analysis
+docs/app/experiment-results.mdx
+docs/app/experiment-decisions.mdx
+docs/app/metrics.mdx
+docs/app/metrics
+docs/app/sticky-bucketing.mdx
+docs/bandits
+docs/kb/experiments/troubleshooting-experiments.mdx
+docs/faq.mdx

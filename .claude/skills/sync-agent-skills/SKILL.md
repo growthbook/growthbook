@@ -14,7 +14,7 @@ Use `$SKILLS_SRC`, `skills-src/`, or the `path` in `packages/back-end/agent-skil
 ## 2. Decide the scope
 
 - **This branch:** base spec is `git show $(git merge-base HEAD origin/main):packages/back-end/generated/spec.yaml`. Regenerate the head spec first with `pnpm --filter back-end generate-openapi`.
-- **Catch-up since the last sync:** base spec is the spec at the first `origin/main` commit after the growthbook/skills `main` commit date. Also list `git log origin/main --since=<that date> -- packages/back-end/src/api packages/shared/src/validators docs/statistics docs/experimentation-analysis docs/features` for behavior changes the spec cannot show.
+- **Catch-up since the last sync:** the last reviewed GrowthBook commit is in the growthbook/skills `sync-state` tag (`git -C <checkout> for-each-ref refs/tags/sync-state --format='%(contents)'`, field `growthbook`). Use its spec as the base, and list `git log <that commit>..origin/main -- $(grep -v '^#' scripts/agent-skills-watch-paths.txt)` for behavior changes the spec cannot show.
 
 ## 3. Run the checker
 
@@ -34,12 +34,15 @@ Drop findings where the skill is already correct. Do not change a skill based on
 
 ## 5. Edit the skills
 
-Follow growthbook/skills `CLAUDE.md` and the "Edit" and "Review your own diff" rules in its `.github/sync/prompt.md`, which the sync job uses too. Re-run the checker until the findings you fixed are gone, then run the same guard CI runs:
+Follow growthbook/skills `CLAUDE.md` and the "Edit" and "Review your own edits" rules in its `.github/sync/prompt.md`, which the sync job uses too. Re-run the checker until the findings you fixed are gone, then run the same guard CI runs. Leave the edits uncommitted, and set `BASE_SHA` to the commit you started from:
 
 ```bash
-SYNC_DIR=<tmp> SKILLS_DIR=<checkout> GROWTHBOOK_DIR=<this repo> BASE_SHA=$(git -C <checkout> rev-parse HEAD) \
+SKILLS_DIR=<checkout> BASE_SHA=<commit you started from> \
+  CHECKER=scripts/check-agent-skills-drift.mjs SPEC=packages/back-end/generated/spec.yaml \
   node <checkout>/.github/sync/sync.mjs guard
 ```
+
+It prints "Guard passed" or the list of problems, and exits 1 on any problem.
 
 ## 6. Hand off
 
