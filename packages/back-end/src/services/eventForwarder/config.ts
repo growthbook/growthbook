@@ -28,6 +28,7 @@ import {
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
   normalizeDatabricksEventForwarderDestination,
+  resolveBigQueryEventForwarderTableNames,
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
@@ -42,6 +43,7 @@ type SinkConfig =
 // instead of a per-datasource Confluent connector.
 const IN_HOUSE_CONSUMER_SINKS: ReadonlySet<EventForwarderSinkType> = new Set([
   "databricks",
+  "bigquery",
 ]);
 
 export function isInHouseConsumerSink(
@@ -229,11 +231,17 @@ function buildBigQueryStoredConfigFromDraft(
     ) ||
     "";
 
+  const names = resolveBigQueryEventForwarderTableNames(tablePrefix);
   return {
     projectId,
     dataset,
     tablePrefix,
     serviceAccountKey,
+    tables: {
+      events: names.events,
+      experiment_viewed: names.experimentViewed,
+      feature_usage: names.featureUsage,
+    },
   };
 }
 
