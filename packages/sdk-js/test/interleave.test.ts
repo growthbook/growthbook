@@ -18,7 +18,7 @@ function summarize(
 }
 
 describe("itemDraft", () => {
-  it("marks near-identical lists non-competitive except the tail (DoorDash ex. 1)", () => {
+  it("places agreed items once, non-competitive, without consuming a pick (DoorDash ex. 1 lists)", () => {
     const { meta } = itemDraft(
       [
         { name: "C1", items: ["A", "B", "C", "D", "E"] },
@@ -29,15 +29,15 @@ describe("itemDraft", () => {
     );
     expect(summarize(meta)).toEqual([
       "A,C1,0",
-      "B,C2,0",
+      "B,C1,0",
       "C,C1,0",
-      "D,C2,0",
+      "D,C1,0",
       "E,C1,1",
       "F,C2,1",
     ]);
   });
 
-  it("handles divergent lists with shared picks and exhaustion (DoorDash ex. 2)", () => {
+  it("keeps lists in sync through shared picks and exhaustion (DoorDash ex. 2 lists)", () => {
     const { meta } = itemDraft(
       [
         { name: "C1", items: ["A", "B", "J", "C", "D", "G", "H"] },
@@ -46,16 +46,83 @@ describe("itemDraft", () => {
       id,
       rngFirst,
     );
+    // Under the DoorDash fallback rule E (only on C2's list) was discarded as
+    // non-competitive and J (ranked 3rd by both) was credited competitive to
+    // C2. The Airbnb rule keeps E as real signal and places J unattributed.
     expect(summarize(meta)).toEqual([
       "A,C1,0",
-      "E,C2,0",
       "B,C1,1",
-      "J,C2,1",
+      "E,C2,1",
+      "J,C1,0",
       "C,C1,1",
       "G,C2,1",
       "D,C1,1",
       "H,C2,1",
       "I,C2,0",
+    ]);
+  });
+
+  it("measures the one real disagreement as a balanced pair", () => {
+    const { meta } = itemDraft(
+      [
+        { name: "C1", items: ["A", "B", "D"] },
+        { name: "C2", items: ["A", "D", "B"] },
+      ],
+      id,
+      rngFirst,
+    );
+    expect(summarize(meta)).toEqual(["A,C1,0", "B,C1,1", "D,C2,1"]);
+  });
+
+  it("competitive picks always come in adjacent one-per-captain pairs", () => {
+    const pool = ["A", "B", "C", "D", "E", "F", "G", "H"];
+    for (let i = 0; i < 300; i++) {
+      const rng = (round: number, captain: number) =>
+        hash("seed__interleave", `imp-${i}:${round}:${captain}`, 2) ?? 0.5;
+      // Two overlapping lists with seed-driven order and length
+      const shuffle = (salt: string) =>
+        [...pool]
+          .sort(
+            (a, b) =>
+              (hash(salt, `${i}:${a}`, 2) ?? 0) -
+              (hash(salt, `${i}:${b}`, 2) ?? 0),
+          )
+          .slice(0, 4 + (i % 5));
+      const { meta } = itemDraft(
+        [
+          { name: "C1", items: shuffle("l1") },
+          { name: "C2", items: shuffle("l2") },
+        ],
+        id,
+        rng,
+      );
+      const counts = { C1: 0, C2: 0 };
+      for (let p = 0; p < meta.length; p++) {
+        if (!meta[p].competitive) continue;
+        expect(meta[p + 1]?.competitive).toBe(true);
+        expect(meta[p + 1].variation).not.toBe(meta[p].variation);
+        counts[meta[p].variation as "C1" | "C2"]++;
+        counts[meta[p + 1].variation as "C1" | "C2"]++;
+        p++;
+      }
+      expect(counts.C1).toBe(counts.C2);
+      // Every item appears once
+      expect(new Set(meta.map((m) => m.itemId)).size).toBe(meta.length);
+    }
+  });
+
+  it("respects maxItems across single agreement slots and two-slot rounds", () => {
+    const lists = [
+      { name: "C1", items: ["A", "B", "C"] },
+      { name: "C2", items: ["A", "D", "E"] },
+    ];
+    expect(summarize(itemDraft(lists, id, rngFirst, 2).meta)).toEqual([
+      "A,C1,0",
+    ]);
+    expect(summarize(itemDraft(lists, id, rngFirst, 3).meta)).toEqual([
+      "A,C1,0",
+      "B,C1,1",
+      "D,C2,1",
     ]);
   });
 

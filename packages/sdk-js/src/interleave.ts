@@ -14,11 +14,21 @@ export interface TeamDraftResult<T> {
   meta: InterleavedItemMeta[];
 }
 
-// Team-draft interleaving. Each list is a "captain" with a ranked preference
-// order. Per round, captains draft in an order decided by rng(round, captain);
-// each takes its most-preferred item not already drafted. A round is marked
-// non-competitive when captains desire the same item or a captain's list is
-// exhausted; competitive picks always come in groups with one pick per captain.
+// Team-draft interleaving (Airbnb tie rule). Each list is a "captain" with a
+// ranked preference order; "top" is a captain's most-preferred item not yet
+// placed.
+//
+// - While every captain's top is the same item, that item is placed ONCE,
+//   marked non-competitive, and removed from all lists without consuming a
+//   pick. Agreements carry no signal, and placing them this way keeps the
+//   captains' lists in sync (no fallback picks, so later agreed-upon items
+//   are never mislabeled competitive).
+// - Otherwise a competitive round runs: draft order comes from
+//   rng(step, captain), each captain places its top, and every pick is
+//   credited to its captain. Competitive picks therefore always arrive in
+//   adjacent groups with exactly one pick per captain.
+// - A round where some captain's list is exhausted places the remaining
+//   captains' tops as non-competitive.
 export function itemDraft<T>(
   lists: RealizedInterleaveList<T>[],
   getItemId: (item: T) => string,
@@ -41,48 +51,62 @@ export function itemDraft<T>(
     return c < list.length ? list[c] : null;
   };
 
-  let round = 0;
+  const place = (item: T, captain: number, competitive: boolean) => {
+    taken.add(getItemId(item));
+    items.push(item);
+    meta.push({
+      itemId: getItemId(item),
+      variation: lists[captain].name,
+      position: items.length - 1,
+      competitive,
+    });
+  };
+
+  // One rng step per placement (agreement or competitive round) so draft
+  // orders stay distinct and the whole draft replays from the seed
+  let step = 0;
 
   while (true) {
+    const order = lists
+      .map((_, i) => i)
+      .sort((a, b) => rng(step, a) - rng(step, b));
+    const desired = order.map((captain) => {
+      const item = nextDesired(captain);
+      return { captain, item, id: item === null ? null : getItemId(item) };
+    });
+    if (desired.every((d) => d.item === null)) break;
+
+    const allPresent = desired.every((d) => d.item !== null);
+    const agreement =
+      allPresent && desired.every((d) => d.id === desired[0].id);
+
+    if (agreement) {
+      if (maxItems !== undefined && items.length + 1 > maxItems) break;
+      // Shared top: placed once, no team. The label is only for display —
+      // analysis excludes non-competitive items
+      place(desired[0].item as T, desired[0].captain, false);
+      step++;
+      continue;
+    }
+
     if (maxItems !== undefined && items.length + lists.length > maxItems) {
       // Only complete rounds keep competitive picks balanced across captains
       break;
     }
 
-    // Draft order for this round
-    const order = lists
-      .map((_, i) => i)
-      .sort((a, b) => rng(round, a) - rng(round, b));
-
-    // What each captain wants before anyone picks this round
-    const desired = order.map((captain) => {
-      const item = nextDesired(captain);
-      return { captain, item, id: item === null ? null : getItemId(item) };
-    });
-
-    if (desired.every((d) => d.item === null)) break;
-
-    // Non-competitive round: a captain ran dry, or two captains want the same item
+    // Competitive unless a captain ran dry. (With two captains, tops that
+    // are not an agreement are distinct; a partial agreement among 3+
+    // captains is resolved by re-drafting below and marked non-competitive.)
     const ids = desired.map((d) => d.id).filter((id) => id !== null);
-    const competitive =
-      desired.every((d) => d.item !== null) && new Set(ids).size === ids.length;
+    const competitive = allPresent && new Set(ids).size === ids.length;
 
     for (const d of desired) {
       // Re-resolve in draft order: an earlier captain may have taken this pick
       const item = nextDesired(d.captain);
       if (item === null) continue;
-      const itemId = getItemId(item);
-      taken.add(itemId);
-      items.push(item);
-      meta.push({
-        itemId,
-        variation: lists[d.captain].name,
-        position: items.length - 1,
-        competitive,
-      });
+      place(item, d.captain, competitive);
     }
-
-    round++;
+    step++;
   }
 
   return { items, meta };
