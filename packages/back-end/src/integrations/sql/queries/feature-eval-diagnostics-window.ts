@@ -5,8 +5,13 @@ import type {
   FeatureEvalDiagnosticsQueryParams,
   FeatureEvalDiagnosticsRange,
   FeatureEvalDiagnosticsWindow,
+  FeatureUsageRowFilter,
 } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import {
+  getFeatureUsageRowFiltersSql,
+  parseFeatureUsageRowFilters,
+} from "./feature-usage-row-filters";
 
 /** Historical behaviour, kept exactly when a caller passes neither field. */
 const DEFAULT_LOOKBACK_DAYS = 7;
@@ -80,18 +85,32 @@ export function parseFeatureEvalDiagnosticsNarrowing(body: {
   filter?: unknown;
   range?: unknown;
   environments?: unknown;
+  rowFilters?: unknown;
 }):
   | {
       filter?: FeatureEvalDiagnosticsFilter;
       range?: FeatureEvalDiagnosticsRange;
       environments?: string[];
+      rowFilters?: FeatureUsageRowFilter[];
     }
   | { error: string } {
   const out: {
     filter?: FeatureEvalDiagnosticsFilter;
     range?: FeatureEvalDiagnosticsRange;
     environments?: string[];
+    rowFilters?: FeatureUsageRowFilter[];
   } = {};
+
+  // Add Filter: the whitelist is enforced here, rejecting rather than
+  // dropping anything outside it. Aliases allowed: a generic data source's
+  // stream may spell the rule and variation columns rule_id / variation_id.
+  if (body.rowFilters !== undefined && body.rowFilters !== null) {
+    const parsed = parseFeatureUsageRowFilters(body.rowFilters, {
+      allowAlias: true,
+    });
+    if ("error" in parsed) return parsed;
+    if (parsed.filters.length) out.rowFilters = parsed.filters;
+  }
 
   if (body.environments !== undefined && body.environments !== null) {
     const envs = body.environments;
@@ -160,15 +179,20 @@ export function parseFeatureEvalDiagnosticsNarrowing(body: {
 export function getFeatureEvalDiagnosticsNarrowingSql(
   params: Pick<
     FeatureEvalDiagnosticsQueryParams,
-    "filter" | "range" | "environments"
+    "filter" | "range" | "environments" | "rowFilters"
   >,
-  dialect: Pick<SqlDialect, "escapeStringLiteral" | "toTimestamp">,
+  dialect: Pick<
+    SqlDialect,
+    "escapeStringLiteral" | "toTimestamp" | "stringMatch"
+  >,
   columnMap: Partial<
     Record<
       FeatureEvalDiagnosticsFilterColumn,
       FeatureEvalDiagnosticsFilterColumn
     >
   > = {},
+  /** Generic builders resolve Add Filter aliases; the managed one does not. */
+  { useAliases = true }: { useAliases?: boolean } = {},
 ): string {
   const clauses: string[] = [];
   if (params.filter) {
@@ -198,5 +222,8 @@ export function getFeatureEvalDiagnosticsNarrowingSql(
       `timestamp < ${dialect.toTimestamp(params.range.end)}`,
     );
   }
-  return clauses.map((c) => `\n        AND ${c}`).join("");
+  return (
+    clauses.map((c) => `\n        AND ${c}`).join("") +
+    getFeatureUsageRowFiltersSql(params.rowFilters, dialect, { useAliases })
+  );
 }

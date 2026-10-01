@@ -1475,6 +1475,7 @@ export async function postFeatureEvalDiagnostics(
     filter?: unknown;
     range?: unknown;
     environments?: unknown;
+    rowFilters?: unknown;
   }>,
   res: Response,
 ) {

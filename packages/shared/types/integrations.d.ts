@@ -587,6 +587,8 @@ export type FeatureEvalDiagnosticsQueryParams = {
   filter?: FeatureEvalDiagnosticsFilter;
   /** Narrows the stream to one chart bucket. Omitted: the whole window. */
   range?: FeatureEvalDiagnosticsRange;
+  /** Add Filter conditions, ANDed. Omitted: none. */
+  rowFilters?: FeatureUsageRowFilter[];
   /**
    * Narrows the stream to these environments. Omitted: every environment. An
    * empty list is never sent — it would mean "none", which the validator
@@ -607,6 +609,44 @@ export type FeatureEvalDiagnosticsFilterColumn =
   | "environment"
   | "ruleId"
   | "rule_id";
+
+/**
+ * The columns Add Filter may name — a closed set, enforced by the server's
+ * validator. Environment belongs to the environment chip and timestamp to the
+ * time range, so neither is here.
+ */
+export type FeatureUsageRowFilterColumn =
+  | "value"
+  | "ruleId"
+  | "source"
+  | "variationId";
+
+/** The string operators the filter builder offers. Nothing else is accepted. */
+export type FeatureUsageRowFilterOperator =
+  | "="
+  | "!="
+  | "in"
+  | "not_in"
+  | "starts_with"
+  | "ends_with"
+  | "contains"
+  | "not_contains"
+  | "is_null"
+  | "not_null";
+
+/** One Add Filter condition, as the server accepts it. */
+export type FeatureUsageRowFilter = {
+  column: FeatureUsageRowFilterColumn;
+  operator: FeatureUsageRowFilterOperator;
+  /** Compared as stored text — never type-coerced. Empty for is_null / not_null. */
+  values: string[];
+  /**
+   * Stream query on a generic data source only: the column's name in the
+   * customer's query when it uses the event-forwarder spelling. Only these
+   * two aliases exist, each valid for its own column.
+   */
+  columnAlias?: "rule_id" | "variation_id";
+};
 
 /** `column = value`, one series. */
 export type FeatureEvalDiagnosticsFilter = {

@@ -25,7 +25,10 @@ import {
   FeatureUsageSummary,
   FeatureValueType,
 } from "shared/types/feature";
-import { FeatureUsageLookback } from "shared/types/integrations";
+import {
+  FeatureUsageLookback,
+  FeatureUsageRowFilter,
+} from "shared/types/integrations";
 import { isManagedWarehouseUnavailable, stemRuleId } from "shared/util";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -741,6 +744,8 @@ const featureUsageContext = createContext<{
   setUsageEnvironments: (environments: string[] | null) => void;
   /** Scope the Traffic panel to one environment; null = all. */
   setRuleTrafficEnvironment: (environment: string | null) => void;
+  /** Add Filter conditions for the windowed usage; null = none. */
+  setUsageRowFilters: (filters: FeatureUsageRowFilter[] | null) => void;
   /** Explicit refresh of the rule counts; drives `ruleTrafficLoading`. */
   refreshRuleTraffic: () => Promise<void>;
   /** Window-independent; see the separate SWR key in the provider. */
@@ -771,6 +776,7 @@ const featureUsageContext = createContext<{
   ruleTrafficRowsMeta: undefined,
   setUsageEnvironments: () => {},
   setRuleTrafficEnvironment: () => {},
+  setUsageRowFilters: () => {},
   refreshRuleTraffic: async () => {},
   featureUsageSummary: undefined,
   featureUsageRows: undefined,
@@ -818,6 +824,10 @@ export function FeatureUsageProvider({
   const [ruleTrafficEnvironment, setRuleTrafficEnvironment] = useState<
     string | null
   >(null);
+  /** Add Filter, from the Diagnostics filter row; null = none. */
+  const [usageRowFilters, setUsageRowFilters] = useState<
+    FeatureUsageRowFilter[] | null
+  >(null);
   const ruleTrafficEnvironments = useMemo(
     () => (ruleTrafficEnvironment ? [ruleTrafficEnvironment] : null),
     [ruleTrafficEnvironment],
@@ -827,8 +837,12 @@ export function FeatureUsageProvider({
   const sameScope = (a: string[] | null, b: string[] | null) =>
     (a ?? []).slice().sort().join(",") === (b ?? []).slice().sort().join(",") &&
     (a === null) === (b === null);
-  // A narrowed view is an investigation, not a live monitor: it is not polled.
-  const usageNarrowed = usageEnvironments !== null;
+  const filtersQuery = usageRowFilters
+    ? `&filters=${encodeURIComponent(JSON.stringify(usageRowFilters))}`
+    : "";
+  // A narrowed view — by environment or by filter — is an investigation, not a
+  // live monitor: it is not polled.
+  const usageNarrowed = usageEnvironments !== null || usageRowFilters !== null;
 
   const [lookback, setLookback] = useLocalStorage<FeatureUsageLookback>(
     "featureUsageLookback",
@@ -836,8 +850,11 @@ export function FeatureUsageProvider({
   );
   // The 7-day rule-traffic view can ride on the main response only when that
   // response covers the same window AND the same environments.
+  // Filters are Diagnostics-only, so a filtered response never stands in for
+  // the Overview's unfiltered traffic.
   const ruleReusesMain =
     lookback === RULE_TRAFFIC_LOOKBACK &&
+    usageRowFilters === null &&
     sameScope(usageEnvironments, ruleTrafficEnvironments);
 
   const { datasources } = useDefinitions();
@@ -858,7 +875,7 @@ export function FeatureUsageProvider({
     rowsByDimension: FeatureUsageRowsByDimension;
     rowsMeta: FeatureUsageRowsMeta;
   }>(
-    `/feature/${feature?.id}/usage?lookback=${lookback}${envQuery(usageEnvironments)}`,
+    `/feature/${feature?.id}/usage?lookback=${lookback}${envQuery(usageEnvironments)}${filtersQuery}`,
     {
       shouldRun: () =>
         !!feature &&
@@ -1131,6 +1148,7 @@ export function FeatureUsageProvider({
         ruleTrafficRowsMeta,
         setUsageEnvironments,
         setRuleTrafficEnvironment,
+        setUsageRowFilters,
         refreshRuleTraffic,
         mutateFeatureUsage,
         scenarioMarkers: rolloutScenario?.markers,

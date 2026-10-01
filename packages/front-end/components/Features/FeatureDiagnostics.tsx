@@ -106,6 +106,8 @@ import {
   planStreamColumnWidths,
   STREAM_COLUMN_EXTRA_PX,
   managedStreamColumnLabel,
+  matchesUsageRowFilter,
+  toUsageRowFilters,
   planStreamTimestamps,
   ruleAbsenceNote,
   streamColumnLabel,
@@ -818,6 +820,7 @@ export default function FeatureDiagnostics({
     usageUpdatedAt,
     scenarioMarkers,
     setUsageEnvironments,
+    setUsageRowFilters,
   } = useFeatureUsage();
 
   const orgEnvironments = useEnvironments();
@@ -905,6 +908,21 @@ export default function FeatureDiagnostics({
   // Committed filters. Staged editing lives inside the control bar's popover;
   // this is only what the surface is actually filtered by.
   const [panelFilters, setPanelFilters] = useState<RowFilter[]>([]);
+
+  /**
+   * Add Filter, applied: the committed filters in the server's shape. They
+   * drive the chart and breakdown panel (through the provider's usage
+   * request) and the stream (through its query) from this one value, set on
+   * Apply — so one Apply is one refetch, and nothing refetches per keystroke.
+   */
+  const usageRowFilters = useMemo(
+    () => toUsageRowFilters(panelFilters),
+    [panelFilters],
+  );
+  useEffect(() => {
+    setUsageRowFilters(usageRowFilters.length ? usageRowFilters : null);
+  }, [usageRowFilters, setUsageRowFilters]);
+  useEffect(() => () => setUsageRowFilters(null), [setUsageRowFilters]);
 
   /**
    * The grouping lives here, not in the chart card: a selection names the
@@ -1151,6 +1169,19 @@ export default function FeatureDiagnostics({
     [knownStreamColumns],
   );
 
+  /**
+   * A selection only narrows within the filter. A breakdown row a filter on
+   * the grouped column excludes is not offered, so the panel never offers a
+   * path to rows the filter has ruled out.
+   */
+  const isOutsideFilter = useCallback(
+    (key: string) =>
+      usageRowFilters.some(
+        (f) => f.column === groupBy && !matchesUsageRowFilter(key, f),
+      ),
+    [usageRowFilters, groupBy],
+  );
+
   /** Why the current grouping cannot filter the stream, or null if it can. */
   const seriesFilterUnavailable = !knownStreamColumns
     ? "Run the query once to filter the stream by this"
@@ -1218,6 +1249,37 @@ export default function FeatureDiagnostics({
    * the stream's rows carry an environment column; a generic query without
    * one is left unscoped rather than made to fail.
    */
+  /**
+   * Add Filter for the stream, in the spelling its rows use: a generic data
+   * source's query may name the rule and variation columns rule_id /
+   * variation_id. A filter whose column the rows do not carry at all cannot
+   * apply to the stream; that is said in words rather than discovered as a
+   * failed query. Before the columns are known, filters go as named.
+   */
+  const { streamRowFilters, streamFilterProblem } = useMemo(() => {
+    const present = knownStreamColumns
+      ? new Set(knownStreamColumns.map((c) => c.toLowerCase()))
+      : null;
+    const aliases: Record<string, "rule_id" | "variation_id"> = {
+      ruleId: "rule_id",
+      variationId: "variation_id",
+    };
+    let problem: string | null = null;
+    const mapped = usageRowFilters.map((f) => {
+      if (!present || present.has(f.column.toLowerCase())) return f;
+      const alias = aliases[f.column];
+      if (alias && present.has(alias)) return { ...f, columnAlias: alias };
+      problem = `This data source's evaluation rows have no ${streamColumnLabel(
+        f.column,
+      )} column, so the ${streamColumnLabel(f.column)} filter can't apply to the stream.`;
+      return f;
+    });
+    return {
+      streamRowFilters: mapped.length ? mapped : null,
+      streamFilterProblem: problem as string | null,
+    };
+  }, [usageRowFilters, knownStreamColumns]);
+
   const streamEnvironments =
     environmentsNarrowed && filterColumnFor("environment")
       ? selectedEnvironments
@@ -1539,7 +1601,8 @@ export default function FeatureDiagnostics({
   const lifetimeTotal = featureUsageSummary?.lifetimeTotal ?? 0;
   // What actually narrows the data. Add Filter does not reach any query yet,
   // so it is not counted.
-  const filtersActive = environmentsNarrowed || isFiltered;
+  const filtersActive =
+    environmentsNarrowed || usageRowFilters.length > 0 || isFiltered;
 
   /**
    * A search narrows only the loaded rows, so its count is of matches among
@@ -1618,9 +1681,13 @@ export default function FeatureDiagnostics({
 
   const onRunFeatureUsageQuery = async () => {
     const run = ++queryRunRef.current;
-    setLoading(true);
     setError(null);
     setErrorSql(null);
+    if (streamFilterProblem) {
+      setError(streamFilterProblem);
+      return;
+    }
+    setLoading(true);
     try {
       const results = await apiCall<FeatureEvaluationDiagnosticsQueryResults>(
         "/query/feature-eval-diagnostic",
@@ -1637,6 +1704,7 @@ export default function FeatureDiagnostics({
             // the column is looked up from a fixed set, never interpolated.
             ...(streamNarrowing ?? {}),
             ...(streamEnvironments ? { environments: streamEnvironments } : {}),
+            ...(streamRowFilters ? { rowFilters: streamRowFilters } : {}),
           }),
         },
         (responseData) => {
@@ -1676,7 +1744,7 @@ export default function FeatureDiagnostics({
   // asking for the narrowed stream.
   const streamQueryKey = `${lookback}|${JSON.stringify(
     streamNarrowing,
-  )}|${JSON.stringify(streamEnvironments)}`;
+  )}|${JSON.stringify(streamEnvironments)}|${JSON.stringify(streamRowFilters)}`;
   const lastStreamQueryKey = useRef(streamQueryKey);
   useEffect(() => {
     if (lastStreamQueryKey.current === streamQueryKey) return;
@@ -1856,11 +1924,13 @@ export default function FeatureDiagnostics({
 
       {showFeatureUsage && diagnosticsState === "filtered" && (
         <Callout status="info" mb="4">
-          {/* Names only what actually narrows the results. Add Filter does
-              not reach the data yet, so it is not offered as a cause. */}
-          {environmentsNarrowed
-            ? "No evaluations in the selected environments for this time frame. Try a longer time frame, or more environments."
-            : "No evaluations in this time frame. Try a longer time frame."}
+          {/* Names only what actually narrows the results: the time range,
+              and the environment chip and filters when they are applied. */}
+          {`No evaluations match this time frame${
+            environmentsNarrowed ? " in the selected environments" : ""
+          }. Try a longer time frame${
+            environmentsNarrowed ? ", more environments" : ""
+          }${usageRowFilters.length ? ", or clear a filter" : ""}.`}
         </Callout>
       )}
 
@@ -1912,6 +1982,7 @@ export default function FeatureDiagnostics({
               seriesSelection={seriesSelection?.key ?? null}
               onSeriesSelect={handleSeriesSelect}
               seriesFilterUnavailable={seriesFilterUnavailable}
+              isOutsideFilter={isOutsideFilter}
             />
           )}
 
@@ -1971,7 +2042,10 @@ export default function FeatureDiagnostics({
                   <Flex align="center" gap="2" className={styles.selectionChip}>
                     <PiChartBarBold size={12} aria-hidden />
                     <Text size="sm">
-                      {`${GROUP_BY_LABELS[groupBy]}: ${seriesSelection.label}`}
+                      {/* "Showing:" marks a selection, which lives with the
+                          stream it narrows; a filter reads "Value = false" in
+                          the filter row. */}
+                      {`Showing: ${seriesSelection.label}`}
                     </Text>
                     <button
                       type="button"
@@ -1987,7 +2061,7 @@ export default function FeatureDiagnostics({
                   <Flex align="center" gap="2" className={styles.selectionChip}>
                     <PiChartBarBold size={12} aria-hidden />
                     <Text size="sm">
-                      {describeSelection(appliedSelection, bucketMs)}
+                      {`Showing: ${describeSelection(appliedSelection, bucketMs)}`}
                     </Text>
                     <button
                       type="button"

@@ -240,6 +240,7 @@ function BreakdownPanel({
   selectedKey,
   onSelect,
   unavailableReason,
+  isOutsideFilter,
   width,
 }: {
   dimension: FeatureUsageDimension;
@@ -249,6 +250,7 @@ function BreakdownPanel({
   onSelect?: (picked: { key: string; label: string } | null) => void;
   /** Why no row can filter the stream right now; null when they can. */
   unavailableReason: string | null;
+  isOutsideFilter?: (key: string) => boolean;
   /** Measured from the group-by control; the stylesheet's 326px until then. */
   width: number | null;
 }) {
@@ -288,7 +290,9 @@ function BreakdownPanel({
             unavailableReason ??
             (row.key === OTHER_GROUP
               ? "Other combines several groups, so it can't filter the stream"
-              : null);
+              : isOutsideFilter?.(row.key)
+                ? "Excluded by the current filter"
+                : null);
           return (
             <button
               key={row.key}
@@ -423,6 +427,8 @@ interface Props {
    * set.
    */
   seriesFilterUnavailable?: string | null;
+  /** Rows an applied filter excludes; not offered as selections. */
+  isOutsideFilter?: (key: string) => boolean;
 }
 
 /**
@@ -454,6 +460,7 @@ export default function FeatureEvaluationsCard({
   seriesSelection = null,
   onSeriesSelect,
   seriesFilterUnavailable = null,
+  isOutsideFilter,
 }: Props) {
   const allRows = useMemo(
     () => rowsByDimension?.[groupBy] ?? [],
@@ -672,6 +679,7 @@ export default function FeatureEvaluationsCard({
           selectedKey={selection ? null : seriesSelection}
           onSelect={onSeriesSelect}
           unavailableReason={seriesFilterUnavailable}
+          isOutsideFilter={isOutsideFilter}
         />
       </Flex>
     </>

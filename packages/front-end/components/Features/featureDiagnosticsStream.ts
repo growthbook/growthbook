@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { extractConditionAttributeKeys, stemRuleId } from "shared/util";
 import { getValidDate } from "shared/dates";
 import type { FeatureRule } from "shared/types/feature";
+import type { FeatureUsageRowFilter } from "shared/types/integrations";
 
 /**
  * Header labels for stream columns, keyed lower-case so both spellings a
@@ -325,4 +326,96 @@ export function groupAttributesByTargeting(
     ),
     other: attributes.filter(([key]) => !isTargeted(key)),
   };
+}
+
+const ROW_FILTER_COLUMNS = new Set<string>([
+  "value",
+  "ruleId",
+  "source",
+  "variationId",
+]);
+const ROW_FILTER_OPERATORS = new Set<string>([
+  "=",
+  "!=",
+  "in",
+  "not_in",
+  "starts_with",
+  "ends_with",
+  "contains",
+  "not_contains",
+  "is_null",
+  "not_null",
+]);
+const NULL_OPERATORS = new Set<string>(["is_null", "not_null"]);
+
+/**
+ * The builder's committed filters in the server's shape. A filter still being
+ * built (no column, or no value where one is needed) has not been applied and
+ * is left out. Anything else is passed through as-is — including a column or
+ * operator outside the whitelist — so the server rejects it loudly rather
+ * than the client dropping it quietly.
+ */
+export function toUsageRowFilters(
+  filters: { column?: string; operator: string; values?: string[] }[],
+): FeatureUsageRowFilter[] {
+  return filters
+    .filter((f) => {
+      if (!f.column) return false;
+      if (NULL_OPERATORS.has(f.operator)) return true;
+      return (f.values ?? []).some((v) => v !== "");
+    })
+    .map((f) => ({
+      column: f.column as FeatureUsageRowFilter["column"],
+      operator: f.operator as FeatureUsageRowFilter["operator"],
+      values: NULL_OPERATORS.has(f.operator)
+        ? []
+        : (f.values ?? []).filter((v) => v !== ""),
+    }));
+}
+
+/** Whether a filter names a column and operator the server accepts. */
+export function isSupportedUsageRowFilter(f: FeatureUsageRowFilter): boolean {
+  return (
+    ROW_FILTER_COLUMNS.has(f.column) && ROW_FILTER_OPERATORS.has(f.operator)
+  );
+}
+
+/**
+ * The server's semantics, client-side, for data that never reaches it (the
+ * dummy fixture) and for deciding which breakdown rows fall outside a filter.
+ * Stored text, no coercion; on the rule column is_null / not_null mean empty /
+ * non-empty, as the server maps them.
+ */
+export function matchesUsageRowFilter(
+  value: string | null | undefined,
+  filter: FeatureUsageRowFilter,
+): boolean {
+  const v = value ?? "";
+  const first = filter.values[0] ?? "";
+  switch (filter.operator) {
+    case "=":
+      return v === first;
+    case "!=":
+      return v !== first;
+    case "in":
+      return filter.values.includes(v);
+    case "not_in":
+      return !filter.values.includes(v);
+    case "starts_with":
+      return v.startsWith(first);
+    case "ends_with":
+      return v.endsWith(first);
+    case "contains":
+      return v.includes(first);
+    case "not_contains":
+      return !v.includes(first);
+    case "is_null":
+      return filter.column === "ruleId"
+        ? v === ""
+        : value === null || value === undefined;
+    case "not_null":
+      return filter.column === "ruleId"
+        ? v !== ""
+        : value !== null && value !== undefined;
+  }
 }

@@ -306,7 +306,7 @@ export async function runFeatureEvalDiagnosticsQuery(
   /** Omitted: every series across the whole window. */
   narrowing: Pick<
     FeatureEvalDiagnosticsQueryParams,
-    "filter" | "range" | "environments"
+    "filter" | "range" | "environments" | "rowFilters"
   > = {},
 ): Promise<{
   rows?: FeatureEvalDiagnosticsQueryResponseRows;

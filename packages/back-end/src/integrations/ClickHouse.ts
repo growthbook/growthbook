@@ -6,6 +6,7 @@ import { createClient, ResponseJSON } from "@clickhouse/client";
 import {
   FeatureEvalDiagnosticsQueryParams,
   FeatureUsageMarginalRow,
+  FeatureUsageRowFilter,
   FeatureUsageLookback,
   QueryResponse,
 } from "shared/types/integrations";
@@ -47,6 +48,7 @@ import { LAST_RECEIVED_LOOKBACK_DAYS } from "back-end/src/util/warehouseLookback
  * truthful as it was at 6.
  */
 export const FEATURE_USAGE_MARGINAL_LIMIT = 15000;
+import { getFeatureUsageRowFiltersSql } from "back-end/src/integrations/sql/queries/feature-usage-row-filters";
 import {
   getFeatureEvalDiagnosticsNarrowingSql,
   resolveFeatureEvalDiagnosticsWindow,
@@ -208,6 +210,8 @@ export default class ClickHouse extends SqlIntegration {
           this.getSqlDialect(),
           // feature_usage has ruleId and no rule_id.
           { rule_id: "ruleId" },
+          // Fixed camelCase columns: Add Filter aliases do not apply.
+          { useAliases: false },
         )}
       ORDER BY timestamp DESC
       LIMIT ${limit}`;
@@ -224,6 +228,8 @@ export default class ClickHouse extends SqlIntegration {
      * to filter on afterwards, so this is the only place it can happen.
      */
     environments?: string[],
+    /** Add Filter conditions; validated, applied to both queries below. */
+    rowFilters?: FeatureUsageRowFilter[],
   ): Promise<{
     start: number;
     total: number;
@@ -268,6 +274,13 @@ export default class ClickHouse extends SqlIntegration {
             .map((e) => `'${this.getSqlDialect().escapeStringLiteral(e)}'`)
             .join(", ")})`
         : "";
+    // The chart and the breakdown panel narrow together: same filters on the
+    // count and on the marginals, or the total and the rows would disagree.
+    const rowFilterSql = getFeatureUsageRowFiltersSql(
+      rowFilters,
+      this.getSqlDialect(),
+      { useAliases: false },
+    );
 
     const totalRes = await this.runQuery(`
       SELECT COUNT(*) as total
@@ -275,7 +288,7 @@ export default class ClickHouse extends SqlIntegration {
       WHERE
         timestamp > ${this.getSqlDialect().toTimestamp(start)}
         AND feature = '${this.getSqlDialect().escapeStringLiteral(feature)}'
-        ${envFilter}
+        ${envFilter}${rowFilterSql}
       `);
 
     /**
@@ -312,7 +325,7 @@ export default class ClickHouse extends SqlIntegration {
         WHERE
           timestamp > ${this.getSqlDialect().toTimestamp(start)}
           AND feature = '${this.getSqlDialect().escapeStringLiteral(feature)}'
-          ${envFilter}
+          ${envFilter}${rowFilterSql}
       )
       GROUP BY dimension, ts, group_value
       ORDER BY evaluations DESC

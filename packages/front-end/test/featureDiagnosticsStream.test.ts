@@ -3,6 +3,8 @@ import { FeatureRule } from "shared/types/feature";
 import {
   buildVariationLabeler,
   groupAttributesByTargeting,
+  matchesUsageRowFilter,
+  toUsageRowFilters,
   targetingAttributeKeys,
   planStreamColumnWidths,
   planStreamTimestamps,
@@ -212,5 +214,44 @@ describe("groupAttributesByTargeting", () => {
 
   it("does not split when no condition references anything", () => {
     expect(groupAttributesByTargeting(attrs, [])).toBeNull();
+  });
+});
+
+describe("toUsageRowFilters", () => {
+  it("keeps applied filters and leaves half-built ones out", () => {
+    expect(
+      toUsageRowFilters([
+        { column: "value", operator: "=", values: ["false"] },
+        { column: "ruleId", operator: "is_null", values: [""] },
+        { column: "source", operator: "in", values: [] },
+        { operator: "=", values: ["x"] },
+      ]),
+    ).toEqual([
+      { column: "value", operator: "=", values: ["false"] },
+      { column: "ruleId", operator: "is_null", values: [] },
+    ]);
+  });
+});
+
+describe("matchesUsageRowFilter", () => {
+  const f = (
+    column: "value" | "ruleId",
+    operator: Parameters<typeof matchesUsageRowFilter>[1]["operator"],
+    values: string[] = [],
+  ) => ({ column, operator, values });
+
+  it("compares stored text, never coerced", () => {
+    expect(matchesUsageRowFilter("false", f("value", "=", ["false"]))).toBe(
+      true,
+    );
+    expect(
+      matchesUsageRowFilter('{"a":1}', f("value", "contains", ['"a"'])),
+    ).toBe(true);
+  });
+
+  it("treats an empty rule as null, as the server does", () => {
+    expect(matchesUsageRowFilter("", f("ruleId", "is_null"))).toBe(true);
+    expect(matchesUsageRowFilter("fr_a", f("ruleId", "is_null"))).toBe(false);
+    expect(matchesUsageRowFilter("fr_a", f("ruleId", "not_null"))).toBe(true);
   });
 });

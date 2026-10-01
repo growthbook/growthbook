@@ -34,6 +34,10 @@ import {
   getFeatureEvalDiagnosticsNarrowingSql,
   parseFeatureEvalDiagnosticsNarrowing,
 } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-window";
+import {
+  getFeatureUsageRowFiltersSql,
+  parseFeatureUsageRowFilters,
+} from "back-end/src/integrations/sql/queries/feature-usage-row-filters";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
 
@@ -1933,5 +1937,124 @@ describe("feature eval diagnostics narrowing", () => {
         `timestamp < ${bigQueryDialect.toTimestamp(new Date(end))}`,
       );
     });
+  });
+});
+
+describe("feature usage row filters (Add Filter whitelist)", () => {
+  const managed = { allowAlias: false };
+  const stream = { allowAlias: true };
+
+  it("accepts the whitelisted columns and operators", () => {
+    expect(
+      parseFeatureUsageRowFilters(
+        [
+          { column: "value", operator: "=", values: ["false"] },
+          { column: "ruleId", operator: "is_null", values: [] },
+          { column: "source", operator: "in", values: ["force", "experiment"] },
+          { column: "variationId", operator: "contains", values: ["1"] },
+        ],
+        managed,
+      ),
+    ).toEqual({
+      filters: [
+        { column: "value", operator: "=", values: ["false"] },
+        { column: "ruleId", operator: "is_null", values: [] },
+        { column: "source", operator: "in", values: ["force", "experiment"] },
+        { column: "variationId", operator: "contains", values: ["1"] },
+      ],
+    });
+  });
+
+  it("refuses sql_expr and saved_filter by name", () => {
+    for (const operator of ["sql_expr", "saved_filter"]) {
+      expect(
+        parseFeatureUsageRowFilters(
+          [{ column: "value", operator, values: ["1=1"] }],
+          managed,
+        ),
+      ).toEqual({ error: `Filter operator not allowed: ${operator}` });
+    }
+  });
+
+  it("rejects, rather than drops, anything off the whitelist", () => {
+    const bad = [
+      [{ column: "environment", operator: "=", values: ["p"] }],
+      [{ column: "userId", operator: "=", values: ["u"] }],
+      [{ column: "value", operator: "LIKE", values: ["%"] }],
+      [{ column: "value", operator: "=", values: ["a", "b"] }],
+      [{ column: "value", operator: "in", values: [] }],
+      [{ column: "value", operator: "is_null", values: ["x"] }],
+      [{ column: "value", operator: "=", values: [1] }],
+      "not an array",
+      [
+        {
+          column: "ruleId",
+          operator: "=",
+          values: ["x"],
+          columnAlias: "rule_id",
+        },
+      ],
+    ];
+    for (const filters of bad) {
+      expect(parseFeatureUsageRowFilters(filters, managed)).toHaveProperty(
+        "error",
+      );
+    }
+  });
+
+  it("allows only matching aliases, and only where allowed", () => {
+    expect(
+      parseFeatureUsageRowFilters(
+        [
+          {
+            column: "ruleId",
+            operator: "=",
+            values: ["x"],
+            columnAlias: "rule_id",
+          },
+        ],
+        stream,
+      ),
+    ).not.toHaveProperty("error");
+    expect(
+      parseFeatureUsageRowFilters(
+        [
+          {
+            column: "value",
+            operator: "=",
+            values: ["x"],
+            columnAlias: "rule_id",
+          },
+        ],
+        stream,
+      ),
+    ).toHaveProperty("error");
+  });
+
+  it("escapes values and maps rule is_null to empty", () => {
+    const sql = getFeatureUsageRowFiltersSql(
+      [
+        { column: "value", operator: "=", values: ["it's"] },
+        { column: "ruleId", operator: "is_null", values: [] },
+        { column: "ruleId", operator: "not_null", values: [] },
+      ],
+      clickHouseDialect,
+      { useAliases: false },
+    );
+    expect(sql).toContain(
+      `value = '${clickHouseDialect.escapeStringLiteral("it's")}'`,
+    );
+    expect(sql).toContain("(ruleId IS NULL OR ruleId = '')");
+    expect(sql).toContain("(ruleId IS NOT NULL AND ruleId != '')");
+  });
+
+  it("re-checks at the builder, so bypassing the parser still fails", () => {
+    expect(() =>
+      getFeatureUsageRowFiltersSql(
+        [{ column: "value", operator: "sql_expr", values: ["1=1"] }],
+        clickHouseDialect,
+        { useAliases: false },
+      ),
+    ).toThrow("Filter operator not allowed: sql_expr");
   });
 });

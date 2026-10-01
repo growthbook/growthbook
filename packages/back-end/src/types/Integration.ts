@@ -34,6 +34,7 @@ import {
   FeatureEvalDiagnosticsQueryResponse,
   FeatureUsageLookback,
   FeatureUsageMarginalRow,
+  FeatureUsageRowFilter,
   IncrementalRefreshStatisticsQueryParams,
   IncrementalWithNoOutputQueryResponse,
   InformationSchema,
@@ -321,6 +322,8 @@ export interface SourceIntegrationInterface<
     lookback: FeatureUsageLookback,
     /** Environments the org recognises; filters the marginal scan in SQL. */
     environments?: string[],
+    /** Add Filter conditions, already validated. */
+    rowFilters?: FeatureUsageRowFilter[],
   ): Promise<{
     start: number;
     /** True COUNT(*) for the window — `rows` is capped and cannot be summed. */

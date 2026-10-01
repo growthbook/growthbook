@@ -71,6 +71,7 @@ import {
 import {
   FeatureUsageLookback,
   FeatureUsageMarginalRow,
+  FeatureUsageRowFilter,
 } from "shared/types/integrations";
 import {
   ContextualBanditRefRule,
@@ -105,6 +106,7 @@ import {
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import { parseFeatureUsageRowFilters } from "back-end/src/integrations/sql/queries/feature-usage-row-filters";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
@@ -6181,6 +6183,8 @@ export async function getFeatureUsage(
        * environment the flag has, as before.
        */
       environments?: string;
+      /** JSON array of Add Filter conditions; validated before any query. */
+      filters?: string;
     }
   >,
   res: Response<{
@@ -6239,6 +6243,22 @@ export async function getFeatureUsage(
       : null;
   const scopedEnvs = requested ?? Array.from(validEnvs);
 
+  // Add Filter. The whitelist is enforced here, server-side: anything outside
+  // it is rejected with an error, never dropped, so a filtered view cannot
+  // silently come back unfiltered.
+  let rowFilters: FeatureUsageRowFilter[] = [];
+  if (typeof req.query.filters === "string" && req.query.filters !== "") {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(req.query.filters);
+    } catch {
+      throw new Error("Invalid filters: not JSON");
+    }
+    const parsed = parseFeatureUsageRowFilters(raw, { allowAlias: false });
+    if ("error" in parsed) throw new Error(parsed.error);
+    rowFilters = parsed.filters;
+  }
+
   const { start, total, marginals } =
     requested !== null && requested.length === 0
       ? {
@@ -6246,7 +6266,12 @@ export async function getFeatureUsage(
           total: 0,
           marginals: [] as FeatureUsageMarginalRow[],
         }
-      : await integration.getFeatureUsage(feature.id, lookback, scopedEnvs);
+      : await integration.getFeatureUsage(
+          feature.id,
+          lookback,
+          scopedEnvs,
+          rowFilters,
+        );
 
   // Bucket edges come from the shared table, which the warehouse's
   // toStartOfInterval and the front end's dummy generator also read. All three
