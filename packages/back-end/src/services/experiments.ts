@@ -913,6 +913,8 @@ export function getSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     exposureQueryIdentifierType,
+    isClusterExperiment: experiment.isClusterExperiment,
+    clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -4690,12 +4692,18 @@ export function assertClusterExperimentMetricsSupported({
   guardrailMetrics,
   metricMap,
   metricGroups,
+  clusterSubUnitIdentifier,
+  factTableMap,
+  datasource,
 }: {
   goalMetrics?: string[];
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
+  clusterSubUnitIdentifier?: string | null;
+  factTableMap?: FactTableMap;
+  datasource?: DataSourceInterface | null;
 }): void {
   const metricIds = getAllMetricIdsFromExperiment(
     { goalMetrics, secondaryMetrics, guardrailMetrics },
@@ -4706,7 +4714,13 @@ export function assertClusterExperimentMetricsSupported({
     const metric = metricMap.get(id);
     // Existence/datasource are validated separately; only check known metrics.
     if (!metric) continue;
-    const eligibility = getClusterExperimentMetricEligibility(metric);
+    const eligibility = getClusterExperimentMetricEligibility(metric, {
+      clusterSubUnitIdentifier,
+      getFactTable: factTableMap
+        ? (factTableId) => factTableMap.get(factTableId)
+        : undefined,
+      datasourceSettings: datasource?.settings,
+    });
     if (!eligibility.allowed) {
       throw new Error(
         `Metric "${metric.name || id}" cannot be used in a cluster experiment: ${eligibility.reason}`,

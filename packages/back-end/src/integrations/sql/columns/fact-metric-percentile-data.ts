@@ -8,6 +8,7 @@ type PercentileCappedMetricData = Pick<
   | "metric"
   | "alias"
   | "ratioMetric"
+  | "isClusterRatioConversion"
   | "numeratorSourceIndex"
   | "denominatorSourceIndex"
   | "isUpperPercentileCapped"
@@ -46,7 +47,9 @@ export function getFactMetricPercentileData(
         outputCol: `${columns.value}${suffix}`,
         sourceIndex: m.numeratorSourceIndex,
       },
-      ...(m.ratioMetric
+      // Cluster-converted metrics have no denominator metric column, so there is
+      // nothing to percentile-cap on the denominator side.
+      ...(m.ratioMetric && !m.isClusterRatioConversion
         ? [
             {
               ...shared,

@@ -1407,12 +1407,16 @@ export async function postExperiments(
     if (obj.isClusterExperiment) {
       const clusterMetricGroups = await context.models.metricGroups.getAll();
       const clusterMetricMap = await getMetricMap(context);
+      const clusterFactTableMap = await getFactTableMap(context);
       assertClusterExperimentMetricsSupported({
         goalMetrics: obj.goalMetrics,
         secondaryMetrics: obj.secondaryMetrics,
         guardrailMetrics: obj.guardrailMetrics,
         metricMap: clusterMetricMap,
         metricGroups: clusterMetricGroups,
+        clusterSubUnitIdentifier: obj.clusterSubUnitIdentifier,
+        factTableMap: clusterFactTableMap,
+        datasource,
       });
     }
 
@@ -2084,12 +2088,17 @@ export async function postExperiment(
     );
     if (!clusterValidation.ok) throw new Error(clusterValidation.error);
 
+    const clusterFactTableMap = await getFactTableMap(context);
     assertClusterExperimentMetricsSupported({
       goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
       secondaryMetrics: changes.secondaryMetrics ?? experiment.secondaryMetrics,
       guardrailMetrics: changes.guardrailMetrics ?? experiment.guardrailMetrics,
       metricMap,
       metricGroups: allMetricGroups,
+      clusterSubUnitIdentifier:
+        changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
+      factTableMap: clusterFactTableMap,
+      datasource: clusterDatasource,
     });
   }
 

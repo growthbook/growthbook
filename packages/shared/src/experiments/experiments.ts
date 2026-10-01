@@ -1360,6 +1360,19 @@ export function isRatioMetric(
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
+/**
+ * For cluster-randomized experiments, mean/proportion/retention fact metrics are
+ * analyzed as a ratio to get cluster-robust inference.  Ratio metrics are alrady cluster-correct.
+ */
+export function analyzeClusterMetricAsRatio(
+  m: ExperimentMetricDefinition,
+  { isClusterExperiment }: { isClusterExperiment?: boolean },
+): boolean {
+  if (!isClusterExperiment) return false;
+  if (!isFactMetric(m)) return false;
+  return ["mean", "proportion", "retention"].includes(m.metricType);
+}
+
 export function quantileMetricType(
   m: ExperimentMetricDefinition,
 ): "" | MetricQuantileSettings["type"] {
@@ -1389,6 +1402,13 @@ export type ClusterMetricEligibility =
 
 export function getClusterExperimentMetricEligibility(
   metric: ExperimentMetricDefinition,
+  options?: {
+    clusterSubUnitIdentifier?: string | null;
+    getFactTable?: (
+      id: string,
+    ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined;
+    datasourceSettings?: DataSourceSettings;
+  },
 ): ClusterMetricEligibility {
   if (!isFactMetric(metric)) {
     return {
@@ -1424,6 +1444,21 @@ export function getClusterExperimentMetricEligibility(
         reason: `"${ref.aggregation}" aggregations are not supported in cluster experiments (only sums, counts, proportions, and ratios of these).`,
       };
     }
+  }
+  if (
+    options?.clusterSubUnitIdentifier &&
+    options.getFactTable &&
+    !isFactMetricJoinable(
+      metric,
+      options.clusterSubUnitIdentifier,
+      options.getFactTable,
+      options.datasourceSettings,
+    )
+  ) {
+    return {
+      allowed: false,
+      reason: `this metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}", so it cannot be analyzed at the sub-unit level. Cluster experiments require each metric's fact table to include the sub-unit identifier.`,
+    };
   }
   return { allowed: true };
 }

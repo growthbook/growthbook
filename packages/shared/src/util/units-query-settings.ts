@@ -12,6 +12,8 @@ export function buildUnitsQuerySettingsFromSnapshot(
   return {
     experimentId: settings.experimentId,
     exposureQuery,
+    isClusterExperiment: settings.isClusterExperiment,
+    clusterSubUnitIdentifier: settings.clusterSubUnitIdentifier,
     startDate: settings.startDate,
     endDate: settings.endDate,
     skipPartialData: settings.skipPartialData,

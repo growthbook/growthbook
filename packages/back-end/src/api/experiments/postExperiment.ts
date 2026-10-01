@@ -37,6 +37,7 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
@@ -327,12 +328,16 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       }
 
       if (payload.isClusterExperiment) {
+        const clusterFactTableMap = await getFactTableMap(req.context);
         assertClusterExperimentMetricsSupported({
           goalMetrics: payload.metrics,
           secondaryMetrics: payload.secondaryMetrics,
           guardrailMetrics: payload.guardrailMetrics,
           metricMap: map,
           metricGroups,
+          clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier,
+          factTableMap: clusterFactTableMap,
+          datasource,
         });
       }
     }

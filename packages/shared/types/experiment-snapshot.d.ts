@@ -207,6 +207,8 @@ export interface ExperimentSnapshotSettings {
   datasourceId: string;
   exposureQueryId: string;
   exposureQueryIdentifierType?: string;
+  isClusterExperiment?: boolean;
+  clusterSubUnitIdentifier?: string;
   startDate: Date;
   endDate: Date;
   phase?: PhaseSQLVar;

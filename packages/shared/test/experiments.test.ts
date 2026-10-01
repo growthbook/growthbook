@@ -32,6 +32,8 @@ import {
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
   isAutoSnapshotScheduled,
+  analyzeClusterMetricAsRatio,
+  getClusterExperimentMetricEligibility,
   ExperimentMetricInterface,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
@@ -3032,5 +3034,142 @@ describe("isAutoSnapshotScheduled", () => {
     expect(
       isAutoSnapshotScheduled({ autoSnapshots: true, archived: false }),
     ).toBe(true);
+  });
+});
+
+describe("analyzeClusterMetricAsRatio", () => {
+  const factMetric = (metricType: string) =>
+    ({
+      metricType,
+      numerator: { factTableId: "ft", column: "value" },
+      denominator: metricType === "ratio" ? { factTableId: "ft" } : null,
+    }) as unknown as ExperimentMetricInterface;
+
+  it("is false when the experiment is not a cluster experiment", () => {
+    expect(
+      analyzeClusterMetricAsRatio(factMetric("mean"), {
+        isClusterExperiment: false,
+      }),
+    ).toBe(false);
+    expect(analyzeClusterMetricAsRatio(factMetric("mean"), {})).toBe(false);
+  });
+
+  it("converts mean/proportion/retention fact metrics in a cluster experiment", () => {
+    for (const metricType of ["mean", "proportion", "retention"]) {
+      expect(
+        analyzeClusterMetricAsRatio(factMetric(metricType), {
+          isClusterExperiment: true,
+        }),
+      ).toBe(true);
+    }
+  });
+
+  it("does not convert native ratio metrics (already cluster-correct)", () => {
+    expect(
+      analyzeClusterMetricAsRatio(factMetric("ratio"), {
+        isClusterExperiment: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not convert quantile or non-fact metrics", () => {
+    expect(
+      analyzeClusterMetricAsRatio(factMetric("quantile"), {
+        isClusterExperiment: true,
+      }),
+    ).toBe(false);
+    // Legacy (non-fact) metric: has `type`, not `metricType`.
+    expect(
+      analyzeClusterMetricAsRatio(
+        { type: "binomial" } as unknown as ExperimentMetricInterface,
+        { isClusterExperiment: true },
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("getClusterExperimentMetricEligibility", () => {
+  const factMetric = (
+    metricType: string,
+    factTableId = "ft_subunit",
+    aggregation: string | undefined = "sum",
+  ) =>
+    ({
+      metricType,
+      numerator: { factTableId, column: "value", aggregation },
+      denominator:
+        metricType === "ratio"
+          ? { factTableId, column: "value", aggregation }
+          : null,
+    }) as unknown as ExperimentMetricInterface;
+
+  // Fact tables: one exposes the sub-unit id (user_id), one only the cluster id.
+  const factTables: Record<string, { userIdTypes: string[] }> = {
+    ft_subunit: { userIdTypes: ["user_id", "region_id"] },
+    ft_cluster_only: { userIdTypes: ["region_id"] },
+    ft_anon: { userIdTypes: ["anonymous_id"] },
+  };
+  const getFactTable = (id: string) => factTables[id];
+
+  it("rejects non-fact, quantile, unsupported-type, and unsupported-aggregation metrics", () => {
+    expect(
+      getClusterExperimentMetricEligibility({
+        type: "binomial",
+      } as unknown as ExperimentMetricInterface).allowed,
+    ).toBe(false);
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("quantile")).allowed,
+    ).toBe(false);
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("funnel")).allowed,
+    ).toBe(false);
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "max"),
+      ).allowed,
+    ).toBe(false);
+  });
+
+  it("allows supported metrics when no fact-table context is provided (back-compat)", () => {
+    expect(getClusterExperimentMetricEligibility(factMetric("mean"))).toEqual({
+      allowed: true,
+    });
+    expect(getClusterExperimentMetricEligibility(factMetric("ratio"))).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("allows metrics whose fact table exposes the sub-unit identifier", () => {
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("mean", "ft_subunit"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }),
+    ).toEqual({ allowed: true });
+  });
+
+  it("rejects metrics whose fact table only has the cluster identifier", () => {
+    const result = getClusterExperimentMetricEligibility(
+      factMetric("mean", "ft_cluster_only"),
+      { clusterSubUnitIdentifier: "user_id", getFactTable },
+    );
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.reason).toContain("user_id");
+    }
+  });
+
+  it("allows a fact table that reaches the sub-unit via an identity join", () => {
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("mean", "ft_anon"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+        datasourceSettings: {
+          queries: {
+            identityJoins: [{ ids: ["user_id", "anonymous_id"] }],
+          },
+        } as never,
+      }),
+    ).toEqual({ allowed: true });
   });
 });
