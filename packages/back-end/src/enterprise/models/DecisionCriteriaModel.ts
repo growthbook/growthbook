@@ -1,8 +1,10 @@
 import {
+  ApiDecisionCriteria,
   DecisionCriteriaInterface,
   decisionCriteriaInterface,
 } from "shared/enterprise";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
+import { decisionCriteriaApiSpec } from "back-end/src/api/specs/decision-criteria.spec";
 
 const BaseClass = MakeModelClass({
   schema: decisionCriteriaInterface,
@@ -16,6 +18,10 @@ const BaseClass = MakeModelClass({
     deleteEvent: "decisionCriteria.delete",
   },
   globallyUniquePrimaryKeys: false,
+  apiConfig: {
+    modelKey: "decisionCriteria",
+    openApiSpec: decisionCriteriaApiSpec,
+  },
 });
 
 // TODO: project scoping or make more permissive
@@ -39,5 +45,21 @@ export class DecisionCriteriaModel extends BaseClass {
   }
   protected canDelete(): boolean {
     return this.context.permissions.canDeleteDecisionCriteria();
+  }
+
+  protected toApiInterface(
+    doc: DecisionCriteriaInterface,
+  ): ApiDecisionCriteria {
+    return {
+      id: doc.id,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+      owner: doc.owner,
+      project: doc.project,
+      name: doc.name,
+      description: doc.description,
+      rules: doc.rules,
+      defaultAction: doc.defaultAction,
+    };
   }
 }

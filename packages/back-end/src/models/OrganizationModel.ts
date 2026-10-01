@@ -10,6 +10,7 @@ import {
   MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
+  OrganizationSettings,
   OrgMemberInfo,
   Role,
 } from "shared/types/organization";
@@ -358,6 +359,25 @@ export async function updateOrganization(
     {
       $set: update,
       ...(unset ? { $unset: unset } : {}),
+    },
+  );
+}
+
+// Writes only the given keys, so concurrent updates to other settings survive.
+export async function updateOrganizationSettings(
+  id: string,
+  set: Partial<OrganizationSettings>,
+  unset: (keyof OrganizationSettings)[],
+) {
+  const $set = Object.fromEntries(
+    Object.entries(set).map(([k, v]) => [`settings.${k}`, v]),
+  );
+  const $unset = Object.fromEntries(unset.map((k) => [`settings.${k}`, 1]));
+  await OrganizationModel.updateOne(
+    { id },
+    {
+      ...(unset.length ? { $unset } : {}),
+      ...(Object.keys($set).length ? { $set } : {}),
     },
   );
 }
