@@ -1368,6 +1368,7 @@ export const featureEntityHandler: EntityHandler = {
       context: ctx,
       feature,
       user,
+      baseVersion: feature.version,
       environments: ctx.environments,
       changes: { rules: updatedRules },
       publish: false,
