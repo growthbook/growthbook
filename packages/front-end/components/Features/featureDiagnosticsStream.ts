@@ -88,6 +88,14 @@ const HEADER_ICON_PX = 20;
 /** Before any rows: the width the fixed column always had. */
 const EMPTY_TIMESTAMP_WIDTH = 210;
 
+/**
+ * The widest the within-a-year format can render — "Sep 28, 12:59:59.999 PM"
+ * — so the Timestamp column is that wide whatever the rows hold and does not
+ * resize as filters or the time range change. Only a set spanning years, which
+ * adds the year, can need more.
+ */
+export const STREAM_TIMESTAMP_CH = 23;
+
 export interface StreamTimestampPlan {
   /** A row's timestamp, at the precision its raw value has. */
   format: (raw: unknown, date: Date) => string;
@@ -125,7 +133,7 @@ export function planStreamTimestamps(
   );
   const width = Math.ceil(
     Math.max(
-      longest * MONO_CHAR_PX + CELL_PADDING_PX,
+      Math.max(longest, STREAM_TIMESTAMP_CH) * MONO_CHAR_PX + CELL_PADDING_PX,
       "Timestamp".length * HEADER_CHAR_PX + HEADER_ICON_PX + CELL_PADDING_PX,
     ),
   );
@@ -214,7 +222,8 @@ export const STREAM_COLUMN_EXTRA_PX: Record<string, number> = {
 
 /** Per-column bounds in `ch`. */
 const COLUMN_BOUNDS: Record<string, { min: number; max: number }> = {
-  timestamp: { min: 0, max: Infinity },
+  // Fixed at the format's widest (see STREAM_TIMESTAMP_CH), not the rows'.
+  timestamp: { min: STREAM_TIMESTAMP_CH, max: Infinity },
   unit_id: { min: 14, max: 28 },
   value: { min: 8, max: 24 },
   variationId: { min: 0, max: 24 },

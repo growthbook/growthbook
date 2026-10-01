@@ -125,7 +125,8 @@ describe("planStreamColumnWidths", () => {
       ],
       label,
     );
-    expect(widths.timestamp).toBe(22);
+    // Fixed at the format's widest, whatever the rows hold.
+    expect(widths.timestamp).toBe(23);
     // Under each floor: User ID 14, Value 8, Rule 24.
     expect(widths.unit_id).toBe(14);
     expect(widths.value).toBe(8);
