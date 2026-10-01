@@ -277,88 +277,91 @@ function BreakdownPanel({
           outright rather than holding an empty one, so its content starts at
           the left edge. */}
       <div className={styles.panelList} role="list">
-        {rows.map((row) => {
-          const zero = row.count === 0;
-          const unknown = row.count === null;
-          const selected = selectedKey === row.key;
-          // The default value is not a series you could expect a band for, so
-          // it gets no "empty" outline — just the column, held for alignment.
-          const isDefault = row.key === DEFAULT_RULE_KEY;
-          // A row that cannot filter the stream is not clickable at all, and
-          // says why on hover, rather than offering a click that would error.
-          const blockedBy =
-            unavailableReason ??
-            (row.key === OTHER_GROUP
-              ? "Other combines several groups, so it can't filter the stream"
-              : isOutsideFilter?.(row.key)
-                ? "Excluded by the current filter"
+        {/* Rows a filter on the grouped column excludes are not listed at
+            all: the filter has ruled them out, so they are not part of what
+            this panel describes. */}
+        {rows
+          .filter((row) => !isOutsideFilter?.(row.key))
+          .map((row) => {
+            const zero = row.count === 0;
+            const unknown = row.count === null;
+            const selected = selectedKey === row.key;
+            // The default value is not a series you could expect a band for, so
+            // it gets no "empty" outline — just the column, held for alignment.
+            const isDefault = row.key === DEFAULT_RULE_KEY;
+            // A row that cannot filter the stream is not clickable at all, and
+            // says why on hover, rather than offering a click that would error.
+            const blockedBy =
+              unavailableReason ??
+              (row.key === OTHER_GROUP
+                ? "Other combines several groups, so it can't filter the stream"
                 : null);
-          return (
-            <button
-              key={row.key}
-              type="button"
-              role="listitem"
-              aria-pressed={selected}
-              aria-disabled={blockedBy !== null}
-              className={clsx(styles.panelRow, {
-                [styles.panelRowNoIndex]: !numbered,
-                [styles.panelRowSelected]: selected,
-                [styles.panelRowEmpty]: zero || unknown,
-                [styles.panelRowBlocked]: blockedBy !== null,
-              })}
-              onClick={() => {
-                if (blockedBy !== null) return;
-                onSelect?.(
-                  selected ? null : { key: row.key, label: row.label },
-                );
-              }}
-              title={
-                blockedBy ??
-                (unknown
-                  ? `${row.label} — outside the top 25 by volume, so its traffic, if any, is counted in Other`
-                  : row.label)
-              }
-            >
-              {numbered && (
-                <span
-                  className={clsx(styles.indexPill, {
-                    [styles.indexPillBlank]: row.index === undefined,
-                  })}
-                >
-                  {row.index ?? ""}
-                </span>
-              )}
-              {/* No traffic, no band: a colour here would promise a stripe
-                  in the chart that is not there. */}
-              <span
-                className={clsx(styles.swatch, {
-                  [styles.swatchEmpty]: (zero || unknown) && !isDefault,
-                  // Not a rule: an empty light outline, as in the stream's
-                  // Rule cell, whatever its traffic.
-                  [styles.swatchDefault]: isDefault,
+            return (
+              <button
+                key={row.key}
+                type="button"
+                role="listitem"
+                aria-pressed={selected}
+                aria-disabled={blockedBy !== null}
+                className={clsx(styles.panelRow, {
+                  [styles.panelRowNoIndex]: !numbered,
+                  [styles.panelRowSelected]: selected,
+                  [styles.panelRowEmpty]: zero || unknown,
+                  [styles.panelRowBlocked]: blockedBy !== null,
                 })}
-                style={
-                  zero || unknown || isDefault
-                    ? undefined
-                    : { background: row.color }
+                onClick={() => {
+                  if (blockedBy !== null) return;
+                  onSelect?.(
+                    selected ? null : { key: row.key, label: row.label },
+                  );
+                }}
+                title={
+                  blockedBy ??
+                  (unknown
+                    ? `${row.label} — outside the top 25 by volume, so its traffic, if any, is counted in Other`
+                    : row.label)
                 }
-              />
-              <span className={styles.rowLabel}>{row.label}</span>
-              <span className={styles.rowCount}>
-                {unknown ? "—" : formatCount(row.count ?? 0)}
-              </span>
-              <span className={styles.rowShare}>
-                {row.count
-                  ? formatShare(row.count, total)
-                  : // Always a share for the default value, even at zero: it
-                    // is the baseline every rule is read against.
-                    isDefault && row.count === 0
-                    ? "0%"
-                    : ""}
-              </span>
-            </button>
-          );
-        })}
+              >
+                {numbered && (
+                  <span
+                    className={clsx(styles.indexPill, {
+                      [styles.indexPillBlank]: row.index === undefined,
+                    })}
+                  >
+                    {row.index ?? ""}
+                  </span>
+                )}
+                {/* No traffic, no band: a colour here would promise a stripe
+                  in the chart that is not there. */}
+                <span
+                  className={clsx(styles.swatch, {
+                    [styles.swatchEmpty]: (zero || unknown) && !isDefault,
+                    // Not a rule: an empty light outline, as in the stream's
+                    // Rule cell, whatever its traffic.
+                    [styles.swatchDefault]: isDefault,
+                  })}
+                  style={
+                    zero || unknown || isDefault
+                      ? undefined
+                      : { background: row.color }
+                  }
+                />
+                <span className={styles.rowLabel}>{row.label}</span>
+                <span className={styles.rowCount}>
+                  {unknown ? "—" : formatCount(row.count ?? 0)}
+                </span>
+                <span className={styles.rowShare}>
+                  {row.count
+                    ? formatShare(row.count, total)
+                    : // Always a share for the default value, even at zero: it
+                      // is the baseline every rule is read against.
+                      isDefault && row.count === 0
+                      ? "0%"
+                      : ""}
+                </span>
+              </button>
+            );
+          })}
       </div>
     </Frame>
   );
