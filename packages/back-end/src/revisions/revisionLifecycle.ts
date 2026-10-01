@@ -185,6 +185,7 @@ export async function scheduleRevisionPublish({
 
   const enabledBy =
     context.userId ||
+    context.apiKey ||
     revision.autoPublishEnabledBy ||
     revision.authorId ||
     null;

@@ -1961,11 +1961,7 @@ export async function postExperiment(
     }
   });
 
-  normalizeStatusUpdateScheduleChanges(
-    experiment,
-    changes,
-    context.userId || undefined,
-  );
+  normalizeStatusUpdateScheduleChanges(experiment, changes, context);
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.
@@ -3433,6 +3429,7 @@ export async function postSnapshotAnalysis(
       context,
       id,
       updates: { settings: snapshot.settings },
+      conclusion: null,
     });
   }
 

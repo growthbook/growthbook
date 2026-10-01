@@ -1,9 +1,10 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { validateAndFixCondition } from "shared/util";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
@@ -34,7 +35,7 @@ export default function ContextualBanditTrafficTargetingModal({
   mutate: () => void;
   close: () => void;
 }) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const environments = useEnvironments();
 
   const [conditionKey, setConditionKey] = useState(0);
@@ -77,15 +78,15 @@ export default function ContextualBanditTrafficTargetingModal({
 
           const coverage = Math.min(1, Math.max(0, data.coverage));
 
-          await apiCall(`/api/v1/contextual-bandits/${cb.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
+          await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+            params: { id: cb.id },
+            body: {
               coverage,
               hashAttribute: data.hashAttribute || undefined,
               condition,
               savedGroups: data.savedGroups,
               prerequisites: data.prerequisites,
-            }),
+            },
           });
           mutate();
         })}

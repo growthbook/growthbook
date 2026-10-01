@@ -11,7 +11,7 @@ import type { ActiveTurnItem } from "./types";
 // Typewriter constants
 // ---------------------------------------------------------------------------
 
-const TYPEWRITER_INTERVAL_MS = 30;
+export const TYPEWRITER_INTERVAL_MS = 30;
 const TYPEWRITER_MIN_CHARS_PER_TICK = 1;
 export const TYPEWRITER_INITIAL_CHARS_PER_TICK = 3;
 const TYPEWRITER_FAST_CHARS_PER_TICK = 15;
@@ -24,7 +24,9 @@ const MAX_BUFFER_CORRECTION_RATIO = 0.3;
 // Past this backlog the estimate is behind; drain it.
 const CATCH_UP_BUFFER_TICKS = 100;
 const CATCH_UP_DRAIN_TICKS = 8;
-const FINISHED_DRAIN_TICKS = 3;
+// Finished text still animates in over ~1.2s: some providers (Claude Sonnet 5.5
+// after a tool result) hold a reply back and send it in one burst.
+export const FINISHED_DRAIN_TICKS = 40;
 
 export function updateArrivalRateEstimate(
   previousRate: number,
@@ -36,22 +38,41 @@ export function updateArrivalRateEstimate(
   );
 }
 
+/** Constant pace for finished text, fixed when the drain starts so it ends on time. */
+export function getDrainCharsPerTick(bufferedCharacters: number): number {
+  return Math.max(bufferedCharacters, 0) / FINISHED_DRAIN_TICKS;
+}
+
 /** Fractional; callers accumulate the remainder so 2.5 alternates 2 and 3. */
 export function getTypewriterCharsPerTick({
   bufferedCharacters,
   arrivalRate,
   hasSuccessor,
   streamComplete,
+  drainRate,
 }: {
   bufferedCharacters: number;
   arrivalRate: number;
   hasSuccessor: boolean;
   streamComplete: boolean;
+  /** From `getDrainCharsPerTick` at the first finished tick; defaults to now. */
+  drainRate?: number;
 }): number {
   const buffered = Math.max(bufferedCharacters, 0);
   if (buffered === 0) return 0;
 
   const baseRate = Math.max(TYPEWRITER_MIN_CHARS_PER_TICK, arrivalRate);
+
+  // Finished text keeps a fixed pace instead of the backlog catch-up below.
+  if (hasSuccessor || streamComplete) {
+    const rate = Math.max(
+      baseRate,
+      TYPEWRITER_FAST_CHARS_PER_TICK,
+      drainRate ?? getDrainCharsPerTick(buffered),
+    );
+    return Math.min(rate, buffered);
+  }
+
   const targetBuffer = arrivalRate * TARGET_BUFFER_TICKS;
   const maxCorrection = baseRate * MAX_BUFFER_CORRECTION_RATIO;
   const correction = Math.min(
@@ -68,14 +89,6 @@ export function getTypewriterCharsPerTick({
     CATCH_UP_BUFFER_TICKS;
   if (buffered > catchUpThreshold) {
     rate = Math.max(rate, buffered / CATCH_UP_DRAIN_TICKS);
-  }
-
-  if (hasSuccessor || streamComplete) {
-    rate = Math.max(
-      rate,
-      TYPEWRITER_FAST_CHARS_PER_TICK,
-      buffered / FINISHED_DRAIN_TICKS,
-    );
   }
 
   return Math.min(rate, buffered);
@@ -265,6 +278,7 @@ type TypewriterRateState = {
   seenContentLength: number;
   arrivalRate: number;
   fractionalCarry: number;
+  drainRate?: number;
 };
 
 /**
@@ -324,13 +338,21 @@ export function useTypewriter(
         const revealed = current.get(item.id) ?? "";
         if (revealed.length < item.content.length) {
           const hasSuccessor = idx < items.length - 1;
+          const bufferedCharacters = item.content.length - revealed.length;
+          if (
+            (hasSuccessor || streamComplete) &&
+            rateState.drainRate === undefined
+          ) {
+            rateState.drainRate = getDrainCharsPerTick(bufferedCharacters);
+          }
           const budget =
             rateState.fractionalCarry +
             getTypewriterCharsPerTick({
-              bufferedCharacters: item.content.length - revealed.length,
+              bufferedCharacters,
               arrivalRate: rateState.arrivalRate,
               hasSuccessor,
               streamComplete,
+              drainRate: rateState.drainRate,
             });
           const charsPerTick = Math.floor(budget);
           rateState.fractionalCarry = budget - charsPerTick;

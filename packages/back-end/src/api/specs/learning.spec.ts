@@ -7,7 +7,7 @@ import {
   apiSearchLearningsResponse,
   apiUpdateLearningBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 // Add filter query params to the default list endpoint.
 export const apiListLearningsValidator = {
