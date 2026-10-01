@@ -258,12 +258,24 @@ export default class ClickHouse extends SqlIntegration {
     // summed from the marginals: a marginal is per dimension, so summing one of
     // them would be a total for that dimension only, and picking which
     // dimension to trust is not a decision this should be making.
+    // Built once and applied to BOTH queries below. The count is the window's
+    // `total`; scoped by environment only in the marginals, it would compare
+    // an all-environments total against scoped rows, and every scoped view
+    // would report a shortfall that is not one.
+    const envFilter =
+      environments && environments.length
+        ? `AND environment IN (${environments
+            .map((e) => `'${this.getSqlDialect().escapeStringLiteral(e)}'`)
+            .join(", ")})`
+        : "";
+
     const totalRes = await this.runQuery(`
       SELECT COUNT(*) as total
       FROM feature_usage
       WHERE
         timestamp > ${this.getSqlDialect().toTimestamp(start)}
         AND feature = '${this.getSqlDialect().escapeStringLiteral(feature)}'
+        ${envFilter}
       `);
 
     /**
@@ -281,13 +293,6 @@ export default class ClickHouse extends SqlIntegration {
      * labels here are explicit values in the projection, so nothing depends on
      * how a non-participating column defaults.
      */
-    const envFilter =
-      environments && environments.length
-        ? `AND environment IN (${environments
-            .map((e) => `'${this.getSqlDialect().escapeStringLiteral(e)}'`)
-            .join(", ")})`
-        : "";
-
     const marginalRes = await this.runQuery(`
       SELECT
         pair.1 AS dimension,
