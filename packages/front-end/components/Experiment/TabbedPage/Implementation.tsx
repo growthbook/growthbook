@@ -302,7 +302,7 @@ export default function Implementation({
         !isHoldout ? (
           <Callout status="info" mb="4">
             This experiment has no linked GrowthBook implementation (linked
-            feature flag, visual editor changes, or URL redirect).{" "}
+            feature flag, AI Visual Editor changes, or URL redirect).{" "}
             {experiment.status === "stopped"
               ? "Either the implementation was deleted or the implementation, traffic, and targeting were managed by an external system."
               : "The implementation, traffic, and targeting may be managed by an external system."}

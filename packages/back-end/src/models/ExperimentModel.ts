@@ -234,6 +234,7 @@ const experimentSchema = new mongoose.Schema({
     date: Date,
     failedAttempts: Number,
     scheduledBy: String,
+    scheduledByApiKey: String,
   },
   results: String,
   analysis: String,

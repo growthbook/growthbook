@@ -95,6 +95,8 @@ export * from "./reports";
 export * from "./openapi-helpers";
 export * from "./contextual-bandit";
 export * from "./contextual-bandit-query";
+export * from "./contextual-bandit.spec";
+export * from "./contextual-bandit-query.spec";
 export * from "./contextual-bandit-snapshot";
 export * from "./contextual-bandit-event";
 export * from "./api-errors";

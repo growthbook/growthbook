@@ -35,6 +35,7 @@ jest.mock("shared/util", () => ({
 }));
 
 jest.mock("back-end/src/services/featurePublishGates", () => ({
+  ...jest.requireActual("back-end/src/services/featurePublishGates"),
   assessRevisionApproval: jest.fn(),
 }));
 

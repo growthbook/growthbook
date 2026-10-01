@@ -1,4 +1,4 @@
-import { AES, enc } from "crypto-js";
+import { AES, enc, format } from "crypto-js";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 
 const ENCRYPTED_SLACK_TOKEN_PREFIX = "encrypted:v1:";
@@ -21,10 +21,11 @@ export const decryptSlackBotToken = (
   if (!isEncryptedSlackBotToken(storedToken)) return storedToken;
 
   try {
-    const token = AES.decrypt(
+    const ciphertext = format.OpenSSL.parse(
       storedToken.slice(ENCRYPTED_SLACK_TOKEN_PREFIX.length),
-      encryptionKey,
-    ).toString(enc.Utf8);
+    );
+    if (!ciphertext.salt) return null;
+    const token = AES.decrypt(ciphertext, encryptionKey).toString(enc.Utf8);
     return token || null;
   } catch {
     return null;

@@ -33,8 +33,8 @@ export const LINKED_CHANGES: Record<
     sdkCapabilityKey: "",
   },
   "visual-editor": {
-    header: "Visual Editor",
-    cta: "Launch Visual Editor",
+    header: "AI Visual Editor",
+    cta: "Launch AI Visual Editor",
     description:
       "Use our no-code browser extension to A/B test minor changes, such as headings or button text.",
     commercialFeature: "visual-editor",

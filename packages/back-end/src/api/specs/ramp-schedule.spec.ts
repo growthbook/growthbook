@@ -9,7 +9,7 @@ import {
   rampStartPatch,
   stepHoldConditions,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 // --- Create body schemas ---
 
