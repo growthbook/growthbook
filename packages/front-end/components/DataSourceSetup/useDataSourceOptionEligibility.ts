@@ -40,9 +40,11 @@ export function useDataSourceOptionEligibility(): {
   );
   const plan = effectiveAccountPlan || "";
   const isPaidPlan = ["pro", "pro_sso", "enterprise"].includes(plan);
-  const isUsageBilled = !!license?.isTrial || !!license?.orbSubscription;
   // Pro plans not on Orb are older Stripe subscriptions, which can't be billed for event usage.
-  const isLegacyProPlan = ["pro", "pro_sso"].includes(plan) && !isUsageBilled;
+  const isLegacyProPlan =
+    ["pro", "pro_sso"].includes(plan) &&
+    !license?.isTrial &&
+    !license?.orbSubscription;
 
   const existingManagedWarehouse = datasources.find(
     (d) => d.type === "growthbook_clickhouse",
@@ -58,12 +60,6 @@ export function useDataSourceOptionEligibility(): {
     managed = NO_PERMISSION;
   } else if (isLegacyProPlan) {
     managed = LEGACY_PRO_PLAN;
-  } else if (plan !== "starter" && !isUsageBilled) {
-    managed = {
-      status: "unavailable",
-      reason:
-        "Managed Warehouse requires a usage-based plan. Contact sales@growthbook.io to switch plans.",
-    };
   } else {
     managed = { status: "available" };
   }
