@@ -10,6 +10,7 @@ import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Link from "@/ui/Link";
+import Checkbox from "@/ui/Checkbox";
 import SortableExperimentChecklist from "./SortableExperimentChecklist";
 import NewExperimentChecklistItem from "./NewExperimentChecklistItem";
 
@@ -38,6 +39,7 @@ export default function ExperimentCheckListModal({
   const [experimentLaunchChecklist, setExperimentLaunchChecklist] = useState<
     ChecklistTask[]
   >([]);
+  const [hideDefaultTasks, setHideDefaultTasks] = useState(false);
   const [newTaskInput, setNewTaskInput] = useState<ChecklistTask | undefined>(
     undefined,
   );
@@ -50,12 +52,16 @@ export default function ExperimentCheckListModal({
     if (checklist?.id) {
       await apiCall(`/experiments/launch-checklist/${checklist.id}`, {
         method: "PUT",
-        body: JSON.stringify({ tasks }),
+        body: JSON.stringify({ tasks, hideDefaultTasks }),
       });
     } else {
       await apiCall(`/experiments/launch-checklist`, {
         method: "POST",
-        body: JSON.stringify({ tasks, projectId: projectParams?.projectId }),
+        body: JSON.stringify({
+          tasks,
+          projectId: projectParams?.projectId,
+          hideDefaultTasks,
+        }),
       });
     }
     mutate();
@@ -67,6 +73,7 @@ export default function ExperimentCheckListModal({
 
       if (data.checklist) {
         setExperimentLaunchChecklist(data.checklist.tasks);
+        setHideDefaultTasks(!!data.checklist.hideDefaultTasks);
       }
     }
   }, [data]);
@@ -99,6 +106,13 @@ export default function ExperimentCheckListModal({
             <div className="d-flex align-items-center justify-content-between pb-1">
               <h4>Pre-Launch Requirements</h4>
             </div>
+            <Checkbox
+              mb="4"
+              label="Hide built-in checklist items"
+              description="Only require the tasks below. Bandit requirements and items for linked features, Visual Editor changes, and URL Redirects still apply."
+              value={hideDefaultTasks}
+              setValue={setHideDefaultTasks}
+            />
             <Box mb="2">
               {!experimentLaunchChecklist?.length ? (
                 <Text as="span" className="text-muted font-italic">

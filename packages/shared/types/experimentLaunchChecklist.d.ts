@@ -22,4 +22,5 @@ export interface ExperimentLaunchChecklistInterface {
   updatedByUserId: string;
   tasks: ChecklistTask[];
   projectId: string;
+  hideDefaultTasks?: boolean;
 }

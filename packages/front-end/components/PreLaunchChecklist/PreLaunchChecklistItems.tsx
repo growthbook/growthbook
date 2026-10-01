@@ -116,12 +116,17 @@ export function getChecklistItems({
     return manualChecklistStatus[index].status === "complete";
   }
   const items: CheckListItem[] = [];
+  // Bandits can't run without their defaults (a live linked change and a goal metric)
+  const hideDefaults = !isBandit && !!checklist?.hideDefaultTasks;
+  const pushDefault = (item: CheckListItem) => {
+    if (!hideDefaults) items.push(item);
+  };
 
   if (!isBandit) {
     const hasDatasource = !!experiment.datasource;
     const hasAssignmentTable = !!experiment.exposureQueryId;
 
-    items.push({
+    pushDefault({
       type: "auto",
       key: "datasource",
       required: true,
@@ -138,7 +143,7 @@ export function getChecklistItems({
       ),
     });
 
-    items.push({
+    pushDefault({
       type: "auto",
       key: "exposureQuery",
       required: true,
@@ -156,7 +161,7 @@ export function getChecklistItems({
     });
 
     if (hasDatasource && hasAssignmentTable) {
-      items.push({
+      pushDefault({
         type: "auto",
         key: "goalMetric",
         required: true,
@@ -185,7 +190,7 @@ export function getChecklistItems({
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
       experiment.hasURLRedirects;
-    items.push({
+    pushDefault({
       display: (
         <>
           Add at least one{isBandit && " live"}{" "}
@@ -426,7 +431,7 @@ export function getChecklistItems({
 
   // Experiment has phases
   const hasPhases = experiment.phases.length > 0;
-  items.push({
+  pushDefault({
     display: (
       <>
         {editTargeting ? (
@@ -450,7 +455,7 @@ export function getChecklistItems({
   });
 
   const verifiedConnections = connections.some((c) => c.connected);
-  items.push({
+  pushDefault({
     type: "auto",
     key: "has-connection",
     status: connections.length ? "complete" : "incomplete",

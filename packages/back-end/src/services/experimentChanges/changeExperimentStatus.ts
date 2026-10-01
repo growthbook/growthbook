@@ -231,10 +231,23 @@ export async function getExperimentStartChecklistStatus(
   );
   const sdkConnections = await findSDKConnectionsByOrganization(context);
   const isBandit = experiment.type === "multi-armed-bandit";
+  const checklist = orgHasPremiumFeature(context.org, "custom-launch-checklist")
+    ? (experiment.project &&
+        (await getExperimentLaunchChecklist(
+          context.org.id,
+          experiment.project,
+        ))) ||
+      (await getExperimentLaunchChecklist(context.org.id, ""))
+    : null;
+  // Bandits can't run without their defaults (a live linked change and a goal metric)
+  const hideDefaults = !isBandit && !!checklist?.hideDefaultTasks;
 
   const items: StartChecklistItemStatus[] = [];
+  const pushDefault = (item: StartChecklistItemStatus) => {
+    if (!hideDefaults) items.push(item);
+  };
 
-  items.push({
+  pushDefault({
     key: "linkedChanges",
     required: true,
     status:
@@ -259,7 +272,7 @@ export async function getExperimentStartChecklistStatus(
     });
   }
 
-  items.push({
+  pushDefault({
     key: "targeting",
     required: true,
     status: experiment.phases.length > 0 ? "complete" : "incomplete",
@@ -267,7 +280,7 @@ export async function getExperimentStartChecklistStatus(
     reason: "Configure at least one phase with assignment/targeting settings.",
   });
 
-  items.push({
+  pushDefault({
     key: "sdkConnection",
     required: true,
     status: sdkConnections.length > 0 ? "complete" : "incomplete",
@@ -353,16 +366,8 @@ export async function getExperimentStartChecklistStatus(
       });
     });
 
-  if (orgHasPremiumFeature(context.org, "custom-launch-checklist")) {
-    const checklist =
-      (experiment.project &&
-        (await getExperimentLaunchChecklist(
-          context.org.id,
-          experiment.project,
-        ))) ||
-      (await getExperimentLaunchChecklist(context.org.id, ""));
-
-    checklist?.tasks?.forEach((task) => {
+  if (checklist) {
+    checklist.tasks?.forEach((task) => {
       if (task.completionType === "auto" && task.propertyKey) {
         if (isBandit && task.propertyKey === "hypothesis") return;
         items.push({
