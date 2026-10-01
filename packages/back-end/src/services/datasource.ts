@@ -304,7 +304,10 @@ export async function runFeatureEvalDiagnosticsQuery(
   /** Omitted keeps the historical 7-day / 100-row window. */
   lookback?: FeatureUsageLookback,
   /** Omitted: every series across the whole window. */
-  narrowing: Pick<FeatureEvalDiagnosticsQueryParams, "filter" | "range"> = {},
+  narrowing: Pick<
+    FeatureEvalDiagnosticsQueryParams,
+    "filter" | "range" | "environments"
+  > = {},
 ): Promise<{
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;

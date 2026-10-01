@@ -1474,6 +1474,7 @@ export async function postFeatureEvalDiagnostics(
     /** Untrusted until parseFeatureEvalDiagnosticsNarrowing has seen it. */
     filter?: unknown;
     range?: unknown;
+    environments?: unknown;
   }>,
   res: Response,
 ) {

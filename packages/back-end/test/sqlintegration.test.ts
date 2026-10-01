@@ -1868,6 +1868,31 @@ describe("feature eval diagnostics narrowing", () => {
     });
   });
 
+  describe("environment narrowing", () => {
+    it("accepts a list and rejects an empty or malformed one", () => {
+      expect(
+        parseFeatureEvalDiagnosticsNarrowing({
+          environments: ["production", "staging"],
+        }),
+      ).toEqual({ environments: ["production", "staging"] });
+      for (const environments of [[], "production", [""], [1]]) {
+        expect(parseFeatureEvalDiagnosticsNarrowing({ environments })).toEqual({
+          error: "Invalid environments",
+        });
+      }
+    });
+
+    it("escapes each environment into an IN list", () => {
+      const sql = getFeatureEvalDiagnosticsNarrowingSql(
+        { environments: ["production", "it's"] },
+        bigQueryDialect,
+      );
+      expect(sql).toContain(
+        `environment IN ('production', '${bigQueryDialect.escapeStringLiteral("it's")}')`,
+      );
+    });
+  });
+
   describe("getFeatureEvalDiagnosticsNarrowingSql", () => {
     it("is empty when there is nothing to narrow", () => {
       expect(getFeatureEvalDiagnosticsNarrowingSql({}, bigQueryDialect)).toBe(

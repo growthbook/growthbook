@@ -37,7 +37,11 @@ import {
 } from "@/ui/DropdownMenu";
 import HoldoutValueModal from "./HoldoutValueModal";
 import RuleTrafficCard from "./RuleTrafficCard";
+import { useFeatureUsage } from "./FeatureUsageGraph";
 import styles from "./FeatureRules.module.scss";
+
+/** Long enough that a sweep across the tab row settles before it queries. */
+const TRAFFIC_SCOPE_DEBOUNCE_MS = 250;
 
 export default function FeatureRules({
   environments,
@@ -177,6 +181,25 @@ export default function FeatureRules({
   // for this render without persisting.
   const env =
     storedEnv !== null && !envs.includes(storedEnv) ? null : storedEnv;
+
+  /**
+   * The tab row scopes the Traffic panel beside the rules: it sits under the
+   * tabs, so it has to mean the selected one. Debounced so sweeping across the
+   * tabs fires one 7-day query, not one per tab passed over. Cleared on
+   * unmount so no other surface inherits the scope.
+   */
+  const { setRuleTrafficEnvironment } = useFeatureUsage();
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setRuleTrafficEnvironment(env),
+      TRAFFIC_SCOPE_DEBOUNCE_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [env, setRuleTrafficEnvironment]);
+  useEffect(
+    () => () => setRuleTrafficEnvironment(null),
+    [setRuleTrafficEnvironment],
+  );
 
   const rulesByEnv = Object.fromEntries(
     environments.map((e) => {

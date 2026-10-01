@@ -587,6 +587,12 @@ export type FeatureEvalDiagnosticsQueryParams = {
   filter?: FeatureEvalDiagnosticsFilter;
   /** Narrows the stream to one chart bucket. Omitted: the whole window. */
   range?: FeatureEvalDiagnosticsRange;
+  /**
+   * Narrows the stream to these environments. Omitted: every environment. An
+   * empty list is never sent — it would mean "none", which the validator
+   * rejects rather than reading as "all".
+   */
+  environments?: string[];
 };
 
 /**

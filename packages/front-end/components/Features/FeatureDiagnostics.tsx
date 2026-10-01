@@ -791,6 +791,7 @@ export default function FeatureDiagnostics({
     featureUsageRowsMeta,
     usageUpdatedAt,
     scenarioMarkers,
+    setUsageEnvironments,
   } = useFeatureUsage();
 
   const orgEnvironments = useEnvironments();
@@ -820,17 +821,27 @@ export default function FeatureDiagnostics({
     return counts;
   }, [featureUsageRows]);
 
-  const environmentOptions: EnvironmentOption[] = useMemo(
-    () =>
-      orgEnvironments
-        .map((env) => ({
-          id: env.id,
-          enabled: !!feature.environmentSettings?.[env.id]?.enabled,
-          evaluations: evaluationsByEnvironment.get(env.id) ?? 0,
-        }))
-        .filter((env) => env.enabled || env.evaluations > 0),
-    [orgEnvironments, feature.environmentSettings, evaluationsByEnvironment],
-  );
+  // Environments ever listed stay listed. The counts come from the usage
+  // rows, which are scoped by this very chip: without this, deselecting a
+  // disabled environment that still receives traffic would drop it from the
+  // list, with no way to select it again.
+  const listedEnvironmentIds = useRef<Set<string>>(new Set());
+  const environmentOptions: EnvironmentOption[] = useMemo(() => {
+    const options = orgEnvironments
+      .map((env) => ({
+        id: env.id,
+        enabled: !!feature.environmentSettings?.[env.id]?.enabled,
+        evaluations: evaluationsByEnvironment.get(env.id) ?? 0,
+      }))
+      .filter(
+        (env) =>
+          env.enabled ||
+          env.evaluations > 0 ||
+          listedEnvironmentIds.current.has(env.id),
+      );
+    options.forEach((env) => listedEnvironmentIds.current.add(env.id));
+    return options;
+  }, [orgEnvironments, feature.environmentSettings, evaluationsByEnvironment]);
 
   /**
    * Defaults to everything relevant, and can never be emptied — the chip's
@@ -847,6 +858,23 @@ export default function FeatureDiagnostics({
     scopeInitialised.current = true;
     setSelectedEnvironments(environmentOptions.map((e) => e.id));
   }, [environmentOptions]);
+
+  /**
+   * The chip narrows when it excludes something it offers. Selecting every
+   * option is the unscoped view — the endpoint's own default — so it sends
+   * nothing, stays shared with the rest of the page, and keeps polling.
+   */
+  const environmentsNarrowed =
+    selectedEnvironments.length > 0 &&
+    environmentOptions.some((env) => !selectedEnvironments.includes(env.id));
+
+  // The chip drives the chart and the breakdown panel through the provider's
+  // usage request. Cleared on leaving the tab, so no other surface inherits a
+  // scope it has no control for.
+  useEffect(() => {
+    setUsageEnvironments(environmentsNarrowed ? selectedEnvironments : null);
+  }, [environmentsNarrowed, selectedEnvironments, setUsageEnvironments]);
+  useEffect(() => () => setUsageEnvironments(null), [setUsageEnvironments]);
 
   // Committed filters. Staged editing lives inside the control bar's popover;
   // this is only what the surface is actually filtered by.
@@ -1146,15 +1174,36 @@ export default function FeatureDiagnostics({
    * Only for the demo data: real rows are always narrowed by the query, since
    * filtering the loaded rows would miss everything older than them.
    */
+  /**
+   * The chip's scope for the stream query — the same environments the chart
+   * and panel use, so the page never shows two scopes at once. Only sent when
+   * the stream's rows carry an environment column; a generic query without
+   * one is left unscoped rather than made to fail.
+   */
+  const streamEnvironments =
+    environmentsNarrowed && filterColumnFor("environment")
+      ? selectedEnvironments
+      : null;
+
   const streamRows = useMemo(() => {
-    if (!useDummyData || !displayResults || !streamNarrowing) {
+    if (
+      !useDummyData ||
+      !displayResults ||
+      (!streamNarrowing && !streamEnvironments)
+    ) {
       return displayResults;
     }
-    const { filter, range } = streamNarrowing as {
+    const { filter, range } = (streamNarrowing ?? {}) as {
       filter?: { column: string; value: string };
       range?: { start: number; end: number };
     };
     return displayResults.filter((row) => {
+      if (
+        streamEnvironments &&
+        !streamEnvironments.includes(String(row.environment))
+      ) {
+        return false;
+      }
       if (
         filter &&
         String(row[filter.column as keyof typeof row]) !== filter.value
@@ -1167,7 +1216,7 @@ export default function FeatureDiagnostics({
       }
       return true;
     });
-  }, [useDummyData, displayResults, streamNarrowing]);
+  }, [useDummyData, displayResults, streamNarrowing, streamEnvironments]);
 
   /**
    * The managed warehouse's projection is fixed, so its columns are a fixed
@@ -1450,7 +1499,9 @@ export default function FeatureDiagnostics({
    */
   const windowTotal = featureUsage?.total ?? 0;
   const lifetimeTotal = featureUsageSummary?.lifetimeTotal ?? 0;
-  const filtersActive = panelFilters.length > 0 || isFiltered;
+  // What actually narrows the data. Add Filter does not reach any query yet,
+  // so it is not counted.
+  const filtersActive = environmentsNarrowed || isFiltered;
 
   /**
    * A search narrows only the loaded rows, so its count is of matches among
@@ -1547,6 +1598,7 @@ export default function FeatureDiagnostics({
             // A selection's range (ms) and filter. The server validates both;
             // the column is looked up from a fixed set, never interpolated.
             ...(streamNarrowing ?? {}),
+            ...(streamEnvironments ? { environments: streamEnvironments } : {}),
           }),
         },
         (responseData) => {
@@ -1584,7 +1636,9 @@ export default function FeatureDiagnostics({
   // The window and the selection together: either changing re-runs the query.
   // A selection runs it even before a first manual run, since clicking one is
   // asking for the narrowed stream.
-  const streamQueryKey = `${lookback}|${JSON.stringify(streamNarrowing)}`;
+  const streamQueryKey = `${lookback}|${JSON.stringify(
+    streamNarrowing,
+  )}|${JSON.stringify(streamEnvironments)}`;
   const lastStreamQueryKey = useRef(streamQueryKey);
   useEffect(() => {
     if (lastStreamQueryKey.current === streamQueryKey) return;
@@ -1766,7 +1820,9 @@ export default function FeatureDiagnostics({
         <Callout status="info" mb="4">
           {/* Names only what actually narrows the results. Add Filter does
               not reach the data yet, so it is not offered as a cause. */}
-          No evaluations in this time frame. Try a longer time frame.
+          {environmentsNarrowed
+            ? "No evaluations in the selected environments for this time frame. Try a longer time frame, or more environments."
+            : "No evaluations in this time frame. Try a longer time frame."}
         </Callout>
       )}
 

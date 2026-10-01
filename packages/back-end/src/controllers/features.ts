@@ -64,8 +64,14 @@ import {
   RevisionRampUpdateAction,
   RampStepAction,
 } from "shared/validators";
-import { getFeatureUsageBucketTimes } from "shared/featureUsageBuckets";
-import { FeatureUsageLookback } from "shared/types/integrations";
+import {
+  getFeatureUsageBucketTimes,
+  getFeatureUsageWindowStart,
+} from "shared/featureUsageBuckets";
+import {
+  FeatureUsageLookback,
+  FeatureUsageMarginalRow,
+} from "shared/types/integrations";
 import {
   ContextualBanditRefRule,
   ExperimentRefRule,
@@ -6165,7 +6171,18 @@ export async function getFeatureById(
 }
 
 export async function getFeatureUsage(
-  req: AuthRequest<null, { id: string }, { lookback?: FeatureUsageLookback }>,
+  req: AuthRequest<
+    null,
+    { id: string },
+    {
+      lookback?: FeatureUsageLookback;
+      /**
+       * Comma-separated environment ids to scope to. Omitted: every
+       * environment the flag has, as before.
+       */
+      environments?: string;
+    }
+  >,
   res: Response<{
     status: 200;
     usage: FeatureUsageData;
@@ -6206,11 +6223,30 @@ export async function getFeatureUsage(
   // in TypeScript.
   const validEnvs = new Set(environments.map((e) => e.id));
 
-  const { start, total, marginals } = await integration.getFeatureUsage(
-    feature.id,
-    lookback,
-    Array.from(validEnvs),
-  );
+  /**
+   * An optional narrower scope, intersected with the flag's own environments
+   * so a caller cannot widen it or name one the flag does not have. A request
+   * that intersects to nothing gets an empty result WITHOUT a query: the
+   * integration reads an empty list as "no filter", which would answer a
+   * narrow question with every environment's traffic.
+   */
+  const requested =
+    typeof req.query.environments === "string"
+      ? req.query.environments
+          .split(",")
+          .map((e) => e.trim())
+          .filter((e) => validEnvs.has(e))
+      : null;
+  const scopedEnvs = requested ?? Array.from(validEnvs);
+
+  const { start, total, marginals } =
+    requested !== null && requested.length === 0
+      ? {
+          start: getFeatureUsageWindowStart(lookback).getTime(),
+          total: 0,
+          marginals: [] as FeatureUsageMarginalRow[],
+        }
+      : await integration.getFeatureUsage(feature.id, lookback, scopedEnvs);
 
   // Bucket edges come from the shared table, which the warehouse's
   // toStartOfInterval and the front end's dummy generator also read. All three

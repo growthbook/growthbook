@@ -63,6 +63,10 @@ export function isFeatureEvalDiagnosticsFilterColumn(
 
 /** Longer than any flag value the stream is meant to be narrowed by. */
 const MAX_FILTER_VALUE_LENGTH = 2048;
+/** More environments than any org configures; caps the IN list. */
+const MAX_ENVIRONMENTS = 100;
+const MAX_ENVIRONMENT_LENGTH = 256;
+
 /** Longer than the widest bucket (the 7-day window's 2 hours) by a margin. */
 const MAX_RANGE_MS = 8 * 24 * 60 * 60 * 1000;
 
@@ -75,16 +79,39 @@ const MAX_RANGE_MS = 8 * 24 * 60 * 60 * 1000;
 export function parseFeatureEvalDiagnosticsNarrowing(body: {
   filter?: unknown;
   range?: unknown;
+  environments?: unknown;
 }):
   | {
       filter?: FeatureEvalDiagnosticsFilter;
       range?: FeatureEvalDiagnosticsRange;
+      environments?: string[];
     }
   | { error: string } {
   const out: {
     filter?: FeatureEvalDiagnosticsFilter;
     range?: FeatureEvalDiagnosticsRange;
+    environments?: string[];
   } = {};
+
+  if (body.environments !== undefined && body.environments !== null) {
+    const envs = body.environments;
+    // An empty list is rejected, not read as "every environment": a caller
+    // that narrowed to nothing must not silently get everything.
+    if (
+      !Array.isArray(envs) ||
+      envs.length === 0 ||
+      envs.length > MAX_ENVIRONMENTS ||
+      !envs.every(
+        (e) =>
+          typeof e === "string" &&
+          e.length > 0 &&
+          e.length <= MAX_ENVIRONMENT_LENGTH,
+      )
+    ) {
+      return { error: "Invalid environments" };
+    }
+    out.environments = envs as string[];
+  }
 
   if (body.filter !== undefined && body.filter !== null) {
     const f = body.filter as { column?: unknown; value?: unknown };
@@ -131,7 +158,10 @@ export function parseFeatureEvalDiagnosticsNarrowing(body: {
  * alias — the managed warehouse has `ruleId` and no `rule_id`.
  */
 export function getFeatureEvalDiagnosticsNarrowingSql(
-  params: Pick<FeatureEvalDiagnosticsQueryParams, "filter" | "range">,
+  params: Pick<
+    FeatureEvalDiagnosticsQueryParams,
+    "filter" | "range" | "environments"
+  >,
   dialect: Pick<SqlDialect, "escapeStringLiteral" | "toTimestamp">,
   columnMap: Partial<
     Record<
@@ -151,6 +181,15 @@ export function getFeatureEvalDiagnosticsNarrowingSql(
     const column = FILTER_COLUMN_SQL[columnMap[requested] ?? requested];
     clauses.push(
       `${column} = '${dialect.escapeStringLiteral(params.filter.value)}'`,
+    );
+  }
+  if (params.environments?.length) {
+    // Values escaped as literals; the column is the fixed `environment`, which
+    // both the managed table and the event-forwarder templates carry.
+    clauses.push(
+      `environment IN (${params.environments
+        .map((e) => `'${dialect.escapeStringLiteral(e)}'`)
+        .join(", ")})`,
     );
   }
   if (params.range) {

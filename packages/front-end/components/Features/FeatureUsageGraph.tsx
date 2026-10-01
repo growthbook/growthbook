@@ -675,6 +675,10 @@ const featureUsageContext = createContext<{
   ruleTrafficLoading: boolean;
   /** Disclosure from the rule-traffic response; see the provider. */
   ruleTrafficRowsMeta: FeatureUsageRowsMeta | undefined;
+  /** Scope the windowed usage (chart, breakdown) to environments; null = all. */
+  setUsageEnvironments: (environments: string[] | null) => void;
+  /** Scope the Traffic panel to one environment; null = all. */
+  setRuleTrafficEnvironment: (environment: string | null) => void;
   /** Explicit refresh of the rule counts; drives `ruleTrafficLoading`. */
   refreshRuleTraffic: () => Promise<void>;
   /** Window-independent; see the separate SWR key in the provider. */
@@ -703,6 +707,8 @@ const featureUsageContext = createContext<{
   ruleFeatureUsage: undefined,
   ruleTrafficLoading: false,
   ruleTrafficRowsMeta: undefined,
+  setUsageEnvironments: () => {},
+  setRuleTrafficEnvironment: () => {},
   refreshRuleTraffic: async () => {},
   featureUsageSummary: undefined,
   featureUsageRows: undefined,
@@ -735,10 +741,42 @@ export function FeatureUsageProvider({
    */
   const scenarioName = router.query["scenario"];
 
+  /**
+   * Environment scopes, each set by the surface that owns its control. Null is
+   * "every environment the flag has" — the endpoint's own default — so an
+   * unscoped request is byte-identical to before.
+   *
+   * usageEnvironments: the Diagnostics environment chip, for the windowed
+   * usage behind the chart and breakdown panel.
+   * ruleTrafficEnvironment: the Overview tab row, for the Traffic panel.
+   */
+  const [usageEnvironments, setUsageEnvironments] = useState<string[] | null>(
+    null,
+  );
+  const [ruleTrafficEnvironment, setRuleTrafficEnvironment] = useState<
+    string | null
+  >(null);
+  const ruleTrafficEnvironments = useMemo(
+    () => (ruleTrafficEnvironment ? [ruleTrafficEnvironment] : null),
+    [ruleTrafficEnvironment],
+  );
+  const envQuery = (envs: string[] | null) =>
+    envs ? `&environments=${encodeURIComponent(envs.join(","))}` : "";
+  const sameScope = (a: string[] | null, b: string[] | null) =>
+    (a ?? []).slice().sort().join(",") === (b ?? []).slice().sort().join(",") &&
+    (a === null) === (b === null);
+  // A narrowed view is an investigation, not a live monitor: it is not polled.
+  const usageNarrowed = usageEnvironments !== null;
+
   const [lookback, setLookback] = useLocalStorage<FeatureUsageLookback>(
     "featureUsageLookback",
     "15minute",
   );
+  // The 7-day rule-traffic view can ride on the main response only when that
+  // response covers the same window AND the same environments.
+  const ruleReusesMain =
+    lookback === RULE_TRAFFIC_LOOKBACK &&
+    sameScope(usageEnvironments, ruleTrafficEnvironments);
 
   const { datasources } = useDefinitions();
   const growthbookManagedDatasource = datasources.find(
@@ -757,13 +795,16 @@ export function FeatureUsageProvider({
     usage: FeatureUsageData;
     rowsByDimension: FeatureUsageRowsByDimension;
     rowsMeta: FeatureUsageRowsMeta;
-  }>(`/feature/${feature?.id}/usage?lookback=${lookback}`, {
-    shouldRun: () =>
-      !!feature &&
-      showFeatureUsage &&
-      !useDummyData &&
-      !managedWarehouseUnavailable,
-  });
+  }>(
+    `/feature/${feature?.id}/usage?lookback=${lookback}${envQuery(usageEnvironments)}`,
+    {
+      shouldRun: () =>
+        !!feature &&
+        showFeatureUsage &&
+        !useDummyData &&
+        !managedWarehouseUnavailable,
+    },
+  );
 
   const { data: sparkData, mutate: mutateSparkData } = useApi<{
     usage: FeatureUsageData;
@@ -773,7 +814,7 @@ export function FeatureUsageProvider({
       showFeatureUsage &&
       !useDummyData &&
       !managedWarehouseUnavailable &&
-      lookback !== SPARK_LOOKBACK,
+      (lookback !== SPARK_LOOKBACK || usageNarrowed),
   });
 
   // Not polled with the others: a week's scan every few seconds would be the
@@ -786,14 +827,17 @@ export function FeatureUsageProvider({
   } = useApi<{
     usage: FeatureUsageData;
     rowsMeta?: FeatureUsageRowsMeta;
-  }>(`/feature/${feature?.id}/usage?lookback=${RULE_TRAFFIC_LOOKBACK}`, {
-    shouldRun: () =>
-      !!feature &&
-      showFeatureUsage &&
-      !useDummyData &&
-      !managedWarehouseUnavailable &&
-      lookback !== RULE_TRAFFIC_LOOKBACK,
-  });
+  }>(
+    `/feature/${feature?.id}/usage?lookback=${RULE_TRAFFIC_LOOKBACK}${envQuery(ruleTrafficEnvironments)}`,
+    {
+      shouldRun: () =>
+        !!feature &&
+        showFeatureUsage &&
+        !useDummyData &&
+        !managedWarehouseUnavailable &&
+        !ruleReusesMain,
+    },
+  );
 
   // No lookback in the key, deliberately: these two numbers are
   // window-independent, so SWR caches them per feature and a lookback change
@@ -912,14 +956,14 @@ export function FeatureUsageProvider({
             ? buildRolloutScenario(SPARK_LOOKBACK, maxRevisionVersion)
             : undefined,
         )
-      : lookback === SPARK_LOOKBACK
+      : lookback === SPARK_LOOKBACK && !usageNarrowed
         ? data?.usage
         : sparkData?.usage;
 
   const ruleFeatureUsage =
     useDummyData && feature
       ? getDummyData(feature, RULE_TRAFFIC_LOOKBACK, revisions, false)
-      : lookback === RULE_TRAFFIC_LOOKBACK
+      : ruleReusesMain
         ? data?.usage
         : ruleData?.usage;
 
@@ -932,12 +976,11 @@ export function FeatureUsageProvider({
    */
   const ruleTrafficRowsMeta: FeatureUsageRowsMeta | undefined = useDummyData
     ? undefined
-    : lookback === RULE_TRAFFIC_LOOKBACK
+    : ruleReusesMain
       ? data?.rowsMeta
       : ruleData?.rowsMeta;
 
-  const ruleTrafficError =
-    lookback === RULE_TRAFFIC_LOOKBACK ? usageError : ruleDataError;
+  const ruleTrafficError = ruleReusesMain ? usageError : ruleDataError;
 
   const [ruleTrafficRefreshing, setRuleTrafficRefreshing] = useState(false);
   const refreshRuleTraffic = useCallback(async () => {
@@ -945,7 +988,7 @@ export function FeatureUsageProvider({
     try {
       await Promise.all([
         mutateFeatureUsage(),
-        lookback !== RULE_TRAFFIC_LOOKBACK ? mutateRuleData() : undefined,
+        !ruleReusesMain ? mutateRuleData() : undefined,
         // A floor on how long the loading state shows, so a fast (or dummy)
         // response doesn't flash it for a single frame.
         new Promise((resolve) => setTimeout(resolve, 600)),
@@ -953,7 +996,7 @@ export function FeatureUsageProvider({
     } finally {
       setRuleTrafficRefreshing(false);
     }
-  }, [lookback, mutateFeatureUsage, mutateRuleData]);
+  }, [ruleReusesMain, mutateFeatureUsage, mutateRuleData]);
 
   // An errored fetch is not loading: without the error check a failed first
   // load would shimmer forever.
@@ -980,16 +1023,20 @@ export function FeatureUsageProvider({
       : featureUsageAutoRefreshInterval["withoutData"];
     if (interval === 0) return;
     const timer = setInterval(() => {
-      if (lookback === SPARK_LOOKBACK) {
+      // The live sparkline keeps polling. The main windowed view polls only
+      // while unscoped: a narrowed view is an investigation, refreshed by
+      // hand, not a live monitor re-running a query nobody asked for again.
+      if (lookback === SPARK_LOOKBACK && !usageNarrowed) {
         mutateFeatureUsage();
       } else {
-        if (lookback === "15minute") mutateFeatureUsage();
+        if (lookback === "15minute" && !usageNarrowed) mutateFeatureUsage();
         mutateSparkData();
       }
     }, interval);
     return () => clearInterval(timer);
   }, [
     lookback,
+    usageNarrowed,
     featureUsage,
     sparkFeatureUsage,
     featureUsageAutoRefreshInterval,
@@ -1014,6 +1061,8 @@ export function FeatureUsageProvider({
         ruleFeatureUsage,
         ruleTrafficLoading,
         ruleTrafficRowsMeta,
+        setUsageEnvironments,
+        setRuleTrafficEnvironment,
         refreshRuleTraffic,
         mutateFeatureUsage,
         scenarioMarkers: rolloutScenario?.markers,
