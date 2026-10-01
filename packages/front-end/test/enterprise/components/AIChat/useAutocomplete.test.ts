@@ -57,6 +57,13 @@ describe("suggestedReplyFromOptions", () => {
       ),
     ).toBe("The checkout experiment");
   });
+  it("ignores bulleted results that weren't offered as choices", () => {
+    expect(
+      suggestedReplyFromOptions(
+        "Here are last week's numbers:\n- Revenue: $12,400\n- Orders: 318\n\nAnything else?",
+      ),
+    ).toBeUndefined();
+  });
   it("returns nothing when the message has no options", () => {
     expect(suggestedReplyFromOptions("Done. Anything else?")).toBeUndefined();
   });

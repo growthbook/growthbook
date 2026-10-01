@@ -24,10 +24,14 @@ const GENERIC_OPTION = /^(something|anything|none|other|not sure|no\b)/i;
 // The agent is asked to tag its pick in plain-text lists.
 const RECOMMENDED = /\s*\(recommended\)\s*/i;
 
+const LIST_ITEM = /^\s*(?:[-*•]|\d+[.)])\s+(.+?)\s*$/;
+
 /**
- * When the assistant ends on a list of options, the likeliest reply is one of
- * them, word for word — no model call needed. The agent's "(recommended)"
- * tag wins; otherwise prefer options about GrowthBook itself or "this …"
+ * When the assistant asks the user to choose from a list, the likeliest reply
+ * is one of the items, word for word — no model call needed. A list only
+ * counts as choices when the agent tagged one "(recommended)" or the line
+ * introducing it asks a question; bulleted results and summaries don't.
+ * The tag wins; otherwise prefer options about GrowthBook itself or "this …"
  * (the entity on screen), then those sharing words with what the user last
  * said; ties go to the first.
  */
@@ -35,9 +39,11 @@ export function suggestedReplyFromOptions(
   assistantText: string,
   lastUserText = "",
 ): string | undefined {
-  const options = assistantText
-    .split("\n")
-    .map((l) => l.match(/^\s*(?:[-*•]|\d+[.)])\s+(.+?)\s*$/)?.[1])
+  const lines = assistantText.split("\n");
+  const firstItem = lines.findIndex((l) => LIST_ITEM.test(l));
+  if (firstItem < 0) return undefined;
+  const options = lines
+    .map((l) => l.match(LIST_ITEM)?.[1])
     .filter(
       (o): o is string =>
         !!o && !GENERIC_OPTION.test(o.replace(RECOMMENDED, "").trim()),
@@ -46,6 +52,12 @@ export function suggestedReplyFromOptions(
   const marked = options.find((o) => RECOMMENDED.test(o));
   if (marked)
     return marked.replace(RECOMMENDED, " ").replace(/\?+$/, "").trim();
+  // Untagged: the list is only a choice if it was introduced with a question.
+  const intro = lines
+    .slice(0, firstItem)
+    .reverse()
+    .find((l) => l.trim());
+  if (!intro?.includes("?")) return undefined;
   const userWords = new Set(
     lastUserText
       .toLowerCase()
