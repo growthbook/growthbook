@@ -51,47 +51,93 @@ Reply with the draft unchanged if there is no good continuation.`;
 
 const ORG_CONTEXT_LIMIT = 15;
 
+type ContextKind = "datasources" | "features" | "experiments" | "metrics";
+const ALL_CONTEXT: ContextKind[] = [
+  "datasources",
+  "features",
+  "experiments",
+  "metrics",
+];
+// Which entity lists a page makes relevant. First match wins; pages with no
+// clear subject (home, settings, unknown) fall back to everything.
+const PAGE_CONTEXT: ReadonlyArray<[RegExp, ContextKind[]]> = [
+  [
+    /^\/(features|configs|constants|saved-groups|attributes|environments|namespaces|archetypes|sdks)(\/|$)/,
+    ["features"],
+  ],
+  [
+    /^\/(experiments?|bandits?|contextual-bandits?|holdouts?|reports?|learnings|ideas?|power-calculator|presentations?|present)(\/|$)/,
+    ["experiments", "metrics"],
+  ],
+  [
+    /^\/(metrics?|fact-metrics|fact-tables|metric-groups|segments|dimensions|metric-effects|correlations)(\/|$)/,
+    ["metrics", "datasources"],
+  ],
+  [
+    /^\/(product-analytics|datasources|sql-explorer|session-replay)(\/|$)/,
+    ["datasources", "metrics"],
+  ],
+];
+
+/** Entity lists worth sending for the page the user is on. */
+export function contextKindsForPage(path?: string): ContextKind[] {
+  const p = (path ?? "").split("?")[0];
+  return PAGE_CONTEXT.find(([re]) => re.test(p))?.[1] ?? ALL_CONTEXT;
+}
+
 /**
- * The org's most relevant entity names, so suggestions point at real things.
- * Metrics are scoped to the active PA datasource when the client has one.
+ * Names of the org's entities that matter on the current page, so suggestions
+ * point at real things without spending tokens on lists the page makes
+ * irrelevant. Metrics are scoped to the active PA datasource when known.
  */
-// ponytail: five queries per call; cache per org for a minute if this shows up in latency.
+// ponytail: up to five queries per call; cache per org for a minute if this shows up in latency.
 async function orgContextForAutocomplete(
   context: ReqContext,
-  datasourceId?: string,
+  {
+    datasourceId,
+    currentPage,
+  }: { datasourceId?: string; currentPage?: string },
 ): Promise<string> {
+  const kinds = new Set(contextKindsForPage(currentPage));
+  const want = <T>(kind: ContextKind, fetch: () => Promise<T[]>) =>
+    kinds.has(kind) ? fetch() : Promise.resolve(null);
+
   const [datasources, features, experiments, factMetrics, legacyMetrics] =
     await Promise.all([
-      getDataSourcesByOrganization(context),
-      getRecentFeatureIds(context, ORG_CONTEXT_LIMIT),
-      getAllExperiments(context, {
-        limit: ORG_CONTEXT_LIMIT,
-        sortBy: { dateUpdated: -1 },
-      }),
-      context.models.factMetrics.getRecentForPrompt({
-        limit: ORG_CONTEXT_LIMIT,
-        datasourceId,
-      }),
-      getRecentMetricNames(context, { limit: ORG_CONTEXT_LIMIT, datasourceId }),
+      want("datasources", () => getDataSourcesByOrganization(context)),
+      want("features", () => getRecentFeatureIds(context, ORG_CONTEXT_LIMIT)),
+      want("experiments", () =>
+        getAllExperiments(context, {
+          limit: ORG_CONTEXT_LIMIT,
+          sortBy: { dateUpdated: -1 },
+        }),
+      ),
+      want("metrics", () =>
+        context.models.factMetrics.getRecentForPrompt({
+          limit: ORG_CONTEXT_LIMIT,
+          datasourceId,
+        }),
+      ),
+      want("metrics", () =>
+        getRecentMetricNames(context, {
+          limit: ORG_CONTEXT_LIMIT,
+          datasourceId,
+        }),
+      ),
     ]);
-  const line = (label: string, names: string[]) =>
-    `${label}: ${names.length ? names.slice(0, ORG_CONTEXT_LIMIT).join(", ") : "(none)"}`;
+  const line = (label: string, names: string[] | null) =>
+    names === null
+      ? null
+      : `${label}: ${names.length ? names.slice(0, ORG_CONTEXT_LIMIT).join(", ") : "(none)"}`;
   return [
-    line(
-      "Data sources",
-      datasources.map((d) => d.name),
-    ),
+    line("Data sources", datasources && datasources.map((d) => d.name)),
     line("Feature flags", features),
-    line(
-      "Experiments",
-      experiments.map((e) => e.name),
-    ),
-    line(
-      "Fact metrics",
-      factMetrics.map((m) => m.name),
-    ),
+    line("Experiments", experiments && experiments.map((e) => e.name)),
+    line("Fact metrics", factMetrics && factMetrics.map((m) => m.name)),
     line("Legacy metrics", legacyMetrics),
-  ].join("\n");
+  ]
+    .filter((l): l is string => l !== null)
+    .join("\n");
 }
 
 /**
@@ -153,7 +199,7 @@ export const postAutocomplete = async (
     conversationId
       ? context.models.aiConversations.getById(conversationId)
       : null,
-    orgContextForAutocomplete(context, datasourceId),
+    orgContextForAutocomplete(context, { datasourceId, currentPage }),
   ]);
   const history = (conversation?.messages ?? [])
     .filter(

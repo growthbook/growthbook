@@ -1,4 +1,7 @@
-import { cleanCompletion } from "back-end/src/routers/agent/agent.controller";
+import {
+  cleanCompletion,
+  contextKindsForPage,
+} from "back-end/src/routers/agent/agent.controller";
 
 describe("cleanCompletion", () => {
   it("spaces a new word when the model echoes the draft", () => {
@@ -37,5 +40,28 @@ describe("cleanCompletion", () => {
   });
   it("returns nothing for an unchanged draft", () => {
     expect(cleanCompletion("create a flag", "create a flag")).toBe("");
+  });
+});
+
+describe("contextKindsForPage", () => {
+  it("narrows to what the page is about", () => {
+    expect(contextKindsForPage("/features/checkout-v2")).toEqual(["features"]);
+    expect(contextKindsForPage("/experiment/exp_123?tab=results")).toEqual([
+      "experiments",
+      "metrics",
+    ]);
+    expect(contextKindsForPage("/fact-metrics/fact_1")).toEqual([
+      "metrics",
+      "datasources",
+    ]);
+    expect(contextKindsForPage("/product-analytics/dashboards/d1")).toEqual([
+      "datasources",
+      "metrics",
+    ]);
+  });
+  it("sends everything when the page has no clear subject", () => {
+    expect(contextKindsForPage("/")).toHaveLength(4);
+    expect(contextKindsForPage("/settings")).toHaveLength(4);
+    expect(contextKindsForPage(undefined)).toHaveLength(4);
   });
 });
