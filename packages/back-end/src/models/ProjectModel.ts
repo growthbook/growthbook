@@ -21,6 +21,7 @@ import {
   updateOrganization,
 } from "./OrganizationModel";
 import { MakeModelClass } from "./BaseModel";
+import { ApiKeyModel } from "./ApiKeyModel";
 
 function slugify(text: string): string {
   return text
@@ -127,6 +128,10 @@ export class ProjectModel extends BaseClass {
       getCollection<TeamInterface>("teams").updateMany(
         { organization: this.context.org.id, "projectRoles.project": doc.id },
         { $pull: { projectRoles: { project: doc.id } } },
+      ),
+      ApiKeyModel.dangerousRemoveProjectRolesForProject(
+        this.context.org.id,
+        doc.id,
       ),
     ]);
     for (const result of cleanups) {

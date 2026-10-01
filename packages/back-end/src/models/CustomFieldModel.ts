@@ -159,6 +159,20 @@ export class CustomFieldModel extends BaseClass {
     section: CustomFieldSection;
     project?: string;
   }) {
+    return this.getCustomFieldsBySectionAndProjects({
+      section,
+      projects: project === undefined ? [] : [project],
+    });
+  }
+
+  /** Plural variant for entities scoped to several projects, such as attributes. */
+  public async getCustomFieldsBySectionAndProjects({
+    section,
+    projects,
+  }: {
+    section: CustomFieldSection;
+    projects?: string[];
+  }) {
     const customFields = await this.getCustomFields();
     const filteredCustomFields = customFields?.fields.filter(
       (v) => v.active !== false && v.sections?.includes(section),
@@ -168,7 +182,7 @@ export class CustomFieldModel extends BaseClass {
     }
     return filteredCustomFields.filter((v) => {
       if (v.projects && v.projects.length > 0) {
-        return v.projects.some((p) => p === project);
+        return v.projects.some((p) => (projects ?? []).includes(p));
       }
       return true;
     });

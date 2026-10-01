@@ -69,6 +69,7 @@ import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import { TeamInterface } from "shared/types/team";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   acceptOrganizationInvite,
   addOrganizationInviteIfSeatAvailable,
@@ -85,6 +86,8 @@ import {
   GEMINI_IMAGE_MODEL,
   IS_CLOUD,
   IS_MULTI_ORG,
+  SECRET_API_KEY,
+  SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
 import {
   AIKeySource,
@@ -112,6 +115,7 @@ import {
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
 import { PaymentRequiredError } from "back-end/src/util/errors";
+import { migrateApiKey } from "back-end/src/util/api-key.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -179,7 +183,7 @@ export function validateLoginMethod(
     !req.superAdmin
   ) {
     throw new Error(
-      `Your organization requires you to login with ${
+      `Your organization requires you to log in with ${
         org.restrictLoginMethod.startsWith("vercel:")
           ? "Vercel"
           : "Enterprise SSO"
@@ -203,7 +207,7 @@ export function validateLoginMethod(
     !req.superAdmin
   ) {
     throw new Error(
-      `Your organization requires you to login with ${org.restrictAuthSubPrefix}`,
+      `Your organization requires you to log in with ${org.restrictAuthSubPrefix}`,
     );
   }
 
@@ -1752,16 +1756,69 @@ export async function getContextForAgendaJobByOrgId(
   return getContextForAgendaJobByOrgObject(organization);
 }
 
+// An org API key as a principal, built the way the request middleware builds
+// it. Null when the key is gone, disabled or user-bound (stamped as its user).
+export async function getContextForApiKeyIdInOrg(
+  org: OrganizationInterface,
+  apiKeyId: string,
+): Promise<ApiReqContext | null> {
+  const key =
+    apiKeyId === SECRET_API_KEY_ID
+      ? secretApiKeyDoc(org)
+      : await getContextForAgendaJobByOrgObject(org).models.apiKeys.getById(
+          apiKeyId,
+        );
+  if (!key || key.disabled || key.userId || !key.role) return null;
+  return new ReqContextClass({
+    org,
+    auditUser: {
+      type: "api_key",
+      apiKey: apiKeyId,
+      name: key.description || "",
+    },
+    role: key.role,
+    apiKey: apiKeyId,
+    apiKeyData: key,
+    teams: await TeamModel.dangerousGetTeamsForOrganization(org.id),
+    restrictedProjects: await ProjectModel.dangerousGetRestrictedProjectIds(
+      org.id,
+    ),
+  });
+}
+
+// The self-hosted env-var key has no document; the middleware synthesizes one.
+const SECRET_API_KEY_ID = "SECRET_API_KEY";
+function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
+  if (IS_MULTI_ORG || !SECRET_API_KEY) return null;
+  return migrateApiKey({
+    id: SECRET_API_KEY_ID,
+    key: SECRET_API_KEY,
+    secret: true,
+    organization: org.id,
+    role: SECRET_API_KEY_ROLE,
+    dateCreated: new Date(),
+  });
+}
+
+// An org API key id that can be recorded as an armer and resolved later.
+export function isArmingApiKeyId(id: string | undefined): id is string {
+  return !!id && (id.startsWith("key_") || id === SECRET_API_KEY_ID);
+}
+
+// A stored armer id is a user or an org API key; each runs as itself, on the
+// authority it holds now.
+export async function getContextForArmedPublisherInOrg(
+  org: OrganizationInterface,
+  id: string,
+): Promise<ReqContext | ApiReqContext | null> {
+  return isArmingApiKeyId(id)
+    ? getContextForApiKeyIdInOrg(org, id)
+    : getContextForUserIdInOrg(org, id);
+}
+
 export async function getContextForUserIdInOrg(
   org: OrganizationInterface,
   userId: string,
-  {
-    // Deferred and scheduled executions err permissive: they run on the
-    // authority the user held when they enabled the action, so a project
-    // restricting access later must not strand them. Live request contexts
-    // (e.g. OAuth) keep the default and apply restrictions.
-    applyProjectRestrictions = true,
-  }: { applyProjectRestrictions?: boolean } = {},
 ): Promise<ApiReqContext | null> {
   const user = await getUserById(userId);
   if (!user) return null;
@@ -1771,9 +1828,7 @@ export async function getContextForUserIdInOrg(
 
   const [teams, restrictedProjects] = await Promise.all([
     TeamModel.dangerousGetTeamsForOrganization(org.id),
-    applyProjectRestrictions
-      ? ProjectModel.dangerousGetRestrictedProjectIds(org.id)
-      : [],
+    ProjectModel.dangerousGetRestrictedProjectIds(org.id),
   ]);
 
   return new ReqContextClass({

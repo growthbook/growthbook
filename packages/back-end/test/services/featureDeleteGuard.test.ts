@@ -112,4 +112,11 @@ describe("assertFeatureDeletable", () => {
       assertFeatureDeletable(context, PARENT),
     ).resolves.toBeUndefined();
   });
+
+  it("proceeds past a stopped bandit, whose rule has left the payload", async () => {
+    stub([], [], [{ ...bandit("cb", [gate]), status: "stopped" }]);
+    await expect(
+      assertFeatureDeletable(context, PARENT),
+    ).resolves.toBeUndefined();
+  });
 });

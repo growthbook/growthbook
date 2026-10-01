@@ -237,7 +237,7 @@ export const postSavedGroupValidator = {
   path: "/saved-groups",
   exampleRequest: {
     body: {
-      name: "interal-users",
+      name: "internal-users",
       values: ["userId-123", "userId-345", "userId-678"],
       attributeKey: "userId",
       owner: "",

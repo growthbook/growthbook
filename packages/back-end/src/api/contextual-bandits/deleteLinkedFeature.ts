@@ -1,4 +1,4 @@
-import { deleteContextualBanditLinkedFeatureValidator } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { stringToBoolean } from "shared/util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -7,7 +7,7 @@ import { NotFoundError } from "back-end/src/util/errors";
 import { loadContextualBanditForRead } from "./_shared";
 
 export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
-  deleteContextualBanditLinkedFeatureValidator,
+  contextualBanditEndpoints.deleteContextualBanditLinkedFeature,
 )(async (req) => {
   const { contextualBandit } = await loadContextualBanditForRead(
     req.context,

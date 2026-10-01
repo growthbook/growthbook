@@ -9,8 +9,9 @@ import {
   isValidSnowflakeTableName,
   isValidSnowflakeTablePrefix,
   normalizeDatabricksEventForwarderZerobusEndpoint,
+  suggestDatabricksEventForwarderZerobusEndpoint,
   normalizeDatabricksTablePrefixForEventForwarder,
-  parseDatabricksEventForwarderTablePrefix,
+  normalizeDatabricksEventForwarderDestination,
   quoteDatabricksIdentifier,
   resolveDatabricksEventForwarderTableNames,
   resolveDatabricksEventForwarderTables,
@@ -482,26 +483,49 @@ describe("resolveDatabricksEventForwarderTableNames", () => {
   });
 });
 
-describe("parseDatabricksEventForwarderTablePrefix", () => {
-  it("parses catalog.schema.prefix and unwraps backticks", () => {
+describe("normalizeDatabricksEventForwarderDestination", () => {
+  it("trims, unwraps backticks and normalizes the prefix", () => {
     expect(
-      parseDatabricksEventForwarderTablePrefix("`main`.`analytics`.GB"),
+      normalizeDatabricksEventForwarderDestination({
+        catalog: " `main` ",
+        schema: "`analytics`",
+        tablePrefix: "GB",
+      }),
     ).toEqual({ catalog: "main", schema: "analytics", tablePrefix: "gb" });
   });
 
-  it("rejects anything but three parts", () => {
-    expect(() => parseDatabricksEventForwarderTablePrefix("main.gb")).toThrow(
-      /catalog\.schema\.prefix/,
-    );
+  it("defaults an empty prefix to gb", () => {
+    expect(
+      normalizeDatabricksEventForwarderDestination({
+        catalog: "main",
+        schema: "analytics",
+        tablePrefix: "",
+      }),
+    ).toEqual({ catalog: "main", schema: "analytics", tablePrefix: "gb" });
   });
 
-  it("rejects catalog or schema names with unsupported characters", () => {
+  it("names the field in every error", () => {
     expect(() =>
-      parseDatabricksEventForwarderTablePrefix("my-catalog.analytics.gb"),
-    ).toThrow(/Catalog/);
-    expect(() => parseDatabricksEventForwarderTablePrefix("main..gb")).toThrow(
-      /Schema cannot be empty/,
-    );
+      normalizeDatabricksEventForwarderDestination({
+        catalog: "my-catalog",
+        schema: "analytics",
+        tablePrefix: "gb",
+      }),
+    ).toThrow(/^Catalog/);
+    expect(() =>
+      normalizeDatabricksEventForwarderDestination({
+        catalog: "main",
+        schema: "",
+        tablePrefix: "gb",
+      }),
+    ).toThrow(/^Schema cannot be empty/);
+    expect(() =>
+      normalizeDatabricksEventForwarderDestination({
+        catalog: "main",
+        schema: "a.b",
+        tablePrefix: "gb",
+      }),
+    ).toThrow(/^Schema/);
   });
 });
 
@@ -525,6 +549,34 @@ describe("quoteDatabricksIdentifier", () => {
   it("wraps in backticks and doubles embedded backticks", () => {
     expect(quoteDatabricksIdentifier("gb_events")).toBe("`gb_events`");
     expect(quoteDatabricksIdentifier("we`ird")).toBe("`we``ird`");
+  });
+});
+
+describe("suggestDatabricksEventForwarderZerobusEndpoint", () => {
+  it("fills the workspace id and domain from an Azure host", () => {
+    expect(
+      suggestDatabricksEventForwarderZerobusEndpoint(
+        "adb-1234567890123456.7.azuredatabricks.net",
+      ),
+    ).toBe("https://1234567890123456.zerobus.<region>.azuredatabricks.net");
+  });
+  it("fills only the domain from an AWS host, and nothing for unknown hosts", () => {
+    expect(
+      suggestDatabricksEventForwarderZerobusEndpoint(
+        "dbc-abc123-def4.cloud.databricks.com",
+      ),
+    ).toBe("https://<workspace-id>.zerobus.<region>.cloud.databricks.com");
+    expect(
+      suggestDatabricksEventForwarderZerobusEndpoint("x.example.com"),
+    ).toBe("");
+    expect(suggestDatabricksEventForwarderZerobusEndpoint(undefined)).toBe("");
+  });
+  it("fills the workspace id and domain from a GCP host", () => {
+    expect(
+      suggestDatabricksEventForwarderZerobusEndpoint(
+        "1234567890123456.0.gcp.databricks.com",
+      ),
+    ).toBe("https://1234567890123456.zerobus.<region>.gcp.databricks.com");
   });
 });
 

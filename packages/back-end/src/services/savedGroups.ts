@@ -2,6 +2,7 @@ import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
   targetingReferencesSavedGroup,
+  contextualBanditTargetingServes,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -116,11 +117,12 @@ export async function loadSavedGroupReferences(
     }
   }
 
-  // A bandit's targeting is served on its linked features' rules, archived or not.
   const groupIds = savedGroupsToCheck.map((sg) => sg.id);
   const contextualBandits = allBandits
-    .filter((cb) =>
-      groupIds.some((id) => targetingReferencesSavedGroup(cb, id)),
+    .filter(
+      (cb) =>
+        contextualBanditTargetingServes(cb) &&
+        groupIds.some((id) => targetingReferencesSavedGroup(cb, id)),
     )
     .map((cb) => ({ id: cb.id, name: cb.name, project: cb.project }));
 

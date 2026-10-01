@@ -75,12 +75,17 @@ describe("loadSavedGroupReferences", () => {
     expect(refs?.contextualBandits.map((cb) => cb.id)).toEqual(["cb"]);
   });
 
-  it("counts bandits that name the group in their condition or saved groups", async () => {
+  it("counts bandits that name the group, not stopped ones or a longer id", async () => {
     const refs = await loadSavedGroupReferences(
       context([
         bandit("cb_cond", { condition: '{"id":{"$inGroup":"sg_1"}}' }),
         bandit("cb_groups", { savedGroups: [{ match: "any", ids: ["sg_1"] }] }),
         bandit("cb_other", { savedGroups: [{ match: "any", ids: ["sg_2"] }] }),
+        bandit("cb_longer_id", { condition: '{"id":{"$inGroup":"sg_10"}}' }),
+        bandit("cb_stopped", {
+          status: "stopped",
+          savedGroups: [{ match: "any", ids: ["sg_1"] }],
+        }),
       ]),
       "sg_1",
     );

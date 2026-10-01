@@ -9,7 +9,7 @@ describe("Snowflake quantile sketch methods", () => {
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for dialect-only tests
-    integration = new Snowflake("", {});
+    integration = new Snowflake("", { type: "snowflake" });
   });
 
   it("reports quantile sketch support", () => {

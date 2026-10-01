@@ -31,6 +31,7 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import { ReqContext } from "back-end/types/request";
 import {
+  assertValidBucketVersions,
   assertValidExperimentPhases,
   assertValidReleasedVariationId,
   determineNextDate,
@@ -232,6 +233,7 @@ const experimentSchema = new mongoose.Schema({
     date: Date,
     failedAttempts: Number,
     scheduledBy: String,
+    scheduledByApiKey: String,
   },
   results: String,
   analysis: String,
@@ -831,6 +833,7 @@ export async function createExperiment({
   validateMetricOverrides(data.metricOverrides);
   assertValidExperimentPhases(data.phases ?? []);
   assertValidReleasedVariationId(data);
+  assertValidBucketVersions(data);
 
   const experimentToCreate = {
     id: uniqid("exp_"),
@@ -942,6 +945,7 @@ export async function updateExperiment({
     assertValidExperimentPhases(allChanges.phases, experiment.phases);
   }
   assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
+  assertValidBucketVersions({ ...experiment, ...allChanges }, experiment);
 
   const remindersToReset = getExperimentReminderResets(experiment, {
     ...experiment,
@@ -1043,6 +1047,7 @@ export async function getExperimentsToUpdate(
         $ne: "",
       },
       status: "running",
+      archived: { $ne: true },
       autoSnapshots: true,
       disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
@@ -1077,6 +1082,7 @@ export async function getExperimentsToUpdateLegacy(
         $ne: "",
       },
       status: "running",
+      archived: { $ne: true },
       autoSnapshots: true,
       disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
@@ -2232,7 +2238,7 @@ export async function generateExperimentKeywords(
       exp.description || ""
     }\nanalysisSummary: ${
       exp.analysisSummary
-    }\n\nThe keywords should be related to the experiments intent, goal metrics, and area of the product. It will be used to help identify similar experiments. Return just the keywords, comma seperated.`,
+    }\n\nThe keywords should be related to the experiments intent, goal metrics, and area of the product. It will be used to help identify similar experiments. Return just the keywords, comma separated.`,
     type: "generate-experiment-keywords",
     isDefaultPrompt: true,
     temperature: 0.1,

@@ -175,15 +175,15 @@ describe("validateRuleAttributes (V2 helper)", () => {
 // Reject/accept outcomes are pinned end-to-end in ruleReferenceIntegrity.test.ts;
 // this covers what that harness cannot observe.
 describe("validateRulesReferences", () => {
-  const getAll = jest.fn();
+  const getAllWithoutValues = jest.fn();
   const ctx = {
     org: { settings: { attributeSchema: [] } },
-    models: { savedGroups: { getAll } },
+    models: { savedGroups: { getAllWithoutValues } },
   } as unknown as ApiReqContext;
 
   beforeEach(() => {
-    getAll.mockReset();
-    getAll.mockResolvedValue([
+    getAllWithoutValues.mockReset();
+    getAllWithoutValues.mockResolvedValue([
       { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
     ]);
   });
@@ -200,7 +200,7 @@ describe("validateRulesReferences", () => {
         ctx,
       ),
     ).resolves.toBeUndefined();
-    expect(getAll).toHaveBeenCalledTimes(1);
+    expect(getAllWithoutValues).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a prerequisite whose condition names an unknown group", async () => {
@@ -223,7 +223,7 @@ describe("validateRulesReferences", () => {
 
   it("does not load saved groups for an empty rules list", async () => {
     await validateRulesReferences([], ctx);
-    expect(getAll).not.toHaveBeenCalled();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
   });
 });
 
@@ -305,7 +305,9 @@ describe("rampPatchEntriesForTargets", () => {
 describe("rule write composites", () => {
   const ctx = {
     org: { id: "org_1", settings: { environments: [{ id: "production" }] } },
-    models: { savedGroups: { getAll: jest.fn().mockResolvedValue([]) } },
+    models: {
+      savedGroups: { getAllWithoutValues: jest.fn().mockResolvedValue([]) },
+    },
     getAllProjectIds: async () => [],
     hasPremiumFeature: () => true,
     canSkipSchemaValidationFor: () => false,
@@ -364,10 +366,10 @@ describe("rule write composites", () => {
 });
 
 describe("validateChangedPhaseReferences", () => {
-  const getAll = jest.fn();
+  const getAllWithoutValues = jest.fn();
   const ctx = {
     org: { id: "org_1", settings: { attributeSchema: [] } },
-    models: { savedGroups: { getAll } },
+    models: { savedGroups: { getAllWithoutValues } },
   } as unknown as ApiReqContext;
   const stale = {
     condition: '{"id": {"$inGroup": "grp_gone"}}',
@@ -375,8 +377,8 @@ describe("validateChangedPhaseReferences", () => {
   };
 
   beforeEach(() => {
-    getAll.mockReset();
-    getAll.mockResolvedValue([
+    getAllWithoutValues.mockReset();
+    getAllWithoutValues.mockResolvedValue([
       { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
     ]);
   });
@@ -400,7 +402,7 @@ describe("validateChangedPhaseReferences", () => {
         ctx,
       ),
     ).resolves.toBeUndefined();
-    expect(getAll).toHaveBeenCalledTimes(2);
+    expect(getAllWithoutValues).toHaveBeenCalledTimes(2);
     // History is exempt for what any stored phase holds; the served (last)
     // phase only for what the served stored phase holds.
     const served = { condition: '{"country": "US"}' };
@@ -466,7 +468,7 @@ describe("stagedFeatureOf", () => {
 });
 
 describe("validateRampPlanPatches", () => {
-  const getAll = jest.fn();
+  const getAllWithoutValues = jest.fn();
   const ctx = {
     org: {
       id: "org_1",
@@ -475,7 +477,7 @@ describe("validateRampPlanPatches", () => {
         environments: [{ id: "production" }, { id: "qa" }],
       },
     },
-    models: { savedGroups: { getAll } },
+    models: { savedGroups: { getAllWithoutValues } },
   } as unknown as ApiReqContext;
   (ctx as { scanContextOverride?: ApiReqContext }).scanContextOverride = ctx;
   const envSettings = {
@@ -517,8 +519,8 @@ describe("validateRampPlanPatches", () => {
   };
 
   beforeEach(() => {
-    getAll.mockReset();
-    getAll.mockResolvedValue([
+    getAllWithoutValues.mockReset();
+    getAllWithoutValues.mockResolvedValue([
       { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
     ]);
     loadFeatures.mockReset();
@@ -533,7 +535,7 @@ describe("validateRampPlanPatches", () => {
         { condition: null, savedGroups: null },
       ]),
     ).resolves.toBeUndefined();
-    expect(getAll).not.toHaveBeenCalled();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
     expect(loadFeatures).not.toHaveBeenCalled();
   });
 
@@ -546,7 +548,7 @@ describe("validateRampPlanPatches", () => {
         prereqOnParent,
       ]),
     ).resolves.toBeUndefined();
-    expect(getAll).toHaveBeenCalledTimes(1);
+    expect(getAllWithoutValues).toHaveBeenCalledTimes(1);
   });
 
   // Bad conditions, missing groups and unknown environments are asserted end
@@ -562,10 +564,26 @@ describe("validateRampPlanPatches", () => {
       { prerequisites: [{ id: "parent_flag", condition: "{" }] },
       /prerequisite/i,
     ],
+    [
+      "a null environments list",
+      { environments: null },
+      /environments cannot be null/,
+    ],
+    [
+      "a null environments list beside an explicit non-wildcard",
+      { allEnvironments: false, environments: null },
+      /environments cannot be null/,
+    ],
   ])("rejects %s", async (_label, patch, message) => {
     const result = run([patch]);
     await expect(result).rejects.toThrow(BadRequestError);
     await expect(result).rejects.toThrow(message);
+  });
+
+  it("accepts the anchor spelling of a rule with no list on a first write", async () => {
+    await expect(
+      run([{ allEnvironments: true, environments: null }]),
+    ).resolves.toBeUndefined();
   });
 
   it("ignores the environments list on a patch scoped to all environments", async () => {
@@ -658,12 +676,6 @@ describe("validateRampPlanPatches", () => {
       // (ruleAppliesToEnv), on the target rule and on the patch alike.
       await expect(
         run([prereqOnParent], feature, { allEnvironments: false }),
-      ).rejects.toThrow(/circular dependency/);
-      await expect(
-        run([{ ...prereqOnParent, environments: null }], feature, {
-          allEnvironments: false,
-          environments: ["qa"],
-        }),
       ).rejects.toThrow(/circular dependency/);
     });
   });
@@ -812,7 +824,7 @@ describe("validateRampPlanPatches", () => {
     await expect(
       run([{ ...stale, ruleId: "fr_1__production" }], feature, null, stored),
     ).resolves.toBeUndefined();
-    expect(getAll).not.toHaveBeenCalled();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
     await expect(
       run(
         [{ ...stale, condition: '{"country": "DE"}' }],
@@ -858,18 +870,20 @@ describe("Saved Group scope in ramp patches", () => {
       condition: '{"id":{"$inGroup":"scoped"}}',
     },
   ];
+  // The scope check reads through the scan context, reference checks through
+  // the request context.
   const getAllWithoutValues = jest.fn().mockResolvedValue(groups);
   const context = {
     org: { settings: { enforceSavedGroupProjectScope: true } },
     models: {
       savedGroups: {
-        getAll: jest.fn().mockResolvedValue(groups),
-        getAllWithoutValues,
+        getAllWithoutValues: jest.fn().mockResolvedValue(groups),
       },
     },
   } as unknown as ApiReqContext;
-  (context as { scanContextOverride?: ApiReqContext }).scanContextOverride =
-    context;
+  (context as { scanContextOverride?: ApiReqContext }).scanContextOverride = {
+    models: { savedGroups: { getAllWithoutValues } },
+  } as unknown as ApiReqContext;
   const rule: FeatureRule = {
     id: "rule",
     type: "force",

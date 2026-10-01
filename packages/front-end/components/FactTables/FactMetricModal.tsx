@@ -32,6 +32,7 @@ import {
   getSelectedColumnDatatype,
   reconcileInlineFilterPrompts,
 } from "shared/experiments";
+import { isCappableFactMetric } from "shared/validators";
 import { createLikeStringMatchFn } from "shared/sql";
 import { getFunnelAnchorStepIndex } from "shared/funnels";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
@@ -1680,6 +1681,16 @@ function StandardFactMetricModal({
       close={close}
       submit={form.handleSubmit(
         async (values) => {
+          // Normalize capping values
+          if (!isCappableFactMetric(values.metricType)) {
+            values.cappingSettings = {
+              type: "",
+              value: 0,
+              ignoreZeros: false,
+            };
+            values.lowerCappingSettings = null;
+          }
+
           if (values.metricType === "funnel") {
             const fs = funnelSettings;
             if (!fs || fs.steps.length < 2) {
@@ -1716,15 +1727,13 @@ function StandardFactMetricModal({
             }
 
             // Funnel events are described by funnelSettings.steps, so numerator /
-            // denominator are null and the capping/quantile/slice settings the
-            // backend forbids for funnels are reset.
+            // denominator are null; capping has already been validated.
             const funnelBody = {
               ...values,
               numerator: null,
               denominator: null,
               funnelSettings: fs,
               quantileSettings: null,
-              cappingSettings: { type: "" as const, value: 0 },
               metricAutoSlices: [],
             };
 
@@ -1833,41 +1842,6 @@ function StandardFactMetricModal({
 
           if (!values.numerator.aggregateFilterColumn) {
             values.numerator.aggregateFilter = undefined;
-          }
-
-          if (values.cappingSettings?.type) {
-            if (!values.cappingSettings.value) {
-              throw new Error("Capped Value cannot be 0");
-            }
-          }
-
-          // reset capping that may be carried over to uncappable metrics
-          if (
-            values.metricType === "quantile" ||
-            values.metricType === "proportion" ||
-            values.metricType === "retention" ||
-            values.metricType === "dailyParticipation"
-          ) {
-            values.cappingSettings = {
-              type: "",
-              value: 0,
-            };
-          }
-
-          if (
-            values.numerator.aggregateFilterColumn &&
-            values.metricType === "ratio"
-          ) {
-            if (values.numerator.column !== "$$distinctUsers") {
-              values.numerator.aggregateFilterColumn = "";
-              values.numerator.aggregateFilter = undefined;
-            } else {
-              if (values.cappingSettings?.type) {
-                throw new Error(
-                  "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
-                );
-              }
-            }
           }
 
           if (!selectedDataSource) throw new Error("Must select a data source");
@@ -2150,8 +2124,6 @@ function StandardFactMetricModal({
                     }
 
                     form.setValue("quantileSettings", quantileSettings);
-                    // capping off for quantile metrics
-                    form.setValue("cappingSettings.type", "");
 
                     if (
                       quantileSettings.type === "event" &&
@@ -2172,14 +2144,6 @@ function StandardFactMetricModal({
                         numerator.factTableId || initialFactTable || "",
                       column: "$$count",
                     });
-                  }
-
-                  // When switching to ratio and using `absolute` capping, turn it off (only percentile supported)
-                  if (
-                    type === "ratio" &&
-                    form.watch("cappingSettings.type") === "absolute"
-                  ) {
-                    form.setValue("cappingSettings.type", "");
                   }
                 }}
                 options={[
@@ -2630,15 +2594,12 @@ function StandardFactMetricModal({
                         {type !== "retention" ? (
                           <MetricDelaySettings form={form} />
                         ) : null}
-                        {type !== "quantile" &&
-                        type !== "proportion" &&
-                        type !== "retention" &&
-                        type !== "dailyParticipation" &&
-                        type !== "funnel" ? (
+                        {isCappableFactMetric(type) ? (
                           <MetricCappingSettingsForm
                             form={form}
                             datasourceType={selectedDataSource.type}
                             metricType={type}
+                            allowLowerTailCapping
                           />
                         ) : null}
 

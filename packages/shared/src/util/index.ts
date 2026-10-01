@@ -545,6 +545,7 @@ export function ruleFootprint(
 ): string[] {
   if (rule.allEnvironments) return applicableEnvs;
   if (rule.environments === undefined) return applicableEnvs;
+  if (!Array.isArray(rule.environments)) return [];
   const applicableSet = new Set(applicableEnvs);
   return rule.environments.filter((e) => applicableSet.has(e));
 }
@@ -752,7 +753,8 @@ export function ratioVarianceFromSums({
 }
 
 // Targeting names a saved group in its condition, its saved-group list, or a
-// prerequisite's condition; all three reach the SDK payload.
+// prerequisite's condition; all three reach the SDK payload. Conditions hold
+// the id as a JSON string, so match it quoted and not as a bare substring.
 export function targetingReferencesSavedGroup(
   targeting: {
     condition?: string | null;
@@ -761,11 +763,20 @@ export function targetingReferencesSavedGroup(
   },
   savedGroupId: string,
 ): boolean {
+  const quoted = `"${savedGroupId}"`;
   return (
-    !!targeting.condition?.includes(savedGroupId) ||
+    !!targeting.condition?.includes(quoted) ||
     !!targeting.savedGroups?.some((g) => g.ids.includes(savedGroupId)) ||
-    !!targeting.prerequisites?.some((p) => p.condition?.includes(savedGroupId))
+    !!targeting.prerequisites?.some((p) => p.condition?.includes(quoted))
   );
+}
+
+// A stopped bandit's rule leaves the payload for good; until then its
+// targeting is served on its linked features, archived or not.
+export function contextualBanditTargetingServes(cb: {
+  status: string;
+}): boolean {
+  return cb.status !== "stopped";
 }
 
 export function featuresReferencingSavedGroups({

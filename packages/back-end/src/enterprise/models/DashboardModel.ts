@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import { UpdateProps } from "shared/types/base-model";
+import { Permissions } from "shared/permissions";
 import { isString, PermissionError } from "shared/util";
 import {
   ApiCreateDashboardBlockInterface,
@@ -13,10 +14,13 @@ import {
   isDashboardBlockRef,
   DashboardBlockRef,
   apiCreateDashboardBody,
+  apiCreateDashboardBodyV2,
+  ApiCreateDashboardBody,
   DashboardBlockWithAnalysisId,
   ApiDashboardInterface,
   ApiGetDashboardsForExperimentReturn,
   apiUpdateDashboardBody,
+  ApiUpdateDashboardBody,
   dashboardInterface,
   DashboardInterface,
   CreateDashboardBlockInterface,
@@ -40,6 +44,8 @@ import {
   ScopedFilterQuery,
 } from "back-end/src/models/BaseModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import {
   getCollection,
   removeMongooseFields,
@@ -48,6 +54,7 @@ import {
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   dashboardApiSpec,
+  createDashboardV2Endpoint,
   getDashboardsForExperimentEndpoint,
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
@@ -58,7 +65,12 @@ import {
   updateDashboardExplorations,
 } from "back-end/src/enterprise/services/dashboards";
 import { BadRequestError } from "back-end/src/util/errors";
-import { resolveOwnerEmail } from "back-end/src/services/owner";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+  resolveOwnerForCreate,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -69,6 +81,9 @@ type LegacyDashboardDocument = Omit<
   editLevel: "organization" | "private";
   shareLevel?: DashboardInterface["shareLevel"];
 };
+type ApiUpdateDashboardBlock = NonNullable<
+  ApiUpdateDashboardBody["blocks"]
+>[number];
 
 const COLLECTION_NAME = "dashboards";
 const BaseClass = MakeModelClass({
@@ -94,15 +109,28 @@ const BaseClass = MakeModelClass({
     openApiSpec: dashboardApiSpec,
     customHandlers: [
       defineCustomApiHandler({
+        ...createDashboardV2Endpoint,
+        reqHandler: async (
+          req,
+        ): Promise<{ dashboard: ApiDashboardInterface }> => ({
+          dashboard: await req.context.models.dashboards.createFromApiV2(
+            req.body,
+          ),
+        }),
+      }),
+      defineCustomApiHandler({
         ...getDashboardsForExperimentEndpoint,
         reqHandler: async (
           req,
         ): Promise<ApiGetDashboardsForExperimentReturn> => ({
-          dashboards: (
-            await req.context.models.dashboards.findByExperiment(
-              req.params.experimentId,
-            )
-          ).map(req.context.models.dashboards.toApiInterface),
+          dashboards: await resolveOwnerEmails(
+            (
+              await req.context.models.dashboards.findByExperiment(
+                req.params.experimentId,
+              )
+            ).map(req.context.models.dashboards.toApiInterface),
+            req.context,
+          ),
         }),
       }),
     ],
@@ -255,7 +283,7 @@ export class DashboardModel extends BaseClass {
     }
 
     if (existing.experimentId) {
-      // Check that the org has the commerical feature
+      // Check that the org has the commercial feature
       if (!this.context.hasPremiumFeature("dashboards")) {
         throw new Error("Your plan does not support updating dashboards.");
       }
@@ -319,7 +347,11 @@ export class DashboardModel extends BaseClass {
     });
   }
 
-  protected async customValidation(toSave: DashboardDocument) {
+  protected async customValidation(
+    toSave: DashboardDocument,
+    previousDoc?: DashboardDocument,
+  ) {
+    await this.assertOwnerCanManage(toSave, previousDoc);
     if (toSave.experimentId) {
       if (toSave.updateSchedule) {
         throw new Error(
@@ -333,6 +365,45 @@ export class DashboardModel extends BaseClass {
         );
       }
     }
+  }
+
+  // A private dashboard is readable only by its owner, so an owner who can't
+  // manage it leaves nobody able to edit, reassign or delete it.
+  private async assertOwnerCanManage(
+    dashboard: DashboardInterface,
+    previous?: DashboardInterface,
+  ) {
+    const { userId } = dashboard;
+    if (!userId || userId === this.context.userId) return;
+    if (previous && previous.userId === userId) return;
+    if (!(await this.ownerCanManage(dashboard))) {
+      throw new BadRequestError(
+        "The owner must be an organization member with permission to manage this dashboard.",
+      );
+    }
+  }
+
+  private async ownerCanManage(dashboard: DashboardInterface) {
+    const { org, teams } = this.context;
+    if (!org.members.some((m) => m.id === dashboard.userId)) return false;
+    const [[user], restrictedProjects] = await Promise.all([
+      this.context.getUsersByIds([dashboard.userId]),
+      ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+    ]);
+    const owner = new Permissions(
+      getUserPermissions(
+        { id: dashboard.userId, superAdmin: user?.superAdmin },
+        org,
+        teams,
+        restrictedProjects,
+      ),
+    );
+    if (!owner.canReadMultiProjectResource(dashboard.projects)) return false;
+    if (dashboard.experimentId) {
+      const { experiment } = this.getForeignRefs(dashboard, false);
+      return !!experiment && owner.canCreateReport(experiment);
+    }
+    return owner.canCreateGeneralDashboards(dashboard);
   }
 
   protected async afterCreate(doc: DashboardDocument) {
@@ -448,11 +519,36 @@ export class DashboardModel extends BaseClass {
       dateUpdated: dashboard.dateUpdated.toISOString(),
       nextUpdate: dashboard.nextUpdate?.toISOString(),
       lastUpdated: dashboard.lastUpdated?.toISOString(),
+      owner: dashboard.userId,
     };
   }
 
   protected async processApiCreateBody(rawBody: unknown) {
-    const {
+    return this.buildApiCreateDoc(
+      apiCreateDashboardBody.parse(rawBody),
+      this.context.userId,
+    );
+  }
+
+  // Body `owner` wins over the caller; with none it falls back to the PAT
+  // user, and a secret key with neither is rejected.
+  public async createFromApiV2(
+    rawBody: unknown,
+  ): Promise<ApiDashboardInterface> {
+    const { owner, ...body } = apiCreateDashboardBodyV2.parse(rawBody);
+    const userId = await resolveOwnerForCreate(owner, this.context, {
+      strict: true,
+    });
+    return resolveOwnerEmail(
+      this.toApiInterface(
+        await this.create(await this.buildApiCreateDoc(body, userId)),
+      ),
+      this.context,
+    );
+  }
+
+  private async buildApiCreateDoc(
+    {
       editLevel,
       shareLevel,
       enableAutoUpdates,
@@ -463,12 +559,14 @@ export class DashboardModel extends BaseClass {
       globalControls,
       comparison,
       blocks,
-    } = apiCreateDashboardBody.parse(rawBody);
+    }: ApiCreateDashboardBody,
+    userId: string,
+  ) {
     const base = {
       uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
       isDefault: false,
       isDeleted: false,
-      userId: this.context.userId,
+      userId,
       editLevel,
       shareLevel,
       enableAutoUpdates,
@@ -482,20 +580,20 @@ export class DashboardModel extends BaseClass {
     // create() enforces canCreate, but only after the block runs below have
     // already billed warehouse queries and written exploration records. Same
     // gate, moved ahead of the spend; the blocks play no part in it.
-    await this.assertApiWriteAllowed(
-      "create",
-      {
-        ...base,
-        organization: this.context.org.id,
-        blocks: [],
-        // Placeholders: canCreate reads experimentId, editLevel and projects,
-        // not the id or timestamps BaseModel assigns on the real write.
-        id: "",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-      },
-      (dashboard) => this.canCreate(dashboard),
+    const toCheck: DashboardInterface = {
+      ...base,
+      organization: this.context.org.id,
+      blocks: [],
+      // Placeholders: canCreate reads experimentId, editLevel and projects,
+      // not the id or timestamps BaseModel assigns on the real write.
+      id: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+    await this.assertApiWriteAllowed("create", toCheck, (dashboard) =>
+      this.canCreate(dashboard),
     );
+    await this.assertOwnerCanManage(toCheck);
     // A chart block can arrive as a config the caller never ran.
     const ranBlocks = await runNewApiExplorationBlocks(this.context, blocks, {
       globalControls,
@@ -544,21 +642,31 @@ export class DashboardModel extends BaseClass {
     const dashboard = await this.getById(id);
     if (!dashboard) req.context.throwNotFoundError();
 
-    // Same reason as the create path: processApiUpdateBody runs the caller's
-    // chart blocks, and updateById would only refuse afterwards. The block
-    // list plays no part in canUpdate, so the cheap fields are enough.
-    const nonBlockUpdates = omit(
-      apiUpdateDashboardBody.parse(req.body),
-      "blocks",
-    );
+    // Same reason as the create path: buildApiUpdates runs the caller's chart
+    // blocks, and updateById would only refuse afterwards. The block list plays
+    // no part in canUpdate. `owner` is resolved first because that check keys
+    // off the stored userId; omitting it leaves the stored owner alone.
+    const { owner, blocks, ...fields } = apiUpdateDashboardBody.parse(req.body);
+    const userId = await resolveOwnerToUserId(owner, this.context, {
+      strict: true,
+    });
+    const nonBlockUpdates: UpdateProps<DashboardInterface> = {
+      ...fields,
+      ...(userId !== undefined ? { userId } : {}),
+    };
     await this.assertApiWriteAllowed("update", dashboard, (existing) =>
       this.canUpdate(existing, nonBlockUpdates),
+    );
+    await this.assertOwnerCanManage(
+      { ...dashboard, ...nonBlockUpdates },
+      dashboard,
     );
 
     // After the permission check: this rejects an id the dashboard doesn't have,
     // and a caller who may not write here should hear that before anything else.
-    const toUpdate = await this.processApiUpdateBody(
-      fillServerOwnedBlockKeys(req.body, dashboard.blocks),
+    const toUpdate = await this.buildApiUpdates(
+      nonBlockUpdates,
+      blocks && fillServerOwnedBlockKeys(blocks, dashboard.blocks),
       dashboard,
     );
     // CAS on the doc we read above, not a fresh one: `toUpdate` carries a whole
@@ -570,19 +678,18 @@ export class DashboardModel extends BaseClass {
       this.context,
     );
   }
-  protected async processApiUpdateBody(
-    rawBody: unknown,
-    existingDashboard?: DashboardInterface,
+  private async buildApiUpdates(
+    nonBlockUpdates: UpdateProps<DashboardInterface>,
+    blockUpdates: ApiUpdateDashboardBlock[] | undefined,
+    existingDashboard: DashboardInterface,
   ) {
-    const { blocks: blockUpdates, ...otherUpdates } =
-      apiUpdateDashboardBody.parse(rawBody);
-    const updates: UpdateProps<DashboardInterface> = otherUpdates;
+    const updates: UpdateProps<DashboardInterface> = { ...nonBlockUpdates };
     // Absent controls mean the saved ones still apply, so a partial update
     // queries the window the tiles render under.
     const nextControls = {
       globalControls:
-        updates.globalControls ?? existingDashboard?.globalControls,
-      comparison: updates.comparison ?? existingDashboard?.comparison,
+        updates.globalControls ?? existingDashboard.globalControls,
+      comparison: updates.comparison ?? existingDashboard.comparison,
     };
     // Dashboard-wide controls decide the window a tile queries, so changing one
     // makes every result the caller did not re-run itself stale. Only these
@@ -596,23 +703,23 @@ export class DashboardModel extends BaseClass {
       updates.globalControls !== undefined &&
       !isEqual(
         chartControls(updates.globalControls),
-        chartControls(existingDashboard?.globalControls),
+        chartControls(existingDashboard.globalControls),
       );
     const comparisonChanged =
       updates.comparison !== undefined &&
-      !isEqual(updates.comparison, existingDashboard?.comparison);
+      !isEqual(updates.comparison, existingDashboard.comparison);
     // Indices of blocks this request runs itself; the rest carry a saved result.
     const freshlyRun = new Set<number>();
     if (blockUpdates) {
       // A ref names a saved block to carry through as-is: nothing to run, nothing
       // to convert. Kept positionally so the list still defines order.
       const savedById = new Map(
-        (existingDashboard?.blocks ?? []).map((block) => [block.id, block]),
+        existingDashboard.blocks.map((block) => [block.id, block]),
       );
       const carried = new Map<number, DashboardBlockInterface>();
       const toProcess: {
         index: number;
-        block: Exclude<(typeof blockUpdates)[number], DashboardBlockRef>;
+        block: Exclude<ApiUpdateDashboardBlock, DashboardBlockRef>;
       }[] = [];
       blockUpdates.forEach((block, index) => {
         if (!isDashboardBlockRef(block)) {
@@ -664,12 +771,12 @@ export class DashboardModel extends BaseClass {
       }
       updates.blocks = normalizeLayouts(
         resolveGlobalControlsBlockEnrollment({
-          existingGlobalControls: existingDashboard?.globalControls,
+          existingGlobalControls: existingDashboard.globalControls,
           nextGlobalControls: updates.globalControls,
           nextBlocks: createdBlocks,
         }) ?? createdBlocks,
       );
-    } else if (existingDashboard) {
+    } else {
       const enrolledBlocks = resolveGlobalControlsBlockEnrollment({
         existingGlobalControls: existingDashboard.globalControls,
         nextGlobalControls: updates.globalControls,
@@ -681,7 +788,7 @@ export class DashboardModel extends BaseClass {
     // Re-run the results the caller did not, so a control change lands the same
     // way it does in the app instead of leaving tiles on the previous window.
     if (dateControlsChanged || comparisonChanged) {
-      const blocks = (updates.blocks ?? existingDashboard?.blocks ?? []).map(
+      const blocks = (updates.blocks ?? existingDashboard.blocks).map(
         (block) => ({ ...block }),
       );
       // A dashboard-wide comparison overrides each block's own, so it reaches
@@ -704,37 +811,26 @@ export class DashboardModel extends BaseClass {
 
 /**
  * `uid` and `organization` belong to the server. A caller editing a saved block
- * names it by `id` and sends the fields it means to change; requiring it to echo
- * those two back rejects the obvious payload, and the only repair that looks like
- * it works — dropping the `id` — silently replaces the tile with a new one.
+ * names it by `id` and sends the fields it means to change, so those two come
+ * from the saved block. Without them it reads as new and is given a fresh id,
+ * silently replacing the tile.
  */
 function fillServerOwnedBlockKeys(
-  rawBody: unknown,
+  blocks: ApiUpdateDashboardBlock[],
   savedBlocks: DashboardInterface["blocks"],
-): unknown {
-  if (!rawBody || typeof rawBody !== "object") return rawBody;
-  const body = rawBody as { blocks?: unknown };
-  if (!Array.isArray(body.blocks)) return rawBody;
-
+): ApiUpdateDashboardBlock[] {
   const savedById = new Map(savedBlocks.map((block) => [block.id, block]));
-  return {
-    ...body,
-    blocks: body.blocks.map((raw) => {
-      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
-      const block = raw as Record<string, unknown>;
-      // A bare ref is already valid, and a block with no id is a new one.
-      if (typeof block.id !== "string" || Object.keys(block).length < 2) {
-        return raw;
-      }
-      const saved = savedById.get(block.id);
-      if (!saved) {
-        throw new BadRequestError(
-          `No block "${block.id}" on this dashboard. Reference one it already has, or send the block without an id to add it.`,
-        );
-      }
-      return { ...block, uid: saved.uid, organization: saved.organization };
-    }),
-  };
+  return blocks.map((block) => {
+    // A bare ref has no type and is carried as-is; a block with no id is new.
+    if (!("type" in block) || !("id" in block) || !block.id) return block;
+    const saved = savedById.get(block.id);
+    if (!saved) {
+      throw new BadRequestError(
+        `No block "${block.id}" on this dashboard. Reference one it already has, or send the block without an id to add it.`,
+      );
+    }
+    return { ...block, uid: saved.uid, organization: saved.organization };
+  });
 }
 
 function getSavedQueryIds(doc: DashboardDocument): Set<string> {

@@ -10,11 +10,17 @@ import {
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
   assertContextualAttributesValid,
+  cancelContextualBanditEndpoint,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
+  contextualBanditApiSpec,
   ContextualBanditInterface,
   ContextualBanditVariation,
   contextualBanditValidator,
   LeafWeight,
+  refreshContextualBanditEndpoint,
+  startContextualBanditEndpoint,
+  stopContextualBanditEndpoint,
+  updateVariationsContextualBanditEndpoint,
   VariationWeightPair,
 } from "shared/validators";
 import {
@@ -27,14 +33,6 @@ import type { FeatureInterface } from "shared/types/feature";
 import { isFactMetricId } from "shared/experiments";
 import { NotFoundError } from "back-end/src/util/errors";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
-import {
-  cancelContextualBanditEndpoint,
-  contextualBanditApiSpec,
-  refreshContextualBanditEndpoint,
-  startContextualBanditEndpoint,
-  stopContextualBanditEndpoint,
-  updateVariationsContextualBanditEndpoint,
-} from "back-end/src/api/specs/contextual-bandit.spec";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
