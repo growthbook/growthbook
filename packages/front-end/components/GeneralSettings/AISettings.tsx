@@ -359,7 +359,7 @@ export default function AISettings({
                   form.setValue("aiEnabled", v);
                 }}
                 disabled={!canEdit}
-                mb="6"
+                mb="4"
               />
               {!canEdit && (
                 <Box mb="6" width="100%">
