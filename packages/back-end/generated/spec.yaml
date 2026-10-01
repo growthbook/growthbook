@@ -81962,6 +81962,45 @@ components:
         - pattern
         - example
       additionalProperties: false
+    ApiErrorRuleScopeRequiredDetails:
+      type: object
+      properties:
+        rules:
+          description: Zero-based indexes of the rules that have no scope.
+          type: array
+          items:
+            type: integer
+      required:
+        - rules
+      additionalProperties: false
+    ApiErrorEnvironmentStateRequiredDetails:
+      type: object
+      properties:
+        missing:
+          description: Environments the request does not set `enabled` for.
+          type: array
+          items:
+            type: string
+        environments:
+          description: Every environment the Feature Flag can be in.
+          type: array
+          items:
+            type: string
+      required:
+        - missing
+        - environments
+      additionalProperties: false
+    ApiErrorCreateRequiresApprovalDetails:
+      type: object
+      properties:
+        environments:
+          description: Environments that need approval to turn on.
+          type: array
+          items:
+            type: string
+      required:
+        - environments
+      additionalProperties: false
     bypassedGates:
       type: object
       properties:

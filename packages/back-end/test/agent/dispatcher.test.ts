@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ReqContext } from "back-end/types/request";
 import type { OpenApiRoute } from "back-end/src/util/handler";
 import { MergeConflictError } from "back-end/src/util/errors";
+import { applySafetyCheck } from "back-end/src/util/apiSafetyChecks";
 
 // Short-circuit the import chain — dispatcher.ts imports allRoutes from
 // api.router, which pulls in the entire app (mongoose, integrations, etc.)
@@ -247,6 +248,79 @@ describe("dispatchInternal", () => {
       code: "conflict",
       details: { conflicts: [{ field: "base" }] },
       conflicts: [{ field: "base" }],
+    });
+  });
+
+  it("returns a handler's notices and keeps them to that call", async () => {
+    const recordNotice = (req: FakeReq) => {
+      applySafetyCheck(req, "rule_scope_required", {
+        violated: true,
+        message: "Rule 1 has no environment scope.",
+        notice: "Rule 1 runs everywhere.",
+        path: "rules.0",
+        details: { rules: [0] },
+      });
+      return { ok: true };
+    };
+    _setRoutesForTests([
+      makeRoute("post", "/noticed", recordNotice),
+      makeRoute("post", "/quiet", () => ({ ok: true })),
+    ]);
+    // One context across calls, as the agent uses it.
+    const ctx = makeCtx();
+
+    const first = await dispatchInternal(ctx, {
+      method: "POST",
+      path: "/v1/noticed",
+    });
+    expect(first).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        notices: [
+          {
+            code: "rule_scope_required",
+            message: expect.stringMatching(/^Rule 1 runs everywhere\. /),
+            path: "rules.0",
+          },
+        ],
+      },
+    });
+
+    const second = await dispatchInternal(ctx, {
+      method: "POST",
+      path: "/v1/quiet",
+    });
+    expect(second).toEqual({ status: 200, body: { ok: true } });
+  });
+
+  it("returns a safety check's error when the organization enforces it", async () => {
+    _setRoutesForTests([
+      makeRoute("post", "/noticed", (req) => {
+        applySafetyCheck(req, "rule_scope_required", {
+          violated: true,
+          message: "Rule 1 has no environment scope.",
+          notice: "Rule 1 runs everywhere.",
+          details: { rules: [0] },
+        });
+        return { ok: true };
+      }),
+    ]);
+
+    const result = await dispatchInternal(
+      makeCtx({
+        org: { id: "org_test", settings: { strictEnvironmentChecks: true } },
+      } as Partial<ReqContext>),
+      { method: "POST", path: "/v1/noticed" },
+    );
+
+    expect(result).toEqual({
+      status: 400,
+      body: {
+        message: "Rule 1 has no environment scope.",
+        code: "rule_scope_required",
+        details: { rules: [0] },
+      },
     });
   });
 
