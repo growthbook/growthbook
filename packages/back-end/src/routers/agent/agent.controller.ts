@@ -99,13 +99,27 @@ async function orgContextForAutocomplete(
   }: { datasourceId?: string; currentPage?: string },
 ): Promise<string> {
   const kinds = new Set(contextKindsForPage(currentPage));
+  // Lets the feature and metric lookups filter by read access in Mongo, so
+  // their limits stay bounded on large catalogs. null means every project.
+  const readableProjects =
+    kinds.has("features") || kinds.has("metrics")
+      ? context.permissions.getProjectsWithPermission(
+          "readData",
+          await context.models.projects.getAllIdsForOrg(),
+        )
+      : null;
   const want = <T>(kind: ContextKind, fetch: () => Promise<T[]>) =>
     kinds.has(kind) ? fetch() : Promise.resolve(null);
 
   const [datasources, features, experiments, factMetrics, legacyMetrics] =
     await Promise.all([
       want("datasources", () => getDataSourcesByOrganization(context)),
-      want("features", () => getRecentFeatureIds(context, ORG_CONTEXT_LIMIT)),
+      want("features", () =>
+        getRecentFeatureIds(context, {
+          limit: ORG_CONTEXT_LIMIT,
+          readableProjects,
+        }),
+      ),
       want("experiments", () =>
         getAllExperiments(context, {
           limit: ORG_CONTEXT_LIMIT,
@@ -122,6 +136,7 @@ async function orgContextForAutocomplete(
         getRecentMetricNames(context, {
           limit: ORG_CONTEXT_LIMIT,
           datasourceId,
+          readableProjects,
         }),
       ),
     ]);
