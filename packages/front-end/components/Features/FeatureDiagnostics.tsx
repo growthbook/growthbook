@@ -1,5 +1,8 @@
 import type { FeatureUsageDimension } from "shared/types/feature";
-import { FEATURE_USAGE_BUCKET_SECONDS } from "shared/featureUsageBuckets";
+import {
+  FEATURE_USAGE_BUCKET_SECONDS,
+  getFeatureUsageWindowStart,
+} from "shared/featureUsageBuckets";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
@@ -27,6 +30,7 @@ import { useRouter } from "next/router";
 import {
   FeatureEvalDiagnosticsFilterColumn,
   FeatureEvalDiagnosticsQueryResponseRows,
+  FeatureUsageLookback,
 } from "shared/types/integrations";
 import type { RowFilter } from "shared/types/fact-table";
 import { ago, date, getValidDate } from "shared/dates";
@@ -132,9 +136,11 @@ type DiagnosticsRow = FeatureEvalDiagnosticsQueryResponseRows[number] & {
 };
 
 const DUMMY_ROW_COUNT = 60;
-const DUMMY_WINDOW_MS = 4 * 60 * 60 * 1000;
-/** Every 7th row, so staging reads as the minority it is in real traffic. */
-const DUMMY_STAGING_EVERY = 7;
+/**
+ * Every 5th row goes to an environment other than the lead one, so the lead
+ * reads as the majority it is in real traffic and the rest still appear.
+ */
+const DUMMY_MINORITY_EVERY = 5;
 
 /**
  * One template per distinct way this flag can evaluate. Source, value, ruleId
@@ -367,12 +373,29 @@ const STICKY_HEADER_TOP_PX = 95;
  * every source, value and rule id is visible in the table — a random draw can
  * miss one entirely on a flag with many rules.
  */
-function getDummyDiagnosticsRows(feature: FeatureInterface): DiagnosticsRow[] {
+/**
+ * FAKE DATA, shaped to respond to the page's controls the way real rows do:
+ * environments are the flag's own (the lead one "production" when the flag
+ * has it), and timestamps spread across the selected time window. Without
+ * this the environment chip and time range visibly did nothing to the
+ * stream in dummy mode — the rows were hard-coded to production/staging over
+ * a fixed four hours.
+ */
+function getDummyDiagnosticsRows(
+  feature: FeatureInterface,
+  environmentIds: string[],
+  lookback: FeatureUsageLookback,
+): DiagnosticsRow[] {
   const templates = getDummyRowTemplates(feature);
   // Anchored at render so the newest row always reads as "just now" rather than
   // whenever this code was written.
   const now = Date.now();
-  const step = DUMMY_WINDOW_MS / DUMMY_ROW_COUNT;
+  const windowMs =
+    now - getFeatureUsageWindowStart(lookback, new Date(now)).getTime();
+  const step = windowMs / DUMMY_ROW_COUNT;
+  const envs = environmentIds.length ? environmentIds : ["production"];
+  const lead = envs.includes("production") ? "production" : envs[0];
+  const others = envs.filter((e) => e !== lead);
 
   return Array.from({ length: DUMMY_ROW_COUNT }, (_, i) => {
     const template = templates[i % templates.length];
@@ -380,7 +403,10 @@ function getDummyDiagnosticsRows(feature: FeatureInterface): DiagnosticsRow[] {
       // Descending, so the table's default sort has nothing to undo.
       timestamp: new Date(now - i * step).toISOString(),
       feature_key: feature.id,
-      environment: i % DUMMY_STAGING_EVERY === 0 ? "staging" : "production",
+      environment:
+        others.length && i % DUMMY_MINORITY_EVERY === DUMMY_MINORITY_EVERY - 1
+          ? others[Math.floor(i / DUMMY_MINORITY_EVERY) % others.length]
+          : lead,
       value: template.value,
       source: template.source,
       ruleId: template.ruleId,
@@ -1059,12 +1085,24 @@ export default function FeatureDiagnostics({
     (datasource.type === "growthbook_clickhouse" ||
       !!getActiveFeatureUsageQuery(datasource.settings?.queries?.featureUsage));
 
-  // Synthesized once per feature rather than pushed through setResults: writing
-  // to the page's state during render would be a side effect, and the real
-  // query path should keep sole ownership of that state.
+  // Synthesized per feature and time window rather than pushed through
+  // setResults: writing to the page's state during render would be a side
+  // effect, and the real query path should keep sole ownership of that state.
+  // The environments are the ones the flag is enabled in — stable, and not
+  // derived from the chip they are filtered by.
+  const dummyEnvironmentIds = useMemo(
+    () =>
+      orgEnvironments
+        .filter((env) => feature.environmentSettings?.[env.id]?.enabled)
+        .map((env) => env.id),
+    [orgEnvironments, feature.environmentSettings],
+  );
   const dummyResults = useMemo(
-    () => (useDummyData ? getDummyDiagnosticsRows(feature) : null),
-    [useDummyData, feature],
+    () =>
+      useDummyData
+        ? getDummyDiagnosticsRows(feature, dummyEnvironmentIds, lookback)
+        : null,
+    [useDummyData, feature, dummyEnvironmentIds, lookback],
   );
   // Everything downstream reads this, so the table, search, sort and pagination
   // are the same code in both modes.
