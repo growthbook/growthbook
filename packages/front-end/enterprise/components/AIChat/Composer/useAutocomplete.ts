@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 
 const DEBOUNCE_MS = 300;
 // "I want" says little; three words is about where a continuation stops being a guess.
 const MIN_WORDS = 3;
-// ponytail: flat back-off after any failure; per-status handling if 429s get common.
 const RETRY_AFTER_ERROR_MS = 60_000;
+// Nothing about the request will change by retrying: feature off, no access, bad input.
+const FATAL_STATUSES = new Set([400, 401, 403, 404]);
 
 export interface Suggestion {
   /** The draft the completion was generated for. */
@@ -37,10 +40,13 @@ export function useAutocomplete({
   conversationId?: string;
 }): { ghost: string; accept: () => void; dismiss: () => void } {
   const { apiCall } = useAuth();
-  // Same page hint the chat sends, so "this experiment" resolves to the one on screen.
+  // The same hints the chat request sends: the page, so "this experiment"
+  // resolves to the one on screen, and the active PA datasource to scope metrics.
   const currentPage = useRouter().asPath.slice(0, 2048);
+  const datasourceId = useDefaultDataSourceId();
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const pausedUntil = useRef(0);
+  const stopped = useRef(false);
   const current =
     suggestion?.conversationId === conversationId ? suggestion : null;
   const ghost = remainingCompletion(text, current);
@@ -48,6 +54,7 @@ export function useAutocomplete({
   useEffect(() => {
     if (
       !enabled ||
+      stopped.current ||
       ghost ||
       text === current?.base ||
       text.trim().split(/\s+/).length < MIN_WORDS
@@ -58,24 +65,46 @@ export function useAutocomplete({
     // After a failure, wait out the back-off and then retry the unchanged draft.
     const delay = Math.max(DEBOUNCE_MS, pausedUntil.current - Date.now());
     const timer = setTimeout(async () => {
+      let handled = false;
       try {
         const res = await apiCall<{ completion?: string }>(
           "/agent/autocomplete",
           {
             method: "POST",
-            body: JSON.stringify({ text, conversationId, currentPage }),
+            body: JSON.stringify({
+              text,
+              conversationId,
+              currentPage,
+              ...(datasourceId ? { datasourceId } : {}),
+            }),
             signal: ctrl.signal,
           },
+          (err: { status?: number; retryAfter?: number }) => {
+            handled = true;
+            if (err.status && FATAL_STATUSES.has(err.status)) {
+              stopped.current = true;
+            } else {
+              // 429 says how long; anything else gets the flat back-off.
+              const waitMs =
+                err.status === 429 && err.retryAfter
+                  ? err.retryAfter * 1000
+                  : RETRY_AFTER_ERROR_MS;
+              pausedUntil.current = Date.now() + waitMs;
+            }
+          },
         );
-        if (!ctrl.signal.aborted) {
-          setSuggestion({
-            base: text,
-            completion: res?.completion ?? "",
-            conversationId,
+        if (ctrl.signal.aborted) return;
+        const completion = res?.completion ?? "";
+        setSuggestion({ base: text, completion, conversationId });
+        if (completion) {
+          track("AI Autocomplete Suggested", {
+            draftLength: text.length,
+            completionLength: completion.length,
           });
         }
       } catch {
-        if (!ctrl.signal.aborted) {
+        // Network failure: the handler never ran.
+        if (!handled && !ctrl.signal.aborted) {
           pausedUntil.current = Date.now() + RETRY_AFTER_ERROR_MS;
         }
       }
@@ -89,6 +118,7 @@ export function useAutocomplete({
     enabled,
     conversationId,
     currentPage,
+    datasourceId,
     ghost,
     current?.base,
     apiCall,
@@ -98,8 +128,13 @@ export function useAutocomplete({
   // again. After an accept that stops suggestions chaining off each other.
   return {
     ghost,
-    accept: () =>
-      setSuggestion({ base: text + ghost, completion: "", conversationId }),
+    accept: () => {
+      track("AI Autocomplete Accepted", {
+        draftLength: text.length,
+        completionLength: ghost.length,
+      });
+      setSuggestion({ base: text + ghost, completion: "", conversationId });
+    },
     dismiss: () =>
       setSuggestion({ base: text, completion: "", conversationId }),
   };
