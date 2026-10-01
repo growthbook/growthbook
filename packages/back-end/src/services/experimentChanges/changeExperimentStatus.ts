@@ -229,7 +229,12 @@ export async function getExperimentStartChecklistStatus(
     experiment,
     arming ? { publisher: context } : {},
   );
-  const sdkConnections = await findSDKConnectionsByOrganization(context);
+  // Only connections that serve this experiment's project count, matching the UI checklist
+  const sdkConnections = (
+    await findSDKConnectionsByOrganization(context)
+  ).filter(
+    (c) => !c.projects.length || c.projects.includes(experiment.project || ""),
+  );
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const items: StartChecklistItemStatus[] = [];
