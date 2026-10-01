@@ -40,7 +40,7 @@ CI runs the same check (`.github/workflows/agent-skills-drift.yml`) on PRs that 
 ## When your change affects a skill
 
 1. Note the affected skill files in the PR description.
-2. Open a PR in growthbook/skills that updates them. Follow that repo's `CLAUDE.md`. The Zod validators here are the contract.
+2. Open a PR in growthbook/skills that updates them, or leave it to the sync job. Follow that repo's `CLAUDE.md`. The Zod validators here are the contract. If you open one, link it in this PR's description as `growthbook/skills#<number>`. When this PR merges, the sync job adds any further edits to that PR instead of opening another one.
 3. After the skills PR merges, the `Bump agent skills` workflow opens a PR here that updates `packages/back-end/agent-skills.lock.json` (weekdays, or run it manually), so the in-app assistant picks it up.
 
 If the API change is not deployed yet, merge the skills PR after the API ships. Plugin users run skills `main` against GrowthBook Cloud.

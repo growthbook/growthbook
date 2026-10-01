@@ -34,13 +34,18 @@ Drop findings where the skill is already correct. Do not change a skill based on
 
 ## 5. Edit the skills
 
-Follow growthbook/skills `CLAUDE.md`. Keep edits minimal and client-neutral. Re-run the checker until the findings you fixed are gone.
+Follow growthbook/skills `CLAUDE.md` and the "Edit" and "Review your own diff" rules in its `.github/sync/prompt.md`, which the sync job uses too. Re-run the checker until the findings you fixed are gone, then run the same guard CI runs:
+
+```bash
+SYNC_DIR=<tmp> SKILLS_DIR=<checkout> GROWTHBOOK_DIR=<this repo> BASE_SHA=$(git -C <checkout> rev-parse HEAD) \
+  node <checkout>/.github/sync/sync.mjs guard
+```
 
 ## 6. Hand off
 
 Show the user the findings and the proposed skills diff. Only after they confirm:
 
-1. Open a PR in growthbook/skills on a new branch.
-2. After it merges, update `commit` in `packages/back-end/agent-skills.lock.json` to the new skills `main` and open a PR here.
+1. If an open growthbook/skills PR already covers this change (it names the GrowthBook PR, or the GrowthBook PR links it), add a commit there. Otherwise open a PR on a new branch and link it from the GrowthBook PR as `growthbook/skills#<number>`.
+2. After it merges, the `Bump agent skills` workflow updates `packages/back-end/agent-skills.lock.json` here. Run it manually if the bump can't wait for the next weekday.
 
 Never push or open PRs without confirmation.
