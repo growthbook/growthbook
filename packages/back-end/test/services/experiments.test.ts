@@ -24,6 +24,7 @@ import {
   createMetric,
   fillEmptyVariationKeys,
   getExperimentMetricById,
+  getScheduledAnalysisEndDate,
   normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
@@ -2575,5 +2576,77 @@ describe("assertValidReleasedVariationId", () => {
         ).not.toThrow();
       });
     });
+  });
+});
+
+describe("getScheduledAnalysisEndDate", () => {
+  const now = new Date("2026-09-30T03:07:00Z");
+  const phaseStart = new Date("2026-09-01T00:00:00Z");
+  const cron = { type: "cron" as const, cron: "0 3 * * *" };
+
+  it("defaults to the run time", () => {
+    expect(getScheduledAnalysisEndDate(null, phaseStart, now)).toEqual(now);
+    expect(
+      getScheduledAnalysisEndDate(
+        { ...cron, analysisEndDate: "runTime" },
+        phaseStart,
+        now,
+      ),
+    ).toEqual(now);
+  });
+
+  it("subtracts the lag hours", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        { type: "stale", analysisEndDate: "lag", analysisEndLagHours: 3 },
+        phaseStart,
+        now,
+      ),
+    ).toEqual(new Date("2026-09-30T00:07:00Z"));
+  });
+
+  it("uses today's fixed time when it has passed", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        { ...cron, analysisEndDate: "fixedTime", analysisEndTime: "00:00" },
+        phaseStart,
+        now,
+      ),
+    ).toEqual(new Date("2026-09-30T00:00:00Z"));
+  });
+
+  it("uses yesterday's fixed time when today's has not passed", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        { ...cron, analysisEndDate: "fixedTime", analysisEndTime: "23:00" },
+        phaseStart,
+        now,
+      ),
+    ).toEqual(new Date("2026-09-29T23:00:00Z"));
+  });
+
+  it("ignores fixed time without a cron schedule", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          type: "stale",
+          hours: 6,
+          analysisEndDate: "fixedTime",
+          analysisEndTime: "00:00",
+        },
+        phaseStart,
+        now,
+      ),
+    ).toEqual(now);
+  });
+
+  it("falls back to the run time when the cutoff is before the phase start", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        { ...cron, analysisEndDate: "fixedTime", analysisEndTime: "00:00" },
+        new Date("2026-09-30T01:00:00Z"),
+        now,
+      ),
+    ).toEqual(now);
   });
 });

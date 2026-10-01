@@ -392,8 +392,107 @@ export default function ExperimentSettings({
                   value={form.watch("updateSchedule.type")}
                   setValue={(v) => {
                     form.setValue("updateSchedule.type", v);
+                    if (
+                      v !== "cron" &&
+                      form.watch("updateSchedule.analysisEndDate") ===
+                        "fixedTime"
+                    ) {
+                      form.setValue(
+                        "updateSchedule.analysisEndDate",
+                        "runTime",
+                      );
+                    }
                   }}
                 />
+                {form.watch("updateSchedule.type") !== "never" && (
+                  <Box mt="4">
+                    <Text as="p" size="3" className="font-weight-semibold">
+                      Analysis end date for scheduled updates
+                    </Text>
+                    <Text as="p" mb="2">
+                      Use a cutoff in the past so every scheduled update
+                      analyzes data through the same time, even if its queries
+                      start late.
+                    </Text>
+                    <RadioGroup
+                      disabled={hasFileConfig()}
+                      options={[
+                        {
+                          label: "Time the update runs",
+                          value: "runTime",
+                        },
+                        {
+                          label: "Hours before the update runs",
+                          value: "lag",
+                          description: (
+                            <Field
+                              append="hours before"
+                              type="number"
+                              style={{ width: "180px" }}
+                              step={1}
+                              min={0}
+                              max={168}
+                              disabled={
+                                hasFileConfig() ||
+                                form.watch("updateSchedule.analysisEndDate") !==
+                                  "lag"
+                              }
+                              {...form.register(
+                                "updateSchedule.analysisEndLagHours",
+                                { valueAsNumber: true },
+                              )}
+                            />
+                          ),
+                        },
+                        {
+                          label: "Exact time of day (UTC)",
+                          value: "fixedTime",
+                          disabled:
+                            form.watch("updateSchedule.type") !== "cron",
+                          description: (
+                            <>
+                              <Text mb="2" as="p">
+                                Analyze data through the most recent occurrence
+                                of this time. Requires a cron schedule.
+                              </Text>
+                              <Field
+                                type="time"
+                                style={{ width: "180px" }}
+                                disabled={
+                                  hasFileConfig() ||
+                                  form.watch(
+                                    "updateSchedule.analysisEndDate",
+                                  ) !== "fixedTime"
+                                }
+                                {...form.register(
+                                  "updateSchedule.analysisEndTime",
+                                )}
+                              />
+                            </>
+                          ),
+                        },
+                      ]}
+                      gap="2"
+                      descriptionSize="md"
+                      value={
+                        form.watch("updateSchedule.analysisEndDate") ??
+                        "runTime"
+                      }
+                      setValue={(v) => {
+                        form.setValue("updateSchedule.analysisEndDate", v);
+                        if (
+                          v === "fixedTime" &&
+                          !form.watch("updateSchedule.analysisEndTime")
+                        ) {
+                          form.setValue(
+                            "updateSchedule.analysisEndTime",
+                            "00:00",
+                          );
+                        }
+                      }}
+                    />
+                  </Box>
+                )}
               </Box>
             </Box>
 

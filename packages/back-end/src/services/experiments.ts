@@ -616,6 +616,7 @@ export function getSnapshotSettings({
   datasource,
   useStickyBucketing,
   eligiblePrecomputedUnitDimensionIds = [],
+  endDate,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -634,6 +635,7 @@ export function getSnapshotSettings({
   datasource?: DataSourceInterface;
   useStickyBucketing?: boolean;
   eligiblePrecomputedUnitDimensionIds?: string[];
+  endDate?: Date;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -902,7 +904,7 @@ export function getSnapshotSettings({
     dimensions: dimensions,
     precomputedUnitDimensionIds,
     startDate: phase.dateStarted,
-    endDate: phase.dateEnded || new Date(),
+    endDate: phase.dateEnded || endDate || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
     phase: {
       index: phaseIndex + "",
@@ -1013,6 +1015,47 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   if (hours < 1) hours = 1;
   if (hours > 168) hours = 168;
   return new Date(Date.now() + hours * 60 * 60 * 1000);
+}
+
+export function getScheduledAnalysisEndDate(
+  schedule: ExperimentUpdateSchedule | null,
+  phaseStart: Date,
+  now: Date = new Date(),
+): Date {
+  let endDate = now;
+  const mode = schedule?.analysisEndDate ?? "runTime";
+  switch (mode) {
+    case "lag": {
+      const lagHours = Math.min(
+        Math.max(schedule?.analysisEndLagHours || 0, 0),
+        168,
+      );
+      endDate = new Date(now.getTime() - lagHours * 60 * 60 * 1000);
+      break;
+    }
+    case "fixedTime": {
+      const match = schedule?.analysisEndTime?.match(
+        /^([01]\d|2[0-3]):([0-5]\d)$/,
+      );
+      if (schedule?.type !== "cron" || !match) break;
+      const cutoff = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        Number(match[1]),
+        Number(match[2]),
+      );
+      endDate = new Date(
+        cutoff > now.getTime() ? cutoff - 24 * 60 * 60 * 1000 : cutoff,
+      );
+      break;
+    }
+    case "runTime":
+      break;
+    default:
+      mode satisfies never;
+  }
+  return endDate > phaseStart ? endDate : now;
 }
 
 export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
@@ -1851,6 +1894,7 @@ export async function planSnapshot({
   factTableMap,
   reweight,
   throwIfRequiresFullRefresh,
+  endDate,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1865,6 +1909,7 @@ export async function planSnapshot({
   factTableMap: FactTableMap;
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
+  endDate?: Date;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1906,6 +1951,17 @@ export async function planSnapshot({
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
     eligiblePrecomputedUnitDimensionIds,
+    endDate:
+      endDate ??
+      (triggeredBy === "schedule" &&
+      type === "standard" &&
+      experiment.type !== "multi-armed-bandit" &&
+      experiment.phases[phaseIndex]
+        ? getScheduledAnalysisEndDate(
+            organization.settings?.updateSchedule ?? null,
+            experiment.phases[phaseIndex].dateStarted,
+          )
+        : undefined),
   };
 
   const incrementalRefresh = useCache
@@ -2319,6 +2375,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
+  endDate,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -2332,6 +2389,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
+  endDate?: Date;
 }): Promise<ExperimentSnapshotQueryRunner> {
   const plan = await planSnapshot({
     experiment,
@@ -2346,6 +2404,7 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
     reweight,
+    endDate,
   });
 
   return createSnapshotFromPlan({
