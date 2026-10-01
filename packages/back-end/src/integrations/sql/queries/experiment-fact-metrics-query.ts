@@ -62,7 +62,7 @@ export function getExperimentFactMetricsQuery(
     settings,
   );
 
-  // Throw noisely instead of letting the dialect throw a generic
+  // Throw noisily instead of letting the dialect throw a generic
   // unsupported-operation error.
   if (!isFunnelSupportedDatasourceType(datasource.type)) {
     const unsupported = metricsWithIndices
@@ -103,7 +103,7 @@ export function getExperimentFactMetricsQuery(
     : "";
   const queryName = `${dimensionLabel}${factTableLabel}`;
 
-  const userIdType = params.unitsSettings.exposureQuery.userIdType;
+  const userIdType = params.unitsSettings.exposureQuery.identifierType;
   if (!userIdType) {
     throw new Error("Unable to determine user id type from exposureQuery");
   }

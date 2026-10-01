@@ -33,7 +33,11 @@ import { notifyExperimentChange } from "back-end/src/services/experimentNotifica
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
-import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
+import {
+  ExperimentUpdateExecutionLogger,
+  logExperimentUpdated,
+  SnapshotConclusion,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
@@ -432,12 +436,16 @@ export async function updateSnapshot({
   id,
   updates,
   failureCause,
+  conclusion,
   experimentUpdateExecutionLogger,
 }: {
   context: Context;
   id: string;
   updates: Partial<ExperimentSnapshotInterface>;
   failureCause?: QueryRunnerFailureCause;
+  // Who ends the snapshot if this update moves it out of "running"; null for
+  // updates that never change its status.
+  conclusion: SnapshotConclusion | null;
   experimentUpdateExecutionLogger?: ExperimentUpdateExecutionLogger | null;
 }) {
   const organization = context.org.id;
@@ -637,13 +645,21 @@ export async function updateSnapshot({
   }
 
   if (
-    experimentUpdateExecutionLogger &&
-    experimentSnapshot.status !== "running"
+    experimentSnapshot.status !== "running" &&
+    experimentSnapshot.status !== existingInterface.status
   ) {
-    experimentUpdateExecutionLogger.logUpdateCompleted(context, {
-      snapshotStatus: experimentSnapshot.status,
-      error: experimentSnapshot.error,
-    });
+    if (conclusion) {
+      logExperimentUpdated(context, {
+        snapshot: experimentSnapshot,
+        snapshotStatus: experimentSnapshot.status,
+        conclusion,
+        executionLogger: experimentUpdateExecutionLogger ?? null,
+      });
+    } else {
+      logger.warn(
+        `Snapshot ${id} moved to "${experimentSnapshot.status}" by an update that passed no conclusion`,
+      );
+    }
   }
 
   const updateDashboardWithSnapshot = async (dashboard: DashboardInterface) => {
@@ -906,14 +922,21 @@ export async function deleteSnapshotById(context: Context, id: string) {
 export async function deleteSnapshotIfRunning(
   context: Context,
   id: string,
+  conclusion: SnapshotConclusion,
 ): Promise<boolean> {
-  const { deletedCount } = await ExperimentSnapshotModel.deleteOne({
+  const deleted = await ExperimentSnapshotModel.findOneAndDelete({
     organization: context.org.id,
     id,
     status: "running",
   });
-  if (!deletedCount) return false;
+  if (!deleted) return false;
   await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(id);
+  logExperimentUpdated(context, {
+    snapshot: toInterface(deleted),
+    snapshotStatus: "deleted",
+    conclusion,
+    executionLogger: null,
+  });
   return true;
 }
 
@@ -1050,6 +1073,10 @@ export async function errorSnapshotIfStillRunning(
   id: string,
   updates: Partial<ExperimentSnapshotInterface>,
   failureCause: QueryRunnerFailureCause,
+  conclusion: SnapshotConclusion,
+  // A runner ending its own snapshot passes its logger so the line keeps the
+  // plan and timings.
+  executionLogger: ExperimentUpdateExecutionLogger | null = null,
 ): Promise<boolean> {
   const updated = await ExperimentSnapshotModel.findOneAndUpdate(
     {
@@ -1061,11 +1088,14 @@ export async function errorSnapshotIfStillRunning(
     { new: true },
   );
   if (!updated) return false;
-  await notifySnapshotUpdateFailure({
-    context,
-    snapshot: toInterface(updated),
-    failureCause,
+  const snapshot = toInterface(updated);
+  logExperimentUpdated(context, {
+    snapshot,
+    snapshotStatus: "error",
+    conclusion,
+    executionLogger,
   });
+  await notifySnapshotUpdateFailure({ context, snapshot, failureCause });
   return true;
 }
 

@@ -2,6 +2,7 @@ import { cloneDeep } from "lodash";
 import { OrganizationInterface } from "shared/types/organization";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ConfigFile } from "back-end/src/init/config";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   findOrganizationById,
   updateOrganization,
@@ -23,11 +24,25 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
 jest.mock("back-end/src/services/features", () => ({
   queueSDKPayloadRefresh: jest.fn(),
 }));
+jest.mock("back-end/src/enterprise", () => ({
+  ...jest.requireActual("back-end/src/enterprise"),
+  orgHasPremiumFeature: jest.fn(),
+}));
+jest.mock("back-end/src/services/plan-limits", () => ({
+  getEffectiveOrgLimits: () => ({ orgSupportsRoles: () => true }),
+}));
 jest.mock("back-end/src/services/context", () => ({
   ReqContextClass: class {
     org: OrganizationInterface;
     environments: string[];
     models = { segments: { getById: jest.fn() } };
+    hasPremiumFeature = jest.fn(() => true);
+    permissions = {
+      canManageTeam: jest.fn(() => true),
+      throwPermissionError: () => {
+        throw new Error("Permission denied");
+      },
+    };
 
     constructor({ org }: { org: OrganizationInterface }) {
       this.org = org;
@@ -38,12 +53,13 @@ jest.mock("back-end/src/services/context", () => ({
   },
 }));
 
-describe("organization config import payload refresh", () => {
+describe("organization config import", () => {
   let organization: OrganizationInterface;
   let storedOrganization: OrganizationInterface;
 
   beforeEach(() => {
     jest.resetAllMocks();
+    jest.mocked(orgHasPremiumFeature).mockReturnValue(true);
     organization = {
       id: "org-import",
       name: "Import test",
@@ -70,6 +86,168 @@ describe("organization config import payload refresh", () => {
       .mockImplementation(async () => cloneDeep(storedOrganization));
     jest.mocked(findSDKConnectionsByOrganization).mockResolvedValue([]);
   });
+
+  it("imports a default role restricted to an environment defined in the same import", async () => {
+    const context = getContextForAgendaJobByOrgObject(organization);
+    const original = cloneDeep(organization);
+    const settings = {
+      environments: [{ id: "qa", description: "" }],
+      defaultRole: {
+        role: "engineer",
+        limitAccessByEnvironment: true,
+        environments: ["qa"],
+      },
+    };
+
+    await importConfig(context, { organization: { settings } });
+
+    expect(storedOrganization.settings).toEqual({
+      ...original.settings,
+      ...settings,
+    });
+    expect(context.org).toEqual(original);
+    expect(queueSDKPayloadRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses existing environments when the import does not replace them", async () => {
+    const defaultRole = {
+      role: "engineer",
+      limitAccessByEnvironment: true,
+      environments: ["staging"],
+    };
+
+    await importConfig(getContextForAgendaJobByOrgObject(organization), {
+      organization: { settings: { defaultRole } },
+    });
+
+    expect(storedOrganization.settings?.defaultRole).toEqual(defaultRole);
+    expect(storedOrganization.settings?.environments).toEqual(
+      organization.settings?.environments,
+    );
+  });
+
+  it("rejects a malformed projectRoles instead of dropping the override", async () => {
+    const config = {
+      organization: {
+        settings: {
+          defaultRole: {
+            role: "engineer",
+            limitAccessByEnvironment: false,
+            environments: [],
+            // Object instead of an array: must be rejected, not silently
+            // stripped into engineer-everywhere.
+            projectRoles: {
+              "restricted-project": {
+                project: "restricted-project",
+                role: "noaccess",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            },
+          },
+        },
+      },
+    } as unknown as ConfigFile;
+
+    await expect(
+      importConfig(getContextForAgendaJobByOrgObject(organization), config),
+    ).rejects.toThrow(/defaultRole/i);
+    expect(storedOrganization.settings?.defaultRole).toBeUndefined();
+  });
+
+  it("fills defaults for a minimal legacy default role", async () => {
+    await importConfig(getContextForAgendaJobByOrgObject(organization), {
+      organization: { settings: { defaultRole: { role: "engineer" } } },
+    } as unknown as ConfigFile);
+
+    expect(storedOrganization.settings?.defaultRole).toEqual({
+      role: "engineer",
+      limitAccessByEnvironment: false,
+      environments: [],
+    });
+  });
+
+  it("prunes a default-role environment that the same import removes", async () => {
+    const org = cloneDeep(organization);
+    const defaultRole = {
+      role: "engineer",
+      limitAccessByEnvironment: true,
+      environments: ["production"],
+    };
+    org.settings = { ...org.settings, defaultRole };
+    storedOrganization = cloneDeep(org);
+
+    await importConfig(getContextForAgendaJobByOrgObject(org), {
+      organization: {
+        settings: {
+          environments: [{ id: "staging", description: "" }],
+          defaultRole,
+        },
+      },
+    });
+
+    expect(storedOrganization.settings?.defaultRole).toEqual({
+      role: "engineer",
+      limitAccessByEnvironment: true,
+      environments: [],
+    });
+  });
+
+  it.each(["unknown", "staging"])(
+    "rejects a default role referencing %s when absent from the imported environments",
+    async (environment) => {
+      await expect(
+        importConfig(getContextForAgendaJobByOrgObject(organization), {
+          organization: {
+            settings: {
+              environments: [{ id: "qa", description: "" }],
+              defaultRole: {
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: [environment],
+              },
+            },
+          },
+        }),
+      ).rejects.toThrow(`${environment} is not a valid environment ID`);
+
+      expect(updateOrganization).not.toHaveBeenCalled();
+      expect(queueSDKPayloadRefresh).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["permission", "license"])(
+    "still requires the current organization's %s to update the default role",
+    async (gate) => {
+      const context = getContextForAgendaJobByOrgObject(organization);
+      if (gate === "permission") {
+        jest.spyOn(context.permissions, "canManageTeam").mockReturnValue(false);
+      } else {
+        jest.spyOn(context, "hasPremiumFeature").mockReturnValue(false);
+      }
+
+      await expect(
+        importConfig(context, {
+          organization: {
+            settings: {
+              environments: [{ id: "qa", description: "" }],
+              defaultRole: {
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: ["qa"],
+              },
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        gate === "permission"
+          ? "Permission denied"
+          : "Must have a commercial License Key",
+      );
+
+      expect(updateOrganization).not.toHaveBeenCalled();
+    },
+  );
 
   it("refreshes every connection using saved settings, including removed environments", async () => {
     const context = getContextForAgendaJobByOrgObject(organization);

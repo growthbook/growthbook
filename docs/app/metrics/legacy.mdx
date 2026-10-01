@@ -2,7 +2,6 @@
 title: Legacy Metrics
 description: Define legacy SQL metrics for experiment analysis if you are not yet using Fact Tables. Prefer Fact Tables for new metrics.
 sidebarTitle: Legacy Metrics
-slug: /app/metrics/legacy
 ---
 
 Metrics are what your experiments are trying to improve (or at least not hurt). GrowthBook has a very flexible and powerful way to define metrics.
@@ -108,6 +107,10 @@ For example, if you want to look at what percent of users checkout after viewing
 
 1. `Viewed Cart` - selects all users who viewed a cart
 2. `Viewed Cart -> Checkout` - selects all users who checked out and picks `Viewed Cart` as the denominator.
+
+<Tip>
+Fact Tables have a dedicated [Funnel Metric](/app/metrics/funnel) type for this. One funnel metric defines both steps, reports a conversion rate for each of them, and does not require chaining two metrics together.
+</Tip>
 
 ##### Ratio Metrics
 
@@ -237,7 +240,7 @@ There are two ways to cap metric values in GrowthBook:
 
 **1. Absolute capping** - if set above zero, all aggregated user values will be capped at exactly this value. For example, if the cap is \$100 on total revenue per user, then after we sum all of a user's orders up, any user with an aggregate sum of greater than \$100 will be set to \$100.
 
-**2. Percentile capping** - when this is set to between 0 and 1, it uses that percentile to select a cap based on the data in your experiment so far. This cap is therefore specific to each experiment and specific to each analysis run in that experiment if new data has come in. It works like so: after we calculate the unit-level aggregate values for all units (e.g. users) during an experiment analysis, we find the specified percentile of these unit-level aggregates and then cap these aggregated values at this percentile. Using the above example, if you were to specify percentile capping with a value of `0.95`, then we find the 95th percentile of total revenue per users (say this turns out to be \$135). We then cap those user-level aggregates at \$135.
+**2. Percentile capping** - when this is set to between 0 and 1, it uses that percentile to select a cap based on the data in your experiment so far. This cap is therefore specific to each experiment and specific to each analysis run in that experiment if new data has come in. It works like so: after we calculate the unit-level aggregate values for all units (e.g. users) during an experiment analysis, we find the specified percentile of these unit-level aggregates and then cap these aggregated values at this percentile. Using the above example, if you were to specify percentile capping with a value of `0.95`, then we find the 95th percentile of total revenue per user (say this turns out to be \$135). We then cap those user-level aggregates at \$135.
 
 You can additionally choose to ignore zeros, which will compute the percentile without including any user aggregated zero values. This is useful if you have a lot of zero values and you don't want to have to fine tune the percentile to avoid setting the cap too low.
 
@@ -388,6 +391,6 @@ There are a lot of changes to how Ratio Metrics are defined and how they behave.
 
 Ratio metrics are now self-contained. Previously, the denominator would just be a pointer to an entirely separate metric. This allowed some weird edge cases like the denominator itself being a ratio metric with its own denominator. With Fact Tables, you define both the numerator and denominator in one flow and these nested denominator edge cases are no longer supported.
 
-During analysis, Ratio metrics used to behave like a Funnel - the denominator had to happen first before the numerator. This was unintuitive for many people, so With Fact Tables, we changed them to act like true ratios - we calculate the numerator and denominator independently and then divide them. We plan to add a dedicated Funnel metric type in the future to support this use case.
+During analysis, Ratio metrics used to behave like a Funnel - the denominator had to happen first before the numerator. This was unintuitive for many people, so With Fact Tables, we changed them to act like true ratios - we calculate the numerator and denominator independently and then divide them. To measure an ordered sequence of events, use a [Funnel Metric](/app/metrics/funnel) instead.
 
-Lastly, Ratio metrics now have a single metric window and capping behavior. Previously, this would be controlled separately for the numerator and denominator. Because of this change, only "percentile" capping is allowed for ratio metrics.
+Lastly, ratio Fact Metrics have a single metric window and capping configuration. Legacy metrics control these separately for the numerator and denominator. Fact Metrics support both absolute and percentile capping, applied separately to each user's aggregated numerator and denominator. Absolute capping uses the same numeric bound for both components; percentile capping calculates a separate bound for each component using the shared percentile setting.

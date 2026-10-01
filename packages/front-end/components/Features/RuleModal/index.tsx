@@ -21,6 +21,7 @@ import {
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -648,7 +649,21 @@ export default function RuleModal({
     if (rule.type === "safe-rollout") {
       return {
         ...rule,
-        safeRolloutFields: safeRollout,
+        /**
+         * Rollouts saved before identifiers were stored analyze on their
+         * query's original one; fill it in so the required field isn't blank.
+         */
+        safeRolloutFields: safeRollout && {
+          ...safeRollout,
+          exposureQueryIdentifierType: resolveAnalysisIdentifierType(
+            datasources
+              .find((d) => d.id === safeRollout.datasourceId)
+              ?.settings?.queries?.exposure?.find(
+                (q) => q.id === safeRollout.exposureQueryId,
+              ),
+            safeRollout.exposureQueryIdentifierType,
+          ),
+        },
       };
     }
     if (rule.type === "rollout") {
@@ -1423,6 +1438,7 @@ export default function RuleModal({
           disableStickyBucketing,
           datasource: values.datasource || undefined,
           exposureQueryId: values.exposureQueryId || "",
+          exposureQueryIdentifierType: values.exposureQueryIdentifierType,
           goalMetrics: values.goalMetrics || [],
           secondaryMetrics: values.secondaryMetrics || [],
           guardrailMetrics: values.guardrailMetrics || [],
@@ -1435,7 +1451,9 @@ export default function RuleModal({
           owner: "",
           status: "draft",
           tags: feature.tags || [],
-          trackingKey: values.trackingKey || feature.id,
+          trackingKey:
+            values.trackingKey ||
+            (settings.experimentKeyRegexValidator ? "" : feature.id),
           description: values.description,
           hypothesis: values.hypothesis,
           linkedFeatures: [feature.id],
@@ -2774,6 +2792,11 @@ export default function RuleModal({
                   disableBanditConversionWindow={disableBanditConversionWindow}
                   setDisableBanditConversionWindow={
                     setDisableBanditConversionWindow
+                  }
+                  customFields={customFields}
+                  customFieldValues={customFieldValues}
+                  setCustomFields={(value) =>
+                    form.setValue("customFields", value)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
                   projectScope={i === 0 ? projectScopeProps : undefined}

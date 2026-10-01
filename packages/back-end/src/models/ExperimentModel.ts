@@ -1,4 +1,4 @@
-import { each, isEqual, pick, uniqWith } from "lodash";
+import { each, isEqual, omit, pick, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
@@ -142,6 +142,7 @@ const experimentSchema = new mongoose.Schema({
   datasource: String,
   userIdType: String,
   exposureQueryId: String,
+  exposureQueryIdentifierType: String,
   hashAttribute: String,
   fallbackAttribute: String,
   hashVersion: Number,
@@ -233,6 +234,7 @@ const experimentSchema = new mongoose.Schema({
     date: Date,
     failedAttempts: Number,
     scheduledBy: String,
+    scheduledByApiKey: String,
   },
   results: String,
   analysis: String,
@@ -955,6 +957,13 @@ export async function updateExperiment({
       (type) => !remindersToReset.includes(type),
     );
   }
+  /**
+   * $set skips an undefined value, so clearing the stored identifier (an
+   * implicit selection) needs an $unset or the old one would stay.
+   */
+  const unsetIdentifierType =
+    "exposureQueryIdentifierType" in allChanges &&
+    allChanges.exposureQueryIdentifierType === undefined;
   const writeResult = await ExperimentModel.updateOne(
     {
       id: experiment.id,
@@ -962,7 +971,12 @@ export async function updateExperiment({
       ...(guard ?? {}),
     },
     {
-      $set: allChanges,
+      $set: unsetIdentifierType
+        ? omit(allChanges, "exposureQueryIdentifierType")
+        : allChanges,
+      ...(unsetIdentifierType
+        ? { $unset: { exposureQueryIdentifierType: "" } }
+        : {}),
       ...(remindersToReset.length && allChanges.pastNotifications === undefined
         ? { $pull: { pastNotifications: { $in: remindersToReset } } }
         : {}),
@@ -1046,6 +1060,7 @@ export async function getExperimentsToUpdate(
         $ne: "",
       },
       status: "running",
+      archived: { $ne: true },
       autoSnapshots: true,
       disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
@@ -1080,6 +1095,7 @@ export async function getExperimentsToUpdateLegacy(
         $ne: "",
       },
       status: "running",
+      archived: { $ne: true },
       autoSnapshots: true,
       disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
@@ -2235,7 +2251,7 @@ export async function generateExperimentKeywords(
       exp.description || ""
     }\nanalysisSummary: ${
       exp.analysisSummary
-    }\n\nThe keywords should be related to the experiments intent, goal metrics, and area of the product. It will be used to help identify similar experiments. Return just the keywords, comma seperated.`,
+    }\n\nThe keywords should be related to the experiments intent, goal metrics, and area of the product. It will be used to help identify similar experiments. Return just the keywords, comma separated.`,
     type: "generate-experiment-keywords",
     isDefaultPrompt: true,
     temperature: 0.1,

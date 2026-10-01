@@ -24,7 +24,7 @@ describe("BigQuery reservation job config", () => {
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
+    integration = new BigQuery("", { type: "bigquery" });
 
     mockJob = {
       id: "job_123",
@@ -84,7 +84,7 @@ describe("BigQuery getExternalQueryStatus (status-only)", () => {
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
+    integration = new BigQuery("", { type: "bigquery" });
 
     mockJob = { getMetadata: jest.fn() };
     mockClientJob = jest.fn().mockReturnValue(mockJob);
@@ -170,7 +170,7 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
+    integration = new BigQuery("", { type: "bigquery" });
   });
 
   const norm = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -381,7 +381,7 @@ describe("BigQuery KLL quantile sketch methods", () => {
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
+    integration = new BigQuery("", { type: "bigquery" });
   });
 
   it("reports quantile sketch support", () => {
@@ -530,7 +530,7 @@ describe("BigQuery pre-built sketch column aggregations (hll merge / kll merge)"
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
+    integration = new BigQuery("", { type: "bigquery" });
   });
 
   it("merges pre-built HLL sketch columns (not INIT) for 'hll merge'", () => {
@@ -620,7 +620,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
 
   const resolvedExposureQuery = {
     query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
+    identifierType: exposureQuery.userIdType,
   };
 
   const factTable = factTableFactory.build({
@@ -675,6 +675,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // satisfies getExposureQuery(settings.exposureQueryId === "exposure") without
     // jest.spyOn (non-configurable export under @swc/jest).
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: {
         queries: {
           exposure: [exposureQuery],
@@ -1698,7 +1699,7 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
 
   const resolvedExposureQuery = {
     query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
+    identifierType: exposureQuery.userIdType,
   };
 
   const factTable = factTableFactory.build({
@@ -1750,6 +1751,7 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
   beforeEach(() => {
     // @ts-expect-error -- context not needed for this unit test
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: {
         queries: {
           exposure: [exposureQuery],

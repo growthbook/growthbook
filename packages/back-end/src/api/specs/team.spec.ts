@@ -7,8 +7,8 @@ import {
   apiTeamValidator,
   apiUpdateTeamBody,
 } from "shared/validators";
+import { OpenApiModelSpec } from "shared/api-model";
 import { statusCodeReturn } from "back-end/src/util/handler";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
 
 export const addTeamMembersEndpoint = {
   pathFragment: "/:id/members",
