@@ -115,7 +115,8 @@ export default function ExperimentCheckListModal({
             </Text>
             <Text as="p" size="2" color="gray" mb="2">
               Uncheck any your experiments don&apos;t need. Bandits always
-              require all of them.
+              require all of them, and experiments with Visual Editor changes or
+              URL Redirects always require an SDK Connection.
             </Text>
             <Flex direction="column" gap="2" mb="4">
               {(

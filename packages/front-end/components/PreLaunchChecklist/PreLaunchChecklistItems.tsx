@@ -121,6 +121,10 @@ export function getChecklistItems({
   const items: CheckListItem[] = [];
   // Bandits can't run without their defaults (a live linked change and a goal metric)
   const hidden = new Set(isBandit ? [] : (checklist?.hiddenDefaultTasks ?? []));
+  // Visual Editor changes and URL Redirects only reach users through an SDK Connection
+  if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
+    hidden.delete("sdkConnection");
+  }
   const pushDefault = (key: DefaultChecklistTaskKey, item: CheckListItem) => {
     if (!hidden.has(key)) items.push(item);
   };
