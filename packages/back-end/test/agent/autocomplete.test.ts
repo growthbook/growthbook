@@ -41,12 +41,6 @@ describe("cleanCompletion", () => {
   it("returns nothing for an unchanged draft", () => {
     expect(cleanCompletion("create a flag", "create a flag")).toBe("");
   });
-  it("treats an empty draft as a whole suggested reply", () => {
-    expect(cleanCompletion("An AI feature in GrowthBook itself.", "")).toBe(
-      "An AI feature in GrowthBook itself.",
-    );
-    expect(cleanCompletion("", "")).toBe("");
-  });
   it("returns nothing when the output is a truncated echo of the draft", () => {
     expect(cleanCompletion("I want to under", "I want to understand")).toBe("");
   });

@@ -19,6 +19,43 @@ export interface Suggestion {
   scope?: string;
 }
 
+// Options nobody would send as a reply.
+const GENERIC_OPTION = /^(something|anything|none|other|not sure|no\b)/i;
+
+/**
+ * When the assistant ends on a list of options, the likeliest reply is one of
+ * them, word for word — no model call needed. Prefers options about
+ * GrowthBook itself or "this …" (the entity on screen), then those sharing
+ * words with what the user last said; ties go to the first.
+ */
+// ponytail: lexical scoring; let the agent mark a recommended option if this misfires.
+export function suggestedReplyFromOptions(
+  assistantText: string,
+  lastUserText = "",
+): string | undefined {
+  const options = assistantText
+    .split("\n")
+    .map((l) => l.match(/^\s*(?:[-*•]|\d+[.)])\s+(.+?)\s*$/)?.[1])
+    .filter((o): o is string => !!o && !GENERIC_OPTION.test(o));
+  if (!options.length) return undefined;
+  const userWords = new Set(
+    lastUserText
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => w.length > 3),
+  );
+  const score = (o: string) =>
+    (/growthbook/i.test(o) ? 2 : 0) +
+    (/\bthis\b/i.test(o) ? 1 : 0) +
+    o
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => userWords.has(w)).length;
+  const best = options.reduce((a, b) => (score(b) > score(a) ? b : a));
+  // A reply answers the question, so it doesn't end in one.
+  return best.replace(/\?+$/, "").trim();
+}
+
 /** What's left to show once the user has typed part of the suggestion themselves. */
 export function remainingCompletion(
   text: string,
@@ -34,16 +71,16 @@ export function useAutocomplete({
   text,
   enabled,
   conversationId,
-  replyTo,
+  suggestedReply,
 }: {
   text: string;
   enabled: boolean;
   conversationId?: string;
   /**
-   * Id of the assistant message awaiting a reply. While set, an empty draft
-   * gets a whole suggested reply (the likeliest answer to what was asked).
+   * A whole reply to offer in an empty draft, taken from the assistant's last
+   * message (see `suggestedReplyFromOptions`); `key` is that message's id.
    */
-  replyTo?: string;
+  suggestedReply?: { key: string; text: string };
 }): { ghost: string; accept: () => void; dismiss: () => void } {
   const { apiCall } = useAuth();
   // The same hints the chat request sends: the page, so "this experiment"
@@ -53,20 +90,32 @@ export function useAutocomplete({
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const pausedUntil = useRef(0);
   const stopped = useRef(false);
-  const scope = [conversationId, currentPage, datasourceId, replyTo].join("|");
+  const scope = [
+    conversationId,
+    currentPage,
+    datasourceId,
+    suggestedReply?.key,
+  ].join("|");
   const current = suggestion?.scope === scope ? suggestion : null;
   const ghost = remainingCompletion(text, current);
 
   useEffect(() => {
-    if (
-      !enabled ||
-      stopped.current ||
-      ghost ||
-      text === current?.base ||
-      (text.trim() ? text.trim().split(/\s+/).length < MIN_WORDS : !replyTo)
-    ) {
+    if (!enabled || stopped.current || ghost || text === current?.base) {
       return;
     }
+    if (!text.trim()) {
+      // Nothing typed: offer the assistant's likeliest option, no model call.
+      if (suggestedReply?.text) {
+        setSuggestion({ base: "", completion: suggestedReply.text, scope });
+        track("AI Autocomplete Suggested", {
+          source: "assistant-options",
+          draftLength: 0,
+          completionLength: suggestedReply.text.length,
+        });
+      }
+      return;
+    }
+    if (text.trim().split(/\s+/).length < MIN_WORDS) return;
     const ctrl = new AbortController();
     // After a failure, wait out the back-off and then retry the unchanged draft.
     const delay = Math.max(DEBOUNCE_MS, pausedUntil.current - Date.now());
@@ -104,6 +153,7 @@ export function useAutocomplete({
         setSuggestion({ base: text, completion, scope });
         if (completion) {
           track("AI Autocomplete Suggested", {
+            source: "model",
             draftLength: text.length,
             completionLength: completion.length,
           });
@@ -125,7 +175,7 @@ export function useAutocomplete({
     conversationId,
     currentPage,
     datasourceId,
-    replyTo,
+    suggestedReply,
     scope,
     ghost,
     current?.base,
@@ -138,6 +188,7 @@ export function useAutocomplete({
     ghost,
     accept: () => {
       track("AI Autocomplete Accepted", {
+        source: current?.base === "" ? "assistant-options" : "model",
         draftLength: text.length,
         completionLength: ghost.length,
       });

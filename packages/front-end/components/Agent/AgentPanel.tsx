@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
@@ -14,12 +20,13 @@ import {
   PiX,
 } from "react-icons/pi";
 import { useSWRConfig } from "swr";
-import type { AIChatMessage } from "shared/ai-chat";
+import { getMessageText, type AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import { suggestedReplyFromOptions } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
 import { useUser } from "@/services/UserContext";
 import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
@@ -404,6 +411,19 @@ export default function AgentPanel({
   // The ref is only read inside event handlers, never during render.
   feedbackConversationIdRef.current = conversationId;
 
+  // When the assistant ends on a list of options, an empty draft offers the
+  // likeliest one word for word; no model call.
+  const suggestedReply = useMemo(() => {
+    const last = messages[messages.length - 1];
+    if (loading || last?.role !== "assistant" || last.isError) return undefined;
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    const text = suggestedReplyFromOptions(
+      getMessageText(last),
+      lastUser ? getMessageText(lastUser) : "",
+    );
+    return text ? { key: last.id, text } : undefined;
+  }, [messages, loading]);
+
   // Panel stays mounted while closed; listeners need the container to exist.
   const { scrollContainerRef, handleScroll, resumeAutoScroll } = useAutoScroll({
     messages,
@@ -595,12 +615,6 @@ export default function AgentPanel({
             }
           : null;
   const persistedTurns = groupMessagesByTurn(messages);
-  // Once the assistant has answered, an empty draft can suggest the whole reply.
-  const lastMessage = messages[messages.length - 1];
-  const lastAssistantMessageId =
-    !loading && lastMessage?.role === "assistant" && !lastMessage.isError
-      ? lastMessage.id
-      : undefined;
   const confirmationPending =
     confirmPrompt !== null && (!confirmPrompt.resolved || loading);
   const interactionPending =
@@ -884,7 +898,7 @@ export default function AgentPanel({
         mentionItemsReady={mentionItemsReady}
         skillItems={skillItems}
         autocomplete={aiAutocompleteEnabled}
-        replyTo={lastAssistantMessageId}
+        suggestedReply={suggestedReply}
         conversationId={conversationId}
         value={input}
         onChange={setInput}

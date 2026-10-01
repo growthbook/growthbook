@@ -1,4 +1,7 @@
-import { remainingCompletion } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
+import {
+  remainingCompletion,
+  suggestedReplyFromOptions,
+} from "@/enterprise/components/AIChat/Composer/useAutocomplete";
 
 const s = { base: "create a flag", completion: " for checkout" };
 
@@ -18,5 +21,36 @@ describe("remainingCompletion", () => {
     expect(remainingCompletion("create a flag", { ...s, completion: "" })).toBe(
       "",
     );
+  });
+});
+
+describe("suggestedReplyFromOptions", () => {
+  const reply = [
+    "Could you clarify which AI feature you want to turn off? For example:",
+    "",
+    "- A specific feature flag related to AI?",
+    "- An AI feature in GrowthBook itself (like this AI assistant)?",
+    "- Something else?",
+    "",
+    "Once you let me know, I can guide you through the steps.",
+  ].join("\n");
+
+  it("picks the option about GrowthBook itself, word for word, minus the question mark", () => {
+    expect(
+      suggestedReplyFromOptions(
+        reply,
+        "Tell me how to turn off AI related feat",
+      ),
+    ).toBe("An AI feature in GrowthBook itself (like this AI assistant)");
+  });
+  it("skips generic options and handles numbered lists", () => {
+    expect(
+      suggestedReplyFromOptions(
+        "1. Something else\n2. The checkout experiment",
+      ),
+    ).toBe("The checkout experiment");
+  });
+  it("returns nothing when the message has no options", () => {
+    expect(suggestedReplyFromOptions("Done. Anything else?")).toBeUndefined();
   });
 });

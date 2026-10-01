@@ -47,8 +47,7 @@ Reply with ONLY the complete message: the draft exactly as written, character fo
 Keep the continuation to one short sentence (under 15 words) that completes the thought and ends with a period or question mark. Prefer requests the assistant's skills below can carry out, and use the recent conversation to guess what they want next.
 The user's current page in the GrowthBook app is given as a path: /features/<key> is that feature flag, /experiment/<id> that experiment, /metric/<id> or /fact-metrics/<id> that metric. When the draft says "this experiment", "this flag" or similar, it means the entity on that page.
 Ground the continuation in what this organization actually has, listed below. Refer to those data sources, feature flags, experiments and metrics by their real names. Never invent a metric, flag, experiment or table that isn't listed; if nothing listed fits, keep the continuation generic.
-Reply with the draft unchanged if there is no good continuation.
-If the draft is empty, reply with the whole message the user is most likely to send next. When the assistant's last message asked a question or offered options, answer it by choosing the most likely option, in the user's voice, as one short sentence. Reply with an empty string if the assistant isn't waiting on anything.`;
+Reply with the draft unchanged if there is no good continuation.`;
 
 const ORG_CONTEXT_LIMIT = 15;
 
@@ -232,11 +231,7 @@ export const postAutocomplete = async (
         m.role === "user" || m.role === "assistant",
     )
     .slice(-6)
-    // The last message is what an empty draft replies to, so keep its options intact.
-    .map(
-      (m, i, all) =>
-        `${m.role}: ${getMessageText(m).slice(0, i === all.length - 1 ? 2000 : 500)}`,
-    )
+    .map((m) => `${m.role}: ${getMessageText(m).slice(0, 500)}`)
     .join("\n");
   // Only skills the org has on, so suggestions don't steer toward disabled ones.
   const skills = listSkillSummaries(context.org)
