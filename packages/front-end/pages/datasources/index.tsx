@@ -24,6 +24,8 @@ import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
+import DataSourceOptionsTable from "@/components/DataSourceSetup/DataSourceOptionsTable";
+import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 
 function ManagedWarehouseDriver() {
   const [open, setOpen] = useState(false);
@@ -140,6 +142,9 @@ const DataSourcesPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
   const { effectiveAccountPlan, license } = useUser();
+  const newDataSourceOnboarding = useNewDataSourceOnboarding();
+  const showDataSourceOptions =
+    newDataSourceOnboarding && filteredDatasources.length === 0;
 
   // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan, or is on a trial
   const showManagedWarehouse =
@@ -202,7 +207,7 @@ const DataSourcesPage: FC = () => {
             View Sample Data Source
           </LinkButton>
         ) : null}
-        {!hasFileConfig() && (
+        {!hasFileConfig() && !showDataSourceOptions && (
           <Tooltip
             body="You don't have permission to add data sources in this project."
             shouldDisplay={
@@ -213,7 +218,11 @@ const DataSourcesPage: FC = () => {
               disabled={
                 !permissionsUtil.canViewCreateDataSourceModal(project, projects)
               }
-              onClick={() => setNewModalData({})}
+              onClick={() =>
+                newDataSourceOnboarding
+                  ? router.push("/datasources/new")
+                  : setNewModalData({})
+              }
               ml="2"
             >
               Add Data Source
@@ -223,6 +232,8 @@ const DataSourcesPage: FC = () => {
       </div>
       {filteredDatasources.length > 0 ? (
         <DataSources />
+      ) : showDataSourceOptions ? (
+        <DataSourceOptionsTable />
       ) : (
         <div className="appbox p-5 mb-3">
           <div className="text-center mt-3">

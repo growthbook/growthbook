@@ -9,6 +9,7 @@ import {
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
+  DataSourceType,
   SchemaFormat,
 } from "shared/types/datasource";
 import { useForm } from "react-hook-form";
@@ -67,6 +68,7 @@ const NewDataSourceForm: FC<{
   showImportSampleData: boolean;
   inline?: boolean;
   showBackButton?: boolean;
+  allowedTypes?: DataSourceType[];
 }> = ({
   initial,
   onSuccess,
@@ -74,6 +76,7 @@ const NewDataSourceForm: FC<{
   source,
   inline,
   showBackButton = true,
+  allowedTypes,
 }) => {
   const {
     datasources,
@@ -444,6 +447,7 @@ const NewDataSourceForm: FC<{
 
           <DataSourceTypeSelector
             value={connectionInfo.type || ""}
+            allowedTypes={allowedTypes}
             setValue={(value) => {
               const option = dataSourceConnections.find(
                 (o) => o.type === value,
@@ -473,7 +477,7 @@ const NewDataSourceForm: FC<{
               }
             }}
           />
-          {showManagedWarehouse ? (
+          {allowedTypes ? null : showManagedWarehouse ? (
             <Callout status="info" mt="3" icon={null}>
               <Badge label="New!" color="violet" variant="solid" mr="3" />
               <Text mr="3">
