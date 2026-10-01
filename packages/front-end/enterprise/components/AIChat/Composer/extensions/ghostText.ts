@@ -12,9 +12,9 @@ export function docEnd(doc: { content: { size: number } }): number {
 }
 
 /**
- * Inline grey continuation after the cursor, with a Tab keycap right after
- * its last character. A widget decoration, so it flows with the text but is
- * never part of the document. Only shown while the caret sits at the very end.
+ * Inline grey continuation after the cursor. A widget decoration, so it flows
+ * with the text but is never part of the document. Only shown while the caret
+ * sits at the very end.
  */
 export const GhostText = Extension.create<
   Record<string, never>,
@@ -48,11 +48,6 @@ export const GhostText = Extension.create<
                   el.className = GHOST_TEXT_CLASS;
                   el.setAttribute("aria-hidden", "true");
                   el.textContent = storage.text;
-                  const kbd = document.createElement("kbd");
-                  // Radix Kbd size 1, by class: the app's keycap, built outside React.
-                  kbd.className = "rt-Kbd rt-r-size-1";
-                  kbd.textContent = "Tab";
-                  el.appendChild(kbd);
                   return el;
                 },
                 { side: 1, ignoreSelection: true },

@@ -333,7 +333,10 @@ function ChatComposer(
         "aria-multiline": "true",
         "aria-label": "Chat message",
         ...(ghost
-          ? { "aria-describedby": ghostId, "aria-keyshortcuts": "Tab" }
+          ? {
+              "aria-describedby": ghostId,
+              "aria-keyshortcuts": "Tab ArrowRight",
+            }
           : {}),
         ...(suggestionVisible
           ? {
@@ -363,10 +366,11 @@ function ChatComposer(
           }
           return false;
         }
-        // Plain Tab only: Shift+Tab and modifier combos keep moving focus.
+        // Plain Tab or Right arrow, as in Claude. Modifier combos keep their
+        // own meaning (Shift+Tab moves focus, Alt/Cmd+Right jump words).
         if (
           ghost &&
-          event.key === "Tab" &&
+          (event.key === "Tab" || event.key === "ArrowRight") &&
           !event.shiftKey &&
           !event.ctrlKey &&
           !event.altKey &&
@@ -544,7 +548,9 @@ function ChatComposer(
       )}
       {/* Static text, always mounted: announced once when a suggestion appears, not on every keystroke. */}
       <VisuallyHidden role="status">
-        {ghost ? "Suggestion available. Press Tab to accept." : ""}
+        {ghost
+          ? "Suggestion available. Press Tab or Right arrow to accept."
+          : ""}
       </VisuallyHidden>
       {suggestionVisible && suggestion && (
         <SuggestionList

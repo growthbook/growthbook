@@ -8,7 +8,7 @@ import {
 } from "@/enterprise/components/AIChat/Composer/extensions/ghostText";
 
 describe("GhostText widget", () => {
-  it("renders the continuation and keycap after the last character", () => {
+  it("renders the continuation after the last character", () => {
     const el = document.createElement("div");
     const editor = new Editor({
       element: el,
@@ -19,10 +19,8 @@ describe("GhostText widget", () => {
     editor.storage[GHOST_TEXT_NAME].text = " latest experiments.";
     editor.view.dispatch(editor.state.tr.setMeta("addToHistory", false));
     const ghost = editor.view.dom.querySelector(".composer-ghost");
-    expect(ghost?.textContent).toBe(" latest experiments.Tab");
-    expect(editor.view.dom.textContent).toBe(
-      "show me the latest experiments.Tab",
-    );
+    expect(ghost?.textContent).toBe(" latest experiments.");
+    expect(editor.view.dom.textContent).toBe("show me the latest experiments.");
     editor.destroy();
   });
 });

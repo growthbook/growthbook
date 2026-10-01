@@ -60,16 +60,12 @@
       display: none;
     }
 
-    // Autocomplete continuation plus its Tab keycap, inline after the caret.
+    // Autocomplete continuation, inline after the caret.
     :global(.composer-ghost) {
       pointer-events: none;
       user-select: none;
       color: var(--gray-a9);
       white-space: pre-wrap;
-
-      kbd {
-        margin-left: 6px;
-      }
     }
   }
 
