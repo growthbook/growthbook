@@ -9,6 +9,7 @@ import {
 } from "shared/util";
 import { isEmpty, kebabCase } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { AssignmentQueryCopySource } from "@/services/datasources";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -99,8 +100,10 @@ const TemplateForm: FC<Props> = ({
       customFields: initialValue?.customFields || {},
       datasource: initialValue?.datasource || "",
       exposureQueryId: initialValue?.exposureQueryId || "",
-      // Templates saved before identifiers were stored analyze on their query's
-      // original one; keep it rather than let the form pick a default.
+      /**
+       * Templates saved before identifiers were stored analyze on their query's
+       * original one; keep it rather than let the form pick a default.
+       */
       exposureQueryIdentifierType: resolveAnalysisIdentifierType(
         getDatasourceById(
           initialValue?.datasource ?? "",
@@ -130,6 +133,16 @@ const TemplateForm: FC<Props> = ({
 
   const selectedProject = form.watch("project");
 
+  const assignmentQueryCopySource: AssignmentQueryCopySource | null =
+    duplicate && initialValue.exposureQueryId
+      ? {
+          kind: "copy",
+          datasource: initialValue.datasource,
+          exposureQueryId: initialValue.exposureQueryId,
+          exposureQueryIdentifierType: initialValue.exposureQueryIdentifierType,
+        }
+      : null;
+
   const { availableFields: customFields, value: customFieldValues } =
     useReconciledCustomFields({
       section: "experiment",
@@ -154,6 +167,17 @@ const TemplateForm: FC<Props> = ({
     if ((value.templateMetadata?.name?.length ?? 0) < 1) {
       setStep(0);
       throw new Error("Template Name must not be empty");
+    }
+
+    // A duplicate whose identifier no query declares is left for the user to
+    // pick, on the Metrics step.
+    if (
+      assignmentQueryCopySource &&
+      value.exposureQueryId &&
+      !value.exposureQueryIdentifierType
+    ) {
+      setStep(3);
+      throw new Error("Choose an identifier type for the assignment query");
     }
 
     // Turn phase dates into proper UTC timestamps
@@ -353,6 +377,7 @@ const TemplateForm: FC<Props> = ({
                 step={i}
                 source="experiment"
                 keepAssignmentSelection={!isNewTemplate && !duplicate}
+                assignmentQueryCopySource={assignmentQueryCopySource}
                 project={form.watch("project")}
                 environments={envs}
                 noSchedule={true}

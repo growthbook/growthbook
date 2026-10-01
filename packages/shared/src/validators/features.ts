@@ -581,8 +581,10 @@ const revisionRampAction = z.discriminatedUnion("mode", [
   revisionRampUpdateAction,
   revisionRampDetachAction,
 ]);
-// Revision responses: the stored flat monitoring config, grouped like every
-// other response.
+/**
+ * Revision responses return the stored flat monitoring config with its
+ * assignment query grouped, like every other response.
+ */
 export const apiRevisionRampAction = z.discriminatedUnion("mode", [
   apiRevisionRampCreateAction.extend({
     monitoringConfig: apiRampMonitoringConfig.optional(),

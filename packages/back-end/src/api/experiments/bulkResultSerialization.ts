@@ -321,14 +321,14 @@ export function toExperimentSnapshotBulkResultsApiInterface(
     snapshot.runStarted?.toISOString() ||
     "";
 
+  const assignmentQueryId =
+    snapshot.settings.exposureQueryId || experiment.exposureQueryId || "";
   // Data-generation settings are identical across dimensions of one snapshot;
   // per-analysis stats options (statsEngine, regressionAdjustment, etc.) are
   // added per item below.
-  const assignmentQueryId =
-    snapshot.settings.exposureQueryId || experiment.exposureQueryId || "";
   const baseSettings = {
     datasourceId: snapshot.settings.datasourceId || experiment.datasource || "",
-    // The snapshot's own identifier; the experiment may have been repointed.
+    /** The snapshot's identifier; the experiment's may have changed since. */
     assignmentQuery: toApiAssignmentQueryRef(
       assignmentQueryId,
       snapshot.settings.exposureQueryIdentifierType,

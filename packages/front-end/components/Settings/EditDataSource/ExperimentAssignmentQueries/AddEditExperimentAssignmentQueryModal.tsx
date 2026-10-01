@@ -56,7 +56,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     ? userIdTypeOptions[0]?.value
     : "user_id";
 
-  // Each selected identifier must come back as a same-named column.
+  /** Each selected identifier must come back as a same-named column. */
   const buildDefaultQuery = (userIdTypes: string[]) => {
     const ids = userIdTypes.length ? userIdTypes : [defaultUserId];
     const idColumns = ids.map((id) => `  ${id} as ${id},`).join("\n");
@@ -144,8 +144,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const removedIdentifierTypes = savedUserIdTypes.filter(
     (idType) => !userEnteredUserIdTypes.includes(idType),
   );
-  // Records saved before queries declared several identifiers store none and
-  // analyze on this one.
+  /**
+   * Records saved before queries declared several identifiers store none and
+   * analyze on this one.
+   */
   const removesLegacyIdentifierType =
     !!exposureQuery?.userIdType &&
     removedIdentifierTypes.includes(exposureQuery.userIdType);

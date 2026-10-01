@@ -201,10 +201,12 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
   return doc ? toInterface(doc) : null;
 }
 
-// WARNING: bypasses project-read permission. Validation-only: a caller who may
-// edit a selection can still lack read access to its data source (reading
-// needs one of its projects), and the selection must be checked anyway. Never
-// return the result to the user.
+/**
+ * WARNING: bypasses project-read permission. Validation-only: a caller who may
+ * edit a selection can still lack read access to its data source (reading
+ * needs one of its projects), and the selection must be checked anyway. Never
+ * return the result to the user.
+ */
 export async function dangerouslyGetDataSourceByIdBypassPermission(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -841,22 +843,19 @@ export function toDataSourceApiInterface(
       id: identifier.userIdType,
       description: identifier.description || "",
     })),
-    assignmentQueries: (settings?.queries?.exposure || []).map((q) => {
-      const identifierTypes = getExposureQueryIdentifierTypes(q);
-      return {
-        id: q.id,
-        name: q.name,
-        description: q.description || "",
-        identifierTypes,
-        // What records without a stored identifier analyze on, as before.
-        identifierType: resolveAnalysisIdentifierType(q, undefined),
-        sql: q.query,
-        includesNameColumns: !!q.hasNameCol,
-        dimensionColumns: q.dimensions,
-        error: q.error,
-        projects: q.projects || [],
-      };
-    }),
+    assignmentQueries: (settings?.queries?.exposure || []).map((q) => ({
+      id: q.id,
+      name: q.name,
+      description: q.description || "",
+      identifierTypes: getExposureQueryIdentifierTypes(q),
+      /** What records without a stored identifier analyze on. */
+      identifierType: resolveAnalysisIdentifierType(q, undefined),
+      sql: q.query,
+      includesNameColumns: !!q.hasNameCol,
+      dimensionColumns: q.dimensions,
+      error: q.error,
+      projects: q.projects || [],
+    })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({
         identifierTypes: q.ids,

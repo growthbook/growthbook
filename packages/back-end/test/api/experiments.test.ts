@@ -889,6 +889,140 @@ describe("experiments API", () => {
       expect(createExperiment).not.toHaveBeenCalled();
     });
 
+    describe("assignment query selection", () => {
+      const variations = [
+        { key: "control", name: "Control" },
+        { key: "treatment", name: "Treatment" },
+      ];
+      const template = {
+        id: "tmplt__1",
+        datasource: "ds_123",
+        targeting: { coverage: 1, condition: "{}" },
+        goalMetrics: [],
+      };
+      beforeEach(() => {
+        (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+        (createExperiment as jest.Mock).mockResolvedValue(experiment);
+        (getDataSourceById as jest.Mock).mockResolvedValue({
+          id: "ds_123",
+          type: "postgres",
+          settings: {
+            queries: {
+              exposure: [
+                {
+                  id: "eq_multi",
+                  name: "Multi",
+                  userIdType: "anonymous_id",
+                  userIdTypes: ["user_id", "anonymous_id"],
+                },
+                {
+                  id: "eq_dropped",
+                  name: "Dropped",
+                  userIdType: "user_id",
+                  userIdTypes: ["anonymous_id"],
+                },
+              ],
+            },
+          },
+        });
+      });
+      const createdData = () =>
+        (createExperiment as jest.Mock).mock.calls[0][0].data;
+      const post = (body: Record<string, unknown>) =>
+        request(app)
+          .post("/api/v1/experiments")
+          .send({ trackingKey: "exp_new", name: "New", variations, ...body })
+          .set("Authorization", "Bearer foo");
+
+      it("rejects a flat-id create on a query that declares several identifier types", async () => {
+        const res = await post({
+          datasourceId: "ds_123",
+          assignmentQueryId: "eq_multi",
+        });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(
+          'Assignment query "Multi" declares several identifier types (user_id, anonymous_id). Set assignmentQuery.identifierType to choose one.',
+        );
+        expect(createExperiment).not.toHaveBeenCalled();
+      });
+
+      it("rejects a flat-id create on a query that dropped its legacy identifier", async () => {
+        const res = await post({
+          datasourceId: "ds_123",
+          assignmentQueryId: "eq_dropped",
+        });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(
+          'Assignment query "Dropped" no longer declares its default identifier type "user_id". Set assignmentQuery.identifierType to choose one.',
+        );
+        expect(createExperiment).not.toHaveBeenCalled();
+      });
+
+      it("leaves a template-derived create implicit when the template is", async () => {
+        updateReqContext({
+          models: {
+            experimentTemplates: {
+              getById: jest.fn().mockResolvedValue({
+                ...template,
+                exposureQueryId: "eq_multi",
+              }),
+            },
+          },
+        });
+
+        const res = await post({ templateId: "tmplt__1" });
+
+        expect(res.status).toBe(200);
+        expect(createdData()).toMatchObject({
+          datasource: "ds_123",
+          exposureQueryId: "eq_multi",
+        });
+        expect(createdData().exposureQueryIdentifierType).toBeUndefined();
+      });
+
+      it("copies a template's explicit identifier", async () => {
+        updateReqContext({
+          models: {
+            experimentTemplates: {
+              getById: jest.fn().mockResolvedValue({
+                ...template,
+                exposureQueryId: "eq_multi",
+                exposureQueryIdentifierType: "user_id",
+              }),
+            },
+          },
+        });
+
+        const res = await post({ templateId: "tmplt__1" });
+
+        expect(res.status).toBe(200);
+        expect(createdData().exposureQueryIdentifierType).toBe("user_id");
+      });
+
+      it("rejects a template whose query dropped its legacy identifier", async () => {
+        updateReqContext({
+          models: {
+            experimentTemplates: {
+              getById: jest.fn().mockResolvedValue({
+                ...template,
+                exposureQueryId: "eq_dropped",
+              }),
+            },
+          },
+        });
+
+        const res = await post({ templateId: "tmplt__1" });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(
+          'Template "tmplt__1": Assignment query "Dropped" no longer declares its default identifier type "user_id". Set exposureQuery.identifierType to choose one. Update the template\'s assignment settings.',
+        );
+        expect(createExperiment).not.toHaveBeenCalled();
+      });
+    });
+
     it("rejects a phase prerequisite on a flag that does not exist", async () => {
       jest
         .mocked(assertValidExperimentPrerequisites)
@@ -1984,6 +2118,12 @@ describe("experiments API", () => {
                   userIdType: "anonymous_id",
                   userIdTypes: ["anonymous_id", "user_id"],
                 },
+                {
+                  id: "eq_dropped",
+                  name: "Dropped",
+                  userIdType: "user_id",
+                  userIdTypes: ["anonymous_id"],
+                },
               ],
             },
           },
@@ -2001,19 +2141,70 @@ describe("experiments API", () => {
         expect(res.status).toBe(200);
       });
 
-      it("stores the new query's first identifier when repointing by flat id", async () => {
+      it("clears the old identifier when repointing by flat id to an implicit query", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...withSelection,
+          exposureQueryId: "eq_multi",
+          exposureQueryIdentifierType: "user_id",
+        });
+
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ assignmentQueryId: "eq_single" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+        const { changes } = (updateExperiment as jest.Mock).mock.calls[0][0];
+        expect(changes).toMatchObject({ exposureQueryId: "eq_single" });
+        expect(changes).toHaveProperty(
+          "exposureQueryIdentifierType",
+          undefined,
+        );
+      });
+
+      it("rejects repointing by flat id to a query that declares several identifier types", async () => {
         const res = await request(app)
           .post("/api/v1/experiments/exp_123")
           .send({ assignmentQueryId: "eq_multi" })
           .set("Authorization", "Bearer foo");
 
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain(
+          "declares several identifier types (anonymous_id, user_id)",
+        );
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("rejects repointing by flat id to a query that dropped its legacy identifier", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ assignmentQueryId: "eq_dropped" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain(
+          'no longer declares its default identifier type "user_id"',
+        );
+      });
+
+      it("keeps an implicit experiment implicit when the update echoes its resolved identifier", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...withSelection,
+          exposureQueryId: "eq_multi",
+          exposureQueryIdentifierType: undefined,
+        });
+
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            assignmentQuery: { id: "eq_multi", identifierType: "anonymous_id" },
+          })
+          .set("Authorization", "Bearer foo");
+
         expect(res.status).toBe(200);
         expect(
           (updateExperiment as jest.Mock).mock.calls[0][0].changes,
-        ).toMatchObject({
-          exposureQueryId: "eq_multi",
-          exposureQueryIdentifierType: "anonymous_id",
-        });
+        ).not.toHaveProperty("exposureQueryIdentifierType");
       });
 
       it("rejects the grouped field without an identifier on an ambiguous query", async () => {

@@ -1,4 +1,4 @@
-import { each, isEqual, pick, uniqWith } from "lodash";
+import { each, isEqual, omit, pick, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
@@ -956,6 +956,13 @@ export async function updateExperiment({
       (type) => !remindersToReset.includes(type),
     );
   }
+  /**
+   * $set skips an undefined value, so clearing the stored identifier (an
+   * implicit selection) needs an $unset or the old one would stay.
+   */
+  const unsetIdentifierType =
+    "exposureQueryIdentifierType" in allChanges &&
+    allChanges.exposureQueryIdentifierType === undefined;
   const writeResult = await ExperimentModel.updateOne(
     {
       id: experiment.id,
@@ -963,7 +970,12 @@ export async function updateExperiment({
       ...(guard ?? {}),
     },
     {
-      $set: allChanges,
+      $set: unsetIdentifierType
+        ? omit(allChanges, "exposureQueryIdentifierType")
+        : allChanges,
+      ...(unsetIdentifierType
+        ? { $unset: { exposureQueryIdentifierType: "" } }
+        : {}),
       ...(remindersToReset.length && allChanges.pastNotifications === undefined
         ? { $pull: { pastNotifications: { $in: remindersToReset } } }
         : {}),

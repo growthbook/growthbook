@@ -987,7 +987,7 @@ describe("Saved Group scope in ramp patches", () => {
 });
 
 describe("normalizeInlineRampSchedule", () => {
-  // Only the monitoring cases read queries: from the request cache here.
+  /** Only the monitoring cases read this, from the request's foreignRefs. */
   const datasource = {
     id: "ds_1",
     settings: {
@@ -1066,19 +1066,17 @@ describe("normalizeInlineRampSchedule", () => {
     });
   });
 
-  it("stores the query's first identifier for a new selection by flat id", async () => {
-    const action = await normalizeInlineRampSchedule(
-      context,
-      {
-        steps: [],
-        monitoringConfig: { ...monitoring, exposureQueryId: "eq_multi" },
-      },
-      "r1",
-    );
-    expect(action.monitoringConfig).toMatchObject({
-      exposureQueryId: "eq_multi",
-      exposureQueryIdentifierType: "user_id",
-    });
+  it("rejects a new selection by flat id on an ambiguous query", async () => {
+    await expect(
+      normalizeInlineRampSchedule(
+        context,
+        {
+          steps: [],
+          monitoringConfig: { ...monitoring, exposureQueryId: "eq_multi" },
+        },
+        "r1",
+      ),
+    ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
   });
 
   it("requires the grouped field to name an identifier on an ambiguous query", async () => {

@@ -11,6 +11,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
+  getExposureQueryIdentifierTypes,
   getPreferredIdentifierType,
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
@@ -195,10 +196,23 @@ export function getNewExperimentDatasourceDefaults({
       ) ?? null;
   }
 
-  // Imports take the identifier discovery counted units on. Copies (duplicate,
-  // from template) keep what the source analyzes on, even if the query dropped
-  // it: the form then looks for another query declaring it before falling
-  // back, and explains the change.
+  const importedQuery =
+    isImport &&
+    exposureQuery &&
+    exposureQuery.id === initialValue?.exposureQueryId
+      ? exposureQuery
+      : null;
+  // Several identifiers: leave the choice blank so the metrics step can require
+  // one. A single-type import takes the identifier discovery counted on.
+  const requireImportedIdentifierChoice =
+    !!importedQuery &&
+    getExposureQueryIdentifierTypes(importedQuery).length > 1;
+
+  /**
+   * Copies (duplicate, from template) keep what the source analyzes on, even
+   * if the query dropped it: the form then looks for another query declaring
+   * it before falling back, and explains the change.
+   */
   const sourceIdentifierType =
     exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
       ? isImport
@@ -212,13 +226,15 @@ export function getNewExperimentDatasourceDefaults({
   return {
     datasource: initialDatasource.id,
     exposureQueryId: exposureQuery?.id || "",
-    exposureQueryIdentifierType: exposureQuery
-      ? (sourceIdentifierType ??
-        getDefaultIdentifierTypeForQuery(
-          exposureQuery,
-          initialValue?.exposureQueryIdentifierType ?? initialUserIdType,
-        ))
-      : undefined,
+    exposureQueryIdentifierType: requireImportedIdentifierChoice
+      ? undefined
+      : exposureQuery
+        ? (sourceIdentifierType ??
+          getDefaultIdentifierTypeForQuery(
+            exposureQuery,
+            initialValue?.exposureQueryIdentifierType ?? initialUserIdType,
+          ))
+        : undefined,
   };
 }
 
@@ -751,6 +767,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       : selectedTemplate
         ? { kind: "template", ...convertTemplateToExperiment(selectedTemplate) }
         : null;
+  const selectedExposureQuery = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === exposureQueryId,
+  );
+  const importNeedsIdentifierChoice =
+    !!isImport &&
+    !!selectedExposureQuery &&
+    !exposureQueryIdentifierType &&
+    getExposureQueryIdentifierTypes(selectedExposureQuery).length > 1;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
     project: selectedProject,
@@ -759,9 +783,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     identifierType: exposureQueryIdentifierType,
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
-    // New and duplicate flows render the fields (and repair) in
-    // ExperimentRefNewFields/BanditRefNewFields; two repairs would fight.
-    autoRepair: !(isNewExperiment || duplicate),
+    /**
+     * New and duplicate flows render the fields (and repair) in
+     * ExperimentRefNewFields/BanditRefNewFields; two repairs would fight.
+     * An import whose query declares several identifiers stays blank until
+     * one is chosen.
+     */
+    autoRepair: !(isNewExperiment || duplicate) && !importNeedsIdentifierChoice,
+    // Import hides the hash attribute control, so it must not group or follow it.
+    useHashAttribute: !isImport,
   });
   const status = form.watch("status");
   const type = form.watch("type");

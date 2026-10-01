@@ -49,9 +49,9 @@ export function getExperimentAssignmentQueryScope(
 }
 
 /**
- * The data source to validate `next` against when it differs from `previous`
- * (always when `previous` is null), else null. Also null when there's no data
- * source or query to check, which analysis surfaces instead. Reads the
+ * Whether `next` changes `previous` (always when `previous` is null), with the
+ * data source to validate it against. The data source is null when there's no
+ * data source or query to check; analysis surfaces that instead. Reads the
  * request's data source cache before bypassing read scope, so a selection the
  * caller may edit is checked even when they can't read the data source.
  */
@@ -59,17 +59,21 @@ export async function loadChangedAssignmentQuerySelection(
   context: ReqContext | ApiReqContext,
   previous: AssignmentQuerySelection | null,
   next: AssignmentQuerySelection,
-): Promise<DataSourceInterface | null> {
-  if (!next.datasource || !next.exposureQueryId) return null;
+): Promise<
+  { changed: false } | { changed: true; datasource: DataSourceInterface | null }
+> {
   if (previous && isSameAssignmentQuerySelection(previous, next, [])) {
-    return null;
+    return { changed: false };
+  }
+  if (!next.datasource || !next.exposureQueryId) {
+    return { changed: true, datasource: null };
   }
   const datasource =
     context.foreignRefs.datasource.get(next.datasource) ??
     (await context.dangerouslyGetDataSourceByIdBypassPermission(
       next.datasource,
     ));
-  if (!datasource) return null;
+  if (!datasource) return { changed: true, datasource: null };
   if (
     previous &&
     isSameAssignmentQuerySelection(
@@ -78,15 +82,16 @@ export async function loadChangedAssignmentQuerySelection(
       datasource.settings.queries?.exposure ?? [],
     )
   ) {
-    return null;
+    return { changed: false };
   }
-  return datasource;
+  return { changed: true, datasource };
 }
 
 /**
- * resolveAssignmentQuerySelectionChange against `next`'s data source, loaded per
- * loadChangedAssignmentQuerySelection. Throws on an invalid change. With no data
- * source or query to check, the kept identifier passes unvalidated.
+ * Runs resolveAssignmentQuerySelectionChange against the data source of `next`,
+ * loaded as in loadChangedAssignmentQuerySelection, and throws on an invalid
+ * change. With no data source or query to check, the kept identifier passes
+ * through unvalidated.
  */
 export async function resolveAssignmentQueryIdentifier(
   context: ReqContext | ApiReqContext,
@@ -105,55 +110,67 @@ export async function resolveAssignmentQueryIdentifier(
   },
 ): Promise<{ identifierType: string | undefined; changed: boolean }> {
   const kept = withKeptIdentifierType(previous, next);
-  const datasource = await loadChangedAssignmentQuerySelection(
+  const selection = await loadChangedAssignmentQuerySelection(
     context,
     previous,
     kept,
   );
-  if (!datasource)
+  if (!selection.changed) {
+    return {
+      identifierType: previous?.identifierType || undefined,
+      changed: false,
+    };
+  }
+  if (!selection.datasource) {
     return { identifierType: kept.identifierType, changed: false };
+  }
   const result = resolveAssignmentQuerySelectionChange(
-    datasource.settings.queries?.exposure ?? [],
+    selection.datasource.settings.queries?.exposure ?? [],
     {
       previous,
       next: kept,
       onOmitted,
       field,
-      scope: await getScope?.(datasource),
+      scope: await getScope?.(selection.datasource),
     },
   );
   if (!result.ok) throw new Error(result.error);
   return result;
 }
 
-// Only a changed selection is validated, so a record whose query later drifted
-// can still save unrelated edits.
+/**
+ * Only a changed selection is validated, so a record whose query later drifted
+ * can still save unrelated edits.
+ */
 export async function assertValidAssignmentQuerySelectionChange(
   context: ReqContext | ApiReqContext,
   previous: AssignmentQuerySelection | null,
   next: AssignmentQuerySelection,
   getScope?: GetAssignmentQueryScope,
 ): Promise<void> {
-  const datasource = await loadChangedAssignmentQuerySelection(
+  const selection = await loadChangedAssignmentQuerySelection(
     context,
     previous,
     next,
   );
-  if (!datasource) return;
+  if (!selection.changed || !selection.datasource) return;
   const parsed = parseAssignmentQuerySelection(
-    datasource.settings.queries?.exposure ?? [],
+    selection.datasource.settings.queries?.exposure ?? [],
     {
       exposureQueryId: next.exposureQueryId,
       identifierType: next.identifierType,
       onOmitted: "defaultToFirst",
-      scope: await getScope?.(datasource),
+      scope: await getScope?.(selection.datasource),
     },
   );
   if (!parsed.ok) throw new Error(parsed.error);
 }
 
-// Resolves legacy assignment query identifiers from the request's data source
-// cache, so serializing a list reads data sources once.
+/**
+ * The data source's exposure queries, for resolving legacy records'
+ * identifiers. Reads the request's data source cache, so serializing a list
+ * loads data sources once.
+ */
 export async function getExposureQueriesForDatasource(
   context: ReqContext | ApiReqContext,
   datasourceId: string,
@@ -166,8 +183,12 @@ export async function getExposureQueriesForDatasource(
   );
 }
 
-// For REST writes of a monitoring config: flattened, with the identifier a new
-// or changed selection resolves to, so it's never left implicit.
+/**
+ * Converts a REST monitoring config to the stored flat shape. A new or changed
+ * selection gets the identifier it resolves to; an unchanged one keeps the
+ * stored identifier. The config is replaced whole, so an implicit selection
+ * omits the key rather than persisting an undefined.
+ */
 export async function resolveApiMonitoringConfig<
   T extends {
     datasourceId: string;
@@ -179,15 +200,19 @@ export async function resolveApiMonitoringConfig<
   mc: T,
   previous: RampMonitoringConfig | null | undefined,
 ) {
-  const internal = apiMonitoringConfigToInternal(mc, previous);
-  const { identifierType: exposureQueryIdentifierType } =
-    await resolveAssignmentQueryIdentifier(context, {
-      previous: previous ? toMonitoringSelection(previous) : null,
-      next: toMonitoringSelection(internal),
-      onOmitted: mc.exposureQuery ? "requireUnambiguous" : "defaultToFirst",
-      field: "exposureQuery",
-    });
-  return exposureQueryIdentifierType === undefined
-    ? internal
-    : { ...internal, exposureQueryIdentifierType };
+  const { exposureQueryIdentifierType, ...rest } =
+    apiMonitoringConfigToInternal(mc, previous);
+  const { identifierType } = await resolveAssignmentQueryIdentifier(context, {
+    previous: previous ? toMonitoringSelection(previous) : null,
+    next: {
+      datasource: rest.datasourceId,
+      exposureQueryId: rest.exposureQueryId,
+      identifierType: exposureQueryIdentifierType,
+    },
+    onOmitted: "requireUnambiguous",
+    field: "exposureQuery",
+  });
+  return identifierType === undefined
+    ? rest
+    : { ...rest, exposureQueryIdentifierType: identifierType };
 }

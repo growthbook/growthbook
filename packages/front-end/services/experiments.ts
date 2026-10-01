@@ -1028,7 +1028,7 @@ export function convertExperimentToTemplate(
     tags: experiment.tags,
     datasource: experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
-    // Store what the experiment analyzes on, even when it's a legacy default.
+    /** Store what the experiment analyzes on, even a legacy default. */
     exposureQueryIdentifierType: resolveAnalysisIdentifierType(
       exposureQuery,
       experiment.exposureQueryIdentifierType,

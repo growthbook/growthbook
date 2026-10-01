@@ -722,7 +722,8 @@ export default function AnalysisSettingsSummary({
     if (isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)) {
       reasons.push(getExperimentOutdatedReasonLabel("exposureQueryId"));
     }
-    // Snapshots from before identifiers were stored resolve the same way.
+    // Resolve both sides so a snapshot saved before identifiers were stored
+    // matches an experiment that analyzes on the same identifier.
     if (
       isDifferent(
         resolveAnalysisIdentifierType(

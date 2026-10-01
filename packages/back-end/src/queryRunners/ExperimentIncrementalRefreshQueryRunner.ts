@@ -418,6 +418,7 @@ const startExperimentIncrementalRefreshQueries = async (
   if (!exposureQuery) {
     throw new Error("Exposure query not found");
   }
+
   const resolvedExposureQuery = resolveExposureQueryForAnalysis(
     exposureQuery,
     snapshotSettings.exposureQueryIdentifierType,

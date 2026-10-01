@@ -207,7 +207,7 @@ describe("dataSourceModel", () => {
           exposure: [
             {
               id: "anonymous_id",
-              // The client echoes a stale or mirrored value; it's ignored.
+              /** The client echoes a stale or mirrored value; it's ignored. */
               userIdType: "user_id",
               userIdTypes: ["user_id", "anonymous_id"],
               dimensions: [],
@@ -548,6 +548,33 @@ describe("dataSourceModel", () => {
     expect(apiDatasource.assignmentQueries[0]).toMatchObject({
       identifierType: "user_id",
       identifierTypes: ["anonymous_id", "user_id"],
+    });
+  });
+
+  it("keeps reporting the frozen legacy identifier after the query drops it", () => {
+    const apiDatasource = toDataSourceApiInterface({
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        queries: {
+          ...datasource.settings.queries,
+          exposure: [
+            {
+              id: "dropped",
+              userIdType: "user_id",
+              userIdTypes: ["anonymous_id"],
+              dimensions: [],
+              name: "Dropped",
+              query: "SELECT anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(apiDatasource.assignmentQueries[0]).toMatchObject({
+      identifierType: "user_id",
+      identifierTypes: ["anonymous_id"],
     });
   });
 

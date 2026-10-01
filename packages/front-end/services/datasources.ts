@@ -991,15 +991,20 @@ export function getExposureQuery(
     // analyze on it.
     return (
       queries.find((q) => q.userIdType === identifierType) ??
-      queries.find((q) => q.userIdTypes?.includes(identifierType)) ??
+      queries.find((q) =>
+        getExposureQueryIdentifierTypes(q).includes(identifierType),
+      ) ??
       null
     );
   }
   return queries.find((q) => q.id === exposureQueryId) ?? null;
 }
 
-// For defaulting a new selection: `preferredIdentifierType` when the query
-// declares it, else the query's first. Saved records use resolveAnalysisIdentifierType.
+/**
+ * For defaulting a new selection: `preferredIdentifierType` when the query
+ * declares it, else the query's first. Saved records use
+ * resolveAnalysisIdentifierType.
+ */
 export function getDefaultIdentifierTypeForQuery(
   exposureQuery: ExposureQuery,
   preferredIdentifierType?: string,
@@ -1031,7 +1036,7 @@ export function getExposureQueriesForProject(
   );
 }
 
-// Queries usable by a single Project, or by every one of a holdout's Projects.
+/** Queries usable by a single Project, or by every one of a holdout's Projects. */
 export function getExposureQueriesInScope(
   datasource: Pick<DataSourceInterfaceWithParams, "settings" | "projects">,
   project: string | undefined,
@@ -1045,7 +1050,7 @@ export function getExposureQueriesInScope(
     : getExposureQueriesForProject(all, project);
 }
 
-// How a saved selection drifted from what its scope and query now allow.
+/** How a saved selection drifted from what its scope and query now allow. */
 export function getAssignmentQueryDrift(
   query: ExposureQuery | undefined,
   identifierType: string | undefined,
@@ -1057,8 +1062,10 @@ export function getAssignmentQueryDrift(
   };
 }
 
-// The record a new one copies its assignment selection from: a duplicated
-// experiment or holdout, or a template.
+/**
+ * The record a new one copies its assignment selection from: a duplicated
+ * experiment or holdout, or a template.
+ */
 export type AssignmentQueryCopySource = {
   kind: "copy" | "template";
   datasource?: string;
@@ -1082,8 +1089,10 @@ function getCopySourceQuery(
   );
 }
 
-// What a copy's source analyzes on, which the copy keeps rather than taking a
-// default. Undefined when there's no source query to resolve it against.
+/**
+ * What a copy's source analyzes on, which the copy keeps rather than taking a
+ * default. Undefined when there's no source query to resolve it against.
+ */
 export function getCopySourceIdentifierType(
   datasource: Pick<DataSourceInterfaceWithParams, "id" | "settings"> | null,
   source: AssignmentQueryCopySource | null,

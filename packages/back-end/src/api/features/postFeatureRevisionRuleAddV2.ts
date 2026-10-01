@@ -7,11 +7,7 @@ import {
   RuleCreateInputV2,
   SafeRolloutInterface,
 } from "shared/validators";
-import type {
-  ApiAssignmentQueryRefInput,
-  FeatureRule,
-  SafeRolloutRule,
-} from "shared/validators";
+import type { FeatureRule, SafeRolloutRule } from "shared/validators";
 import {
   getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
@@ -267,22 +263,13 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         );
       }
 
-      const { rampUpSchedule, ...validatableFields } = (
-        ruleInput as typeof ruleInput & {
-          type: "safe-rollout";
-          safeRolloutFields: Record<string, unknown> & {
-            exposureQuery?: ApiAssignmentQueryRefInput;
-            exposureQueryId?: string;
-          };
-        }
-      ).safeRolloutFields;
+      const { rampUpSchedule, ...validatableFields } =
+        ruleInput.safeRolloutFields;
       const validatedFields = await validateCreateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),
         req.context,
         {
-          onOmitted: validatableFields.exposureQuery
-            ? "requireUnambiguous"
-            : "defaultToFirst",
+          onOmitted: "requireUnambiguous",
           project: feature.project ?? "",
         },
       );

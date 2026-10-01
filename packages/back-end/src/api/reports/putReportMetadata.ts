@@ -73,10 +73,7 @@ export const putReportMetadata = createApiRequestHandler(
       experiment,
       snapshot,
       metricsById,
-      await getExposureQueriesForDatasource(
-        req.context,
-        experiment.datasource ?? "",
-      ),
+      await getExposureQueriesForDatasource(req.context, experiment.datasource),
     );
     return { report: { ...apiReport, results } };
   }

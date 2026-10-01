@@ -161,11 +161,15 @@ export default function ExperimentRefNewFields({
   envScope?: EnvScopeProps;
   projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
-  // When duplicating or creating from a template: keeps its identifier and
-  // explains a change.
+  /**
+   * When duplicating or creating from a template: keeps its identifier and
+   * explains a change.
+   */
   assignmentQueryCopySource?: AssignmentQueryCopySource | null;
-  // A saved record being edited: don't rewrite its selection on load, and keep
-  // it listed even if its query no longer declares the identifier.
+  /**
+   * A saved record being edited: don't rewrite its selection on load, and keep
+   * it listed even if its query no longer declares the identifier.
+   */
   keepAssignmentSelection?: boolean;
 }) {
   const form = useFormContext();
@@ -229,7 +233,7 @@ export default function ExperimentRefNewFields({
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
     copiedIdentifierType: getCopySourceIdentifierType(
-      datasource ?? null,
+      datasource,
       assignmentQueryCopySource ?? null,
     ),
     autoRepair:
@@ -603,7 +607,7 @@ export default function ExperimentRefNewFields({
               <AssignmentQueryFields
                 selection={assignmentQuerySelection}
                 notice={getCopiedAssignmentQueryNotice(
-                  datasource ?? null,
+                  datasource,
                   assignmentQueryCopySource ?? null,
                   {
                     exposureQueryId,

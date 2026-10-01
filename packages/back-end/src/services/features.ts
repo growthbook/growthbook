@@ -2513,9 +2513,11 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   }
 }
 
-// Pending ramp actions store the monitoring config flat; the API groups it. No
-// queries are loaded here, so an action saved without an identifier reports
-// null until it publishes.
+/**
+ * Pending ramp actions store the monitoring config flat; the API groups it. No
+ * queries are loaded here, so an action saved without an identifier reports
+ * null until it publishes.
+ */
 function rampActionToApi(action: RevisionRampAction) {
   if (action.mode === "detach") return action;
   const { monitoringConfig, ...rest } = action;

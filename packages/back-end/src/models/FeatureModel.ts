@@ -3275,9 +3275,12 @@ async function createRampSchedulesForRevision(
           ? new Date(updateAction.cutoffDate)
           : null
         : (existingSchedule?.cutoffDate ?? null);
-    // The action's config replaces the stored one whole. Re-sending the ramp's
-    // query without an identifier keeps the stored one, as the REST path does,
-    // so drafts saved before that don't move the ramp to the legacy default.
+    /**
+     * The action's config replaces the stored one whole. Re-sending the ramp's
+     * query without an identifier keeps the stored one, as the REST path does,
+     * so a draft saved without an identifier doesn't move the ramp to the
+     * legacy default.
+     */
     const nextMonitoringConfig =
       updateAction.monitoringConfig !== undefined
         ? updateAction.monitoringConfig &&

@@ -1,6 +1,5 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
-  resolveAnalysisIdentifierType,
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
 } from "shared/util";
@@ -75,9 +74,6 @@ function templateToPostExperimentDefaults(
   return {
     ...templateWithoutFieldsToTranslate,
     datasourceId: template.datasource || undefined,
-    assignmentQueryId: template.exposureQueryId || undefined,
-    assignmentQueryIdentifierType:
-      template.exposureQueryIdentifierType || undefined,
     metrics: template.goalMetrics,
     segmentId: template.segment,
     inProgressConversions:
@@ -105,7 +101,6 @@ function templateToPostExperimentDefaults(
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req) => {
     const { owner: ownerEmail, templateId } = req.body;
-    let payload: PostExperimentApiPayload = req.body;
 
     const assignmentQueryInput = parseAssignmentQueryInput(
       req.body.assignmentQuery,
@@ -113,10 +108,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       "assignmentQuery",
     );
 
-    // Apply template defaults if a templateId is provided
+    const template = templateId
+      ? await req.context.models.experimentTemplates.getById(templateId)
+      : null;
     if (templateId) {
-      const template =
-        await req.context.models.experimentTemplates.getById(templateId);
       if (!template) {
         throw new Error(`Invalid template: ${templateId}`);
       }
@@ -137,82 +132,82 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
           "assignmentQueryId cannot be set when templateId is provided",
         );
       }
-
-      payload = {
-        ...templateToPostExperimentDefaults(template),
-        ...req.body,
-      };
     }
 
-    if (req.body.assignmentQuery) {
-      payload = {
-        ...payload,
-        assignmentQueryId: assignmentQueryInput.id,
-        assignmentQueryIdentifierType: assignmentQueryInput.identifierType,
-      };
-    }
+    /**
+     * req.body without the grouped assignmentQuery, which assignmentQueryInput
+     * already folded into the flat fields. Read these, not req.body.
+     */
+    const body = omit(req.body, "assignmentQuery");
+    const fields = {
+      ...(template ? templateToPostExperimentDefaults(template) : {}),
+      ...body,
+    };
 
-    if (payload.assignmentQueryId === undefined) {
+    const assignmentQueryId =
+      assignmentQueryInput.id ?? (template?.exposureQueryId || undefined);
+    if (assignmentQueryId === undefined) {
       throw new Error(
         "assignmentQueryId is required unless provided by the template",
       );
     }
 
     // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
-    if (payload.project) {
-      await req.context.models.projects.ensureProjectsExist([payload.project]);
+    if (fields.project) {
+      await req.context.models.projects.ensureProjectsExist([fields.project]);
     }
 
-    if (!req.context.permissions.canCreateExperiment(payload)) {
+    if (!req.context.permissions.canCreateExperiment(fields)) {
       req.context.permissions.throwPermissionError();
     }
 
     assertExperimentPayloadCommercialFeatures(req.context, {
-      postStratificationEnabled: payload.postStratificationEnabled,
-      decisionFrameworkSettings: payload.decisionFrameworkSettings,
-      metricOverrides: payload.metricOverrides,
-      defaultDashboardId: payload.defaultDashboardId,
+      postStratificationEnabled: fields.postStratificationEnabled,
+      decisionFrameworkSettings: fields.decisionFrameworkSettings,
+      metricOverrides: fields.metricOverrides,
+      defaultDashboardId: fields.defaultDashboardId,
     });
 
-    const datasource = payload.datasourceId
-      ? await getDataSourceById(req.context, payload.datasourceId)
+    const datasource = fields.datasourceId
+      ? await getDataSourceById(req.context, fields.datasourceId)
       : null;
-    if (payload.datasourceId && !datasource) {
-      throw new Error(`Invalid data source: ${payload.datasourceId}`);
+    if (fields.datasourceId && !datasource) {
+      throw new Error(`Invalid data source: ${fields.datasourceId}`);
     }
 
-    if (datasource) {
-      // A template without a stored identifier analyzes on its query's legacy
-      // one, so its experiments must too, not the query's first.
-      if (templateId && !payload.assignmentQueryIdentifierType) {
-        payload.assignmentQueryIdentifierType = resolveAnalysisIdentifierType(
-          datasource.settings.queries?.exposure?.find(
-            (q) => q.id === payload.assignmentQueryId,
-          ),
-          undefined,
-        );
-      }
-      const parsed = parseAssignmentQuerySelection(
-        datasource.settings.queries?.exposure ?? [],
-        {
-          exposureQueryId: payload.assignmentQueryId,
-          identifierType: payload.assignmentQueryIdentifierType,
-          onOmitted: req.body.assignmentQuery
-            ? "requireUnambiguous"
-            : "defaultToFirst",
-          field: "assignmentQuery",
-          scope: { project: payload.project ?? "" },
-        },
+    const requestedIdentifierType =
+      assignmentQueryInput.identifierType ??
+      (template?.exposureQueryIdentifierType || undefined);
+    const parsed = datasource
+      ? parseAssignmentQuerySelection(
+          datasource.settings.queries?.exposure ?? [],
+          {
+            exposureQueryId: assignmentQueryId,
+            identifierType: requestedIdentifierType,
+            onOmitted: template ? "defaultToFirst" : "requireUnambiguous",
+            /**
+             * Errors name the template's field: a template's selection is set
+             * on the template, not in this body.
+             */
+            field: template ? "exposureQuery" : "assignmentQuery",
+            scope: { project: fields.project ?? "" },
+          },
+        )
+      : null;
+    if (parsed && !parsed.ok) {
+      throw new Error(
+        templateId
+          ? `Template "${templateId}": ${parsed.error.replace(/\.$/, "")}. Update the template's assignment settings.`
+          : parsed.error,
       );
-      if (!parsed.ok) {
-        throw new Error(
-          templateId
-            ? `Template "${templateId}": ${parsed.error}. Update the template's assignment settings.`
-            : parsed.error,
-        );
-      }
-      payload.assignmentQueryIdentifierType = parsed.identifierType;
     }
+    const payload: PostExperimentApiPayload = {
+      ...fields,
+      assignmentQueryId,
+      assignmentQueryIdentifierType: parsed
+        ? parsed.identifierType
+        : requestedIdentifierType,
+    };
 
     await assertExperimentKeyFormat(
       req.context,

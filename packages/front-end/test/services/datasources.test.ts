@@ -16,7 +16,6 @@ import {
   validateSQL,
 } from "@/services/datasources";
 
-// The helpers only read userIdType/userIdTypes; build a minimal query.
 function makeExposureQuery(
   partial: Partial<ExposureQuery> &
     Pick<ExposureQuery, "userIdType" | "userIdTypes">,

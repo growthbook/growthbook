@@ -396,9 +396,13 @@ export async function createHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
   data: CreateHoldoutInput,
   {
-    // REST's grouped assignmentQuery must name an identifier when ambiguous.
     onOmitted = "defaultToFirst",
-  }: { onOmitted?: "defaultToFirst" | "requireUnambiguous" } = {},
+  }: {
+    /**
+     * REST bodies must name an identifier when ambiguous.
+     */
+    onOmitted?: "defaultToFirst" | "requireUnambiguous";
+  } = {},
 ): Promise<{
   holdout: HoldoutInterface;
   experiment: ExperimentInterface;
@@ -724,15 +728,14 @@ export async function updateHoldoutWithExperiment(
   if (body.owner !== undefined) {
     experimentChanges.owner = await resolveOwnerToUserId(body.owner, context);
   }
-  // Validate against the post-update values, so a metric or exposure query left
-  // stale by a datasource-only change is rejected here, not at query time.
   const assignmentQueryInput = parseAssignmentQueryInput(
     body.assignmentQuery,
     body.assignmentQueryId,
     "assignmentQuery",
   );
   const assignmentQueryId = assignmentQueryInput.id;
-  let assignmentQueryIdentifierType = assignmentQueryInput.identifierType;
+  // Validate against the post-update values, so a metric or exposure query left
+  // stale by a datasource-only change is rejected here, not at query time.
   if (
     body.datasourceId !== undefined ||
     assignmentQueryId !== undefined ||
@@ -746,9 +749,7 @@ export async function updateHoldoutWithExperiment(
     });
 
     const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
-    if (!effectiveQueryId) {
-      assignmentQueryIdentifierType = undefined;
-    } else {
+    if (effectiveQueryId) {
       const resolved = resolveAssignmentQuerySelectionChange(
         datasource?.settings?.queries?.exposure ?? [],
         {
@@ -760,11 +761,9 @@ export async function updateHoldoutWithExperiment(
           next: {
             datasource: body.datasourceId ?? experiment.datasource ?? "",
             exposureQueryId: effectiveQueryId,
-            identifierType: assignmentQueryIdentifierType,
+            identifierType: assignmentQueryInput.identifierType,
           },
-          onOmitted: body.assignmentQuery
-            ? "requireUnambiguous"
-            : "defaultToFirst",
+          onOmitted: "requireUnambiguous",
           field: "assignmentQuery",
           scope: {
             projects: body.projects ?? holdout.projects,
@@ -773,7 +772,10 @@ export async function updateHoldoutWithExperiment(
         },
       );
       if (!resolved.ok) throw new Error(resolved.error);
-      assignmentQueryIdentifierType = resolved.identifierType;
+      // Undefined when the new selection is implicit, which clears the old one.
+      if (resolved.changed) {
+        experimentChanges.exposureQueryIdentifierType = resolved.identifierType;
+      }
     }
 
     if (body.datasourceId !== undefined) {
@@ -781,10 +783,6 @@ export async function updateHoldoutWithExperiment(
     }
     if (assignmentQueryId !== undefined) {
       experimentChanges.exposureQueryId = assignmentQueryId;
-    }
-    if (assignmentQueryIdentifierType !== undefined) {
-      experimentChanges.exposureQueryIdentifierType =
-        assignmentQueryIdentifierType;
     }
   }
   // The name is stored on both documents and must not drift.

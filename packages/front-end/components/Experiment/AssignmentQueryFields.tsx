@@ -25,8 +25,9 @@ type Selection = {
   identifierTypes: string[];
   groupedIdentifierTypes: (GroupedValue | SingleValue)[];
   exposureQueryOptions: SingleValue[];
-  // A kept selection the current scope or query no longer allows.
+  /** A kept selection the current scope or query no longer allows. */
   outOfScope: boolean;
+  /** A kept selection whose query no longer declares its identifier. */
   identifierUndeclared: boolean;
   multiProject: boolean;
   setExposureQueryId: (exposureQueryId: string) => void;
@@ -45,6 +46,7 @@ export function useAssignmentQuerySelection({
   autoRepair = true,
   keepCurrentSelection = false,
   copiedIdentifierType,
+  useHashAttribute = true,
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
   project: string | undefined;
@@ -56,14 +58,23 @@ export function useAssignmentQuerySelection({
   identifierType: string | undefined;
   setExposureQueryId: (exposureQueryId: string) => void;
   setIdentifierType: (identifierType: string | undefined) => void;
-  // New records repair an invalid selection as inputs change; existing records
-  // must not have saved settings rewritten on load.
+  /**
+   * New records repair an invalid selection as inputs change; existing records
+   * must not have saved settings rewritten on load.
+   */
   autoRepair?: boolean;
-  // Keep a drifted selection listed so existing records show what they use.
+  /** Keep a drifted selection listed so existing records show what they use. */
   keepCurrentSelection?: boolean;
-  // A copy's source identifier. Repair keeps it when some query declares it,
-  // else leaves the identifier for the user to choose instead of defaulting,
-  // since a different identifier measures different units.
+  /**
+   * Group and follow the hash attribute. Off when that control isn't shown,
+   * so the list isn't split into "Matches hash attribute".
+   */
+  useHashAttribute?: boolean;
+  /**
+   * A copy's source identifier. Repair keeps it when some query declares it,
+   * else leaves the identifier for the user to choose instead of defaulting,
+   * since a different identifier measures different units.
+   */
   copiedIdentifierType?: string;
 }): Selection {
   const keptQueryId = keepCurrentSelection ? exposureQueryId : undefined;
@@ -88,8 +99,11 @@ export function useAssignmentQuerySelection({
     [scopedQueries, keptQuery, outOfScope],
   );
   const hashAttributeIdentifierTypeMap = useMemo(
-    () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
-    [datasource?.settings?.userIdTypes],
+    () =>
+      useHashAttribute
+        ? getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes)
+        : new Map<string, string[]>(),
+    [useHashAttribute, datasource?.settings?.userIdTypes],
   );
   const identifierTypes = useMemo(() => {
     const selectable = getSelectableIdentifierTypes(exposureQueries);
@@ -146,8 +160,11 @@ export function useAssignmentQuerySelection({
     ],
   );
 
-  // The shown identifier may be resolved, not stored, for a record saved before
-  // identifiers were; commit it with a new query so the save keeps it.
+  /**
+   * For a record saved before identifiers were stored, the shown identifier is
+   * resolved rather than stored; commit it along with a new query so the save
+   * keeps it.
+   */
   const selectExposureQueryId = useCallback(
     (value: string) => {
       if (value !== exposureQueryId && identifierType) {

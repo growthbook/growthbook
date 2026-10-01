@@ -60,12 +60,9 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       );
     }
 
-    const populationExposureQueryIdentifierTypes = populationExposureQuery
-      ? getExposureQueryIdentifierTypes(populationExposureQuery)
-      : [];
     if (
       populationExposureQuery &&
-      !populationExposureQueryIdentifierTypes.includes(
+      !getExposureQueryIdentifierTypes(populationExposureQuery).includes(
         params.settings.userIdType,
       )
     ) {

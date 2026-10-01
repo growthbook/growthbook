@@ -2121,11 +2121,6 @@
       "count": 1
     }
   },
-  "packages/shared/src/util/exposure-queries.ts": {
-    "import/order": {
-      "count": 1
-    }
-  },
   "packages/stats-ts/test/statistics.test.ts": {
     "no-loss-of-precision": {
       "count": 1

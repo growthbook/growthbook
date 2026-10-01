@@ -450,29 +450,35 @@ type ReportAssignmentQuerySelection = {
   exposureQueryIdentifierType?: string;
 };
 
+/**
+ * `next` is merged over the stored settings, so the body's own identifier is
+ * passed separately: the merged one would carry the old identifier to a new
+ * query.
+ */
 async function applyReportAssignmentQuery(
   context: ReqContext,
   previous: ReportAssignmentQuerySelection,
   next: ReportAssignmentQuerySelection,
   experiment: ExperimentInterface | null,
+  requestedIdentifierType: string | undefined,
 ) {
   const toSelection = (s: ReportAssignmentQuerySelection) => ({
     datasource: s.datasource,
     exposureQueryId: s.exposureQueryId,
     identifierType: s.exposureQueryIdentifierType,
   });
-  const { identifierType, changed } = await resolveAssignmentQueryIdentifier(
-    context,
-    {
-      previous: toSelection(previous),
-      next: toSelection(next),
-      onOmitted: "defaultToFirst",
-      getScope: experiment
-        ? getExperimentAssignmentQueryScope(context, experiment)
-        : () => ({ project: "" }),
-    },
-  );
-  if (changed) next.exposureQueryIdentifierType = identifierType;
+  const { identifierType } = await resolveAssignmentQueryIdentifier(context, {
+    previous: toSelection(previous),
+    next: { ...toSelection(next), identifierType: requestedIdentifierType },
+    onOmitted: "defaultToFirst",
+    getScope: experiment
+      ? getExperimentAssignmentQueryScope(context, experiment)
+      : () => ({ project: "" }),
+  });
+  // `next` is saved whole: an absent key clears the stored identifier, where an
+  // undefined one would persist as null.
+  if (identifierType === undefined) delete next.exposureQueryIdentifierType;
+  else next.exposureQueryIdentifierType = identifierType;
 }
 
 export async function putReport(
@@ -580,6 +586,7 @@ export async function putReport(
         report.experimentAnalysisSettings,
         updates.experimentAnalysisSettings,
         experiment,
+        data.experimentAnalysisSettings?.exposureQueryIdentifierType,
       );
     }
 
@@ -633,6 +640,7 @@ export async function putReport(
         report.args,
         updates.args,
         experiment,
+        req.body.args?.exposureQueryIdentifierType,
       );
 
       needsRun = true;

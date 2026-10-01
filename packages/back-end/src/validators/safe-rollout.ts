@@ -1,4 +1,3 @@
-import omit from "lodash/omit";
 import { resolveAssignmentQuerySelectionChange } from "shared/util";
 import {
   CreateSafeRolloutInterface,
@@ -21,14 +20,14 @@ export async function validateCreateSafeRolloutFields(
     onOmitted = "defaultToFirst",
     project,
   }: {
-    // The stored rollout on update: an unchanged selection isn't re-validated.
+    /** The stored rollout on update: an unchanged selection isn't re-validated. */
     previous?: Pick<
       SafeRolloutInterface,
       "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
     > | null;
-    // REST's grouped exposureQuery must name an identifier when it's ambiguous.
+    /** REST's grouped exposureQuery must name an identifier when ambiguous. */
     onOmitted?: "defaultToFirst" | "requireUnambiguous";
-    // The feature's project, checked against a new or changed selection.
+    /** The feature's project, checked against a new or changed selection. */
     project?: string;
   } = {},
 ): Promise<CreateSafeRolloutInterface> {
@@ -86,11 +85,6 @@ export async function validateCreateSafeRolloutFields(
     },
   );
   if (!resolved.ok) throw new BadRequestError(resolved.error);
-  // An unchanged selection keeps its stored value as is: a started rollout
-  // can't change it, even to the equivalent resolved identifier.
-  const exposureQueryIdentifierType = resolved.changed
-    ? resolved.identifierType
-    : previous?.exposureQueryIdentifierType;
 
   if (
     safeRolloutFields.guardrailMetricIds === undefined ||
@@ -135,10 +129,10 @@ export async function validateCreateSafeRolloutFields(
     }
   }
 
+  // Always keyed: on update, undefined clears an identifier the new selection
+  // doesn't use.
   return createSafeRolloutValidator.strip().parse({
-    ...omit(safeRolloutFields, "exposureQueryIdentifierType"),
-    ...(exposureQueryIdentifierType !== undefined && {
-      exposureQueryIdentifierType,
-    }),
+    ...safeRolloutFields,
+    exposureQueryIdentifierType: resolved.identifierType,
   });
 }

@@ -49,7 +49,7 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
         metricsById,
         await getExposureQueriesForDatasource(
           req.context,
-          experiment.datasource ?? "",
+          experiment.datasource,
         ),
       );
       return { report: { ...apiReport, results } };

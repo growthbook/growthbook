@@ -19,7 +19,10 @@ import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuer
 import { MakeModelClass } from "./BaseModel";
 import { migrateRampStepTriggers } from "./RampScheduleModel";
 
-// `null` (clear) and absent monitoring configs pass through.
+/**
+ * Resolves a REST body's monitoring config to the stored shape. `null` (clear)
+ * and absent configs pass through.
+ */
 async function withInternalMonitoringConfig<
   T extends { monitoringConfig?: ApiRampMonitoringConfigInput | null },
 >(
@@ -62,7 +65,9 @@ const BaseClass = MakeModelClass({
 });
 
 export class RampScheduleTemplateModel extends BaseClass {
-  protected migrate(legacyDoc: unknown): RampScheduleTemplateInterface {
+  protected override migrate(
+    legacyDoc: unknown,
+  ): RampScheduleTemplateInterface {
     const doc = legacyDoc as RampScheduleTemplateInterface;
     // Templates are reusable plans, so a legacy scheduled trigger's absolute
     // date is meaningless against the template's creation time. Convert with
@@ -124,7 +129,7 @@ export class RampScheduleTemplateModel extends BaseClass {
   // REST create: append to the end unless the caller pins an explicit order, so
   // API-created templates behave like app-created ones instead of defaulting to
   // order 0 and jumping to the top.
-  protected async processApiCreateBody(
+  protected override async processApiCreateBody(
     rawBody: unknown,
   ): Promise<CreateProps<RampScheduleTemplateInterface>> {
     const body = (await withInternalMonitoringConfig(
@@ -141,8 +146,10 @@ export class RampScheduleTemplateModel extends BaseClass {
     return { ...body, order: body.order ?? (await this.getNextOrder()) };
   }
 
-  // Overridden to read the stored monitoring config, which
-  // processApiUpdateBody can't see.
+  /**
+   * Overridden to read the stored monitoring config, which
+   * processApiUpdateBody can't see.
+   */
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
@@ -162,7 +169,7 @@ export class RampScheduleTemplateModel extends BaseClass {
     );
   }
 
-  // Internal writes too; templates aren't tied to a Project, so no scope.
+  /** Internal writes too; templates aren't tied to a Project, so no scope. */
   protected override async customValidation(
     doc: RampScheduleTemplateInterface,
     previousDoc?: RampScheduleTemplateInterface,
@@ -181,7 +188,7 @@ export class RampScheduleTemplateModel extends BaseClass {
     );
   }
 
-  protected toApiInterface(
+  protected override toApiInterface(
     doc: RampScheduleTemplateInterface,
   ): ApiRampScheduleTemplateInterface {
     const base = super.toApiInterface(doc);

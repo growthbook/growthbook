@@ -288,9 +288,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         flattenExposureQueryInput(validatableFields),
         req.context,
         {
-          onOmitted: validatableFields.exposureQuery
-            ? "requireUnambiguous"
-            : "defaultToFirst",
+          onOmitted: "requireUnambiguous",
           project: feature.project ?? "",
         },
       );

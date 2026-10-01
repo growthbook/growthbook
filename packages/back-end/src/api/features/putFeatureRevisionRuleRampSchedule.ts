@@ -214,9 +214,11 @@ export async function setRuleRampSchedule(
       canonicalRuleId,
       feature,
       {
-        // startActions merged from `startState` are the rule's current state
-        // (its `force`, if sent, was checked above); caller-sent startActions
-        // without a startState are their own input and are checked.
+        /**
+         * startActions merged from `startState` are the rule's current state
+         * (its `force`, if sent, was checked above); caller-sent startActions
+         * without a startState are their own input and are checked.
+         */
         validateStartActions: !startStateProvided,
         previousMonitoringConfig: existingLiveSchedule?.monitoringConfig,
       },
