@@ -27,11 +27,11 @@ export async function createGroup(
 
   try {
     const group = await req.context.models.teams.create({
+      ...roleInfo,
       name: displayName,
       createdBy: "SCIM",
       description: "Created via SCIM.",
       managedByIdp: true,
-      ...roleInfo,
     });
 
     await addMembersToTeam({

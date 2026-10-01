@@ -12,11 +12,19 @@ import {
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
   assertContextualAttributesValid,
+  cancelContextualBanditEndpoint,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
+  contextualBanditApiSpec,
   ContextualBanditInterface,
   ContextualBanditVariation,
   contextualBanditValidator,
   LeafWeight,
+  listContextualBanditVisualChangesetsEndpoint,
+  postContextualBanditVisualChangesetsEndpoint,
+  refreshContextualBanditEndpoint,
+  startContextualBanditEndpoint,
+  stopContextualBanditEndpoint,
+  updateVariationsContextualBanditEndpoint,
   VariationWeightPair,
 } from "shared/validators";
 import {
@@ -31,22 +39,15 @@ import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { NotFoundError } from "back-end/src/util/errors";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
-  cancelContextualBanditEndpoint,
-  contextualBanditApiSpec,
-  listContextualBanditVisualChangesetsEndpoint,
-  postContextualBanditVisualChangesetsEndpoint,
-  refreshContextualBanditEndpoint,
-  startContextualBanditEndpoint,
-  stopContextualBanditEndpoint,
-  updateVariationsContextualBanditEndpoint,
-} from "back-end/src/api/specs/contextual-bandit.spec";
-import {
   createVisualChangeset,
   findVisualChangesetsByContextualBandit,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
 import { ContextualBanditChangesetOwner } from "back-end/src/services/changesetOwner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
+import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   executeContextualBanditStart,
   executeContextualBanditStop,
@@ -425,6 +426,29 @@ export class ContextualBanditModel extends BaseClass {
         doc,
       );
     }
+
+    // Targeting reaches the SDK payload through the linked feature's rule, so it
+    // gets the rule write checks. Changed fields only, as on feature rules.
+    await validateChangedRuleReferences(
+      [doc],
+      previousDoc ? [previousDoc] : [],
+      this.context,
+    );
+    await assertValidExperimentPrerequisites(
+      this.context,
+      doc.prerequisites,
+      previousDoc?.prerequisites,
+    );
+    assertRegisteredAttributes(
+      this.context,
+      { hashAttribute: doc.hashAttribute, condition: doc.condition },
+      "contextual bandit",
+      previousDoc && {
+        hashAttribute: previousDoc.hashAttribute,
+        condition: previousDoc.condition,
+      },
+      doc.project || undefined,
+    );
   }
 
   public override async handleApiList(

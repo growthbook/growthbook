@@ -1,3 +1,4 @@
+import { OpenApiModelSpec } from "../api-model";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditCancelValidator,
@@ -16,8 +17,7 @@ import {
   apiCreateContextualBanditBody,
   apiListContextualBanditsValidator,
   apiUpdateContextualBanditBody,
-} from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+} from "./contextual-bandit";
 
 /** REST API surface for Contextual Bandits under `/api/v1/contextual-bandits/*`. */
 
@@ -108,5 +108,5 @@ export const contextualBanditApiSpec = {
     listContextualBanditVisualChangesetsEndpoint,
   ],
   navAfterTag: "experiments",
-} satisfies OpenApiModelSpec;
+} as const satisfies OpenApiModelSpec;
 export default contextualBanditApiSpec;

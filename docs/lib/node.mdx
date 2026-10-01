@@ -1,7 +1,6 @@
 ---
 title: Node.js SDK
 description: Install the GrowthBook Node.js SDK to evaluate feature flags and run A/B tests in server-side JavaScript. Requires Node 18 or above.
-slug: node
 toc_max_heading_level: 5
 ---
 
@@ -93,6 +92,36 @@ Scoped instances were first introduced in SDK version 1.3.1.
 GrowthBook comes with a number of built-in plugins that add additional functionality. You can enable these by passing them into the GrowthBook client's `createScopedInstance()` factory method or into the GrowthBook constructor.
 
 Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
+
+### Tracing
+
+The tracing plugin records every experiment assignment as a tag of the form `gb.exp:<experimentKey>=<variationKey>` so you can attach it to an LLM trace in Langfuse, Arize Phoenix, or any OpenTelemetry-based tool. GrowthBook's Langfuse and Phoenix data source integrations read the tags back out of the trace to compute exposures. See [Experimenting on LLM Features](/integrations/llm-tracing) for the full setup and the plugin options in the [JavaScript SDK docs](/lib/js#tracing).
+
+Pass the plugin in the `GrowthBookClient` options. The shared client has no assignments of its own, so the plugin runs for each `createScopedInstance()` call and every scoped instance keeps its own tag set. Read the tags off the scoped instance with `getTracingTags()`.
+
+```js
+import { GrowthBookClient } from "@growthbook/growthbook";
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+
+const gbClient = new GrowthBookClient({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [tracingPlugin()],
+});
+await gbClient.init();
+
+app.post("/chat", async (req, res) => {
+  const scoped = gbClient.createScopedInstance({
+    attributes: { user_id: req.user.id },
+  });
+
+  // Evaluate flags first so the tags exist before the trace starts
+  const promptLabel = scoped.getFeatureValue("support-prompt", "production");
+  const tags = getTracingTags(scoped); // e.g. ["gb.exp:support-prompt=prod-b"]
+
+  // Hand `tags` (and req.user.id as the user id) to your tracing SDK
+});
+```
 
 ### DevTools for back-end
 
@@ -216,7 +245,7 @@ const gbClient = new GrowthBookClient().initSync({
 
 By default, the GrowthBookClient will only fetch features once during initialization. This works great for short-running processes (e.g. serverless functions).
 
-For long-running Node.js processes, there are 2 main approaches to keeping feature defintiions up-to-date.
+For long-running Node.js processes, there are 2 main approaches to keeping feature definitions up-to-date.
 
 1. Streaming
 2. Polling

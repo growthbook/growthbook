@@ -27,9 +27,7 @@ import {
   RevisionRampAction,
 } from "shared/validators";
 import {
-  autoMerge,
   generateVariationId,
-  reconcileMergeBaselines,
   validateFeatureValue,
   visualChangeHasContent,
 } from "shared/util";
@@ -57,6 +55,11 @@ import { CasConflictError } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import {
+  PendingDraftFailure,
+  PendingDraftFailureReason,
+} from "back-end/src/services/experiment-feature";
+import { mergeDraftForAutoPublish } from "back-end/src/services/featurePublishGates";
+import {
   getLinkageSyncRevisionSummaries,
   getRevision,
   updateRevision,
@@ -79,10 +82,6 @@ import { onContextualBanditVisualStateChanged } from "back-end/src/services/cont
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import {
-  PendingDraftFailure,
-  PendingDraftFailureReason,
-} from "back-end/src/services/experiment-feature";
 import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
@@ -254,21 +253,21 @@ async function publishContextualBanditRevision({
     feature,
     revision,
   });
-  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+  const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
+    context,
     feature,
+    revision,
     live,
     base,
-  );
-  const mergeResult = autoMerge(
-    mergeLive,
-    mergeBase,
-    revision,
-    context.environments,
-    {},
   );
   if (!mergeResult.success) {
     throw new Error(
       `Unable to auto-publish: please resolve conflicts on draft #${revision.version} before publishing.`,
+    );
+  }
+  if (rebaseRequired) {
+    throw new Error(
+      `Unable to auto-publish: rebase draft #${revision.version} with live before publishing.`,
     );
   }
 
@@ -2023,6 +2022,7 @@ export function buildSnapshotSettingsForCb(
     queryFilter: "",
     datasourceId: cbSnapshotSettings.datasourceId,
     exposureQueryId: cbSnapshotSettings.contextualBanditQueryId,
+    exposureQueryIdentifierType: cbSnapshotSettings.userIdType,
     startDate: cbSnapshotSettings.startDate,
     endDate: cbSnapshotSettings.endDate ?? new Date(),
     goalMetrics: decisionMetric ? [decisionMetric] : [],

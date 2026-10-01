@@ -18,6 +18,7 @@ import type {
   SubscriptionFunction,
   FeatureUsageSubCallback,
   CustomEventSubCallback,
+  ExperimentViewedSubCallback,
   TrackingCallback,
   TrackingData,
   WidenPrimitives,
@@ -88,6 +89,7 @@ export class GrowthBook<
   private _subscriptions: Set<SubscriptionFunction>;
   private _featureUsageSubs: Set<FeatureUsageSubCallback>;
   private _customEventSubs: Set<CustomEventSubCallback>;
+  private _experimentViewedSubs: Set<ExperimentViewedSubCallback>;
   private _assigned: Map<
     string,
     {
@@ -129,6 +131,7 @@ export class GrowthBook<
     this._subscriptions = new Set();
     this._featureUsageSubs = new Set();
     this._customEventSubs = new Set();
+    this._experimentViewedSubs = new Set();
     this.ready = false;
     this._assigned = new Map();
     this._activeAutoExperiments = new Map();
@@ -540,10 +543,19 @@ export class GrowthBook<
   // Currently singleton-only. UserScopedGrowthBook could use the same signatures;
   // GrowthBookClient would need UserContext in callbacks to identify the user.
   // Fires on deduped feature value changes (not every evalFeature call). Overrides excluded.
-  // One of three plugin streams: feature usage, experiment assignments (subscribe), custom events.
+  // One of three plugin streams: feature usage, experiment assignments (_subscribeExperimentViewed), custom events.
   public _subscribeFeatureUsage(cb: FeatureUsageSubCallback): () => void {
     this._featureUsageSubs.add(cb);
     return () => this._featureUsageSubs.delete(cb);
+  }
+
+  // Internal — first-party plugin use only.
+  // Fires once per deduped experiment assignment, alongside (not instead of) trackingCallback.
+  public _subscribeExperimentViewed(
+    cb: ExperimentViewedSubCallback,
+  ): () => void {
+    this._experimentViewedSubs.add(cb);
+    return () => this._experimentViewedSubs.delete(cb);
   }
 
   // Internal — first-party plugin use only.
@@ -594,6 +606,7 @@ export class GrowthBook<
     this._subscriptions.clear();
     this._featureUsageSubs.clear();
     this._customEventSubs.clear();
+    this._experimentViewedSubs.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._completedChangeIds.clear();
@@ -689,6 +702,7 @@ export class GrowthBook<
       onFeatureUsage: this._options.onFeatureUsage,
       devLogs: this.logs,
       featureUsageSubs: this._featureUsageSubs,
+      experimentViewedSubs: this._experimentViewedSubs,
       trackedExperiments: this._trackedExperiments,
       trackedFeatureUsage: this._trackedFeatures,
     };

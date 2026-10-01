@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.7.0",
+    version: "1.8.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -24,6 +24,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBanditsAuto: "≥ v1.8.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v1.8.0",
       },
       {
         contextualBandits: "≥ v1.7.0",
@@ -83,7 +89,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.7.0",
+    version: "1.8.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -112,6 +118,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBanditsAuto: "≥ v1.8.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v1.8.0",
       },
       {
         contextualBandits: "≥ v1.7.0",
@@ -280,7 +292,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.7.0",
+    version: "1.8.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -301,6 +313,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBanditsAuto: "≥ v1.8.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v1.8.0",
       },
       {
         contextualBandits: "≥ v1.7.0",
@@ -856,7 +874,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.7.0",
+    version: "1.8.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -877,6 +895,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBanditsAuto: "≥ v1.8.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v1.8.0",
       },
       {
         contextualBandits: "≥ v1.7.0",

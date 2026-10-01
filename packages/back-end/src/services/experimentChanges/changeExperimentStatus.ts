@@ -29,6 +29,7 @@ import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnect
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentInAffectedEnvironments,
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
@@ -39,12 +40,14 @@ import {
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import {
+  BadRequestError,
   ChecklistIncompleteError,
   InvalidStatusError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
+import { isArmingApiKeyId } from "back-end/src/services/organizations";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -219,8 +222,13 @@ function isCustomTaskComplete(
 export async function getExperimentStartChecklistStatus(
   context: ReqContext,
   experiment: ExperimentInterface,
+  { arming = false }: { arming?: boolean } = {},
 ): Promise<StartChecklistItemStatus[]> {
-  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+  const linkedFeatures = await getLinkedFeatureInfo(
+    context,
+    experiment,
+    arming ? { publisher: context } : {},
+  );
   const sdkConnections = await findSDKConnectionsByOrganization(context);
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -301,6 +309,18 @@ export async function getExperimentStartChecklistStatus(
       });
     });
 
+  linkedFeatures
+    .filter((f) => f.state === "draft" && f.cannotPublish)
+    .forEach((f) => {
+      items.push({
+        key: `publishPermission:${f.feature.id}`,
+        required: true,
+        status: "incomplete",
+        manual: false,
+        hardBlock: true,
+        reason: `Permission to publish linked feature ${f.feature.id} is needed before starting.`,
+      });
+    });
   linkedFeatures
     .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
     .forEach((f) => {
@@ -495,9 +515,10 @@ export async function executeExperimentStart(
     experiment,
     changes: {
       ...changes,
+      // The job fires a start as its armer, so a stop derived here is theirs.
       nextScheduledStatusUpdate: withScheduledBy(
         nextScheduledStatusUpdate,
-        context.userId || undefined,
+        context,
       ),
     },
   });
@@ -514,13 +535,16 @@ export async function executeExperimentStart(
 export async function getExperimentStartChecklist({
   context,
   experiment,
+  arming,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
+  arming?: boolean;
 }): Promise<ExperimentStartChecklistResult> {
   const checklistItems = await getExperimentStartChecklistStatus(
     context,
     experiment,
+    { arming },
   );
   const hasIncompleteRequiredItems = checklistItems.some(
     (item) => item.required && item.status === "incomplete",
@@ -567,9 +591,11 @@ export async function startExperiment({
     context,
     experimentId,
   );
+  await assertCanPublishPendingFeatureDrafts(context, loadedExperiment);
   const { checklistItems, status } = await getExperimentStartChecklist({
     context,
     experiment: loadedExperiment,
+    arming: true,
   });
 
   const experiment = loadedExperiment;
@@ -642,9 +668,11 @@ export async function approveScheduledExperimentStart({
     );
   }
 
+  await assertCanPublishPendingFeatureDrafts(context, experiment);
   const checklistItems = await getExperimentStartChecklistStatus(
     context,
     experiment,
+    { arming: true },
   );
 
   assertNoIncompleteHardBlockers(checklistItems);
@@ -661,10 +689,16 @@ export async function approveScheduledExperimentStart({
     }
   }
 
+  // The fire runs as the armer, so there has to be one to record.
+  if (!context.userId && !isArmingApiKeyId(context.apiKey)) {
+    throw new BadRequestError(
+      "A scheduled start must be armed by a user or an org API key",
+    );
+  }
   const changes: Changeset = {
     nextScheduledStatusUpdate: withScheduledBy(
       { type: "start" as const, date: startAt },
-      context.userId || undefined,
+      context,
     ),
   };
   await validateExperimentChange({ context, experiment, changes });

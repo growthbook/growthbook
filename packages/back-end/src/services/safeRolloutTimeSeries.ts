@@ -16,7 +16,10 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { ExposureQuery } from "shared/types/datasource";
+import { getIdentifierTypeForSettingsHash } from "shared/util";
 import { ReqContext } from "back-end/types/request";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 import { getFactMetricDefinitionForHash } from "back-end/src/services/experimentTimeSeries";
@@ -107,6 +110,10 @@ export async function updateSafeRolloutTimeSeries({
   const settingsHash = getSafeRolloutSettingsHash(
     safeRolloutSnapshot.settings,
     analysis.settings,
+    await getExposureQueriesForDatasource(
+      context,
+      safeRolloutSnapshot.settings.datasourceId,
+    ),
   );
 
   const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
@@ -160,12 +167,18 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 function getSafeRolloutSettingsHash(
   snapshotSettings: SafeRolloutSnapshotSettings,
   snapshotAnalysisSettings: SafeRolloutSnapshotAnalysisSettings,
+  exposureQueries: ExposureQuery[],
 ): string {
   return hashObject({
     // Snapshot Settings
     queryFilter: snapshotSettings.queryFilter,
     datasourceId: snapshotSettings.datasourceId,
     exposureQueryId: snapshotSettings.exposureQueryId,
+    exposureQueryIdentifierType: getIdentifierTypeForSettingsHash(
+      snapshotSettings.exposureQueryId,
+      snapshotSettings.exposureQueryIdentifierType,
+      exposureQueries,
+    ),
     startDate: snapshotSettings.startDate,
     regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
     experimentId: snapshotSettings.experimentId,

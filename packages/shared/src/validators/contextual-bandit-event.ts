@@ -69,6 +69,8 @@ export const contextualBanditResponseValidator = z.object({
   sampleMeans: z.array(z.number()).nullable().optional(),
   sampleVariances: z.array(z.number()).nullable().optional(),
   updatedWeights: z.array(z.number()).nullable().optional(),
+  // P(best) among qualifying arms; under-observed arms use the prior 1/K (numeric
+  // for API back-compat). Conditional distribution, so it need not sum to 1.
   bestArmProbabilities: z.array(z.number()).nullable().optional(),
   updateMessage: z.string().nullable().optional(),
   error: z.string().nullable().optional(),

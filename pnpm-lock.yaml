@@ -176,8 +176,8 @@ importers:
         specifier: ^3.0.0
         version: 3.0.2(zod@4.1.12)
       '@ai-sdk/xai':
-        specifier: ^3.0.0
-        version: 3.0.29(zod@4.1.12)
+        specifier: ^3.0.138
+        version: 3.0.138(zod@4.1.12)
       '@aws-sdk/client-athena':
         specifier: ^3.1031.0
         version: 3.1031.0
@@ -253,6 +253,9 @@ importers:
       '@opentelemetry/winston-transport':
         specifier: ~0.28.0
         version: 0.28.0
+      '@pydantic/genai-prices':
+        specifier: 0.1.9
+        version: 0.1.9
       '@resvg/resvg-wasm':
         specifier: ^2.6.2
         version: 2.6.2
@@ -1410,8 +1413,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai-compatible@2.0.16':
-    resolution: {integrity: sha512-Vn+zlFSeo3DiBvYZv575+9WxqYqFyu0xNx3eAWwFDHkQpMwh9MC5eVTfdpT/YRW9lK0jWvJ//aG7QnX+FE16/w==}
+  '@ai-sdk/openai-compatible@2.0.80':
+    resolution: {integrity: sha512-v/X0WZYuQ3qrWkHAI3pbnkx1NMS1T7XGAQvpZxlbela7QwYJ/vAK9Og6mio82DbTbrSLIpspdPxx0itWrWRaYw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1436,12 +1439,12 @@ packages:
     resolution: {integrity: sha512-9Av6kg0t/IN/dcYAAmEJ4B9OPhcEJqwSR+GfHEA8olRkindXpUHadc3p3cyvgFUQFTVm1G5thtsmgZ9yVb2w3A==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/provider@3.0.4':
-    resolution: {integrity: sha512-5KXyBOSEX+l67elrEa+wqo/LSsSTtrPj9Uoh3zMbe/ceQX4ucHI3b9nUEfNkGF3Ry1svv90widAt+aiKdIJasQ==}
+  '@ai-sdk/provider@3.0.18':
+    resolution: {integrity: sha512-IpefF5ssZVOZCD4Wu7zxt6PwZoGT2HLVjxpJ10Bjx6EAmRfLYJPjyrfxb0RYDlwvXnDb9nkQ7Do/oJVDuRFzew==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/xai@3.0.29':
-    resolution: {integrity: sha512-H/0WKEC/trg+eiDoYPSGLTwFzKLdteWwyBY68syaZt74kO32mWtjTQVgjNDnDWlatwOH5ekiM4/P//diYVplJA==}
+  '@ai-sdk/xai@3.0.138':
+    resolution: {integrity: sha512-0uLgqq06G/CbDqe4PcGPWprfhQB63sf0h+aZy+9sLypqQKyO05F213F2k2ibPM/8akeO9PD2ztgE7CuWUaDMGA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -4669,6 +4672,11 @@ packages:
 
   '@protobufjs/utf8@1.1.1':
     resolution: {integrity: sha512-oOAWABowe8EAbMyWKM0tYDKi8Yaox52D+HWZhAIJqQXbqe0xI/GV7FhLWqlEKreMkfDjshR5FKgi3mnle0h6Eg==}
+
+  '@pydantic/genai-prices@0.1.9':
+    resolution: {integrity: sha512-M93O77DCs533HASyjenihMo9b2OTW6c8v49w6yS/W50osugJ1rkUX8baaDNCnw+ZPiMD6jIxUsa1Bz1MrpX3Uw==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@radix-ui/colors@3.0.0':
     resolution: {integrity: sha512-FUOsGBkHrYJwCSEtWRCIfQbZG7q1e6DgxCIOe1SUQzDe/7rXXeA47s8yCn6fuTNQAj1Zq4oTFi9Yjp3wzElcxg==}
@@ -13988,9 +13996,9 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.51(zod@4.1.12)
       zod: 4.1.12
 
-  '@ai-sdk/openai-compatible@2.0.16(zod@4.1.12)':
+  '@ai-sdk/openai-compatible@2.0.80(zod@4.1.12)':
     dependencies:
-      '@ai-sdk/provider': 3.0.4
+      '@ai-sdk/provider': 3.0.18
       '@ai-sdk/provider-utils': 4.0.51(zod@4.1.12)
       zod: 4.1.12
 
@@ -14016,14 +14024,14 @@ snapshots:
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/provider@3.0.4':
+  '@ai-sdk/provider@3.0.18':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/xai@3.0.29(zod@4.1.12)':
+  '@ai-sdk/xai@3.0.138(zod@4.1.12)':
     dependencies:
-      '@ai-sdk/openai-compatible': 2.0.16(zod@4.1.12)
-      '@ai-sdk/provider': 3.0.4
+      '@ai-sdk/openai-compatible': 2.0.80(zod@4.1.12)
+      '@ai-sdk/provider': 3.0.18
       '@ai-sdk/provider-utils': 4.0.51(zod@4.1.12)
       zod: 4.1.12
 
@@ -18410,6 +18418,8 @@ snapshots:
   '@protobufjs/pool@1.1.0': {}
 
   '@protobufjs/utf8@1.1.1': {}
+
+  '@pydantic/genai-prices@0.1.9': {}
 
   '@radix-ui/colors@3.0.0': {}
 
