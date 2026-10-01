@@ -18,6 +18,7 @@ import {
   isConstantRevisionMetadataOnly,
   isSdkConnectionRevisionMetadataOnly,
   isSdkConnectionRevisionReviewExempt,
+  getSdkConnectionGoverningRules,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -1031,6 +1032,70 @@ describe("revisions helpers", () => {
           { op: "replace", path: "/value", value: "v" },
         ]),
       ).toBe(false);
+    });
+  });
+
+  describe("getSdkConnectionGoverningRules", () => {
+    const base = { required: true, projects: [] as string[] };
+    const flows = (
+      sdkConnections: Record<string, unknown>[],
+    ): ApprovalFlowConfigurations =>
+      ({ savedGroups: [], sdkConnections }) as ApprovalFlowConfigurations;
+
+    it("applies the all-projects rule when no project rule exists", () => {
+      expect(
+        getSdkConnectionGoverningRules(flows([base]), {
+          projects: ["p1"],
+          environment: "production",
+        }),
+      ).toEqual([base]);
+    });
+
+    it("lets a project override switch approval off for its projects", () => {
+      const off = { required: false, projects: ["p1"] };
+      expect(
+        getSdkConnectionGoverningRules(flows([base, off]), {
+          projects: ["p1"],
+          environment: "production",
+        }),
+      ).toEqual([]);
+      expect(
+        getSdkConnectionGoverningRules(flows([base, off]), {
+          projects: ["p2"],
+          environment: "production",
+        }),
+      ).toEqual([base]);
+    });
+
+    it("uses the override's environments in place of the base rule's", () => {
+      const prodOnly = {
+        required: true,
+        projects: ["p1"],
+        environments: ["production"],
+      };
+      const rules = flows([base, prodOnly]);
+      expect(
+        getSdkConnectionGoverningRules(rules, {
+          projects: ["p1"],
+          environment: "production",
+        }),
+      ).toEqual([prodOnly]);
+      expect(
+        getSdkConnectionGoverningRules(rules, {
+          projects: ["p1"],
+          environment: "dev",
+        }),
+      ).toEqual([]);
+    });
+
+    it("treats a connection with no projects as all-projects only", () => {
+      const p1 = { required: true, projects: ["p1"] };
+      expect(
+        getSdkConnectionGoverningRules(flows([p1]), {
+          projects: [],
+          environment: "production",
+        }),
+      ).toEqual([]);
     });
   });
 

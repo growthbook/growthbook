@@ -15,7 +15,7 @@ import {
   isSdkConnectionRevisionMetadataOnly,
   isSdkConnectionRevisionReviewExempt,
   orgHasAnySdkConnectionApproval,
-  sdkConnectionMatchesApprovalScope,
+  getSdkConnectionGoverningRules,
 } from "shared/enterprise";
 import {
   SDKConnectionRevisionSnapshot,
@@ -208,12 +208,14 @@ function rulesMatchingScopes(
   context: Context,
   scopes: SdkConnectionApprovalScope[],
 ): ApprovalFlowConfiguration[] {
-  const rules = context.org.settings?.approvalFlows?.sdkConnections ?? [];
-  return rules.filter(
-    (rule) =>
-      rule.required &&
-      scopes.some((scope) => sdkConnectionMatchesApprovalScope(rule, scope)),
-  );
+  const approvalFlows = context.org.settings?.approvalFlows;
+  return [
+    ...new Set(
+      scopes.flatMap((scope) =>
+        getSdkConnectionGoverningRules(approvalFlows, scope),
+      ),
+    ),
+  ];
 }
 
 // The rules governing this revision, judged on both the baseline and proposed

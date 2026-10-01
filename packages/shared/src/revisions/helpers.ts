@@ -944,12 +944,11 @@ export const isSdkConnectionRevisionReviewExempt = (
 // ---------------------------------------------------------------------------
 // SDK-connection approval scoping (project + environment, SDK-connection only)
 //
-// Mirrors how Features scope `requireReviews`: each rule carries optional
-// `projects` / `environments` arrays. A rule applies to a connection when the
-// connection's project(s) match the rule's `projects` (empty = all projects)
-// AND its environment matches the rule's `environments` (empty = all
-// environments). Multiple rules OR together. Saved groups and features do NOT
-// use these helpers.
+// Each rule carries optional `projects` / `environments` arrays. As for saved
+// groups and features, a rule naming one of the connection's projects replaces
+// the all-projects rule, so an override can switch approval off for its
+// projects. Within the winning layer a rule applies when it is required and
+// the connection's environment matches its `environments` (empty = all).
 // ---------------------------------------------------------------------------
 
 export type SdkConnectionApprovalScope = {
@@ -982,20 +981,37 @@ export const sdkConnectionMatchesApprovalScope = (
 };
 
 /**
- * The first enabled SDK-connection approval rule whose project/environment
- * scope matches the given connection, or undefined if none require approval for
- * it. The matched rule supplies the per-rule settings (requireMetadataReview, etc.).
+ * The approval rules that govern a connection: the rules naming one of its
+ * projects when any exist, otherwise the all-projects rules, narrowed to the
+ * required ones whose environments match.
+ */
+export const getSdkConnectionGoverningRules = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  scope: SdkConnectionApprovalScope,
+): ApprovalFlowConfiguration[] => {
+  const rules = approvalFlows?.sdkConnections ?? [];
+  const connProjects = scope.projects ?? [];
+  const specific = rules.filter((rule) =>
+    (rule.projects ?? []).some((p) => connProjects.includes(p)),
+  );
+  const layer = specific.length
+    ? specific
+    : rules.filter((rule) => !(rule.projects ?? []).length);
+  return layer.filter(
+    (rule) => rule.required && sdkConnectionMatchesApprovalScope(rule, scope),
+  );
+};
+
+/**
+ * The first rule governing the connection, or undefined if none require
+ * approval for it. It supplies the per-rule settings (requireMetadataReview,
+ * etc.).
  */
 export const getSdkConnectionApprovalRule = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
   scope: SdkConnectionApprovalScope,
-): ApprovalFlowConfiguration | undefined => {
-  const rules = approvalFlows?.sdkConnections;
-  if (!rules?.length) return undefined;
-  return rules.find(
-    (rule) => rule.required && sdkConnectionMatchesApprovalScope(rule, scope),
-  );
-};
+): ApprovalFlowConfiguration | undefined =>
+  getSdkConnectionGoverningRules(approvalFlows, scope)[0];
 
 /**
  * Whether the org has *any* enabled SDK-connection approval rule (ignoring
