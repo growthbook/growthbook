@@ -52,6 +52,17 @@ export function isInHouseConsumerSink(
   return IN_HOUSE_CONSUMER_SINKS.has(sinkType);
 }
 
+// Whether an existing config is on the consumer: new configs get the shared
+// topic (or a per-org `__<orgId>` override); BigQuery configs created before
+// the consumer kept their per-datasource Confluent topic.
+// TODO: once every pre-consumer config is torn down, isInHouseConsumerSink suffices.
+export function isInHouseConsumerTopic(
+  topic: string,
+  sinkType: EventForwarderSinkType,
+): boolean {
+  return topic.split("__")[0] === getInHouseConsumerTopicName(sinkType);
+}
+
 export function getInHouseConsumerTopicName(
   sinkType: EventForwarderSinkType,
 ): string {
