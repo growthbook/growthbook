@@ -352,25 +352,33 @@
   opacity: 0;
 }
 
+// The whole row opens the drawer.
+.streamRow {
+  cursor: pointer;
+}
+
 .streamRow:hover .openCaret,
 .rowSelected .openCaret,
 .openCaret:focus-visible {
   opacity: 1;
 }
 
-// Drawer header, in the Event Logs drawer's type: eyebrow, title, meta line.
-.drawerEyebrow {
-  margin-bottom: 4px;
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--slate-10);
+// Drawer header: the leading identity field, then the timestamp when a user
+// id leads.
+.drawerTitleRow {
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
+// Line 1: the leading identity field (user id, or the timestamp when there is
+// none), at title weight in mono.
 .drawerTitle {
-  font-size: var(--font-size-4);
-  line-height: var(--line-height-4);
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: monospace;
+  font-size: var(--font-size-3);
+  line-height: var(--line-height-3);
   font-weight: 600;
   color: var(--color-text-high);
   overflow: hidden;
@@ -378,20 +386,29 @@
   white-space: nowrap;
 }
 
-.drawerMeta {
-  margin-top: 8px;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+// Line 2: the timestamp, when a user id leads.
+.drawerSubtitle {
+  margin-top: 2px;
+  font-family: monospace;
+  font-size: 12.5px;
+  color: var(--color-text-low);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The Value field: mono, wrapping, capped with its own scroll so one long
+// value cannot push the rest of the drawer out of reach.
+.drawerValue {
+  flex: 1 1 auto;
   min-width: 0;
-}
-
-.drawerMetaSep {
-  color: var(--slate-10);
-}
-
-.drawerMetaBadge {
-  flex-shrink: 0;
+  max-height: 240px;
+  overflow: auto;
+  font-family: monospace;
+  font-size: 12.5px;
+  color: var(--color-text-high);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .drawerMono {
@@ -442,9 +459,28 @@
   color: var(--teal-11);
 }
 
+// Raw's heading row: the section label plus its Copy action. Carries the
+// section spacing the label would otherwise have taken itself.
+.rawHeader {
+  // 32px from the section above, with its last row's 4px bottom padding.
+  margin-top: 28px;
+}
+
+// Raw duplicates the sections above, so it is capped rather than allowed to
+// double the drawer's scroll length. Its own scroll area, bordered so it reads
+// as one rather than as clipped content. overscroll-behavior: contain stops
+// the wheel chaining between it and the drawer body in either direction.
+// 48px to the footer at the end of the scroll: this 28px on top of the drawer
+// body's own 20px bottom padding.
 .drawerRaw {
-  margin: 0;
+  // 4px here plus the heading's 4px keeps 8px between the JSON heading and
+  // the block.
+  margin: 4px 0 28px;
+  max-height: 260px;
+  overflow: auto;
+  overscroll-behavior: contain;
   padding: 10px 12px;
+  border: 1px solid var(--gray-a5);
   border-radius: var(--radius-2);
   background-color: var(--gray-a2);
   font-family: monospace;
@@ -452,5 +488,73 @@
   line-height: 1.5;
   color: var(--color-text-high);
   white-space: pre;
-  overflow-x: auto;
+}
+
+// Attribute group subheadings: a smaller version of the section heading —
+// medium weight in the primary text colour — so they separate from the muted row
+// labels below them by weight and colour, not by capitalisation.
+.drawerSubheading {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-high);
+}
+
+// 12px between the section heading and its first subheading: this 8px on top
+// of the heading's 4px bottom margin. Padding, not margin: a margin here would
+// collapse into the heading's and add nothing.
+.drawerSubheadingFirst {
+  padding-top: 8px;
+}
+
+// 16px after the group above: this 12px on top of its last row's 4px bottom
+// padding.
+.drawerSubheadingSpaced {
+  margin-top: 12px;
+}
+
+// "Also reported" as its own toggle: the subheading's look, as a button.
+// Block-level (flex, sized to its content) rather than inline-flex, so it
+// does not sit in a line box whose height would add to its margins.
+.drawerSubheadingToggle {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  // A button does not inherit the page's font by default.
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.drawerToggleCaret {
+  transition: transform 120ms ease;
+}
+
+.drawerToggleCaretOpen {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawerToggleCaret {
+    transition: none;
+  }
+}
+
+// A condition references this attribute, but the SDK did not send it.
+.drawerAbsent {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--color-text-low);
+}
+
+// The table's outline without a table: the same 1px border and corner radius
+// ui/Table's list variant draws, filling the space a page of rows would take.
+.emptyFrame {
+  flex: 1 1 auto;
+  border: 1px solid var(--slate-a5);
+  border-radius: var(--radius-4);
+  overflow: hidden;
 }

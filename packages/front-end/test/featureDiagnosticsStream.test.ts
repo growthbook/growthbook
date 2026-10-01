@@ -2,6 +2,8 @@ import { format } from "date-fns";
 import { FeatureRule } from "shared/types/feature";
 import {
   buildVariationLabeler,
+  groupAttributesByTargeting,
+  targetingAttributeKeys,
   planStreamColumnWidths,
   planStreamTimestamps,
   ruleAbsenceNote,
@@ -147,5 +149,67 @@ describe("planStreamColumnWidths", () => {
     expect(widths.unit_id).toBe(28);
     expect(widths.value).toBe(24);
     expect(widths.ruleId).toBe(48);
+  });
+});
+
+describe("targetingAttributeKeys", () => {
+  const rules = [
+    {
+      type: "force",
+      allEnvironments: true,
+      condition: JSON.stringify({
+        country: { $in: ["US"] },
+        $or: [{ plan: "pro" }],
+      }),
+    },
+    {
+      type: "force",
+      allEnvironments: false,
+      environments: ["staging"],
+      condition: JSON.stringify({ employee: true }),
+    },
+    { type: "rollout", allEnvironments: true, condition: "" },
+    { type: "force", allEnvironments: true, condition: "{not json" },
+  ] as FeatureRule[];
+
+  it("collects condition keys from rules in the row's environment", () => {
+    expect(targetingAttributeKeys(rules, "production")).toEqual([
+      "country",
+      "plan",
+    ]);
+    expect(targetingAttributeKeys(rules, "staging")).toEqual([
+      "country",
+      "plan",
+      "employee",
+    ]);
+  });
+});
+
+describe("groupAttributesByTargeting", () => {
+  const attrs: [string, unknown][] = [
+    ["id", "u1"],
+    ["country", "US"],
+    ["user", { plan: "pro" }],
+    ["browser", "chrome"],
+  ];
+
+  it("splits by condition use, keeping SDK order, and lists absent keys", () => {
+    expect(
+      groupAttributesByTargeting(attrs, ["user.plan", "country", "loggedIn"]),
+    ).toEqual({
+      targeted: [
+        ["country", "US"],
+        ["user", { plan: "pro" }],
+      ],
+      absent: ["loggedIn"],
+      other: [
+        ["id", "u1"],
+        ["browser", "chrome"],
+      ],
+    });
+  });
+
+  it("does not split when no condition references anything", () => {
+    expect(groupAttributesByTargeting(attrs, [])).toBeNull();
   });
 });

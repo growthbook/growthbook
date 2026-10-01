@@ -1,0 +1,38 @@
+// The rule list and the Traffic panel beside it, below the environment tabs.
+// The query sits on the outer box because an element cannot query its own
+// size; the split inside is what changes direction.
+.rulesBody {
+  container-type: inline-size;
+  // 20px under the tab row. Off the Radix space scale (16 / 24), so set here.
+  margin-top: 20px;
+}
+
+.rulesSplit {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.rulesList {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+// Below ~900px the panel would squeeze the rules; it moves below them at full
+// width instead.
+@container (max-width: 900px) {
+  .rulesSplit {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  // Stacked under the list, the panel is plain flow: nothing beside it to
+  // stay level with.
+  .rulesSplit > :last-child:not(.rulesList) {
+    flex-basis: auto;
+    width: 100%;
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+}

@@ -78,9 +78,6 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import RuleProjectScopeBadges from "@/components/Features/RuleProjectScopeBadges";
 import RuleCard from "@/components/Features/RuleCard";
-import RuleTrafficFigures, {
-  RULE_FIGURE_ROW_HEIGHT,
-} from "@/components/Features/RuleTrafficFigures";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -269,6 +266,13 @@ type RuleProps = SortableProps &
   React.HTMLAttributes<HTMLDivElement> & {
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
+
+/**
+ * The rule title row's height: the kebab button's (Radix IconButton size="2" =
+ * 32px). The pill and CTAs centre in the same height, so their midline meets
+ * the kebab's.
+ */
+const RULE_TITLE_ROW_HEIGHT = 32;
 
 function isRuleSkipped({
   rule,
@@ -1463,7 +1467,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 flexShrink="0"
                 // Same height as the figures' lead row, so the pill and CTAs
                 // share the kebab's midline.
-                style={{ minHeight: RULE_FIGURE_ROW_HEIGHT }}
+                style={{ minHeight: RULE_TITLE_ROW_HEIGHT }}
               >
                 {rampSchedule &&
                   safeRollout &&
@@ -1503,31 +1507,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 {info.pill}
               </Flex>
 
-              {/*
-              In the title row rather than a column beside the whole body, so
-              only this row gives up width to the figures and everything below
-              it runs the card's full width.
-            */}
-              <Flex align="start" gap="2" flexShrink="0">
-                <RuleTrafficFigures
-                  ruleId={rule.id}
-                  inactive={isInactive}
-                  // Reuses the state the card's side bar is already coloured
-                  // from, so the pill can never contradict the stripe.
-                  unreachable={info.sideColor === "unreachable"}
-                />
-                {/*
-                Same reserved height as the figures' lead row, centred, so the
-                kebab's midline meets the count's however many lines stack
-                beneath it. align="start" on the row is what keeps the
-                percentage from dragging the kebab down with it.
-              */}
-                <Flex
-                  align="center"
-                  style={{ minHeight: RULE_FIGURE_ROW_HEIGHT }}
-                >
-                  {ruleKebab}
-                </Flex>
+              {/* The kebab keeps its place at the end of the title row, its
+                  midline level with the pill and CTAs beside it. Traffic moved
+                  off the rule cards to the Traffic card on the Overview tab. */}
+              <Flex
+                align="center"
+                flexShrink="0"
+                style={{ minHeight: RULE_TITLE_ROW_HEIGHT }}
+              >
+                {ruleKebab}
               </Flex>
             </Flex>
           </Flex>

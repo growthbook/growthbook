@@ -116,7 +116,10 @@ export default function DataFreshness({
     <Flex align="center" gap="1" style={{ whiteSpace: "nowrap" }}>
       {icon}
       <Text size="sm" color="text-mid" whiteSpace="nowrap">
-        {updatedAt ? `${verb} ${abbreviateAgo(updatedAt)}` : emptyLabel}
+        {updatedAt
+          ? // An empty verb gives the time alone ("5 min. ago").
+            [verb, abbreviateAgo(updatedAt)].filter(Boolean).join(" ")
+          : emptyLabel}
       </Text>
     </Flex>
   );

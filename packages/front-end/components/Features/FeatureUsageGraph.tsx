@@ -145,6 +145,11 @@ export function buildRolloutScenario(
   };
 }
 
+/** What real SDK telemetry writes as the ruleId of a default-value evaluation. */
+const DUMMY_DEFAULT_RULE_ID = "$default";
+/** The default value's share of the dummy rule split. */
+const DUMMY_DEFAULT_SHARE = 0.07;
+
 /** Saturday and Sunday run at this share of a weekday. */
 const DUMMY_WEEKEND_FACTOR = 0.55;
 
@@ -281,9 +286,23 @@ function groupWeights(
 
   // Fixed within the period, different across it. 0.15 floor so no group
   // collapses to invisible.
-  return groups.map(
+  const weights = groups.map(
     (g) => 0.15 + seededRandom(hashSeed(featureId, dimension, period, g))(),
   );
+
+  // FAKE DATA: the default value's share of the rule split. Real SDKs write
+  // "$default" for every evaluation no rule matched; the demo gives it ~7% so
+  // the Traffic card's default segment shows a realistic, non-zero share.
+  if (dimension === "ruleId") {
+    const i = groups.indexOf(DUMMY_DEFAULT_RULE_ID);
+    // A flag with no rules serves every evaluation from the default, so its
+    // weight stays as drawn and takes the whole split.
+    const others = weights.reduce((sum, w, j) => (j === i ? sum : sum + w), 0);
+    if (i !== -1 && others > 0) {
+      weights[i] = (others * DUMMY_DEFAULT_SHARE) / (1 - DUMMY_DEFAULT_SHARE);
+    }
+  }
+  return weights;
 }
 
 /** The timestamp the flag's most recent publish should show as a step. */
@@ -331,7 +350,8 @@ function getDummyData(
    */
   scenario?: DummyScenario,
 ): FeatureUsageData {
-  const ruleIds = new Set<string>();
+  // "$default" alongside the rules, as real telemetry carries it.
+  const ruleIds = new Set<string>([DUMMY_DEFAULT_RULE_ID]);
   const sources = new Set<string>(["defaultValue"]);
   const values = new Set<string>([feature.defaultValue]);
   (feature.rules ?? []).forEach((rule) => {
@@ -653,6 +673,8 @@ const featureUsageContext = createContext<{
    * it.
    */
   ruleTrafficLoading: boolean;
+  /** Disclosure from the rule-traffic response; see the provider. */
+  ruleTrafficRowsMeta: FeatureUsageRowsMeta | undefined;
   /** Explicit refresh of the rule counts; drives `ruleTrafficLoading`. */
   refreshRuleTraffic: () => Promise<void>;
   /** Window-independent; see the separate SWR key in the provider. */
@@ -680,6 +702,7 @@ const featureUsageContext = createContext<{
   sparkFeatureUsage: undefined,
   ruleFeatureUsage: undefined,
   ruleTrafficLoading: false,
+  ruleTrafficRowsMeta: undefined,
   refreshRuleTraffic: async () => {},
   featureUsageSummary: undefined,
   featureUsageRows: undefined,
@@ -755,13 +778,14 @@ export function FeatureUsageProvider({
 
   // Not polled with the others: a week's scan every few seconds would be the
   // most expensive query on the page, for a count that barely moves between
-  // polls. It refreshes on focus and on the Rules refresh button.
+  // polls. It refreshes on focus and on the Traffic card's refresh button.
   const {
     data: ruleData,
     error: ruleDataError,
     mutate: mutateRuleData,
   } = useApi<{
     usage: FeatureUsageData;
+    rowsMeta?: FeatureUsageRowsMeta;
   }>(`/feature/${feature?.id}/usage?lookback=${RULE_TRAFFIC_LOOKBACK}`, {
     shouldRun: () =>
       !!feature &&
@@ -899,6 +923,19 @@ export function FeatureUsageProvider({
         ? data?.usage
         : ruleData?.usage;
 
+  /**
+   * The same 7-day response's per-dimension disclosure — no extra request.
+   * `ruleId.includedEvaluations` counts every per-rule row the warehouse
+   * returned, the empty-ruleId rows byRuleId drops included, which is what
+   * lets the Traffic card separate "served without a rule" from rows lost to
+   * the scan's row cap. Dummy mode has neither, so it is left undefined.
+   */
+  const ruleTrafficRowsMeta: FeatureUsageRowsMeta | undefined = useDummyData
+    ? undefined
+    : lookback === RULE_TRAFFIC_LOOKBACK
+      ? data?.rowsMeta
+      : ruleData?.rowsMeta;
+
   const ruleTrafficError =
     lookback === RULE_TRAFFIC_LOOKBACK ? usageError : ruleDataError;
 
@@ -976,6 +1013,7 @@ export function FeatureUsageProvider({
         sparkFeatureUsage,
         ruleFeatureUsage,
         ruleTrafficLoading,
+        ruleTrafficRowsMeta,
         refreshRuleTraffic,
         mutateFeatureUsage,
         scenarioMarkers: rolloutScenario?.markers,

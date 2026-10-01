@@ -96,6 +96,8 @@ import {
 import {
   buildVariationLabeler,
   formatFullStreamTimestamp,
+  groupAttributesByTargeting,
+  targetingAttributeKeys,
   MANAGED_STREAM_TABLE_COLUMNS,
   planStreamColumnWidths,
   STREAM_COLUMN_EXTRA_PX,
@@ -506,6 +508,19 @@ function rowString(row: Record<string, unknown>, key: string): string | null {
   return typeof v === "string" && v !== "" ? v : null;
 }
 
+/**
+ * The row's JSON as the drawer shows it and copies it: the row as fetched,
+ * minus the positional id the table adds for its own keys. One function for
+ * both, so the Raw block and its Copy action cannot become two shapes.
+ */
+function rowJson(row: Record<string, unknown>): string {
+  return JSON.stringify(
+    Object.fromEntries(Object.entries(row).filter(([key]) => key !== "id")),
+    null,
+    2,
+  );
+}
+
 /** A row's attributes when it carries any; null for absent or {}. */
 function rowAttributes(
   row: Record<string, unknown>,
@@ -543,66 +558,86 @@ function AttributeValue({ value }: { value: unknown }) {
   return <TypedValue value={value} />;
 }
 
+/**
+ * The header is the row's identity: the most identifying field available
+ * leads. With a user id, that is line 1 and the timestamp is line 2; without
+ * one — every row of real managed data today — the timestamp leads alone.
+ * The value is never the title: it is unbounded, and a JSON flag would put a
+ * paragraph in a fixed-size slot. It lives in the Evaluation section.
+ */
 function EvaluationHeader({ row }: { row: Record<string, unknown> }) {
-  const value = String(row.value ?? "");
   const unitId = rowString(row, "unit_id");
-  const environment = rowString(row, "environment");
+  const timestamp = formatFullStreamTimestamp(row.timestamp);
+  const lead = unitId ?? timestamp;
   return (
     <>
-      <div className={styles.drawerEyebrow}>Feature evaluation</div>
-      <div className={styles.drawerTitle} title={value}>
-        {`Served ${value}`}
-      </div>
-      <Flex className={styles.drawerMeta}>
-        <Text size="sm" color="text-mid">
-          {formatFullStreamTimestamp(row.timestamp)}
-        </Text>
-        {unitId && (
-          <>
-            <span className={styles.drawerMetaSep}>·</span>
-            <span className={styles.drawerMono} title={unitId}>
-              {unitId}
-            </span>
-          </>
-        )}
-        {environment && (
-          <Badge
-            label={environment}
-            color="gray"
-            variant="soft"
-            className={styles.drawerMetaBadge}
-          />
-        )}
+      <Flex className={styles.drawerTitleRow}>
+        <div className={styles.drawerTitle} title={lead}>
+          {lead}
+        </div>
       </Flex>
+      {unitId && <div className={styles.drawerSubtitle}>{timestamp}</div>}
     </>
   );
+}
+
+/**
+ * A JSON object or array, pretty-printed; null for anything else (a boolean,
+ * number or plain string value renders as it is).
+ */
+function prettyJson(value: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed !== null && typeof parsed === "object"
+      ? JSON.stringify(parsed, null, 2)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function EvaluationBody({
   row,
   ruleReference,
   variationText,
+  onCopy,
+  copied,
+  targetingKeys,
 }: {
   row: Record<string, unknown>;
   ruleReference: RuleCellReference;
   variationText: string | null;
+  /** Copies what the Raw block shows. */
+  onCopy: () => void;
+  copied: boolean;
+  /** Attribute keys the flag's current conditions reference, in rule order. */
+  targetingKeys: string[];
 }) {
   const attributes = rowAttributes(row);
-  // The row as fetched: every field the query returned, minus the positional
-  // id the table adds for its own keys.
-  const raw = Object.fromEntries(
-    Object.entries(row).filter(([key]) => key !== "id"),
+  // Per open: the body is keyed by row, so this starts expanded every time.
+  const [otherOpen, setOtherOpen] = useState(true);
+  // Split only when a condition references something; otherwise the flat list.
+  const groups = attributes
+    ? groupAttributesByTargeting(attributes, targetingKeys)
+    : null;
+  const attributeRow = ([key, value]: [string, unknown]) => (
+    <DetailRow key={key} label={key}>
+      <AttributeValue value={value} />
+    </DetailRow>
   );
   return (
     <>
-      <DetailSectionLabel>Evaluation</DetailSectionLabel>
+      {/* Table columns first, in column order (left to right becomes top to
+          bottom), except Environment, the qualifier on all of it, which closes
+          the section. Source is no longer a column, so this is the one place
+          it is shown. */}
+      <DetailSectionLabel variant="heading">Evaluation</DetailSectionLabel>
       <DetailRow label="Value">
-        <span className={styles.drawerMono}>{String(row.value ?? "")}</span>
-      </DetailRow>
-      {/* Not a table column any more (Rule covers it), so this is where the
-          field is shown at all. */}
-      <DetailRow label="Source">
-        <span className={styles.drawerMono}>{String(row.source ?? "")}</span>
+        {/* Wraps, and scrolls past a max height, so a long JSON value stays
+            readable without pushing the rest of the drawer out of reach. */}
+        <span className={styles.drawerValue}>
+          {prettyJson(String(row.value ?? "")) ?? String(row.value ?? "")}
+        </span>
       </DetailRow>
       <DetailRow label="Rule">
         <span className={styles.drawerRule}>
@@ -617,14 +652,71 @@ function EvaluationBody({
           <span className={styles.drawerMono}>{variationText}</span>
         </DetailRow>
       )}
+      <DetailRow label="Source">
+        <span className={styles.drawerMono}>{String(row.source ?? "")}</span>
+      </DetailRow>
+      {rowString(row, "environment") && (
+        <DetailRow label="Environment">
+          <span className={styles.drawerMono}>
+            {rowString(row, "environment")}
+          </span>
+        </DetailRow>
+      )}
 
-      <DetailSectionLabel spaced>User attributes</DetailSectionLabel>
-      {attributes ? (
-        attributes.map(([key, value]) => (
-          <DetailRow key={key} label={key}>
-            <AttributeValue value={value} />
-          </DetailRow>
-        ))
+      <DetailSectionLabel variant="heading" spaced>
+        User Attributes
+      </DetailSectionLabel>
+      {groups ? (
+        <>
+          {/* "Used in targeting" claims only that a current rule looks at the
+              attribute — not that it decided this row, which would need the
+              row's history evaluated against config it predates. */}
+          <div
+            className={clsx(
+              styles.drawerSubheading,
+              styles.drawerSubheadingFirst,
+            )}
+          >
+            Used in Targeting
+          </div>
+          {groups.targeted.map(attributeRow)}
+          {groups.absent.map((key) => (
+            <DetailRow key={key} label={key}>
+              <span className={styles.drawerAbsent}>not sent</span>
+            </DetailRow>
+          ))}
+          {/* Expanded by default and collapsible, count in the label; "Used in
+              targeting" above is never collapsed. Never subdivided:
+              the keys are customer-defined, and any taxonomy invented here
+              would be wrong for most orgs. */}
+          {groups.other.length > 0 && (
+            <>
+              <button
+                type="button"
+                className={clsx(
+                  styles.drawerSubheading,
+                  styles.drawerSubheadingSpaced,
+                  styles.drawerSubheadingToggle,
+                )}
+                aria-expanded={otherOpen}
+                onClick={() => setOtherOpen((open) => !open)}
+              >
+                {`Also Reported (${groups.other.length})`}
+                <PiCaretRight
+                  size={10}
+                  aria-hidden
+                  className={clsx(
+                    styles.drawerToggleCaret,
+                    otherOpen && styles.drawerToggleCaretOpen,
+                  )}
+                />
+              </button>
+              {otherOpen && groups.other.map(attributeRow)}
+            </>
+          )}
+        </>
+      ) : attributes ? (
+        attributes.map(attributeRow)
       ) : (
         <DetailEmpty>
           This SDK isn&apos;t reporting user attributes. Evaluations still
@@ -633,8 +725,22 @@ function EvaluationBody({
         </DetailEmpty>
       )}
 
-      <DetailSectionLabel spaced>Raw</DetailSectionLabel>
-      <pre className={styles.drawerRaw}>{JSON.stringify(raw, null, 2)}</pre>
+      {/* The action sits on the section it acts on: "Copy" needs no noun, the
+          label already names what is copied. Baseline-aligned so the label
+          keeps its own spacing to the block. */}
+      <Flex align="baseline" justify="between" className={styles.rawHeader}>
+        <DetailSectionLabel variant="heading">JSON</DetailSectionLabel>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={copied ? <PiCheck aria-hidden /> : <PiCopy aria-hidden />}
+          iconPosition="left"
+          onClick={onCopy}
+        >
+          {copied ? "Copied!" : "Copy"}
+        </Button>
+      </Flex>
+      <pre className={styles.drawerRaw}>{rowJson(row)}</pre>
     </>
   );
 }
@@ -1826,7 +1932,7 @@ export default function FeatureDiagnostics({
                 {items.length === 0 && !error && loading && (
                   // Nothing loaded to hold the shape of, so placeholder rows
                   // at the table's 30px pitch, one page's worth.
-                  <Box aria-hidden>
+                  <Box aria-hidden className={styles.emptyFrame}>
                     {Array.from({ length: rowsPerPage }, (_, i) => (
                       <Box key={i} className={styles.streamSkeletonRow}>
                         <Skeleton
@@ -1839,7 +1945,14 @@ export default function FeatureDiagnostics({
                   </Box>
                 )}
                 {items.length === 0 && !error && !loading && (
-                  <Box className={streamTableStyles.resultsPlaceholder}>
+                  // Framed like the table, so the container keeps its outline
+                  // when there are no rows to draw one.
+                  <Box
+                    className={clsx(
+                      streamTableStyles.resultsPlaceholder,
+                      styles.emptyFrame,
+                    )}
+                  >
                     <EmptyState
                       title="No evaluations found"
                       description={
@@ -1933,17 +2046,23 @@ export default function FeatureDiagnostics({
                               styles.streamRow,
                               openRowId === row.id && styles.rowSelected,
                             )}
+                            // The whole row opens the drawer. A click that
+                            // ends a text selection does not: dragging across
+                            // an id or rule name to copy it must not open it.
+                            onClick={() => {
+                              if (window.getSelection()?.toString()) return;
+                              setOpenRowId(String(row.id));
+                            }}
                           >
                             {/* Every column, not just the long ones: `value` holds
                             JSON on a non-boolean flag, and the timestamp clips
                             too once the card is narrow enough. */}
                             <TableCell>
-                              {/* The only way in: a whole-row click target
-                                  would break copying ids and names out of the
-                                  cells. Positioned against the row, so it
-                                  sits at the right edge whatever cell holds
-                                  it; focusable while hidden, so Tab reaches
-                                  it. */}
+                              {/* The keyboard way in (the row click is
+                                  mouse-only). Positioned against the row, so
+                                  it sits at the right edge whatever cell
+                                  holds it; focusable while hidden, so Tab
+                                  reaches it. */}
                               <button
                                 type="button"
                                 ref={(el) => {
@@ -1953,7 +2072,12 @@ export default function FeatureDiagnostics({
                                 aria-label="Open evaluation details"
                                 aria-expanded={openRowId === row.id}
                                 aria-controls={EVALUATION_DRAWER_ID}
-                                onClick={() => setOpenRowId(String(row.id))}
+                                onClick={(e) => {
+                                  // The row's own click would do the same;
+                                  // stop it so this opens exactly once.
+                                  e.stopPropagation();
+                                  setOpenRowId(String(row.id));
+                                }}
                               >
                                 <PiCaretRight size={12} aria-hidden />
                               </button>
@@ -2026,70 +2150,34 @@ export default function FeatureDiagnostics({
         </Frame>
       )}
 
-      {/* No scrim: the stream is read across rows, so the table stays
-          visible and another row's caret swaps the contents in place. */}
+      {/* With the shell's scrim, as in Event Logs: the page behind dims, and a
+          click on it closes the drawer. */}
       <DetailDrawer
         open={!!openRow}
         onClose={closeDrawer}
         id={EVALUATION_DRAWER_ID}
         ariaLabel="Feature evaluation details"
-        scrim={false}
         focusKey={openRowId}
         header={openRow ? <EvaluationHeader row={openRow} /> : null}
         footer={
           openRow ? (
-            <>
-              <Flex gap="2" align="center">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={
-                    copySuccess ? (
-                      <PiCheck aria-hidden />
-                    ) : (
-                      <PiCopy aria-hidden />
-                    )
-                  }
-                  iconPosition="left"
-                  onClick={() =>
-                    performCopy(
-                      JSON.stringify(
-                        Object.fromEntries(
-                          Object.entries(openRow).filter(([k]) => k !== "id"),
-                        ),
-                        null,
-                        2,
-                      ),
-                    )
-                  }
-                >
-                  {copySuccess ? "Copied!" : "Copy JSON"}
-                </Button>
-                {/* Only when the row names a user. Drives the stream's search,
-                    so it narrows the rows already fetched, not the stream —
-                    the label says so, or three matching rows would read as
-                    every evaluation that user had. */}
-                {rowString(openRow, "unit_id") && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSearchValue(rowString(openRow, "unit_id") ?? "");
-                      setPage(1);
-                    }}
-                  >
-                    Find this user in these results
-                  </Button>
-                )}
-              </Flex>
+            // Close alone, at the right edge (the footer spreads its children).
+            <Flex ml="auto">
               <Button onClick={closeDrawer}>Close</Button>
-            </>
+            </Flex>
           ) : null
         }
       >
         {openRow ? (
           <EvaluationBody
+            key={openRowId ?? undefined}
             row={openRow}
+            onCopy={() => performCopy(rowJson(openRow))}
+            copied={copySuccess}
+            targetingKeys={targetingAttributeKeys(
+              feature.rules ?? [],
+              rowString(openRow, "environment"),
+            )}
             ruleReference={resolveRuleCell(String(openRow.ruleId ?? ""))}
             variationText={
               rowString(openRow, "variationId")

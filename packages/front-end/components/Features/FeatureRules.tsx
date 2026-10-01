@@ -1,12 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  PiFunnel,
-  PiPlusBold,
-  PiMagnifyingGlass,
-  PiArrowClockwise,
-  PiClock,
-} from "react-icons/pi";
+import { PiFunnel, PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SafeRolloutInterface,
@@ -41,10 +35,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
-import DataFreshness from "@/components/Diagnostics/DataFreshness";
-import RuleFilterButton from "./RuleFilterButton";
-import { useFeatureUsage } from "./FeatureUsageGraph";
 import HoldoutValueModal from "./HoldoutValueModal";
+import RuleTrafficCard from "./RuleTrafficCard";
+import styles from "./FeatureRules.module.scss";
 
 export default function FeatureRules({
   environments,
@@ -138,13 +131,6 @@ export default function FeatureRules({
     );
   }, [feature.rules, environments]);
   const hasOrphanedRules = orphanedRuleIds.size > 0;
-
-  const {
-    usageUpdatedAt,
-    showFeatureUsage,
-    ruleTrafficLoading,
-    refreshRuleTraffic,
-  } = useFeatureUsage();
 
   // Externally triggered rule open (e.g. ramp timeline CTA). Switch to the
   // requested env if it projects there, else any env that has it.
@@ -364,34 +350,6 @@ export default function FeatureRules({
         <Heading as="h4" size="sm" mb="0">
           Rules
         </Heading>
-        <Flex align="center" gap="2" flexShrink="0">
-          {showFeatureUsage &&
-            (ruleTrafficLoading ? (
-              <Flex align="center" gap="1" style={{ whiteSpace: "nowrap" }}>
-                <PiClock size={12} color="var(--color-text-low)" />
-                <Text size="sm" color="text-mid" whiteSpace="nowrap">
-                  Refreshing…
-                </Text>
-              </Flex>
-            ) : (
-              <DataFreshness
-                updatedAt={usageUpdatedAt}
-                verb="Updated"
-                icon={<PiClock size={12} color="var(--color-text-low)" />}
-              />
-            ))}
-          {showFeatureUsage && (
-            <RuleFilterButton
-              label="Refresh rule traffic"
-              icon={<PiArrowClockwise size={12} strokeWidth={2} />}
-              // Same flag as the figures' skeleton, so the button can't be
-              // pressed again while the counts are still loading.
-              spinning={ruleTrafficLoading}
-              disabled={ruleTrafficLoading}
-              onClick={() => refreshRuleTraffic()}
-            />
-          )}
-        </Flex>
       </Flex>
       {!hasRules && (
         <p>
@@ -577,115 +535,126 @@ export default function FeatureRules({
         </Flex>
       </Tabs>
 
-      <Box mt="4">
-        {env === null ? (
-          <>
-            {(feature.rules ?? []).length > 0 || includeHoldoutRuleAllEnvs ? (
-              <RuleList
-                allEnvsView
-                environments={environments}
-                feature={feature}
-                baseFeature={baseFeature}
-                mutate={mutate}
-                setRuleModal={setRuleModal}
-                version={currentVersion}
-                setVersion={setVersion}
-                locked={isLocked}
-                lockedBySchedule={lockedBySchedule}
-                experimentsMap={experimentsMap}
-                hideInactive={hideInactive}
-                isDraft={isDraft}
-                safeRolloutsMap={safeRolloutsMap}
-                holdout={liveHoldoutActiveAnyEnv ? holdout : undefined}
-                holdoutIsDeleted={draftDeletesHoldoutAnyEnv}
-                holdoutIsPendingAdd={draftAddsHoldoutAnyEnv}
-                openHoldoutModal={() => setHoldoutModal(true)}
-                revisionList={revisionList}
-                rampSchedules={rampSchedules}
-                draftRevision={draftRevision}
-                baseRevision={baseRevision}
-                hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
-              />
-            ) : (
-              <Box py="4" className="text-muted">
-                <em>No rules have been added yet</em>
-              </Box>
-            )}
-            {!isLocked && canEditDrafts && (
-              <Flex mt="5" mb="1" justify="end">
-                <Button
-                  onClick={() => {
-                    // environment="" → rule modal defaults to allEnvironments scope
-                    setRuleModal({
-                      environment: "",
-                      i: (feature.rules ?? []).length,
-                      mode: "create",
-                    });
-                    track("Viewed Rule Modal", {
-                      source: "add-rule",
-                      type: "force",
-                    });
-                  }}
-                  icon={<PiPlusBold />}
-                >
-                  Add Rule
-                </Button>
-              </Flex>
-            )}
-          </>
-        ) : activeEnv ? (
-          <>
-            {rulesByEnv[activeEnv.id]?.length > 0 || includeHoldoutRule ? (
-              <RuleList
-                environment={activeEnv.id}
-                feature={feature}
-                baseFeature={baseFeature}
-                mutate={mutate}
-                setRuleModal={setRuleModal}
-                version={currentVersion}
-                setVersion={setVersion}
-                locked={isLocked}
-                lockedBySchedule={lockedBySchedule}
-                experimentsMap={experimentsMap}
-                hideInactive={hideInactive}
-                isDraft={isDraft}
-                safeRolloutsMap={safeRolloutsMap}
-                holdout={liveHoldoutActive ? holdout : undefined}
-                holdoutIsDeleted={draftDeletesHoldout}
-                holdoutIsPendingAdd={draftAddsHoldout}
-                openHoldoutModal={() => setHoldoutModal(true)}
-                revisionList={revisionList}
-                rampSchedules={rampSchedules}
-                draftRevision={draftRevision}
-                baseRevision={baseRevision}
-              />
-            ) : (
-              <Box py="4" className="text-muted">
-                <em>No rules have been added to this environment yet</em>
-              </Box>
-            )}
-            {!isLocked && canEditDrafts && (
+      {/* Rules on the left, the Traffic panel on the right, both starting
+          under the tab row. The container query lives on the outer box (an
+          element cannot query its own size); below ~900px the panel drops
+          under the list at full width. Without usage data the panel renders
+          nothing and the list takes the full width. */}
+      <Box className={styles.rulesBody}>
+        <div className={styles.rulesSplit}>
+          <div className={styles.rulesList}>
+            {env === null ? (
               <>
-                <Flex pt="4" justify="between" align="center">
-                  <Text weight="semibold" size="lg">
-                    Add rule to {activeEnv.id}
-                  </Text>
-                  <Button
-                    onClick={() => {
-                      setRuleModal({
-                        environment: activeEnv.id,
-                        i: (feature.rules ?? []).length,
-                        mode: "create",
-                      });
-                    }}
-                  >
-                    Add Rule
-                  </Button>
-                </Flex>
+                {(feature.rules ?? []).length > 0 ||
+                includeHoldoutRuleAllEnvs ? (
+                  <RuleList
+                    allEnvsView
+                    environments={environments}
+                    feature={feature}
+                    baseFeature={baseFeature}
+                    mutate={mutate}
+                    setRuleModal={setRuleModal}
+                    version={currentVersion}
+                    setVersion={setVersion}
+                    locked={isLocked}
+                    lockedBySchedule={lockedBySchedule}
+                    experimentsMap={experimentsMap}
+                    hideInactive={hideInactive}
+                    isDraft={isDraft}
+                    safeRolloutsMap={safeRolloutsMap}
+                    holdout={liveHoldoutActiveAnyEnv ? holdout : undefined}
+                    holdoutIsDeleted={draftDeletesHoldoutAnyEnv}
+                    holdoutIsPendingAdd={draftAddsHoldoutAnyEnv}
+                    openHoldoutModal={() => setHoldoutModal(true)}
+                    revisionList={revisionList}
+                    rampSchedules={rampSchedules}
+                    draftRevision={draftRevision}
+                    baseRevision={baseRevision}
+                    hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
+                  />
+                ) : (
+                  <Box py="4" className="text-muted">
+                    <em>No rules have been added yet</em>
+                  </Box>
+                )}
+                {!isLocked && canEditDrafts && (
+                  <Flex mt="5" mb="1" justify="end">
+                    <Button
+                      onClick={() => {
+                        // environment="" → rule modal defaults to allEnvironments scope
+                        setRuleModal({
+                          environment: "",
+                          i: (feature.rules ?? []).length,
+                          mode: "create",
+                        });
+                        track("Viewed Rule Modal", {
+                          source: "add-rule",
+                          type: "force",
+                        });
+                      }}
+                      icon={<PiPlusBold />}
+                    >
+                      Add Rule
+                    </Button>
+                  </Flex>
+                )}
               </>
-            )}
-          </>
-        ) : null}
+            ) : activeEnv ? (
+              <>
+                {rulesByEnv[activeEnv.id]?.length > 0 || includeHoldoutRule ? (
+                  <RuleList
+                    environment={activeEnv.id}
+                    feature={feature}
+                    baseFeature={baseFeature}
+                    mutate={mutate}
+                    setRuleModal={setRuleModal}
+                    version={currentVersion}
+                    setVersion={setVersion}
+                    locked={isLocked}
+                    lockedBySchedule={lockedBySchedule}
+                    experimentsMap={experimentsMap}
+                    hideInactive={hideInactive}
+                    isDraft={isDraft}
+                    safeRolloutsMap={safeRolloutsMap}
+                    holdout={liveHoldoutActive ? holdout : undefined}
+                    holdoutIsDeleted={draftDeletesHoldout}
+                    holdoutIsPendingAdd={draftAddsHoldout}
+                    openHoldoutModal={() => setHoldoutModal(true)}
+                    revisionList={revisionList}
+                    rampSchedules={rampSchedules}
+                    draftRevision={draftRevision}
+                    baseRevision={baseRevision}
+                  />
+                ) : (
+                  <Box py="4" className="text-muted">
+                    <em>No rules have been added to this environment yet</em>
+                  </Box>
+                )}
+                {!isLocked && canEditDrafts && (
+                  <>
+                    <Flex pt="4" justify="between" align="center">
+                      <Text weight="semibold" size="lg">
+                        Add rule to {activeEnv.id}
+                      </Text>
+                      <Button
+                        onClick={() => {
+                          setRuleModal({
+                            environment: activeEnv.id,
+                            i: (feature.rules ?? []).length,
+                            mode: "create",
+                          });
+                        }}
+                      >
+                        Add Rule
+                      </Button>
+                    </Flex>
+                  </>
+                )}
+              </>
+            ) : null}
+          </div>
+          <RuleTrafficCard feature={feature} experimentsMap={experimentsMap} />
+        </div>
       </Box>
       {ruleModal !== null && (
         <RuleModal

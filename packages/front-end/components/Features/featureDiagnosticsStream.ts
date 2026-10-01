@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { stemRuleId } from "shared/util";
+import { extractConditionAttributeKeys, stemRuleId } from "shared/util";
 import { getValidDate } from "shared/dates";
 import type { FeatureRule } from "shared/types/feature";
 
@@ -250,4 +250,70 @@ export function planStreamColumnWidths(
     );
   });
   return widths;
+}
+
+/**
+ * Attribute keys referenced by a targeting condition on any of the flag's
+ * rules in `environment` (all rules when the row has none), in rule order.
+ * Read from the flag's CURRENT config: this says a rule looks at the
+ * attribute, not that it decided this row's outcome.
+ *
+ * Conditions are parsed with the shared extractConditionAttributeKeys, the
+ * same walker the attribute registration check uses. Saved-group targeting is
+ * not included — only the condition itself.
+ */
+export function targetingAttributeKeys(
+  rules: FeatureRule[],
+  environment: string | null,
+): string[] {
+  const keys: string[] = [];
+  rules.forEach((rule) => {
+    const inEnvironment =
+      !environment ||
+      rule.allEnvironments ||
+      (rule.environments ?? []).includes(environment);
+    if (!inEnvironment || !rule.condition) return;
+    try {
+      extractConditionAttributeKeys(JSON.parse(rule.condition)).forEach(
+        (key) => {
+          if (!keys.includes(key)) keys.push(key);
+        },
+      );
+    } catch {
+      // An unparseable condition references nothing we can name.
+    }
+  });
+  return keys;
+}
+
+/** Whether a condition key refers to this attribute ("user.id" -> "user"). */
+function refersTo(conditionKey: string, attribute: string): boolean {
+  return conditionKey === attribute || conditionKey.startsWith(`${attribute}.`);
+}
+
+/**
+ * The drawer's attributes split by whether a rule's condition references them.
+ * Null when no condition references anything, so the caller renders the flat
+ * list as before. Both groups keep the SDK's order; condition keys the SDK did
+ * not send are listed as `absent` — a missing attribute is usually why a
+ * condition failed.
+ */
+export function groupAttributesByTargeting(
+  attributes: [string, unknown][],
+  targetingKeys: string[],
+): {
+  targeted: [string, unknown][];
+  absent: string[];
+  other: [string, unknown][];
+} | null {
+  if (!targetingKeys.length) return null;
+  const isTargeted = (key: string) =>
+    targetingKeys.some((t) => refersTo(t, key));
+  return {
+    targeted: attributes.filter(([key]) => isTargeted(key)),
+    absent: targetingKeys.filter(
+      (t) => !attributes.some(([key]) => refersTo(t, key)),
+    ),
+    other: attributes.filter(([key]) => !isTargeted(key)),
+  };
 }

@@ -1,0 +1,156 @@
+// The Traffic panel beside the rule list. A sibling of the rule cards, not a
+// nested card: the same 1px border and fill they have, no extra elevation.
+.card {
+  flex: 0 0 300px;
+  width: 300px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-4);
+  background-color: var(--color-panel-solid);
+
+  // Stays in view while the rule list scrolls past, released at the end of
+  // the list (its row is the sticky boundary). 20px under the pinned feature
+  // tabs, whose bottom edge is the established 95px (see .stickyHeader in
+  // FeatureDiagnostics.module.scss). Capped to the viewport, with its own
+  // scroll, so a long legend can't run off the bottom of the screen.
+  position: sticky;
+  // 20px, matching the gap above it under the tabs before it sticks.
+  top: 115px;
+  max-height: calc(100vh - 115px - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.header {
+  margin-bottom: 14px;
+}
+
+// The window, under the "Traffic" heading.
+.window {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-text-low);
+}
+
+.skeleton {
+  display: block;
+  border-radius: 5px;
+}
+
+// One 100% stacked bar. The track shows when there is nothing to draw; the
+// outer ends are rounded by clipping, so whichever segments are first and
+// last take the radius.
+.bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background-color: var(--gray-a3);
+}
+
+.segment {
+  flex-basis: 0;
+  // A sliver of a share stays visible.
+  min-width: 2px;
+}
+
+.caption {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-text-mid);
+  font-variant-numeric: tabular-nums;
+}
+
+.captionMuted {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-text-low);
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  font-size: 12px;
+  color: var(--color-text-low);
+}
+
+.legend {
+  margin-top: 12px;
+}
+
+// [pill] [swatch] [name] [share] [count], hairline between rows.
+.row {
+  display: grid;
+  grid-template-columns: 17px 9px minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--gray-a3);
+  font-size: 12px;
+  color: var(--color-text-high);
+
+  &:first-child {
+    border-top: none;
+  }
+}
+
+// Default value and the other non-rule rows.
+.rowMuted {
+  color: var(--color-text-low);
+}
+
+// Same as the breakdown panel's index pill.
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 16px;
+  border-radius: 4px;
+  background: #f1f3f6;
+  color: var(--color-text-mid);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+:global(.dark-theme) .pill {
+  background: var(--gray-a4);
+}
+
+.pillBlank {
+  visibility: hidden;
+}
+
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+// Same as the breakdown panel's Default Value swatch.
+.swatchDefault {
+  box-sizing: border-box;
+  border: 1px solid var(--gray-a6);
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share {
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.count {
+  min-width: 40px;
+  font-size: 11px;
+  color: var(--color-text-low);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

@@ -64,16 +64,32 @@ export function DetailRow({
   );
 }
 
-/** A section heading. `spaced` for every section after the first. */
+/**
+ * A section heading. `spaced` for every section after the first.
+ *
+ * `variant="heading"` is a heavier, sentence-case heading for a drawer whose
+ * sections carry their own subheadings, so the two levels read apart; the
+ * default "label" is the small uppercase label, unchanged.
+ */
 export function DetailSectionLabel({
   children,
   spaced = false,
+  variant = "label",
 }: {
   children: ReactNode;
   spaced?: boolean;
+  variant?: "label" | "heading";
 }) {
   return (
-    <Box className={clsx(styles.sectionLabel, spaced && styles.sectionSpaced)}>
+    <Box
+      className={clsx(
+        variant === "heading" ? styles.sectionHeading : styles.sectionLabel,
+        spaced &&
+          (variant === "heading"
+            ? styles.sectionHeadingSpaced
+            : styles.sectionSpaced),
+      )}
+    >
       {children}
     </Box>
   );

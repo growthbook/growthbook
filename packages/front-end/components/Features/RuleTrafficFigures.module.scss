@@ -1,9 +1,0 @@
-// Radix's Skeleton pulses unconditionally, with !important. Doubled class to
-// out-rank `.rt-Skeleton` under the same !important: a static neutral block at
-// the same size.
-@media (prefers-reduced-motion: reduce) {
-  .skeleton.skeleton {
-    animation: none !important;
-    background-color: var(--gray-a3) !important;
-  }
-}

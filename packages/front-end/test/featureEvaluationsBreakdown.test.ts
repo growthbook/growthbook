@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   buildBreakdownRows,
   buildRuleCellResolver,
+  buildRuleTrafficSegments,
   buildSeriesColors,
   DEFAULT_RULE_COLOR,
   DEFAULT_RULE_KEY,
@@ -190,5 +191,76 @@ describe("buildRuleCellResolver", () => {
     expect(resolve(DEFAULT_RULE_KEY)).toEqual({ kind: "default" });
     expect(resolve("")).toEqual({ kind: "none" });
     expect(resolve("fr_gone")).toEqual({ kind: "deleted" });
+  });
+});
+
+describe("buildRuleTrafficSegments", () => {
+  const rules = [
+    rule({ id: "fr_a", description: "Beta testers" }),
+    rule({ id: "fr_b__production", type: "rollout" }),
+  ];
+  const byRuleId: { v: Record<string, number> }[] = [
+    { v: { fr_a: 50, fr_b: 30, $default: 10 } },
+    { v: { fr_a: 5, fr_gone: 4 } },
+  ];
+
+  it("orders rules, removed, default, then served-without-a-rule", () => {
+    const { segments, denominator, notBrokenDown } = buildRuleTrafficSegments({
+      rules,
+      experimentsMap: noExperiments,
+      byRuleId,
+      total: 120,
+      includedEvaluations: 105,
+      ruleNumberOffset: 1,
+    });
+    expect(segments.map((s) => [s.kind, s.count])).toEqual([
+      ["rule", 55],
+      ["rule", 30],
+      ["removed", 4],
+      ["default", 10],
+      ["none", 6],
+    ]);
+    // The segments cover the denominator exactly.
+    expect(segments.reduce((sum, s) => sum + s.count, 0)).toBe(denominator);
+    expect(denominator).toBe(105);
+    expect(notBrokenDown).toBe(15);
+  });
+
+  it("keeps the Diagnostics colour and the card's number for each rule", () => {
+    const { segments } = buildRuleTrafficSegments({
+      rules,
+      experimentsMap: noExperiments,
+      byRuleId,
+      total: 99,
+      ruleNumberOffset: 2,
+    });
+    const colors = buildSeriesColors("ruleId", [], rules);
+    expect(segments[0]).toMatchObject({ index: 2, color: colors.fr_a });
+    expect(segments[1]).toMatchObject({ index: 3, color: colors.fr_b });
+  });
+
+  it("without the disclosure, covers byRuleId alone", () => {
+    const { segments, denominator, notBrokenDown } = buildRuleTrafficSegments({
+      rules,
+      experimentsMap: noExperiments,
+      byRuleId,
+      total: 99,
+      ruleNumberOffset: 1,
+    });
+    expect(denominator).toBe(99);
+    expect(segments[segments.length - 1]).toMatchObject({ count: 0 });
+    expect(notBrokenDown).toBe(0);
+  });
+
+  it("lists every rule even with no traffic", () => {
+    const { segments, denominator } = buildRuleTrafficSegments({
+      rules,
+      experimentsMap: noExperiments,
+      byRuleId: [],
+      total: 0,
+      ruleNumberOffset: 1,
+    });
+    expect(segments.filter((s) => s.kind === "rule")).toHaveLength(2);
+    expect(denominator).toBe(0);
   });
 });

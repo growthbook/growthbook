@@ -93,6 +93,23 @@
   color: var(--slate-10);
 }
 
+// The "heading" variant: 14px semibold in the primary text colour, for a
+// drawer whose sections have their own subheadings in the label style.
+// 4px below, plus a first row's 4px top padding: 8px to the content.
+.sectionHeading {
+  margin-bottom: 4px;
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+  font-weight: 600;
+  color: var(--color-text-high);
+}
+
+// A heading's own section spacing: 32px from the section above, with that
+// section's last row's 4px bottom padding.
+.sectionHeadingSpaced {
+  margin-top: 28px;
+}
+
 .sectionSpaced {
   margin-top: 22px;
 }

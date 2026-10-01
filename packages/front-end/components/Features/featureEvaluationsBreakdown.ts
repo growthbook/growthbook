@@ -324,3 +324,125 @@ export function buildRuleCellResolver(
     };
   };
 }
+
+/**
+ * "Served without a rule": a lighter neutral than DEFAULT_RULE_COLOR and
+ * OTHER_COLOR, so the two non-rule segments are told apart. Each also has its
+ * own legend row, so colour never carries the distinction alone.
+ */
+export const NO_RULE_COLOR = "#c8cad4";
+
+export interface RuleTrafficSegment {
+  key: string;
+  kind: "rule" | "removed" | "default" | "none";
+  /** The rule's number, as on its card. Rules only. */
+  index?: number;
+  label: string;
+  color: string;
+  count: number;
+}
+
+/**
+ * The Traffic card's segments, in display order: the flag's rules in rule
+ * order (every rule, even at zero), then traffic under rule ids no longer on
+ * the flag (only when there is some), then the default value, then
+ * evaluations served without a rule.
+ *
+ * Order is deliberate: an override short-circuits before any rule runs, so in
+ * flow order "served without a rule" would come first. It goes last so the
+ * rules — the if / else-if chain — read unbroken, with the non-rule groups
+ * together at the end.
+ *
+ * The denominator is `includedEvaluations` from the same response: every
+ * per-rule row the warehouse returned. byRuleId is that set minus the
+ * empty-ruleId rows, so the difference IS "served without a rule", exactly.
+ * Anything past the denominator (`total` above it) was counted but cut by the
+ * scan's row cap, and has no rule to sit under: it is reported, not drawn.
+ * Without the disclosure (dummy mode) the denominator is byRuleId's own sum.
+ */
+export function buildRuleTrafficSegments({
+  rules,
+  experimentsMap,
+  byRuleId,
+  total,
+  includedEvaluations,
+  ruleNumberOffset,
+}: {
+  rules: FeatureRule[];
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  byRuleId: { v: Record<string, number> }[];
+  total: number;
+  includedEvaluations?: number;
+  ruleNumberOffset: number;
+}): {
+  segments: RuleTrafficSegment[];
+  denominator: number;
+  notBrokenDown: number;
+} {
+  const byStem = new Map<string, number>();
+  let ruleRowsSum = 0;
+  byRuleId.forEach((point) =>
+    Object.entries(point.v).forEach(([key, n]) => {
+      const count = n || 0;
+      ruleRowsSum += count;
+      const stem = stemRuleId(key);
+      byStem.set(stem, (byStem.get(stem) ?? 0) + count);
+    }),
+  );
+
+  const colors = buildSeriesColors("ruleId", [], rules);
+  const segments: RuleTrafficSegment[] = [];
+  const listed = new Set<string>([DEFAULT_RULE_KEY]);
+  rules.forEach((rule, i) => {
+    if (!rule.id) return;
+    const stem = stemRuleId(rule.id);
+    if (listed.has(stem)) return;
+    listed.add(stem);
+    segments.push({
+      key: stem,
+      kind: "rule",
+      index: i + ruleNumberOffset,
+      label: ruleReference(rule, experimentsMap),
+      color: colors[stem],
+      count: byStem.get(stem) ?? 0,
+    });
+  });
+
+  let removed = 0;
+  byStem.forEach((count, stem) => {
+    if (!listed.has(stem)) removed += count;
+  });
+  if (removed > 0) {
+    segments.push({
+      key: "(removed)",
+      kind: "removed",
+      label: "Rules no longer on this flag",
+      color: OTHER_COLOR,
+      count: removed,
+    });
+  }
+
+  segments.push({
+    key: DEFAULT_RULE_KEY,
+    kind: "default",
+    label: "Default value",
+    color: DEFAULT_RULE_COLOR,
+    count: byStem.get(DEFAULT_RULE_KEY) ?? 0,
+  });
+
+  const denominator = Math.max(includedEvaluations ?? 0, ruleRowsSum);
+  segments.push({
+    key: "(none)",
+    kind: "none",
+    label: "Served without a rule",
+    color: NO_RULE_COLOR,
+    count: denominator - ruleRowsSum,
+  });
+
+  return {
+    segments,
+    denominator,
+    notBrokenDown:
+      includedEvaluations === undefined ? 0 : Math.max(0, total - denominator),
+  };
+}
