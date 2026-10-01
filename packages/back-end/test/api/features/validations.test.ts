@@ -1005,15 +1005,47 @@ describe("Saved Group scope in ramp patches", () => {
 });
 
 describe("normalizeInlineRampSchedule", () => {
-  it("omits startActions and endActions when the input does not provide them", () => {
-    const action = normalizeInlineRampSchedule({ steps: [] }, "r1");
+  /** Only the monitoring cases read this, from the request's foreignRefs. */
+  const datasource = {
+    id: "ds_1",
+    settings: {
+      queries: {
+        exposure: [
+          {
+            id: "eq_multi",
+            name: "Multi",
+            userIdType: "anonymous_id",
+            userIdTypes: ["user_id", "anonymous_id"],
+            query: "SELECT 1",
+            dimensions: [],
+          },
+        ],
+      },
+    },
+  };
+  const context = {
+    foreignRefs: { datasource: new Map([["ds_1", datasource]]) },
+    dangerouslyGetDataSourceByIdBypassPermission: jest.fn(),
+  } as unknown as ApiReqContext;
+  const monitoring = {
+    datasourceId: "ds_1",
+    guardrailMetricIds: ["met_1"],
+  };
+
+  it("omits startActions and endActions when the input does not provide them", async () => {
+    const action = await normalizeInlineRampSchedule(
+      context,
+      { steps: [] },
+      "r1",
+    );
     expect("startActions" in action).toBe(false);
     expect("endActions" in action).toBe(false);
     expect(action).toMatchObject({ mode: "create", ruleId: "r1", steps: [] });
   });
 
-  it("normalizes provided startActions and endActions into feature-rule actions", () => {
-    const action = normalizeInlineRampSchedule(
+  it("normalizes provided startActions and endActions into feature-rule actions", async () => {
+    const action = await normalizeInlineRampSchedule(
+      context,
       {
         steps: [],
         startActions: [{ patch: { coverage: 0 } }],
@@ -1027,5 +1059,57 @@ describe("normalizeInlineRampSchedule", () => {
     expect(action.endActions).toEqual([
       { targetType: "feature-rule", targetId: "t1", patch: { coverage: 1 } },
     ]);
+  });
+
+  it("keeps the live ramp's identifier when re-sending its query without one", async () => {
+    const action = await normalizeInlineRampSchedule(
+      context,
+      {
+        steps: [],
+        monitoringConfig: { ...monitoring, exposureQuery: { id: "eq_multi" } },
+      },
+      "r1",
+      undefined,
+      {
+        previousMonitoringConfig: {
+          ...monitoring,
+          exposureQueryId: "eq_multi",
+          exposureQueryIdentifierType: "user_id",
+        },
+      },
+    );
+    expect(action.monitoringConfig).toMatchObject({
+      exposureQueryId: "eq_multi",
+      exposureQueryIdentifierType: "user_id",
+    });
+  });
+
+  it("rejects a new selection by flat id on an ambiguous query", async () => {
+    await expect(
+      normalizeInlineRampSchedule(
+        context,
+        {
+          steps: [],
+          monitoringConfig: { ...monitoring, exposureQueryId: "eq_multi" },
+        },
+        "r1",
+      ),
+    ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
+  });
+
+  it("requires the grouped field to name an identifier on an ambiguous query", async () => {
+    await expect(
+      normalizeInlineRampSchedule(
+        context,
+        {
+          steps: [],
+          monitoringConfig: {
+            ...monitoring,
+            exposureQuery: { id: "eq_multi" },
+          },
+        },
+        "r1",
+      ),
+    ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
   });
 });
