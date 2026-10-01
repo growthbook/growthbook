@@ -7,7 +7,8 @@ const ApiKeysPage: FC = () => {
   const permissionsUtils = usePermissionsUtil();
   if (
     !permissionsUtils.canCreateApiKey() &&
-    !permissionsUtils.canDeleteApiKey()
+    !permissionsUtils.canDeleteApiKey() &&
+    !permissionsUtils.canManageOAuthApps()
   ) {
     return (
       <div className="container pagecontents">

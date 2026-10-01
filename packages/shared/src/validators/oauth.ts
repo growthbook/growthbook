@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createBaseSchemaWithPrimaryKey } from "./base-model";
+import { isLoopbackHost } from "../util/oauth";
+import { baseSchema, createBaseSchemaWithPrimaryKey } from "./base-model";
+
+// "org-apps" allows only OAuth apps registered by this organization's admins.
+export const oauthAccessPolicyValidator = z.enum(["any", "org-apps", "none"]);
+export type OAuthAccessPolicy = z.infer<typeof oauthAccessPolicyValidator>;
 
 /**
  * Public OAuth clients registered via DCR (RFC 7591). No org scoping.
@@ -22,6 +27,48 @@ export const oauthClientValidator = z
   .strict();
 
 export type OAuthClientInterface = z.infer<typeof oauthClientValidator>;
+
+const oauthAppRedirectUri = z
+  .string()
+  .url()
+  .refine((uri) => {
+    const { protocol, hostname } = new URL(uri);
+    // Plain http is only safe on loopback, where the code never leaves the machine.
+    return (
+      protocol === "https:" ||
+      (protocol === "http:" && isLoopbackHost(hostname))
+    );
+  }, "Redirect URIs must use https (http is allowed only for localhost)");
+
+export const oauthAppPropsValidator = z
+  .object({
+    clientName: z.string().trim().min(1).max(100),
+    redirectUris: z.array(oauthAppRedirectUri).min(1).max(10),
+    clientUri: z.string().url().optional().or(z.literal("")),
+  })
+  .strict();
+
+export type OAuthAppProps = z.infer<typeof oauthAppPropsValidator>;
+
+/**
+ * Confidential OAuth clients registered by an org's admins ("OAuth apps" in
+ * the product). Own collection; the BaseModel `id` is the OAuth `client_id`.
+ */
+export const orgOAuthClientValidator = baseSchema.safeExtend({
+  clientName: z.string(),
+  redirectUris: z.array(z.string()).min(1),
+  clientUri: z.string(),
+  clientSecretHash: z.string(),
+  createdBy: z.string(),
+});
+
+export type OrgOAuthClientInterface = z.infer<typeof orgOAuthClientValidator>;
+
+/** Admin-facing shape of an org OAuth app; never includes the secret hash. */
+export type OAuthAppInterface = Omit<
+  OrgOAuthClientInterface,
+  "id" | "organization" | "clientSecretHash"
+> & { clientId: string };
 
 /**
  * Short-lived authorization codes. Primary key is the hashed code
@@ -84,6 +131,8 @@ export const oauthGrantValidator = createBaseSchemaWithPrimaryKey({
   scope: z.string().optional(),
   resource: z.string().optional(),
   revoked: z.boolean(),
+  // Set with `revoked`; consent that predates it can't re-arm the grant.
+  revokedAt: z.date().nullable().optional(),
   expiresAt: z.date(),
 });
 
@@ -95,7 +144,8 @@ export type OAuthGrantInterface = z.infer<typeof oauthGrantValidator>;
  */
 export const oauthDcrRequestValidator = z.object({
   redirect_uris: z.array(z.string().url()).min(1),
-  token_endpoint_auth_method: z.literal("none").optional(),
+  // Accepted but not honored: DCR clients are always registered as public (RFC 7591 §3.2.1).
+  token_endpoint_auth_method: z.string().optional(),
   grant_types: z.array(z.string()).optional(),
   response_types: z.array(z.string()).optional(),
   client_name: z.string().optional(),

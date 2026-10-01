@@ -116,8 +116,10 @@ export class ApiKeyModel extends BaseClass {
     if (doc.userId) {
       // Creation only — existing tokens are already rejected at authentication,
       // and users must still be able to disable or delete the ones they have.
+      // OAuth-issued tokens are governed by the org's OAuth access policy instead.
       if (
         !previousDoc &&
+        !doc.oauthClientId &&
         this.context.org.settings?.disablePersonalAccessTokens
       ) {
         this.context.throwBadRequestError(

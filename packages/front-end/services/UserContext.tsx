@@ -82,6 +82,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createPresentations: false,
   createMetricGroups: false,
   manageApiKeys: false,
+  manageOAuthApps: false,
   manageBilling: false,
   manageNamespaces: false,
   manageNorthStarMetric: false,

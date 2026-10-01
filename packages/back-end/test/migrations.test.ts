@@ -2142,6 +2142,7 @@ describe("Organization Migration", () => {
         statsEngine: DEFAULT_STATS_ENGINE,
         restApiBypassesReviews: true,
         stickyBucketingOnByDefault: true,
+        oauthAccess: "any",
         environments: [
           {
             id: "dev",
@@ -2156,6 +2157,26 @@ describe("Organization Migration", () => {
         ],
       },
     });
+  });
+
+  it("backfills oauthAccess from the PAT kill switch for orgs missing the setting", () => {
+    const base: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+    };
+    const upgrade = (settings: OrganizationInterface["settings"]) =>
+      upgradeOrganizationDoc({ ...base, settings }).settings.oauthAccess;
+
+    expect(upgrade({})).toBe("any");
+    expect(upgrade({ disablePersonalAccessTokens: true })).toBe("none");
+    expect(
+      upgrade({ disablePersonalAccessTokens: true, oauthAccess: "org-apps" }),
+    ).toBe("org-apps");
   });
 
   it("backfills restApiBypassesReviews=true for orgs missing the setting", () => {

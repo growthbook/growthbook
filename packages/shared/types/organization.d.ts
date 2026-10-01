@@ -28,6 +28,7 @@ import {
   member,
   memberRoleInfo,
   memberRoleWithProjects,
+  OAuthAccessPolicy,
   pendingMember,
   projectMemberRole,
 } from "shared/validators";
@@ -409,11 +410,14 @@ export interface OrganizationSettings {
   postStratificationEnabled?: boolean;
   approvalFlows?: ApprovalFlowConfigurations;
   learningStatuses?: LearningStatus[];
-  // When true, members can't create user-attributed API tokens and existing
-  // ones are rejected at authentication. Covers Personal Access Tokens and
-  // OAuth-issued access tokens; app-issued Visual Editor keys are unaffected.
+  // When true, members can't create user-attributed API keys (Personal Access
+  // Tokens, Visual Editor keys) and existing ones are rejected at authentication.
   disablePersonalAccessTokens?: boolean;
+  // Which OAuth clients may act as members; resolve with getOAuthAccessPolicy.
+  oauthAccess?: OAuthAccessPolicy;
 }
+
+export type { OAuthAccessPolicy };
 
 export type LearningStatusColor =
   | "gray"

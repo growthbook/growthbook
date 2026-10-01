@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { Request } from "express";
 import { OAuthDcrRequest } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
+import { isOAuthClientAllowed } from "shared/util";
 import {
   APP_ORIGIN,
   OAUTH_ACCESS_TOKEN_TTL_SECONDS,
@@ -13,9 +14,11 @@ import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import {
   createOAuthClient,
   getOAuthClientById,
+  getOAuthClientsByIds,
   touchOAuthClient,
-} from "back-end/src/models/OAuthClientModel";
+} from "back-end/src/models/GlobalOAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
+import { OrgOAuthClientModel } from "back-end/src/models/OrgOAuthClientModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {
   getContextForAgendaJobByOrgObject,
@@ -26,6 +29,7 @@ import {
   hashToken,
   OAUTH_ACCESS_TOKEN_PREFIX,
   OAUTH_REFRESH_TOKEN_PREFIX,
+  timingSafeEqualStrings,
   verifyPkceS256,
 } from "back-end/src/util/oauth-token.util";
 
@@ -50,6 +54,90 @@ async function getOrgForGrant(
     throw new OAuthError("invalid_grant", "Organization no longer exists");
   }
   return org;
+}
+
+/** Either kind of client, as the token endpoints see them. */
+interface ResolvedOAuthClient {
+  clientId: string;
+  clientName: string;
+  clientUri?: string;
+  redirectUris: string[];
+  // The registering org for org apps; null for public DCR clients.
+  organization: string | null;
+  clientSecretHash: string | null;
+}
+
+/** The token endpoints only know a client_id, so look in both collections. */
+async function findOAuthClient(
+  clientId: string,
+): Promise<ResolvedOAuthClient | null> {
+  const app = await OrgOAuthClientModel.dangerousFindById(clientId);
+  if (app) {
+    return {
+      clientId: app.id,
+      clientName: app.clientName,
+      clientUri: app.clientUri || undefined,
+      redirectUris: app.redirectUris,
+      organization: app.organization,
+      clientSecretHash: app.clientSecretHash,
+    };
+  }
+  const client = await getOAuthClientById(clientId);
+  if (!client) return null;
+  return {
+    clientId: client.clientId,
+    clientName: client.clientName || client.clientId,
+    clientUri: client.clientUri,
+    redirectUris: client.redirectUris,
+    organization: null,
+    clientSecretHash: null,
+  };
+}
+
+/** Confidential clients (org OAuth apps) must present their secret; public DCR clients have none. */
+function verifyClientSecret(
+  client: ResolvedOAuthClient,
+  clientSecret: string | undefined,
+): void {
+  if (!client.clientSecretHash) return;
+  if (
+    !clientSecret ||
+    !timingSafeEqualStrings(hashToken(clientSecret), client.clientSecretHash)
+  ) {
+    throw new OAuthError("invalid_client", "Client authentication failed", 401);
+  }
+}
+
+async function authenticateClient(
+  clientId: string,
+  clientSecret: string | undefined,
+): Promise<ResolvedOAuthClient> {
+  const client = await findOAuthClient(clientId);
+  if (!client) {
+    throw new OAuthError("invalid_client", "Unknown client_id");
+  }
+  verifyClientSecret(client, clientSecret);
+  return client;
+}
+
+/** Org binding for org apps, then the org's OAuth access policy. */
+function assertClientAllowedInOrg(
+  client: Pick<ResolvedOAuthClient, "organization">,
+  org: OrganizationInterface,
+  error: "access_denied" | "invalid_grant",
+): void {
+  if (client.organization && client.organization !== org.id) {
+    throw new OAuthError(
+      error,
+      "This application is registered to a different organization",
+    );
+  }
+  if (!isOAuthClientAllowed(org, client.organization)) {
+    throw new OAuthError(
+      error,
+      "This organization does not allow this application to access GrowthBook",
+    );
+  }
 }
 
 /**
@@ -83,6 +171,7 @@ async function tearDownGrant(
   userId: string,
 ): Promise<void> {
   await context.models.oauthGrants.markRevoked(clientId, userId);
+  await context.models.oauthAuthCodes.consumeAllForGrant(clientId, userId);
   await context.models.oauthRefreshTokens.deleteForGrant(clientId, userId);
   await ApiKeyModel.dangerousDisableOAuthGrant(
     clientId,
@@ -125,9 +214,9 @@ export async function listConnectedApps(
   // client record was removed) still lists, falling back to the clientId.
   await Promise.all(
     apps.map(async (app) => {
-      const client = await getOAuthClientById(app.clientId);
+      const client = await findOAuthClient(app.clientId);
       if (client) {
-        app.clientName = client.clientName || client.clientId;
+        app.clientName = client.clientName;
         app.clientUri = client.clientUri;
       }
     }),
@@ -152,6 +241,79 @@ export async function revokeConnectedApp(
   await tearDownGrant(context, clientId, context.userId);
 }
 
+export interface OrgOAuthGrant {
+  clientId: string;
+  clientName: string;
+  isOrgApp: boolean;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  firstAuthorizedAt: Date;
+  // Last token activity (issuance or refresh bumps the grant), not last consent
+  lastUsedAt: Date;
+}
+
+/** Every member's active grant in the org, enriched with client and user details. */
+export async function listOrgGrants(
+  context: ApiReqContext,
+): Promise<OrgOAuthGrant[]> {
+  const grants = await context.models.oauthGrants.dangerousGetAllActiveForOrg();
+  const clientIds = [...new Set(grants.map((g) => g.clientId))];
+  const [orgApps, publicClients, users] = await Promise.all([
+    context.models.orgOAuthClients.getByIds(clientIds),
+    getOAuthClientsByIds(clientIds),
+    context.getUsersByIds([...new Set(grants.map((g) => g.userId))]),
+  ]);
+  const orgAppById = new Map(orgApps.map((a) => [a.id, a]));
+  const publicClientById = new Map(publicClients.map((c) => [c.clientId, c]));
+  const userById = new Map(users.map((u) => [u.id, u]));
+
+  return grants
+    .map((grant) => {
+      const orgApp = orgAppById.get(grant.clientId);
+      const user = userById.get(grant.userId);
+      return {
+        clientId: grant.clientId,
+        clientName:
+          orgApp?.clientName ||
+          publicClientById.get(grant.clientId)?.clientName ||
+          grant.clientId,
+        isOrgApp: !!orgApp,
+        userId: grant.userId,
+        userName: user?.name || "",
+        userEmail: user?.email || "",
+        firstAuthorizedAt: grant.dateCreated,
+        lastUsedAt: grant.dateUpdated,
+      };
+    })
+    .sort((a, b) => b.lastUsedAt.getTime() - a.lastUsedAt.getTime());
+}
+
+/** Admin revoke of one member's grant; same teardown as the member's own revoke. */
+export async function revokeMemberGrant(
+  context: ApiReqContext,
+  clientId: string,
+  userId: string,
+): Promise<void> {
+  const grant = await context.models.oauthGrants.getGrant(clientId, userId);
+  if (!grant || grant.revoked) {
+    context.throwNotFoundError("Authorization not found");
+  }
+  await tearDownGrant(context, clientId, userId);
+}
+
+/** Ends every member's grant with one client in this org (org app deletion). */
+export async function revokeAllGrantsForClient(
+  context: ApiReqContext,
+  clientId: string,
+): Promise<void> {
+  const grants =
+    await context.models.oauthGrants.dangerousGetAllActiveForClient(clientId);
+  for (const grant of grants) {
+    await tearDownGrant(context, clientId, grant.userId);
+  }
+}
+
 export function getIssuer(req?: Request): string {
   if (OAUTH_ISSUER) return OAUTH_ISSUER;
   if (req) {
@@ -174,7 +336,11 @@ export function getAuthorizationServerMetadata(req?: Request) {
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
-    token_endpoint_auth_methods_supported: ["none"],
+    token_endpoint_auth_methods_supported: [
+      "none",
+      "client_secret_basic",
+      "client_secret_post",
+    ],
     scopes_supported: ["openid", "profile", "email", "offline_access"],
   };
 }
@@ -186,17 +352,8 @@ export async function registerPublicClient(body: OAuthDcrRequest) {
   ];
   const responseTypes = body.response_types ?? ["code"];
 
-  // Only public clients (MCP / native) for Phase 1
-  if (
-    body.token_endpoint_auth_method &&
-    body.token_endpoint_auth_method !== "none"
-  ) {
-    throw new OAuthError(
-      "invalid_client_metadata",
-      "Only token_endpoint_auth_method=none is supported",
-    );
-  }
-
+  // Whatever auth method was requested, DCR clients get no secret; the response says `none`
+  // and RFC 7591 §3.2.1 obliges the client to use the returned metadata.
   const client = await createOAuthClient({
     clientName: body.client_name,
     redirectUris: body.redirect_uris,
@@ -222,7 +379,7 @@ export async function getAuthorizeInfo(params: {
   clientId: string;
   redirectUri: string;
 }) {
-  const client = await getOAuthClientById(params.clientId);
+  const client = await findOAuthClient(params.clientId);
   if (!client) {
     throw new OAuthError("invalid_client", "Unknown client_id");
   }
@@ -234,8 +391,9 @@ export async function getAuthorizeInfo(params: {
   }
   return {
     clientId: client.clientId,
-    clientName: client.clientName || client.clientId,
+    clientName: client.clientName,
     redirectUri: params.redirectUri,
+    organization: client.organization,
   };
 }
 
@@ -273,6 +431,7 @@ export async function mintAuthorizationCode(params: {
       "User is not a member of this organization",
     );
   }
+  assertClientAllowedInOrg(info, org, "access_denied");
   const code = randomUrlSafe(32);
   const now = new Date();
   await context.models.oauthAuthCodes.create({
@@ -300,12 +459,10 @@ export async function exchangeAuthorizationCode(params: {
   code: string;
   redirectUri: string;
   clientId: string;
+  clientSecret?: string;
   codeVerifier: string;
 }): Promise<TokenResponse> {
-  const client = await getOAuthClientById(params.clientId);
-  if (!client) {
-    throw new OAuthError("invalid_client", "Unknown client_id");
-  }
+  const client = await authenticateClient(params.clientId, params.clientSecret);
 
   // Bootstrap: hash lookup before org is known.
   const authCode = await OAuthAuthCodeModel.dangerousConsumeByHash(
@@ -335,30 +492,44 @@ export async function exchangeAuthorizationCode(params: {
       "User is no longer a member of this organization",
     );
   }
+  assertClientAllowedInOrg(client, org, "invalid_grant");
 
-  await context.models.oauthGrants.startGrant({
+  const grant = await context.models.oauthGrants.startGrant({
     clientId: authCode.clientId,
+    userId: authCode.userId,
+    scope: authCode.scope,
+    resource: authCode.resource,
+    consentedAt: authCode.dateCreated,
+  });
+  if (!grant) {
+    throw new OAuthError(
+      "invalid_grant",
+      "Authorization was revoked after this code was issued; sign in again",
+    );
+  }
+
+  const tokens = await issueTokenPair(context, {
+    clientId: authCode.clientId,
+    officialClientForOrg: client.organization,
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
   });
 
-  return issueTokenPair(context, {
-    clientId: authCode.clientId,
-    userId: authCode.userId,
-    scope: authCode.scope,
-    resource: authCode.resource,
-  });
+  // startGrant re-arms a grant that app deletion revoked moments ago; re-check the client.
+  if (!(await findOAuthClient(client.clientId))) {
+    await tearDownGrant(context, authCode.clientId, authCode.userId);
+    throw new OAuthError("invalid_client", "Unknown client_id");
+  }
+  return tokens;
 }
 
 export async function exchangeRefreshToken(params: {
   refreshToken: string;
   clientId: string;
+  clientSecret?: string;
 }): Promise<TokenResponse> {
-  const client = await getOAuthClientById(params.clientId);
-  if (!client) {
-    throw new OAuthError("invalid_client", "Unknown client_id");
-  }
+  const client = await authenticateClient(params.clientId, params.clientSecret);
 
   // Bootstrap: hash lookup before org is known.
   const tokenHash = hashToken(params.refreshToken);
@@ -391,6 +562,8 @@ export async function exchangeRefreshToken(params: {
       "User is no longer a member of this organization",
     );
   }
+  // Refuse without tearing down: the policy is reversible, the grant should survive it.
+  assertClientAllowedInOrg(client, org, "invalid_grant");
 
   // ensureGrant bumps TTL; if already revoked, re-tear-down in case a prior
   // teardown was interrupted after markRevoked.
@@ -419,6 +592,7 @@ export async function exchangeRefreshToken(params: {
 
   return issueTokenPair(context, {
     clientId: existing.clientId,
+    officialClientForOrg: client.organization,
     userId: existing.userId,
     scope: existing.scope,
     resource: existing.resource,
@@ -428,7 +602,13 @@ export async function exchangeRefreshToken(params: {
 export async function revokeToken(params: {
   token: string;
   clientId?: string;
+  clientSecret?: string;
 }): Promise<void> {
+  // RFC 7009 §2.1: confidential clients must authenticate to revoke.
+  const client = params.clientId
+    ? await findOAuthClient(params.clientId)
+    : null;
+  if (client) verifyClientSecret(client, params.clientSecret);
   const tokenHash = hashToken(params.token);
 
   // Try as refresh token first, then access token (apikeys)
@@ -467,6 +647,7 @@ export async function revokeToken(params: {
 
 interface IssueParams {
   clientId: string;
+  officialClientForOrg: string | null;
   userId: string;
   scope?: string;
   resource?: string;
@@ -510,6 +691,7 @@ async function issueTokenPair(
     environments: [],
     expiresAt: accessExpires,
     oauthClientId: params.clientId,
+    officialClientForOrg: params.officialClientForOrg,
     scopes: params.scope ? params.scope.split(/\s+/).filter(Boolean) : [],
     lastUsed: null,
   });
@@ -535,8 +717,8 @@ async function issueTokenPair(
     throw new OAuthError("invalid_grant", "Grant has been revoked");
   }
 
-  // Keep the DCR client row alive while in use.
-  await touchOAuthClient(params.clientId);
+  // Keep the DCR client row alive while in use; org apps have no TTL.
+  if (!params.officialClientForOrg) await touchOAuthClient(params.clientId);
 
   return {
     access_token: accessToken,

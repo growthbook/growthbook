@@ -1,6 +1,9 @@
 import { OAuthGrantInterface, oauthGrantValidator } from "shared/validators";
 import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
-import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
+import {
+  getCollection,
+  isDuplicateKeyError,
+} from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "oauthgrants";
@@ -27,6 +30,8 @@ const BaseClass = MakeModelClass({
     updateEvent: "oauthGrant.update",
     deleteEvent: "oauthGrant.delete",
   },
+  // Every refresh bumps the TTL; only consent and revocation are worth an audit row.
+  skipAuditLogFields: ["expiresAt"],
   defaultValues: {
     revoked: false,
   },
@@ -39,8 +44,8 @@ const BaseClass = MakeModelClass({
 
 /**
  * Durable OAuth grants — the revocation target that outlives rotating tokens.
- * Org-scoped via ReqContext; no cross-org `dangerous*` path. See
- * {@link oauthGrantValidator} for why this exists and how TTL bounds growth.
+ * Org-scoped via ReqContext, except the middleware's {@link dangerousIsActive}.
+ * See {@link oauthGrantValidator} for why this exists and how TTL bounds growth.
  */
 export class OAuthGrantModel extends BaseClass {
   protected canCreate(): boolean {
@@ -54,6 +59,21 @@ export class OAuthGrantModel extends BaseClass {
   }
   protected canDelete(): boolean {
     return true;
+  }
+
+  /** Per-request check for OAuth access tokens; missing counts as revoked. */
+  public static async dangerousIsActive(
+    organization: string,
+    clientId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const grant = await getCollection<OAuthGrantInterface>(
+      COLLECTION_NAME,
+    ).findOne(
+      { organization, clientId, userId },
+      { projection: { revoked: 1 } },
+    );
+    return !!grant && !grant.revoked;
   }
 
   public async getGrant(
@@ -73,6 +93,24 @@ export class OAuthGrantModel extends BaseClass {
     );
   }
 
+  /** Every active grant in the org — the admin authorizations view. */
+  public async dangerousGetAllActiveForOrg(): Promise<OAuthGrantInterface[]> {
+    return this._find(
+      { revoked: { $ne: true } },
+      { bypassReadPermissionChecks: true },
+    );
+  }
+
+  /** Active grants for one client across the org's members — for admin teardown and counts. */
+  public async dangerousGetAllActiveForClient(
+    clientId: string,
+  ): Promise<OAuthGrantInterface[]> {
+    return this._find(
+      { clientId, revoked: { $ne: true } },
+      { bypassReadPermissionChecks: true },
+    );
+  }
+
   /**
    * Read-then-create against the unique index. On a concurrent-create race,
    * adopt the winner's doc instead of surfacing a 500.
@@ -83,6 +121,7 @@ export class OAuthGrantModel extends BaseClass {
     scope?: string;
     resource?: string;
     revoked: boolean;
+    revokedAt?: Date;
     expiresAt: Date;
   }): Promise<{ grant: OAuthGrantInterface; created: boolean }> {
     const existing = await this.getGrant(props.clientId, props.userId);
@@ -97,13 +136,18 @@ export class OAuthGrantModel extends BaseClass {
     }
   }
 
-  /** Consent: create, or clear `revoked` and refresh scope on re-consent. */
+  /**
+   * Consent: create, or clear `revoked` and refresh scope on re-consent.
+   * Returns null when the grant was revoked after this consent was given, so
+   * a code minted before an admin revoke can't undo it.
+   */
   public async startGrant(params: {
     clientId: string;
     userId: string;
     scope?: string;
     resource?: string;
-  }): Promise<OAuthGrantInterface> {
+    consentedAt: Date;
+  }): Promise<OAuthGrantInterface | null> {
     const { grant, created } = await this.getOrCreateGrant({
       clientId: params.clientId,
       userId: params.userId,
@@ -113,8 +157,16 @@ export class OAuthGrantModel extends BaseClass {
       expiresAt: grantExpiry(),
     });
     if (created) return grant;
+    if (
+      grant.revoked &&
+      grant.revokedAt &&
+      grant.revokedAt > params.consentedAt
+    ) {
+      return null;
+    }
     return this.update(grant, {
       revoked: false,
+      revokedAt: null,
       scope: params.scope,
       resource: params.resource,
       expiresAt: grantExpiry(),
@@ -149,13 +201,19 @@ export class OAuthGrantModel extends BaseClass {
    * post-write re-check still sees `revoked`.
    */
   public async markRevoked(clientId: string, userId: string): Promise<void> {
+    const now = new Date();
     const { grant, created } = await this.getOrCreateGrant({
       clientId,
       userId,
       revoked: true,
-      expiresAt: grantExpiry(),
+      revokedAt: now,
+      expiresAt: grantExpiry(now),
     });
     if (created || grant.revoked) return;
-    await this.update(grant, { revoked: true, expiresAt: grantExpiry() });
+    await this.update(grant, {
+      revoked: true,
+      revokedAt: now,
+      expiresAt: grantExpiry(now),
+    });
   }
 }
