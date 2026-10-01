@@ -220,6 +220,43 @@ describe("pruneApprovalRuleReferences", () => {
   });
 });
 
+// The settings page PUTs the whole approvalFlows object through both helpers.
+describe("SDK connection rules on the settings write path", () => {
+  it("keep their environments and survive alongside saved-group rules", () => {
+    const pruned = pruneApprovalRuleReferences(
+      normalizeApprovalRuleSettings({
+        approvalFlows: {
+          savedGroups: [{ required: true, projects: [] }],
+          sdkConnections: [
+            {
+              required: true,
+              projects: ["prj_a"],
+              environments: ["production", "gone_env"],
+              requiredApproverTeams: ["t_keep"],
+            },
+          ],
+        },
+      }),
+      {
+        environments: ["production"],
+        teams: ["t_keep"],
+        projects: ["prj_a"],
+      },
+    );
+    expect(pruned.approvalFlows?.savedGroups).toEqual([
+      { required: true, projects: [] },
+    ]);
+    expect(pruned.approvalFlows?.sdkConnections).toEqual([
+      {
+        required: true,
+        projects: ["prj_a"],
+        environments: ["production"],
+        requiredApproverTeams: ["t_keep"],
+      },
+    ]);
+  });
+});
+
 describe("pruneApprovalRuleReferences and deleted projects", () => {
   it("drops deleted project ids, and a project rule left with none", () => {
     const pruned = pruneApprovalRuleReferences(

@@ -7,8 +7,10 @@ import {
   ALL_PROJECTS_SCOPE,
   inheritedFlagRule,
   inheritedSavedGroupRule,
+  inheritedSdkConnectionRule,
   clonedFlagRule,
   clonedSavedGroupRule,
+  clonedSdkConnectionRule,
   differsFromBase,
   flagRulesFromSettings,
   overrideScopes,
@@ -163,6 +165,39 @@ describe("what an override scope inherits", () => {
     } as RequireReview;
 
     expect(clonedFlagRule([own], "prj_a")).toBe(own);
+  });
+});
+
+describe("SDK connection rules", () => {
+  const base: ApprovalFlowConfiguration = {
+    required: true,
+    projects: [],
+    environments: ["production"],
+    requiredApproverTeams: ["t_sec"],
+  };
+
+  it("inherits the base rule, environments included", () => {
+    const inherited = inheritedSdkConnectionRule([base], "prj_a");
+    expect(inherited?.required).toBe(true);
+    expect(inherited?.environments).toEqual(["production"]);
+    expect(inheritedSdkConnectionRule([], ALL_PROJECTS_SCOPE)).toBeUndefined();
+  });
+
+  it("clones the base into a fresh scope, re-pointed at that scope", () => {
+    const clone = clonedSdkConnectionRule([base], "prj_a");
+    expect(clone.environments).toEqual(["production"]);
+    expect(clone.requiredApproverTeams).toEqual(["t_sec"]);
+    expect(clone.projects).toEqual(["prj_a"]);
+    expect(
+      differsFromBase(clone, inheritedSdkConnectionRule([base], "prj_a")),
+    ).toBe(false);
+  });
+
+  it("starts switched off when there is no base", () => {
+    expect(clonedSdkConnectionRule([], "prj_a")).toEqual({
+      required: false,
+      projects: ["prj_a"],
+    });
   });
 });
 

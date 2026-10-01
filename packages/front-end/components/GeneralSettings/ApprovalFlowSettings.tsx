@@ -29,12 +29,14 @@ import {
   overrideScopes,
   clonedFlagRule,
   clonedSavedGroupRule,
+  clonedSdkConnectionRule,
   differsFromBase,
   flagRulesFromSettings,
   ruleForScope,
   scopeKey,
   inheritedFlagRule,
   inheritedSavedGroupRule,
+  inheritedSdkConnectionRule,
   scopeProjects,
   withRuleForScope,
   withoutScope,
@@ -56,6 +58,8 @@ export default function ApprovalFlowSettings() {
   );
   const savedGroupRules: ApprovalFlowConfiguration[] =
     form.watch("approvalFlows.savedGroups") ?? [];
+  const sdkConnectionRules: ApprovalFlowConfiguration[] =
+    form.watch("approvalFlows.sdkConnections") ?? [];
 
   // Tabs carry their own id, so editing their projects does not remount them.
   const [tabs, setTabs] = useState<{ id: string; scope: string }[]>([]);
@@ -80,7 +84,11 @@ export default function ApprovalFlowSettings() {
   }, [tabs, requestedProject]);
 
   // Settings load after mount, so stored overrides get a tab when they arrive.
-  const storedScopeKey = overrideScopes([flagRules, savedGroupRules]).join("|");
+  const storedScopeKey = overrideScopes([
+    flagRules,
+    savedGroupRules,
+    sdkConnectionRules,
+  ]).join("|");
   useEffect(() => {
     const stored = storedScopeKey ? storedScopeKey.split("|") : [];
     setTabs((prev) => {
@@ -113,15 +121,28 @@ export default function ApprovalFlowSettings() {
       withRuleForScope(savedGroupRules, scope, next),
     );
 
+  const setSdkConnectionRule = (
+    scope: string,
+    next: ApprovalFlowConfiguration,
+  ) =>
+    form.setValue(
+      "approvalFlows.sdkConnections",
+      withRuleForScope(sdkConnectionRules, scope, next),
+    );
+
   const addOverride = (project: string) => {
     const id = newTabId();
     setTabs((prev) => [...prev, { id, scope: project }]);
     setActiveTab(id);
     setFlagRule(project, clonedFlagRule(flagRules, project));
     setSavedGroupRule(project, clonedSavedGroupRule(savedGroupRules, project));
+    setSdkConnectionRule(
+      project,
+      clonedSdkConnectionRule(sdkConnectionRules, project),
+    );
   };
 
-  // Re-points both families' rules so a group of projects can share one rule.
+  // Re-points every family's rules so a group of projects can share one rule.
   const retargetTab = (tab: { id: string; scope: string }, next: string[]) => {
     const nextScope = scopeKey(next);
     if (!next.length || nextScope === tab.scope) return;
@@ -142,6 +163,16 @@ export default function ApprovalFlowSettings() {
         }),
       );
     }
+    const sdkConnectionOwn = ruleForScope(sdkConnectionRules, tab.scope);
+    if (sdkConnectionOwn) {
+      form.setValue(
+        "approvalFlows.sdkConnections",
+        withRuleForScope(sdkConnectionRules, tab.scope, {
+          ...sdkConnectionOwn,
+          projects: next,
+        }),
+      );
+    }
     setTabs((prev) =>
       prev.map((t) => (t.id === tab.id ? { ...t, scope: nextScope } : t)),
     );
@@ -152,6 +183,10 @@ export default function ApprovalFlowSettings() {
     form.setValue(
       "approvalFlows.savedGroups",
       withoutScope(savedGroupRules, tab.scope),
+    );
+    form.setValue(
+      "approvalFlows.sdkConnections",
+      withoutScope(sdkConnectionRules, tab.scope),
     );
     setTabs((prev) => prev.filter((t) => t.id !== tab.id));
     setActiveTab(ALL_PROJECTS_TAB);
@@ -339,6 +374,31 @@ export default function ApprovalFlowSettings() {
                                 )
                             : undefined
                         }
+                        sdkConnectionRule={clonedSdkConnectionRule(
+                          sdkConnectionRules,
+                          scope,
+                        )}
+                        onSdkConnectionChange={(next) =>
+                          setSdkConnectionRule(scope, next)
+                        }
+                        onSdkConnectionReset={
+                          differsFromBase(
+                            clonedSdkConnectionRule(sdkConnectionRules, scope),
+                            inheritedSdkConnectionRule(
+                              sdkConnectionRules,
+                              scope,
+                            ),
+                          )
+                            ? () =>
+                                setSdkConnectionRule(
+                                  scope,
+                                  clonedSdkConnectionRule(
+                                    withoutScope(sdkConnectionRules, scope),
+                                    scope,
+                                  ),
+                                )
+                            : undefined
+                        }
                       />
                     </Frame>
                   </TabsContent>
@@ -357,7 +417,7 @@ export default function ApprovalFlowSettings() {
 
               <Text as="p" size="md" mb="4" color="text-low">
                 These settings apply to every approval flow (Feature Flags,
-                Configs, Constants and Saved Groups).
+                Configs, Constants, Saved Groups and SDK Connections).
               </Text>
 
               <Flex direction="column" gap="3" align="start">
@@ -371,7 +431,7 @@ export default function ApprovalFlowSettings() {
                 <Checkbox
                   id="toggle-restApiBypassesReviews"
                   label="REST API always bypasses approval requirements"
-                  description="Applies to Feature Flags, Configs, Constants and Saved Groups. When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants FlagsBypassApprovals — or SavedGroupsBypassApprovals — on that resource's Project."
+                  description="Applies to Feature Flags, Configs, Constants, Saved Groups and SDK Connections. When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants FlagsBypassApprovals — or SavedGroupsBypassApprovals or SDKConnectionsBypassApprovals — on that resource's Project."
                   value={form.watch("restApiBypassesReviews") !== false}
                   setValue={(v) => form.setValue("restApiBypassesReviews", v)}
                 />

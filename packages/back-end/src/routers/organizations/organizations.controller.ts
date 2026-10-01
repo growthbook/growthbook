@@ -1757,6 +1757,13 @@ export async function putOrganization(
           "Saved Groups approval flows require the Require Approvals enterprise feature.",
         );
       }
+      if (
+        settings?.approvalFlows?.sdkConnections?.some((rule) => rule?.required)
+      ) {
+        throw new Error(
+          "SDK Connections approval flows require the Require Approvals enterprise feature.",
+        );
+      }
     }
 
     if (name) {
