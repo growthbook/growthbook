@@ -14,7 +14,7 @@ Use `$SKILLS_SRC`, `skills-src/`, or the `path` in `packages/back-end/agent-skil
 ## 2. Decide the scope
 
 - **This branch:** base spec is `git show $(git merge-base HEAD origin/main):packages/back-end/generated/spec.yaml`. Regenerate the head spec first with `pnpm --filter back-end generate-openapi`.
-- **Catch-up since the last sync:** the last reviewed GrowthBook commit is in the growthbook/skills `sync-state` tag (`git -C <checkout> for-each-ref refs/tags/sync-state --format='%(contents)'`, field `growthbook`). Use its spec as the base, and list `git log <that commit>..origin/main -- $(grep -v '^#' scripts/agent-skills-watch-paths.txt)` for behavior changes the spec cannot show.
+- **Catch-up since the last sync:** find when the growthbook/skills `Sync with GrowthBook` workflow last succeeded (`gh run list -R growthbook/skills --workflow sync-from-growthbook.yml --status success`, ignoring runs titled "Dry run"). Use the spec at the last `origin/main` commit before that time as the base, and list `git log --since=<that time> origin/main -- $(grep -v '^#' scripts/agent-skills-watch-paths.txt)` for behavior changes the spec cannot show.
 
 ## 3. Run the checker
 
