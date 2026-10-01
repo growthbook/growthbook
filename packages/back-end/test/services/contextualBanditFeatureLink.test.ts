@@ -435,6 +435,35 @@ describe("updateContextualBanditFeatureRule", () => {
     ]);
   });
 
+  it("keeps the stored environment scope instead of widening it", async () => {
+    const stagingOnly = {
+      ...cbRefRule("fr_1", "cb_1"),
+      allEnvironments: false,
+      environments: ["staging"],
+    } as FeatureRule;
+    getDraftRevisionMock.mockResolvedValue(
+      makeRevision({ rules: [stagingOnly] }),
+    );
+
+    await updateContextualBanditFeatureRule({
+      context: makeContext(),
+      contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
+      feature: makeFeature({ rules: [stagingOnly] }),
+      // What the request builder makes of an omitted scope.
+      rule: makeRule({ variations: newVariations, allEnvironments: true }),
+      keepEnvironmentScope: true,
+      eventAudit: { type: "dashboard" },
+      audit,
+    });
+
+    expect(changesFromUpdateRevision().rules?.[0]).toMatchObject({
+      id: "fr_1",
+      allEnvironments: false,
+      environments: ["staging"],
+      variations: newVariations,
+    });
+  });
+
   it("rejects when the bandit's rules have drifted apart", async () => {
     const rules = [
       cbRefRule("fr_1", "cb_1"),

@@ -43,6 +43,9 @@ export const updateContextualBanditLinkedFeature = createApiRequestHandler(
     contextualBandit,
     feature,
     rule: buildContextualBanditRefRule(contextualBandit, req.body),
+    keepEnvironmentScope:
+      req.body.allEnvironments === undefined &&
+      req.body.environments === undefined,
     eventAudit: req.eventAudit,
     audit: req.audit,
     autoPublish: req.body.autoPublish,
