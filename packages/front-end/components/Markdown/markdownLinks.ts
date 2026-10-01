@@ -3,17 +3,16 @@ export type MarkdownLinkSegment = string | { label: string; href: string };
 // Finds `[label](destination)`; the destination may contain one level of `(…)`.
 const MARKDOWN_LINK = /\[([^\]]+)\]\(((?:[^\s()]|\([^\s()]*\))+)\)/g;
 
-// Same-instance paths, or full http(s) URLs with a host.
 export function isAllowedHref(href: string): boolean {
+  // `//host` and `/\host` look relative, but browsers send them to another site.
   if (href.startsWith("/")) {
-    // Browsers treat `//host` and `/\host` as another site.
     return !href.startsWith("//") && !href.startsWith("/\\");
   }
+  // Without `//`, a browser on an https page treats `https:example.com` as a path.
+  if (!href.startsWith("https://") && !href.startsWith("http://")) return false;
   try {
-    const url = new URL(href);
-    return (
-      (url.protocol === "https:" || url.protocol === "http:") && url.host !== ""
-    );
+    new URL(href);
+    return true;
   } catch {
     return false;
   }
