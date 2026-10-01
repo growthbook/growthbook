@@ -6,7 +6,10 @@ import {
   OAUTH_REFRESH_TOKEN_PREFIX,
 } from "back-end/src/util/oauth-token.util";
 import {
+  EMAIL_SUBJECT_TOKEN_TYPE,
   exchangeAuthorizationCode,
+  exchangeDelegatedToken,
+  isDelegatedTokenCurrent,
   exchangeRefreshToken,
   listOrgGrants,
   mintAuthorizationCode,
@@ -112,6 +115,8 @@ function mockOrgContext(
     dangerousGetAllActiveForOrg?: jest.Mock;
     getOrgApps?: jest.Mock;
     getUsersByIds?: jest.Mock;
+    getUserByEmail?: jest.Mock;
+    extendGrant?: jest.Mock;
     orgSettings?: Record<string, unknown>;
   } = {},
 ) {
@@ -149,6 +154,9 @@ function mockOrgContext(
       throw new Error("not found");
     }),
     getUsersByIds: overrides.getUsersByIds ?? jest.fn().mockResolvedValue([]),
+    getUserByEmail:
+      overrides.getUserByEmail ??
+      jest.fn().mockResolvedValue({ id: "user-1", email: "ada@example.com" }),
     models: {
       oauthRefreshTokens: {
         deleteForGrant,
@@ -162,6 +170,7 @@ function mockOrgContext(
         markRevoked,
         getActiveForUser,
         dangerousGetAllActiveForOrg,
+        extend: overrides.extendGrant ?? jest.fn().mockResolvedValue({}),
       },
       oauthAuthCodes: {
         create: jest.fn(),
@@ -585,6 +594,7 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
     clientUri: "",
     clientSecretHash: hashToken(APP_SECRET),
     createdBy: "user-1",
+    allowDelegation: false,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
@@ -907,5 +917,205 @@ describe("admin view of member grants", () => {
       revokeMemberGrant(context as never, "client-a", "user-2"),
     ).rejects.toThrow("not found");
     expect(markRevoked).not.toHaveBeenCalled();
+  });
+});
+
+describe("delegated token exchange for org OAuth apps", () => {
+  const APP_ID = "gbapp_delegating";
+  const APP_SECRET = "gbcs_delegating-secret";
+
+  function delegatingApp(allowDelegation = true, secret = APP_SECRET) {
+    return {
+      id: APP_ID,
+      organization: "org-1",
+      clientName: "Internal MCP",
+      redirectUris: ["https://mcp.example.com/cb"],
+      clientUri: "",
+      clientSecretHash: hashToken(secret),
+      createdBy: "user-1",
+      allowDelegation,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+  }
+
+  function mockDelegatingApp(allowDelegation = true) {
+    mockFindOrgApp.mockResolvedValue(delegatingApp(allowDelegation));
+    mockGetOAuthClientById.mockResolvedValue(null);
+  }
+
+  function exchange(
+    overrides: Partial<Parameters<typeof exchangeDelegatedToken>[0]> = {},
+  ) {
+    return exchangeDelegatedToken({
+      clientId: APP_ID,
+      clientSecret: APP_SECRET,
+      subjectToken: "ada@example.com",
+      subjectTokenType: EMAIL_SUBJECT_TOKEN_TYPE,
+      ...overrides,
+    });
+  }
+
+  it("issues a short-lived access token, and no refresh token, for a member who authorized the app", async () => {
+    mockDelegatingApp();
+    const extendGrant = jest.fn().mockResolvedValue({});
+    const { createApiKey, createRefresh } = mockOrgContext({
+      orgSettings: {
+        oauthAccess: "org-apps",
+        disablePersonalAccessTokens: true,
+      },
+      extendGrant,
+    });
+
+    const res = await exchange();
+
+    expect(res).toMatchObject({ token_type: "Bearer", expires_in: 3600 });
+    expect(res).not.toHaveProperty("refresh_token");
+    expect(createApiKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: hashToken(res.access_token),
+        userId: "user-1",
+        oauthClientId: APP_ID,
+        officialClientForOrg: "org-1",
+        oauthDelegatedSecretHash: hashToken(APP_SECRET),
+      }),
+    );
+    expect(createRefresh).not.toHaveBeenCalled();
+    expect(extendGrant).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["without the secret", { clientSecret: undefined }, "invalid_client"],
+    ["with the wrong secret", { clientSecret: "gbcs_nope" }, "invalid_client"],
+    [
+      "with an unsupported subject token type",
+      { subjectTokenType: "urn:ietf:params:oauth:token-type:access_token" },
+      "invalid_request",
+    ],
+  ])("refuses a request %s", async (_, overrides, error) => {
+    mockDelegatingApp();
+    const { createApiKey } = mockOrgContext();
+
+    await expect(exchange(overrides)).rejects.toMatchObject({ error });
+    expect(createApiKey).not.toHaveBeenCalled();
+  });
+
+  it("refuses an org app that hasn't been allowed to act on behalf of members", async () => {
+    mockDelegatingApp(false);
+    const { createApiKey } = mockOrgContext();
+
+    await expect(exchange()).rejects.toMatchObject({
+      error: "unauthorized_client",
+    });
+    expect(createApiKey).not.toHaveBeenCalled();
+  });
+
+  it("refuses public DCR clients", async () => {
+    mockGetOAuthClientById.mockResolvedValue({
+      clientId: "gbc_dcr",
+      redirectUris: ["http://localhost/cb"],
+      tokenEndpointAuthMethod: "none",
+      grantTypes: ["authorization_code"],
+      responseTypes: ["code"],
+      dateCreated: new Date(),
+    });
+    const { createApiKey } = mockOrgContext();
+
+    await expect(exchange({ clientId: "gbc_dcr" })).rejects.toMatchObject({
+      error: "unauthorized_client",
+    });
+    expect(createApiKey).not.toHaveBeenCalled();
+  });
+
+  it("refuses when the org's OAuth access policy blocks every app", async () => {
+    mockDelegatingApp();
+    const { createApiKey } = mockOrgContext({
+      orgSettings: { oauthAccess: "none" },
+    });
+
+    await expect(exchange()).rejects.toMatchObject({ error: "invalid_grant" });
+    expect(createApiKey).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "the email matches no user",
+      { getUserByEmail: jest.fn().mockResolvedValue(null) },
+      true,
+    ],
+    ["the user isn't a member", {}, false],
+    [
+      "the member never authorized the app",
+      { getGrant: jest.fn().mockResolvedValue(null) },
+      true,
+    ],
+    [
+      "the member's grant was revoked",
+      { getGrant: jest.fn().mockResolvedValue({ revoked: true }) },
+      true,
+    ],
+  ])("gives the same answer when %s", async (_, overrides, isMember) => {
+    mockDelegatingApp();
+    const { createApiKey, context } = mockOrgContext(overrides);
+    // A non-member has no member context; the system context still resolves the email.
+    mockGetContextForUserIdInOrg.mockResolvedValue(
+      (isMember ? context : null) as never,
+    );
+
+    await expect(exchange()).rejects.toMatchObject({
+      error: "invalid_grant",
+      errorDescription:
+        "No member with that email has authorized this application",
+    });
+    expect(createApiKey).not.toHaveBeenCalled();
+  });
+
+  it("cleans up when the grant is revoked while the token is being issued", async () => {
+    mockDelegatingApp();
+    const getGrant = jest
+      .fn()
+      .mockResolvedValueOnce({
+        clientId: APP_ID,
+        userId: "user-1",
+        revoked: false,
+      })
+      .mockResolvedValue({ clientId: APP_ID, userId: "user-1", revoked: true });
+    const { markRevoked } = mockOrgContext({ getGrant });
+
+    await expect(exchange()).rejects.toMatchObject({
+      error: "invalid_grant",
+      errorDescription: "Grant has been revoked",
+    });
+    expect(markRevoked).toHaveBeenCalledWith(APP_ID, "user-1");
+    expect(mockDangerousDisableOAuthGrant).toHaveBeenCalledWith(
+      APP_ID,
+      "user-1",
+      "org-1",
+    );
+  });
+
+  it.each([
+    [
+      "accepts a delegated token while the app is unchanged",
+      delegatingApp(),
+      true,
+    ],
+    [
+      "rejects a delegated token once delegation is turned off",
+      delegatingApp(false),
+      false,
+    ],
+    [
+      "rejects a delegated token once the secret rotates",
+      delegatingApp(true, "gbcs_rotated"),
+      false,
+    ],
+    ["rejects a delegated token once the app is deleted", null, false],
+  ])("%s", async (_, app, expected) => {
+    mockFindOrgApp.mockResolvedValue(app);
+
+    await expect(
+      isDelegatedTokenCurrent(APP_ID, hashToken(APP_SECRET)),
+    ).resolves.toBe(expected);
   });
 });

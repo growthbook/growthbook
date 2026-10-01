@@ -15,11 +15,13 @@ import {
   ClientSecretModal,
   OAuthApp,
   OAuthAppCredentials,
+  DELEGATION_DESCRIPTION,
   OAuthAppModal,
 } from "@/components/Settings/OAuthAppModal";
 import OAuthGrantsTable, {
   OrgOAuthGrant,
 } from "@/components/Settings/OAuthGrantsTable";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -197,7 +199,17 @@ const OAuthAppsSettings: FC = () => {
           <TableBody>
             {data.apps.map((app) => (
               <TableRow key={app.clientId}>
-                <TableCell>{app.clientName}</TableCell>
+                <TableCell>
+                  {app.clientName}
+                  {app.allowDelegation && (
+                    <Badge
+                      ml="2"
+                      variant="soft"
+                      label="Acts as members"
+                      title={DELEGATION_DESCRIPTION}
+                    />
+                  )}
+                </TableCell>
                 <TableCell>
                   <ClickToCopy compact>{app.clientId}</ClickToCopy>
                 </TableCell>
@@ -253,7 +265,7 @@ const OAuthAppsSettings: FC = () => {
                           confirmationTitle: "Rotate client secret",
                           cta: "Rotate",
                           getConfirmationContent: async () =>
-                            `The current secret for "${app.clientName}" stops working immediately. Members stay authorized, but the app can't refresh tokens until it is updated with the new secret.`,
+                            `The current secret for "${app.clientName}" stops working immediately${app.allowDelegation ? ", and so do tokens it got by acting on behalf of members" : ""}. Members stay authorized, but the app can't get new tokens until it is updated with the new secret.`,
                         }}
                       >
                         Rotate secret
