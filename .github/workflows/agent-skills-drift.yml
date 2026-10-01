@@ -1,0 +1,48 @@
+name: Agent skills drift
+on:
+  pull_request:
+    paths:
+      - packages/back-end/generated/spec.yaml
+      - scripts/check-agent-skills-drift*.mjs
+      - .github/workflows/agent-skills-drift.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Checkout GrowthBook skills
+        uses: actions/checkout@v5
+        with:
+          repository: growthbook/skills
+          path: skills-src
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Test drift checker
+        run: node --test scripts/check-agent-skills-drift.test.mjs
+
+      - name: Check skills against the OpenAPI spec
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --depth=1 origin "$BASE_SHA"
+          git show "$BASE_SHA:packages/back-end/generated/spec.yaml" > "$RUNNER_TEMP/base-spec.yaml"
+          set +e
+          node scripts/check-agent-skills-drift.mjs --skills skills-src \
+            --base-spec "$RUNNER_TEMP/base-spec.yaml" --strict > "$RUNNER_TEMP/report.md"
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
+          if grep -q "### Skills affected by this change" "$RUNNER_TEMP/report.md"; then
+            echo "::warning title=Agent skills affected::This PR changes REST operations used by growthbook/skills. See the job summary."
+          fi
+          exit $status
