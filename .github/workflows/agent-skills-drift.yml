@@ -5,10 +5,14 @@ on:
       - packages/back-end/generated/spec.yaml
       - scripts/check-agent-skills-drift*.mjs
       - .github/workflows/agent-skills-drift.yml
+  push:
+    branches: [main]
+    paths:
+      - packages/back-end/generated/spec.yaml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   drift:
@@ -30,19 +34,43 @@ jobs:
       - name: Test drift checker
         run: node --test scripts/check-agent-skills-drift.test.mjs
 
+      # On PRs, fail when the PR removes an operation a skill uses. After a
+      # merge to main, report only; the skills repo is notified below.
       - name: Check skills against the OpenAPI spec
+        id: check
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          STRICT: ${{ github.event_name == 'pull_request' && '--strict' || '' }}
         run: |
           git fetch --depth=1 origin "$BASE_SHA"
           git show "$BASE_SHA:packages/back-end/generated/spec.yaml" > "$RUNNER_TEMP/base-spec.yaml"
           set +e
           node scripts/check-agent-skills-drift.mjs --skills skills-src \
-            --base-spec "$RUNNER_TEMP/base-spec.yaml" --strict > "$RUNNER_TEMP/report.md"
+            --base-spec "$RUNNER_TEMP/base-spec.yaml" $STRICT > "$RUNNER_TEMP/report.md"
           status=$?
           set -e
           cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
           if grep -q "### Skills affected by this change" "$RUNNER_TEMP/report.md"; then
-            echo "::warning title=Agent skills affected::This PR changes REST operations used by growthbook/skills. See the job summary."
+            echo "affected=true" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Agent skills affected::This change modifies REST operations used by growthbook/skills. See the job summary."
           fi
           exit $status
+
+      - name: Notify growthbook/skills
+        if: github.event_name == 'push' && steps.check.outputs.affected == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SKILLS_DISPATCH_TOKEN }}
+          REPO_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::SKILLS_DISPATCH_TOKEN is not set; skipping the skills sync dispatch."
+            exit 0
+          fi
+          PR=$(GH_TOKEN="$REPO_TOKEN" gh api "repos/$GITHUB_REPOSITORY/commits/$AFTER/pulls" --jq '.[0].number // ""')
+          gh api repos/growthbook/skills/dispatches \
+            -f event_type=growthbook-api-changed \
+            -f "client_payload[before]=$BEFORE" \
+            -f "client_payload[after]=$AFTER" \
+            -f "client_payload[pr]=$PR"

@@ -35,7 +35,7 @@ The report has three sections:
 
 The checker reads only absolute references such as `GET /api/v2/features/<id>`, so it cannot see behavior or guardrail changes. Review those by hand using the list above.
 
-CI runs the same check (`.github/workflows/agent-skills-drift.yml`) on PRs that change `spec.yaml`. It fails only when the PR removes an operation a skill uses; everything else is a warning in the job summary.
+CI runs the same check (`.github/workflows/agent-skills-drift.yml`) on PRs that change `spec.yaml`. It fails only when the PR removes an operation a skill uses; everything else is a warning in the job summary. It runs again after the merge to `main`, and if skills are affected it sends a `growthbook-api-changed` dispatch to growthbook/skills (requires the `SKILLS_DISPATCH_TOKEN` secret) so the sync runs there right away.
 
 ## When your change affects a skill
 
