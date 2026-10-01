@@ -180,6 +180,8 @@ export function useAssignmentQuerySelection({
   ]);
 
   // Repair the identifier before the query; selectable queries depend on it.
+  // Only write a value that differs: the setters re-render the form, which
+  // can re-run this effect, so writing an unchanged value loops forever.
   useEffect(() => {
     if (!autoRepair) return;
     if (!identifierType || !identifierTypes.includes(identifierType)) {
@@ -190,19 +192,23 @@ export function useAssignmentQuerySelection({
         if (kept !== identifierType) setIdentifierType(kept);
         return;
       }
-      setIdentifierType(
-        getDefaultIdentifierType({
-          identifierTypes,
-          hashAttributeIdentifierTypeMap,
-          hashAttribute,
-        }),
-      );
+      const defaultIdentifierType = getDefaultIdentifierType({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap,
+        hashAttribute,
+      });
+      if (defaultIdentifierType !== identifierType) {
+        setIdentifierType(defaultIdentifierType);
+      }
       return;
     }
     if (
       !exposureQueryOptions.some((option) => option.value === exposureQueryId)
     ) {
-      setExposureQueryId(exposureQueryOptions[0]?.value ?? "");
+      const defaultExposureQueryId = exposureQueryOptions[0]?.value ?? "";
+      if (defaultExposureQueryId !== exposureQueryId) {
+        setExposureQueryId(defaultExposureQueryId);
+      }
     }
   }, [
     autoRepair,

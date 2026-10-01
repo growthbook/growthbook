@@ -214,14 +214,15 @@ export default function ExperimentRefNewFields({
 
   const hashAttribute = form.watch("hashAttribute");
 
+  const { setValue } = form;
   const setExposureQueryId = useCallback(
-    (value: string) => form.setValue("exposureQueryId", value),
-    [form],
+    (value: string) => setValue("exposureQueryId", value),
+    [setValue],
   );
   const setExposureQueryIdentifierType = useCallback(
     (value: string | undefined) =>
-      form.setValue("exposureQueryIdentifierType", value),
-    [form],
+      setValue("exposureQueryIdentifierType", value),
+    [setValue],
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
