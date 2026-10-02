@@ -1,5 +1,6 @@
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import { format } from "shared/sql";
+import { getPreferredIdentifierType } from "shared/util";
 import type { ExposureQuery } from "shared/types/datasource";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -18,9 +19,10 @@ export function getPastExperimentQuery(
       ${experimentQueries
         .map((q, i) => {
           const hasNameCol = q.hasNameCol || false;
+          const identifierType = getPreferredIdentifierType(q);
           const userCountColumn = dialect.hasCountDistinctHLL()
-            ? dialect.hllCardinality(dialect.hllAggregate(q.userIdType))
-            : `COUNT(distinct ${q.userIdType})`;
+            ? dialect.hllCardinality(dialect.hllAggregate(identifierType))
+            : `COUNT(distinct ${identifierType})`;
           return `
         __exposures${i} as (
           SELECT 

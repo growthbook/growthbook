@@ -591,7 +591,7 @@ export default function StartExperimentModal({
               id="start-experiment-modal"
               mb="3"
             >
-              This experiment contains visual editor changes, which require a
+              This experiment contains AI Visual Editor changes, which require a
               paid plan.
             </PremiumCallout>
           ) : needsRedirectUpgrade ? (
