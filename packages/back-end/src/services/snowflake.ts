@@ -152,9 +152,7 @@ function connectSnowflake(
   });
 }
 
-// Snowflake doesn't return execution stats with query results. The monitoring
-// endpoint behind getQueryStatus does, without needing a running warehouse.
-// Its shape is undocumented, so read only the fields we use, all optional.
+// Per-query stats from the undocumented endpoint behind getQueryStatus; needs no warehouse
 const snowflakeQueryMonitoringValidator = z.object({
   data: z.object({
     queries: z.array(
@@ -177,12 +175,15 @@ export function snowflakeMonitoringToStatistics(
   const query = parsed.success ? parsed.data.data.queries[0] : undefined;
   if (!query) return undefined;
 
-  // Counters are omitted from `stats` when they're zero
   const stats = query.stats ?? {};
-  const count = (key: string) => {
+  const read = (key: string) => {
     const value = stats[key];
-    return typeof value === "number" ? value : 0;
+    return typeof value === "number" ? value : undefined;
   };
+  // Zero counters are omitted; only treat missing as 0 when the format is the one we verified
+  const recognized =
+    query.clusterNumber === -1 || read("xpExecTime") !== undefined;
+  const count = (key: string) => (recognized ? (read(key) ?? 0) : undefined);
 
   return {
     executionDurationMs: count("xpExecTime"),
@@ -221,9 +222,9 @@ async function getSnowflakeQueryStatistics(
       }),
     ]);
     const statistics = snowflakeMonitoringToStatistics(data);
-    if (!statistics) {
+    if (statistics?.executionDurationMs === undefined) {
       logger.warn(
-        `Snowflake: unexpected monitoring response for query ${queryId}; no statistics recorded`,
+        `Snowflake: unrecognized monitoring response for query ${queryId}; no execution statistics recorded`,
       );
     }
     return statistics;

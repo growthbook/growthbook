@@ -111,8 +111,7 @@ describe("buildSnowflakeConnection auth methods", () => {
 });
 
 describe("snowflakeMonitoringToStatistics", () => {
-  // Loaded lazily so it doesn't share a module instance with the isolated
-  // IS_CLOUD cases above
+  // Loaded lazily so it doesn't share a module instance with the IS_CLOUD cases
   let snowflakeMonitoringToStatistics: SnowflakeModule["snowflakeMonitoringToStatistics"];
   beforeAll(() => {
     ({ snowflakeMonitoringToStatistics } = jest.requireActual<SnowflakeModule>(
@@ -177,6 +176,20 @@ describe("snowflakeMonitoringToStatistics", () => {
       warehouseClusterNumber: -1,
     });
     expect(statistics?.warehouseSize).toBeUndefined();
+  });
+
+  it("leaves counters unset when the stats format is unrecognized", () => {
+    const statistics = snowflakeMonitoringToStatistics(
+      response({
+        warehouseName: "GB_WH",
+        clusterNumber: 1,
+        stats: { renamedExecTime: 9792, renamedScanBytes: 4644879984 },
+      }),
+    );
+    expect(statistics?.executionDurationMs).toBeUndefined();
+    expect(statistics?.bytesProcessed).toBeUndefined();
+    expect(statistics?.queuedOverloadMs).toBeUndefined();
+    expect(statistics?.warehouseName).toBe("GB_WH");
   });
 
   it("returns undefined for an unexpected response", () => {

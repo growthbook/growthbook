@@ -80,7 +80,7 @@ patchedDependencies:
     hash: 9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb
     path: patches/presto-client@1.1.0.patch
   snowflake-sdk@2.4.3:
-    hash: 7382d3b4e7bbda82d9e22335d22e0106a45f317c8334dcd939645e396660efb2
+    hash: 57a040418438e52f052b83980d929dd076bcd294d6bc3520fead0923ebbf8496
     path: patches/snowflake-sdk@2.4.3.patch
 
 importers:
@@ -456,7 +456,7 @@ importers:
         version: link:../shared
       snowflake-sdk:
         specifier: ^2.4.3
-        version: 2.4.3(patch_hash=7382d3b4e7bbda82d9e22335d22e0106a45f317c8334dcd939645e396660efb2)(asn1.js@5.4.1)
+        version: 2.4.3(patch_hash=57a040418438e52f052b83980d929dd076bcd294d6bc3520fead0923ebbf8496)(asn1.js@5.4.1)
       stats-ts:
         specifier: workspace:*
         version: link:../stats-ts
@@ -28577,7 +28577,7 @@ snapshots:
       dot-case: 3.0.4
       tslib: 2.8.1
 
-  snowflake-sdk@2.4.3(patch_hash=7382d3b4e7bbda82d9e22335d22e0106a45f317c8334dcd939645e396660efb2)(asn1.js@5.4.1):
+  snowflake-sdk@2.4.3(patch_hash=57a040418438e52f052b83980d929dd076bcd294d6bc3520fead0923ebbf8496)(asn1.js@5.4.1):
     dependencies:
       '@aws-crypto/sha256-js': 5.2.0
       '@aws-sdk/client-s3': 3.1051.0
