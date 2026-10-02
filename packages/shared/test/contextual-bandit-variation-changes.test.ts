@@ -2,6 +2,7 @@ import {
   assertAtLeastTwoVariations,
   assertUniqueVariationIds,
   assertUniqueVariationKeys,
+  contextualBanditHasServableVisualChanges,
   diffVariations,
   getActiveVariations,
   getVisibleVariations,
@@ -276,6 +277,38 @@ describe("variation lifecycle helpers", () => {
 
   it("active = weight-holding, servable arms only", () => {
     expect(getActiveVariations(arms).map((v) => v.id)).toEqual(["a", "b"]);
+  });
+
+  it("a visual-only bandit is servable only when an active arm has saved content", () => {
+    const cb = { variations: arms };
+    const change = (variation: string, css = "") => ({
+      variation,
+      css,
+      js: "",
+      domMutations: [],
+    });
+    expect(
+      contextualBanditHasServableVisualChanges(cb, [
+        { visualChanges: [change("a"), change("b")] },
+      ]),
+    ).toBe(false);
+    expect(
+      contextualBanditHasServableVisualChanges(cb, [
+        { visualChanges: [change("a"), change("c", ".x{}")] },
+      ]),
+    ).toBe(false);
+    expect(
+      contextualBanditHasServableVisualChanges(cb, [
+        { visualChanges: [change("a"), change("d", ".x{}")] },
+      ]),
+    ).toBe(false);
+    expect(
+      contextualBanditHasServableVisualChanges(cb, [
+        { visualChanges: [change("a")] },
+        { visualChanges: [change("b", ".x{}")] },
+      ]),
+    ).toBe(true);
+    expect(contextualBanditHasServableVisualChanges(cb, [])).toBe(false);
   });
 
   it("weights reconciled over the active set leave pending arms with no pair (the mismatch invariant)", () => {

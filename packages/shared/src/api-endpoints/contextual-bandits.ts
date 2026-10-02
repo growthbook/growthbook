@@ -19,6 +19,8 @@ import {
 import {
   cancelContextualBanditEndpoint,
   contextualBanditApiSpec,
+  listContextualBanditVisualChangesetsEndpoint,
+  postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
@@ -65,6 +67,14 @@ export const updateContextualBanditVariations = customEndpoint(
 export const cancelContextualBandit = customEndpoint(
   contextualBanditApiSpec,
   cancelContextualBanditEndpoint,
+);
+export const postContextualBanditVisualChangesets = customEndpoint(
+  contextualBanditApiSpec,
+  postContextualBanditVisualChangesetsEndpoint,
+);
+export const listContextualBanditVisualChangesets = customEndpoint(
+  contextualBanditApiSpec,
+  listContextualBanditVisualChangesetsEndpoint,
 );
 
 export const getContextualBanditCurrentWeights = {
