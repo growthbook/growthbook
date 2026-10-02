@@ -22,6 +22,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { BadRequestError } from "back-end/src/util/errors";
 
 const hiddenBuiltInItemsValidator = z
   .array(builtInChecklistItemKeyValidator)
@@ -33,7 +34,7 @@ function parseHiddenBuiltInItems(
 ): BuiltInChecklistItemKey[] | undefined {
   const parsed = hiddenBuiltInItemsValidator.safeParse(value);
   if (!parsed.success) {
-    throw new Error(
+    throw new BadRequestError(
       `hiddenBuiltInItems must only contain: ${builtInChecklistItemKeyValidator.options.join(", ")}`,
     );
   }
