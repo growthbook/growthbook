@@ -113,6 +113,7 @@ const STARTER_PROMPTS = [
   { prompt: "Help me create a Feature Flag", Icon: PiFlag },
   { prompt: "Help me create an experiment", Icon: PiFlask },
 ];
+const STARTER_PROMPT_TEXTS = STARTER_PROMPTS.map((p) => p.prompt);
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
@@ -908,6 +909,9 @@ export default function AgentPanel({
         skillItems={skillItems}
         autocomplete={aiAutocompleteEnabled}
         suggestedReply={suggestedReply}
+        quickSuggestions={
+          messages.length === 0 ? STARTER_PROMPT_TEXTS : undefined
+        }
         conversationId={conversationId}
         value={input}
         onChange={setInput}

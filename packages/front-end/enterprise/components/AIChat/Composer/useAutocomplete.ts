@@ -11,10 +11,16 @@ const RETRY_AFTER_ERROR_MS = 60_000;
 // Nothing about the request will change by retrying: feature off, no access, bad input.
 const FATAL_STATUSES = new Set([400, 401, 403, 404]);
 
+export type SuggestionSource =
+  | "model"
+  | "assistant-options"
+  | "starter-prompts";
+
 export interface Suggestion {
   /** The draft the completion was generated for. */
   base: string;
   completion: string;
+  source?: SuggestionSource;
   /** Conversation, page and datasource it was generated for; any change makes it stale. */
   scope?: string;
 }
@@ -76,6 +82,20 @@ export function suggestedReplyFromOptions(
   return best.replace(/\?+$/, "").trim();
 }
 
+/** The rest of the first canned prompt the draft is a prefix of, if any. */
+export function completeFromList(
+  text: string,
+  prompts: readonly string[],
+): string | undefined {
+  const typed = text.trimStart();
+  if (typed.length < 2) return undefined;
+  const lower = typed.toLowerCase();
+  const hit = prompts.find(
+    (p) => p.length > typed.length && p.toLowerCase().startsWith(lower),
+  );
+  return hit?.slice(typed.length);
+}
+
 /** What's left to show once the user has typed part of the suggestion themselves. */
 export function remainingCompletion(
   text: string,
@@ -92,10 +112,13 @@ export function useAutocomplete({
   enabled,
   conversationId,
   suggestedReply,
+  quickSuggestions,
 }: {
   text: string;
   enabled: boolean;
   conversationId?: string;
+  /** Canned prompts to complete against before asking the model (empty chat). */
+  quickSuggestions?: readonly string[];
   /**
    * A whole reply to offer in an empty draft, taken from the assistant's last
    * message (see `suggestedReplyFromOptions`); `key` is that message's id.
@@ -126,13 +149,34 @@ export function useAutocomplete({
     if (!text.trim()) {
       // Nothing typed: offer the assistant's likeliest option, no model call.
       if (suggestedReply?.text) {
-        setSuggestion({ base: "", completion: suggestedReply.text, scope });
+        setSuggestion({
+          base: "",
+          completion: suggestedReply.text,
+          source: "assistant-options",
+          scope,
+        });
         track("AI Autocomplete Suggested", {
           source: "assistant-options",
           draftLength: 0,
           completionLength: suggestedReply.text.length,
         });
       }
+      return;
+    }
+    // A fresh chat: finish one of the starter prompts for free before asking the model.
+    const quick = quickSuggestions && completeFromList(text, quickSuggestions);
+    if (quick) {
+      setSuggestion({
+        base: text,
+        completion: quick,
+        source: "starter-prompts",
+        scope,
+      });
+      track("AI Autocomplete Suggested", {
+        source: "starter-prompts",
+        draftLength: text.length,
+        completionLength: quick.length,
+      });
       return;
     }
     if (text.trim().split(/\s+/).length < MIN_WORDS) return;
@@ -170,7 +214,7 @@ export function useAutocomplete({
         );
         if (ctrl.signal.aborted) return;
         const completion = res?.completion ?? "";
-        setSuggestion({ base: text, completion, scope });
+        setSuggestion({ base: text, completion, source: "model", scope });
         if (completion) {
           track("AI Autocomplete Suggested", {
             source: "model",
@@ -196,6 +240,7 @@ export function useAutocomplete({
     currentPage,
     datasourceId,
     suggestedReply,
+    quickSuggestions,
     scope,
     ghost,
     current?.base,
@@ -208,7 +253,7 @@ export function useAutocomplete({
     ghost,
     accept: () => {
       track("AI Autocomplete Accepted", {
-        source: current?.base === "" ? "assistant-options" : "model",
+        source: current?.source ?? "model",
         draftLength: text.length,
         completionLength: ghost.length,
       });

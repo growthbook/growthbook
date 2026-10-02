@@ -7,16 +7,11 @@ import {
 } from "shared/ai-chat";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import type { ReqContext } from "back-end/types/request";
-import {
-  getAISettingsForOrg,
-  getContextFromReq,
-} from "back-end/src/services/organizations";
-import { logger } from "back-end/src/util/logger";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import { postGeneralAgentChat } from "back-end/src/agent/general-agent";
 import { makeListChats } from "back-end/src/routers/utils/chat-controllers";
 import { listSkillSummaries } from "back-end/src/agent/skills";
 import {
-  resolveTextAIModel,
   secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
@@ -63,8 +58,7 @@ const ALL_CONTEXT: ContextKind[] = [
   "experiments",
   "metrics",
 ];
-// Which entity lists a page makes relevant. First match wins; pages with no
-// clear subject (home, settings, unknown) fall back to everything.
+// Which entity lists a page makes relevant. First match wins.
 const PAGE_CONTEXT: ReadonlyArray<[RegExp, ContextKind[]]> = [
   [
     /^\/(features|configs|constants|saved-groups|attributes|environments|namespaces|archetypes|sdks)(\/|$)/,
@@ -84,26 +78,95 @@ const PAGE_CONTEXT: ReadonlyArray<[RegExp, ContextKind[]]> = [
   ],
 ];
 
-/** Entity lists worth sending for the page the user is on. */
-export function contextKindsForPage(path?: string): ContextKind[] {
-  const p = (path ?? "").split("?")[0];
-  return PAGE_CONTEXT.find(([re]) => re.test(p))?.[1] ?? ALL_CONTEXT;
+// What the draft itself is about, when the page says nothing.
+const DRAFT_CONTEXT: ReadonlyArray<[RegExp, ContextKind[]]> = [
+  [
+    /\b(flags?|features?|rollouts?|targeting|saved groups?|attributes?|environments?)\b/i,
+    ["features"],
+  ],
+  [
+    /\b(experiments?|a\/b|ab tests?|variations?|bandits?|holdouts?|hypothes[ie]s|results)\b/i,
+    ["experiments", "metrics"],
+  ],
+  [
+    /\b(metrics?|conversions?|revenue|funnels?|retention|kpis?)\b/i,
+    ["metrics", "datasources"],
+  ],
+  [
+    /\b(data ?sources?|warehouses?|tables?|sql|quer(y|ies)|dashboards?|charts?|analytics)\b/i,
+    ["datasources", "metrics"],
+  ],
+];
+
+// Skill domains each entity list belongs to; docs are always worth having.
+const DOMAIN_FOR_KIND: Record<ContextKind, string> = {
+  features: "feature-flags",
+  experiments: "experiments",
+  metrics: "analytics",
+  datasources: "analytics",
+};
+const ALWAYS_DOMAINS = ["growthbook-docs"];
+
+/**
+ * Entity lists worth sending: whatever the page, the words in the draft and
+ * the words in the recent conversation point at, combined. null means there
+ * is nothing to ground a suggestion in yet.
+ */
+export function contextKindsFor({
+  currentPage,
+  text,
+  historyText = "",
+}: {
+  currentPage?: string;
+  text: string;
+  historyText?: string;
+}): ContextKind[] | null {
+  const path = (currentPage ?? "").split("?")[0];
+  const kinds = new Set<ContextKind>(
+    PAGE_CONTEXT.find(([re]) => re.test(path))?.[1] ?? [],
+  );
+  for (const source of [text, historyText]) {
+    DRAFT_CONTEXT.filter(([re]) => re.test(source)).forEach(([, ks]) =>
+      ks.forEach((k) => kinds.add(k)),
+    );
+  }
+  return kinds.size ? ALL_CONTEXT.filter((k) => kinds.has(k)) : null;
+}
+
+/** Descriptions run to a paragraph; the first sentence is enough to route by. */
+export function firstSentence(text: string, max = 160): string {
+  const first = text.trim().split(/(?<=[.!?])\s/)[0] ?? "";
+  return first.length > max ? `${first.slice(0, max - 1).trimEnd()}…` : first;
+}
+
+/** Enabled leaf skills in the domains the context points at, one line each. */
+function skillsForPrompt(org: ReqContext["org"], kinds: ContextKind[]): string {
+  const domains = new Set([
+    ...ALWAYS_DOMAINS,
+    ...kinds.map((k) => DOMAIN_FOR_KIND[k]),
+  ]);
+  return listSkillSummaries(org)
+    .filter(
+      (s) => s.enabled && s.kind !== "domain" && domains.has(s.group ?? ""),
+    )
+    .map((s) => `- ${s.name}: ${firstSentence(s.description)}`)
+    .join("\n");
 }
 
 /**
- * Names of the org's entities that matter on the current page, so suggestions
- * point at real things without spending tokens on lists the page makes
- * irrelevant. Metrics are scoped to the active PA datasource when known.
+ * Names of the org's entities the context points at, so suggestions point at
+ * real things without spending tokens on irrelevant lists. Metrics are scoped
+ * to the active PA datasource when known.
  */
 // ponytail: up to five queries per call; cache per org for a minute if this shows up in latency.
 async function orgContextForAutocomplete(
   context: ReqContext,
   {
     datasourceId,
-    currentPage,
-  }: { datasourceId?: string; currentPage?: string },
+    kinds: kindList,
+  }: { datasourceId?: string; kinds: ContextKind[] },
 ): Promise<string> {
-  const kinds = new Set(contextKindsForPage(currentPage));
+  const kinds = new Set(kindList);
   // Lets the feature and metric lookups filter by read access in Mongo, so
   // their limits stay bounded on large catalogs. null means every project.
   const readableProjects =
@@ -225,38 +288,28 @@ export const postAutocomplete = async (
 
   const { text, conversationId, currentPage, datasourceId } = req.body;
   // getById is owner-scoped, so another user's conversation reads as missing.
-  const [conversation, orgContext] = await Promise.all([
-    conversationId
-      ? context.models.aiConversations.getById(conversationId)
-      : null,
-    orgContextForAutocomplete(context, { datasourceId, currentPage }),
-  ]);
-  const history = (conversation?.messages ?? [])
-    .filter(
-      (m): m is AIChatUserMessage | AIChatAssistantMessage =>
-        m.role === "user" || m.role === "assistant",
-    )
+  const conversation = conversationId
+    ? await context.models.aiConversations.getById(conversationId)
+    : null;
+  const turns = (conversation?.messages ?? []).filter(
+    (m): m is AIChatUserMessage | AIChatAssistantMessage =>
+      m.role === "user" || m.role === "assistant",
+  );
+  const history = turns
     .slice(-6)
     .map((m) => `${m.role}: ${getMessageText(m).slice(0, 500)}`)
     .join("\n");
-  // Only skills the org has on, so suggestions don't steer toward disabled ones.
-  const skills = listSkillSummaries(context.org)
-    .filter((s) => s.enabled && s.kind !== "domain")
-    .map((s) => `- ${s.name}: ${s.description}`)
-    .join("\n");
+  const kinds = contextKindsFor({ currentPage, text, historyText: history });
+  // Nothing to ground a suggestion in yet: no telling page, draft or
+  // conversation. Guessing here is what produced invented metrics.
+  if (!kinds) return res.status(200).json({ status: 200, completion: "" });
 
-  // Same resolution simpleCompletion does, so the log names the model actually used.
-  const { defaultAIModel, keySource } = await getAISettingsForOrg(
-    context,
-    true,
-  );
-  logger.info(
-    {
-      model: resolveTextAIModel(undefined, defaultAIModel, keySource),
-      organization: context.org.id,
-    },
-    "AI autocomplete",
-  );
+  const orgContext = await orgContextForAutocomplete(context, {
+    datasourceId,
+    kinds,
+  });
+  // Only enabled skills in the domains the context points at.
+  const skills = skillsForPrompt(context.org, kinds);
 
   const raw = await simpleCompletion({
     context,

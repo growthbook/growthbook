@@ -1,4 +1,5 @@
 import {
+  completeFromList,
   remainingCompletion,
   suggestedReplyFromOptions,
 } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
@@ -66,5 +67,24 @@ describe("suggestedReplyFromOptions", () => {
   });
   it("returns nothing when the message has no options", () => {
     expect(suggestedReplyFromOptions("Done. Anything else?")).toBeUndefined();
+  });
+});
+
+describe("completeFromList", () => {
+  const prompts = [
+    "Help me create a Feature Flag",
+    "Help me create an experiment",
+  ];
+
+  it("finishes the first prompt the draft is a prefix of, case-insensitively", () => {
+    expect(completeFromList("help me create", prompts)).toBe(" a Feature Flag");
+    expect(completeFromList("Help me create an", prompts)).toBe(" experiment");
+  });
+  it("needs a couple of characters and a real prefix", () => {
+    expect(completeFromList("h", prompts)).toBeUndefined();
+    expect(completeFromList("show me", prompts)).toBeUndefined();
+    expect(
+      completeFromList("Help me create a Feature Flag", prompts),
+    ).toBeUndefined();
   });
 });

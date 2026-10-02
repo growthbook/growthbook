@@ -92,6 +92,8 @@ export interface ChatComposerProps {
   conversationId?: string;
   /** A whole reply to offer in an empty draft, from the assistant's last message. */
   suggestedReply?: { key: string; text: string };
+  /** Canned prompts to complete against before asking the model. */
+  quickSuggestions?: readonly string[];
 }
 
 type ActiveSuggestion =
@@ -153,6 +155,7 @@ function ChatComposer(
     autocomplete = false,
     conversationId,
     suggestedReply,
+    quickSuggestions,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
 ) {
@@ -178,6 +181,7 @@ function ChatComposer(
       autocomplete && caretAtEnd && !loading && !disabled && !suggestionVisible,
     conversationId,
     suggestedReply,
+    quickSuggestions,
   });
   const ghost = suggestionVisible || !caretAtEnd ? "" : ghostText;
   const ghostId = useId();
