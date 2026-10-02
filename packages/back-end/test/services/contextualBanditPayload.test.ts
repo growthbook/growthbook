@@ -2,8 +2,12 @@ import { ContextualBanditInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureDefinition } from "shared/types/sdk";
 import { GroupMap } from "shared/types/saved-group";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getFeatureDefinition } from "back-end/src/util/features";
-import { filterUsedContextualBandits } from "back-end/src/services/features";
+import {
+  filterUsedContextualBandits,
+  generateAutoExperimentsPayload,
+} from "back-end/src/services/features";
 import { measureContextualBanditPayload } from "back-end/src/services/contextualBanditPayload";
 
 // services/features.ts transitively imports datasource integrations, which
@@ -631,5 +635,162 @@ describe("measureContextualBanditPayload", () => {
       maxSingleCbBytes: 0,
       maxLeaves: 0,
     });
+  });
+});
+
+describe("CB visual changesets in the auto-experiments payload", () => {
+  const V0 = { id: "v0", name: "Control", key: "0", screenshots: [] };
+  const V1 = { id: "v1", name: "Treatment", key: "1", screenshots: [] };
+  const V2 = { id: "v2", name: "Added", key: "2", screenshots: [] };
+
+  function makeChangeset(
+    variationIds: string[],
+    overrides: Partial<VisualChangesetInterface> = {},
+  ): VisualChangesetInterface {
+    return {
+      id: "vcs_1",
+      organization: "org_1",
+      contextualBandit: "cb_1",
+      editorUrl: "https://example.com/",
+      urlPatterns: [
+        { include: true, type: "simple", pattern: "https://example.com/" },
+      ],
+      visualChanges: variationIds.map((id) => ({
+        id: `vc_${id}`,
+        variation: id,
+        description: "",
+        css: id === "v0" ? "" : `.${id} { display: block; }`,
+        domMutations: [],
+      })),
+      ...overrides,
+    } as VisualChangesetInterface;
+  }
+
+  function payloadFor(
+    cb: ContextualBanditInterface,
+    vcs: VisualChangesetInterface,
+  ) {
+    return generateAutoExperimentsPayload({
+      visualExperiments: [],
+      urlRedirectExperiments: [],
+      cbVisualExperiments: [
+        { type: "cb-visual", contextualBandit: cb, visualChangeset: vcs },
+      ],
+      groupMap,
+      features: [],
+      environment: "production",
+      capabilities: ["contextualBandits", "contextualBanditsAuto"],
+      includeExperimentNames: true,
+    });
+  }
+
+  it("emits one entry per changeset, keyed by the CB tracking key with its ref", () => {
+    const cb = makeCb({ variations: [V0, V1], hasVisualChangesets: true });
+    const [exp] = payloadFor(cb, makeChangeset(["v0", "v1"]));
+    expect(exp).toMatchObject({
+      key: "cb_1_tk",
+      contextualBanditRef: "cb_1",
+      disableStickyBucketing: true,
+      hashVersion: 2,
+      hashAttribute: "id",
+      status: "running",
+    });
+    expect(exp.variations).toHaveLength(2);
+    expect(exp.meta).toEqual([
+      { key: "0", name: "Control" },
+      { key: "1", name: "Treatment" },
+    ]);
+    expect(exp.variations[1]).toMatchObject({ css: ".v1 { display: block; }" });
+  });
+
+  it("emits nothing for a changeset with no visual content", () => {
+    const cb = makeCb({ variations: [V0, V1], hasVisualChangesets: true });
+    const empty = makeChangeset(["v0", "v1"], {
+      visualChanges: ["v0", "v1"].map((id) => ({
+        id: `vc_${id}`,
+        variation: id,
+        description: "",
+        css: "",
+        domMutations: [],
+      })),
+    });
+    expect(payloadFor(cb, empty)).toHaveLength(0);
+  });
+
+  it("emits nothing for a draft CB", () => {
+    const cb = makeCb({ status: "draft", hasVisualChangesets: true });
+    expect(payloadFor(cb, makeChangeset(["v0", "v1"]))).toHaveLength(0);
+  });
+
+  it("strips contextualBanditRef for an SDK without contextualBanditsAuto", () => {
+    const cb = makeCb({ hasVisualChangesets: true });
+    const [exp] = generateAutoExperimentsPayload({
+      visualExperiments: [],
+      urlRedirectExperiments: [],
+      cbVisualExperiments: [
+        {
+          type: "cb-visual",
+          contextualBandit: cb,
+          visualChangeset: makeChangeset(["v0", "v1"]),
+        },
+      ],
+      groupMap,
+      features: [],
+      environment: "production",
+      capabilities: ["contextualBandits"],
+    });
+    expect(exp.key).toBe("cb_1_tk");
+    expect(exp).not.toHaveProperty("contextualBanditRef");
+  });
+
+  it("serves only active arms, in the same positions as the leaf weights", () => {
+    const cb = makeCb({
+      variations: [
+        V0,
+        { ...V1, status: "pending" },
+        V2,
+        {
+          ...{ id: "v3", name: "Gone", key: "3", screenshots: [] },
+          status: "deactivated",
+        },
+      ],
+      variationWeights: [
+        { variationId: "v0", weight: 0.5 },
+        { variationId: "v2", weight: 0.5 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.2 },
+            { variationId: "v2", weight: 0.8 },
+          ],
+        },
+      ],
+      hasVisualChangesets: true,
+    } as unknown as Partial<ContextualBanditInterface>);
+    const vcs = makeChangeset(["v0", "v1", "v2", "v3"]);
+    const [exp] = payloadFor(cb, vcs);
+
+    expect(exp.meta?.map((m) => m.key)).toEqual(["0", "2"]);
+    expect(exp.variations).toHaveLength(2);
+    expect(exp.variations[1]).toMatchObject({ css: ".v2 { display: block; }" });
+    expect(exp.weights).toEqual([0.5, 0.5]);
+
+    const map = filterUsedContextualBandits(new Map([[cb.id, cb]]), {}, [exp]);
+    expect(map?.cb_1.contexts[0].weights).toEqual([0.2, 0.8]);
+    expect(map?.cb_1.contexts[0].weights).toHaveLength(exp.variations.length);
+  });
+
+  it("emits nothing when no arm is active", () => {
+    const cb = makeCb({
+      variations: [
+        { ...V0, status: "deactivated" },
+        { ...V1, status: "pending" },
+      ],
+      hasVisualChangesets: true,
+    } as unknown as Partial<ContextualBanditInterface>);
+    expect(payloadFor(cb, makeChangeset(["v0", "v1"]))).toHaveLength(0);
   });
 });
