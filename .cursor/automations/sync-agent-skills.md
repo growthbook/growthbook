@@ -60,13 +60,13 @@ New or changed text must read as if the person who wrote the rest of the file wr
 - **A new workflow file must look like its siblings.** Put it at `skills/<domain>/references/<name>.md` in an existing domain, named after what the user is doing (not after an endpoint). Give it `name` and `description` frontmatter like the others, a one-paragraph intro, then `## Workflow`, `## Guardrails`, `## Endpoints used`, and `## Handoffs`, with `## Contents` first if it passes 100 lines. Add one row for it to the router's "Pick a workflow" table and its trigger phrases to the router `description`. In the PR description, say which existing workflows you considered and why none fit. Add at most one new file per run.
 - **Never** delete or rename files, create a new domain or top-level skill, edit anything outside `skills/`, or change frontmatter other than a router `description` (and the new file's own).
 - Keep examples literal and copy-pasteable, with the placeholder style the file already uses (for example `<flag-id>`).
-- **`skills/experiments/references/experiment-launch.md` and the statistical framing in the experiment skills belong to GrowthBook's head of data science, @lukesonnet.** You may edit `experiment-launch.md` for API mechanics only (endpoints, payloads, error handling), never its methodology. Put any such change, and any change to statistical framing in another experiments skill, in its own PR. Keep that PR a draft, request @lukesonnet as a reviewer, and start its description with:
+- **Experiment skills need GrowthBook's head of data science, @lukesonnet.** Put any change under `skills/experiments/` in its own PR, separate from feature-flag and analytics changes. Keep that PR a draft, request @lukesonnet as a reviewer, and start its description with:
 
   ```markdown
   > **Needs review from @lukesonnet (head of data science).** <one line on what he needs to check or decide>
   ```
 
-  CI fails a sync PR that edits `experiment-launch.md` without this note. Put methodology questions under "Needs a human" in that PR, not as edits.
+  CI fails a sync PR that touches `skills/experiments/` without this note. In `experiment-launch.md`, change API mechanics only (endpoints, payloads, error handling), never its methodology or statistical framing; put those questions under "Needs a human" in the same PR.
 
 - `CLAUDE.md`, the README, and the changelog are for humans to change. Note what they need under "Needs a human".
 - When the API has no replacement for something a skill relies on, or you aren't sure, don't edit. Note it under "Needs a human".
