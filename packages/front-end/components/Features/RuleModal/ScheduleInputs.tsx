@@ -145,6 +145,7 @@ export default function ScheduleInputs({
             containerClassName="mb-0"
             scheduleEndDate={state.endScheduleAt || undefined}
             disabled={startDisabled}
+            showTimezone
           />
         )}
       </ScheduleRow>
@@ -175,6 +176,7 @@ export default function ScheduleInputs({
               state.startDate ? new Date(state.startDate) : new Date()
             }
             disabled={disabled}
+            showTimezone
           />
         )}
       </ScheduleRow>

@@ -4,6 +4,7 @@ import {
   lastMondayString,
   resolveScheduleStopAfter,
   resolveScheduledStop,
+  timezoneShortLabel,
 } from "../src/dates";
 
 describe("getValidDate", () => {
@@ -157,6 +158,41 @@ describe("resolveScheduledStop", () => {
     expect(r.stopAt).toBeNull();
     expect(r.stopAfter).toBeNull();
     expect(r.stagedStop).toBeNull();
+  });
+});
+
+describe("timezoneShortLabel", () => {
+  const RealDateTimeFormat = Intl.DateTimeFormat;
+  /**
+   * Pins the zone and locale Intl reports so labels are stable on any machine.
+   * Setting TZ or LANG wouldn't work: Jest sandboxes process.env.
+   */
+  function browserIn(timeZone: string, locale = "en-US") {
+    jest.spyOn(Intl, "DateTimeFormat").mockImplementation(
+      (locales, options) =>
+        new RealDateTimeFormat(locales ?? locale, {
+          ...options,
+          timeZone: options?.timeZone ?? timeZone,
+        }),
+    );
+  }
+  afterEach(() => jest.restoreAllMocks());
+
+  it("evaluates the label at the given date, so DST resolves correctly", () => {
+    browserIn("America/New_York");
+    expect(timezoneShortLabel("2026-01-15T12:00:00Z")).toBe("EST");
+    expect(timezoneShortLabel("2026-07-15T12:00:00Z")).toBe("EDT");
+  });
+
+  it("falls back to a GMT offset for zones the locale doesn't abbreviate", () => {
+    browserIn("Europe/Berlin");
+    expect(timezoneShortLabel("2026-01-15T12:00:00Z")).toBe("GMT+1");
+    expect(timezoneShortLabel("2026-07-15T12:00:00Z")).toBe("GMT+2");
+  });
+
+  it("uses the browser's locale for the zone name", () => {
+    browserIn("Europe/Berlin", "de-DE");
+    expect(timezoneShortLabel("2026-07-15T12:00:00Z")).toBe("MESZ");
   });
 });
 

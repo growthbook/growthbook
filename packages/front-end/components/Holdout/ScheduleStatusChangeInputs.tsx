@@ -6,7 +6,6 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime } from "shared/dates";
 import { getHoldoutStage } from "shared/util";
 import { format } from "date-fns";
-import { format as formatTimeZone } from "date-fns-tz";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/ui/Tooltip";
@@ -55,7 +54,7 @@ export default function ScheduleStatusChangeInputs({
               }}
               scheduleEndDate={startAnalysisPeriodDate}
               clearButton={true}
-              helpText={`Schedule is in local time (${formatTimeZone(new Date(), "z")})`}
+              showTimezone
             />
           </Box>
         </Flex>
@@ -99,7 +98,7 @@ export default function ScheduleStatusChangeInputs({
               }}
               scheduleStartDate={startDate}
               clearButton={true}
-              helpText={`Schedule is in local time (${formatTimeZone(new Date(), "z")})`}
+              showTimezone
             />
           </Box>
         </Flex>
@@ -137,7 +136,7 @@ export default function ScheduleStatusChangeInputs({
               }}
               scheduleStartDate={startAnalysisPeriodDate}
               clearButton={true}
-              helpText={`Schedule is in local time (${formatTimeZone(new Date(), "z")})`}
+              showTimezone
             />
           </Box>
         </Flex>

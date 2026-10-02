@@ -6,7 +6,7 @@ import addMonths from "date-fns/addMonths";
 import addDays from "date-fns/addDays";
 import addHours from "date-fns/addHours";
 import formatRelative from "date-fns/formatRelative";
-import { formatInTimeZone } from "date-fns-tz";
+import { format as formatTz, formatInTimeZone } from "date-fns-tz";
 
 export function dateNoYear(date: string | Date): string {
   if (!date) return "";
@@ -53,6 +53,14 @@ export function timestamp(date: string | Date, inTimezone?: string): string {
   return inTimezone
     ? formatInTimeZone(d, inTimezone, formatStr)
     : format(d, formatStr);
+}
+/**
+ * Short label for the viewer's timezone at `date`, e.g. "PST" or "GMT+2".
+ * Takes the date rather than now() so a time across a DST boundary gets the
+ * offset in effect then.
+ */
+export function timezoneShortLabel(date: string | Date): string {
+  return formatTz(getValidDate(date), "zzz");
 }
 export function relativeDate(date: string | Date): string {
   if (!date) return "";

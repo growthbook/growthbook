@@ -449,6 +449,7 @@ export default function EditScheduleModal({
                   scheduleEndDate={stopAt || undefined}
                   disableBefore={now}
                   disabled={experiment.status !== "draft"}
+                  showTimezone
                 />
               )}
             </ScheduleRow>
@@ -491,6 +492,7 @@ export default function EditScheduleModal({
                   precision="datetime"
                   scheduleStartDate={startAt || undefined}
                   disableBefore={startAt ? new Date(startAt) : now}
+                  showTimezone
                 />
               )}
               {endMode === "after" && (

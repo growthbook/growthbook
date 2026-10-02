@@ -4,7 +4,12 @@ import {
   isAwaitingStartApproval,
   RampScheduleInterface,
 } from "shared/validators";
-import { abbreviateAgo, dateNoYear, datetime } from "shared/dates";
+import {
+  abbreviateAgo,
+  dateNoYear,
+  datetime,
+  timezoneShortLabel,
+} from "shared/dates";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
@@ -59,7 +64,7 @@ export default function RampScheduleBadge({
   const dateRow = (label: string, d: Date) => (
     <div key={label}>
       <span className="text-muted">{label}: </span>
-      {datetime(d)}
+      {datetime(d)} ({timezoneShortLabel(d)})
     </div>
   );
 
