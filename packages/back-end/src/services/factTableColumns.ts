@@ -97,7 +97,12 @@ export function selectColumnsForTopValues({
 export async function runColumnsTopValuesQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">,
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "timestampColumn"
+  > & {
+    id?: string;
+  },
   columns: ColumnInterface[],
   options?: {
     limit?: number;
@@ -140,7 +145,7 @@ export async function runColumnsTopValuesQuery(
     maxValueLength: MAX_TOP_VALUE_LENGTH,
     searchTerm: options?.searchTerm,
   });
-  const result = await integration.runColumnsTopValuesQuery(sql);
+  const result = await integration.runColumnsTopValuesQuery(sql, factTable.id);
 
   // Group results by column name
   const columnValues: Record<string, string[]> = {};

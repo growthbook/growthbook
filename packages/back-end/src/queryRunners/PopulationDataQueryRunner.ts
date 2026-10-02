@@ -1,6 +1,7 @@
 import { UpdateProps } from "shared/types/base-model";
 import {
   ExperimentMetricInterface,
+  getFactTableIdsForMetrics,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
@@ -184,6 +185,7 @@ export const startPopulationDataQueries = async (
             setExternalId,
             queryMetadata,
           ),
+        factTableIds: getFactTableIdsForMetrics(m),
         queryType: "populationMultiMetric",
       }),
     );

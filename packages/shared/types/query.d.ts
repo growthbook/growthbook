@@ -145,6 +145,8 @@ export type QueryMetadata = AdditionalQueryMetadata &
   QueryDocMetadata & {
     userName?: string;
     userId?: string;
+    // Fact tables the query reads, for warehouse usage attribution
+    factTableIds?: string[];
   };
 
 // queryType is required to ensure visibility into query costs at the data warehouse

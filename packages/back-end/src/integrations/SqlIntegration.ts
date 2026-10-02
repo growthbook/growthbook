@@ -387,6 +387,7 @@ export default abstract class SqlIntegration
         externalId,
         queryId: metadata.queryId,
         experimentId: metadata.experimentId,
+        factTableIds: metadata.factTableIds,
         snapshotTriggeredBy: metadata.snapshotTriggeredBy,
         snapshotType: metadata.snapshotType,
         userId: metadata.userId || undefined,
@@ -1684,9 +1685,11 @@ export default abstract class SqlIntegration
 
   public async runColumnsTopValuesQuery(
     sql: string,
+    factTableId?: string,
   ): Promise<ColumnTopValuesResponse> {
     const { rows, statistics } = await this.runQuery(sql, undefined, {
       queryType: "columnTopValues",
+      ...(factTableId && { factTableIds: [factTableId] }),
     });
 
     return {

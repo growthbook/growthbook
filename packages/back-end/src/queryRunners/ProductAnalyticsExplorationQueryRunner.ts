@@ -56,6 +56,7 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
             setExternalId,
             queryMetadata,
           ),
+        factTableIds: Array.from(params.factTableMap.keys()),
         queryType: "productAnalyticsExploration",
       }),
     ];
