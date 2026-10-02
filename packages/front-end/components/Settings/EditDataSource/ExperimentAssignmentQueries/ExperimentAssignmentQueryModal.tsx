@@ -20,6 +20,7 @@ import ColumnMappingRow, {
   validColumn,
 } from "@/components/SchemaBrowser/ColumnMappingRow";
 import {
+  isDimensionCandidate,
   isIdentifierCandidate,
   isTimestampCandidate,
 } from "@/services/factTables";
@@ -165,7 +166,8 @@ export const ExperimentAssignmentQueryModal = ({
     columns.some((c) => c.column === "experiment_name") &&
     columns.some((c) => c.column === "variation_name");
 
-  // Columns not claimed by a role are offered as dimensions.
+  // String columns not claimed by a role are offered as dimensions. Already
+  // saved dimensions stay listed so editing never silently drops one.
   const roleColumns = new Set(
     [
       experimentIdColumn,
@@ -176,8 +178,13 @@ export const ExperimentAssignmentQueryModal = ({
       "variation_name",
     ].filter(Boolean),
   );
+  const savedDimensions = exposureQuery?.dimensions ?? [];
   const dimensionOptions = columns
-    .filter((c) => !roleColumns.has(c.column))
+    .filter(
+      (c) =>
+        !roleColumns.has(c.column) &&
+        (isDimensionCandidate(c) || savedDimensions.includes(c.column)),
+    )
     .map((c) => ({ label: c.column, value: c.column }));
 
   const mappedUserIdTypes = identifierTypes.filter((t) =>
@@ -338,7 +345,9 @@ export const ExperimentAssignmentQueryModal = ({
       userIdType: userIdTypes[0],
       userIdTypes,
       query: sql,
-      dimensions: dimensions.filter((d) => validColumn(columns, d)),
+      dimensions: dimensions.filter((d) =>
+        dimensionOptions.some((o) => o.value === d),
+      ),
       hasNameCol,
       projects,
       columns,

@@ -42,6 +42,9 @@ export const isTimestampCandidate = (c: DetectedColumn) =>
 export const isIdentifierCandidate = (c: DetectedColumn) =>
   ["string", "number", "other", ""].includes(c.datatype);
 
+export const isDimensionCandidate = (c: DetectedColumn) =>
+  ["string", ""].includes(c.datatype);
+
 export function getColumnMappingError(
   columns: DetectedColumn[],
 ): string | null {
