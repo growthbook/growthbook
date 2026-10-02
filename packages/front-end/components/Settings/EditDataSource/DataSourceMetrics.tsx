@@ -52,6 +52,7 @@ export default function DataSourceMetrics({
 
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
+    enableRowActions: true,
   });
   const metrics = combinedMetrics.filter((m) => m.datasource === dataSource.id);
 

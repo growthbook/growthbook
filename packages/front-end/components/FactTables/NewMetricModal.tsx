@@ -4,7 +4,7 @@ import {
   MetricDefinitionInterface,
   MetricInterface,
 } from "shared/types/metric";
-import { FactMetricInterface } from "shared/types/fact-table";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -16,7 +16,6 @@ import Button from "@/ui/Button";
 
 export type MetricModalState = {
   currentMetric?: MetricDefinitionInterface;
-  currentFactMetric?: FactMetricInterface;
   mode: "edit" | "duplicate" | "new";
 };
 
@@ -36,7 +35,6 @@ export function MetricModal({
   close,
   mode,
   source,
-  currentFactMetric,
   currentMetric,
   datasource,
 }: MetricModalProps) {
@@ -51,15 +49,6 @@ export function MetricModal({
         mode={mode}
         source={source}
         currentMetric={currentMetric}
-      />
-    );
-  } else if (currentFactMetric) {
-    return (
-      <FactMetricModal
-        close={close}
-        source={source + (mode === "duplicate" ? "-duplicate" : "")}
-        duplicate={mode === "duplicate"}
-        existing={currentFactMetric}
       />
     );
   } else {
@@ -144,6 +133,10 @@ function EditMetricModal({
 
 export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
   const { factTables, project, getDatasourceById } = useDefinitions();
+  const permissions = usePermissionsUtil();
+  const canCreateFactMetric = permissions.canCreateFactMetric({
+    projects: project ? [project] : [],
+  });
 
   const filteredFactTables = factTables
     .filter((f) => !datasource || f.datasource === datasource)
@@ -153,7 +146,7 @@ export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
   // - If there are no fact tables, default to legacy
   // - Otherwise, default to fact
   let defaultType: "fact" | "legacy" = "fact";
-  if (filteredFactTables.length === 0) {
+  if (filteredFactTables.length === 0 || !canCreateFactMetric) {
     defaultType = "legacy";
   }
 
@@ -185,9 +178,7 @@ export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
         edit={false}
         source={source}
         onClose={close}
-        switchToFact={() => {
-          setType("fact");
-        }}
+        switchToFact={canCreateFactMetric ? () => setType("fact") : undefined}
       />
     );
   }

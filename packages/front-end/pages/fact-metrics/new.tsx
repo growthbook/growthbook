@@ -1,0 +1,271 @@
+import { useRouter } from "next/router";
+import { useState } from "react";
+import { Flex } from "@radix-ui/themes";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { isProjectListValidForProject } from "shared/util";
+import { CommercialFeature } from "shared/enterprise";
+import { getSafeReturnUrl } from "@/services/returnUrl";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import Heading from "@/ui/Heading";
+import Button from "@/ui/Button";
+import MetricForm from "@/components/Metrics/MetricForm";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import PageHead from "@/components/Layout/PageHead";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspace";
+import {
+  parseMetricTemplate,
+  TemplateMetric,
+} from "@/components/FactTables/MetricEditor/templateMetric";
+
+export default function NewFactMetricPage() {
+  const router = useRouter();
+  const {
+    project,
+    ready,
+    mutateDefinitions,
+    getFactMetricById,
+    getFactTableById,
+    factMetrics,
+    factTables,
+    datasources,
+    metrics,
+  } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
+  const { hasCommercialFeature, settings } = useUser();
+  const { demoDataSourceId } = useDemoDataSourceProject();
+  const [showLegacyForm, setShowLegacyForm] = useState(false);
+
+  const [upgradeModal, setUpgradeModal] = useState<null | {
+    source: string;
+    commercialFeature: CommercialFeature;
+  }>(null);
+
+  const returnUrl = getSafeReturnUrl(router.query.returnUrl);
+
+  if (!ready || !router.isReady) return <LoadingOverlay />;
+
+  const fromQuery = <T,>(
+    key: string,
+    lookup: (id: string) => T | null,
+  ): T | null => {
+    const v = router.query[key];
+    return typeof v === "string" ? lookup(v) : null;
+  };
+
+  const initialFactTable = fromQuery("factTable", getFactTableById);
+  if (router.query.factTable && !initialFactTable) {
+    return (
+      <Callout status="error">
+        Could not find the requested fact table.{" "}
+        <Link href={returnUrl}>Go back</Link>
+      </Callout>
+    );
+  }
+
+  // ?addMetric=<json> (crafted externally - docs, support, onboarding,
+  // nothing in this repo generates the link) pre-fills a metric from a
+  // template; MetricWorkspace completes the mapping itself (its numerator
+  // has no factTableId yet). A template is the more deliberate of the two
+  // seed sources, so it wins if a URL somehow carries both.
+  const rawTemplate =
+    typeof router.query.addMetric === "string" ? router.query.addMetric : null;
+  let template: TemplateMetric | null = null;
+  let templateError: string | null = null;
+  if (rawTemplate) {
+    try {
+      template = parseMetricTemplate(rawTemplate);
+    } catch (e) {
+      templateError = e.message;
+    }
+  }
+
+  const duplicateSource = template
+    ? null
+    : fromQuery("duplicate", getFactMetricById);
+  if (router.query.duplicate && !router.query.addMetric && !duplicateSource) {
+    return (
+      <Callout status="error">
+        Could not find the metric to duplicate.{" "}
+        <Link href={returnUrl}>Go back</Link>
+      </Callout>
+    );
+  }
+
+  // Matches the old modal's duplicate normalization (FactMetricList.tsx,
+  // pre-migration): only "admin" managedBy carries over, and only if this
+  // user could create it themselves - otherwise a copy of an API-managed or
+  // admin-managed metric would be rejected outright by the backend instead
+  // of saving as an ordinary metric.
+  const duplicatedManagedBy: "" | "admin" =
+    duplicateSource?.managedBy === "admin" &&
+    permissionsUtil.canCreateOfficialResources(duplicateSource)
+      ? "admin"
+      : "";
+  const duplicateFrom = template
+    ? template
+    : duplicateSource
+      ? {
+          ...duplicateSource,
+          name: duplicateSource.name + " (copy)",
+          managedBy: duplicatedManagedBy,
+        }
+      : null;
+
+  // Check the Projects the new metric will actually get (MetricWorkspace
+  // copies them from its fact table), not just the Project picked in the
+  // header. The Add and Duplicate buttons that link here check the same.
+  const seedFactTable =
+    (duplicateSource &&
+      getFactTableById(
+        duplicateSource.metricType === "funnel"
+          ? (duplicateSource.funnelSettings?.steps[0]?.factTableId ?? "")
+          : (duplicateSource.numerator?.factTableId ?? ""),
+      )) ||
+    initialFactTable;
+  const canCreate = permissionsUtil.canCreateFactMetric({
+    projects: seedFactTable
+      ? seedFactTable.projects || []
+      : project
+        ? [project]
+        : [],
+    managedBy: "",
+  });
+
+  // MetricEditor's MetricTypeSelect only disables a commercial-gated option
+  // for a fresh choice - it doesn't stop a pre-seeded quantile/retention
+  // template or duplicate from saving, so this stays a page-level gate.
+  const seedMetricType = template?.metricType ?? duplicateSource?.metricType;
+  const missingCommercialFeature:
+    | "quantile-metrics"
+    | "retention-metrics"
+    | null =
+    seedMetricType === "quantile" && !hasCommercialFeature("quantile-metrics")
+      ? "quantile-metrics"
+      : seedMetricType === "retention" &&
+          !hasCommercialFeature("retention-metrics")
+        ? "retention-metrics"
+        : null;
+
+  const hasDatasource = datasources.some(
+    (d) =>
+      isProjectListValidForProject(d.projects, project) &&
+      d.properties?.queryLanguage === "sql",
+  );
+  const hasFactTable = factTables.some((t) =>
+    isProjectListValidForProject(t.projects, project),
+  );
+  const showLegacySwitch =
+    !settings.disableLegacyMetricCreation &&
+    permissionsUtil.canCreateMetric({ projects: project ? [project] : [] }) &&
+    metrics.some(
+      (m) =>
+        (!initialFactTable || m.datasource === initialFactTable.datasource) &&
+        isProjectListValidForProject(m.projects, project) &&
+        m.datasource !== demoDataSourceId,
+    );
+
+  const nameCollision =
+    !!template && factMetrics.some((f) => f.name === template.name);
+
+  return (
+    <div className="pagecontents container-fluid">
+      {showLegacyForm && (
+        <MetricForm
+          current={{
+            datasource: initialFactTable?.datasource,
+            projects: project ? [project] : [],
+          }}
+          edit={false}
+          source="metric-editor"
+          onClose={() => setShowLegacyForm(false)}
+          switchToFact={() => setShowLegacyForm(false)}
+        />
+      )}
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(null)}
+          source={upgradeModal.source}
+          commercialFeature={upgradeModal.commercialFeature}
+        />
+      )}
+      <PageHead
+        breadcrumb={[
+          { display: "Metrics", href: "/metrics" },
+          { display: "New Fact Metric" },
+        ]}
+      />
+      <Heading as="h1" mb="3">
+        New Fact Metric
+      </Heading>
+      {!canCreate ? (
+        <Callout status="error">
+          You don&apos;t have permission to create Fact Metrics in this Project.{" "}
+          <Link href={returnUrl}>Go back</Link>
+        </Callout>
+      ) : !hasDatasource ? (
+        <Callout status="info">
+          Connect a Data Source to create a metric.{" "}
+          <Link href="/datasources">Connect Data Source</Link>
+        </Callout>
+      ) : !hasFactTable ? (
+        <Callout status="info">
+          Create a fact table to define your metric.{" "}
+          <Link href="/fact-tables">Go to fact tables</Link>
+        </Callout>
+      ) : templateError ? (
+        <Callout status="error" mb="3">
+          Failed to parse metric template: {templateError}{" "}
+          <Link href={returnUrl}>Go back</Link>
+        </Callout>
+      ) : missingCommercialFeature ? (
+        <UpgradeMessage
+          commercialFeature={missingCommercialFeature}
+          upgradeMessage={
+            missingCommercialFeature === "quantile-metrics"
+              ? "create quantile metrics"
+              : "create retention metrics"
+          }
+          showUpgradeModal={() =>
+            setUpgradeModal({
+              source: `${template ? "metric-template" : "metric-duplicate"}-${missingCommercialFeature}`,
+              commercialFeature: missingCommercialFeature,
+            })
+          }
+        />
+      ) : (
+        <>
+          {nameCollision && template && (
+            <Callout status="warning" mb="3">
+              A metric with the name &quot;{template.name}&quot; already exists.
+            </Callout>
+          )}
+          <MetricWorkspace
+            existing={null}
+            duplicateFrom={duplicateFrom}
+            initialFactTable={initialFactTable}
+            isEditing={true}
+            mutate={mutateDefinitions}
+            onSaved={(metric: FactMetricInterface) =>
+              router.replace(`/fact-metrics/${metric.id}`)
+            }
+            onCancel={() => router.push(returnUrl)}
+          />
+        </>
+      )}
+      {showLegacySwitch && (
+        <Flex mt="3">
+          <Button variant="ghost" onClick={() => setShowLegacyForm(true)}>
+            Use legacy SQL metric form
+          </Button>
+        </Flex>
+      )}
+    </div>
+  );
+}

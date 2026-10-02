@@ -3,10 +3,12 @@ import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
+import { MetricType } from "shared/types/metric";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaArchive } from "react-icons/fa";
+import { PiCaretDownFill } from "react-icons/pi";
 import { startCase } from "lodash";
 import SortedTags from "@/components/Tags/SortedTags";
 import {
@@ -25,6 +27,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
@@ -43,6 +46,8 @@ import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
+import SplitButton from "@/ui/SplitButton";
+import MetricForm from "@/components/Metrics/MetricForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   isMergeAggregationMetric,
@@ -192,20 +197,30 @@ export interface MetricTableItem {
 
 export function useCombinedMetrics({
   setMetricModalProps,
+  enableRowActions,
   afterArchive,
 }: {
+  // Still the legacy-metric edit/duplicate mechanism (opens MetricForm via
+  // the modal state) - not a stand-in for "does this caller want row
+  // actions" anymore now that fact metrics navigate instead of using it.
   setMetricModalProps?: (props: MetricModalState) => void;
+  // The real "did this caller opt into row actions" signal, explicit rather
+  // than inferred from setMetricModalProps's presence.
+  enableRowActions?: boolean;
   afterArchive?: (id: string, archived: boolean) => void;
 }): MetricTableItem[] {
   const {
     _metricsIncludingArchived: inlineMetrics,
     _factMetricsIncludingArchived: factMetrics,
     mutateDefinitions,
+    getFactTableById,
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
+
+  const router = useRouter();
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
@@ -293,8 +308,14 @@ export function useCombinedMetrics({
       return item;
     }),
     ...factMetrics.map((m) => {
+      // Match /fact-metrics/new: the copy gets its fact table's Projects.
+      const seedTable = getFactTableById(
+        m.metricType === "funnel"
+          ? (m.funnelSettings?.steps[0]?.factTableId ?? "")
+          : (m.numerator?.factTableId ?? ""),
+      );
       const canDuplicate = permissionsUtil.canCreateFactMetric({
-        projects: m.projects,
+        projects: seedTable ? seedTable.projects || [] : m.projects,
       });
       let canEdit = permissionsUtil.canUpdateFactMetric(m, {});
       let canDelete = permissionsUtil.canDeleteFactMetric(m);
@@ -341,23 +362,15 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && setMetricModalProps
+          canDuplicate && enableRowActions
             ? () =>
-                setMetricModalProps({
-                  mode: "duplicate",
-                  currentFactMetric: {
-                    ...m,
-                    name: m.name + " (copy)",
-                  },
-                })
+                router.push(
+                  `/fact-metrics/new?${new URLSearchParams({ duplicate: m.id, returnUrl: router.asPath }).toString()}`,
+                )
             : undefined,
         onEdit:
-          canEdit && setMetricModalProps
-            ? () =>
-                setMetricModalProps({
-                  mode: "edit",
-                  currentFactMetric: m,
-                })
+          canEdit && enableRowActions
+            ? () => router.push(`/fact-metrics/${m.id}?edit=true`)
             : undefined,
         onDelete: canDelete
           ? async () => {
@@ -376,8 +389,16 @@ export function useCombinedMetrics({
   return combinedMetrics;
 }
 
+const LEGACY_METRIC_TYPES: MetricType[] = [
+  "binomial",
+  "count",
+  "duration",
+  "revenue",
+];
+
 const MetricsList = (): React.ReactElement => {
   const [modalData, setModalData] = useState<MetricModalState | null>(null);
+  const [legacyFormType, setLegacyFormType] = useState<MetricType | null>(null);
 
   const [showAutoGenerateMetricsModal, setShowAutoGenerateMetricsModal] =
     useState(false);
@@ -403,6 +424,7 @@ const MetricsList = (): React.ReactElement => {
   const [showArchived, setShowArchived] = useState(false);
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
+    enableRowActions: true,
   });
 
   const metrics = useAddComputedFields(
@@ -438,6 +460,18 @@ const MetricsList = (): React.ReactElement => {
   const showCreateFactTableButton = disableLegacyMetricCreation
     ? !hasFactTables
     : !hasLegacyMetrics && !hasFactTables;
+
+  const canCreateFactMetric = permissionsUtil.canCreateFactMetric({
+    projects: project ? [project] : [],
+  });
+  const canCreateLegacyMetric =
+    !disableLegacyMetricCreation &&
+    permissionsUtil.canCreateMetric({ projects: project ? [project] : [] });
+  const canAddFactMetric = hasFactTables && canCreateFactMetric;
+  const canCreate = canAddFactMetric || canCreateLegacyMetric;
+  // Orgs that already have legacy metrics can keep making them, but only as
+  // an explicit choice next to the fact metric flow.
+  const showLegacyOption = canCreateLegacyMetric && hasLegacyMetrics;
 
   //searching:
   const filterResults = useCallback(
@@ -526,6 +560,18 @@ const MetricsList = (): React.ReactElement => {
       {modalData ? (
         <MetricModal {...modalData} close={closeModal} source="blank-state" />
       ) : null}
+      {legacyFormType && (
+        <MetricForm
+          current={{
+            type: legacyFormType,
+            projects: project ? [project] : [],
+          }}
+          edit={false}
+          header="New legacy SQL metric"
+          source="metrics-list-legacy"
+          onClose={() => setLegacyFormType(null)}
+        />
+      )}
       {showAutoGenerateMetricsModal && (
         <AutoGenerateMetricsModal
           source="metric-index-page"
@@ -560,18 +606,43 @@ const MetricsList = (): React.ReactElement => {
             />
             <Tooltip
               content="You don't have permission to add metrics in this project."
-              enabled={
-                !permissionsUtil.canCreateMetric({ projects: [project] })
-              }
+              enabled={!canCreate}
             >
-              <Button
-                disabled={
-                  !permissionsUtil.canCreateMetric({ projects: [project] })
-                }
-                onClick={() => setModalData({ mode: "new" })}
-              >
-                Add Metric
-              </Button>
+              {canAddFactMetric ? (
+                <SplitButton
+                  menu={
+                    showLegacyOption ? (
+                      <DropdownMenu
+                        trigger={
+                          <Button aria-label="More ways to add a metric">
+                            <PiCaretDownFill />
+                          </Button>
+                        }
+                        menuPlacement="end"
+                      >
+                        <DropdownMenuLabel>Legacy SQL metric</DropdownMenuLabel>
+                        {LEGACY_METRIC_TYPES.map((type) => (
+                          <DropdownMenuItem
+                            key={type}
+                            onClick={() => setLegacyFormType(type)}
+                          >
+                            {startCase(type)}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenu>
+                    ) : undefined
+                  }
+                >
+                  <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
+                </SplitButton>
+              ) : (
+                <Button
+                  disabled={!canCreate}
+                  onClick={() => setLegacyFormType("binomial")}
+                >
+                  Add metric
+                </Button>
+              )}
             </Tooltip>
           </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
