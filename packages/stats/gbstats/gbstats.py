@@ -1226,12 +1226,23 @@ def create_bandit_statistics(
             row=metric_data, prefix=prefix, metric=metric
         )
         # recast proportion metrics in case they slipped through
-        # for bandits we weight by period; iid data over periods no longer holds
+        # for bandits we weight by period; iid data over periods no longer holds.
+        # The bandit SQL folds the per-period rows into one and writes the
+        # variance of the period-weighted mean into main_sum_squares, so use
+        # that rather than the plain binomial sum_squares = sum, which would
+        # report the iid variance and understate the noise of the weighted mean.
         if isinstance(stat, ProportionStatistic):
+            sum_squares = metric_data.get(f"{prefix}_main_sum_squares")
+            # Missing columns are filled with 0 upstream. The folded value is
+            # strictly positive whenever the sum is, so 0 means it is absent.
+            # It can legitimately be below the sum when periods differ, so
+            # don't bound it by the sum.
+            if sum_squares is None or pd.isna(sum_squares) or sum_squares <= 0:
+                sum_squares = stat.sum
             stat = SampleMeanStatistic(
                 n=stat.n,
                 sum=stat.sum,
-                sum_squares=stat.sum,
+                sum_squares=float(sum_squares),
             )
         if isinstance(stat, QuantileStatistic):
             raise ValueError("QuantileStatistic not supported for bandits")
