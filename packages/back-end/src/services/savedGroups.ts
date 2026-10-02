@@ -4,37 +4,187 @@ import {
   targetingReferencesSavedGroup,
   contextualBanditTargetingServes,
 } from "shared/util";
+import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { SavedGroupWithoutValues } from "shared/types/saved-group";
+import type { ContextualBanditInterface } from "shared/validators";
+import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ReqContext } from "back-end/types/request";
 import {
   getAllExperiments,
+  getAllPayloadExperiments,
+  getPayloadKeys,
   getPayloadKeysForAllEnvs,
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { BadRequestError } from "back-end/src/util/errors";
+import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import { getSavedGroupIdsForFeatureDefinitions } from "back-end/src/util/featureDefinitionReferences.util";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
+/**
+ * What a change to one saved group can alter in SDK payloads: the features and
+ * experiments whose targeting names it, directly or through condition groups
+ * that name it. `holdoutAffected` is set when a holdout's targeting names it.
+ */
+export function findSavedGroupDependents({
+  groupId,
+  savedGroups,
+  features,
+  experiments,
+  holdoutExperiments,
+  bandits,
+}: {
+  groupId: string;
+  savedGroups: Pick<SavedGroupWithoutValues, "id" | "condition">[];
+  features: FeatureInterface[];
+  experiments: Iterable<ExperimentInterface>;
+  holdoutExperiments: ExperimentInterface[];
+  bandits: ContextualBanditInterface[];
+}) {
+  // The group plus every condition group that reaches it.
+  const reaching = new Set([groupId]);
+  const namedBy = new Map<string, string[]>();
+  for (const group of savedGroups) {
+    if (!group.condition) continue;
+    try {
+      forEachSavedGroupIdInCondition(JSON.parse(group.condition), (id) => {
+        namedBy.set(id, [...(namedBy.get(id) ?? []), group.id]);
+      });
+    } catch {
+      // Malformed conditions name nothing the payload can resolve.
+    }
+  }
+  const queue = [groupId];
+  while (queue.length) {
+    for (const parent of namedBy.get(queue.shift() as string) ?? []) {
+      if (reaching.has(parent)) continue;
+      reaching.add(parent);
+      queue.push(parent);
+    }
+  }
+  const names = (
+    sources: Parameters<typeof getSavedGroupIdsForFeatureDefinitions>[0],
+  ) =>
+    getSavedGroupIdsForFeatureDefinitions(sources).some((id) =>
+      reaching.has(id),
+    );
+
+  const banditIds = new Set(
+    bandits
+      .filter((bandit) => names({ features: [], bandits: [bandit] }))
+      .map((bandit) => bandit.id),
+  );
+  return {
+    features: features.filter(
+      (feature) =>
+        names({ features: [feature] }) ||
+        (feature.rules ?? []).some(
+          (rule) =>
+            rule?.type === "contextual-bandit-ref" &&
+            banditIds.has(rule.contextualBanditId),
+        ),
+    ),
+    experiments: [...experiments].filter((experiment) =>
+      names({ features: [], experiments: [experiment] }),
+    ),
+    holdoutAffected: holdoutExperiments.some((experiment) =>
+      names({ features: [], experiments: [experiment] }),
+    ),
+  };
+}
+
+// The payloads a change to `groupId` can alter, or null when only an
+// org-wide refresh is known to be safe.
+async function getSavedGroupPayloadKeys(
+  context: ReqContext,
+  groupId: string,
+): Promise<SDKPayloadKey[] | null> {
+  const [savedGroups, features, experimentMap, holdoutExperiments, bandits] =
+    await Promise.all([
+      context.models.savedGroups.getAllWithoutValues(),
+      getAllFeaturesForGraph(context, {}),
+      getAllPayloadExperiments(context),
+      getAllExperiments(context, { type: "holdout" }),
+      context.models.contextualBandits.getAll(),
+    ]);
+  const dependents = findSavedGroupDependents({
+    groupId,
+    savedGroups,
+    features,
+    experiments: experimentMap.values(),
+    holdoutExperiments,
+    bandits,
+  });
+  if (dependents.holdoutAffected) return null;
+
+  const allProjectIds = await context.getAllProjectIds();
+  const featuresById = new Map(features.map((f) => [f.id, f]));
+  const keys = [
+    ...getAffectedSDKPayloadKeys(
+      dependents.features,
+      getEnvironmentIdsFromOrg(context.org),
+      undefined,
+      allProjectIds,
+    ),
+    ...dependents.experiments.flatMap((experiment) =>
+      getPayloadKeys(
+        context,
+        experiment,
+        (experiment.linkedFeatures ?? [])
+          .map((id) => featuresById.get(id))
+          .filter((f): f is FeatureInterface => !!f),
+        allProjectIds,
+      ),
+    ),
+  ];
+  const seen = new Set<string>();
+  return keys.filter((key) => {
+    const k = `${key.environment}\u0000${key.project}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
 export async function savedGroupUpdated(
   baseContext: ReqContext | ApiReqContext,
+  groupId?: string,
+  { projectsChanged = false }: { projectsChanged?: boolean } = {},
 ) {
   // This is a background job, so create a new context with full read permissions
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
   // Carry the bulk publisher's refresh buffer across the context boundary so a
   // buffered commit's saved-group side effects don't escape it.
   context.sdkPayloadRefreshBuffer = baseContext.sdkPayloadRefreshBuffer;
+  const auditContext = { event: "updated", model: "savedgroup" } as const;
 
-  // Saved groups can be nested recursively and may be referenced cross-project
-  // To be safe, refresh all cache entries across all environments/projects
-  // TODO: Optimize this later if performance becomes an issue
+  // Refresh only the payloads whose targeting reaches this group. A project
+  // change, a holdout reference or a failed scan falls back to every payload.
+  if (groupId && !projectsChanged) {
+    let payloadKeys: SDKPayloadKey[] | null = null;
+    try {
+      payloadKeys = await getSavedGroupPayloadKeys(context, groupId);
+    } catch (e) {
+      context.logger.warn(e, "Scoping a saved group refresh failed");
+    }
+    if (payloadKeys) {
+      if (payloadKeys.length) {
+        queueSDKPayloadRefresh({ context, payloadKeys, auditContext });
+      }
+      return;
+    }
+  }
+
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getPayloadKeysForAllEnvs(context, [""]),
     treatEmptyProjectAsGlobal: true,
-    auditContext: {
-      event: "updated",
-      model: "savedgroup",
-    },
+    auditContext,
   });
 }
 

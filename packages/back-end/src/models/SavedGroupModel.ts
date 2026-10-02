@@ -192,7 +192,9 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       updates.projects ||
       updates.archived !== undefined
     ) {
-      savedGroupUpdated(this.context).catch((e) => {
+      savedGroupUpdated(this.context, newDoc.id, {
+        projectsChanged: !!updates.projects,
+      }).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on saved group update",
