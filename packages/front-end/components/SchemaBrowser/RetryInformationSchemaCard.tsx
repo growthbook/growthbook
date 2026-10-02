@@ -1,5 +1,6 @@
 import { InformationSchemaInterface } from "shared/types/integrations";
 import { isManagedWarehouseNoEventsGuidanceMessage } from "shared/util";
+import { Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Callout from "@/ui/Callout";
@@ -10,49 +11,47 @@ export default function RetryInformationSchemaCard({
   refreshOrCreateInfoSchema,
   canRunQueries,
   error,
+  size = "md",
 }: {
   informationSchema: InformationSchemaInterface;
   canRunQueries: boolean;
   refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
   error: string | null;
+  size?: "sm" | "md";
 }) {
   const combinedError = error || informationSchema?.error?.message || "";
 
   return (
     <div>
       {isManagedWarehouseNoEventsGuidanceMessage(combinedError) ? (
-        <div className="d-flex flex-column">
-          <div className="mb-2">
-            <ManagedWarehouseNoEventsCallout />
-          </div>
-          <div className="d-flex align-items-center">
-            <Tooltip
-              body="You do not have permission to retry generating an information schema for this datasource."
-              shouldDisplay={!canRunQueries}
+        <Flex direction="column" gap="2">
+          <ManagedWarehouseNoEventsCallout size={size} />
+          <Tooltip
+            body="You don't have permission to load tables for this Data Source."
+            shouldDisplay={!canRunQueries}
+          >
+            <Button
+              variant="ghost"
+              size={size}
+              disabled={!canRunQueries}
+              onClick={() => refreshOrCreateInfoSchema("PUT")}
             >
-              <button
-                disabled={!canRunQueries}
-                className="btn btn-link"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  refreshOrCreateInfoSchema("PUT");
-                }}
-              >
-                Retry
-              </button>
-            </Tooltip>
-          </div>
-        </div>
+              Retry
+            </Button>
+          </Tooltip>
+        </Flex>
       ) : (
         <Callout
           status="warning"
+          size={size}
           action={
             <Tooltip
-              body="You do not have permission to retry generating an information schema for this datasource."
+              body="You don't have permission to load tables for this Data Source."
               shouldDisplay={!canRunQueries}
             >
               <Button
                 color="inherit"
+                size={size}
                 disabled={!canRunQueries}
                 onClick={() => refreshOrCreateInfoSchema("PUT")}
               >

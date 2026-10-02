@@ -1,22 +1,66 @@
-import { MutableRefObject, useCallback, useEffect, useState } from "react";
-import { PiDotsThreeVertical, PiPlay, PiWarningFill } from "react-icons/pi";
+import {
+  MutableRefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  PiArrowClockwise,
+  PiArrowLeft,
+  PiArrowRight,
+  PiDotsThreeVertical,
+  PiPlay,
+  PiWarningFill,
+} from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { TestQueryRow } from "shared/types/integrations";
-import { DetectedFactTableColumn } from "shared/types/fact-table";
-import { isProjectListValidForProject, parseIntWithDefault } from "shared/util";
+import {
+  InformationSchemaInterfaceWithPaths,
+  TestQueryRow,
+} from "shared/types/integrations";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ago } from "shared/dates";
+import {
+  DetectedFactTableColumn,
+  RowFilter,
+  RowFilterTestResults,
+} from "shared/types/fact-table";
+import {
+  isManagedWarehouseUnavailable,
+  isProjectListValidForProject,
+  parseIntWithDefault,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
 import { getColumnMappingError } from "@/services/factTables";
+import {
+  getSchemaBrowserTables,
+  SchemaBrowserTable,
+} from "@/services/schemaBrowserTables";
+import useApi from "@/hooks/useApi";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
-import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
+import SelectField from "@/components/Forms/SelectField";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import { TestQueryResultsTable } from "@/components/Settings/DisplayTestQueryResults";
 import {
   Panel,
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import { RowFilterActions } from "@/components/FactTables/RowFilterActions";
+import { RowFilterEditorRows } from "@/components/FactTables/RowFilterFields";
+import { RowFilterSampleRowsModal } from "@/components/FactTables/SampleRowsModal";
+import {
+  FilterColumnSource,
+  isRowFilterComplete,
+} from "@/components/FactTables/rowFilterUtils";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
+import BuildInformationSchemaCard from "@/components/SchemaBrowser/BuildInformationSchemaCard";
+import PendingInformationSchemaCard from "@/components/SchemaBrowser/PendingInformationSchemaCard";
+import RetryInformationSchemaCard from "@/components/SchemaBrowser/RetryInformationSchemaCard";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -25,10 +69,220 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
-const SAMPLE_ROW_LIMIT = 20;
+export const SAMPLE_ROW_LIMIT = 20;
+
+export type FactTableSqlMode = "table" | "sql";
+
+const panelBorder = {
+  border: "1px solid var(--gray-a3)",
+  borderRadius: "var(--radius-4)",
+};
+
+function TablePicker({
+  datasource,
+  selectedTable,
+  onSelectTable,
+  onSwitchToSql,
+}: {
+  datasource: DataSourceInterfaceWithParams;
+  selectedTable: SchemaBrowserTable | null;
+  onSelectTable: (table: SchemaBrowserTable) => void;
+  onSwitchToSql: () => void;
+}) {
+  const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+  const canRunQueries = permissionsUtil.canRunSchemaQueries(datasource);
+  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
+
+  const {
+    data,
+    error: fetchError,
+    mutate,
+  } = useApi<{
+    informationSchema: InformationSchemaInterfaceWithPaths;
+  }>(`/datasource/${datasource.id}/schema`, {
+    shouldRun: () => !managedWarehousePending,
+  });
+  const informationSchema = data?.informationSchema;
+
+  const [error, setError] = useState<string | null>(null);
+  // Builds run in the background, so treat it as building until the schema changes
+  const snapshot = `${informationSchema?.status}:${informationSchema?.dateUpdated}:${informationSchema?.error?.message}`;
+  const [queuedFrom, setQueuedFrom] = useState<string | null>(null);
+  const building =
+    queuedFrom === snapshot || informationSchema?.status === "PENDING";
+
+  const buildSchema = async (method: "PUT" | "POST") => {
+    setError(null);
+    try {
+      await apiCall(`/datasource/${datasource.id}/schema`, {
+        method,
+        body: JSON.stringify({ informationSchemaId: informationSchema?.id }),
+      });
+      setQueuedFrom(snapshot);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const groups = useMemo(() => {
+    const databases = informationSchema?.databases ?? [];
+    return databases.flatMap((database) =>
+      database.schemas.map((schema) => ({
+        label: schema.path.replace(/`/g, "") || schema.schemaName,
+        tables: getSchemaBrowserTables(schema, datasource.type === "bigquery"),
+      })),
+    );
+  }, [informationSchema, datasource.type]);
+  const tablesById = useMemo(
+    () =>
+      new Map(
+        groups.flatMap((g) =>
+          g.tables.map((t) => [t.id, { table: t, group: g.label }]),
+        ),
+      ),
+    [groups],
+  );
+
+  let content: React.ReactNode;
+  // Callouts need more room under the label than the select does
+  let ready = false;
+  if (managedWarehousePending) {
+    content = <ManagedWarehouseNoEventsCallout size="sm" />;
+  } else if (fetchError) {
+    content = (
+      <Callout status="error" size="sm">
+        {fetchError.message}
+      </Callout>
+    );
+  } else if (!data) {
+    content = <LoadingSpinner />;
+  } else if (building) {
+    content = (
+      <PendingInformationSchemaCard
+        size="sm"
+        mutate={mutate}
+        timeoutMessage={
+          <>
+            This is taking a while. Check back in a minute or{" "}
+            <Link onClick={onSwitchToSql}>Switch to SQL mode</Link>
+          </>
+        }
+      />
+    );
+  } else if (!informationSchema) {
+    content = (
+      <BuildInformationSchemaCard
+        size="sm"
+        error={error}
+        canRunQueries={canRunQueries}
+        refreshOrCreateInfoSchema={buildSchema}
+      />
+    );
+  } else if (informationSchema.error) {
+    content = (
+      <RetryInformationSchemaCard
+        size="sm"
+        error={error}
+        canRunQueries={canRunQueries}
+        informationSchema={informationSchema}
+        refreshOrCreateInfoSchema={buildSchema}
+      />
+    );
+  } else {
+    ready = true;
+    content = (
+      <>
+        <SelectField
+          value={selectedTable?.id ?? ""}
+          onChange={(id) => {
+            const entry = tablesById.get(id);
+            if (entry) onSelectTable(entry.table);
+          }}
+          options={groups.map((g) => ({
+            label: g.label,
+            options: g.tables.map((t) => ({
+              value: t.id,
+              label: t.shards
+                ? `${t.tableName} (${t.shards} tables)`
+                : t.tableName,
+            })),
+          }))}
+          formatOptionLabel={({ value, label }, { context }) => {
+            const entry = tablesById.get(value);
+            return (
+              <Flex
+                justify="between"
+                align="center"
+                gap="3"
+                py={context === "value" ? "1" : undefined}
+              >
+                <Flex direction="column" minWidth="0">
+                  <Text as="div" size="md" truncate>
+                    {label}
+                  </Text>
+                  <Text as="div" size="sm" color="text-low" truncate>
+                    {entry?.group}
+                  </Text>
+                </Flex>
+                <Text size="sm" color="text-low" whiteSpace="nowrap">
+                  {entry?.table.numOfColumns} columns
+                </Text>
+              </Flex>
+            );
+          }}
+          placeholder="Search tables..."
+          size="small"
+          autoFocus
+        />
+        {error ? (
+          <Callout status="error" size="sm" mt="2">
+            {error}
+          </Callout>
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <Box>
+      <Flex align="center" justify="between" mb={ready ? "1" : "2"}>
+        <Text weight="semibold">Source Table</Text>
+        {informationSchema && !building ? (
+          <Flex align="center" gap="2">
+            <Text size="sm" color="text-low">
+              Updated {ago(informationSchema.dateUpdated)}
+            </Text>
+            <Tooltip
+              style={{ display: "flex" }}
+              body={
+                canRunQueries
+                  ? "Refresh tables"
+                  : "You don't have permission to load tables for this Data Source."
+              }
+            >
+              <IconButton
+                type="button"
+                variant="ghost"
+                size="1"
+                aria-label="Refresh tables"
+                disabled={!canRunQueries}
+                onClick={() => buildSchema("PUT")}
+              >
+                <PiArrowClockwise />
+              </IconButton>
+            </Tooltip>
+          </Flex>
+        ) : null}
+      </Flex>
+      {content}
+    </Box>
+  );
+}
 
 type TestQueryResults = {
   duration?: string;
@@ -44,18 +298,40 @@ export default function NewFactTableSqlStep({
   sql,
   setSql,
   detected,
-  detectedSql,
+  hasFreshResults,
   onColumnsDetected,
   validateRef,
+  mode,
+  setMode,
+  selectedTable,
+  onSelectTable,
+  tableColumnsError,
+  columnError,
+  rowFilters,
+  setRowFilters,
+  columnSource,
+  testRowFilters,
+  rowFilterError,
 }: {
   datasourceId: string;
   setDatasourceId: (id: string) => void;
   sql: string;
   setSql: (sql: string) => void;
   detected: DetectedFactTableColumn[] | null;
-  detectedSql: string | null;
-  onColumnsDetected: (columns: DetectedFactTableColumn[]) => void;
+  hasFreshResults: boolean;
+  onColumnsDetected: (columns: DetectedFactTableColumn[], sql: string) => void;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
+  mode: FactTableSqlMode;
+  setMode: (mode: FactTableSqlMode) => void;
+  selectedTable: SchemaBrowserTable | null;
+  onSelectTable: (table: SchemaBrowserTable) => void;
+  tableColumnsError: string | null;
+  columnError: string | null;
+  rowFilters: RowFilter[];
+  setRowFilters: (rowFilters: RowFilter[]) => void;
+  columnSource: FilterColumnSource | null;
+  testRowFilters: (rowFilters: RowFilter[]) => Promise<RowFilterTestResults>;
+  rowFilterError: string | null;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById, datasources, project } = useDefinitions();
@@ -64,6 +340,7 @@ export default function NewFactTableSqlStep({
   const [testQueryResults, setTestQueryResults] =
     useState<TestQueryResults | null>(null);
   const [testingQuery, setTestingQuery] = useState(false);
+  const [sampleRowsOpen, setSampleRowsOpen] = useState(false);
   const [formatError, setFormatError] = useState<string | null>(null);
   const {
     autoCompletions,
@@ -106,7 +383,7 @@ export default function NewFactTableSqlStep({
         // contents belong to the SQL the user just edited away from.
         setTestQueryResults(limit || results.error ? results : null);
         if (!results.error) {
-          onColumnsDetected(results.columns || []);
+          onColumnsDetected(results.columns || [], sql);
         }
         return results;
       } catch (e) {
@@ -120,13 +397,9 @@ export default function NewFactTableSqlStep({
     [apiCall, datasourceId, sql, onColumnsDetected],
   );
 
-  const hasFreshResults = detectedSql === sql && !!detected?.length;
-  const columnError = hasFreshResults
-    ? getColumnMappingError(detected || [])
-    : null;
-
   useEffect(() => {
     validateRef.current = async () => {
+      if (mode === "table") return;
       if (hasFreshResults) {
         if (columnError) throw new Error(columnError);
         return;
@@ -139,174 +412,273 @@ export default function NewFactTableSqlStep({
     return () => {
       validateRef.current = null;
     };
-  }, [validateRef, hasFreshResults, columnError, runQuery]);
+  }, [validateRef, hasFreshResults, columnError, runQuery, mode]);
+
+  const sqlEditor = (
+    <AreaWithHeader
+      header={
+        <Flex align="center" justify="between">
+          <Text weight="semibold" color="text-mid">
+            SQL
+          </Text>
+          <Flex gap="3" align="center">
+            {formatError && (
+              <Tooltip body={formatError}>
+                <PiWarningFill color="var(--red-11)" />
+              </Tooltip>
+            )}
+            {canFormat ? (
+              <Button
+                size="md"
+                variant="ghost"
+                onClick={() => {
+                  const result = formatSql(sql, datasource?.type);
+                  if (result.error) {
+                    setFormatError(result.error);
+                  } else if (result.formattedSql) {
+                    setSql(result.formattedSql);
+                    setFormatError(null);
+                  }
+                }}
+                disabled={!sql}
+              >
+                Format
+              </Button>
+            ) : null}
+            <Tooltip
+              body={
+                canRunQueries
+                  ? `Runs a LIMIT ${SAMPLE_ROW_LIMIT} query, which may trigger a full table scan`
+                  : "You do not have permission to run test queries"
+              }
+            >
+              <Button
+                size="md"
+                variant="soft"
+                icon={<PiPlay />}
+                onClick={() => runQuery(SAMPLE_ROW_LIMIT)}
+                loading={testingQuery}
+                disabled={!canRunQueries || !sql}
+              >
+                Test Query
+              </Button>
+            </Tooltip>
+            <DropdownMenu
+              trigger={
+                <IconButton variant="ghost" color="gray" radius="full" size="3">
+                  <PiDotsThreeVertical size={16} />
+                </IconButton>
+              }
+            >
+              <DropdownMenuItem
+                onClick={() => setIsAutocompleteEnabled(!isAutocompleteEnabled)}
+              >
+                {isAutocompleteEnabled
+                  ? "Disable autocomplete"
+                  : "Enable autocomplete"}
+              </DropdownMenuItem>
+            </DropdownMenu>
+          </Flex>
+        </Flex>
+      }
+    >
+      <Box height="100%">
+        <CodeTextArea
+          wrapperClassName={styles["sql-editor-wrapper"]}
+          language="sql"
+          value={sql}
+          setValue={(v) => {
+            if (formatError) setFormatError(null);
+            setSql(v);
+          }}
+          placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
+          fullHeight
+          setCursorData={setCursorData}
+          onCtrlEnter={() => runQuery(SAMPLE_ROW_LIMIT)}
+          onEditorLoad={(editor) => editor.focus()}
+          completions={autoCompletions}
+        />
+      </Box>
+    </AreaWithHeader>
+  );
+
+  const datasourceSelect = (
+    <Select
+      aria-label="Data Source"
+      value={datasourceId}
+      setValue={setDatasourceId}
+      placeholder="Select..."
+      mb="0"
+    >
+      {validDatasources.map((d) => (
+        <SelectItem key={d.id} value={d.id}>
+          {d.name}
+        </SelectItem>
+      ))}
+    </Select>
+  );
+
+  const resultsTable = testQueryResults ? (
+    <TestQueryResultsTable
+      compact
+      duration={parseIntWithDefault(testQueryResults.duration, 0)}
+      results={testQueryResults.results || []}
+      sql={testQueryResults.sql || ""}
+      error={testQueryResults.error || ""}
+      onClose={() => setTestQueryResults(null)}
+    />
+  ) : null;
+
+  const callouts = (
+    <>
+      {columnError ? (
+        <Callout status="error" size="sm">
+          {columnError}
+        </Callout>
+      ) : null}
+      {testQueryResults && !testQueryResults.error && !detected?.length && (
+        <Callout status="warning" size="sm">
+          Your warehouse reported no output columns for this query. Double-check
+          the SQL, then run it again.
+        </Callout>
+      )}
+    </>
+  );
+
+  if (mode === "table" && datasource) {
+    return (
+      <Flex direction="column" gap="4" px="2">
+        <Callout
+          status="info"
+          size="sm"
+          action={
+            <Button
+              size="sm"
+              variant="ghost"
+              color="inherit"
+              icon={<PiArrowRight />}
+              iconPosition="right"
+              onClick={() => setMode("sql")}
+            >
+              Switch to SQL mode
+            </Button>
+          }
+        >
+          Need joins or complex logic?
+        </Callout>
+        {datasourceSelect}
+        <TablePicker
+          key={datasource.id}
+          datasource={datasource}
+          selectedTable={selectedTable}
+          onSelectTable={onSelectTable}
+          onSwitchToSql={() => setMode("sql")}
+        />
+        {tableColumnsError ? (
+          <Callout status="error" size="sm">
+            {tableColumnsError}
+          </Callout>
+        ) : null}
+        {selectedTable ? (
+          <Flex direction="column" gap="2">
+            {rowFilters.length ? <Text weight="semibold">Filters</Text> : null}
+            {columnSource ? (
+              <RowFilterEditorRows
+                value={rowFilters}
+                setValue={setRowFilters}
+                columnSource={columnSource}
+                dateInputWidth={260}
+              />
+            ) : null}
+            <RowFilterActions
+              disabled={!columnSource}
+              onAdd={(filter) => setRowFilters([...rowFilters, filter])}
+              onViewSampleRows={
+                canRunQueries ? () => setSampleRowsOpen(true) : undefined
+              }
+              canViewSampleRows={
+                !!columnSource && rowFilters.every(isRowFilterComplete)
+              }
+            />
+            {rowFilterError ? (
+              <Callout status="error" size="sm">
+                {rowFilterError}
+              </Callout>
+            ) : null}
+          </Flex>
+        ) : null}
+        {sampleRowsOpen && selectedTable ? (
+          <RowFilterSampleRowsModal
+            title={`${selectedTable.schemaName}.${selectedTable.tableName}`}
+            columnSource={columnSource}
+            testRowFilters={testRowFilters}
+            rowFilters={rowFilters}
+            setRowFilters={setRowFilters}
+            close={() => setSampleRowsOpen(false)}
+          />
+        ) : null}
+        {callouts}
+      </Flex>
+    );
+  }
 
   return (
-    <PanelGroup direction="horizontal">
-      <Panel defaultSize={70}>
-        <Flex direction="column" gap="2" height="100%">
-          <Box flexGrow="1" style={{ minHeight: 0 }}>
+    <Flex direction="column" gap="2" height="100%">
+      <Flex align="center" gap="5">
+        <Box width="320px">{datasourceSelect}</Box>
+        {supportsSchemaBrowser ? (
+          <Link onClick={() => setMode("table")}>
+            <Flex align="center" gap="1">
+              <PiArrowLeft /> Back to simple table mode
+            </Flex>
+          </Link>
+        ) : null}
+      </Flex>
+      <Box flexGrow="1" style={{ minHeight: 0 }}>
+        <PanelGroup direction="horizontal">
+          <Panel defaultSize={70}>
             <PanelGroup direction="vertical">
-              <Panel defaultSize={testQueryResults ? 60 : 100} minSize={20}>
-                <AreaWithHeader
-                  header={
-                    <Flex align="center" justify="between">
-                      <Text weight="semibold" color="text-mid">
-                        SQL
-                      </Text>
-                      <Flex gap="3" align="center">
-                        {formatError && (
-                          <Tooltip body={formatError}>
-                            <PiWarningFill color="var(--red-11)" />
-                          </Tooltip>
-                        )}
-                        {canFormat ? (
-                          <Button
-                            size="md"
-                            variant="ghost"
-                            onClick={() => {
-                              const result = formatSql(sql, datasource?.type);
-                              if (result.error) {
-                                setFormatError(result.error);
-                              } else if (result.formattedSql) {
-                                setSql(result.formattedSql);
-                                setFormatError(null);
-                              }
-                            }}
-                            disabled={!sql}
-                          >
-                            Format
-                          </Button>
-                        ) : null}
-                        <Tooltip
-                          body={
-                            canRunQueries
-                              ? `Runs a LIMIT ${SAMPLE_ROW_LIMIT} query, which may trigger a full table scan`
-                              : "You do not have permission to run test queries"
-                          }
-                        >
-                          <Button
-                            size="sm"
-                            variant="soft"
-                            icon={<PiPlay />}
-                            onClick={() => runQuery(SAMPLE_ROW_LIMIT)}
-                            loading={testingQuery}
-                            disabled={!canRunQueries || !sql}
-                          >
-                            Test Query
-                          </Button>
-                        </Tooltip>
-                        <DropdownMenu
-                          trigger={
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              radius="full"
-                              size="3"
-                            >
-                              <PiDotsThreeVertical size={16} />
-                            </IconButton>
-                          }
-                        >
-                          <DropdownMenuItem
-                            onClick={() =>
-                              setIsAutocompleteEnabled(!isAutocompleteEnabled)
-                            }
-                          >
-                            {isAutocompleteEnabled
-                              ? "Disable autocomplete"
-                              : "Enable autocomplete"}
-                          </DropdownMenuItem>
-                        </DropdownMenu>
-                      </Flex>
-                    </Flex>
-                  }
-                >
-                  <Box height="100%">
-                    <CodeTextArea
-                      wrapperClassName={styles["sql-editor-wrapper"]}
-                      language="sql"
-                      value={sql}
-                      setValue={(v) => {
-                        if (formatError) setFormatError(null);
-                        setSql(v);
-                      }}
-                      placeholder={
-                        "SELECT\n  user_id,\n  timestamp\nFROM\n  events"
-                      }
-                      fullHeight
-                      setCursorData={setCursorData}
-                      onCtrlEnter={() => runQuery(SAMPLE_ROW_LIMIT)}
-                      onEditorLoad={(editor) => editor.focus()}
-                      completions={autoCompletions}
-                    />
-                  </Box>
-                </AreaWithHeader>
+              <Panel
+                id="main"
+                order={1}
+                defaultSize={testQueryResults ? 50 : 100}
+                minSize={20}
+              >
+                {sqlEditor}
               </Panel>
-              {testQueryResults ? (
+              {resultsTable ? (
                 <>
                   <PanelResizeHandle />
-                  <Panel defaultSize={40} minSize={15}>
-                    <DisplayTestQueryResults
-                      duration={parseIntWithDefault(
-                        testQueryResults.duration,
-                        0,
-                      )}
-                      results={testQueryResults.results || []}
-                      sql={testQueryResults.sql || ""}
-                      error={testQueryResults.error || ""}
-                      close={() => setTestQueryResults(null)}
-                    />
+                  <Panel id="results" order={2} defaultSize={50} minSize={20}>
+                    <Flex direction="column" height="100%">
+                      {resultsTable}
+                    </Flex>
                   </Panel>
                 </>
               ) : null}
             </PanelGroup>
-          </Box>
-
-          {testQueryResults && !testQueryResults.error && !detected?.length && (
-            <Callout status="warning">
-              Your warehouse reported no output columns for this query.
-              Double-check the SQL, then run it again.
-            </Callout>
-          )}
-        </Flex>
-      </Panel>
-      <PanelResizeHandle />
-      <Panel defaultSize={30} minSize={20} maxSize={50}>
-        <AreaWithHeader
-          header={
-            <Select
-              label="Data Source"
-              labelSize="sm"
-              value={datasourceId}
-              setValue={setDatasourceId}
-              placeholder="Select..."
-            >
-              {validDatasources.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.name}
-                </SelectItem>
-              ))}
-            </Select>
-          }
-        >
-          {datasource && supportsSchemaBrowser ? (
-            <Flex direction="column" height="100%" p="4">
-              <SchemaBrowser
-                updateSqlInput={setSql}
-                datasource={datasource}
-                sql={sql}
-              />
-            </Flex>
-          ) : (
-            <Box p="4">
-              <Text size="sm" color="text-mid">
-                This Data Source does not support browsing schemas.
-              </Text>
-            </Box>
-          )}
-        </AreaWithHeader>
-      </Panel>
-    </PanelGroup>
+          </Panel>
+          <PanelResizeHandle />
+          <Panel defaultSize={30} minSize={20} maxSize={50}>
+            {datasource && supportsSchemaBrowser ? (
+              <Flex direction="column" height="100%">
+                <SchemaBrowser
+                  datasource={datasource}
+                  updateSqlInput={setSql}
+                  sql={sql}
+                />
+              </Flex>
+            ) : (
+              <Box p="4" style={panelBorder} height="100%">
+                <Text size="sm" color="text-mid">
+                  This Data Source does not support browsing schemas.
+                </Text>
+              </Box>
+            )}
+          </Panel>
+        </PanelGroup>
+      </Box>
+      {callouts}
+    </Flex>
   );
 }

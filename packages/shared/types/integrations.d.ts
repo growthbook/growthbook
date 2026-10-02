@@ -952,6 +952,7 @@ export interface Column {
   columnName: string;
   path?: string;
   dataType: string;
+  isPartition?: boolean;
 }
 
 export interface Table {

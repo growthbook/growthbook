@@ -1,5 +1,4 @@
 import { Response } from "express";
-import { Column } from "shared/types/integrations";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { queueUpdateInformationSchema } from "back-end/src/jobs/updateInformationSchema";
 import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";
@@ -11,6 +10,7 @@ import {
 } from "back-end/src/models/InformationSchemaTablesModel";
 import {
   fetchTableData,
+  getInformationSchemaColumns,
   getInformationSchemaWithPaths,
 } from "back-end/src/services/informationSchema";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -118,12 +118,7 @@ export async function getTableData(
     return;
   }
 
-  const columns: Column[] = tableData.map((row) => {
-    return {
-      columnName: row.column_name,
-      dataType: row.data_type,
-    };
-  });
+  const columns = getInformationSchemaColumns(tableData);
 
   // Create the table record in Mongo.
   const newTable = await createInformationSchemaTable({

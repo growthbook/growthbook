@@ -6,34 +6,41 @@ export default function BuildInformationSchemaCard({
   refreshOrCreateInfoSchema,
   canRunQueries,
   error,
+  size = "md",
 }: {
   refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
   canRunQueries: boolean;
   error: string | null;
+  size?: "sm" | "md";
 }) {
   return (
     <div>
       <Callout
         status="info"
+        size={size}
         action={
           <Tooltip
-            body="You do not have permission to generate an information schema for this datasource."
+            body="You don't have permission to load tables for this Data Source."
             shouldDisplay={!canRunQueries}
           >
             <Button
               color="inherit"
+              size={size}
               disabled={!canRunQueries}
               onClick={() => refreshOrCreateInfoSchema("POST")}
             >
-              Generate Information Schema
+              Load tables
             </Button>
           </Tooltip>
         }
       >
-        Need help building your query? Click the button to get insight into what
-        tables and columns are available in the datasource.
+        No tables loaded yet.
       </Callout>
-      {error && <Callout status="error">{error}</Callout>}
+      {error && (
+        <Callout status="error" size={size}>
+          {error}
+        </Callout>
+      )}
     </div>
   );
 }
