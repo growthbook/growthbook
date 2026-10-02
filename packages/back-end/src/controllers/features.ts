@@ -343,6 +343,7 @@ import {
   getSavedGroupIdsForFeatureDefinitions,
   loadSavedGroupsWithNested,
 } from "back-end/src/util/featureDefinitionReferences.util";
+import { loadStaleGraph } from "back-end/src/services/featureStaleGraph";
 
 function normalizeRampStepAction(a: {
   targetType?: string;
@@ -7766,21 +7767,23 @@ export async function getFeaturesHealth(
     : undefined;
 
   const [
-    allFeatures,
+    { features: allFeatures, experiments: allExperiments },
     requestedFeatures,
-    allExperiments,
     draftRevisions,
     allRampSchedules,
     safeRollouts,
     jsonSchemas,
   ] = await Promise.all([
-    // The graph only needs references; the health signals validate the
-    // requested features' values, so those load in full.
+    // For requested ids, only the part of the graph their verdicts read; the
+    // health signals validate the requested features' values, so those load
+    // in full.
     featureIds
-      ? getAllFeaturesForGraph(context)
-      : getAllFeaturesWithoutEditorFields(context),
+      ? loadStaleGraph(context, featureIds)
+      : Promise.all([
+          getAllFeaturesWithoutEditorFields(context),
+          getAllExperimentsForStaleGraph(context),
+        ]).then(([features, experiments]) => ({ features, experiments })),
     featureIds ? getFeaturesByIds(context, featureIds) : null,
-    getAllExperimentsForStaleGraph(context),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
       featureIds,

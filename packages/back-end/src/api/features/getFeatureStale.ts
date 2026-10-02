@@ -9,17 +9,14 @@ import {
   TempRolloutStaleReason,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
-import {
-  getAllFeaturesForGraph,
-  getFeaturesByIds,
-} from "back-end/src/models/FeatureModel";
-import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { buildFeatureLookups } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { yieldEventLoop } from "back-end/src/util/yield";
 import { ReqContext } from "back-end/types/request";
+import { loadStaleGraph } from "back-end/src/services/featureStaleGraph";
 
 export async function computeFeatureStale(
   context: ApiReqContext,
@@ -34,18 +31,20 @@ export async function computeFeatureStale(
     return { features: {} };
   }
 
-  const [allFeatures, requestedFeatures, allExperiments, draftRevisions] =
-    await Promise.all([
-      getAllFeaturesForGraph(context),
-      // The graph only needs references; the verdict reports the values the
-      // requested features evaluate to, so those load in full.
-      getFeaturesByIds(context, ids),
-      getAllExperimentsForStaleGraph(context),
-      getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
-        sparse: true,
-        featureIds: ids,
-      }),
-    ]);
+  const [
+    { features: allFeatures, experiments: allExperiments },
+    requestedFeatures,
+    draftRevisions,
+  ] = await Promise.all([
+    // Only the part of the graph these verdicts read. The verdict reports
+    // the values the requested features evaluate to, so those load in full.
+    loadStaleGraph(context, ids),
+    getFeaturesByIds(context, ids),
+    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
+      sparse: true,
+      featureIds: ids,
+    }),
+  ]);
 
   const features = requestedFeatures.filter((f) => !f.archived);
 

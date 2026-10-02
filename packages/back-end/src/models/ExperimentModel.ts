@@ -680,13 +680,17 @@ export async function getAllExperimentsForStaleGraph(
   {
     includeArchived = false,
     prerequisiteIds,
+    ids,
   }: {
     includeArchived?: boolean;
     // Only experiments whose phases name one of these as a prerequisite
     prerequisiteIds?: string[];
+    // Only these experiments
+    ids?: string[];
   } = {},
 ): Promise<ExperimentInterface[]> {
   if (prerequisiteIds && !prerequisiteIds.length) return [];
+  if (ids && !ids.length) return [];
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
     type: { $ne: "holdout" },
@@ -696,6 +700,9 @@ export async function getAllExperimentsForStaleGraph(
   }
   if (prerequisiteIds) {
     query["phases.prerequisites.id"] = { $in: prerequisiteIds };
+  }
+  if (ids) {
+    query.id = { $in: ids };
   }
 
   const docs = await getCollection(COLLECTION)
