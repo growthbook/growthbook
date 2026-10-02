@@ -1,4 +1,4 @@
-import { each, isEqual, omit, pick, uniqWith } from "lodash";
+import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
@@ -2321,35 +2321,35 @@ export function getPayloadKeys(
   const environments: string[] = getEnvironmentIdsFromOrg(context.org);
   const project = experiment.project ?? "";
 
+  const keys: SDKPayloadKey[] = [];
+
   // Visual editor and URL redirect experiments always affect all environments
   if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
-    const keys: SDKPayloadKey[] = [];
-
     environments.forEach((e) => {
       // Always update the "no-project" payload
       keys.push({ environment: e, project: "" });
       // If the experiment is in a project, update that payload as well
       if (project) keys.push({ environment: e, project });
     });
-
-    return keys;
   }
 
-  // Feature flag experiments only affect the environments where the experiment rule is active
+  // Linked features serve the experiment, in their own projects, wherever
+  // its rule is active
   if (linkedFeatures && linkedFeatures.length > 0) {
-    return getAffectedSDKPayloadKeys(
-      linkedFeatures,
-      environments,
-      (rule) =>
-        rule.type === "experiment-ref" &&
-        rule.experimentId === experiment.id &&
-        rule.enabled !== false,
-      allProjectIds,
+    keys.push(
+      ...getAffectedSDKPayloadKeys(
+        linkedFeatures,
+        environments,
+        (rule) =>
+          rule.type === "experiment-ref" &&
+          rule.experimentId === experiment.id &&
+          rule.enabled !== false,
+        allProjectIds,
+      ),
     );
   }
 
-  // Otherwise, if no linked changes, there are no affected payload keys
-  return [];
+  return uniqBy(keys, (key) => `${key.environment}<>${key.project}`);
 }
 
 const getExperimentChanges = (

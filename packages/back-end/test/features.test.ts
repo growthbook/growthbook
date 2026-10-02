@@ -16,6 +16,7 @@ import {
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { ConstantInterface } from "shared/types/constant";
+import { logger } from "back-end/src/util/logger";
 import {
   buildFeatureRulesFromApiEnvSettings,
   generateRuleId,
@@ -4300,6 +4301,18 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
         });
       });
     });
+  });
+
+  it("logs each unresolvable group once, naming it", () => {
+    const warn = jest.spyOn(logger, "warn").mockImplementation();
+    const sg: SavedGroupTargeting[] = [{ match: "all", ids: ["gone_once"] }];
+    build(v1(), "{}", sg);
+    build(v1(), "{}", sg);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      'SDK payload targeting cannot be resolved: Saved Group "gone_once" does not exist',
+    );
+    warn.mockRestore();
   });
 
   it("drops a group that is not in the map from a none entry, in every format", () => {

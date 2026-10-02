@@ -651,6 +651,16 @@ export const recursiveWalk = (object: any, onNode: NodeHandler) => {
   if (object === null || typeof object !== "object") {
     return;
   }
+  // Array indices are never operators, so only items that hold keys are
+  // walked; an inlined ID list costs no handler calls.
+  if (Array.isArray(object)) {
+    for (const item of object) {
+      if (item !== null && typeof item === "object") {
+        recursiveWalk(item, onNode);
+      }
+    }
+    return;
+  }
   // The value each key held when it was walked. A handler may re-home values
   // under a key this pass has not seen, or replace one it has, e.g. rewriting
   // `$savedGroups` moves its siblings into a new `$and`; both get walked.

@@ -1349,15 +1349,21 @@ describe("recursiveWalk", () => {
     });
     expect(seen).toEqual(["a", "moved", "b", "c"]);
   });
-});
 
-describe("recursiveWalk termination", () => {
   it("does not re-walk a value that is not equal to itself", () => {
-    const object = { values: [NaN] };
     let visits = 0;
-    recursiveWalk(object, () => {
+    recursiveWalk({ value: NaN }, () => {
       visits++;
     });
-    expect(visits).toBe(2);
+    expect(visits).toBe(1);
+  });
+
+  it("walks array items that hold keys, never the indices or an ID list's values", () => {
+    const seen: string[] = [];
+    recursiveWalk(
+      { $and: [{ a: { $in: Array.from({ length: 1000 }, (_, i) => i) } }] },
+      ([key]) => seen.push(key),
+    );
+    expect(seen).toEqual(["$and", "a", "$in"]);
   });
 });

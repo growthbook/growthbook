@@ -52,7 +52,7 @@ import {
   VariationWeightPair,
 } from "shared/validators";
 import {
-  conditionHasSavedGroupErrors,
+  describeSavedGroupError,
   getJSONValue,
   getPayloadAllowedKeys,
   getSavedGroupPayloadStrategy,
@@ -242,6 +242,16 @@ export function buildPayloadMetadata<
   return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
+// With no payload cache this runs on every SDK fetch, so each problem is
+// logged once per process. The flag health check names where it is used.
+const loggedSavedGroupProblems = new Set<string>();
+function warnSavedGroupProblemOnce(problem: string) {
+  if (loggedSavedGroupProblems.has(problem)) return;
+  if (loggedSavedGroupProblems.size >= 1000) loggedSavedGroupProblems.clear();
+  loggedSavedGroupProblems.add(problem);
+  logger.warn(`SDK payload targeting cannot be resolved: ${problem}`);
+}
+
 /**
  * Merges a rule's `condition` and its `savedGroups` targeting into the one
  * condition an SDK evaluates. Returns undefined if the rule targets nothing.
@@ -293,10 +303,6 @@ export function mergeConditionAndSavedGroups({
         match !== "none" &&
         (match === "all" || missing.length === ids.length)
       ) {
-        logger.warn(
-          { savedGroupIds: missing },
-          "Saved group targeting names groups that do not exist; the rule matches nobody",
-        );
         conditions.push({ [SAVED_GROUP_ERROR_UNKNOWN]: missing[0] });
         return;
       }
@@ -367,12 +373,10 @@ export function mergeConditionAndSavedGroups({
   conditions.forEach((cond) => {
     recursiveWalk(cond, savedGroupStrategy.createSavedGroupsOperatorHandler());
   });
-  if (conditions.some((cond) => conditionHasSavedGroupErrors(cond))) {
-    logger.warn(
-      { condition, savedGroups },
-      "Saved group targeting cannot be resolved and is served as an empty group",
-    );
-  }
+  conditions.forEach((cond) => {
+    const problem = describeSavedGroupError(cond);
+    if (problem) warnSavedGroupProblemOnce(problem);
+  });
 
   // Exactly one condition, return it
   if (conditions.length === 1) {
