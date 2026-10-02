@@ -1035,10 +1035,15 @@ function checkPrerequisiteConditionKeys(
           if (err) return err;
         }
       }
-    } else if (key !== "value" && !key.startsWith("$")) {
+    } else if (
+      key !== "value" &&
+      !key.startsWith("value.") &&
+      !key.startsWith("$")
+    ) {
       return (
         `field "${key}" will never match — prerequisite conditions are ` +
-        `evaluated against {"value": <flag_value>}. Use "value" as the field key.`
+        `evaluated against {"value": <flag_value>}. Use "value" (or a ` +
+        `"value.<path>" into a JSON flag) as the field key.`
       );
     }
   }

@@ -445,6 +445,19 @@ describe("validateChangedPhaseReferences", () => {
         [
           {
             prerequisites: [
+              { id: "flag_a", condition: '{"value.plan": "pro"}' },
+            ],
+          },
+        ],
+        [],
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      validateChangedPhaseReferences(
+        [
+          {
+            prerequisites: [
               { id: "flag_a", condition: '{"$savedGroups": ["grp_known"]}' },
             ],
           },
