@@ -4,6 +4,7 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
   SchemaFormat,
+  SchemaOption,
 } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -43,6 +44,14 @@ export function getAddableEventTrackers(
 // queries are usually wanted. Other trackers with fact tables almost always
 // share the Data Source's existing assignment query instead.
 const TRACKERS_WITH_OWN_ASSIGNMENTS: SchemaFormat[] = ["langfuse", "phoenix"];
+
+// The new Data Source wizard starts every option at its default, and some
+// trackers' SQL relies on that (Matomo's table and action prefixes).
+function getDefaultOptions(tracker: { options?: SchemaOption[] }) {
+  return Object.fromEntries(
+    (tracker.options ?? []).map((o) => [o.name, String(o.defaultValue ?? "")]),
+  );
+}
 
 function plural(count: number, singular: string, pluralForm?: string) {
   return `${count} ${count === 1 ? singular : (pluralForm ?? `${singular}s`)}`;
@@ -112,7 +121,7 @@ export default function AddEventTrackerModal({
   const template = tracker.value;
   const { label, options = [] } = tracker;
   const [schemaOptions, setSchemaOptions] = useState<Record<string, string>>(
-    {},
+    () => getDefaultOptions(trackers[0]),
   );
   const [includeAssignmentQueries, setIncludeAssignmentQueries] = useState(
     TRACKERS_WITH_OWN_ASSIGNMENTS.includes(template),
@@ -230,7 +239,7 @@ export default function AddEventTrackerModal({
               const next = trackers.find((t) => t.value === v);
               if (!next) return;
               setTracker(next);
-              setSchemaOptions({});
+              setSchemaOptions(getDefaultOptions(next));
               setIncludeAssignmentQueries(
                 TRACKERS_WITH_OWN_ASSIGNMENTS.includes(next.value),
               );
