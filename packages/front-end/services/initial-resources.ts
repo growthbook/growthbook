@@ -30,6 +30,7 @@ import { eventSchemas } from "@/services/eventSchema";
 import {
   getInitialSettings,
   getTablePrefix,
+  hasEventTrackerSql,
   LANGFUSE_TABLES,
   langfuseProjectClause,
   PHOENIX_SESSION_ID_EXPR,
@@ -1156,71 +1157,40 @@ export function getInitialDatasourceResources({
   };
 }
 
-// Event trackers that can be added to an existing Data Source: the wizard's
-// trackers with SQL of their own. mParticle, Keen, and CleverTap only get the
-// generic custom query, and Mixpanel is not a SQL Data Source.
-const ADDABLE_EVENT_TRACKERS = [
-  "segment",
-  "rudderstack",
-  "amplitude",
-  "ga4",
-  "firebase",
-  "snowplow",
-  "fullstory",
-  "freshpaint",
-  "matomo",
-  "heap",
-  "jitsu",
-  "langfuse",
-  "phoenix",
-] as const satisfies readonly SchemaFormat[];
-
-export type DatasourceTemplate = (typeof ADDABLE_EVENT_TRACKERS)[number];
-
-// The trackers that also come with fact tables, filters, and metrics. The
-// rest only add identifier types and assignment queries.
-const TRACKERS_WITH_FACT_TABLES: readonly DatasourceTemplate[] = [
-  "segment",
-  "rudderstack",
-  "amplitude",
-  "ga4",
-  "langfuse",
-  "phoenix",
-];
+export type DatasourceTemplate = SchemaFormat;
 
 // LLM trace tools record exposures as tags on the traces, so their assignment
-// queries are usually wanted. Event trackers with fact tables almost always
+// queries are usually wanted. Other trackers with fact tables almost always
 // share the Data Source's existing assignment query instead.
-const TRACKERS_WITH_OWN_ASSIGNMENTS: readonly DatasourceTemplate[] = [
+const TRACKERS_WITH_OWN_ASSIGNMENTS: readonly SchemaFormat[] = [
   "langfuse",
   "phoenix",
 ];
 
 export function getDatasourceTemplate(template: DatasourceTemplate) {
   const schema = eventSchemas.find((s) => s.value === template);
-  const hasFactTables = TRACKERS_WITH_FACT_TABLES.includes(template);
   return {
     label: schema?.label ?? template,
     options: schema?.options ?? [],
-    hasFactTables,
-    // Without fact tables, assignment queries are all a tracker adds.
     includeAssignmentQueriesByDefault:
-      !hasFactTables || TRACKERS_WITH_OWN_ASSIGNMENTS.includes(template),
+      TRACKERS_WITH_OWN_ASSIGNMENTS.includes(template),
   };
 }
 
-// Trackers whose SQL supports this connection type. The one that created the
-// Data Source is already set up, so it is left out.
+// The wizard's event trackers with SQL of their own that support this
+// connection type. The one that created the Data Source is already set up,
+// so it is left out.
 export function getDatasourceTemplatesForDatasource(
   datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings">,
 ): DatasourceTemplate[] {
-  return ADDABLE_EVENT_TRACKERS.filter(
-    (key) =>
-      !!eventSchemas
-        .find((s) => s.value === key)
-        ?.types?.includes(datasource.type) &&
-      datasource.settings?.schemaFormat !== key,
-  );
+  return eventSchemas
+    .filter(
+      (s) =>
+        !!s.types?.includes(datasource.type) &&
+        hasEventTrackerSql(s.value) &&
+        datasource.settings?.schemaFormat !== s.value,
+    )
+    .map((s) => s.value);
 }
 
 // The template's identifier types, plus (optionally) its assignment queries

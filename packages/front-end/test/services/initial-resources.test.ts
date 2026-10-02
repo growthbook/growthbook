@@ -269,22 +269,16 @@ describe("getDatasourceTemplatesForDatasource", () => {
 });
 
 describe("getDatasourceTemplate", () => {
-  it("defaults assignment queries on for LLM trace tools only, among trackers with fact tables", () => {
-    expect(getDatasourceTemplate("langfuse")).toMatchObject({
-      hasFactTables: true,
-      includeAssignmentQueriesByDefault: true,
-    });
-    expect(getDatasourceTemplate("segment")).toMatchObject({
-      hasFactTables: true,
-      includeAssignmentQueriesByDefault: false,
-    });
-  });
-
-  it("always adds assignment queries for trackers without fact tables", () => {
-    expect(getDatasourceTemplate("snowplow")).toMatchObject({
-      hasFactTables: false,
-      includeAssignmentQueriesByDefault: true,
-    });
+  it("defaults assignment queries on only for LLM trace tools", () => {
+    expect(
+      getDatasourceTemplate("langfuse").includeAssignmentQueriesByDefault,
+    ).toBe(true);
+    expect(
+      getDatasourceTemplate("phoenix").includeAssignmentQueriesByDefault,
+    ).toBe(true);
+    expect(
+      getDatasourceTemplate("segment").includeAssignmentQueriesByDefault,
+    ).toBe(false);
   });
 
   it("reads labels and options from the event tracker list", () => {

@@ -99,8 +99,29 @@ export default function AddEventTrackerModal({
   );
   const [progress, setProgress] = useState<number | null>(null);
 
-  const { label, options, hasFactTables } = getDatasourceTemplate(template);
-  // Without fact tables, assignment queries are all the tracker adds.
+  const { label, options } = getDatasourceTemplate(template);
+
+  // Whether the tracker comes with fact tables at all for this connection
+  // (assignment queries don't affect them). Without any, assignment queries
+  // are all it adds.
+  const hasFactTables = useMemo(
+    () =>
+      getDatasourceTemplateResources({
+        datasource: {
+          ...datasource,
+          settings: getDatasourceTemplateSettings({
+            datasource,
+            template,
+            schemaOptions,
+            includeAssignmentQueries: false,
+          }),
+        },
+        template,
+        schemaOptions,
+        existingFactTables: [],
+      }).factTables.length > 0,
+    [datasource, template, schemaOptions],
+  );
   const addAssignmentQueries = !hasFactTables || includeAssignmentQueries;
 
   // Some trackers read the Data Source's identifier types (GA4), so build
