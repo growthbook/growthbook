@@ -734,9 +734,9 @@ export const putSavedGroup = async (
     condition &&
     hasChanged(condition, comparisonBase.condition)
   ) {
-    // Validate condition to make sure it's valid. When skipCycleCheck=1 (used by
-    // importers), still validate general JSON/syntax but skip saved-group
-    // cyclic/invalid reference checks so users can fix them later.
+    // With skipCycleCheck=1 (importers, which create groups over several
+    // passes) only an unusable nested group is rejected; missing, cyclic and
+    // too-deep references are left for the user to fix later.
     const referencedGroups =
       await context.models.savedGroups.getReferencedWithoutValues(condition);
     const groupMap = new Map(referencedGroups.map((sg) => [sg.id, sg]));
@@ -748,9 +748,6 @@ export const putSavedGroup = async (
     const conditionRes = validateCondition(
       condition,
       groupMap,
-      // When skipCycleCheck=1, skip only saved-group *cycle* checks while still
-      // enforcing JSON validity and other saved-group errors (unknown group,
-      // invalid nested condition, max depth).
       skipCycleCheck === "1",
     );
     if (!conditionRes.success) {
