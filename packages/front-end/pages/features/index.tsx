@@ -240,7 +240,8 @@ export default function FeaturesPage() {
   const hasStaleFilter = syntaxFilters.some(
     (f) =>
       f.field === "health" ||
-      (f.field === "is" && f.values.some((v) => STALE_FILTER_TOKENS.has(v))),
+      (f.field === "is" &&
+        f.values.some((v) => STALE_FILTER_TOKENS.has(v.toLowerCase()))),
   );
   const hasRampFilter = syntaxFilters.some(
     (f) => f.field === "has" && f.values.includes("ramp-schedule"),
@@ -261,8 +262,12 @@ export default function FeaturesPage() {
 
   useEffect(() => {
     if (hasStaleFilter) healthHook.fetchAll();
+    else healthHook.releaseAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStaleFilter]);
+  // Leaving the page ends the need to keep every feature's health fresh.
+  const releaseAllHealth = healthHook.releaseAll;
+  useEffect(() => () => releaseAllHealth(), [releaseAllHealth]);
 
   useEffect(() => {
     if (hasRampFilter) rampHook.fetchAll();
@@ -301,7 +306,6 @@ export default function FeaturesPage() {
               <Flex align="center" gap="1" width="40%">
                 <Box flexGrow="1" style={{ position: "relative" }}>
                   <Field
-                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     containerClassName="mb-0"

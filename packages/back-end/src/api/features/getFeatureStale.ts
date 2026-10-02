@@ -5,7 +5,10 @@ import {
 } from "shared/validators";
 import { isFeatureStale, TempRolloutStaleReason } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
-import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
+import {
+  getAllFeaturesForGraph,
+  getFeaturesByIds,
+} from "back-end/src/models/FeatureModel";
 import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -27,16 +30,20 @@ export async function computeFeatureStale(
     return { features: {} };
   }
 
-  const idSet = new Set(ids);
-  const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
-    getAllFeaturesForGraph(context),
-    getAllExperimentsForStaleGraph(context),
-    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
-      sparse: true,
-    }),
-  ]);
+  const [allFeatures, requestedFeatures, allExperiments, draftRevisions] =
+    await Promise.all([
+      getAllFeaturesForGraph(context),
+      // The graph only needs references; the verdict reports the values the
+      // requested features evaluate to, so those load in full.
+      getFeaturesByIds(context, ids),
+      getAllExperimentsForStaleGraph(context),
+      getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
+        sparse: true,
+        featureIds: ids,
+      }),
+    ]);
 
-  const features = allFeatures.filter((f) => idSet.has(f.id));
+  const features = requestedFeatures.filter((f) => !f.archived);
 
   const lookups = buildFeatureLookups(allFeatures, allExperiments);
 

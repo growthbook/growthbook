@@ -883,14 +883,20 @@ export async function getRevisionsByStatus(
   {
     sparse = false,
     featuresByFeatureId,
+    featureIds,
   }: {
     sparse?: boolean;
     featuresByFeatureId?: Record<string, RevisionFeatureContext | undefined>;
+    featureIds?: string[];
   } = {},
 ) {
   const projection = sparse ? SPARSE_REVISION_PROJECTION : { log: 0 };
   const revisions = await FeatureRevisionModel.find(
-    { organization: context.org.id, status: { $in: statuses } },
+    {
+      organization: context.org.id,
+      status: { $in: statuses },
+      ...(featureIds ? { featureId: { $in: featureIds } } : {}),
+    },
     projection,
   );
 

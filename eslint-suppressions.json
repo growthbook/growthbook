@@ -2020,11 +2020,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/features/index.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/holdouts/index.tsx": {
     "no-restricted-syntax": {
       "count": 1

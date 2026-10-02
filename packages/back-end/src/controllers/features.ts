@@ -7770,6 +7770,7 @@ export async function getFeaturesHealth(
     getAllExperimentsForStaleGraph(context),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
+      featureIds,
     }),
     featureIds
       ? context.models.rampSchedules.getAllByFeatureIds(featureIds)
