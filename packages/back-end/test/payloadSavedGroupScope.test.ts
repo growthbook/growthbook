@@ -5,7 +5,14 @@ import type {
   SavedGroupFormat,
   SDKConnectionInterface,
 } from "shared/types/sdk-connection";
-import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getLatestSDKVersion,
+  getSDKCapabilities,
+  MAX_SAVED_GROUP_DEPTH,
+  SAVED_GROUP_ERROR_CYCLE,
+  SAVED_GROUP_ERROR_MAX_DEPTH,
+  SAVED_GROUP_ERROR_UNKNOWN,
+} from "shared/sdk-versioning";
 import type { ApiReqContext } from "back-end/types/api";
 import { waitForIndexes } from "back-end/src/models/BaseModel";
 import type { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
@@ -31,6 +38,13 @@ import {
  *
  * Every referenced group is a canary: dropping it from the loaded set must
  * change the payload, otherwise the parity assertion would not be watching it.
+ *
+ * Nested groups are covered the same way: chains of condition groups that each
+ * name the next through `$savedGroups`, down to an ID list, reached from a
+ * rule's savedGroups array, from a `$savedGroups` operator in a rule condition,
+ * from the holdout experiment and from the contextual bandit, plus a reference
+ * cycle and an id nothing stores. Chains deeper than the walker follows pin
+ * where inline and referencesV1 stop reading and what they emit instead.
  */
 
 // The cache refresh notifies webhooks, proxies and the CDN through the job
@@ -44,6 +58,17 @@ jest.setTimeout(60000);
 const ORG_ID = "org_payload_saved_group_scope";
 const NOW = new Date("2026-01-01T00:00:00.000Z");
 const HUGE_VALUE_COUNT = 20_000;
+const DEEP_CHAIN_DEPTH = 15;
+// An id a condition group names that no stored group has.
+const DANGLING_ID = "grp_ghost";
+
+// How many groups of a chain inline and referencesV1 read before the walker
+// stops following `$savedGroups` (walk.ts MAX_SAVED_GROUP_DEPTH). A rule's
+// savedGroups entry inlines its own condition before the walk starts, so it
+// reaches one group further than a `$savedGroups` operator in the rule's
+// condition, whose walk starts at the condition itself.
+const ENTRY_PATH_READS = MAX_SAVED_GROUP_DEPTH + 1;
+const OPERATOR_PATH_READS = MAX_SAVED_GROUP_DEPTH;
 
 const org = {
   id: ORG_ID,
@@ -63,13 +88,68 @@ const org = {
   },
 } as unknown as OrganizationInterface;
 
+// Ids of a chain of `depth` condition groups ending in an ID list.
+const chainIds = (prefix: string, depth: number) => [
+  ...Array.from({ length: depth }, (_, i) => `${prefix}_${i + 1}`),
+  `${prefix}_list`,
+];
+
+// Canary entries for a chain, split into the groups inline and referencesV1
+// read (the first `reads`) and the ones past that.
+function chainCanaries(
+  prefix: string,
+  depth: number,
+  path: string,
+  reads = depth + 1,
+) {
+  const read: Record<string, string> = {};
+  const pastCap: Record<string, string> = {};
+  chainIds(prefix, depth).forEach((id, i) => {
+    const link =
+      i < depth ? `condition group ${i + 1} of ${depth}` : "ID list at the end";
+    (i < reads ? read : pastCap)[id] = `${path}, ${link}`;
+  });
+  return { read, pastCap };
+}
+
+const deepEntry = chainCanaries(
+  "grp_deep_entry",
+  DEEP_CHAIN_DEPTH,
+  `${DEEP_CHAIN_DEPTH}-deep chain from a rule savedGroups entry`,
+  ENTRY_PATH_READS,
+);
+const deepOperator = chainCanaries(
+  "grp_deep_operator",
+  DEEP_CHAIN_DEPTH,
+  `${DEEP_CHAIN_DEPTH}-deep chain from a $savedGroups operator inside a rule condition`,
+  OPERATOR_PATH_READS,
+);
+
 // Every saved group some definition in the fixture reads, keyed by id, with
 // the path that reads it. Nothing else in the org may reach a payload.
 const CANARIES: Record<string, string> = {
-  grp_chain_1: "rule savedGroups -> condition group, depth 1 of 3",
-  grp_chain_2: "condition group nested at depth 2 of 3",
-  grp_chain_3: "condition group nested at depth 3 of 3",
-  grp_chain_list: "ID list at the end of the 3-deep chain",
+  ...chainCanaries("grp_chain", 3, "3-deep chain from a rule savedGroups entry")
+    .read,
+  ...deepEntry.read,
+  ...deepOperator.read,
+  ...chainCanaries(
+    "grp_holdout_nested",
+    2,
+    "2-deep chain from the holdout experiment's phase savedGroups",
+  ).read,
+  ...chainCanaries(
+    "grp_cb_nested",
+    2,
+    "2-deep chain from a $savedGroups operator in the contextual bandit's condition",
+  ).read,
+  ...chainCanaries(
+    "grp_age_chain",
+    2,
+    "2-deep chain ending in a number-typed ID list",
+  ).read,
+  grp_cycle_a: "reference cycle, entered from a rule savedGroups entry",
+  grp_cycle_b: "reference cycle, the group the walk meets twice",
+  grp_dangling: `condition group naming ${DANGLING_ID}, which nothing stores`,
   grp_rule_list: "ID list referenced only from a rule's savedGroups array",
   grp_feature_prereq_list:
     "ID list referenced only inside a feature-level prerequisite condition",
@@ -90,6 +170,15 @@ const CANARIES: Record<string, string> = {
   grp_age_list: "number-typed ID list",
   grp_operator_list: "stored $savedGroups operator inside a rule condition",
   grp_none_condition: "condition group matched with none",
+};
+
+// Chain members past where inline and referencesV1 stop reading. The loader
+// fetches them all the same, since it follows every reference, and a
+// referencesV2 payload serves each one as its own entry, so only that format's
+// payload changes without them.
+const PAST_CAP_CANARIES: Record<string, string> = {
+  ...deepEntry.pastCap,
+  ...deepOperator.pastCap,
 };
 
 function listGroup(id: string, attributeKey: string, values: string[]) {
@@ -120,11 +209,40 @@ function conditionGroup(id: string, condition: Record<string, unknown>) {
   };
 }
 
+// Condition groups `${prefix}_1` .. `${prefix}_${depth}`, each naming the next
+// through `$savedGroups`, the last naming the ID list `${prefix}_list` through
+// `$inGroup` on its attribute.
+function chain(
+  prefix: string,
+  depth: number,
+  attributeKey: string,
+  values: string[],
+) {
+  const ids = chainIds(prefix, depth);
+  return ids.map((id, i) => {
+    if (i === depth) return listGroup(id, attributeKey, values);
+    const next = ids[i + 1];
+    return conditionGroup(
+      id,
+      i === depth - 1
+        ? { [attributeKey]: { $inGroup: next } }
+        : { $savedGroups: [next] },
+    );
+  });
+}
+
 const savedGroups = [
-  conditionGroup("grp_chain_1", { $savedGroups: ["grp_chain_2"] }),
-  conditionGroup("grp_chain_2", { $savedGroups: ["grp_chain_3"] }),
-  conditionGroup("grp_chain_3", { id: { $inGroup: "grp_chain_list" } }),
-  listGroup("grp_chain_list", "id", ["chain-user-1", "chain-user-2"]),
+  ...chain("grp_chain", 3, "id", ["chain-user-1", "chain-user-2"]),
+  ...chain("grp_deep_entry", DEEP_CHAIN_DEPTH, "id", ["deep-entry-user-1"]),
+  ...chain("grp_deep_operator", DEEP_CHAIN_DEPTH, "id", [
+    "deep-operator-user-1",
+  ]),
+  ...chain("grp_holdout_nested", 2, "id", ["holdout-nested-user-1"]),
+  ...chain("grp_cb_nested", 2, "id", ["cb-nested-user-1"]),
+  ...chain("grp_age_chain", 2, "age", ["30", "40"]),
+  conditionGroup("grp_cycle_a", { $savedGroups: ["grp_cycle_b"] }),
+  conditionGroup("grp_cycle_b", { $savedGroups: ["grp_cycle_a"] }),
+  conditionGroup("grp_dangling", { $savedGroups: [DANGLING_ID] }),
   listGroup("grp_rule_list", "id", ["rule-list-user-1"]),
   listGroup("grp_feature_prereq_list", "id", ["feature-prereq-user-1"]),
   listGroup("grp_rule_prereq_list", "id", ["rule-prereq-user-1"]),
@@ -200,6 +318,26 @@ const features = [
   ]),
   feature("flag_chain", [
     force({ savedGroups: [{ match: "all", ids: ["grp_chain_1"] }] }),
+  ]),
+  feature("flag_deep_entry", [
+    force({ savedGroups: [{ match: "all", ids: ["grp_deep_entry_1"] }] }),
+  ]),
+  feature("flag_deep_operator", [
+    force({
+      condition: JSON.stringify({
+        $savedGroups: ["grp_deep_operator_1"],
+        country: "DE",
+      }),
+    }),
+  ]),
+  feature("flag_age_chain", [
+    force({ savedGroups: [{ match: "all", ids: ["grp_age_chain_1"] }] }),
+  ]),
+  feature("flag_cycle", [
+    force({ savedGroups: [{ match: "all", ids: ["grp_cycle_a"] }] }),
+  ]),
+  feature("flag_dangling", [
+    force({ savedGroups: [{ match: "all", ids: ["grp_dangling"] }] }),
   ]),
   feature("flag_rule_list", [
     force({ savedGroups: [{ match: "any", ids: ["grp_rule_list"] }] }),
@@ -355,7 +493,9 @@ const experiments = [
       condition: JSON.stringify({
         country: { $inGroup: "grp_holdout_condition" },
       }),
-      savedGroups: [{ match: "all", ids: ["grp_holdout_phase"] }],
+      savedGroups: [
+        { match: "all", ids: ["grp_holdout_phase", "grp_holdout_nested_1"] },
+      ],
     },
     { type: "holdout", trackingKey: "hld_1", excludeFromPayload: true },
   ),
@@ -415,7 +555,10 @@ const contextualBandit = {
   datasource: "",
   contextualBanditQueryId: "",
   coverage: 1,
-  condition: JSON.stringify({ country: { $inGroup: "grp_cb_condition" } }),
+  condition: JSON.stringify({
+    country: { $inGroup: "grp_cb_condition" },
+    $savedGroups: ["grp_cb_nested_1"],
+  }),
   savedGroups: [{ match: "all", ids: ["grp_cb_phase"] }],
   prerequisites: [prerequisite({ $inGroup: "grp_cb_prereq" })],
   seed: "cb_1",
@@ -480,7 +623,8 @@ const capabilities = getSDKCapabilities("javascript", SDK_VERSION);
 const FORMATS: SavedGroupFormat[] = ["inline", "referencesV1", "referencesV2"];
 
 type Payload = Record<string, unknown>;
-type Built = { payload: Payload; requested: Set<string> };
+// `rounds` is how many times the build asked the loader: one per nesting level.
+type Built = { payload: Payload; requested: Set<string>; rounds: number };
 
 // How the builder gets its saved groups: as production does now (scoped), as
 // it did before (every group in the org, up front), or as before minus one
@@ -498,7 +642,7 @@ const normalize = (defs: unknown): Payload =>
 async function withLoader<T>(
   loader: Loader,
   build: () => Promise<T>,
-): Promise<{ result: T; requested: Set<string> }> {
+): Promise<{ result: T; requested: Set<string>; rounds: number }> {
   const model = context.models.savedGroups;
   // Spied on the prototype: it also reaches the background context the cache
   // refresh creates, and importing the class at runtime would close an import
@@ -523,6 +667,7 @@ async function withLoader<T>(
     return {
       result,
       requested: new Set(spy.mock.calls.flatMap(([ids]) => ids)),
+      rounds: spy.mock.calls.length,
     };
   } finally {
     spy.mockRestore();
@@ -533,7 +678,7 @@ async function buildPayload(
   savedGroupFormat: SavedGroupFormat,
   loader: Loader,
 ): Promise<Built> {
-  const { result, requested } = await withLoader(loader, () =>
+  const { result, requested, rounds } = await withLoader(loader, () =>
     getFeatureDefinitions({
       context,
       capabilities,
@@ -546,7 +691,7 @@ async function buildPayload(
       includeRuleIds: true,
     }),
   );
-  return { payload: normalize(result), requested };
+  return { payload: normalize(result), requested, rounds };
 }
 
 // The same connection options as buildPayload, as an SDK connection.
@@ -634,6 +779,56 @@ const rulesOf = (payload: Payload, featureId: string) =>
     featureId
   ]?.rules ?? [];
 
+const conditionOf = (payload: Payload, featureId: string) =>
+  rulesOf(payload, featureId)[0]?.condition;
+
+// The payload's `savedGroups` section; inline payloads have none.
+const savedGroupsOf = (payload: Payload) =>
+  (payload.savedGroups ?? {}) as Record<string, unknown>;
+
+const pick = (section: Record<string, unknown>, ids: string[]) =>
+  Object.fromEntries(ids.map((id) => [id, section[id]]));
+
+// What a format emits for a chain it resolves whole: the condition where the
+// chain is referenced, and the chain's entries in the `savedGroups` section.
+// Inline writes the list's values and needs no section; referencesV1 flattens
+// the condition groups server-side and serves only the list; referencesV2
+// serves every member for the SDK to follow.
+function resolvedChain(
+  format: SavedGroupFormat,
+  prefix: string,
+  depth: number,
+  attributeKey: string,
+  values: (string | number)[],
+): { condition: unknown; entries: Record<string, unknown> } {
+  const ids = chainIds(prefix, depth);
+  const listId = ids[depth];
+  switch (format) {
+    case "inline":
+      return { condition: { [attributeKey]: { $in: values } }, entries: {} };
+    case "referencesV1":
+      return {
+        condition: { [attributeKey]: { $inGroup: listId } },
+        entries: { [listId]: values },
+      };
+    case "referencesV2":
+      return {
+        condition: { $savedGroup: { id: ids[0] } },
+        entries: Object.fromEntries(
+          ids.map((id, i) => [
+            id,
+            i === depth
+              ? { type: "list", attributeKey, values }
+              : {
+                  type: "condition",
+                  condition: { $savedGroup: { id: ids[i + 1] } },
+                },
+          ]),
+        ),
+      };
+  }
+}
+
 beforeAll(async () => {
   await connectTestMongo();
   const db = mongoose.connection.db!;
@@ -658,9 +853,14 @@ describe("fixture", () => {
     all = (await buildPayload("inline", "all")).payload;
   });
 
-  it("stores a group for every canary", () => {
+  it("stores a group for every canary and none for the dangling id", () => {
     const stored = new Set(savedGroups.map((group) => group.id));
-    expect(Object.keys(CANARIES).filter((id) => !stored.has(id))).toEqual([]);
+    expect(
+      [...Object.keys(CANARIES), ...Object.keys(PAST_CAP_CANARIES)].filter(
+        (id) => !stored.has(id),
+      ),
+    ).toEqual([]);
+    expect(stored.has(DANGLING_ID)).toBe(false);
   });
 
   // Each canary must reach the payload through the path named for it; a
@@ -719,13 +919,25 @@ describe.each(FORMATS)("%s connection", (savedGroupFormat) => {
   });
 
   it("loads every referenced group and nothing else", () => {
-    expect([...scoped.requested].filter((id) => !(id in CANARIES))).toEqual([]);
-    expect(
-      Object.keys(CANARIES).filter((id) => !scoped.requested.has(id)),
-    ).toEqual([]);
+    // The dangling id is asked for too: only an empty answer tells the loader
+    // that nothing stores it.
+    const expected = new Set([
+      ...Object.keys(CANARIES),
+      ...Object.keys(PAST_CAP_CANARIES),
+      DANGLING_ID,
+    ]);
+    expect([...scoped.requested].filter((id) => !expected.has(id))).toEqual([]);
+    expect([...expected].filter((id) => !scoped.requested.has(id))).toEqual([]);
     for (const built of [all, scoped]) {
       expect(JSON.stringify(built.payload)).not.toMatch(/grp_huge|huge-user-/);
     }
+  });
+
+  // One query per nesting level, so the deepest chain sets the count. The
+  // cycle is never asked for twice and the dangling id adds no round of its
+  // own, so the build terminates without either.
+  it("loads nested groups one level per query, down to the end of the deepest chain", () => {
+    expect(scoped.rounds).toBe(DEEP_CHAIN_DEPTH + 1);
   });
 
   // Sensitivity: the parity assertion above only guards a group whose
@@ -741,6 +953,170 @@ describe.each(FORMATS)("%s connection", (savedGroupFormat) => {
       }
     }
     expect(inert).toEqual([]);
+  });
+
+  // Inline and referencesV1 stop reading a chain at the depth cap, so a group
+  // past it must leave their payload unchanged: that pins where the cap falls
+  // on each path. referencesV2 serves every member, so each must still matter.
+  it(`${savedGroupFormat === "referencesV2" ? "changes" : "does not change"} the payload when a group past the depth cap is not loaded`, async () => {
+    const readsPastCap = savedGroupFormat === "referencesV2";
+    const wrong: string[] = [];
+    for (const id of Object.keys(PAST_CAP_CANARIES)) {
+      const degraded = await buildPayload(savedGroupFormat, { allWithout: id });
+      const changed = payloadDiff(all.payload, degraded.payload).length > 0;
+      if (changed !== readsPastCap) {
+        wrong.push(`${id}: ${PAST_CAP_CANARIES[id]}`);
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  // Chains the walker follows to the end. `wholeCondition` chains are the
+  // rule's entire condition; the others are one member of the rule's $and,
+  // next to the targeting the holdout and the bandit already carried.
+  it.each([
+    {
+      feature: "flag_chain",
+      prefix: "grp_chain",
+      depth: 3,
+      attributeKey: "id",
+      values: ["chain-user-1", "chain-user-2"],
+      wholeCondition: true,
+    },
+    {
+      feature: "flag_age_chain",
+      prefix: "grp_age_chain",
+      depth: 2,
+      attributeKey: "age",
+      // Typed by the org's attribute schema, in every format.
+      values: [30, 40],
+      wholeCondition: true,
+    },
+    {
+      feature: "$holdout:hld_1",
+      prefix: "grp_holdout_nested",
+      depth: 2,
+      attributeKey: "id",
+      values: ["holdout-nested-user-1"],
+      wholeCondition: false,
+    },
+    {
+      feature: "flag_cb",
+      prefix: "grp_cb_nested",
+      depth: 2,
+      attributeKey: "id",
+      values: ["cb-nested-user-1"],
+      wholeCondition: false,
+    },
+  ])(
+    "resolves the chain behind $feature down to its ID list",
+    ({ feature, prefix, depth, attributeKey, values, wholeCondition }) => {
+      const { condition, entries } = resolvedChain(
+        savedGroupFormat,
+        prefix,
+        depth,
+        attributeKey,
+        values,
+      );
+      const emitted = conditionOf(all.payload, feature);
+      if (wholeCondition) {
+        expect(emitted).toEqual(condition);
+      } else {
+        expect(JSON.stringify(emitted)).toContain(JSON.stringify(condition));
+      }
+      expect(pick(savedGroupsOf(all.payload), chainIds(prefix, depth))).toEqual(
+        entries,
+      );
+    },
+  );
+
+  // A chain deeper than the walker follows. Each member's condition is only a
+  // reference to the next, so for inline and referencesV1 the whole chain
+  // collapses to the marker the walker leaves where it stops reading: the rule
+  // matches nobody, and the list at the end is never served. referencesV2
+  // never walks a chain server-side; it serves every member for the SDK.
+  it("writes an always-false marker for a chain deeper than the cap, unless it serves the chain whole", () => {
+    const entry = conditionOf(all.payload, "flag_deep_entry");
+    const operator = conditionOf(all.payload, "flag_deep_operator");
+    const ids = [
+      ...chainIds("grp_deep_entry", DEEP_CHAIN_DEPTH),
+      ...chainIds("grp_deep_operator", DEEP_CHAIN_DEPTH),
+    ];
+    const served = pick(savedGroupsOf(all.payload), ids);
+    if (savedGroupFormat === "referencesV2") {
+      const entryChain = resolvedChain(
+        savedGroupFormat,
+        "grp_deep_entry",
+        DEEP_CHAIN_DEPTH,
+        "id",
+        ["deep-entry-user-1"],
+      );
+      const operatorChain = resolvedChain(
+        savedGroupFormat,
+        "grp_deep_operator",
+        DEEP_CHAIN_DEPTH,
+        "id",
+        ["deep-operator-user-1"],
+      );
+      expect(entry).toEqual(entryChain.condition);
+      expect(operator).toEqual({
+        $and: [{ country: "DE" }, operatorChain.condition],
+      });
+      expect(served).toEqual({
+        ...entryChain.entries,
+        ...operatorChain.entries,
+      });
+    } else {
+      const marker = { [SAVED_GROUP_ERROR_MAX_DEPTH]: true };
+      expect(entry).toEqual(marker);
+      expect(operator).toEqual({ $and: [{ country: "DE" }, marker] });
+      expect(served).toEqual({});
+    }
+  });
+
+  // The walk enters the cycle at grp_cycle_a without marking it visited, so
+  // grp_cycle_b is the first id it meets twice; both groups are read on the way.
+  it("writes an always-false marker for a reference cycle, unless it serves both members", () => {
+    const condition = conditionOf(all.payload, "flag_cycle");
+    const served = pick(savedGroupsOf(all.payload), [
+      "grp_cycle_a",
+      "grp_cycle_b",
+    ]);
+    if (savedGroupFormat === "referencesV2") {
+      expect(condition).toEqual({ $savedGroup: { id: "grp_cycle_a" } });
+      expect(served).toEqual({
+        grp_cycle_a: {
+          type: "condition",
+          condition: { $savedGroup: { id: "grp_cycle_b" } },
+        },
+        grp_cycle_b: {
+          type: "condition",
+          condition: { $savedGroup: { id: "grp_cycle_a" } },
+        },
+      });
+    } else {
+      expect(condition).toEqual({ [SAVED_GROUP_ERROR_CYCLE]: "grp_cycle_b" });
+      expect(served).toEqual({});
+    }
+  });
+
+  // Fails closed in every format: the marker sits where the dangling id was
+  // named, in the rule condition or in the group's own served entry.
+  it("writes an always-false marker where a condition group names an id nothing stores", () => {
+    const condition = conditionOf(all.payload, "flag_dangling");
+    const section = savedGroupsOf(all.payload);
+    const marker = { [SAVED_GROUP_ERROR_UNKNOWN]: DANGLING_ID };
+    if (savedGroupFormat === "referencesV2") {
+      expect(condition).toEqual({ $savedGroup: { id: "grp_dangling" } });
+      expect(section.grp_dangling).toEqual({
+        type: "condition",
+        condition: marker,
+      });
+    } else {
+      expect(condition).toEqual(marker);
+      expect(section).not.toHaveProperty("grp_dangling");
+    }
+    expect(section).not.toHaveProperty(DANGLING_ID);
   });
 });
 
