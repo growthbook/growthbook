@@ -279,6 +279,13 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDependentsFilter]);
 
+  // Keep the visible features' health fresh while they are on screen
+  const watchHealth = healthHook.watch;
+  useEffect(() => {
+    if (!visibleIdsKey) return;
+    return watchHealth(visibleIdsKey.split(","));
+  }, [visibleIdsKey, watchHealth]);
+
   // fetchSome for visible features when no bulk filter is active
   useEffect(() => {
     const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];

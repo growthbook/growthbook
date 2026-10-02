@@ -936,6 +936,34 @@ describe("computeFeatureHealth broken saved groups", () => {
     ).toEqual([{ signal: "broken-saved-group", count: 2 }]);
   });
 
+  it("checks the served phase of an experiment-ref rule's experiment", () => {
+    const experiment = (phases: Record<string, unknown>[]) =>
+      ({ id: "exp", phases }) as unknown as ExperimentInterfaceStringDates;
+    const servedBroken = experiment([
+      { savedGroups: [{ match: "all", ids: ["list"] }] },
+      { condition: '{"id":{"$inGroup":"gone"}}' },
+    ]);
+    const onlyHistoryBroken = experiment([
+      { savedGroups: [{ match: "all", ids: ["gone"] }] },
+      { savedGroups: [{ match: "all", ids: ["list"] }] },
+    ]);
+    const f = feature([expRef("exp")]);
+    expect(
+      compute(f, {
+        groupMap,
+        experimentMap: new Map([["exp", servedBroken]]),
+        knownExperimentIds: new Set(["exp"]),
+      }),
+    ).toEqual([{ signal: "broken-saved-group", count: 1 }]);
+    expect(
+      compute(f, {
+        groupMap,
+        experimentMap: new Map([["exp", onlyHistoryBroken]]),
+        knownExperimentIds: new Set(["exp"]),
+      }),
+    ).toEqual([]);
+  });
+
   it("skips the check without a group map", () => {
     expect(compute(feature([inGroups("all", "gone")]))).toEqual([]);
   });

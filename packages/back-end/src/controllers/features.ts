@@ -7828,7 +7828,11 @@ export async function getFeaturesHealth(
   const groupMap: GroupMap = new Map(
     (
       await loadSavedGroupsWithNested(
-        getSavedGroupIdsForFeatureDefinitions({ features: targetFeatures }),
+        getSavedGroupIdsForFeatureDefinitions({
+          features: targetFeatures,
+          // experiment-ref rules are served with their experiment's targeting
+          experiments: allExperiments,
+        }),
         (ids) => scanContext.models.savedGroups.getAllWithoutValues(ids),
       )
     ).map((group) => [group.id, group]),

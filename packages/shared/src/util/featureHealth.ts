@@ -268,13 +268,25 @@ export function computeFeatureHealth({
       hasBrokenSavedGroupReference({ condition: p.condition }, groupMap),
     );
     if (prerequisiteBreaks) add("broken-saved-group");
+    const targetingBreaks = (targeting: {
+      condition?: string;
+      savedGroups?: FeatureRule["savedGroups"];
+      prerequisites?: { condition: string }[];
+    }) =>
+      hasBrokenSavedGroupReference(targeting, groupMap) ||
+      (targeting.prerequisites ?? []).some((p) =>
+        hasBrokenSavedGroupReference({ condition: p.condition }, groupMap),
+      );
     for (const rule of rules) {
-      const breaks =
-        hasBrokenSavedGroupReference(rule, groupMap) ||
-        (rule.prerequisites ?? []).some((p) =>
-          hasBrokenSavedGroupReference({ condition: p.condition }, groupMap),
-        );
-      if (breaks) add("broken-saved-group");
+      // An experiment-ref rule is served with its experiment's latest phase
+      // targeting.
+      const phase =
+        rule.type === "experiment-ref"
+          ? experimentMap.get(rule.experimentId)?.phases?.slice(-1)[0]
+          : undefined;
+      if (targetingBreaks(rule) || (phase && targetingBreaks(phase))) {
+        add("broken-saved-group");
+      }
     }
   }
 

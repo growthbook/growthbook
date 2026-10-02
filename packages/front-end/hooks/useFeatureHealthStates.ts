@@ -26,8 +26,11 @@ export interface UseFeatureHealthStatesReturn {
   // Fetches all org features and keeps them fresh until releaseAll.
   fetchAll: () => Promise<void>;
   // The caller no longer needs every feature: background refreshes go back
-  // to the features asked for recently.
+  // to the features on screen.
   releaseAll: () => void;
+  // Keeps these features refreshed while a view shows them; call the returned
+  // function when it stops.
+  watch: (featureIds: string[]) => () => void;
   // Removes specific IDs from the cache so the next fetchSome re-fetches them.
   invalidate: (ids: string[]) => void;
   getHealthState: (featureId: string) => FeatureHealthStateEntry | undefined;
@@ -50,9 +53,9 @@ export function FeatureHealthStatesProvider({
   const entryTimestamps = useRef<Record<string, number>>({});
   const hasFetchedAll = useRef(false);
   const keepAllFresh = useRef(false);
-  // When each id was last asked for, so background refreshes cover what is
-  // still on screen rather than everything seen this session.
-  const lastRequested = useRef(new Map<string, number>());
+  // How many mounted views show each id; background refreshes cover these
+  // rather than everything seen this session.
+  const watched = useRef(new Map<string, number>());
   const [loading, setLoading] = useState(false);
   const inflightKey = useRef<string | null>(null);
   // Orders requests against invalidations, so a response that was already in
@@ -102,7 +105,6 @@ export function FeatureHealthStatesProvider({
   const fetchSome = useCallback(
     async (featureIds: string[]) => {
       const now = Date.now();
-      featureIds.forEach((id) => lastRequested.current.set(id, now));
       const toFetch = featureIds.filter(
         (id) =>
           !loadedIds.current.has(id) ||
@@ -121,6 +123,18 @@ export function FeatureHealthStatesProvider({
 
   const releaseAll = useCallback(() => {
     keepAllFresh.current = false;
+  }, []);
+
+  const watch = useCallback((ids: string[]) => {
+    ids.forEach((id) =>
+      watched.current.set(id, (watched.current.get(id) ?? 0) + 1),
+    );
+    return () =>
+      ids.forEach((id) => {
+        const count = (watched.current.get(id) ?? 1) - 1;
+        if (count > 0) watched.current.set(id, count);
+        else watched.current.delete(id);
+      });
   }, []);
 
   const invalidate = useCallback((ids: string[]) => {
@@ -145,11 +159,7 @@ export function FeatureHealthStatesProvider({
         if (keepAllFresh.current) {
           failed = !(await doFetch());
         } else {
-          const cutoff = Date.now() - ENTRY_TTL_MS;
-          for (const [featureId, at] of lastRequested.current) {
-            if (at < cutoff) lastRequested.current.delete(featureId);
-          }
-          const ids = [...lastRequested.current.keys()];
+          const ids = [...watched.current.keys()];
           for (let i = 0; i < ids.length; i += REFRESH_CHUNK) {
             if (cancelled) return;
             if (!(await doFetch(ids.slice(i, i + REFRESH_CHUNK)))) {
@@ -180,6 +190,7 @@ export function FeatureHealthStatesProvider({
         fetchSome,
         fetchAll,
         releaseAll,
+        watch,
         invalidate,
         getHealthState,
         loading,

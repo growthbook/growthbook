@@ -1263,6 +1263,12 @@ describe("a `$savedGroups` operator with negated siblings", () => {
       $not: { $savedGroups: ["banned"] },
       $savedGroups: ["beta"],
     },
+    // The rewrite replaces an `$and` the walk already visited
+    "existing $and first": {
+      $and: [{ country: "US" }],
+      $savedGroups: ["beta"],
+      $not: { $savedGroups: ["banned"] },
+    },
   };
 
   it.each(Object.entries(KEY_ORDERS))("references v1: %s", (_order, stored) => {
@@ -1342,5 +1348,16 @@ describe("recursiveWalk", () => {
       }
     });
     expect(seen).toEqual(["a", "moved", "b", "c"]);
+  });
+});
+
+describe("recursiveWalk termination", () => {
+  it("does not re-walk a value that is not equal to itself", () => {
+    const object = { values: [NaN] };
+    let visits = 0;
+    recursiveWalk(object, () => {
+      visits++;
+    });
+    expect(visits).toBe(2);
   });
 });

@@ -651,20 +651,23 @@ export const recursiveWalk = (object: any, onNode: NodeHandler) => {
   if (object === null || typeof object !== "object") {
     return;
   }
-  const walked = new Set<string>();
+  // The value each key held when it was walked. A handler may re-home values
+  // under a key this pass has not seen, or replace one it has, e.g. rewriting
+  // `$savedGroups` moves its siblings into a new `$and`; both get walked.
+  const walked = new Map<string, unknown>();
   let pending = Object.keys(object);
   while (pending.length) {
     for (const key of pending) {
-      walked.add(key);
       // An earlier handler in this pass may have moved it
       if (!(key in object)) continue;
       onNode([key, object[key]], object);
+      walked.set(key, object[key]);
       // Recompute the reference for the recursive call as the key may have changed
       recursiveWalk(object[key], onNode);
     }
-    // A handler may have re-homed values under keys this pass has not seen,
-    // e.g. rewriting `$savedGroups` moves its siblings into a new `$and`.
-    pending = Object.keys(object).filter((key) => !walked.has(key));
+    pending = Object.keys(object).filter(
+      (key) => !walked.has(key) || !Object.is(walked.get(key), object[key]),
+    );
   }
 };
 
