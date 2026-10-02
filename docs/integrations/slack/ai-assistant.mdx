@@ -1,0 +1,90 @@
+---
+title: Slack AI assistant
+sidebarTitle: AI assistant
+description: "Ask the GrowthBook AI assistant about experiments and Feature Flags from Slack. Mention @GrowthBook in a channel or send it a direct message."
+---
+
+The GrowthBook AI assistant answers questions about your GrowthBook organization right in Slack. Ask it which experiments are running, what Feature Flags you have, or how a test is doing. It can also make changes for you, but only after you confirm them.
+
+The assistant runs as you. It uses your linked GrowthBook account, so it can only see and change what your account can.
+
+## Requirements
+
+- The [Slack app is connected](/integrations/slack#connect-your-slack-workspace) to your organization.
+- AI is turned on for your organization in **Settings → General**, and an AI provider is set up in **Settings → AI & Prompts**. See [AI integrations](/integrations/ai).
+- **GrowthBook Cloud:** available on every plan. AI usage limits depend on your plan.
+- **Self-hosted:** requires an Enterprise license, and Slack must be able to reach your API server over HTTPS. See [Self-hosted Slack setup](/integrations/slack/self-hosted).
+
+## Turn the assistant on or off
+
+The **AI assistant** switch is next to your workspace name on the Slack integration page. It's on by default whenever AI is enabled for your organization.
+
+Turning it off stops the assistant from answering in that workspace. Notifications keep working either way.
+
+If the switch is grayed out, AI is turned off for your organization. An admin can turn it on in **Settings → General**.
+
+## Link your Slack account
+
+Before the assistant answers you, link your Slack account to your GrowthBook account. You only need to do this once per organization.
+
+1. In Slack, send a direct message to **GrowthBook** or mention `@GrowthBook` in a channel. You can also send `link account`.
+2. GrowthBook replies with a private **Link my account** link that only you can see.
+3. Open the link and sign in to GrowthBook if you're asked. Make sure you're in the organization connected to the Slack workspace.
+4. Check the account and organization shown on the page, then click **Link my account**.
+5. Go back to Slack and send your question again.
+
+The link expires after 15 minutes. If it expires, send `link account` again to get a new one.
+
+To link a different GrowthBook account, sign in as that account first, then send `link account` again. On the confirmation page, click **Replace linked account**.
+
+To see or remove your links, open your user menu in GrowthBook and choose **My Slack links**.
+
+## Ask questions
+
+You can talk to the assistant in two places:
+
+- **Direct messages.** Open GrowthBook in Slack and send a message. The **Messages** tab offers starter prompts such as "What experiments are running right now?" and "What Feature Flags do we have?"
+- **Channels.** Invite the app with `/invite @GrowthBook`, then mention `@GrowthBook` in your message. To ask a follow-up in a thread, mention `@GrowthBook` again.
+
+The assistant only reads messages that are sent to it directly or that mention it. It doesn't read other channel messages.
+
+The assistant posts _Thinking…_ and then replaces it with the answer in a thread. Each person gets their own conversation, and the assistant handles one request at a time per thread. A request that takes longer than 15 minutes is stopped. Send a new message to continue.
+
+Example questions:
+
+- What experiments are running right now?
+- What Feature Flags do we have?
+- Which experiments in the Checkout project are ending soon?
+
+## Confirm changes
+
+When you ask the assistant to change something, it doesn't act right away. It posts a summary of the change with **Confirm** and **Cancel** buttons first.
+
+- Only the person who asked can confirm. Anyone else who clicks gets "This action isn't yours to confirm."
+- If GrowthBook has warnings about the change, the confirmation says so.
+- If you send a newer request before you confirm, the older confirmation is replaced.
+
+Some changes aren't available from Slack. For example, you can create a new dashboard but not update or delete an existing one.
+
+## Troubleshooting
+
+**"This Slack workspace isn't connected to GrowthBook yet."**
+An admin needs to [connect the workspace](/integrations/slack#connect-your-slack-workspace).
+
+**"The GrowthBook assistant is turned off for this workspace."**
+An admin can turn on the **AI assistant** switch in GrowthBook under **Settings → Slack**.
+
+**"AI is disabled for this organization."**
+An admin can turn on AI in **Settings → General**.
+
+**"AI is enabled, but no usable AI provider API key is configured."**
+An admin needs to add an AI provider key in **Settings → AI & Prompts**.
+
+**"Your linked GrowthBook account no longer has access to the connected organization."**
+Your account was removed from the organization, or you linked an account that isn't a member. Ask an admin to add you back, or send `link account` to link a different account.
+
+**The assistant doesn't answer in a channel.**
+Check that `@GrowthBook` was invited to the channel and that you mentioned it in your message.
+
+**The assistant answers in a channel that doesn't get notifications.**
+That's expected. Notifications and the assistant are configured separately. The assistant works in any channel `@GrowthBook` has been invited to.
