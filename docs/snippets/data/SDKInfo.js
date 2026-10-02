@@ -809,7 +809,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.2.3",
+    version: "1.2.4",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
