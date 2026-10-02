@@ -6,7 +6,11 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceSettings,
+  SchemaFormat,
+} from "shared/types/datasource";
 import {
   MetricDefaults,
   OrganizationSettings,
@@ -22,7 +26,9 @@ import {
   getDefaultFactMetricProps,
 } from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
+import { eventSchemas } from "@/services/eventSchema";
 import {
+  getInitialSettings,
   getTablePrefix,
   LANGFUSE_TABLES,
   langfuseProjectClause,
@@ -1147,6 +1153,172 @@ export function getInitialDatasourceResources({
 
   return {
     factTables: [],
+  };
+}
+
+// Event trackers that can be added to an existing Data Source: the wizard's
+// trackers with SQL of their own. mParticle, Keen, and CleverTap only get the
+// generic custom query, and Mixpanel is not a SQL Data Source.
+const ADDABLE_EVENT_TRACKERS = [
+  "segment",
+  "rudderstack",
+  "amplitude",
+  "ga4",
+  "firebase",
+  "snowplow",
+  "fullstory",
+  "freshpaint",
+  "matomo",
+  "heap",
+  "jitsu",
+  "langfuse",
+  "phoenix",
+] as const satisfies readonly SchemaFormat[];
+
+export type DatasourceTemplate = (typeof ADDABLE_EVENT_TRACKERS)[number];
+
+// The trackers that also come with fact tables, filters, and metrics. The
+// rest only add identifier types and assignment queries.
+const TRACKERS_WITH_FACT_TABLES: readonly DatasourceTemplate[] = [
+  "segment",
+  "rudderstack",
+  "amplitude",
+  "ga4",
+  "langfuse",
+  "phoenix",
+];
+
+// LLM trace tools record exposures as tags on the traces, so their assignment
+// queries are usually wanted. Event trackers with fact tables almost always
+// share the Data Source's existing assignment query instead.
+const TRACKERS_WITH_OWN_ASSIGNMENTS: readonly DatasourceTemplate[] = [
+  "langfuse",
+  "phoenix",
+];
+
+export function getDatasourceTemplate(template: DatasourceTemplate) {
+  const schema = eventSchemas.find((s) => s.value === template);
+  const hasFactTables = TRACKERS_WITH_FACT_TABLES.includes(template);
+  return {
+    label: schema?.label ?? template,
+    options: schema?.options ?? [],
+    hasFactTables,
+    // Without fact tables, assignment queries are all a tracker adds.
+    includeAssignmentQueriesByDefault:
+      !hasFactTables || TRACKERS_WITH_OWN_ASSIGNMENTS.includes(template),
+  };
+}
+
+// Trackers whose SQL supports this connection type. The one that created the
+// Data Source is already set up, so it is left out.
+export function getDatasourceTemplatesForDatasource(
+  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings">,
+): DatasourceTemplate[] {
+  return ADDABLE_EVENT_TRACKERS.filter(
+    (key) =>
+      !!eventSchemas
+        .find((s) => s.value === key)
+        ?.types?.includes(datasource.type) &&
+      datasource.settings?.schemaFormat !== key,
+  );
+}
+
+// The template's identifier types, plus (optionally) its assignment queries
+// and identity join, merged into the Data Source's existing settings. Ids are
+// prefixed with the template so they never collide with existing queries.
+export function getDatasourceTemplateSettings({
+  datasource,
+  template,
+  schemaOptions,
+  includeAssignmentQueries,
+}: {
+  datasource: DataSourceInterfaceWithParams;
+  template: DatasourceTemplate;
+  schemaOptions: Record<string, string>;
+  includeAssignmentQueries: boolean;
+}): DataSourceSettings {
+  const initial = getInitialSettings(
+    template,
+    datasource.params,
+    schemaOptions,
+  );
+  const settings = datasource.settings;
+  const existingTypes = new Set(
+    (settings.userIdTypes || []).map((t) => t.userIdType),
+  );
+  const existingExposure = settings.queries?.exposure || [];
+  const existingJoins = settings.queries?.identityJoins || [];
+  const { label } = getDatasourceTemplate(template);
+
+  const exposure = includeAssignmentQueries
+    ? initial.queries.exposure
+        .map((q) => ({
+          ...q,
+          id: `${template}_${q.id}`,
+          name: `${label}: ${q.name}`,
+        }))
+        .filter((q) => !existingExposure.some((e) => e.id === q.id))
+    : [];
+  const identityJoins = includeAssignmentQueries
+    ? initial.queries.identityJoins.filter(
+        (join) =>
+          !existingJoins.some(
+            (e) =>
+              e.ids.length === join.ids.length &&
+              join.ids.every((id) => e.ids.includes(id)),
+          ),
+      )
+    : [];
+
+  return {
+    ...settings,
+    userIdTypes: [
+      ...(settings.userIdTypes || []),
+      ...initial.userIdTypes.filter((t) => !existingTypes.has(t.userIdType)),
+    ],
+    queries: {
+      ...settings.queries,
+      exposure: [...existingExposure, ...exposure],
+      identityJoins: [...existingJoins, ...identityJoins],
+    },
+  };
+}
+
+// The template's fact tables, filters, and metrics, minus any fact table the
+// Data Source already has by name, so applying it twice adds no duplicates.
+export function getDatasourceTemplateResources({
+  datasource,
+  template,
+  schemaOptions,
+  existingFactTables,
+}: {
+  datasource: DataSourceInterfaceWithParams;
+  template: DatasourceTemplate;
+  schemaOptions: Record<string, string>;
+  existingFactTables: Pick<
+    FactTableInterface,
+    "name" | "datasource" | "archived"
+  >[];
+}): InitialDatasourceResources {
+  const existingNames = new Set(
+    existingFactTables
+      .filter((f) => f.datasource === datasource.id && !f.archived)
+      .map((f) => f.name),
+  );
+  const resources = getInitialDatasourceResources({
+    datasource: {
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        schemaFormat: template,
+        schemaOptions,
+      },
+    },
+  });
+  return {
+    factTables: resources.factTables.filter(
+      (f) => !existingNames.has(f.factTable.name),
+    ),
   };
 }
 
