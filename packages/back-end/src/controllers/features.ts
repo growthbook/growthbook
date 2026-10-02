@@ -108,6 +108,7 @@ import {
   InlineRampScheduleUpdate,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import type { GroupMap } from "shared/types/saved-group";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
@@ -129,6 +130,7 @@ import {
   getContextFromReq,
   getEnvironmentIdsFromOrg,
   getEnvironments,
+  getContextForAgendaJobByOrgObject,
 } from "back-end/src/services/organizations";
 import {
   addLinkedExperiment,
@@ -337,6 +339,10 @@ import {
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import {
+  getSavedGroupIdsForFeatureDefinitions,
+  loadSavedGroupsWithNested,
+} from "back-end/src/util/featureDefinitionReferences.util";
 
 function normalizeRampStepAction(a: {
   targetType?: string;
@@ -7809,6 +7815,17 @@ export async function getFeaturesHealth(
   }
 
   const targetFeatures = requestedFeatures ?? allFeatures;
+  // Whether a referenced group exists is checked org-wide: a group the viewer
+  // cannot read is not a broken reference.
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const groupMap: GroupMap = new Map(
+    (
+      await loadSavedGroupsWithNested(
+        getSavedGroupIdsForFeatureDefinitions({ features: targetFeatures }),
+        (ids) => scanContext.models.savedGroups.getAllWithoutValues(ids),
+      )
+    ).map((group) => [group.id, group]),
+  );
   const knownExperimentIds = await getExistingExperimentIds(context, [
     ...new Set(
       targetFeatures.flatMap((f) =>
@@ -7866,6 +7883,7 @@ export async function getFeaturesHealth(
         safeRollouts: safeRolloutsByFeature.get(feature.id) ?? [],
         healthSettings,
         knownExperimentIds,
+        groupMap,
       }),
     };
   }

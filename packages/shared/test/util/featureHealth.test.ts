@@ -15,6 +15,7 @@ import {
 } from "shared/util";
 import { getHealthSettings } from "shared/enterprise";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { GroupMap } from "shared/types/saved-group";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { OrganizationSettings } from "shared/types/organization";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
@@ -855,5 +856,69 @@ describe("getHealthSettings", () => {
       decisionFrameworkEnabled: true,
       srmThreshold: 0.05,
     });
+  });
+});
+
+describe("computeFeatureHealth broken saved groups", () => {
+  const groupMap: GroupMap = new Map([
+    ["list", { type: "list", attributeKey: "id", values: ["u1"] }],
+    ["nested", { type: "condition", condition: '{"$savedGroups":["list"]}' }],
+    ["loop_a", { type: "condition", condition: '{"$savedGroups":["loop_b"]}' }],
+    ["loop_b", { type: "condition", condition: '{"$savedGroups":["loop_a"]}' }],
+    ["dangling", { type: "condition", condition: '{"$savedGroups":["gone"]}' }],
+  ]);
+  const inGroups = (match: "all" | "any" | "none", ...ids: string[]) =>
+    ({
+      ...force(),
+      savedGroups: [{ match, ids }],
+    }) as Partial<FeatureRule>;
+
+  it("reports nothing when every referenced group resolves", () => {
+    expect(
+      compute(
+        feature([
+          inGroups("all", "list"),
+          inGroups("any", "nested"),
+          force("true", '{"id":{"$inGroup":"list"}}'),
+        ]),
+        { groupMap },
+      ),
+    ).toEqual([]);
+  });
+
+  it("counts each rule naming a missing, cyclic or dangling group, negated or not", () => {
+    expect(
+      compute(
+        feature([
+          inGroups("all", "gone"),
+          inGroups("none", "gone"),
+          inGroups("any", "loop_a"),
+          inGroups("all", "dangling"),
+          force("true", '{"$not":{"id":{"$inGroup":"gone"}}}'),
+          {
+            ...force(),
+            enabled: false,
+            savedGroups: [{ match: "all", ids: ["gone"] }],
+          },
+        ]),
+        { groupMap },
+      ),
+    ).toEqual([{ signal: "broken-saved-group", count: 5 }]);
+  });
+
+  it("checks rule and feature prerequisite conditions", () => {
+    const gate = { id: "parent", condition: '{"value":{"$inGroup":"gone"}}' };
+    expect(
+      compute(
+        feature([{ ...force(), prerequisites: [gate] }], {
+          prerequisites: [gate],
+        }),
+        { groupMap },
+      ),
+    ).toEqual([{ signal: "broken-saved-group", count: 2 }]);
+  });
+
+  it("skips the check without a group map", () => {
+    expect(compute(feature([inGroups("all", "gone")]))).toEqual([]);
   });
 });
