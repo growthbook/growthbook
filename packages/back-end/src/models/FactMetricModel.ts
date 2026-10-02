@@ -268,21 +268,43 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
   }
 
   /** Names for prompts: official first, then most recently updated; archived excluded. */
-  public getRecentForPrompt({
+  public async getRecentNamesForPrompt({
     limit,
     datasourceId,
+    readableProjects,
   }: {
     limit: number;
     datasourceId?: string;
-  }) {
-    return this._find(
+    /** From `getProjectsWithPermission`; null means every project. */
+    readableProjects: string[] | null;
+  }): Promise<string[]> {
+    if (readableProjects?.length === 0) return [];
+    const docs = await this._find(
       {
         archived: { $ne: true },
         ...(datasourceId ? { datasource: datasourceId } : {}),
+        // Pre-filter in Mongo so the limit runs on the cursor. No-project
+        // metrics are org-wide and stay readable whenever any project is.
+        ...(readableProjects
+          ? {
+              $or: [
+                { projects: { $in: readableProjects } },
+                { projects: { $size: 0 } },
+                { projects: { $exists: false } },
+              ],
+            }
+          : {}),
       },
-      // managedBy is "" when not official, so descending puts "admin"/"api" first.
-      { sort: { managedBy: -1, dateUpdated: -1 }, limit },
+      {
+        // managedBy is "" when not official, so descending puts "admin"/"api" first.
+        sort: { managedBy: -1, dateUpdated: -1 },
+        limit,
+        // Without this, _find loads every match and slices after its own
+        // permission filter. canRead below stays the authority.
+        bypassReadPermissionChecks: true,
+      },
     );
+    return docs.filter((m) => this.canRead(m)).map((m) => m.name);
   }
 
   public static upgradeFactMetricDoc(

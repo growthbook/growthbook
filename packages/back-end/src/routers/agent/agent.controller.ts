@@ -7,11 +7,16 @@ import {
 } from "shared/ai-chat";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import type { ReqContext } from "back-end/types/request";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
+import { logger } from "back-end/src/util/logger";
 import { postGeneralAgentChat } from "back-end/src/agent/general-agent";
 import { makeListChats } from "back-end/src/routers/utils/chat-controllers";
 import { listSkillSummaries } from "back-end/src/agent/skills";
 import {
+  resolveTextAIModel,
   secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
@@ -127,9 +132,10 @@ async function orgContextForAutocomplete(
         }),
       ),
       want("metrics", () =>
-        context.models.factMetrics.getRecentForPrompt({
+        context.models.factMetrics.getRecentNamesForPrompt({
           limit: ORG_CONTEXT_LIMIT,
           datasourceId,
+          readableProjects,
         }),
       ),
       want("metrics", () =>
@@ -148,7 +154,7 @@ async function orgContextForAutocomplete(
     line("Data sources", datasources && datasources.map((d) => d.name)),
     line("Feature flags", features),
     line("Experiments", experiments && experiments.map((e) => e.name)),
-    line("Fact metrics", factMetrics && factMetrics.map((m) => m.name)),
+    line("Fact metrics", factMetrics),
     line("Legacy metrics", legacyMetrics),
   ]
     .filter((l): l is string => l !== null)
@@ -238,6 +244,19 @@ export const postAutocomplete = async (
     .filter((s) => s.enabled && s.kind !== "domain")
     .map((s) => `- ${s.name}: ${s.description}`)
     .join("\n");
+
+  // Same resolution simpleCompletion does, so the log names the model actually used.
+  const { defaultAIModel, keySource } = await getAISettingsForOrg(
+    context,
+    true,
+  );
+  logger.info(
+    {
+      model: resolveTextAIModel(undefined, defaultAIModel, keySource),
+      organization: context.org.id,
+    },
+    "AI autocomplete",
+  );
 
   const raw = await simpleCompletion({
     context,
