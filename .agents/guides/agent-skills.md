@@ -7,7 +7,7 @@ The feature-flags, experiments, and analytics skills live in [growthbook/skills]
 - Adding, removing, or renaming an operation under `packages/back-end/src/api/`.
 - Changing a request or response shape, required field, or enum in `packages/shared/src/validators/` that an external API handler uses.
 - Changing behavior a skill guardrail describes, such as approval/review gates, revision publishing, stale-flag criteria, experiment start/stop checks, or rate limits.
-- Changing docs that skills cite as the source of truth. `scripts/agent-skills-watch-paths.txt` lists every watched path; the docs entries mirror the map in growthbook/skills `CLAUDE.md`.
+- Docs the skills cite can affect them too, but only external API changes (`scripts/agent-skills-watch-paths.txt`: the generated spec and `src/api/`) start the sync automation. Update skills for a docs change by hand.
 
 Internal API changes (`src/controllers/`, `src/routers/`) do not affect skills.
 
@@ -43,7 +43,7 @@ CI runs the same check (`.github/workflows/agent-skills-drift.yml`) on PRs that 
 
 If your PR has to remove an operation a pinned skill uses, open the skills PR first and pin its head commit in `agent-skills.lock.json` in your PR, so the check passes and deploys ship skills that match. The bump workflow only moves the pin forward along growthbook/skills `main`, so it leaves that pin alone until the skills PR merges.
 
-After merge, a Cursor automation keeps growthbook/skills in step: it reviews the commits that touch `scripts/agent-skills-watch-paths.txt` since its last run, following growthbook/skills `.cursor/automations/sync-from-growthbook.md`, and opens or adds to one draft sync PR there. That repo's skills guard checks every PR, the automation's included.
+When a PR merges into `main`, a Cursor automation triggered by the merge follows `.cursor/automations/sync-agent-skills.md`. It stops at once unless the merge touched the external API (`scripts/agent-skills-watch-paths.txt`). Otherwise it checks which skills need updating and which new endpoints no skill uses, and opens or adds to one draft sync PR in growthbook/skills. That repo's skills guard checks every PR, the automation's included.
 
 ## When your change affects a skill
 

@@ -34,7 +34,7 @@ Drop findings where the skill is already correct. Do not change a skill based on
 
 ## 5. Edit the skills
 
-Follow growthbook/skills `CLAUDE.md` and the editing rules in its `.cursor/automations/sync-from-growthbook.md`, which the sync automation uses too. Re-run the checker until the findings you fixed are gone. Commit, then run the guard CI runs on every skills PR:
+Follow growthbook/skills `CLAUDE.md` and the editing rules in this repo's `.cursor/automations/sync-agent-skills.md`, which the sync automation uses too. Re-run the checker until the findings you fixed are gone. Commit, then run the guard CI runs on every skills PR:
 
 ```bash
 node <checkout>/.github/guard/guard.mjs --repo <checkout> --base origin/main --head HEAD \

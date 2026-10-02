@@ -374,7 +374,30 @@ export function analyze({
       [...baseline.missing, ...baseline.deprecated],
     );
   }
-  return { missing, deprecated, impacted, introduced };
+  // New operations no skill calls yet: candidates for a skill update or a
+  // new workflow. Informational only.
+  const uncovered = [];
+  if (baseSpec) {
+    const used = new Set();
+    for (const { text } of skillFiles) {
+      for (const ref of extractSkillReferences(text)) {
+        const resolved = resolveReference(ref, spec.operations);
+        if (resolved.route) used.add(resolved.route);
+      }
+    }
+    const before = new Set(
+      [...baseSpec.operations.values()].map((op) =>
+        routeKey(op.method, op.path),
+      ),
+    );
+    for (const op of spec.operations.values()) {
+      const route = routeKey(op.method, op.path);
+      if (!before.has(route) && !used.has(route) && !op.deprecated) {
+        uncovered.push(`${op.method} ${op.path}`);
+      }
+    }
+  }
+  return { missing, deprecated, impacted, introduced, uncovered };
 }
 
 export function hasBlockingDrift(result, { hasBase, hasBaseline }) {
@@ -392,7 +415,7 @@ const label = (finding) =>
 const location = (finding) => `${finding.file}:${finding.line}`;
 
 export function formatReport(
-  { missing, deprecated, impacted, introduced },
+  { missing, deprecated, impacted, introduced, uncovered = [] },
   { skillsLabel },
 ) {
   const out = [`## Agent skills drift (${skillsLabel})`, ""];
@@ -412,6 +435,16 @@ export function formatReport(
       );
     }
     out.push("");
+  }
+  if (uncovered.length > 0) {
+    out.push(
+      "### New endpoints no skill uses",
+      "",
+      "Consider whether a skill should cover these; see `.agents/guides/agent-skills.md`.",
+      "",
+      ...uncovered.map((key) => `- \`${key}\``),
+      "",
+    );
   }
   if (introduced.length > 0) {
     out.push("### New findings compared with the baseline skills", "");
@@ -439,6 +472,7 @@ export function formatReport(
   if (
     impacted.size === 0 &&
     introduced.length === 0 &&
+    uncovered.length === 0 &&
     missing.length === 0 &&
     deprecated.length === 0
   ) {
@@ -452,6 +486,7 @@ export function toJson(result) {
     missing: result.missing,
     deprecated: result.deprecated,
     introduced: result.introduced,
+    uncovered: result.uncovered ?? [],
     impacted: [...result.impacted].sort().map(([key, { kind, files }]) => ({
       key,
       kind,

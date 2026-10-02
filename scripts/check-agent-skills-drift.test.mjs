@@ -409,3 +409,31 @@ test("baseline counts findings per endpoint, not per file or placeholder", () =>
     ["skills/c.md"],
   );
 });
+
+test("lists new endpoints no skill uses", () => {
+  const base = parseSpec(spec(["  /v1/a:", "    get:", "      x: 1"]));
+  const head = parseSpec(
+    spec([
+      "  /v1/a:",
+      "    get:",
+      "      x: 1",
+      "  /v1/b:",
+      "    post:",
+      "      x: 1",
+      "  /v1/c/{id}:",
+      "    get:",
+      "      x: 1",
+      "  /v1/old:",
+      "    get:",
+      "      deprecated: true",
+    ]),
+  );
+  const result = analyze({
+    skillFiles: [{ file: "skills/x.md", text: "GET /api/v1/c/c_1" }],
+    spec: head,
+    baseSpec: base,
+  });
+  assert.deepEqual(result.uncovered, ["POST /v1/b"]);
+  assert.equal(hasBlockingDrift(result, { hasBase: true }), false);
+  assert.deepEqual(toJson(result).uncovered, ["POST /v1/b"]);
+});
