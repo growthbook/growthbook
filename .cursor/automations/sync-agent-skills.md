@@ -62,7 +62,7 @@ New or changed text must read as if the person who wrote the rest of the file wr
 - Keep examples literal and copy-pasteable, with the placeholder style the file already uses (for example `<flag-id>`).
 - Don't edit `skills/experiments/references/experiment-launch.md`; it belongs to GrowthBook's head of data science. `CLAUDE.md`, the README, and the changelog are for humans to change. Note what they need under "Needs a human".
 - When the API has no replacement for something a skill relies on, or you aren't sure, don't edit. Note it under "Needs a human".
-- Keep edits to existing files to at most 8 files and 200 changed lines, plus at most one new workflow of up to 250 lines. Anything larger goes under "Needs a human".
+- **Prefer small changes.** Most syncs should touch a few files. A change past about 8 files or 200 lines is hard to review: split it (see step 5) instead of shipping it as one PR. CI rejects a single PR past 25 files or 1,000 lines.
 - Never copy environment variables, tokens, credentials, or anything that looks like a key into a file, commit, or PR.
 
 Re-read each file you changed and undo any change that isn't required, restates what the file already says, reads differently from the text around it, or can't be tied to a specific handler, validator, or doc line.
@@ -79,7 +79,8 @@ node <skills>/.github/guard/guard.mjs --repo <skills> --base origin/main --head 
 
 ## 5. Open the PR in growthbook/skills
 
-- If an open PR in growthbook/skills titled "Sync skills with GrowthBook API changes" exists, push your commit to its branch and add a section to its description instead of opening another PR.
+- **One PR by default.** If an open PR in growthbook/skills whose title starts with "Sync skills" covers the same topic, push your commit to its branch and add a section to its description instead of opening another PR.
+- **Split a large change by topic.** When the work passes about 8 files or 200 lines, or mixes unrelated fixes, open a few focused PRs instead of one: one per GrowthBook change or per domain, each complete on its own, titled "Sync skills: <topic>", and opened as a draft on its own `cursor/` branch. Keep it to the fewest PRs that each stay reviewable; never one PR per file.
 - Otherwise open a draft PR **in growthbook/skills**, titled "Sync skills with GrowthBook API changes", on a branch whose name starts with `cursor/`, so its CI applies the sync rules.
 - Write the description for a reviewer who hasn't seen these instructions:
 
