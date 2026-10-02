@@ -2591,8 +2591,7 @@ export function validateCondition(
       return {
         success: false,
         empty: false,
-        // Callers without the groups (forms that don't offer the operator)
-        // can't tell a missing group from an existing one
+        // Without the groups, every referenced group would read as missing
         error: groupMap
           ? savedGroupError
           : "Saved Groups cannot be referenced inside this condition. Use Saved Group targeting instead.",

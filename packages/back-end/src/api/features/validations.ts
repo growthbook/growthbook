@@ -810,8 +810,8 @@ type PhaseTargeting = {
   prerequisites?: FeaturePrerequisite[] | null;
 };
 
-// Experiment phases carry a rule's condition and saved groups and reach the
-// payload the same way, so they get the rule reference checks. Only the last
+// Experiment phases carry a rule's condition, saved groups and prerequisites
+// and reach the payload the same way, so they get the rule reference checks. Only the last
 // phase is served: it is exempt only for what the last stored phase already
 // holds, while an earlier (historical) phase is exempt for what any stored
 // phase holds, so reordering history never re-validates it.

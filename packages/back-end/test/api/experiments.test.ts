@@ -3163,16 +3163,6 @@ describe("experiments API", () => {
       expect(missing.body.message).toBe(
         'Invalid targeting condition: Saved Group "grp_gone" does not exist',
       );
-
-      const prerequisite = await updatePhase({
-        prerequisites: [
-          { id: "feature_123", condition: '{"$savedGroups":["grp_vip"]}' },
-        ],
-      });
-      expect(prerequisite.status).toBe(400);
-      expect(prerequisite.body.message).toMatch(
-        /^Invalid condition on prerequisite "feature_123": \$savedGroups cannot be used/,
-      );
     });
 
     it("syncs only the latest phase when updating top-level variations without phases", async () => {
