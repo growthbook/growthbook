@@ -35,14 +35,23 @@ jobs:
           REPOSITORY=$(node -p "require('./$LOCK').repository")
           CURRENT=$(node -p "require('./$LOCK').commit")
           LATEST=$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)
-          # "ahead" means main is ahead of the pin. Any other status means the
-          # pin is already at, past, or off main (for example an unmerged
-          # skills PR pinned on purpose), so never move it back.
+          # "ahead" means main is ahead of the pin. A pin that is off main is
+          # left alone while an open skills PR still carries it (pinned on
+          # purpose ahead of a merge). growthbook/skills squash-merges, so once
+          # that PR merges its commit stays off main and the pin moves to main.
           STATUS=$(gh api "repos/$REPOSITORY/compare/$CURRENT...$LATEST" --jq .status)
-          if [ "$STATUS" != "ahead" ]; then
-            echo "Pin $CURRENT is $STATUS relative to main; nothing to bump."
-            [ "$STATUS" = "identical" ] && echo "current=true" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS" = "identical" ]; then
+            echo "Agent skills are up to date at $CURRENT."
+            echo "current=true" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          if [ "$STATUS" != "ahead" ]; then
+            OPEN=$(gh api "repos/$REPOSITORY/commits/$CURRENT/pulls" --jq '[.[] | select(.state == "open")] | length')
+            if [ "$OPEN" != "0" ]; then
+              echo "Pin $CURRENT is $STATUS relative to main and still on an open PR; leaving it."
+              exit 0
+            fi
+            echo "Pin $CURRENT is $STATUS relative to main and no open PR carries it; moving to main."
           fi
           node -e '
             const fs = require("fs");
@@ -67,19 +76,20 @@ jobs:
       - name: Close a stale bump PR
         if: steps.compare.outputs.current == 'true'
         env:
-          GH_TOKEN: ${{ secrets.SKILLS_BOT_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.AGENT_SKILLS_BUMP_TOKEN || github.token }}
         run: |
           if gh pr view "$BUMP_BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
             gh pr close "$BUMP_BRANCH" --delete-branch \
               --comment "Closing: \`agent-skills.lock.json\` already pins the latest growthbook/skills \`main\`."
           fi
 
-      # PRs opened with the default token do not trigger CI, so prefer the bot token.
+      # PRs opened with the default token do not trigger CI. AGENT_SKILLS_BUMP_TOKEN
+      # (optional) is a token with Contents and Pull requests write on this repo only.
       - name: Open or update the bump PR
         if: steps.compare.outputs.bump == 'true'
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
-          token: ${{ secrets.SKILLS_BOT_TOKEN || github.token }}
+          token: ${{ secrets.AGENT_SKILLS_BUMP_TOKEN || github.token }}
           branch: ${{ env.BUMP_BRANCH }}
           title: Bump agent skills
           commit-message: Bump agent skills

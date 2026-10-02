@@ -14,7 +14,7 @@ Use `$SKILLS_SRC`, `skills-src/`, or the `path` in `packages/back-end/agent-skil
 ## 2. Decide the scope
 
 - **This branch:** run `base=$(git merge-base HEAD origin/main)` (it must succeed; unshallow first if needed) and use `git show "$base":packages/back-end/generated/spec.yaml` as the base spec. Regenerate the head spec first with `pnpm --filter back-end generate-openapi`.
-- **Catch-up since the last sync:** the last reviewed GrowthBook commit is in the newest `sync-state` artifact of growthbook/skills (`gh api 'repos/growthbook/skills/actions/artifacts?name=sync-state&per_page=1'`, then download it; `state.json` has `growthbook`). Use the spec at that commit as the base and `origin/main`'s spec as the head (`git show origin/main:packages/back-end/generated/spec.yaml`), and list `git log <that commit>..origin/main -- $(grep -v '^#' scripts/agent-skills-watch-paths.txt)` for behavior changes the spec cannot show.
+- **Catch-up:** pick the last GrowthBook commit the skills reflect (for example the date of the newest growthbook/skills sync PR). Use its spec as the base and `origin/main`'s spec as the head (`git show origin/main:packages/back-end/generated/spec.yaml`), and list `git log <that commit>..origin/main -- $(grep -v '^#' scripts/agent-skills-watch-paths.txt)` for behavior changes the spec cannot show.
 
 ## 3. Run the checker
 
@@ -34,21 +34,20 @@ Drop findings where the skill is already correct. Do not change a skill based on
 
 ## 5. Edit the skills
 
-Follow growthbook/skills `CLAUDE.md` and the "Edit" and "Review your own edits" rules in its `.github/sync/prompt.md`, which the sync job uses too. Re-run the checker until the findings you fixed are gone, then run the same guard CI runs. Leave the edits uncommitted, and set `BASE_SHA` to the commit you started from:
+Follow growthbook/skills `CLAUDE.md` and the editing rules in its `.cursor/automations/sync-from-growthbook.md`, which the sync automation uses too. Re-run the checker until the findings you fixed are gone. Commit, then run the guard CI runs on every skills PR:
 
 ```bash
-SKILLS_DIR=<checkout> BASE_SHA=<commit you started from> \
-  CHECKER=scripts/check-agent-skills-drift.mjs SPEC=packages/back-end/generated/spec.yaml \
-  node <checkout>/.github/sync/sync.mjs guard
+node <checkout>/.github/guard/guard.mjs --repo <checkout> --base origin/main --head HEAD \
+  --checker scripts/check-agent-skills-drift.mjs --spec packages/back-end/generated/spec.yaml
 ```
 
-It prints "Guard passed" or the list of problems, and exits 1 on any problem.
+It compares the two commits, so untracked files don't matter. It prints "Skills guard passed" or the problems, and exits 1 on any problem.
 
 ## 6. Hand off
 
 Show the user the findings and the proposed skills diff. Only after they confirm:
 
-1. If an open growthbook/skills PR already covers this change, add a commit there. Otherwise open a PR on a new branch and link it from the GrowthBook PR as `growthbook/skills#<number>`, so the sync job leaves that change to it.
+1. If an open growthbook/skills PR already covers this change, add a commit there. Otherwise open a PR on a new branch and link it from the GrowthBook PR as `growthbook/skills#<number>`, so the sync automation leaves that change to it.
 2. After it merges, the `Bump agent skills` workflow updates `packages/back-end/agent-skills.lock.json` here. Run it manually if the bump can't wait for the next weekday.
 
 Never push or open PRs without confirmation.
