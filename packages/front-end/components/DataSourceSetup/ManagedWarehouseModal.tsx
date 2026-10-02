@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiArrowLeft,
@@ -8,11 +9,20 @@ import {
   PiGlobe,
   PiX,
 } from "react-icons/pi";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useAuth } from "@/services/auth";
 import {
   DEFAULT_DATA_REGION,
   DataRegion,
   useDataRegionOptions,
 } from "@/services/dataRegions";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  createInitialResources,
+  getInitialDatasourceResources,
+} from "@/services/initial-resources";
+import track from "@/services/track";
 import Button from "@/ui/Button";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
@@ -21,7 +31,6 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { useCreateManagedWarehouse } from "./useCreateManagedWarehouse";
 import { useDataSourceOptionEligibility } from "./useDataSourceOptionEligibility";
 
 const REGION_NAMES: Record<DataRegion, string> = {
@@ -52,14 +61,63 @@ export default function ManagedWarehouseModal({
   source: string;
 }) {
   const router = useRouter();
+  const { apiCall } = useAuth();
+  const { mutateDefinitions } = useDefinitions();
+  const settings = useOrgSettings();
+  const { metricDefaults } = useOrganizationMetricDefaults();
   const dataRegionOptions = useDataRegionOptions();
   const { options, showPricing, pricingFootnote } =
     useDataSourceOptionEligibility();
   const { headline, detail } = options.managed.pricing;
-  const createManagedWarehouse = useCreateManagedWarehouse();
 
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
   const [agree, setAgree] = useState(false);
+
+  // Seeds the starter fact tables and metrics. Failures here shouldn't block
+  // the warehouse itself, so they're logged rather than surfaced.
+  const createResources = async (datasource: DataSourceInterfaceWithParams) => {
+    const resources = getInitialDatasourceResources({
+      datasource,
+      attributeSchema: settings.attributeSchema,
+    });
+    if (!resources.factTables.length) return;
+
+    try {
+      await createInitialResources({
+        datasource,
+        apiCall,
+        metricDefaults,
+        settings,
+        resources,
+      });
+      track("Creating Datasource Resources", {
+        source: "managed-warehouse",
+        type: datasource.type,
+        schema: datasource.settings?.schemaFormat,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const createManagedWarehouse = async () => {
+    const res = await apiCall<{
+      status: number;
+      id: string;
+      datasource: DataSourceInterfaceWithParams;
+    }>("/datasources/managed-warehouse", {
+      method: "POST",
+      body: JSON.stringify({ region }),
+    });
+    if (!res.id) {
+      throw new Error("Error creating managed warehouse");
+    }
+
+    await createResources(res.datasource);
+    await mutateDefinitions();
+    await router.push(`/datasources/${res.id}`);
+    close();
+  };
 
   return (
     <Modal.Root
@@ -72,13 +130,7 @@ export default function ManagedWarehouseModal({
       trackingEventModalSource={source}
       size="lg"
     >
-      <ModalForm
-        onSubmit={async () => {
-          const id = await createManagedWarehouse(region);
-          await router.push(`/datasources/${id}`);
-          close();
-        }}
-      >
+      <ModalForm onSubmit={createManagedWarehouse}>
         <Modal.Header>
           <Modal.Title>Set Up Managed Warehouse</Modal.Title>
           <Modal.Close>
