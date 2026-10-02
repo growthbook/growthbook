@@ -57,7 +57,11 @@ import {
   statusFromStandingVerdicts,
   getHealthSettings,
 } from "shared/enterprise";
-import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
+import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+  SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
+} from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
@@ -921,10 +925,8 @@ export async function postFeatures(
     throw new Error("Feature missing initial environment toggle settings");
   }
 
-  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
-    );
+  if (!new RegExp(FEATURE_KEY_PATTERN).test(id)) {
+    throw new Error(FEATURE_KEY_PATTERN_ERROR);
   }
 
   if (org.settings?.requireProjectForFeatures && !otherProps.project) {

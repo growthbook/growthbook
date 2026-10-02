@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { MAX_DESCRIPTION_LENGTH, FEATURE_KEY_PATTERN } from "shared/constants";
+import {
+  FEATURE_DESCRIPTION,
+  FEATURE_KEY_DESCRIPTION,
+  RULE_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 import {
   apiPaginationFieldsValidator,
   savedGroupTargeting,
@@ -556,7 +562,11 @@ const v2RuleReadOnlyEcho = {
 
 const v2RuleForceBase = z
   .object({
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     condition: z.string().optional(),
     ...v2RuleSavedGroupInput,
     ...v2RuleReadOnlyEcho,
@@ -573,7 +583,11 @@ const v2RuleForceBase = z
 
 const v2RuleRolloutBase = z
   .object({
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     condition: z.string().optional(),
     ...v2RuleSavedGroupInput,
     ...v2RuleReadOnlyEcho,
@@ -597,7 +611,11 @@ const v2RuleRolloutBase = z
 
 const v2RuleExperimentRefBase = z
   .object({
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     id: z.string().optional(),
     enabled: z.boolean().optional(),
     type: z.literal("experiment-ref"),
@@ -630,7 +648,11 @@ const v2RuleExperimentRefBase = z
 // safeRolloutId that isn't already on the feature.
 const v2RuleSafeRolloutBase = z
   .object({
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     id: z.string().optional(),
     enabled: z.boolean().optional(),
     type: z.literal("safe-rollout"),
@@ -672,14 +694,13 @@ export const postFeatureBodyV2 = z
     id: z
       .string()
       .min(1)
-      .describe(
-        "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
-      ),
+      .meta({ pattern: FEATURE_KEY_PATTERN })
+      .describe(FEATURE_KEY_DESCRIPTION),
     archived: z.boolean().optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the feature")
+      .describe(FEATURE_DESCRIPTION)
       .optional(),
     owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
@@ -705,7 +726,7 @@ export const postFeatureBodyV2 = z
       ),
     baseConfig: apiBaseConfigField,
     defaultValueConfig: apiDefaultValueConfigField,
-    tags: z.array(z.string()).describe("List of associated tags").optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     rules: z
       .array(postFeatureRuleV2)
       .describe(
@@ -745,7 +766,7 @@ export const updateFeatureBodyV2 = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the feature")
+      .describe(FEATURE_DESCRIPTION)
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
@@ -767,9 +788,7 @@ export const updateFeatureBodyV2 = z
     defaultValueConfig: apiDefaultValueConfigField,
     tags: z
       .array(z.string())
-      .describe(
-        "List of associated tags. Will override tags completely with submitted list",
-      )
+      .describe(`${TAGS_DESCRIPTION} Replaces the existing tags completely.`)
       .optional(),
     rules: z
       .array(postFeatureRuleV2)
@@ -861,6 +880,8 @@ export const postFeatureV2Validator = {
   summary: "Create a single feature",
   description:
     "Creates a new Feature Flag. The caller needs Create access in its Project, plus Publish access for any environment the Feature Flag starts enabled in — one that starts disabled everywhere needs Create alone. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
+    "### Naming for human review\n\n" +
+    "The `id` is the flag's permanent name in the UI and code. Keep it short (`checkout-express-pay`) and put context in `description`.\n\n" +
     "### Config-backed features (Config mode)\n\n" +
     'A JSON feature can be backed by a shared **config** — the config supplies the base JSON value and schema, and the feature\'s *rule* values become override *patches* merged on top (nested objects deep-merge; arrays and scalars replace). The default value is exactly a config with no overrides (see below). Config backing is set exclusively through dedicated fields — never a raw `$extends: ["@config:…"]` inside a value string (that is rejected). `@const:` references inside values still work.\n\n' +
     '- **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig: "<configKey>"` to put the Feature Flag in Config mode. The config must be live. This is the family root and the base the default value patches.\n' +

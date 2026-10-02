@@ -85,7 +85,11 @@ export type ApiSdkConnection = z.infer<typeof apiSdkConnectionValidator>;
 // Corresponds to payload-schemas/PostSdkConnectionPayload.yaml
 const postSdkConnectionBody = z
   .object({
-    name: z.string(),
+    name: z
+      .string()
+      .describe(
+        "Short display name, usually app and platform (e.g. `Web app`).",
+      ),
     language: z.string(),
     sdkVersion: z.string().optional(),
     environment: z.string(),

@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  ENVIRONMENT_PROJECTS_DESCRIPTION,
+  PLAIN_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const updateEnvOrderValidator = z
   .object({
@@ -62,17 +66,21 @@ export const apiEnvironmentValidator = namedSchema(
 // Corresponds to paths/postEnvironment.yaml requestBody
 const postEnvironmentBody = z
   .object({
-    id: z.string().describe("The ID of the new environment"),
-    description: z
+    id: z
       .string()
-      .describe("The description of the new environment")
-      .optional(),
+      .describe(
+        "Permanent ID, shown as the environment name (e.g. `production`). Short lowercase slug.",
+      ),
+    description: z.string().describe(PLAIN_DESCRIPTION).optional(),
     toggleOnList: z.boolean().describe("Show on feature list page").optional(),
     defaultState: z
       .boolean()
       .describe("Default state for new features")
       .optional(),
-    projects: z.array(z.string()).optional(),
+    projects: z
+      .array(z.string())
+      .describe(ENVIRONMENT_PROJECTS_DESCRIPTION)
+      .optional(),
     parent: z
       .string()
       .describe(
@@ -85,16 +93,16 @@ const postEnvironmentBody = z
 // Corresponds to paths/putEnvironment.yaml requestBody
 const putEnvironmentBody = z
   .object({
-    description: z
-      .string()
-      .describe("The description of the new environment")
-      .optional(),
+    description: z.string().describe(PLAIN_DESCRIPTION).optional(),
     toggleOnList: z.boolean().describe("Show on feature list page").optional(),
     defaultState: z
       .boolean()
       .describe("Default state for new features")
       .optional(),
-    projects: z.array(z.string()).optional(),
+    projects: z
+      .array(z.string())
+      .describe(ENVIRONMENT_PROJECTS_DESCRIPTION)
+      .optional(),
   })
   .strict();
 
