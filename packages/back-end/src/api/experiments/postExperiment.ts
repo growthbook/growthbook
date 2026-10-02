@@ -39,7 +39,6 @@ import {
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
-import { getSavedGroupsForValidation } from "back-end/src/services/savedGroups";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -373,12 +372,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       },
       req.organization,
       datasource,
-      await getSavedGroupsForValidation(
-        req.context,
-        (payload.phases ?? []).map((p) => ({
-          condition: p.condition || p.targetingCondition,
-        })),
-      ),
     );
 
     // Same validation as PUT /schedule; existingSchedule is null on create.

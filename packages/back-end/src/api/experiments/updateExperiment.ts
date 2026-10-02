@@ -48,7 +48,6 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { getSavedGroupsForValidation } from "back-end/src/services/savedGroups";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -394,12 +393,6 @@ export const updateExperiment = createApiRequestHandler(
       experiment,
       map,
       req.organization,
-      await getSavedGroupsForValidation(
-        req.context,
-        (payload.phases ?? []).map((p) => ({
-          condition: p.condition || p.targetingCondition,
-        })),
-      ),
     ),
     // Undefined when the new selection is implicit, which clears the old one.
     ...(identifierTypeChanged ? { exposureQueryIdentifierType } : {}),

@@ -3115,7 +3115,9 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(400);
-      expect(res.body.message).toContain("Invalid prerequisite condition");
+      expect(res.body.message).toContain(
+        'Invalid condition on prerequisite "feature_123"',
+      );
       expect(updateExperiment).not.toHaveBeenCalled();
     });
 
@@ -3169,7 +3171,7 @@ describe("experiments API", () => {
       });
       expect(prerequisite.status).toBe(400);
       expect(prerequisite.body.message).toMatch(
-        /^Invalid prerequisite condition: \$savedGroups cannot be used/,
+        /^Invalid condition on prerequisite "feature_123": \$savedGroups cannot be used/,
       );
     });
 

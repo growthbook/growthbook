@@ -752,6 +752,7 @@ export async function validateRuleReferences(
 export async function validateRulesReferences(
   rules: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">[],
   context: ReqContext | ApiReqContext,
+  conditionLabel: string = "rule condition",
 ): Promise<void> {
   if (!rules.length) return;
   const groupMap = await getSavedGroupsForValidation(context, rules);
@@ -759,7 +760,7 @@ export async function validateRulesReferences(
   for (const rule of rules) {
     validatePrerequisiteConditions(rule.prerequisites ?? []);
     assertPrerequisiteGroupIds(rule.prerequisites ?? [], savedGroupIds);
-    validateRuleReferencesWithGroups(rule, groupMap);
+    validateRuleReferencesWithGroups(rule, groupMap, conditionLabel);
   }
 }
 
@@ -806,6 +807,7 @@ export async function validateChangedRuleReferences<
 type PhaseTargeting = {
   condition?: string | null;
   savedGroups?: FeatureRule["savedGroups"] | null;
+  prerequisites?: FeaturePrerequisite[] | null;
 };
 
 // Experiment phases carry a rule's condition and saved groups and reach the
@@ -830,21 +832,36 @@ export async function validateChangedPhaseReferences(
       const groupsChanged =
         savedGroups.length > 0 &&
         !baseline(i).some((s) => isEqual(s.savedGroups ?? [], savedGroups));
-      if (!conditionChanged && !groupsChanged) return [];
+      const prerequisites = (phase.prerequisites ?? []).filter(
+        (p) =>
+          !baseline(i).some((s) =>
+            (s.prerequisites ?? []).some(
+              (q) =>
+                q.id === p.id &&
+                (q.condition || "{}") === (p.condition || "{}"),
+            ),
+          ),
+      );
+      if (!conditionChanged && !groupsChanged && !prerequisites.length) {
+        return [];
+      }
       return [
         {
           condition: conditionChanged ? condition : undefined,
           savedGroups: groupsChanged ? savedGroups : [],
+          prerequisites,
         },
       ];
     }),
     context,
+    "targeting condition",
   );
 }
 
 function validateRuleReferencesWithGroups(
   rule: Pick<FeatureRule, "condition" | "savedGroups">,
   groupMap: GroupMap,
+  conditionLabel: string = "rule condition",
 ): void {
   const savedGroupIds = new Set(groupMap.keys());
   for (const sg of rule.savedGroups ?? []) {
@@ -858,14 +875,14 @@ function validateRuleReferencesWithGroups(
   if (rule.condition && rule.condition !== "{}") {
     const condRes = validateCondition(rule.condition, groupMap);
     if (!condRes.success) {
-      throw new BadRequestError(`Invalid rule condition: ${condRes.error}`);
+      throw new BadRequestError(`Invalid ${conditionLabel}: ${condRes.error}`);
     }
     const inGroupError = findInvalidInGroupId(
       JSON.parse(rule.condition),
       savedGroupIds,
     );
     if (inGroupError)
-      throw new BadRequestError(`Invalid rule condition: ${inGroupError}`);
+      throw new BadRequestError(`Invalid ${conditionLabel}: ${inGroupError}`);
   }
 }
 
