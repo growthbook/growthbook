@@ -2,7 +2,9 @@ import { z } from "zod";
 import {
   queryPointerValidator,
   queryRunnerFailureCause,
+  queryStatisticsValidator,
   queryStatusValidator,
+  queryUsageValidator,
   sqlResultChunkValidator,
 } from "shared/validators";
 import type { PopulationDataInterface } from "shared/types/population-data";
@@ -19,32 +21,9 @@ export type QueryPointer = z.infer<typeof queryPointerValidator>;
 
 export type Queries = QueryPointer[];
 
-export type QueryStatistics = {
-  executionDurationMs?: number;
-  totalSlotMs?: number;
-  rowsProcessed?: number;
-  bytesProcessed?: number;
-  bytesBilled?: number;
-  rowsInserted?: number;
-  warehouseCachedResult?: boolean;
-  partitionsUsed?: boolean;
-  physicalWrittenBytes?: number;
-  // Micro-partitions read vs. available, so pruning can be measured (Snowflake)
-  partitionsScanned?: number;
-  partitionsTotal?: number;
-  // Time spent waiting because the warehouse was saturated vs. resuming from suspended
-  queuedOverloadMs?: number;
-  queuedProvisioningMs?: number;
-  bytesSpilledLocal?: number;
-  bytesSpilledRemote?: number;
-  // Warehouse-side timestamps (epoch ms), free of GrowthBook's connect and fetch overhead
-  warehouseStartTime?: number;
-  warehouseEndTime?: number;
-  warehouseName?: string;
-  warehouseSize?: string;
-  // Snowflake reports -1 when no warehouse ran the query (result cache or metadata only)
-  warehouseClusterNumber?: number;
-};
+export type QueryStatistics = z.infer<typeof queryStatisticsValidator>;
+
+export type QueryUsageInterface = z.infer<typeof queryUsageValidator>;
 
 export type QueryType =
   // Internal fallback. Do not use this value.

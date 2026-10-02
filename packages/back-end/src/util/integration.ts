@@ -31,6 +31,13 @@ export function applyMetricOverrides(
   return;
 }
 
+// Warehouse stats are often strings or missing; Number(undefined) would record NaN
+export function toOptionalNumber(value: unknown): number | undefined {
+  if ((value ?? null) === null) return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+}
+
 // get the query tag string for the integration
 export function getQueryTagString(
   queryMetadata: QueryMetadata,

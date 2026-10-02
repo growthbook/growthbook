@@ -5,6 +5,7 @@ import {
   StartQueryExecutionCommandInput,
 } from "@aws-sdk/client-athena";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import { QueryStatistics } from "shared/types/query";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { parseEnvInt, parseOptionalInt } from "shared/util";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
@@ -179,6 +180,7 @@ export async function runAthenaQuery(
   }
 
   let timeWaitingForFailure = 0;
+  let statistics: QueryStatistics | undefined;
   const waitAndCheck = (delay: number) => {
     return new Promise<false | ResultSet>((resolve, reject) => {
       setTimeout(() => {
@@ -225,6 +227,13 @@ export async function runAthenaQuery(
             } else if (State === "CANCELLED") {
               reject(new Error("Query was cancelled"));
             } else {
+              const stats = resp.QueryExecution?.Statistics;
+              statistics = stats && {
+                executionDurationMs: stats.EngineExecutionTimeInMillis,
+                bytesProcessed: stats.DataScannedInBytes,
+                warehouseCachedResult:
+                  stats.ResultReuseInformation?.ReusedPreviousResult,
+              };
               athena
                 .getQueryResults({ QueryExecutionId })
                 .then(({ ResultSet }) => {
@@ -278,6 +287,7 @@ export async function runAthenaQuery(
               ...(dataType && { dataType }),
             };
           }),
+        statistics,
       };
     }
   }
