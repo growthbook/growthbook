@@ -43,6 +43,13 @@ const nextConfig = {
       "abs-percent",
     ],
   },
+  redirects: async () => [
+    {
+      source: "/experiment/:id(cb_.*)",
+      destination: "/contextual-bandit/:id",
+      permanent: false,
+    },
+  ],
   headers: () => [
     {
       source: "/(.*)",
