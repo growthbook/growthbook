@@ -27,7 +27,7 @@ If your memory holds an earlier reviewed merge that isn't the parent of this one
    ```
 
    - **Skills affected by this change**, **References to endpoints that do not exist**, **References to deprecated endpoints**: for each, read the skill text that makes the call, then the handler in `packages/back-end/src/api/` and its Zod validator in `packages/shared/src/validators/`. The validator is the contract.
-   - **New endpoints no skill uses**: decide whether an existing workflow should use it (for example a new filter or field the workflow's task needs). If it belongs in an existing workflow, make that edit. If it would need a new workflow or domain, don't create one; describe it under "Needs a human" with the endpoint, what it does, and which domain it would belong to.
+   - **New endpoints no skill uses**: decide whether an existing workflow should use it (for example a new filter or field the workflow's task needs). If it belongs in an existing workflow, make that edit. If it would need a new workflow, follow the last-resort rule in step 3. If it would need a new domain, don't create one; describe it under "Needs a human" with the endpoint, what it does, and where it would belong.
 
 3. Read the merged diff of the external handlers (`git -C <growthbook> show <merge-commit> -- packages/back-end/src/api`) for changes the spec can't show: approval and review gates, publish and revert behavior, experiment start and stop checks, error codes, enum values, and defaults.
 4. A skill is out of date only when its text is now wrong or would make an agent send a request that fails. "Could mention the new field" is not out of date.
@@ -53,11 +53,16 @@ New or changed text must read as if the person who wrote the rest of the file wr
 
 - Change the fewest words that make the skill correct. Keep the file's voice, formatting, and line structure. Don't rewrap, reorder, or reword text you aren't fixing.
 - Describe current behavior only. Skill text never mentions PRs, issues, commits, dates, versions, "now", "updated", "previously", or this sync.
-- Only edit existing files under `skills/`. Don't add or delete files, add `##` sections (other than a required `## Contents` index), or change frontmatter other than a router `description` whose trigger phrase is wrong.
+- **Change as little as possible, in this order of preference:**
+  1. **Fix the existing text.** When a skill is wrong, correct it in place. This is the default.
+  2. **Extend an existing workflow.** When a new endpoint or field serves a task a workflow already covers, add it there: a step, a guardrail, a row in its inputs, a line under "Endpoints used". Use the file's existing `##` sections; never add one (a `## Contents` index is the only exception, and only when a file passes 100 lines).
+  3. **Add a new workflow file, only as a last resort.** Do this only when all of these hold: the feature is a distinct task a user would ask for by name, no existing workflow in the domain can absorb it without becoming a different workflow, and the external API for it has shipped (the handler and validator exist on `main`). If any of these is in doubt, don't create the file; describe the proposed workflow under "Needs a human" instead.
+- **A new workflow file must look like its siblings.** Put it at `skills/<domain>/references/<name>.md` in an existing domain, named after what the user is doing (not after an endpoint). Give it `name` and `description` frontmatter like the others, a one-paragraph intro, then `## Workflow`, `## Guardrails`, `## Endpoints used`, and `## Handoffs`, with `## Contents` first if it passes 100 lines. Add one row for it to the router's "Pick a workflow" table and its trigger phrases to the router `description`. In the PR description, say which existing workflows you considered and why none fit. Add at most one new file per run.
+- **Never** delete or rename files, create a new domain or top-level skill, edit anything outside `skills/`, or change frontmatter other than a router `description` (and the new file's own).
 - Keep examples literal and copy-pasteable, with the placeholder style the file already uses (for example `<flag-id>`).
 - Don't edit `skills/experiments/references/experiment-launch.md`; it belongs to GrowthBook's head of data science. `CLAUDE.md`, the README, and the changelog are for humans to change. Note what they need under "Needs a human".
 - When the API has no replacement for something a skill relies on, or you aren't sure, don't edit. Note it under "Needs a human".
-- Keep the whole change to at most 8 files and 200 changed lines. A larger fix goes under "Needs a human".
+- Keep edits to existing files to at most 8 files and 200 changed lines, plus at most one new workflow of up to 250 lines. Anything larger goes under "Needs a human".
 - Never copy environment variables, tokens, credentials, or anything that looks like a key into a file, commit, or PR.
 
 Re-read each file you changed and undo any change that isn't required, restates what the file already says, reads differently from the text around it, or can't be tied to a specific handler, validator, or doc line.
