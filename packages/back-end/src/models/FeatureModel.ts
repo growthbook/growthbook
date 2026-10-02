@@ -1512,12 +1512,8 @@ export async function updateFeature(
     allUpdates.environmentSettings = { ...feature.environmentSettings };
   }
 
-  // The reverse case: a write that replaces `environmentSettings` without
-  // `rules` (an environment toggle) stores the map as the read returned it.
-  // That map has no `{env}.rules`, and its inherited environments are filled
-  // in, so a doc that keeps its rules per environment loses its only copy and
-  // a child environment stops inheriting its parent's rules. Persist the
-  // rules that read returned in the same write, scrubbed like a publish's.
+  // The reverse case: an env-settings write without `rules` would drop rules
+  // kept per environment or inherited, so persist the read's (scrubbed) rules.
   if (
     allUpdates.environmentSettings !== undefined &&
     allUpdates.rules === undefined &&
@@ -1858,7 +1854,7 @@ export async function removeProjectFromFeatures(
           ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
           : rule,
       );
-      // Advance the stamp so a landing that read the deleted scope loses its guard.
+      // Advance the stamp so a landing that read the dead scope loses its guard.
       const stamp = advancedGuardStamp(feature.dateUpdated);
       const written = await FeatureModel.updateOne(
         {

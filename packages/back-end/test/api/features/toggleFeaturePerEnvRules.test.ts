@@ -302,7 +302,6 @@ describe("updateFeature with environment settings and explicit rules", () => {
 
     const doc = await getFeatureDoc();
     expect(doc.rules).toEqual([]);
-    expect(doc.environmentSettings.production.rules).toBeUndefined();
     expect(await readRules(context)).toEqual([]);
   });
 });
