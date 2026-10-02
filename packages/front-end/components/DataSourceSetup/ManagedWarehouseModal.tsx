@@ -119,8 +119,8 @@ export default function ManagedWarehouseModal({
         Data Region
       </Heading>
       <Text as="p" color="text-mid" mb="3">
-        Where events pass through GrowthBook before they&apos;re written to your
-        warehouse. This can&apos;t be changed later.
+        Where your event data will be ingested and stored. This cannot be
+        changed later.
       </Text>
       <RadioCards
         columns="2"
@@ -188,7 +188,7 @@ export default function ManagedWarehouseModal({
             </Link>
           </>
         }
-        description="Event data passes through GrowthBook's servers in the selected region. Don't include sensitive or regulated personal data in your events unless it's properly de-identified."
+        description="Do not include any sensitive or regulated personal data in your analytics events unless it is properly de-identified in accordance with applicable legal standards."
       />
     </ModalStandard>
   );
