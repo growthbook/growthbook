@@ -3,7 +3,11 @@ import {
   ACTIVE_DRAFT_STATUSES,
   FeatureStaleEntry,
 } from "shared/validators";
-import { isFeatureStale, TempRolloutStaleReason } from "shared/util";
+import {
+  getApplicableEnvIds,
+  isFeatureStale,
+  TempRolloutStaleReason,
+} from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   getAllFeaturesForGraph,
@@ -71,14 +75,7 @@ export async function computeFeatureStale(
         return !max || d > max ? d : max;
       }, null);
 
-    const applicableEnvIds = orgEnvs
-      .filter(
-        (env) =>
-          !feature.project ||
-          !env.projects?.length ||
-          env.projects.includes(feature.project as string),
-      )
-      .map((env) => env.id);
+    const applicableEnvIds = getApplicableEnvIds(orgEnvs, feature);
 
     const { stale, reason, envResults } = isFeatureStale({
       feature,

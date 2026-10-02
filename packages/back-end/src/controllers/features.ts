@@ -7852,14 +7852,10 @@ export async function getFeaturesHealth(
     await yieldEventLoop(i);
     const feature = targetFeatures[i];
 
-    const applicableEnvIds = getEnvironments(context.org)
-      .filter(
-        (env) =>
-          !feature.project ||
-          !env.projects?.length ||
-          env.projects.includes(feature.project as string),
-      )
-      .map((env) => env.id);
+    const applicableEnvIds = getApplicableEnvIds(
+      getEnvironments(context.org),
+      feature,
+    );
 
     const staleResult = isFeatureStale({
       feature,

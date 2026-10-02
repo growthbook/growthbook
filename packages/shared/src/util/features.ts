@@ -39,10 +39,7 @@ import { GroupMap } from "shared/types/saved-group";
 // import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
 import { assertValidExtendsEntries } from "../validators/constant";
 import { RampScheduleInterface, RampTarget } from "../validators/ramp-schedule";
-import {
-  hasAttributeCondition,
-  hasTargetingConfigured,
-} from "../experiments/targeting";
+import { hasTargetingConfigured } from "../experiments/targeting";
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
@@ -924,24 +921,31 @@ const isUnconditionalTempRollout = (
   return true;
 };
 
-const hasNoCondition = (rule: FeatureRule): boolean =>
-  !hasAttributeCondition(rule.condition);
-
 const areRulesOneSided = (
   rules: FeatureRule[], // can assume all rules are enabled
 ) => {
+  // Bandits, safe rollouts and inline experiments split traffic. When unsure,
+  // a flag is not called stale.
+  if (
+    rules.some(
+      (r) =>
+        r.type === "contextual-bandit-ref" ||
+        r.type === "safe-rollout" ||
+        r.type === "experiment",
+    )
+  ) {
+    return false;
+  }
   const rolloutRules = rules.filter(isRolloutRule);
   const forceRules = rules.filter(isForceRule);
 
+  // Prerequisites target too: the rule serves only when the parent passes.
   const rolloutRulesOnesided =
     !rolloutRules.length ||
-    rolloutRules.every(
-      (r) => r.coverage === 1 && hasNoCondition(r) && !r.savedGroups?.length,
-    );
+    rolloutRules.every((r) => r.coverage === 1 && !hasTargetingConfigured(r));
 
   const forceRulesOnesided =
-    !forceRules.length ||
-    forceRules.every((r) => hasNoCondition(r) && !r.savedGroups?.length);
+    !forceRules.length || forceRules.every((r) => !hasTargetingConfigured(r));
 
   return rolloutRulesOnesided && forceRulesOnesided;
 };
@@ -1178,6 +1182,7 @@ export function isFeatureStale({
     );
 
   const visitedFeatures = new Set<string>();
+  const rootId = feature.id;
 
   const visit = (feature: FeatureInterface): IsFeatureStaleResult => {
     if (visitedFeatures.has(feature.id)) {
@@ -1202,13 +1207,17 @@ export function isFeatureStale({
         const f = featuresMap.get(id);
         return !f || !visit(f).stale;
       });
-      dependentExperiments =
-        dependentExperiments ??
+      // The caller's dependents and draft date describe the requested
+      // feature only; every dependent the walk visits is looked up on its own.
+      const isRoot = feature.id === rootId;
+      const featureDependentExperiments =
+        (isRoot ? dependentExperiments : undefined) ??
         getDependentExperiments(
           feature,
           experiments,
           experimentDependencyIndex,
         );
+      const draftDate = isRoot ? mostRecentDraftDate : undefined;
 
       const envResults = buildEnvResults(
         feature,
@@ -1216,7 +1225,7 @@ export function isFeatureStale({
         experimentMap,
         nonStaleDependentFeatureIds,
         featuresMap,
-        dependentExperiments,
+        featureDependentExperiments,
       );
 
       if (feature.neverStale)
@@ -1232,8 +1241,8 @@ export function isFeatureStale({
       // Active drafts block stale. Abandoned drafts (>1 month) don't force
       // stale on their own — they surface as the reason only if envs are also stale.
       let hasAbandonedDraft = false;
-      if (mostRecentDraftDate !== undefined && mostRecentDraftDate !== null) {
-        if (mostRecentDraftDate >= subMonths(new Date(), 1)) {
+      if (draftDate !== undefined && draftDate !== null) {
+        if (draftDate >= subMonths(new Date(), 1)) {
           return { stale: false, reason: "active-draft", envResults };
         }
         hasAbandonedDraft = true;
@@ -1242,10 +1251,13 @@ export function isFeatureStale({
       if (nonStaleDependentFeatureIds.length) {
         return { stale: false, reason: "has-dependents", envResults };
       }
-      const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
-        includeExperimentInPayload(e),
+      const hasNonStaleDependentExperiments = featureDependentExperiments.some(
+        (e) => includeExperimentInPayload(e),
       );
-      if (dependentExperiments.length && hasNonStaleDependentExperiments) {
+      if (
+        featureDependentExperiments.length &&
+        hasNonStaleDependentExperiments
+      ) {
         return { stale: false, reason: "has-dependents", envResults };
       }
 

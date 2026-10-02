@@ -831,6 +831,46 @@ describe("isFeatureStale windows and rule kinds", () => {
       reason: "no-rules",
     });
   });
+
+  it("does not call a prerequisite-gated force rule one-sided", () => {
+    const f = settled([
+      {
+        ...force("true"),
+        prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+      },
+    ]);
+    const result = stale(f);
+    expect(result.envResults.prod).toEqual({
+      stale: false,
+      reason: "has-rules",
+    });
+    expect(result.stale).toBe(false);
+  });
+
+  it("does not call an environment served by a contextual bandit one-sided", () => {
+    const f = settled([
+      {
+        type: "contextual-bandit-ref",
+        contextualBanditId: "cb_1",
+        variations: [
+          { variationId: "a", value: "true" },
+          { variationId: "b", value: "false" },
+        ],
+      } as Partial<FeatureRule>,
+    ]);
+    expect(stale(f).envResults.prod).toEqual({
+      stale: false,
+      reason: "has-rules",
+    });
+  });
+
+  it("does not call an environment served by a safe rollout one-sided", () => {
+    const f = settled([safeRolloutRule("sr_1")]);
+    expect(stale(f).envResults.prod).toEqual({
+      stale: false,
+      reason: "has-rules",
+    });
+  });
 });
 
 describe("getHealthSettings", () => {
@@ -920,5 +960,59 @@ describe("computeFeatureHealth broken saved groups", () => {
 
   it("skips the check without a group map", () => {
     expect(compute(feature([inGroups("all", "gone")]))).toEqual([]);
+  });
+});
+
+describe("isFeatureStale walks dependents on their own facts", () => {
+  const old = new Date(Date.now() - 30 * 86400000);
+  const flag = (id: string, extra: Partial<FeatureInterface> = {}) =>
+    ({
+      id,
+      valueType: "boolean",
+      defaultValue: "false",
+      dateUpdated: old,
+      environmentSettings: { prod: { enabled: true } },
+      rules: [],
+      ...extra,
+    }) as unknown as FeatureInterface;
+  const parentGate = { id: "root", condition: '{"value": true}' };
+  const runningOn = (parent: string) =>
+    ({
+      id: "exp",
+      status: "running",
+      archived: false,
+      excludeFromPayload: false,
+      linkedFeatures: [parent],
+      phases: [
+        {
+          dateStarted: old.toISOString(),
+          prerequisites: [{ id: parent, condition: '{"value": true}' }],
+        },
+      ],
+    }) as unknown as ExperimentInterfaceStringDates;
+
+  it("keeps a flag with a running dependent experiment when it also has a stale dependent flag", () => {
+    const root = flag("root");
+    const dependent = flag("dep", { prerequisites: [parentGate] });
+    const result = isFeatureStale({
+      feature: root,
+      features: [root, dependent],
+      environments: ["prod"],
+      experiments: [runningOn("root")],
+    });
+    expect(result).toMatchObject({ stale: false, reason: "has-dependents" });
+  });
+
+  it("does not lend the requested flag's draft to its dependents", () => {
+    const root = flag("root");
+    const dependent = flag("dep", { prerequisites: [parentGate] });
+    const result = isFeatureStale({
+      feature: root,
+      features: [root, dependent],
+      environments: ["prod"],
+      mostRecentDraftDate: new Date(),
+    });
+    expect(result.reason).toBe("active-draft");
+    expect(result.envResults.prod?.reason).not.toBe("has-dependents");
   });
 });

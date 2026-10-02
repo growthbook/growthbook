@@ -186,7 +186,7 @@ export function entryMatchesHealthFilter(
 }
 
 export const FEATURE_HEALTH_SEVERITY_FILTER_OPTIONS = (
-  ["high", "medium", "low"] as FeatureHealthSeverity[]
+  ["critical", "high", "medium", "low"] as FeatureHealthSeverity[]
 ).map((value) => ({ value, label: FEATURE_HEALTH_SEVERITIES[value].label }));
 
 export const FEATURE_HEALTH_FILTER_OPTIONS = FEATURE_HEALTH_SIGNALS.map(
@@ -196,7 +196,10 @@ export const FEATURE_HEALTH_FILTER_OPTIONS = FEATURE_HEALTH_SIGNALS.map(
 export function isPartiallyStale(staleData: FeatureStaleSummary): boolean {
   return (
     !staleData.stale &&
-    Object.values(staleData.envResults ?? {}).some((e) => e.stale)
+    // A disabled environment is off, not stale; the overall verdict skips it too.
+    Object.values(staleData.envResults ?? {}).some(
+      (e) => e.stale && e.reason !== "toggled-off",
+    )
   );
 }
 
