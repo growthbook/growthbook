@@ -23,7 +23,7 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { useDataSourceOptionEligibility } from "./useDataSourceOptionEligibility";
+import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";
 
 const REGION_NAMES: Record<DataRegion, string> = {
   "us-east-1": "United States",
@@ -43,9 +43,9 @@ export default function ManagedWarehouseModal({
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
   const dataRegionOptions = useDataRegionOptions();
-  const { options, showPricing, pricingFootnote } =
-    useDataSourceOptionEligibility();
-  const { headline, detail } = options.managed.pricing;
+  const { pricing, showPricing, pricingFootnote } =
+    useDataSourceOptionPricing();
+  const { headline, detail } = pricing.managed;
 
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
   const [agree, setAgree] = useState(false);
