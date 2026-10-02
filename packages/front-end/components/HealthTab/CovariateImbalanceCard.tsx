@@ -11,8 +11,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import Link from "@/ui/Link";
 import Button from "@/ui/Button";
+import { DocLink } from "@/components/DocLink";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
@@ -174,12 +174,7 @@ export default function CovariateImbalanceCard({
               </Text>
               .{" "}
               <Text weight="semibold">
-                <Link
-                  href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
-                  target="_blank"
-                >
-                  Learn more
-                </Link>
+                <DocLink docSection="preExposureBiasCheck">Learn more</DocLink>
               </Text>
               <Box display="inline-block" ml="1">
                 <PiArrowSquareOut size={15} />
@@ -197,12 +192,7 @@ export default function CovariateImbalanceCard({
               Bonferroni-corrected for {numBonferroniTests} test
               {numBonferroniTests !== 1 ? "s" : ""}).{" "}
               <Text weight="semibold">
-                <Link
-                  href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
-                  target="_blank"
-                >
-                  Learn more
-                </Link>
+                <DocLink docSection="preExposureBiasCheck">Learn more</DocLink>
               </Text>
               <Box display="inline-block" ml="1">
                 <PiArrowSquareOut size={15} />

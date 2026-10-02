@@ -13,6 +13,7 @@ import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
 import Callout from "@/ui/Callout";
+import { DocLink } from "@/components/DocLink";
 
 export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
@@ -367,13 +368,9 @@ export default function FeatureSettings() {
                             keys and scans your codebase to provide a JSON
                             output of code references, which you can supply to
                             our code references{" "}
-                            <a
-                              href="https://docs.growthbook.io/api#tag/code-references"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
+                            <DocLink docSection="apiPostCodeRefs">
                               REST API endpoint
-                            </a>
+                            </DocLink>
                             .
                           </Text>
                         </Box>

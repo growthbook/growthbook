@@ -35,6 +35,7 @@ import { useUser } from "@/services/UserContext";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
 import MetricDrilldownOverview from "@/components/MetricDrilldown/MetricDrilldownOverview";
+import { DocLink } from "@/components/DocLink";
 
 // ---------------------------------------------------------------------------
 // Event marker helpers
@@ -881,13 +882,9 @@ export function HealthChecks({
                     </li>
                   </ul>
                   <Text as="div" size="sm" mt="2">
-                    <a
-                      target="_blank"
-                      rel="noreferrer"
-                      href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
-                    >
+                    <DocLink docSection="troubleshootingExperiments">
                       Read about troubleshooting in our docs
-                    </a>
+                    </DocLink>
                   </Text>
                 </Box>
               )}

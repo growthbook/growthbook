@@ -12,6 +12,7 @@ import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Callout from "@/ui/Callout";
+import { docUrl } from "@/components/DocLink";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, hasCommercialFeature } = useUser();
@@ -98,7 +99,7 @@ const TeamPage: FC = () => {
                 title="Teams"
                 description="Create groups of GrowthBook users to organize and manage permissions centrally"
                 commercialFeature="teams"
-                learnMoreLink="https://docs.growthbook.io/account/user-permissions#teams"
+                learnMoreLink={docUrl("team")}
               />
             )}
           </>
@@ -136,7 +137,7 @@ const TeamPage: FC = () => {
                 title="Custom Roles"
                 description="Custom roles allows you to adjust permissions and assign those roles to members or teams"
                 commercialFeature="custom-roles"
-                learnMoreLink="https://docs.growthbook.io/account/user-permissions#custom-roles"
+                learnMoreLink={docUrl("customRoles")}
               />
             )}
           </>

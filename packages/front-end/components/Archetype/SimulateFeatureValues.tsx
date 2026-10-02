@@ -39,6 +39,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import { docUrl } from "@/components/DocLink";
 
 export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
@@ -406,7 +407,7 @@ export const SimulateFeatureValues: FC<{
               values they have or would receive. Simulation is a premium
               feature."
           commercialFeature="simulate"
-          learnMoreLink="https://docs.growthbook.io/features/rules#simulation"
+          learnMoreLink={docUrl("testingRules")}
         />
       </div>
     );

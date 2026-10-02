@@ -7,6 +7,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { docUrl } from "@/components/DocLink";
 import PaidFeatureBadge from "./PaidFeatureBadge";
 
 interface Props {
@@ -34,9 +35,7 @@ const DocumentationSidebar = ({
         <LinkItem href="https://www.growthbook.io/blog/growthbook-version-5-1?utm_source=product&utm_medium=in-app&utm_campaign=release-5-1">
           5.1 Feature Highlights
         </LinkItem>
-        <LinkItem href="https://docs.growthbook.io/integrations/ai-agents/agent-skills/">
-          Agent Skills
-        </LinkItem>
+        <LinkItem href={docUrl("agentSkills")}>Agent Skills</LinkItem>
       </Flex>
       <Separator size="4" my="5" />
       <SidebarHeading>RESOURCES</SidebarHeading>
@@ -57,7 +56,7 @@ const DocumentationSidebar = ({
           </Text>
         </LinkItem>
 
-        <LinkItem href="https://docs.growthbook.io/faq">
+        <LinkItem href={docUrl("faq")}>
           <PiSealQuestion style={{ width: "20px", height: "20px" }} />
           <Text ml="1" style={{ verticalAlign: "middle" }}>
             GrowthBook FAQs
@@ -169,13 +168,11 @@ function getLinksFor(
       if (isVercelIntegration) {
         return (
           <>
-            <LinkItem href="https://docs.growthbook.io/integrations/vercel">
-              Vercel Integration Docs
-            </LinkItem>
+            <LinkItem href={docUrl("vercel")}>Vercel Integration Docs</LinkItem>
             <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.1.0">
               5.1 Release Notes
             </LinkItem>
-            <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+            <LinkItem href={docUrl("home")}>Docs</LinkItem>
             <LinkItem href="https://www.growthbook.io/pricing">
               Premium Features
             </LinkItem>
@@ -185,7 +182,7 @@ function getLinksFor(
 
       return (
         <>
-          <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+          <LinkItem href={docUrl("home")}>Docs</LinkItem>
           <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.1.0">
             5.1 Release Notes
           </LinkItem>
@@ -198,16 +195,12 @@ function getLinksFor(
     case "features":
       return (
         <>
-          <LinkItem href="https://docs.growthbook.io/lib/">
-            GrowthBook SDK
-          </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/features/basics">
+          <LinkItem href={docUrl("sdks")}>GrowthBook SDK</LinkItem>
+          <LinkItem href={docUrl("featureBasics")}>
             Feature Flag Basics
           </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/features/targeting">
-            Targeting Attributes
-          </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/warehouses">
+          <LinkItem href={docUrl("targeting")}>Targeting Attributes</LinkItem>
+          <LinkItem href={docUrl("warehouses")}>
             Connect Your Data Source
           </LinkItem>
         </>
@@ -216,18 +209,18 @@ function getLinksFor(
     case "experiments":
       return (
         <>
-          <LinkItem href="https://docs.growthbook.io/experiments">
+          <LinkItem href={docUrl("experimentsOverview")}>
             Running Experiments
           </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/app/sticky-bucketing">
+          <LinkItem href={docUrl("stickyBucketing")}>
             Sticky Bucketing
             <PaidFeatureBadge commercialFeature="sticky-bucketing" mx="2" />
           </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/app/visual">
+          <LinkItem href={docUrl("visual_editor")}>
             Visual Editor
             <PaidFeatureBadge commercialFeature="visual-editor" mx="2" />
           </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/app/url-redirects">
+          <LinkItem href={docUrl("url_redirects")}>
             URL Redirects
             <PaidFeatureBadge commercialFeature="redirects" mx="2" />
           </LinkItem>
@@ -237,17 +230,15 @@ function getLinksFor(
     case "imports":
       return (
         <>
-          <LinkItem href="https://docs.growthbook.io/warehouses">
+          <LinkItem href={docUrl("warehouses")}>
             Connect to Your Data Warehouse
           </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/app/fact-tables">
-            Fact Tables
-          </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/app/data-pipeline">
+          <LinkItem href={docUrl("factTables")}>Fact Tables</LinkItem>
+          <LinkItem href={docUrl("pipelineMode")}>
             Data Pipeline Mode
             <PaidFeatureBadge commercialFeature="pipeline-mode" mx="2" />
           </LinkItem>
-          <LinkItem href="https://docs.growthbook.io/app/experiment-results">
+          <LinkItem href={docUrl("experimentResults")}>
             Experiment Results
           </LinkItem>
         </>

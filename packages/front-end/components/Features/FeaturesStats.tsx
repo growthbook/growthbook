@@ -12,6 +12,7 @@ import Button from "@/components/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import { docUrl } from "@/components/DocLink";
 
 const generatePlatformUrl = (
   platformUrl: string,
@@ -59,7 +60,7 @@ export default function FeaturesStats({
               codebase, with direct links from GrowthBook to the platform of
               your choice."
             commercialFeature="code-references"
-            learnMoreLink="https://docs.growthbook.io/features/code-references"
+            learnMoreLink={docUrl("codeReferences")}
           />
         </div>
       </>
