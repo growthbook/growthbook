@@ -7774,9 +7774,8 @@ export async function getFeaturesHealth(
     safeRollouts,
     jsonSchemas,
   ] = await Promise.all([
-    // For requested ids, only the part of the graph their verdicts read; the
-    // health signals validate the requested features' values, so those load
-    // in full.
+    // The health signals validate the requested features' values, so those
+    // load in full.
     featureIds
       ? loadStaleGraph(context, featureIds)
       : Promise.all([

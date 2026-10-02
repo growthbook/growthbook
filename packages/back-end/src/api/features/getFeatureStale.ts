@@ -36,8 +36,8 @@ export async function computeFeatureStale(
     requestedFeatures,
     draftRevisions,
   ] = await Promise.all([
-    // Only the part of the graph these verdicts read. The verdict reports
-    // the values the requested features evaluate to, so those load in full.
+    // The verdict reports the values the requested features evaluate to,
+    // so those load in full.
     loadStaleGraph(context, ids),
     getFeaturesByIds(context, ids),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {

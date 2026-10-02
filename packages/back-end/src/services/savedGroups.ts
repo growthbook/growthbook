@@ -124,7 +124,7 @@ async function getSavedGroupPayloadKeys(
 
   const allProjectIds = await context.getAllProjectIds();
   const featuresById = new Map(features.map((f) => [f.id, f]));
-  const keys = [
+  return [
     ...getAffectedSDKPayloadKeys(
       dependents.features,
       getEnvironmentIdsFromOrg(context.org),
@@ -142,13 +142,6 @@ async function getSavedGroupPayloadKeys(
       ),
     ),
   ];
-  const seen = new Set<string>();
-  return keys.filter((key) => {
-    const k = `${key.environment}\u0000${key.project}`;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
 }
 
 export async function savedGroupUpdated(
@@ -163,8 +156,8 @@ export async function savedGroupUpdated(
   context.sdkPayloadRefreshBuffer = baseContext.sdkPayloadRefreshBuffer;
   const auditContext = { event: "updated", model: "savedgroup" } as const;
 
-  // Refresh only the payloads whose targeting reaches this group. A project
-  // change, a holdout reference or a failed scan falls back to every payload.
+  // A project change, a holdout reference or a failed scan refreshes every
+  // payload.
   if (groupId && !projectsChanged) {
     let payloadKeys: SDKPayloadKey[] | null = null;
     try {
@@ -212,7 +205,6 @@ export async function loadSavedGroupReferences(
   context: ReqContext | ApiReqContext,
   savedGroupId: string,
 ): Promise<SavedGroupReferences | null> {
-  // The scan reads ids and conditions; ID lists can be enormous.
   const allSavedGroups = await context.models.savedGroups.getAllWithoutValues();
   const targetGroup = allSavedGroups.find((sg) => sg.id === savedGroupId);
   if (!targetGroup) return null;

@@ -10,8 +10,7 @@ import { getContextForAgendaJobByOrgObject } from "./organizations";
  * The part of the feature graph a stale verdict for `featureIds` reads: those
  * features, every feature that depends on them (transitively), the
  * experiments their experiment-ref rules point at, and the experiments that
- * depend on any of them. One query per dependency level instead of loading
- * every feature and experiment in the org.
+ * depend on any of them, one query per dependency level.
  *
  * Loaded with full read access: whether a flag still has live dependents does
  * not depend on who is asking.

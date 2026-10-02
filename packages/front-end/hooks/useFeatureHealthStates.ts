@@ -61,7 +61,7 @@ export function FeatureHealthStatesProvider({
   const invalidatedAt = useRef(new Map<string, number>());
 
   // Resolves to whether the request succeeded; a failed window is retried by
-  // the next refresh instead of surfacing as an unhandled rejection.
+  // the next refresh.
   const doFetch = useCallback(
     async (ids?: string[]): Promise<boolean> => {
       if (ids !== undefined && !ids.length) return true;

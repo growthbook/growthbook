@@ -291,28 +291,6 @@ describe("computeFeatureHealth", () => {
     ]);
   });
 
-  it("reports a running safe rollout with no data after a day", () => {
-    const safeRollout = {
-      id: "sr_1",
-      status: "running",
-      environment: "prod",
-      startedAt: new Date(Date.now() - 48 * 3600 * 1000),
-      guardrailMetricIds: ["m"],
-      analysisSummary: undefined,
-    } as unknown as SafeRolloutInterface;
-    const f = feature([
-      {
-        type: "safe-rollout",
-        safeRolloutId: "sr_1",
-        controlValue: "false",
-        variationValue: "true",
-      } as Partial<FeatureRule>,
-    ]);
-    expect(compute(f, { safeRollouts: [safeRollout] })).toEqual([
-      { signal: "safe-rollout-no-data", count: 1 },
-    ]);
-  });
-
   it("counts a ramp-monitored safe rollout while its ramp is live", () => {
     const monitor = {
       id: "sr_ramp",

@@ -670,7 +670,7 @@ export function generateAutoExperimentsPayload({
 }
 
 // The saved groups these definitions can read, with values, plus any group
-// those reach through condition groups. Never every group in the org.
+// those reach through condition groups.
 export async function loadSavedGroupsForDefinitions(
   context: ReqContext | ApiReqContext,
   sources: FeatureDefinitionSources,
@@ -1236,9 +1236,8 @@ export async function refreshSDKPayloadCache({
       await context.models.holdout.getAllPayloadHoldouts(environment);
   }
   const cbMap = await getPayloadContextualBandits(context, allFeatures);
-  // Only the groups the payload's targeting references (plus any group those
-  // reference), never every group in the org. Holdouts and contextual bandits
-  // carry targeting the features and experiments do not.
+  // Holdouts and contextual bandits carry targeting the features and
+  // experiments do not.
   const savedGroups = await loadSavedGroupsForDefinitions(context, {
     features: allFeatures,
     experiments: [

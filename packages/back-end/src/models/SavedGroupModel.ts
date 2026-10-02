@@ -234,26 +234,23 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     await touchDefinitionsVersion(this.context.org.id);
   }
 
-  /**
-   * Full groups, ID lists included, for the given ids. Payload builds load the
-   * groups their features reference this way instead of every group in the org.
-   */
+  /** Full groups, ID lists included, for the given ids. */
   public async getByIdsWithValues(
     ids: string[],
   ): Promise<SavedGroupInterface[]> {
     if (!ids.length) return [];
     const groups = await this._find(idsQuery(ids));
-    const requested = new Set(ids);
-    const overlay = this.scanOverlay
-      ? new Map([...this.scanOverlay].filter(([id]) => requested.has(id)))
-      : null;
-    return overlayDocsById(groups, overlay);
+    return overlayDocsById(groups, this.overlayFor(ids));
   }
 
-  /**
-   * The groups a condition names, plus any those reach through condition
-   * groups, without values: what validating the condition's references needs.
-   */
+  // The bulk publisher's proposed groups, limited to `ids` when given.
+  private overlayFor(ids?: string[]) {
+    if (!ids || !this.scanOverlay) return this.scanOverlay;
+    const requested = new Set(ids);
+    return new Map([...this.scanOverlay].filter(([id]) => requested.has(id)));
+  }
+
+  /** The groups a condition names and those they reach, without values. */
   public async getReferencedWithoutValues(
     condition: string | undefined,
   ): Promise<SavedGroupWithoutValues[]> {
@@ -271,10 +268,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     );
   }
 
-  /**
-   * Metadata for `ids` plus every group they reach through condition groups:
-   * what a client needs to reason about the targeting those ids express.
-   */
+  /** Metadata for `ids` and every group they reach through condition groups. */
   public async getMetadataWithNested(
     ids: string[],
   ): Promise<SavedGroupMetadata[]> {
@@ -289,13 +283,9 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     const groups = await this._find(idsQuery(ids), {
       projection: { values: 0 },
     });
-    const overlay =
-      ids && this.scanOverlay
-        ? new Map([...this.scanOverlay].filter(([id]) => ids.includes(id)))
-        : this.scanOverlay;
     return overlayDocsById(
       groups as SavedGroupWithoutValues[],
-      overlay,
+      this.overlayFor(ids),
       (group) => omit(group, "values"),
     );
   }
