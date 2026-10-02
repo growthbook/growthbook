@@ -94,6 +94,19 @@ export const getQueryValidator = {
   exampleRequest: { params: { id: "abc123" } },
 };
 
+// "Test Query" runs, one type per SQL editor; testQuery when the editor isn't specified
+export const testQueryTypeValidator = z.enum([
+  "testQuery",
+  "factTableTest",
+  "exposureQueryTest",
+  "contextualBanditQueryTest",
+  "identityJoinTest",
+  "featureUsageQueryTest",
+  "metricTest",
+  "segmentTest",
+  "dimensionTest",
+]);
+
 export const queryStatisticsValidator = z.object({
   executionDurationMs: z.number().optional(),
   totalSlotMs: z.number().optional(),
