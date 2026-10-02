@@ -19,6 +19,7 @@ docs/running-experiments
 docs/statistics
 docs/experimentation-analysis
 docs/app/experiment-results.mdx
+docs/app/experiment-configuration.mdx
 docs/app/experiment-decisions.mdx
 docs/app/metrics.mdx
 docs/app/metrics

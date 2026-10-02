@@ -288,20 +288,34 @@ function findings(skillFiles, operations) {
   return { missing, deprecated };
 }
 
+// Findings the baseline already had are matched in the same file first, then
+// anywhere, so what is left over points at the reference that was added.
 export function newFindings(current, baseline) {
-  const counts = new Map();
+  const exact = new Map();
+  const normalized = new Map();
+  const bump = (map, key, by) => map.set(key, (map.get(key) ?? 0) + by);
   for (const finding of baseline) {
-    const key = findingKey(finding);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    bump(exact, `${finding.file}|${findingKey(finding)}`, 1);
+    bump(normalized, findingKey(finding), 1);
   }
-  const introduced = [];
+  const leftover = [];
   for (const finding of current) {
-    const key = findingKey(finding);
-    const left = counts.get(key) ?? 0;
-    if (left > 0) counts.set(key, left - 1);
-    else introduced.push(finding);
+    const key = `${finding.file}|${findingKey(finding)}`;
+    if ((exact.get(key) ?? 0) > 0) {
+      bump(exact, key, -1);
+      bump(normalized, findingKey(finding), -1);
+    } else {
+      leftover.push(finding);
+    }
   }
-  return introduced;
+  return leftover.filter((finding) => {
+    const key = findingKey(finding);
+    if ((normalized.get(key) ?? 0) > 0) {
+      bump(normalized, key, -1);
+      return false;
+    }
+    return true;
+  });
 }
 
 const KIND_RANK = { removed: 3, deprecated: 2, changed: 1, added: 0 };
