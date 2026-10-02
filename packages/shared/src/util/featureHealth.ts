@@ -109,9 +109,23 @@ function isInvalidValue(feature: FeatureInterface, value: string): boolean {
 // payload serves such a group as empty: a rule targeting it matches nobody,
 // and one excluding it matches everybody. Nothing errors, so it must be loud.
 export function hasBrokenSavedGroupReference(
-  targeting: Pick<FeatureRule, "condition" | "savedGroups">,
+  targeting: {
+    condition?: string;
+    savedGroups?: FeatureRule["savedGroups"];
+    prerequisites?: { condition: string }[];
+  },
   groupMap: GroupMap,
 ): boolean {
+  for (const prerequisite of targeting.prerequisites ?? []) {
+    if (
+      hasBrokenSavedGroupReference(
+        { condition: prerequisite.condition },
+        groupMap,
+      )
+    ) {
+      return true;
+    }
+  }
   for (const entry of targeting.savedGroups ?? []) {
     for (const id of entry.ids) {
       if (conditionBreaks({ $savedGroups: [id] }, groupMap)) return true;
@@ -264,19 +278,12 @@ export function computeFeatureHealth({
   }
 
   if (groupMap) {
-    const prerequisiteBreaks = (feature.prerequisites ?? []).some((p) =>
-      hasBrokenSavedGroupReference({ condition: p.condition }, groupMap),
-    );
-    if (prerequisiteBreaks) add("broken-saved-group");
-    const targetingBreaks = (targeting: {
-      condition?: string;
-      savedGroups?: FeatureRule["savedGroups"];
-      prerequisites?: { condition: string }[];
-    }) =>
-      hasBrokenSavedGroupReference(targeting, groupMap) ||
-      (targeting.prerequisites ?? []).some((p) =>
-        hasBrokenSavedGroupReference({ condition: p.condition }, groupMap),
-      );
+    const breaks = (
+      targeting: Parameters<typeof hasBrokenSavedGroupReference>[0],
+    ) => hasBrokenSavedGroupReference(targeting, groupMap);
+    if (breaks({ prerequisites: feature.prerequisites })) {
+      add("broken-saved-group");
+    }
     for (const rule of rules) {
       // An experiment-ref rule is served with its experiment's latest phase
       // targeting.
@@ -284,9 +291,7 @@ export function computeFeatureHealth({
         rule.type === "experiment-ref"
           ? experimentMap.get(rule.experimentId)?.phases?.slice(-1)[0]
           : undefined;
-      if (targetingBreaks(rule) || (phase && targetingBreaks(phase))) {
-        add("broken-saved-group");
-      }
+      if (breaks(rule) || (phase && breaks(phase))) add("broken-saved-group");
     }
   }
 
