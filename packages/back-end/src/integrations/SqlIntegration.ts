@@ -286,7 +286,7 @@ function getFunnelPassthroughColumns({
   return cols;
 }
 
-const MAX_USAGE_ERROR_LENGTH = 100;
+const MAX_LOG_ERROR_LENGTH = 100;
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface, PipelineIntegration
@@ -358,12 +358,12 @@ export default abstract class SqlIntegration
           },
           metadata,
         );
-        void this.recordQueryUsage(metadata, startedAt, externalId, {
+        void this.recordQueryLog(metadata, startedAt, externalId, {
           response,
         });
         return response;
       } catch (e) {
-        void this.recordQueryUsage(metadata, startedAt, externalId, {
+        void this.recordQueryLog(metadata, startedAt, externalId, {
           error: getErrorMessage(e),
           errorCode: getWarehouseErrorCode(e),
         });
@@ -373,7 +373,7 @@ export default abstract class SqlIntegration
   }
 
   // One row per warehouse query; not awaited, so it never delays or fails the query
-  private async recordQueryUsage(
+  private async recordQueryLog(
     metadata: RunQueryMetadata,
     startedAt: Date,
     externalId: string | undefined,
@@ -383,7 +383,7 @@ export default abstract class SqlIntegration
   ) {
     const response = "response" in outcome ? outcome.response : undefined;
     try {
-      await this.context.models.queryUsages.create({
+      await this.context.models.queryLogs.create({
         datasource: this.datasource.id,
         datasourceType: this.datasource.type,
         queryType: metadata.queryType,
@@ -402,12 +402,12 @@ export default abstract class SqlIntegration
         // Just enough for a short preview in the UI
         error:
           "error" in outcome
-            ? outcome.error.slice(0, MAX_USAGE_ERROR_LENGTH)
+            ? outcome.error.slice(0, MAX_LOG_ERROR_LENGTH)
             : undefined,
         errorCode: "error" in outcome ? outcome.errorCode : undefined,
       });
     } catch (e) {
-      logger.warn(e, `Failed to record query usage for ${this.datasource.id}`);
+      logger.warn(e, `Failed to record query log for ${this.datasource.id}`);
     }
   }
 

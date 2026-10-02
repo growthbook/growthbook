@@ -110,7 +110,7 @@ export const queryStatisticsValidator = z.object({
 });
 
 // One row per query GrowthBook sends to a warehouse, including queries with no Query document
-export const queryUsageValidator = baseSchema
+export const queryLogValidator = baseSchema
   .extend({
     datasource: z.string(),
     datasourceType: z.string(),

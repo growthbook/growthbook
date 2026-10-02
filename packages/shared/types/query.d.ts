@@ -4,7 +4,7 @@ import {
   queryRunnerFailureCause,
   queryStatisticsValidator,
   queryStatusValidator,
-  queryUsageValidator,
+  queryLogValidator,
   sqlResultChunkValidator,
 } from "shared/validators";
 import type { PopulationDataInterface } from "shared/types/population-data";
@@ -23,7 +23,7 @@ export type Queries = QueryPointer[];
 
 export type QueryStatistics = z.infer<typeof queryStatisticsValidator>;
 
-export type QueryUsageInterface = z.infer<typeof queryUsageValidator>;
+export type QueryLogInterface = z.infer<typeof queryLogValidator>;
 
 export type QueryType =
   // Internal fallback. Do not use this value.

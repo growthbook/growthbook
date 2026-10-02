@@ -103,7 +103,7 @@ import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
-import { QueryUsageModel } from "back-end/src/models/QueryUsageModel";
+import { QueryLogModel } from "back-end/src/models/QueryLogModel";
 import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
@@ -175,7 +175,7 @@ export type ModelName =
   | "sessionReplays"
   | "eventForwarderConfigs"
   | "aiCredentials"
-  | "queryUsages";
+  | "queryLogs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -222,7 +222,7 @@ export const modelClasses = {
   slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
-  queryUsages: QueryUsageModel,
+  queryLogs: QueryLogModel,
   oauthGrants: OAuthGrantModel,
   oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
@@ -400,7 +400,7 @@ export class ReqContextClass {
       slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
-      queryUsages: new QueryUsageModel(this),
+      queryLogs: new QueryLogModel(this),
       oauthGrants: new OAuthGrantModel(this),
       oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
