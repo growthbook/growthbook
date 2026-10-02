@@ -1,11 +1,11 @@
-import { getContextualBanditLinkedFeaturesValidator } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getContextualBanditLinkedFeatureInfo } from "back-end/src/enterprise/services/contextualBandits";
 import { loadContextualBanditForRead } from "./_shared";
 
 export const getContextualBanditLinkedFeatures = createApiRequestHandler(
-  getContextualBanditLinkedFeaturesValidator,
+  contextualBanditEndpoints.getContextualBanditLinkedFeatures,
 )(async (req) => {
   const { contextualBandit } = await loadContextualBanditForRead(
     req.context,

@@ -7,11 +7,12 @@ import {
   FeatureRule,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import React, { useMemo } from "react";
+import React, { useCallback } from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import {
+  getExposureQueryIdentifierTypes,
   isProjectListValidForProject,
   parsePlainJSONObject,
   stripDefaultsForSparse,
@@ -21,10 +22,8 @@ import { PiCaretRightFill } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import SelectField, {
-  GroupedValue,
-  SingleValue,
-} from "@/components/Forms/SelectField";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
+import SelectField from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
@@ -52,6 +51,14 @@ import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector"
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import {
+  AssignmentQueryCopySource,
+  getCopiedAssignmentQueryNotice,
+  getCopySourceIdentifierType,
+} from "@/services/datasources";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
@@ -63,7 +70,6 @@ import RuleEnvironmentScopeField, {
 import RuleProjectScopeField, {
   type ProjectScopeProps,
 } from "@/components/Features/RuleModal/ProjectScopeField";
-import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
   formatAttributeOptionLabel,
@@ -76,6 +82,7 @@ export default function ExperimentRefNewFields({
   feature,
   project,
   attributeProjects,
+  savedGroupProjects,
   attributeSelectIndicator,
   environments,
   defaultValues,
@@ -110,12 +117,15 @@ export default function ExperimentRefNewFields({
   envScope,
   projectScope,
   onRuleCyclicChange,
+  assignmentQueryCopySource,
+  keepAssignmentSelection = false,
 }: {
   step: number;
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
@@ -150,6 +160,16 @@ export default function ExperimentRefNewFields({
   envScope?: EnvScopeProps;
   projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
+  /**
+   * When duplicating or creating from a template: keeps its identifier and
+   * explains a change.
+   */
+  assignmentQueryCopySource?: AssignmentQueryCopySource | null;
+  /**
+   * A saved record being edited: don't rewrite its selection on load, and keep
+   * it listed even if its query no longer declares the identifier.
+   */
+  keepAssignmentSelection?: boolean;
 }) {
   const form = useFormContext();
 
@@ -182,8 +202,8 @@ export default function ExperimentRefNewFields({
     : null;
   const datasourceProperties = datasource?.properties;
 
-  const exposureQueries = datasource?.settings?.queries?.exposure;
-  const exposureQueryId = form.getValues("exposureQueryId");
+  const exposureQueryId = form.watch("exposureQueryId");
+  const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
 
   const attributeSchema = useAttributeSchema(
     false,
@@ -194,78 +214,45 @@ export default function ExperimentRefNewFields({
 
   const hashAttribute = form.watch("hashAttribute");
 
-  const hashAttributeToIdentifierTypeMap = useMemo(() => {
-    const attributeToIdentifierType = new Map<string, string[]>();
-    for (const userIdType of datasource?.settings?.userIdTypes ?? []) {
-      for (const attribute of userIdType.attributes ?? []) {
-        attributeToIdentifierType.set(attribute, [
-          ...(attributeToIdentifierType.get(attribute) ?? []),
-          userIdType.userIdType,
-        ]);
-      }
-    }
-    return attributeToIdentifierType;
-  }, [datasource?.settings?.userIdTypes]);
-
-  const groupedExposureQueries: (GroupedValue | SingleValue)[] = useMemo(() => {
-    const matchHashAttribute = exposureQueries?.filter((q) => {
-      return hashAttributeToIdentifierTypeMap
-        .get(hashAttribute)
-        ?.includes(q.userIdType);
-    });
-    const remainingExposureQueries = exposureQueries?.filter(
-      (q) => !matchHashAttribute?.includes(q),
-    );
-    if (hashAttributeToIdentifierTypeMap.size > 0) {
-      const matches =
-        matchHashAttribute && matchHashAttribute.length > 0
-          ? {
-              label: "Matches Hash Attribute",
-              options: matchHashAttribute.map((q) => {
-                return {
-                  label: q.name,
-                  value: q.id,
-                };
-              }),
-            }
-          : null;
-
-      const doesNotMatch =
-        remainingExposureQueries && remainingExposureQueries.length > 0
-          ? {
-              label: "Does Not Match Hash Attribute",
-              options: remainingExposureQueries.map((q) => {
-                return {
-                  label: q.name,
-                  value: q.id,
-                };
-              }),
-            }
-          : null;
-
-      return [matches, doesNotMatch].filter((x) => x !== null);
-    }
-    return (
-      remainingExposureQueries?.map((q) => {
-        return {
-          label: q.name,
-          value: q.id,
-        };
-      }) ?? []
-    );
-  }, [exposureQueries, hashAttributeToIdentifierTypeMap, hashAttribute]);
+  const { setValue } = form;
+  const setExposureQueryId = useCallback(
+    (value: string) => setValue("exposureQueryId", value),
+    [setValue],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      setValue("exposureQueryIdentifierType", value),
+    [setValue],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    hashAttribute,
+    exposureQueryId,
+    identifierType: exposureQueryIdentifierType,
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    copiedIdentifierType: getCopySourceIdentifierType(
+      datasource,
+      assignmentQueryCopySource ?? null,
+    ),
+    autoRepair:
+      !keepAssignmentSelection && !!datasourceProperties?.exposureQueries,
+    keepCurrentSelection: keepAssignmentSelection,
+  });
 
   const getMatchingExposureQuery = (
     attribute: string,
     datasource: DataSourceInterfaceWithParams | null,
   ) => {
-    const userIdType = datasource?.settings?.userIdTypes?.find((t) =>
+    const identifierType = datasource?.settings?.userIdTypes?.find((t) =>
       t.attributes?.includes(attribute),
     )?.userIdType;
-    if (userIdType) {
-      return getExposureQuery(datasource?.settings, "", userIdType)?.id ?? null;
-    }
-    return null;
+    if (!identifierType) return null;
+    const query = datasource?.settings?.queries?.exposure?.find((q) =>
+      getExposureQueryIdentifierTypes(q).includes(identifierType),
+    );
+    if (!query) return null;
+    return { exposureQueryId: query.id, identifierType };
   };
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -279,6 +266,9 @@ export default function ExperimentRefNewFields({
   );
 
   const settings = useOrgSettings();
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+  );
   const { namespaces, statsEngine: orgStatsEngine } = useOrgSettings();
 
   const templateRequired =
@@ -359,6 +349,7 @@ export default function ExperimentRefNewFields({
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
+            {...trackingKeyFormatProps}
             helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
           />
 
@@ -413,13 +404,7 @@ export default function ExperimentRefNewFields({
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
                 .map(toAttributeOption)}
               value={hashAttribute}
-              onChange={(v) => {
-                form.setValue("hashAttribute", v);
-                const exposureQueryId = getMatchingExposureQuery(v, datasource);
-                if (exposureQueryId) {
-                  form.setValue("exposureQueryId", exposureQueryId);
-                }
-              }}
+              onChange={(v) => form.setValue("hashAttribute", v)}
               formatOptionLabel={formatAttributeOptionLabel}
             />
             {!!holdoutHashAttribute &&
@@ -519,6 +504,7 @@ export default function ExperimentRefNewFields({
           <TargetingFieldsGroup
             project={project || ""}
             attributeProjects={attributeProjects}
+            savedGroupProjects={savedGroupProjects}
             attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}
@@ -591,12 +577,16 @@ export default function ExperimentRefNewFields({
                 }
 
                 // Try and find a matching exposure query for the new datasource
-                const exposureQueryId = getMatchingExposureQuery(
+                const match = getMatchingExposureQuery(
                   hashAttribute,
                   getDatasourceById(newDatasource),
                 );
-                if (exposureQueryId) {
-                  form.setValue("exposureQueryId", exposureQueryId);
+                if (match) {
+                  form.setValue("exposureQueryId", match.exposureQueryId);
+                  form.setValue(
+                    "exposureQueryIdentifierType",
+                    match.identifierType,
+                  );
                 }
               }}
               options={datasources.map((d) => {
@@ -611,39 +601,17 @@ export default function ExperimentRefNewFields({
               className="portal-overflow-ellipsis"
             />
 
-            {datasourceProperties?.exposureQueries && exposureQueries ? (
-              <SelectField
-                size="legacy"
-                label={
-                  <>
-                    Experiment Assignment Table{" "}
-                    <Tooltip content="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                  </>
-                }
-                labelClassName="font-weight-bold"
-                value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => form.setValue("exposureQueryId", v)}
-                required
-                sort={false}
-                options={groupedExposureQueries}
-                formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueries?.find(
-                    (e) => e.id === value,
-                  )?.userIdType;
-                  return (
-                    <>
-                      {label}
-                      {userIdType ? (
-                        <span
-                          className="text-muted small float-right position-relative"
-                          style={{ top: 3 }}
-                        >
-                          Identifier Type: <code>{userIdType}</code>
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                }}
+            {datasourceProperties?.exposureQueries ? (
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
+                notice={getCopiedAssignmentQueryNotice(
+                  datasource,
+                  assignmentQueryCopySource ?? null,
+                  {
+                    exposureQueryId,
+                    identifierType: exposureQueryIdentifierType,
+                  },
+                )}
               />
             ) : null}
           </div>
@@ -651,6 +619,7 @@ export default function ExperimentRefNewFields({
           <ExperimentMetricsSelector
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
+            exposureQueryIdentifierType={exposureQueryIdentifierType}
             project={project}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}

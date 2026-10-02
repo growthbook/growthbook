@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ExposureQuery } from "shared/types/datasource";
 import {
   coverageToHoldoutSize,
   getAllowedHoldoutStageSources,
@@ -7,6 +8,8 @@ import {
   HoldoutStage,
   isHoldoutStageTransitionAllowed,
   stringToBoolean,
+  parseAssignmentQueryInput,
+  toApiAssignmentQueryRef,
 } from "shared/util";
 import { getActivePhase } from "shared/experiments";
 import {
@@ -21,6 +24,27 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
+import { notifyHoldoutNewLinkage } from "back-end/src/services/holdoutNotifications";
+import {
+  type DeferredEventBuffer,
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+  holdoutLinkageOwner,
+} from "back-end/src/events/bulkPublishCorrelation";
+
+// Removing linkage can never announce new linkage; without this a removal's
+// pending event would absorb other owners' additions in the same landing.
+const NO_NEW_LINKAGE = { notifyNewLinkage: false } as const;
+
+// One deferred linkage event per owner within a landing: a publish that joins a
+// holdout writes the feature entry and the experiment entries separately, and
+// subscribers should hear about both in one event.
+type PendingLinkage = { previous: HoldoutInterface; holdout: HoldoutInterface };
+const pendingLinkageEvents = new WeakMap<
+  DeferredEventBuffer,
+  Map<string, PendingLinkage>
+>();
 import {
   holdoutApiSpec,
   holdoutStartAnalysisEndpoint,
@@ -45,6 +69,7 @@ import {
   resolveOwnerEmails,
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
 
@@ -112,7 +137,14 @@ async function handleHoldoutStageTransition(
 
   return {
     holdout: await resolveOwnerEmail(
-      toApiHoldout(updatedHoldout, updatedExperiment),
+      toApiHoldout(
+        updatedHoldout,
+        updatedExperiment,
+        await getExposureQueriesForDatasource(
+          req.context,
+          updatedExperiment.datasource,
+        ),
+      ),
       req.context,
     ),
   };
@@ -187,6 +219,7 @@ const LINKAGE_FIELDS = ["linkedFeatures", "linkedExperiments"] as const;
 export function toApiHoldout(
   holdout: HoldoutInterface,
   experiment: ExperimentInterface,
+  exposureQueries: ExposureQuery[],
 ): ApiHoldoutInterface {
   const activePhase = getActivePhase(experiment);
   const lastPhase = experiment.phases[experiment.phases.length - 1];
@@ -214,6 +247,11 @@ export function toApiHoldout(
     savedGroupTargeting: activePhase?.savedGroups,
 
     datasourceId: experiment.datasource,
+    assignmentQuery: toApiAssignmentQueryRef(
+      experiment.exposureQueryId,
+      experiment.exposureQueryIdentifierType,
+      exposureQueries,
+    ),
     assignmentQueryId: experiment.exposureQueryId,
     goalMetrics: experiment.goalMetrics,
     secondaryMetrics: experiment.secondaryMetrics,
@@ -324,7 +362,17 @@ export class HoldoutModel extends BaseClass {
     const holdout = await this.getById(req.params.id);
     if (!holdout) req.context.throwNotFoundError();
     const experiment = await this.getExperimentOrThrow(holdout);
-    return resolveOwnerEmail(toApiHoldout(holdout, experiment), this.context);
+    return resolveOwnerEmail(
+      toApiHoldout(
+        holdout,
+        experiment,
+        await getExposureQueriesForDatasource(
+          this.context,
+          experiment.datasource,
+        ),
+      ),
+      this.context,
+    );
   }
 
   public override async handleApiList(
@@ -362,7 +410,16 @@ export class HoldoutModel extends BaseClass {
       ) {
         continue;
       }
-      results.push(toApiHoldout(holdout, experiment));
+      results.push(
+        toApiHoldout(
+          holdout,
+          experiment,
+          await getExposureQueriesForDatasource(
+            this.context,
+            experiment.datasource,
+          ),
+        ),
+      );
     }
 
     return resolveOwnerEmails(results, this.context);
@@ -372,6 +429,11 @@ export class HoldoutModel extends BaseClass {
     req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
   ): Promise<ApiHoldoutInterface> {
     const body = apiCreateHoldoutBody.parse(req.body);
+    const assignmentQueryInput = parseAssignmentQueryInput(
+      body.assignmentQuery,
+      body.assignmentQueryId,
+      "assignmentQuery",
+    );
 
     // createExperiment enforces no permissions, so gate before it runs or an
     // unauthorized create orphans an experiment.
@@ -413,7 +475,8 @@ export class HoldoutModel extends BaseClass {
         tags: body.tags,
         skipAsDefaultHoldout: body.skipAsDefaultHoldout,
         datasourceId: body.datasourceId,
-        assignmentQueryId: body.assignmentQueryId,
+        assignmentQueryId: assignmentQueryInput.id,
+        assignmentQueryIdentifierType: assignmentQueryInput.identifierType,
         hashAttribute: body.hashAttribute || "id",
         holdoutSize: body.holdoutSize,
         targetingCondition: body.targetingCondition,
@@ -430,6 +493,7 @@ export class HoldoutModel extends BaseClass {
             )
           : undefined,
       },
+      { onOmitted: "requireUnambiguous" },
     );
 
     // Applied after creation so it is validated against the real stored stage.
@@ -443,12 +507,29 @@ export class HoldoutModel extends BaseClass {
         }),
       );
       return resolveOwnerEmail(
-        toApiHoldout(withSchedule, experiment),
+        toApiHoldout(
+          withSchedule,
+          experiment,
+          await getExposureQueriesForDatasource(
+            this.context,
+            experiment.datasource,
+          ),
+        ),
         this.context,
       );
     }
 
-    return resolveOwnerEmail(toApiHoldout(holdout, experiment), this.context);
+    return resolveOwnerEmail(
+      toApiHoldout(
+        holdout,
+        experiment,
+        await getExposureQueriesForDatasource(
+          this.context,
+          experiment.datasource,
+        ),
+      ),
+      this.context,
+    );
   }
 
   public override async handleApiUpdate(
@@ -490,7 +571,14 @@ export class HoldoutModel extends BaseClass {
       });
 
     return resolveOwnerEmail(
-      toApiHoldout(updated, updatedExperiment),
+      toApiHoldout(
+        updated,
+        updatedExperiment,
+        await getExposureQueriesForDatasource(
+          this.context,
+          updatedExperiment.datasource,
+        ),
+      ),
       this.context,
     );
   }
@@ -599,17 +687,25 @@ export class HoldoutModel extends BaseClass {
     holdoutId: string,
     experimentId: string,
   ) {
-    await this.mutateLinkage(holdoutId, ({ linkedExperiments }) => {
-      const { [experimentId]: _, ...rest } = linkedExperiments;
-      return { linkedExperiments: rest };
-    });
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedExperiments }) => {
+        const { [experimentId]: _, ...rest } = linkedExperiments;
+        return { linkedExperiments: rest };
+      },
+      NO_NEW_LINKAGE,
+    );
   }
 
   public async removeFeatureFromHoldout(holdoutId: string, featureId: string) {
-    await this.mutateLinkage(holdoutId, ({ linkedFeatures }) => {
-      const { [featureId]: _, ...rest } = linkedFeatures;
-      return { linkedFeatures: rest };
-    });
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedFeatures }) => {
+        const { [featureId]: _, ...rest } = linkedFeatures;
+        return { linkedFeatures: rest };
+      },
+      NO_NEW_LINKAGE,
+    );
   }
 
   /**
@@ -622,7 +718,6 @@ export class HoldoutModel extends BaseClass {
   public async addFeatureToHoldout(
     holdoutId: string,
     featureId: string,
-    experimentIds: string[] = [],
   ): Promise<{ id: string; dateAdded: Date } | null> {
     const entry = { id: featureId, dateAdded: new Date() };
     // Set on every attempt, so the value that survives is the one computed from
@@ -631,28 +726,19 @@ export class HoldoutModel extends BaseClass {
     let added: { id: string; dateAdded: Date } | null = null;
     await this.mutateLinkage(
       holdoutId,
-      ({ linkedFeatures, linkedExperiments }) => {
+      ({ linkedFeatures }) => {
         // The spread puts existing entries last, so an entry that was already
         // there wins and this call added nothing.
         added = linkedFeatures[featureId] ? null : entry;
-        return {
-          linkedFeatures: { [featureId]: entry, ...linkedFeatures },
-          ...(experimentIds.length
-            ? {
-                linkedExperiments: {
-                  ...Object.fromEntries(
-                    experimentIds.map((experimentId) => [
-                      experimentId,
-                      { id: experimentId, dateAdded: new Date() },
-                    ]),
-                  ),
-                  ...linkedExperiments,
-                },
-              }
-            : {}),
-        };
+        return { linkedFeatures: { [featureId]: entry, ...linkedFeatures } };
       },
-      { required: true },
+      {
+        required: true,
+        eventOwner: holdoutLinkageOwner(
+          holdoutId,
+          entityKey("feature", featureId),
+        ),
+      },
     );
     return added;
   }
@@ -664,6 +750,12 @@ export class HoldoutModel extends BaseClass {
   public async addExperimentsToHoldout(
     holdoutId: string,
     experimentIds: string[],
+    {
+      // Rewinds pass false: putting linkage back is not new linkage.
+      notifyNewLinkage = true,
+      // Publish paths pass the owning item's key; see holdoutLinkageOwner.
+      eventOwner,
+    }: { notifyNewLinkage?: boolean; eventOwner?: string } = {},
   ) {
     if (!experimentIds.length) return;
     const added = Object.fromEntries(
@@ -675,7 +767,7 @@ export class HoldoutModel extends BaseClass {
         // Existing entries win, so re-linking keeps the original `dateAdded`.
         linkedExperiments: { ...added, ...linkedExperiments },
       }),
-      { required: true },
+      { required: true, notifyNewLinkage, eventOwner },
     );
   }
 
@@ -692,14 +784,15 @@ export class HoldoutModel extends BaseClass {
           Object.entries(linkedExperiments).filter(([id]) => !drop.has(id)),
         ),
       }),
-      { required: true },
+      { required: true, ...NO_NEW_LINKAGE },
     );
   }
 
   // Publish-rewind counterpart to `addFeatureToHoldout`: drops only the entries a
   // failed publish added, in one write, leaving entries other features
   // contributed alone. No-ops when the maps are already at the target state, so
-  // rewinding a forward pass that never landed writes nothing.
+  // rewinding a forward pass that never landed writes nothing. Returns whether
+  // it wrote.
   public async removeLinkageFromHoldout(
     holdoutId: string,
     {
@@ -717,41 +810,46 @@ export class HoldoutModel extends BaseClass {
       experimentIds?: string[];
       expectFeatureEntry?: { dateAdded: Date } | null;
     },
-  ) {
+  ): Promise<boolean> {
     const drop = new Set(experimentIds ?? []);
-    await this.mutateLinkage(holdoutId, (holdout) => {
-      const linkedExperiments = Object.fromEntries(
-        Object.entries(holdout.linkedExperiments).filter(
-          ([id]) => !drop.has(id),
-        ),
-      );
-      const linkedFeatures = { ...holdout.linkedFeatures };
-      const liveEntry = featureId
-        ? holdout.linkedFeatures[featureId]
-        : undefined;
-      // Decided HERE, not before the write: the `dateAdded` comparison is only
-      // ownership if it describes the row being written. Deciding it against an
-      // earlier read and then replacing the whole map let a relink land in between
-      // and be deleted anyway — the exact ABA `dateAdded` was added to prevent,
-      // just moved from "which entry" to "which moment".
-      const ownsFeatureEntry =
-        expectFeatureEntry === undefined ||
-        (!!liveEntry &&
-          !!expectFeatureEntry &&
-          new Date(liveEntry.dateAdded).getTime() ===
-            expectFeatureEntry.dateAdded.getTime());
-      if (featureId && ownsFeatureEntry) delete linkedFeatures[featureId];
+    const updated = await this.mutateLinkage(
+      holdoutId,
+      (holdout) => {
+        const linkedExperiments = Object.fromEntries(
+          Object.entries(holdout.linkedExperiments).filter(
+            ([id]) => !drop.has(id),
+          ),
+        );
+        const linkedFeatures = { ...holdout.linkedFeatures };
+        const liveEntry = featureId
+          ? holdout.linkedFeatures[featureId]
+          : undefined;
+        // Decided HERE, not before the write: the `dateAdded` comparison is only
+        // ownership if it describes the row being written. Deciding it against an
+        // earlier read and then replacing the whole map let a relink land in between
+        // and be deleted anyway — the exact ABA `dateAdded` was added to prevent,
+        // just moved from "which entry" to "which moment".
+        const ownsFeatureEntry =
+          expectFeatureEntry === undefined ||
+          (!!liveEntry &&
+            !!expectFeatureEntry &&
+            new Date(liveEntry.dateAdded).getTime() ===
+              expectFeatureEntry.dateAdded.getTime());
+        if (featureId && ownsFeatureEntry) delete linkedFeatures[featureId];
 
-      if (
-        Object.keys(linkedExperiments).length ===
-          Object.keys(holdout.linkedExperiments).length &&
-        Object.keys(linkedFeatures).length ===
-          Object.keys(holdout.linkedFeatures).length
-      ) {
-        return null;
-      }
-      return { linkedFeatures, linkedExperiments };
-    });
+        if (
+          Object.keys(linkedExperiments).length ===
+            Object.keys(holdout.linkedExperiments).length &&
+          Object.keys(linkedFeatures).length ===
+            Object.keys(holdout.linkedFeatures).length
+        ) {
+          return null;
+        }
+        return { linkedFeatures, linkedExperiments };
+      },
+      NO_NEW_LINKAGE,
+    );
+    return !!updated;
   }
 
   // Puts a feature back under the holdout it was unlinked from, with its original
@@ -760,10 +858,13 @@ export class HoldoutModel extends BaseClass {
     holdoutId: string,
     feature: { id: string; dateAdded: Date },
   ) {
-    await this.mutateLinkage(holdoutId, ({ linkedFeatures }) =>
-      linkedFeatures[feature.id]
-        ? null
-        : { linkedFeatures: { ...linkedFeatures, [feature.id]: feature } },
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedFeatures }) =>
+        linkedFeatures[feature.id]
+          ? null
+          : { linkedFeatures: { ...linkedFeatures, [feature.id]: feature } },
+      NO_NEW_LINKAGE,
     );
   }
 
@@ -811,12 +912,28 @@ export class HoldoutModel extends BaseClass {
     // Set by the link/unlink verbs, which are acting on a Holdout the caller just
     // resolved: a missing one is a real error there, where for compensation it just
     // means there is nothing left to undo.
-    { required = false }: { required?: boolean } = {},
+    {
+      required = false,
+      notifyNewLinkage = true,
+      eventOwner = holdoutLinkageOwner(holdoutId),
+    }: {
+      required?: boolean;
+      notifyNewLinkage?: boolean;
+      eventOwner?: string;
+    } = {},
   ) {
+    // Captured before the first await: a publish landing opens a buffer that
+    // holds events until it commits, and the next landing may already have
+    // replaced it by the time the write returns.
+    const buffer = captureEventBuffer(this.context);
+    let previous: HoldoutInterface | null = null;
     const updated = await this.updateWithCas(
       holdoutId,
       [...LINKAGE_FIELDS],
-      compute,
+      (holdout) => {
+        previous = holdout;
+        return compute(holdout);
+      },
       {
         dangerouslyBypassCanUpdate: true,
         dangerouslyBypassCanRead: true,
@@ -827,6 +944,43 @@ export class HoldoutModel extends BaseClass {
       const stillThere = await this.getByIdForLinkage(holdoutId);
       if (!stillThere) throw new NotFoundError("Holdout not found");
     }
+    if (updated && previous && notifyNewLinkage) {
+      await this.notifyLinkage(previous, updated, eventOwner, buffer);
+    }
     return updated;
+  }
+
+  // Emits `config.newLinkage`, or defers it until the landing commits. A second
+  // write for the same owner in one landing extends the pending event rather
+  // than adding another, so the diff runs from the first pre-image to the last
+  // result.
+  private async notifyLinkage(
+    previous: HoldoutInterface,
+    holdout: HoldoutInterface,
+    eventOwner: string,
+    buffer: DeferredEventBuffer | null,
+  ) {
+    let forBuffer: Map<string, PendingLinkage> | null = null;
+    if (buffer && !buffer.closed) {
+      forBuffer = pendingLinkageEvents.get(buffer) ?? new Map();
+      pendingLinkageEvents.set(buffer, forBuffer);
+    }
+    const earlier = forBuffer?.get(eventOwner);
+    if (earlier) {
+      earlier.holdout = holdout;
+      return;
+    }
+    const state: PendingLinkage = { previous, holdout };
+    await emitOrDeferBulkPublishEvent(
+      () =>
+        notifyHoldoutNewLinkage({
+          context: this.context,
+          previous: state.previous,
+          holdout: state.holdout,
+        }),
+      eventOwner,
+      buffer,
+    );
+    forBuffer?.set(eventOwner, state);
   }
 }

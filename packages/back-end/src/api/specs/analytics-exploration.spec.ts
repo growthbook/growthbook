@@ -5,19 +5,21 @@ import {
   apiFactTableExplorationValidator,
   apiDataSourceExplorationValidator,
   apiSqlExplorationValidator,
-  metricExplorationConfigValidator,
   apiFunnelExplorationValidator,
+  apiJourneyExplorationValidator,
+  metricExplorationConfigValidator,
   funnelExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
   sqlExplorationConfigValidator,
+  journeyExplorationConfigValidator,
   explorationCacheQuerySchema,
   apiBaseSchema,
   apiQueryValidator,
   type ApiAnalyticsExploration,
   type ExplorationConfig,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 const boundedId = z.string().min(1).max(255);
 const boundedIds = z.array(boundedId).min(1).max(20);
@@ -269,6 +271,15 @@ export const postFunnelExplorationEndpoint = makeExplorationEndpoint(
   },
 );
 
+export const postJourneyExplorationEndpoint = makeExplorationEndpoint(
+  apiJourneyExplorationValidator,
+  journeyExplorationConfigValidator,
+  {
+    pathFragment: "/journey-exploration",
+    operationId: "postJourneyExploration",
+    summary: "Run a User Journey based visualization",
+  },
+);
 export const getProductAnalyticsExplorationEndpoint = {
   pathFragment: "/explorations/:id",
   verb: "get" as const,
@@ -306,6 +317,7 @@ export const analyticsExplorationApiSpec = {
     postDataSourceExplorationEndpoint,
     postSqlExplorationEndpoint,
     postFunnelExplorationEndpoint,
+    postJourneyExplorationEndpoint,
     searchProductAnalyticsResourcesEndpoint,
     getProductAnalyticsColumnsEndpoint,
     getProductAnalyticsColumnValuesEndpoint,

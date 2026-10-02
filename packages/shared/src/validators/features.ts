@@ -25,7 +25,11 @@ import {
   lockdownConfigSchema,
   rampStep,
   rampStepAction,
+  rampStartAction,
+  rampStartPatch,
   rampMonitoringConfig,
+  apiRampMonitoringConfig,
+  apiRampMonitoringConfigInput,
   stepHoldConditions,
 } from "./ramp-schedule";
 
@@ -490,6 +494,9 @@ const revisionApiRampStepAction = z
     patch: featureRulePatch.partial({ ruleId: true }).strict(),
   })
   .strict();
+const revisionApiRampStartAction = revisionApiRampStepAction.extend({
+  patch: rampStartPatch.partial({ ruleId: true }).strict(),
+});
 
 const revisionApiRampStep = z
   .object({
@@ -508,7 +515,7 @@ export const revisionRampCreateAction = z.object({
   // @deprecated — target by ruleId only. Kept for pre-migration DB compat.
   environment: z.string().optional().nullable(),
   templateId: z.string().optional(),
-  startActions: z.array(rampStepAction).optional(),
+  startActions: z.array(rampStartAction).optional(),
   steps: z.array(rampStep),
   endActions: z.array(rampStepAction).optional(),
   startDate: z.string().optional().nullable(),
@@ -526,8 +533,9 @@ export const revisionRampCreateAction = z.object({
 
 // API input variant — normalize to RevisionRampCreateAction before storing.
 export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
+  monitoringConfig: apiRampMonitoringConfigInput.optional(),
   steps: z.array(revisionApiRampStep).optional(),
-  startActions: z.array(revisionApiRampStepAction).optional(),
+  startActions: z.array(revisionApiRampStartAction).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),
   startDate: z
     .string()
@@ -573,9 +581,17 @@ const revisionRampAction = z.discriminatedUnion("mode", [
   revisionRampUpdateAction,
   revisionRampDetachAction,
 ]);
+/**
+ * Revision responses return the stored flat monitoring config with its
+ * assignment query grouped, like every other response.
+ */
 export const apiRevisionRampAction = z.discriminatedUnion("mode", [
-  apiRevisionRampCreateAction,
-  apiRevisionRampUpdateAction,
+  apiRevisionRampCreateAction.extend({
+    monitoringConfig: apiRampMonitoringConfig.optional(),
+  }),
+  apiRevisionRampUpdateAction.extend({
+    monitoringConfig: apiRampMonitoringConfig.optional(),
+  }),
   revisionRampDetachAction,
 ]);
 
@@ -674,10 +690,16 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
       .nullable()
       .optional(),
     // Ramp schedule actions (create/detach) to execute atomically when this revision
-    // is published. This ensures ramp schedules are never orphaned by draft abandonment
-    // or revision reverts. Real-time state changes (pause, resume, rollback, etc.)
+    // is published. This ensures ramp schedules are never orphaned by draft
+    // abandonment. Real-time state changes (pause, resume, rollback, etc.)
     // are NOT stored here — they operate directly on live ramp schedule documents.
     rampActions: z.array(revisionRampAction).optional(),
+    // The ramp schedules controlling this feature's rules once this revision
+    // landed, recorded at publish. A revert to this revision detaches any ramp
+    // not listed. Absent on revisions published before it was recorded.
+    rampAttachments: z
+      .array(z.object({ rampScheduleId: z.string(), ruleId: z.string() }))
+      .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
     // User IDs who have made edits to this draft. Populated incrementally via
     // updateRevision's $addToSet; may be empty if no content edits have been made.
@@ -1642,13 +1664,13 @@ const postFeatureBody = z
     targetingAllProjects: z
       .boolean()
       .describe(
-        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Requires the `targetFeatures` permission (FlagsTarget policy) unscoped to any project. Governance stays with `project`.",
       )
       .optional(),
     targetingProjects: z
       .array(z.string())
       .describe(
-        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project. Governance stays with `project`.",
       )
       .optional(),
     valueType: z
@@ -1684,6 +1706,12 @@ const postFeatureBody = z
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
+    comment: z
+      .string()
+      .describe(
+        "Comment to record on the feature's initial revision. Defaults to an empty comment.",
+      )
+      .optional(),
     ...publishOverrideBodyFields,
   })
   .strict();
@@ -1701,13 +1729,13 @@ const updateFeatureBody = z
     targetingAllProjects: z
       .boolean()
       .describe(
-        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Requires the `targetFeatures` permission (FlagsTarget policy) unscoped to any project. Governance stays with `project`.",
       )
       .optional(),
     targetingProjects: z
       .array(z.string())
       .describe(
-        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project. Governance stays with `project`.",
       )
       .optional(),
     owner: ownerInputField.optional(),
@@ -1754,6 +1782,12 @@ const updateFeatureBody = z
       .nullable()
       .describe(
         "Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.\n",
+      )
+      .optional(),
+    comment: z
+      .string()
+      .describe(
+        'Comment to record on the revision this update publishes, when it publishes one. Defaults to "Created via REST API".',
       )
       .optional(),
     ...publishOverrideBodyFields,
@@ -1892,6 +1926,12 @@ export const toggleFeatureValidator = {
   bodySchema: z
     .object({
       reason: z.string().optional(),
+      comment: z
+        .string()
+        .describe(
+          'Comment to record on the revision this toggle publishes, when it changes any environment. Defaults to "Created via REST API". (`reason` is recorded in the audit log only.)',
+        )
+        .optional(),
       environments: z.record(
         z.string(),
         z.union([
@@ -1945,7 +1985,7 @@ export const revertFeatureValidator = {
   }),
   summary: "Revert a feature to a specific revision",
   description:
-    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nRestores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the caller holds the `FlagsBypassApprovals` policy, or the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
+    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nRestores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the caller holds the `FlagsBypassApprovals` policy, or the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, or restoring an archived state would archive a flag that live flags or experiments still depend on, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "revertFeature",

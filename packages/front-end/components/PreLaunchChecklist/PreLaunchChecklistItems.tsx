@@ -193,10 +193,10 @@ export function getChecklistItems({
           ((isBandit && !hasLiveLinkedChanges) ||
             (!isBandit && hasLinkedChanges)) ? (
             <Link onClick={openSetupTab}>
-              Linked Feature or Visual Editor change
+              Linked Feature or AI Visual Editor change
             </Link>
           ) : (
-            "Linked Feature, Visual Editor change, or URL Redirect"
+            "Linked Feature, AI Visual Editor change, or URL Redirect"
           )}
         </>
       ),
@@ -251,6 +251,49 @@ export function getChecklistItems({
                   <PiArrowSquareOut className="ml-1" />
                 </Link>{" "}
                 before this experiment can start
+              </>
+            ),
+          });
+        });
+
+      linkedFeatures
+        .filter((f) => f.state === "draft" && f.cannotPublish)
+        .forEach((f) => {
+          const armed = experiment.nextScheduledStatusUpdate?.type === "start";
+          items.push({
+            status: "incomplete",
+            type: "auto",
+            required: true,
+            hardBlock: true,
+            hideDescription: true,
+            display: (
+              <>
+                {armed
+                  ? "Whoever scheduled this start can no longer publish "
+                  : "You need permission to publish "}
+                <Link
+                  href={`/features/${f.feature.id}${(f.draftRevisionVersion ?? null) !== null ? `?v=${f.draftRevisionVersion}` : ""}`}
+                  target="_blank"
+                >
+                  {f.feature.id}
+                  <PiArrowSquareOut className="ml-1" />
+                </Link>
+                {armed ? (
+                  <>
+                    .{" "}
+                    {setShowScheduleModal ? (
+                      <Link onClick={() => setShowScheduleModal(true)}>
+                        Reschedule
+                      </Link>
+                    ) : (
+                      "Reschedule"
+                    )}{" "}
+                    or unschedule the start, then approve it again from an
+                    account that can.
+                  </>
+                ) : (
+                  " before this experiment can start"
+                )}
               </>
             ),
           });
@@ -367,9 +410,9 @@ export function getChecklistItems({
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <Link onClick={openSetupTab}>Visual Editor</Link>
+              <Link onClick={openSetupTab}>AI Visual Editor</Link>
             ) : (
-              "Visual Editor"
+              "AI Visual Editor"
             )}
           </>
         ),

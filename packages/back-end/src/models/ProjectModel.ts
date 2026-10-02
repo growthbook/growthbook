@@ -1,3 +1,6 @@
+import { isEqual } from "lodash";
+import { pruneApprovalRuleReferences } from "shared/util";
+import { TeamInterface } from "shared/types/team";
 import {
   ManagedBy,
   ProjectInterface,
@@ -8,11 +11,17 @@ import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
 import {
   pruneDefinitionsVersionProject,
   touchDefinitionsVersion,
 } from "./DefinitionsVersionModel";
+import {
+  removeProjectRolesForProject,
+  updateOrganization,
+} from "./OrganizationModel";
 import { MakeModelClass } from "./BaseModel";
+import { ApiKeyModel } from "./ApiKeyModel";
 
 function slugify(text: string): string {
   return text
@@ -74,6 +83,16 @@ export class ProjectModel extends BaseClass {
     return projects.map((p) => p.id);
   }
 
+  // Projects that refuse new Targeting Projects delivery, unfiltered: the gate
+  // must hold for projects the caller cannot read.
+  public async getTargetingOptOutIds(): Promise<string[]> {
+    const projects = await this._find(
+      { allowTargeting: false },
+      { bypassReadPermissionChecks: true },
+    );
+    return projects.map((p) => p.id);
+  }
+
   protected canCreate() {
     return this.context.permissions.canCreateProjects();
   }
@@ -90,6 +109,39 @@ export class ProjectModel extends BaseClass {
     // Drop the deleted project's definitions-version counter; the delete
     // itself bumps globally via affectsDefinitionsVersion.
     await pruneDefinitionsVersionProject(this.context.org.id, doc.id);
+    // Approval rules naming the project would otherwise block later settings
+    // saves once the dashboard round-trips them.
+    const settings = this.context.org.settings ?? {};
+    const pruned = pruneApprovalRuleReferences(settings, {
+      projects: (await this.context.getAllProjectIds()).filter(
+        (id) => id !== doc.id,
+      ),
+    });
+    if (!isEqual(pruned, settings)) {
+      await updateOrganization(this.context.org.id, { settings: pruned });
+    }
+    // Project roles naming it are dead grants; drop them wherever they live.
+    // The project is already gone, so a cleanup failure is logged rather than
+    // turned into an error that would also skip the caller's remaining cleanup.
+    const cleanups = await Promise.allSettled([
+      removeProjectRolesForProject(this.context.org, doc.id),
+      getCollection<TeamInterface>("teams").updateMany(
+        { organization: this.context.org.id, "projectRoles.project": doc.id },
+        { $pull: { projectRoles: { project: doc.id } } },
+      ),
+      ApiKeyModel.dangerousRemoveProjectRolesForProject(
+        this.context.org.id,
+        doc.id,
+      ),
+    ]);
+    for (const result of cleanups) {
+      if (result.status === "rejected") {
+        logger.error(
+          result.reason,
+          `Failed to remove project roles for deleted project ${doc.id}`,
+        );
+      }
+    }
   }
 
   protected migrate(doc: MigratedProject) {
@@ -97,7 +149,8 @@ export class ProjectModel extends BaseClass {
       ...(doc.settings || {}),
     };
 
-    return { ...doc, settings };
+    // Projects predating the setting allow targeting; only a stored false opts out.
+    return { ...doc, settings, allowTargeting: doc.allowTargeting ?? true };
   }
 
   private checkCanRestrictAccess() {
@@ -267,6 +320,17 @@ export class ProjectModel extends BaseClass {
     }
   }
 
+  // Existence only, unfiltered by read access: for references a caller may
+  // legitimately carry without being able to read the project, such as a
+  // flag's existing Targeting Projects. Authorization is the caller's job.
+  public async ensureProjectIdsExist(projectIds: string[]) {
+    const valid = new Set(await this.getAllIdsForOrg());
+    const missing = projectIds.filter((id) => !valid.has(id));
+    if (missing.length) {
+      throw new Error(`Invalid project ids: ${missing.join(", ")}`);
+    }
+  }
+
   public toApiInterface(project: ProjectInterface): ApiProject {
     return {
       id: project.id,
@@ -274,6 +338,7 @@ export class ProjectModel extends BaseClass {
       description: project.description || "",
       publicId: project.publicId,
       restrictAccess: project.restrictAccess,
+      allowTargeting: project.allowTargeting ?? true,
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {

@@ -11,6 +11,7 @@ import {
   AIProvider,
   formatAIRateLimitRetryMessage,
   getProviderForAIModel,
+  resolveDefaultSTTModel,
 } from "shared/ai";
 import {
   EMBEDDING_MODEL_OPTIONS,
@@ -18,6 +19,7 @@ import {
   getAvailableEmbeddingModelOptions,
   getAvailableImageModelOptions,
   getAvailablePromptModelOptions,
+  getAvailableSTTModelOptions,
   getModelDisplayLabel,
   GROWTHBOOK_DEFAULT_MODEL_OPTION,
   USE_DEFAULT_MODEL_OPTION,
@@ -37,6 +39,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import AIProviderKeys, { useAIProviderKeys } from "./AIProviderKeys";
+import AgentSkillsSettings from "./AgentSkillsSettings";
 
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptType: string;
@@ -177,6 +180,23 @@ const EmbeddingKeyWarning: React.FC<{
   );
 };
 
+const SttKeyWarning: React.FC<{
+  sttModel: string;
+  hasKey: (provider: AIProvider) => boolean;
+}> = ({ sttModel, hasKey }) => {
+  const provider = getProviderForAIModel("stt", sttModel);
+  if (provider === null) return null;
+  if (hasKey(provider)) return null;
+  return (
+    <Box mt="2">
+      <Callout status="warning">
+        This dictation model needs a {AI_PROVIDER_META[provider].label} API key.
+        Add one under AI providers above.
+      </Callout>
+    </Box>
+  );
+};
+
 const modelOptionLabel = (
   option: { value: string; label: string },
   context: string,
@@ -207,7 +227,7 @@ export default function AISettings({
   const [loading, setLoading] = useState(false);
   const [embeddingMsg, setEmbeddingMsg] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, aiKeyProviders } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const aiProviderAccess = useAIProviderKeys();
   const {
@@ -222,6 +242,11 @@ export default function AISettings({
     : null;
   const orgDefaultNote = isCloud()
     ? { value: "", note: getModelDisplayLabel(defaultAIModel) }
+    : null;
+  // The dictation sentinel is offered in both deployments, so name the resolved model in both.
+  const sttDefault = resolveDefaultSTTModel(aiKeyProviders);
+  const sttDefaultNote = sttDefault
+    ? { value: "", note: getModelDisplayLabel(sttDefault) }
     : null;
 
   const clearModelSettings = (keys: AIModelSettingKey[]) => {
@@ -376,6 +401,9 @@ export default function AISettings({
                   </Flex>
                 </Flex>
               )}
+              {form.watch("aiEnabled") && aiAgreedTo && (
+                <AgentSkillsSettings canEdit={canEdit} />
+              )}
 
               <AIProviderKeys
                 access={aiProviderAccess}
@@ -458,6 +486,38 @@ export default function AISettings({
                       }
                       hasKey={hasKeyForProvider}
                     />
+                  </Box>
+                  <Box mb="6" width="100%">
+                    <Text
+                      as="label"
+                      htmlFor="sttModel"
+                      size="3"
+                      className="font-weight-semibold"
+                    >
+                      Dictation model
+                    </Text>
+                    <SelectField
+                      size="medium"
+                      id="sttModel"
+                      disabled={!canEdit}
+                      helpText="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral."
+                      value={form.watch("sttModel") || ""}
+                      onChange={(v) => form.setValue("sttModel", v)}
+                      options={getAvailableSTTModelOptions(
+                        isCloud() ? availableProviders : undefined,
+                        form.watch("sttModel") || "",
+                      )}
+                      formatOptionLabel={(option, { context }) =>
+                        modelOptionLabel(option, context, sttDefaultNote)
+                      }
+                    />
+                    {/* Only a chosen model can be wrong; the default always resolves to a key or nothing. */}
+                    {form.watch("sttModel") && (
+                      <SttKeyWarning
+                        sttModel={form.watch("sttModel")}
+                        hasKey={hasKeyForProvider}
+                      />
+                    )}
                   </Box>
                 </>
               )}

@@ -28,13 +28,28 @@ const snowflakeEventForwarderConfigSchema = z.object({
   }),
 });
 
+const databricksEventForwarderConfigSchema = z.object({
+  sinkType: z.literal("databricks"),
+  region: eventForwarderRegionSchema.optional(),
+  config: z.object({
+    catalog: z.string(),
+    schema: z.string(),
+    tablePrefix: z.string(),
+    zerobusEndpoint: z.string(),
+  }),
+});
+
 export const eventForwarderAccessTestConfigSchema = z.discriminatedUnion(
   "sinkType",
-  [bigQueryEventForwarderConfigSchema, snowflakeEventForwarderConfigSchema],
+  [
+    bigQueryEventForwarderConfigSchema,
+    snowflakeEventForwarderConfigSchema,
+    databricksEventForwarderConfigSchema,
+  ],
 );
 
 export const eventForwarderAccessTestCreateBodySchema = z.object({
-  type: z.enum(["bigquery", "snowflake"]),
+  type: z.enum(["bigquery", "snowflake", "databricks"]),
   params: datasourceParamsSchema,
   projects: z.array(z.string()).optional(),
   eventForwarderConfig: eventForwarderAccessTestConfigSchema,

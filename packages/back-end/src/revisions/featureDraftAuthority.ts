@@ -7,9 +7,14 @@ import {
   isPureFeatureRevert,
 } from "shared/util";
 import {
-  NO_ENVIRONMENT_BINDING,
+  assertTargetingDestination,
+  holdsTargetingDestination,
   metadataTouchesPayload,
+  NO_ENVIRONMENT_BINDING,
+  reachedTargeting,
+  withStagedTargeting,
 } from "shared/permissions";
+import type { TargetingScoped } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/validators";
 import {
@@ -76,7 +81,7 @@ export function authoredFeatureDraft(
 // publish authority is required for those and nothing else: a flag that starts
 // disabled everywhere reaches no SDK payload, and Create alone is enough. Approval
 // doesn't apply either — there is no prior state to review it against.
-export function assertCanCreateFeatureInState({
+export async function assertCanCreateFeatureInState({
   context,
   feature,
   environmentIds,
@@ -84,7 +89,7 @@ export function assertCanCreateFeatureInState({
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   environmentIds: string[];
-}): void {
+}): Promise<void> {
   const enabledOnCreate = Array.from(
     getEnabledEnvironments(feature, environmentIds),
   );
@@ -94,6 +99,13 @@ export function assertCanCreateFeatureInState({
   ) {
     context.permissions.throwPermissionError();
   }
+  // A new flag's whole targeting set is an addition.
+  assertTargetingDestination({
+    permissions: context.permissions,
+    existing: {},
+    proposed: feature,
+    optedOut: await context.getTargetingOptOutProjectIds(),
+  });
 }
 
 /** Whether the draft restores a state that was actually live. */
@@ -271,18 +283,17 @@ export function rebasePullsInNothing(
 // atom over a draft that only does what that atom covers. Approval is a separate
 // gate, enforced by the caller.
 //
-// Boolean form of `assertCanPublishFeatureRevision`, for callers that must decide
-// feasibility rather than refuse outright — bulk publish collects gates instead
-// of throwing. Delegates rather than reimplements so a bulk publish and a single
-// publish can never disagree about what is allowed.
-export async function canPublishFeatureRevisionChange(
+// `assertCanPublishFeatureRevision` as a refusal message (null = allowed), so
+// bulk publish can report a gate instead of throwing mid-batch without
+// reimplementing the rule.
+export async function featurePublishRefusal(
   args: Parameters<typeof assertCanPublishFeatureRevision>[0],
-): Promise<boolean> {
+): Promise<string | null> {
   try {
     await assertCanPublishFeatureRevision(args);
-    return true;
+    return null;
   } catch (e) {
-    if (e instanceof PermissionError) return false;
+    if (e instanceof PermissionError) return e.message;
     throw e;
   }
 }
@@ -323,13 +334,26 @@ export function holdsFeaturePublishAuthority({
   feature,
   environments,
   mergeChanges,
+  optedOut,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   environments: string[];
   mergeChanges?: MergeResultChanges;
+  // Projects refusing new targeting; from `context.getTargetingOptOutProjectIds()`.
+  optedOut: string[];
 }): boolean {
   if (!context.permissions.canPublishFeature(feature, environments)) {
+    return false;
+  }
+  if (
+    !holdsTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, mergeChanges?.metadata),
+      optedOut,
+    })
+  ) {
     return false;
   }
   const destination = mergeChanges?.metadata?.project;
@@ -372,6 +396,12 @@ export async function assertCanPublishFeatureRevision({
   ) {
     context.permissions.throwPermissionError();
   }
+  assertTargetingDestination({
+    permissions: context.permissions,
+    existing: feature,
+    proposed: withStagedTargeting(feature, mergeChanges?.metadata),
+    optedOut: await context.getTargetingOptOutProjectIds(),
+  });
 
   await assertCanLandRevision({
     context,
@@ -398,3 +428,24 @@ export async function assertCanPublishFeatureRevision({
 // Lives in `shared` so the Revert control predicts the same footprint the revert
 // endpoints demand; re-exported here because this is where callers look for it.
 export { revertFootprint } from "shared/permissions";
+
+// What a staging write may keep without the targeting atom: live, what the
+// draft stages, and what the revision the draft was created from carried. So
+// echoing a colleague's addition or putting back what the draft removed is
+// free; landing re-checks live.
+export async function stagingTargetingBase(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface | null,
+): Promise<TargetingScoped> {
+  const staged = withStagedTargeting(feature, draft?.metadata);
+  if (!draft) return staged;
+  const base = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: draft.baseVersion,
+  });
+  return reachedTargeting(staged, feature, base?.metadata);
+}

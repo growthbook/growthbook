@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 
@@ -22,16 +26,38 @@ export const featureRulePatch = z.object({
   prerequisites: z.array(featurePrerequisite).nullish(),
   allEnvironments: z.boolean().nullish(),
   environments: z.array(z.string()).nullish(),
-  force: z.unknown().optional().describe("Force value (any JSON type)"),
+  force: z
+    .unknown()
+    .optional()
+    .describe(
+      'Value to serve, in the string form rule values use ("false", "10", \'{"limit": 5}\'). A non-string JSON value is accepted and stored as its JSON text. Must be valid for the feature\'s value type.',
+    ),
   enabled: z.boolean().nullish(),
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 
-// The rule's pre-ramp state, used purely as the rollback/jump-to-start anchor.
-// It is NOT applied when the ramp starts — step 0's coverage takes over
-// immediately on start. A partial patch is merged onto the rule's current
-// state, so `{ coverage: 0 }` keeps existing targeting but rolls back to 0%.
-export const rampStartState = featureRulePatch.omit({ ruleId: true });
+// The rule's pre-ramp state: the rollback anchor, the base every step builds
+// on, and the only place a plan names how a rule buckets.
+export const rampStartPatch = featureRulePatch.extend({
+  hashAttribute: z
+    .string()
+    .nullish()
+    .describe(
+      "Attribute the rule buckets on. Required (here or on the rule) when a step sets partial coverage on a force rule, which becomes a rollout.",
+    ),
+  seed: z
+    .string()
+    .nullish()
+    .describe("Hash seed for a promoted force rule. Defaults to the rule id."),
+  hashVersion: z
+    .union([z.literal(1), z.literal(2)])
+    .nullish()
+    .describe(
+      "Hash algorithm version for a promoted force rule. Defaults to 2.",
+    ),
+});
+export type RampStartPatch = z.infer<typeof rampStartPatch>;
+export const rampStartState = rampStartPatch.omit({ ruleId: true });
 export type RampStartState = z.infer<typeof rampStartState>;
 
 export const lockdownModeArray = ["none", "locked"] as const;
@@ -62,6 +88,7 @@ export type RampMonitoringMode = z.infer<typeof rampMonitoringMode>;
 export const rampMonitoringConfig = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
+  exposureQueryIdentifierType: z.string().optional(),
   guardrailMetricIds: z.array(z.string()).min(1),
   signalMetricIds: z.array(z.string()).optional(),
   updateScheduleMinutes: z.number().min(10).optional().nullable(),
@@ -80,12 +107,32 @@ export const rampMonitoringConfig = z.object({
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
+/**
+ * API shape: `exposureQuery` supersedes the deprecated `exposureQueryId`. The
+ * internal rampMonitoringConfig stays flat.
+ */
+export const apiRampMonitoringConfig = rampMonitoringConfig
+  .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
+  .extend(apiAssignmentQueryResponseFields("exposureQuery"));
+export type ApiRampMonitoringConfig = z.infer<typeof apiRampMonitoringConfig>;
+
+export const apiRampMonitoringConfigInput = rampMonitoringConfig
+  .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
+  .extend(apiAssignmentQueryInputFields("exposureQuery"));
+export type ApiRampMonitoringConfigInput = z.infer<
+  typeof apiRampMonitoringConfigInput
+>;
+
 export const rampStepAction = z.object({
   targetType: z.literal("feature-rule"),
   targetId: z.string(),
   patch: featureRulePatch,
 });
 export type RampStepAction = z.infer<typeof rampStepAction>;
+export const rampStartAction = rampStepAction.extend({
+  patch: rampStartPatch,
+});
+export type RampStartAction = z.infer<typeof rampStartAction>;
 
 export const rampTarget = z.object({
   id: z.string(),
@@ -153,6 +200,13 @@ export const TERMINAL_RAMP_SCHEDULE_STATUSES: RampScheduleStatus[] = [
 ];
 export const isTerminalRampScheduleStatus = (status: RampScheduleStatus) =>
   TERMINAL_RAMP_SCHEDULE_STATUSES.includes(status);
+// Statuses whose start anchor is fixed and replayed by every forward step, so a
+// publish must reconcile a direct rule edit with the plan (planRampBaseStateSync).
+export const ANCHORED_RAMP_SCHEDULE_STATUSES: RampScheduleStatus[] = [
+  "ready",
+  "running",
+  "paused",
+];
 
 export const rampEventTypeArray = [
   "started",
@@ -195,7 +249,7 @@ export const rampScheduleValidator = baseSchema
     entityId: z.string(),
     targets: z.array(rampTarget),
     // Restores the controlled rules to their pre-ramp state when rolling back to start.
-    startActions: z.array(rampStepAction).optional(),
+    startActions: z.array(rampStartAction).optional(),
     steps: z.array(rampStep),
     // Applied on top of accumulated step patches when the ramp completes.
     endActions: z.array(rampStepAction).optional(),
@@ -219,6 +273,20 @@ export const rampScheduleValidator = baseSchema
     nextStepAt: z.date().nullable(),
     nextProcessAt: z.date().nullish(),
     elapsedMs: z.number().int().nullish(),
+    // The health-check hold last reported for the current step, so the
+    // evaluator notifies once per check instead of on every tick.
+    healthHold: z
+      .object({
+        stepIndex: z.number().int(),
+        kind: z.enum([
+          "srm",
+          "multipleExposures",
+          "noTraffic",
+          "guardrailCompute",
+          "signalMetric",
+        ]),
+      })
+      .nullish(),
 
     lockdownConfig: lockdownConfigSchema.optional(),
 
@@ -523,7 +591,7 @@ export const apiRampScheduleTemplateValidator = namedSchema(
     steps: z.array(apiTemplateRampStep),
     endPatch: templateEndPatchValidator.optional(),
     official: z.boolean().optional(),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfig.nullish(),
     lockdownConfig: lockdownConfigSchema.nullish(),
     order: z
       .number()
@@ -532,6 +600,9 @@ export const apiRampScheduleTemplateValidator = namedSchema(
       ),
   }),
 );
+export type ApiRampScheduleTemplateInterface = z.infer<
+  typeof apiRampScheduleTemplateValidator
+>;
 
 const apiRampStep = z.object({
   ...apiRampStepCommon,
@@ -547,10 +618,10 @@ export const apiRampScheduleInterface = namedSchema(
     entityId: z.string(),
     targets: z.array(rampTarget).describe("Controlled entity references"),
     startActions: z
-      .array(rampStepAction)
+      .array(rampStartAction)
       .optional()
       .describe(
-        "Actions that restore controlled rules to their pre-ramp state. Applied when rolling back or jumping to start.",
+        "Actions that restore controlled rules to their pre-ramp state. Applied when rolling back or jumping to start, and the base every step accumulates on; the only place a plan can set hashAttribute, seed or hashVersion.",
       ),
     steps: z.array(apiRampStep).describe("Ordered ramp steps"),
     endActions: z
@@ -612,7 +683,7 @@ export const apiRampScheduleInterface = namedSchema(
         "Milliseconds since startedAt (computed at response time, not stored)",
       ),
     lockdownConfig: lockdownConfigSchema.optional(),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfig.nullish(),
     experimentHealthAction: experimentHealthAction.optional(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
     stepApproval: z

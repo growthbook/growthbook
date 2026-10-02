@@ -50,7 +50,10 @@ import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
-import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
+import {
+  dangerouslyGetDataSourceByIdBypassPermission,
+  getDataSourcesByIds,
+} from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
@@ -95,6 +98,8 @@ import { PresentationThemeModel } from "back-end/src/models/PresentationThemeMod
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
+import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
+import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
@@ -151,6 +156,8 @@ export type ModelName =
   | "watch"
   | "figmaConnections"
   | "slackWorkspaceConnections"
+  | "slackUserLinks"
+  | "slackTaskClaims"
   | "apiKeys"
   | "oauthAuthCodes"
   | "oauthGrants"
@@ -209,6 +216,8 @@ export const modelClasses = {
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
   slackWorkspaceConnections: SlackWorkspaceConnectionModel,
+  slackUserLinks: SlackUserLinkModel,
+  slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   oauthGrants: OAuthGrantModel,
@@ -237,6 +246,12 @@ export type ModelClass = Extract<
 type ModelInstances = {
   [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
 };
+
+/**
+ * Where a request's override flags (ignoreWarnings, skipSchemaValidation,
+ * skipHooks) are read from.
+ */
+type OverrideSource = { body?: unknown; query?: Record<string, unknown> };
 
 export class ReqContextClass {
   // When set, guard evaluators use this as their org-wide scan context instead
@@ -325,6 +340,14 @@ export class ReqContextClass {
   // gates, so they must run with guards active — hence a separate flag.
   public bulkPublishApplying?: boolean;
 
+  /**
+   * The request whose ignoreWarnings/skip* flags apply, when it isn't `req`.
+   * Set by the agent while it replays a confirmed call: the flags belong to
+   * that call, not to the chat request (web) or to its absence (Slack, which
+   * would otherwise read as a background job that ignores every warning).
+   */
+  public dispatchedRequest: OverrideSource | null = null;
+
   // Models
   public models!: ModelInstances;
   private initModels() {
@@ -370,6 +393,8 @@ export class ReqContextClass {
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
       slackWorkspaceConnections: new SlackWorkspaceConnectionModel(this),
+      slackUserLinks: new SlackUserLinkModel(this),
+      slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       oauthGrants: new OAuthGrantModel(this),
@@ -494,15 +519,20 @@ export class ReqContextClass {
   // declare the field, but not fully: `z.never()` bodies and internal routes
   // skip body validation, so this getter can still see the raw flag there.
   public get ignoreWarnings(): boolean {
-    if (!this.req) return true;
+    const req = this.overrideSource;
+    if (!req) return true;
     if (this.bodyFlag("ignoreWarnings")) return true;
-    const v = this.req.query?.ignoreWarnings;
+    const v = req.query?.ignoreWarnings;
     if (typeof v !== "string") return false;
     return stringToBoolean(v);
   }
 
+  private get overrideSource(): OverrideSource | undefined {
+    return this.dispatchedRequest ?? this.req;
+  }
+
   private bodyFlag(field: string): boolean {
-    const body = this.req?.body;
+    const body = this.overrideSource?.body;
     return (
       !!body &&
       typeof body === "object" &&
@@ -543,8 +573,9 @@ export class ReqContextClass {
   }
 
   private skipRequested(flag: "skipSchemaValidation" | "skipHooks"): boolean {
-    if (!this.req) return false;
-    const queryValue = this.req.query?.[flag];
+    const req = this.overrideSource;
+    if (!req) return false;
+    const queryValue = req.query?.[flag];
     return (
       this.bodyFlag(flag) ||
       (typeof queryValue === "string" && stringToBoolean(queryValue))
@@ -691,10 +722,7 @@ export class ReqContextClass {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids),
     );
-    // An org doesn't have that many data sources, so we just fetch them all
-    await this.addMissingForeignRefs("datasource", datasource, () =>
-      getDataSourcesByOrganization(this),
-    );
+    await this.loadDataSourceRefs(datasource);
     await this.addMissingForeignRefs("metric", metric, (ids) =>
       getExperimentMetricsByIds(this, ids),
     );
@@ -702,6 +730,46 @@ export class ReqContextClass {
       getFeaturesByIds(this, ids),
     );
   }
+
+  /**
+   * Fetches only the requested data sources, once per request. Concurrent
+   * lookups share a load, and an id still missing afterwards isn't in the org
+   * or isn't readable, so it isn't refetched.
+   */
+  private dataSourceLoads = new Map<string, Promise<void>>();
+  private async loadDataSourceRefs(ids: string[] | undefined): Promise<void> {
+    if (!ids?.length) return;
+    const loads = this.dataSourceLoads;
+    const missing = [...new Set(ids)].filter(
+      (id) => !this.foreignRefs.datasource.has(id) && !loads.has(id),
+    );
+    if (missing.length) {
+      const load: Promise<void> = getDataSourcesByIds(this, missing).then(
+        (datasources) => {
+          // A forget during the load means these may already be stale.
+          if (this.dataSourceLoads !== loads) return;
+          datasources.forEach((ds) =>
+            this.foreignRefs.datasource.set(ds.id, ds),
+          );
+        },
+        (error) => {
+          missing.forEach((id) => {
+            if (loads.get(id) === load) loads.delete(id);
+          });
+          throw error;
+        },
+      );
+      missing.forEach((id) => loads.set(id, load));
+    }
+    await Promise.all(ids.map((id) => loads.get(id)));
+  }
+
+  /** Called after a data source write, so later reads in the request see it. */
+  public forgetDataSourceRefs(): void {
+    this.foreignRefs.datasource.clear();
+    this.dataSourceLoads = new Map();
+  }
+
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(
     type: K,
     ids: string[] | undefined,
@@ -716,6 +784,17 @@ export class ReqContextClass {
         this.foreignRefs[type].set(ref.id, ref as any);
       });
     }
+  }
+
+  /**
+   * Defined on the context so validation helpers needn't import
+   * DataSourceModel. Uncached, and never written to foreignRefs because
+   * serializers read those.
+   */
+  public async dangerouslyGetDataSourceByIdBypassPermission(
+    id: string,
+  ): Promise<DataSourceInterface | null> {
+    return dangerouslyGetDataSourceByIdBypassPermission(this, id);
   }
 
   // This is defined on the context to prevent a circular dependency between UserModel and BaseModel
@@ -747,6 +826,15 @@ export class ReqContextClass {
       this._allProjectIds = await this.models.projects.getAllIdsForOrg();
     }
     return this._allProjectIds;
+  }
+
+  private _targetingOptOutProjectIds: string[] | null = null;
+  public async getTargetingOptOutProjectIds(): Promise<string[]> {
+    if (this._targetingOptOutProjectIds === null) {
+      this._targetingOptOutProjectIds =
+        await this.models.projects.getTargetingOptOutIds();
+    }
+    return this._targetingOptOutProjectIds;
   }
 
   // Tags can be created on the fly, so we cache which ones already exist

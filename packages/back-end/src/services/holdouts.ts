@@ -11,6 +11,9 @@ import {
   holdoutSizeToCoverage,
   HoldoutStage,
   validateCondition,
+  parseAssignmentQuerySelection,
+  parseAssignmentQueryInput,
+  resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import {
   ApiUpdateHoldoutBody,
@@ -29,6 +32,10 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { DataSourceInterface } from "shared/types/datasource";
+import {
+  notifyHoldoutCreated,
+  notifyHoldoutStatusChanged,
+} from "back-end/src/services/holdoutNotifications";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -351,22 +358,17 @@ export async function resolveHoldoutExperimentToLink({
   }
 }
 
-export function assertValidAssignmentQuery(
-  datasource: DataSourceInterface | null,
-  assignmentQueryId: string | undefined,
-): void {
-  if (!assignmentQueryId) return;
-  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
-    (q) => q.id === assignmentQueryId,
-  );
-  if (!exposureQuery) {
-    throw new Error("Invalid assignment query: " + assignmentQueryId);
-  }
-}
-
 export async function createHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
   data: CreateHoldoutInput,
+  {
+    onOmitted = "defaultToFirst",
+  }: {
+    /**
+     * REST bodies must name an identifier when ambiguous.
+     */
+    onOmitted?: "defaultToFirst" | "requireUnambiguous";
+  } = {},
 ): Promise<{
   holdout: HoldoutInterface;
   experiment: ExperimentInterface;
@@ -381,7 +383,20 @@ export async function createHoldoutWithExperiment(
     secondaryMetrics: data.secondaryMetrics,
   });
 
-  assertValidAssignmentQuery(datasource, data.assignmentQueryId);
+  let exposureQueryIdentifierType: string | undefined;
+  if (data.assignmentQueryId) {
+    const parsed = parseAssignmentQuerySelection(
+      datasource?.settings?.queries?.exposure ?? [],
+      {
+        exposureQueryId: data.assignmentQueryId,
+        identifierType: data.assignmentQueryIdentifierType,
+        onOmitted,
+        field: "assignmentQuery",
+      },
+    );
+    if (!parsed.ok) throw new Error(parsed.error);
+    exposureQueryIdentifierType = parsed.identifierType;
+  }
 
   const conditionResult = validateCondition(data.targetingCondition);
   if (!conditionResult.success) {
@@ -434,6 +449,7 @@ export async function createHoldoutWithExperiment(
     trackingKey: `holdout-${uuidv4()}`,
     datasource: data.datasourceId || "",
     exposureQueryId: data.assignmentQueryId || "",
+    exposureQueryIdentifierType,
     userIdType: "anonymous",
     name: data.name,
     phases: [
@@ -500,6 +516,8 @@ export async function createHoldoutWithExperiment(
     linkedFeatures: {},
     linkedExperiments: {},
   });
+
+  await notifyHoldoutCreated({ context, holdout });
 
   return { holdout, experiment, datasource, metricIds };
 }
@@ -660,11 +678,17 @@ export async function updateHoldoutWithExperiment(
   if (body.owner !== undefined) {
     experimentChanges.owner = await resolveOwnerToUserId(body.owner, context);
   }
+  const assignmentQueryInput = parseAssignmentQueryInput(
+    body.assignmentQuery,
+    body.assignmentQueryId,
+    "assignmentQuery",
+  );
+  const assignmentQueryId = assignmentQueryInput.id;
   // Validate against the post-update values, so a metric or exposure query left
   // stale by a datasource-only change is rejected here, not at query time.
   if (
     body.datasourceId !== undefined ||
-    body.assignmentQueryId !== undefined ||
+    assignmentQueryId !== undefined ||
     body.goalMetrics !== undefined ||
     body.secondaryMetrics !== undefined
   ) {
@@ -674,16 +698,37 @@ export async function updateHoldoutWithExperiment(
       secondaryMetrics: body.secondaryMetrics ?? experiment.secondaryMetrics,
     });
 
-    assertValidAssignmentQuery(
-      datasource,
-      body.assignmentQueryId ?? experiment.exposureQueryId,
-    );
+    const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
+    if (effectiveQueryId) {
+      const resolved = resolveAssignmentQuerySelectionChange(
+        datasource?.settings?.queries?.exposure ?? [],
+        {
+          previous: {
+            datasource: experiment.datasource ?? "",
+            exposureQueryId: experiment.exposureQueryId,
+            identifierType: experiment.exposureQueryIdentifierType,
+          },
+          next: {
+            datasource: body.datasourceId ?? experiment.datasource ?? "",
+            exposureQueryId: effectiveQueryId,
+            identifierType: assignmentQueryInput.identifierType,
+          },
+          onOmitted: "requireUnambiguous",
+          field: "assignmentQuery",
+        },
+      );
+      if (!resolved.ok) throw new Error(resolved.error);
+      // Undefined when the new selection is implicit, which clears the old one.
+      if (resolved.changed) {
+        experimentChanges.exposureQueryIdentifierType = resolved.identifierType;
+      }
+    }
 
     if (body.datasourceId !== undefined) {
       experimentChanges.datasource = body.datasourceId;
     }
-    if (body.assignmentQueryId !== undefined) {
-      experimentChanges.exposureQueryId = body.assignmentQueryId;
+    if (assignmentQueryId !== undefined) {
+      experimentChanges.exposureQueryId = assignmentQueryId;
     }
   }
   // The name is stored on both documents and must not drift.
@@ -942,8 +987,12 @@ export async function setHoldoutStage(
       experiment,
       changes,
     });
+    let updatedHoldout: HoldoutInterface;
     try {
-      await context.models.holdout.update(holdout, holdoutChanges);
+      updatedHoldout = await context.models.holdout.update(
+        holdout,
+        holdoutChanges,
+      );
     } catch (e) {
       const reverted = await rollbackExperimentAfterHoldoutFailure(
         context,
@@ -959,6 +1008,12 @@ export async function setHoldoutStage(
       );
       throw e;
     }
+    await notifyHoldoutStatusChanged({
+      context,
+      holdout: updatedHoldout,
+      previousStatus: currentStage,
+      currentStatus: getHoldoutStage(updatedHoldout, updatedExperiment),
+    });
     refreshPayload(event);
   };
 

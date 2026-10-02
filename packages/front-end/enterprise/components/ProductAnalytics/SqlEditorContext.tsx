@@ -5,11 +5,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
+import type { ExplorerDraftConfig } from "@/enterprise/components/ProductAnalytics/util";
 
 export type SqlEditorViewMode = "dataset" | "explore";
 
@@ -25,6 +27,14 @@ interface SqlEditorContextValue {
   setViewMode: (viewMode: SqlEditorViewMode) => void;
   isQueryRunning: boolean;
   setIsQueryRunning: (running: boolean) => void;
+  /** SqlQuerySection registers its preview runner so callers outside the editor
+   *  (e.g. the dashboard block's Update) can refresh column metadata first. */
+  registerPreviewRunner: (
+    fn: ((sql: string) => Promise<ExplorerDraftConfig | null>) | null,
+  ) => void;
+  /** Resolves null when no runner is registered or the preview failed;
+   *  otherwise the draft config carrying the refreshed column metadata. */
+  runPreview: (sql: string) => Promise<ExplorerDraftConfig | null>;
   exploreReady: boolean;
   setExploreReady: (ready: boolean) => void;
   // True after the user opens Explore; cleared when exploreReady is reset so a
@@ -71,6 +81,20 @@ export function SqlEditorProvider({
     setLocalSql(sql);
   }, [sql]);
 
+  const previewRunnerRef = useRef<
+    ((sql: string) => Promise<ExplorerDraftConfig | null>) | null
+  >(null);
+  const registerPreviewRunner = useCallback(
+    (fn: ((sql: string) => Promise<ExplorerDraftConfig | null>) | null) => {
+      previewRunnerRef.current = fn;
+    },
+    [],
+  );
+  const runPreview = useCallback(
+    (sql: string) => previewRunnerRef.current?.(sql) ?? Promise.resolve(null),
+    [],
+  );
+
   const setExploreReady = useCallback((ready: boolean) => {
     setExploreReadyState(ready);
     // A new test cycle can show the ready cue again.
@@ -92,6 +116,8 @@ export function SqlEditorProvider({
       setViewMode,
       isQueryRunning,
       setIsQueryRunning,
+      registerPreviewRunner,
+      runPreview,
       exploreReady,
       setExploreReady,
       hasSeenExplore,
@@ -106,6 +132,8 @@ export function SqlEditorProvider({
       isQueryRunning,
       localSql,
       markExploreSeen,
+      registerPreviewRunner,
+      runPreview,
       setCursorData,
       setExploreReady,
       setIsAutocompleteEnabled,

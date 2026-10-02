@@ -1,5 +1,7 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useRouter } from "next/router";
 import React, { ReactElement, useState } from "react";
+import { useRestApiCall } from "@/services/restApi";
 import {
   useContextualBandit,
   useContextualBanditLinkedFeatures,
@@ -7,7 +9,6 @@ import {
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import ContextualBanditForm from "@/enterprise/components/ContextualBandit/ContextualBanditForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
@@ -32,7 +33,7 @@ const ContextualBanditPage = (): ReactElement => {
   const { organization, hasCommercialFeature } = useUser();
   const hasContextualBanditFeature = hasCommercialFeature("contextual-bandits");
   const environments = useEnvironments();
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
 
   const [overviewModalOpen, setOverviewModalOpen] = useState(false);
   const [analysisMetricsModalOpen, setAnalysisMetricsModalOpen] =
@@ -87,9 +88,9 @@ const ContextualBanditPage = (): ReactElement => {
     );
   }
 
-  const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
   const canEdit =
     permissionsUtil.canViewContextualBanditModal(cb.project) && !cb.archived;
+  const canEditVariations = canEdit && cb.status !== "stopped";
   const canRun =
     !cb.archived &&
     permissionsUtil.canRunContextualBandit({ project: cb.project }, envs);
@@ -113,7 +114,7 @@ const ContextualBanditPage = (): ReactElement => {
             canEdit ? () => setAnalysisMetricsModalOpen(true) : undefined
           }
           editVariations={
-            canEdit ? () => setVariationsModalOpen(true) : undefined
+            canEditVariations ? () => setVariationsModalOpen(true) : undefined
           }
           editTrafficTargeting={
             canEdit ? () => setTrafficTargetingModalOpen(true) : undefined
@@ -157,7 +158,11 @@ const ContextualBanditPage = (): ReactElement => {
       {variationsModalOpen && (
         <ContextualBanditVariationsModal
           cb={cb}
-          mutate={mutate}
+          linkedFeatures={linkedFeatures}
+          mutate={() => {
+            mutate();
+            mutateLinkedFeatures();
+          }}
           close={() => setVariationsModalOpen(false)}
         />
       )}
@@ -172,10 +177,10 @@ const ContextualBanditPage = (): ReactElement => {
         <EditTagsForm
           tags={cb.tags}
           save={async (tags) => {
-            await apiCall(updateEndpoint, {
-              method: "PUT",
-              body: JSON.stringify({ tags }),
-            });
+            await restApiCall(
+              contextualBanditEndpoints.updateContextualBandit,
+              { params: { id: cb.id }, body: { tags } },
+            );
           }}
           cancel={() => setTagsModalOpen(false)}
           mutate={mutate}
@@ -203,8 +208,12 @@ const ContextualBanditPage = (): ReactElement => {
           }
           mutate={mutate}
           current={cb.project}
-          apiEndpoint={updateEndpoint}
-          method="PUT"
+          save={(project) =>
+            restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+              params: { id: cb.id },
+              body: { project },
+            })
+          }
           source="cbid"
         />
       )}

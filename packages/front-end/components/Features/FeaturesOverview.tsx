@@ -1662,10 +1662,14 @@ export default function FeaturesOverview({
             permissionRequired={(project) =>
               permissionsUtil.canEditFeatureDrafts({ project })
             }
-            apiEndpoint={`/feature/${feature.id}`}
+            save={(project) =>
+              apiCall(`/feature/${feature.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ project }),
+              })
+            }
             cancel={() => setEditProjectModal(false)}
             mutate={mutate}
-            method="PUT"
             current={feature.project}
             additionalMessage={
               <Callout status="error" mb="3">

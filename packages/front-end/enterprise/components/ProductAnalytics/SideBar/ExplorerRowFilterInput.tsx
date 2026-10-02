@@ -29,11 +29,13 @@ export function ExplorerRowFilterInput({
   setValue,
   columnSource,
   children,
+  showSqlFilter = true,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   columnSource: FilterColumnSource;
   children?: ReactNode;
+  showSqlFilter?: boolean;
 }) {
   const nextIdRef = useRef(0);
   const assignId = () => nextIdRef.current++;
@@ -48,7 +50,16 @@ export function ExplorerRowFilterInput({
   useEffect(() => {
     if (isEqual(value, lastCommittedRef.current)) return;
     lastCommittedRef.current = value;
-    setLocalFilters(value.map((f) => withLocalChrome(f, assignId())));
+    // Keep ids for surviving rows so they don't remount and steal focus
+    setLocalFilters((prev) => {
+      const unused = [...prev];
+      return value.map((f) => {
+        const idx = unused.findIndex((lf) => isEqual(toRowFilter(lf), f));
+        if (idx === -1) return withLocalChrome(f, assignId());
+        const [match] = unused.splice(idx, 1);
+        return { ...match, ...f };
+      });
+    });
   }, [value]);
 
   const commit = useCallback(
@@ -88,6 +99,7 @@ export function ExplorerRowFilterInput({
         />
       ))}
       <RowFilterActions
+        showSqlFilter={showSqlFilter}
         onAdd={(filter) =>
           replaceLocal([...localFilters, withLocalChrome(filter, assignId())])
         }

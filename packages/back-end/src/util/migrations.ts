@@ -7,6 +7,7 @@ import {
   DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
+import { stringifyFeatureValue } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -18,6 +19,7 @@ import { LegacyMetricInterface, MetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import {
   FeatureDraftChanges,
@@ -208,6 +210,22 @@ FROM
   }`;
 }
 
+/**
+ * `userIdType` is the identifier records without a stored one (everything saved
+ * before multi-identifier queries) analyze on. It is set once and never follows
+ * `userIdTypes`, so reordering or adding identifiers can't move those records.
+ * Idempotent.
+ */
+export function upgradeExposureQuery(query: ExposureQuery): ExposureQuery {
+  if (!query.userIdTypes?.length) {
+    query.userIdTypes = [query.userIdType].filter(Boolean);
+  }
+  if (!query.userIdType && query.userIdTypes[0]) {
+    query.userIdType = query.userIdTypes[0];
+  }
+  return query;
+}
+
 export function upgradeDatasourceObject(
   datasource: DataSourceInterface,
 ): DataSourceInterface {
@@ -252,6 +270,7 @@ export function upgradeDatasourceObject(
           name: "Logged-in User Experiments",
           description: "",
           userIdType: "user_id",
+          userIdTypes: ["user_id"],
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
@@ -262,6 +281,7 @@ export function upgradeDatasourceObject(
           name: "Anonymous Visitor Experiments",
           description: "",
           userIdType: "anonymous_id",
+          userIdTypes: ["anonymous_id"],
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
@@ -270,6 +290,8 @@ export function upgradeDatasourceObject(
       ];
     }
   }
+
+  settings.queries?.exposure?.forEach(upgradeExposureQuery);
 
   // mode field was added later -- default to ephemeral if missing
   if (
@@ -355,6 +377,20 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // feature. Pass nullish through; downstream callers filter via
   // `isPlausibleFeatureRule` before relying on the rule shape.
   if (rule == null || typeof rule !== "object") return rule;
+  // Ramp steps once wrote a rule's value as the raw JSON type their plan
+  // carried; rule values are strings, and the payload builder parses them.
+  const { value } = rule as { value?: unknown };
+  if (value !== undefined && typeof value !== "string") {
+    rule = { ...rule, value: stringifyFeatureValue(value) } as FeatureRule;
+  }
+  // A stored `environments: null` (an undefined key written through Mongo) is
+  // read as no environments, not as every environment; a rule whose list is
+  // wildcarded drops the key so the two spellings compare equal.
+  if (rule.environments === null) {
+    const scoped = { ...rule };
+    delete scoped.environments;
+    rule = rule.allEnvironments ? scoped : { ...scoped, environments: [] };
+  }
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
     const weights = rule.values
@@ -592,7 +628,7 @@ export function upgradeOrganizationDoc(
       DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT;
   }
 
-  // Migrate Arroval Flow Settings
+  // Migrate Approval Flow Settings
   if (
     org.settings?.requireReviews === true ||
     org.settings?.requireReviews === false

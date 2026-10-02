@@ -5,6 +5,10 @@ import {
   MAX_DESCRIPTION_LENGTH,
 } from "shared/constants";
 import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
+import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
@@ -177,6 +181,10 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "guardrail-failed",
+  "query-failed",
+  "ending-soon",
+  "stale",
   "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
@@ -267,6 +275,7 @@ export const experimentAnalysisSettings = z
     trackingKey: z.string(),
     datasource: z.string(),
     exposureQueryId: z.string(),
+    exposureQueryIdentifierType: z.string().optional(),
     goalMetrics: z.array(z.string()),
     secondaryMetrics: z.array(z.string()),
     guardrailMetrics: z.array(z.string()),
@@ -452,6 +461,9 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
+  // Who armed it, a user or an org API key; the job fires and audits as them.
+  scheduledBy: z.string().optional(),
+  scheduledByApiKey: z.string().optional(),
 });
 
 export const experimentInterface = z
@@ -717,7 +729,7 @@ export const apiExperimentAnalysisSettingsValidator = namedSchema(
   z
     .object({
       datasourceId: z.string(),
-      assignmentQueryId: z.string(),
+      ...apiAssignmentQueryResponseFields("assignmentQuery"),
       experimentId: z.string(),
       segmentId: z.string(),
       queryFilter: z.string(),
@@ -1150,7 +1162,7 @@ const apiBulkResultMetric = z.object({
 // Snapshot-authoritative analysis settings.
 const apiBulkResultSettings = z.object({
   datasourceId: z.string(),
-  assignmentQueryId: z.string(),
+  ...apiAssignmentQueryResponseFields("assignmentQuery"),
   experimentId: z.string(),
   segmentId: z.string(),
   queryFilter: z.string(),
@@ -1327,7 +1339,12 @@ const apiMetricOverrideEntryInput = z
 
 // Variation for input payloads
 const apiVariationInput = z.object({
-  id: z.string().optional(),
+  id: z
+    .string()
+    .describe(
+      "Stable variation id. On update, an omitted id is filled from the stored variation with the same key, or the same position, when the number of variations is unchanged.",
+    )
+    .optional(),
   variationId: z
     .string()
     .describe(
@@ -1357,7 +1374,7 @@ const apiPhaseInput = z.object({
   dateEnded: z.string().meta({ format: "date-time" }).optional(),
   reasonForStopping: z.string().optional(),
   seed: z.string().optional(),
-  coverage: z.number().optional(),
+  coverage: z.number().min(0).max(1).optional(),
   namespace: z
     .object({
       namespaceId: z.string(),
@@ -1391,12 +1408,14 @@ const apiPhaseInput = z.object({
     .optional(),
   ...phaseSavedGroupInput,
   variationWeights: z
-    .array(z.number())
+    .array(z.number().min(0).max(1))
     .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
     .meta({ deprecated: true })
     .optional(),
   trafficSplit: z
-    .array(z.object({ variationId: z.string(), weight: z.number() }))
+    .array(
+      z.object({ variationId: z.string(), weight: z.number().min(0).max(1) }),
+    )
     .describe("Per-variation weights. Mirrors the GET response.")
     .optional(),
 });
@@ -1410,12 +1429,10 @@ const postExperimentBody = z
         "ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided.",
       )
       .optional(),
-    assignmentQueryId: z
-      .string()
-      .describe(
-        "The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided.",
-      )
-      .optional(),
+    ...apiAssignmentQueryInputFields(
+      "assignmentQuery",
+      "Can only be set if a templateId is not provided.",
+    ),
     trackingKey: z.string(),
     bypassDuplicateKeyCheck: z
       .boolean()
@@ -1476,8 +1493,8 @@ const postExperimentBody = z
         "When true, disables Sticky Bucketing for this experiment. If omitted, defaults to your organization's Sticky Bucketing setting for new experiments. Sticky Bucketing only takes effect when it is also enabled at the organization level.",
       )
       .optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     releasedVariationId: z.string().optional(),
     excludeFromPayload: z.boolean().optional(),
     inProgressConversions: z.enum(["loose", "strict"]).optional(),
@@ -1550,7 +1567,7 @@ const updateExperimentBody = z
         "Can only be set if existing experiment does not have a datasource",
       )
       .optional(),
-    assignmentQueryId: z.string().optional(),
+    ...apiAssignmentQueryInputFields("assignmentQuery"),
     trackingKey: z.string().optional(),
     bypassDuplicateKeyCheck: z
       .boolean()
@@ -1600,8 +1617,8 @@ const updateExperimentBody = z
       .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     disableStickyBucketing: z.boolean().optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     results: z
       .enum(["dnf", "won", "lost", "inconclusive"])
       .describe(
@@ -1650,7 +1667,7 @@ const updateExperimentBody = z
           dateEnded: z.string().meta({ format: "date-time" }).optional(),
           reasonForStopping: z.string().optional(),
           seed: z.string().optional(),
-          coverage: z.number().optional(),
+          coverage: z.number().min(0).max(1).optional(),
           namespace: z
             .object({
               namespaceId: z.string(),
@@ -1688,14 +1705,19 @@ const updateExperimentBody = z
             .optional(),
           ...phaseSavedGroupInput,
           variationWeights: z
-            .array(z.number())
+            .array(z.number().min(0).max(1))
             .describe(
               "Deprecated: use `trafficSplit`. Takes precedence if set.",
             )
             .meta({ deprecated: true })
             .optional(),
           trafficSplit: z
-            .array(z.object({ variationId: z.string(), weight: z.number() }))
+            .array(
+              z.object({
+                variationId: z.string(),
+                weight: z.number().min(0).max(1),
+              }),
+            )
             .describe("Per-variation weights. Mirrors the GET response.")
             .optional(),
         }),
@@ -1761,7 +1783,7 @@ const postExperimentStartBody = z
     skipChecklist: z
       .boolean()
       .describe(
-        "If true, skips validating the experiment satisifies all pre-launch checklist items",
+        "If true, skips validating the experiment satisfies all pre-launch checklist items",
       )
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
@@ -2276,7 +2298,7 @@ export const postExperimentSnapshotValidator = {
       triggeredBy: z
         .enum(["manual", "schedule"])
         .describe(
-          'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
+          'Set to "schedule" if you want this request to trigger notifications and other events as if it were a scheduled update. Defaults to manual.',
         )
         .optional(),
       dimension: z

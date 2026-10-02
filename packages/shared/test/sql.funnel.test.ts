@@ -20,6 +20,7 @@ const helpers: SqlDialect = {
   dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
   dateDiff: (a, b) => `datediff(day, ${a}, ${b})`,
   dateDiffMs: (a, b) => `(EXTRACT(EPOCH FROM (${b} - ${a})) * 1000)`,
+  concatStrings: (parts) => parts.join(" || "),
   addIntervalSeconds: (col, sign, amount) =>
     `${col} ${sign} INTERVAL '${amount} seconds'`,
   percentileApprox: (col, q) => `APPROX_PERCENTILE(${col}, ${q})`,
@@ -185,6 +186,29 @@ function baseFunnelConfig(
 }
 
 describe("buildFunnelSql", () => {
+  it("pushes the OR of step filters down to the raw scan", () => {
+    const config = baseFunnelConfig([
+      { name: "Step 1", factTableId: "visits" },
+      { name: "Step 2", factTableId: "visits" },
+    ]);
+    if (config.dataset.type !== "funnel") throw new Error("expected funnel");
+    config.dataset.steps[0].rowFilters = [
+      { column: "page", operator: "=", values: ["/home"] },
+    ];
+    config.dataset.steps[1].rowFilters = [
+      { column: "page", operator: "=", values: ["/checkout"] },
+    ];
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    const raw = sql.slice(
+      sql.indexOf("__funnel_ft0_raw"),
+      sql.indexOf("__funnel_ft0_events"),
+    );
+    expect(raw).toContain("(page = '/home')");
+    expect(raw).toContain("(page = '/checkout')");
+    expect(raw).toContain("OR");
+  });
+
   it("emits one raw CTE per fact table and chains step resolutions", () => {
     const config = baseFunnelConfig([
       { name: "Step 1", factTableId: "orders" },

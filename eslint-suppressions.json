@@ -258,11 +258,6 @@
       "count": 8
     }
   },
-  "packages/front-end/components/Experiment/EditDataSourceForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -356,7 +351,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 10
+      "count": 9
     }
   },
   "packages/front-end/components/Experiment/NewPhaseForm.tsx": {
@@ -750,7 +745,7 @@
   },
   "packages/front-end/components/Features/RuleModal/ExperimentRefNewFields.tsx": {
     "no-restricted-syntax": {
-      "count": 10
+      "count": 9
     }
   },
   "packages/front-end/components/Features/RuleModal/RampScheduleSection.tsx": {
@@ -1197,11 +1192,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Metrics/MetricForm/MetricCappingSettingsForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Metrics/MetricForm/MetricDelaySettings.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -1564,7 +1554,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 3
+      "count": 2
     }
   },
   "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries.tsx": {
@@ -1593,11 +1583,6 @@
   "packages/front-end/components/Settings/EditOrganizationModal.tsx": {
     "no-restricted-syntax": {
       "count": 4
-    }
-  },
-  "packages/front-end/components/Settings/EditSchemaOptions.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "packages/front-end/components/Settings/EnvironmentModal.tsx": {
@@ -1644,11 +1629,6 @@
   "packages/front-end/components/Settings/SSLConnectionFields.tsx": {
     "no-restricted-syntax": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/Settings/SharedConnectionSettings.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Settings/SubscriptionInfo.tsx": {
@@ -1747,11 +1727,6 @@
     },
     "no-restricted-syntax": {
       "count": 5
-    }
-  },
-  "packages/front-end/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/components/SqlExplorer/BigValueChart.tsx": {

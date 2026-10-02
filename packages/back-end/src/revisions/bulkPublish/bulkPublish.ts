@@ -428,8 +428,10 @@ export async function commitBulkPublish(
       let ok = false;
       try {
         ok = await adapter.claim(context, item.revision, item.baseline, {
+          entityPreImage: item.entityPreImage,
           isApprovalBypass: item.isApprovalBypass,
           comment: plan.flags.comment,
+          desiredState: item.desiredState,
         });
       } catch (e) {
         logger.error(

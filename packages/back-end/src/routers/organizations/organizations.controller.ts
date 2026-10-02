@@ -2,13 +2,14 @@ import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
+  assertTargetingRulesDisjoint,
   getNamespaceRanges,
   getRulesForEnvironment,
   normalizeApprovalRuleSettings,
   parseIntWithDefaultCapped,
   pruneApprovalRuleReferences,
 } from "shared/util";
-import { getRoles, getDefaultRole } from "shared/permissions";
+import { getRoles } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
@@ -43,8 +44,11 @@ import {
 import {
   acceptInvite,
   addMemberToOrg,
-  addPendingMemberToOrg,
+  addMemberToOrgWithDefaultRole,
+  addPendingMemberToOrgWithDefaultRole,
+  assertCanUpdateDefaultRole,
   assertMemberRoleInfoValid,
+  sanitizeDefaultRoleUpdate,
   assertRoleAssignmentAllowed,
   assertRoleChangeAllowed,
   expandOrgMembers,
@@ -60,6 +64,7 @@ import {
   removeMember,
   revokeInvite,
   setLicenseKey,
+  assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
 import { updatePassword } from "back-end/src/services/users";
 import {
@@ -466,6 +471,11 @@ export async function putMemberRole(
       additionalRoles,
       projectRoles,
     });
+    await assertProjectRulesReferenceProjects(
+      context,
+      org.members.find((m) => m.id === id)?.projectRoles,
+      projectRoles,
+    );
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -561,6 +571,11 @@ export async function putMemberProjectRole(
   try {
     // The whole rule, additional roles included — nothing rides in unchecked.
     assertMemberRoleInfoValid(org, projectRole);
+    await assertProjectRulesReferenceProjects(
+      context,
+      org.members.find((m) => m.id === id)?.projectRoles,
+      [projectRole],
+    );
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -661,19 +676,17 @@ export async function putMember(
       await acceptInvite(invite.key, req.userId, req.email);
     } else if (organization.autoApproveMembers) {
       // if auto approve, add user as member
-      await addMemberToOrg({
+      await addMemberToOrgWithDefaultRole({
         organization,
         userId: req.userId,
-        ...getDefaultRole(organization),
       });
     } else {
       // otherwise, add user as pending member
-      await addPendingMemberToOrg({
+      await addPendingMemberToOrgWithDefaultRole({
         organization,
         name: req.name || "",
         userId: req.userId,
         email: req.email,
-        ...getDefaultRole(organization),
       });
 
       try {
@@ -748,6 +761,7 @@ export async function postMemberApproval(
       limitAccessByEnvironment: pendingMember.limitAccessByEnvironment,
       environments: pendingMember.environments,
       projectRoles: pendingMember.projectRoles,
+      additionalRoles: pendingMember.additionalRoles,
     });
   } catch (e) {
     return res.status(400).json({
@@ -831,6 +845,11 @@ export async function putInviteRole(
       additionalRoles,
       projectRoles,
     });
+    await assertProjectRulesReferenceProjects(
+      context,
+      org.invites.find((invite) => invite.key === key)?.projectRoles,
+      projectRoles,
+    );
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -973,7 +992,7 @@ export async function getOrganization(
 
   // Use a stripped down list of invites if the user doesn't have permission to manage the team
   // The full invite object contains a key which can be used to accept the invite
-  // Without this filtering, a user could accept an invite of a higher-priveleged user and assume their role
+  // Without this filtering, a user could accept an invite of a higher-privileged user and assume their role
   const filteredInvites = context.permissions.canManageTeam()
     ? invites
     : invites.map((i) => ({ email: i.email }));
@@ -985,7 +1004,7 @@ export async function getOrganization(
 
   // Returned here so every page can gate AI affordances off the org's real key
   // state without a second request. The keys never leave the back end.
-  const { keySource } = await getAISettingsForOrg(context);
+  const { keySource, sttModel } = await getAISettingsForOrg(context);
   const aiKeyProviders = AI_PROVIDERS.filter((p) => keySource[p] !== "none");
 
   // Teams were already loaded (unfiltered) by the auth middleware
@@ -1030,6 +1049,7 @@ export async function getOrganization(
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
     aiKeyProviders,
+    sttModel,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -1454,6 +1474,7 @@ export async function postInvite(
       additionalRoles,
       projectRoles,
     });
+    await assertProjectRulesReferenceProjects(context, undefined, projectRoles);
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -1711,21 +1732,15 @@ export async function putOrganization(
         throw new Error(
           "Not supported: Updating namespaces not supported via this route.",
         );
-      } else if (k === "defaultRole") {
-        if (!context.permissions.canManageOrgSettings()) {
-          context.permissions.throwPermissionError();
-        }
-        const newRole = settings.defaultRole?.role;
-        if (newRole) {
-          // Only gate a change so an existing non-admin default keeps working
-          assertRoleChangeAllowed(org, getDefaultRole(org).role, newRole);
-        }
       } else {
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();
         }
       }
     });
+    if ("defaultRole" in settings) {
+      await sanitizeDefaultRoleUpdate(context, settings);
+    }
   }
 
   try {
@@ -1788,18 +1803,21 @@ export async function putOrganization(
       orig.externalId = org.externalId;
     }
     if (settings) {
-      updates.settings = {
-        ...org.settings,
-        // Drops rule references to deleted teams/environments, so the settings
-        // UI's "Saving removes it" note is true.
-        ...pruneApprovalRuleReferences(
-          normalizeApprovalRuleSettings(settings),
-          {
-            environments: (org.settings?.environments ?? []).map((e) => e.id),
-            teams: (context.teams ?? []).map((t) => t.id),
-          },
-        ),
-      };
+      // Drops rule references to deleted teams, environments, and projects, so
+      // the settings UI's "Saving removes it" note is true and a stale
+      // round-tripped rule can never block the save.
+      const pruned = pruneApprovalRuleReferences(
+        normalizeApprovalRuleSettings(settings),
+        {
+          environments: (org.settings?.environments ?? []).map((e) => e.id),
+          teams: (context.teams ?? []).map((t) => t.id),
+          projects: await context.getAllProjectIds(),
+        },
+      );
+      if (pruned.targetingReviewMode) {
+        assertTargetingRulesDisjoint(pruned.targetingReviewMode);
+      }
+      updates.settings = { ...org.settings, ...pruned };
       orig.settings = org.settings;
     }
 
@@ -2356,11 +2374,16 @@ export async function addOrphanedUser(
     );
   }
 
-  const { org } = getContextFromReq(req);
+  const { org } = context;
 
   const { id } = req.params;
-  const { role, environments, limitAccessByEnvironment, projectRoles } =
-    req.body;
+  const {
+    role,
+    environments,
+    limitAccessByEnvironment,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
 
   // Make sure user exists
   const user = await getUserById(id);
@@ -2387,7 +2410,9 @@ export async function addOrphanedUser(
       limitAccessByEnvironment,
       environments,
       projectRoles,
+      additionalRoles,
     });
+    await assertProjectRulesReferenceProjects(context, undefined, projectRoles);
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -2411,6 +2436,7 @@ export async function addOrphanedUser(
     environments,
     limitAccessByEnvironment,
     projectRoles,
+    additionalRoles,
   });
 
   return res.status(200).json({
@@ -2557,29 +2583,31 @@ export async function putDefaultRole(
   const { org } = context;
   const { defaultRole } = req.body;
 
-  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+  await assertCanUpdateDefaultRole(context, defaultRole);
 
-  if (!commercialFeatures.includes("sso")) {
-    throw new Error(
-      "Must have a commercial License Key to update the organization's default role.",
-    );
-  }
-
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Only gate a change so an existing non-admin default keeps working
-  assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
-
-  assertMemberRoleInfoValid(org, defaultRole);
-
-  updateOrganization(org.id, {
+  await updateOrganization(org.id, {
     settings: {
       ...org.settings,
       defaultRole,
     },
   });
+
+  try {
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(
+        { settings: { defaultRole: org.settings?.defaultRole } },
+        { settings: { defaultRole } },
+      ),
+    });
+  } catch (e) {
+    // The role is already saved; don't report the update as failed
+    req.log.error(e, "Failed to audit default role update");
+  }
 
   res.status(200).json({
     status: 200,

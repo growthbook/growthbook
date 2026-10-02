@@ -35,6 +35,7 @@ jest.mock("shared/util", () => ({
 }));
 
 jest.mock("back-end/src/services/featurePublishGates", () => ({
+  ...jest.requireActual("back-end/src/services/featurePublishGates"),
   assessRevisionApproval: jest.fn(),
 }));
 
@@ -85,6 +86,7 @@ const approvalSatisfied = {
   uncoveredApprovers: [],
   hasCoveringApproval: false,
   requiredApproverTeams: { satisfied: true, unmet: [] },
+  requiredProjectApprovers: { satisfied: true, unmet: [] },
   satisfied: true,
 };
 const approvalBlocked = {

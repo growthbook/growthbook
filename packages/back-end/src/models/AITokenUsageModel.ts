@@ -4,6 +4,7 @@ import { AITokenUsageInterface } from "shared/ai";
 import { OrganizationInterface } from "shared/types/organization";
 import { parseEnvInt } from "shared/util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise/licenseUtil";
 
 type AITokenUsageDocument = mongoose.Document & AITokenUsageInterface;
 
@@ -12,6 +13,8 @@ const DAILY_TOKEN_LIMIT = parseEnvInt(
   1_000_000,
   { min: 1, name: "OPENAI_DAILY_TOKEN_LIMIT" },
 );
+// Enterprise usage is currently uncapped.
+const ENTERPRISE_DAILY_TOKEN_LIMIT = Infinity;
 const RESET_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
 const aiTokenUsageSchema = new mongoose.Schema({
@@ -32,6 +35,14 @@ const AITokenUsageModel = mongoose.model<AITokenUsageDocument>(
 const toInterface = (doc: AITokenUsageDocument): AITokenUsageInterface =>
   omit(doc.toJSON<AITokenUsageDocument>(), ["__v", "_id"]);
 
+export const getDailyTokenLimit = (
+  organization: OrganizationInterface,
+  storedLimit: number,
+): number =>
+  getEffectiveAccountPlan(organization) === "enterprise"
+    ? ENTERPRISE_DAILY_TOKEN_LIMIT
+    : storedLimit;
+
 export const updateTokenUsage = async ({
   organization,
   numTokensUsed,
@@ -46,28 +57,26 @@ export const updateTokenUsage = async ({
       lastResetAt: new Date().getTime(),
     };
   }
-  let tokenUsage = await AITokenUsageModel.findOne({
-    organization: organization.id,
-  });
-
-  if (!tokenUsage) {
-    tokenUsage = await AITokenUsageModel.create({
-      organization: organization.id,
-      numTokensUsed: 0,
-      lastResetAt: new Date().getTime(),
-    });
-  }
-
-  const lastResetAt = tokenUsage.lastResetAt;
   const now = new Date().getTime();
-  if (now - lastResetAt > RESET_INTERVAL) {
-    tokenUsage.lastResetAt = now;
-    tokenUsage.numTokensUsed = 0;
-  }
 
-  tokenUsage.numTokensUsed += numTokensUsed;
+  // Roll the window first; the filter stops matching once one writer resets it.
+  await AITokenUsageModel.updateOne(
+    {
+      organization: organization.id,
+      lastResetAt: { $lt: now - RESET_INTERVAL },
+    },
+    { $set: { numTokensUsed: 0, lastResetAt: now } },
+  );
 
-  await tokenUsage.save();
+  // $inc, not read-modify-save: concurrent calls used to overwrite each other's charge.
+  const tokenUsage = await AITokenUsageModel.findOneAndUpdate(
+    { organization: organization.id },
+    {
+      $inc: { numTokensUsed },
+      $setOnInsert: { lastResetAt: now, dailyLimit: DAILY_TOKEN_LIMIT },
+    },
+    { new: true, upsert: true },
+  );
 
   return toInterface(tokenUsage);
 };
@@ -90,6 +99,9 @@ export const getTokensUsedByOrganization = async (
     organization,
     numTokensUsed: 0,
   });
-  const nextResetAt = lastResetAt + RESET_INTERVAL;
-  return { numTokensUsed, dailyLimit, nextResetAt };
+  return {
+    numTokensUsed,
+    dailyLimit: getDailyTokenLimit(organization, dailyLimit),
+    nextResetAt: lastResetAt + RESET_INTERVAL,
+  };
 };

@@ -1,9 +1,12 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getEffectiveLookbackOverride } from "shared/experiments";
-import { getSnapshotAnalysis } from "shared/util";
-import { ago, date, datetime, getValidDate } from "shared/dates";
-import React, { RefObject, useEffect, useMemo, useState } from "react";
+import {
+  resolveAnalysisIdentifierType,
+  getSnapshotAnalysis,
+} from "shared/util";
+import { ago, date, datetime } from "shared/dates";
+import React, { RefObject, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
 import { Box, Text } from "@radix-ui/themes";
 import { startCase } from "lodash";
@@ -23,7 +26,7 @@ const numberFormatter = Intl.NumberFormat();
 
 export default function ReportAnalysisSettingsBar({
   report,
-  snapshot: _snapshot,
+  snapshot,
   mutateReport,
   mutateSnapshot,
   ssrPolyfills,
@@ -43,19 +46,6 @@ export default function ReportAnalysisSettingsBar({
   const { apiCall } = useAuth();
 
   const [refreshError, setRefreshError] = useState("");
-  const [snapshot, setSnapshot] = useState<
-    ExperimentSnapshotInterface | undefined
-  >(_snapshot);
-  useEffect(() => {
-    if (
-      _snapshot &&
-      (!snapshot ||
-        getValidDate(_snapshot?.runStarted) >
-          getValidDate(snapshot?.runStarted))
-    ) {
-      setSnapshot(_snapshot);
-    }
-  }, [_snapshot, snapshot]);
 
   const analysis = snapshot
     ? (getSnapshotAnalysis(snapshot) ?? undefined)
@@ -72,9 +62,15 @@ export default function ReportAnalysisSettingsBar({
     report.experimentAnalysisSettings.lookbackOverride,
   );
 
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,
-  )?.userIdType;
+  /** The identifier the shown snapshot ran on, not the report's current one. */
+  const userIdType =
+    snapshot?.settings.exposureQueryIdentifierType ??
+    resolveAnalysisIdentifierType(
+      datasourceSettings?.queries?.exposure?.find(
+        (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,
+      ),
+      report.experimentAnalysisSettings.exposureQueryIdentifierType,
+    );
 
   const totalUnits = useMemo(() => {
     let totalUsers = 0;
@@ -234,19 +230,16 @@ export default function ReportAnalysisSettingsBar({
                   await mutateSnapshot();
                 }}
                 model={snapshot}
-                cancelEndpoint={`/report/${report.id}/cancel`}
+                cancelEndpoint={`/snapshot/${snapshot.id}/cancel`}
                 radixVariant="soft"
                 onSubmit={async () => {
                   try {
-                    const res = await apiCall<{
-                      snapshot: ExperimentSnapshotInterface;
-                    }>(`/report/${report.id}/refresh`, {
+                    await apiCall(`/report/${report.id}/refresh`, {
                       method: "POST",
                     });
-                    if (res.snapshot) {
-                      setSnapshot(res.snapshot);
-                    }
                     setRefreshError("");
+                    await mutateReport();
+                    await mutateSnapshot();
                   } catch (e) {
                     setRefreshError(e.message);
                   }

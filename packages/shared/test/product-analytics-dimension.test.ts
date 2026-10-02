@@ -13,6 +13,7 @@ const helpers: SqlDialect = {
     `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
   evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
   dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
+  concatStrings: (parts) => parts.join(" || "),
   percentileApprox: (col, quantile) => `APPROX_PERCENTILE(${col}, ${quantile})`,
   hllReaggregate: (col) => `HLL_MERGE(${col})`,
   hllCardinality: (col) => `HLL_COUNT(${col})`,
@@ -22,6 +23,7 @@ const helpers: SqlDialect = {
   toTimestamp: (d: Date) => `'${d.toISOString().substring(0, 10)} 00:00:00'`,
   formatDialect: "bigquery",
   castToFloat: (col) => `CAST(${col} AS FLOAT)`,
+  castToString: (col) => `CAST(${col} AS STRING)`,
 };
 
 function makeColumn(overrides: Partial<ColumnInterface>): ColumnInterface {
@@ -170,6 +172,32 @@ describe("generateDimensionExpression", () => {
       );
       expect(norm(result)).toBe(
         "CASE WHEN props:'plan'::text IN (SELECT value FROM _dimension0_top) THEN props:'plan'::text ELSE 'other' END",
+      );
+    });
+
+    it("casts a non-string column so the CASE and its 'other' fallback agree", () => {
+      const result = generateDimensionExpression(
+        { dimensionType: "dynamic", column: "event_time", maxValues: 5 },
+        0,
+        makeFactTableGroup(),
+        helpers,
+        dateRange,
+      );
+      expect(norm(result)).toBe(
+        "CASE WHEN CAST(event_time AS STRING) IN (SELECT value FROM _dimension0_top) THEN CAST(event_time AS STRING) ELSE 'other' END",
+      );
+    });
+
+    it("casts a numeric JSON field, which is also compared against 'other'", () => {
+      const result = generateDimensionExpression(
+        { dimensionType: "dynamic", column: "props.amount", maxValues: 5 },
+        0,
+        makeFactTableGroup(),
+        helpers,
+        dateRange,
+      );
+      expect(norm(result)).toBe(
+        "CASE WHEN CAST(props:'amount'::float AS STRING) IN (SELECT value FROM _dimension0_top) THEN CAST(props:'amount'::float AS STRING) ELSE 'other' END",
       );
     });
 

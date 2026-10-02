@@ -1,15 +1,10 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import { banditStageType, variation } from "./experiments";
+import { banditStageType, screenshot, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
-import {
-  booleanQueryField,
-  featurePrerequisite,
-  savedGroupTargeting,
-} from "./shared";
-import { contextualLeafClauseValidator } from "./contextual-bandit-event";
+import { featurePrerequisite, savedGroupTargeting } from "./shared";
 
 export const MAX_CONTEXTUAL_BANDIT_LEAVES = 12;
 
@@ -29,6 +24,24 @@ export type LeafWeight = z.infer<typeof leafWeightValidator>;
 export const contextualBanditStatus = ["draft", "running", "stopped"] as const;
 export type ContextualBanditStatus = (typeof contextualBanditStatus)[number];
 
+// Absent = "active". See contextual-bandit-variation-changes.ts for semantics.
+const contextualBanditVariationStatus = [
+  "active",
+  "pending",
+  "deactivated",
+] as const;
+export type ContextualBanditVariationStatus =
+  (typeof contextualBanditVariationStatus)[number];
+
+// Only the stored document carries status; the server owns transitions.
+const contextualBanditVariation = variation.extend({
+  key: z.string().regex(/\S/, "Variation key cannot be empty."),
+  status: z.enum(contextualBanditVariationStatus).optional(),
+});
+export type ContextualBanditVariation = z.infer<
+  typeof contextualBanditVariation
+>;
+
 export const contextualBanditValidator = baseSchema
   .extend({
     name: z.string(),
@@ -45,7 +58,7 @@ export const contextualBanditValidator = baseSchema
     trackingKey: z.string(),
     hashAttribute: z.string(),
 
-    variations: z.array(variation),
+    variations: z.array(contextualBanditVariation),
 
     datasource: z.string(),
     contextualBanditQueryId: z.string(),
@@ -106,6 +119,8 @@ const apiContextualBanditVariation = z.object({
   key: z.string(),
   name: z.string(),
   description: z.string().optional(),
+  // Tombstones are stripped from API responses; "deactivated" never appears here.
+  status: z.enum(["active", "pending"]).optional(),
 });
 
 export const apiContextualBanditValidator = namedSchema(
@@ -226,8 +241,6 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   trackingKey: z.string().optional(),
   hashAttribute: z.string().optional(),
 
-  variations: z.array(variation).optional(),
-
   datasource: z.string().optional(),
   contextualBanditQueryId: z.string().optional(),
 
@@ -255,7 +268,6 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
   seed: z.string().optional(),
-  variationWeights: z.array(variationWeightPairValidator).optional(),
 });
 
 export type ApiUpdateContextualBanditBody = z.infer<
@@ -271,7 +283,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "tags",
   "trackingKey",
   "hashAttribute",
-  "variations",
   "datasource",
   "contextualBanditQueryId",
   "contextualAttributes",
@@ -291,7 +302,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "savedGroups",
   "prerequisites",
   "seed",
-  "variationWeights",
 ] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];
 
 export const apiContextualBanditStartValidator = {
@@ -310,8 +320,75 @@ export const apiContextualBanditStopValidator = {
   querySchema: z.never(),
 };
 
+export const apiContextualBanditUpdateVariationsValidator = {
+  paramsSchema: z.strictObject({ id: z.string() }),
+  bodySchema: z.strictObject({
+    addVariations: z
+      .array(
+        variation.extend({
+          id: z.string().optional(),
+          key: z.string().optional(),
+          screenshots: z.array(screenshot).optional(),
+          values: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe(
+              'Value this new arm serves on each currently-linked feature, keyed by feature id. Required for every linked feature. Encode as a string for every `valueType` (`"true"`, `"5"`, `"{\\"a\\":1}"`), matching how `feature.defaultValue` is set.',
+            ),
+        }),
+      )
+      .optional()
+      .describe(
+        "New arms to add. Omit `id` to have the server generate one and `key` to have the server assign the next integer.",
+      ),
+    removeVariationIds: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Ids of active arms to remove. Removed arms are tombstoned in place and their ids can never be re-added.",
+      ),
+    updateVariations: z
+      .array(
+        z.strictObject({
+          id: z.string(),
+          name: z.string().optional(),
+          description: z.string().optional(),
+          key: z
+            .string()
+            .optional()
+            .describe(
+              "New key for the arm. Must be unique across the contextual bandit's arms, including removed ones. The key is what SDKs report in exposure events, so renaming an arm on a running bandit orphans exposures already recorded under the old key.",
+            ),
+        }),
+      )
+      .optional()
+      .describe(
+        "Metadata edits to existing active arms. `name`, `description`, and `key` may be changed; values, weights, screenshots, and status are preserved.",
+      ),
+  }),
+  querySchema: z.never(),
+};
+
 export const apiContextualBanditLifecycleReturn = z.object({
   contextualBandit: apiContextualBanditValidator,
+});
+
+/**
+ * Return shape for the add/remove-variations endpoint. `featureDraftPublishFailures`
+ * lists linked features whose value for a newly-added arm was staged as a draft
+ * but could not be auto-published (e.g. needs approval), so the caller/UI can warn.
+ */
+export const apiContextualBanditVariationsReturn = z.object({
+  contextualBandit: apiContextualBanditValidator,
+  featureDraftPublishFailures: z
+    .array(
+      z.object({
+        featureId: z.string(),
+        revisionVersion: z.number(),
+        reason: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export const apiContextualBanditRefreshValidator = {
@@ -341,32 +418,32 @@ export const apiContextualBanditCancelReturn = z
   })
   .describe("Contextual Bandit snapshot refresh canceled");
 
-const contextualBanditIdAndSnapshotParam = z
+export const contextualBanditIdAndSnapshotParam = z
   .object({
     id: z.string().describe("The Contextual Bandit id"),
     snapshotId: z.string().describe("The snapshot id"),
   })
   .strict();
 
-const contextualBanditIdAndEventParam = z
+export const contextualBanditIdAndEventParam = z
   .object({
     id: z.string().describe("The Contextual Bandit id"),
     eventId: z.string().describe("The event id"),
   })
   .strict();
 
-const contextualBanditIdOnlyParam = z
+export const contextualBanditIdOnlyParam = z
   .object({ id: z.string().describe("The Contextual Bandit id") })
   .strict();
 
-const contextualBanditIdAndFeatureParam = z
+export const contextualBanditIdAndFeatureParam = z
   .object({
     id: z.string().describe("The Contextual Bandit id"),
     featureId: z.string().describe("The linked feature id"),
   })
   .strict();
 
-const contextualBanditSnapshotResponseShape = z.object({
+export const contextualBanditSnapshotResponseShape = z.object({
   id: z.string(),
   contextualBandit: z.string(),
   status: z.enum(["pending", "running", "success", "error", "partial"]),
@@ -376,7 +453,7 @@ const contextualBanditSnapshotResponseShape = z.object({
   dateCreated: z.string(),
 });
 
-const contextualBanditEventResponseShape = z.object({
+export const contextualBanditEventResponseShape = z.object({
   id: z.string(),
   contextualBandit: z.string(),
   snapshotId: z.string(),
@@ -385,227 +462,7 @@ const contextualBanditEventResponseShape = z.object({
   dateCreated: z.string(),
 });
 
-export const getContextualBanditCurrentWeightsValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: contextualBanditIdOnlyParam,
-  responseSchema: z
-    .object({
-      currentLeafWeights: z.array(leafWeightValidator).optional(),
-      latestEvent: contextualBanditEventResponseShape.nullable(),
-    })
-    .strict(),
-  summary: "Get current Contextual Bandit leaf weights and latest event",
-  operationId: "getContextualBanditCurrentWeights",
-  tags: ["ContextualBandits"],
-  method: "get" as const,
-  path: "/contextual-bandits/:id/current",
-};
-
-export const listContextualBanditSnapshotsValidator = {
-  bodySchema: z.never(),
-  querySchema: z
-    .object({
-      limit: z.coerce.number().int().positive().max(100).optional(),
-    })
-    .strict()
-    .optional(),
-  paramsSchema: contextualBanditIdOnlyParam,
-  responseSchema: z
-    .object({ snapshots: z.array(contextualBanditSnapshotResponseShape) })
-    .strict(),
-  summary: "List Contextual Bandit snapshots",
-  operationId: "listContextualBanditSnapshots",
-  tags: ["ContextualBandits"],
-  method: "get" as const,
-  path: "/contextual-bandits/:id/snapshots",
-};
-
-export const getContextualBanditSnapshotValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: contextualBanditIdAndSnapshotParam,
-  responseSchema: z
-    .object({ snapshot: contextualBanditSnapshotResponseShape })
-    .strict(),
-  summary: "Get a single Contextual Bandit snapshot",
-  operationId: "getContextualBanditSnapshot",
-  tags: ["ContextualBandits"],
-  method: "get" as const,
-  path: "/contextual-bandits/:id/snapshots/:snapshotId",
-};
-
-export const listContextualBanditEventsValidator = {
-  bodySchema: z.never(),
-  querySchema: z
-    .object({
-      limit: z.coerce.number().int().positive().max(100).optional(),
-    })
-    .strict()
-    .optional(),
-  paramsSchema: contextualBanditIdOnlyParam,
-  responseSchema: z
-    .object({ events: z.array(contextualBanditEventResponseShape) })
-    .strict(),
-  summary: "List Contextual Bandit weight-update events",
-  operationId: "listContextualBanditEvents",
-  tags: ["ContextualBandits"],
-  method: "get" as const,
-  path: "/contextual-bandits/:id/events",
-};
-
-export const getContextualBanditEventValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: contextualBanditIdAndEventParam,
-  responseSchema: z
-    .object({ event: contextualBanditEventResponseShape })
-    .strict(),
-  summary: "Get a single Contextual Bandit weight-update event",
-  operationId: "getContextualBanditEvent",
-  tags: ["ContextualBandits"],
-  method: "get" as const,
-  path: "/contextual-bandits/:id/events/:eventId",
-};
-
-export const getContextualBanditResultsValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: contextualBanditIdOnlyParam,
-  responseSchema: z
-    .object({
-      contextualBanditSnapshot: z
-        .object({
-          attributes: z.array(z.string()),
-          responses: z.array(z.unknown()),
-          leaf_map: z.array(z.unknown()).optional(),
-          leaf_stats: z.array(z.unknown()).optional(),
-          sse_trajectory: z.array(z.unknown()).optional(),
-          bic_trajectory: z.array(z.unknown()).optional(),
-        })
-        .nullable(),
-      overallWeights: z
-        .array(
-          z.object({
-            variationId: z.string(),
-            weight: z.number().nullable(),
-          }),
-        )
-        .nullable(),
-      results: z
-        .object({
-          attributes: z.array(z.string()),
-          sseTrajectory: z.array(
-            z.object({
-              numSplits: z.number().int().nonnegative(),
-              totalSse: z.number(),
-              split: z
-                .object({
-                  leafClauses: z.array(contextualLeafClauseValidator),
-                  attribute: z.string(),
-                  leftLevels: z.array(z.string()),
-                  rightLevels: z.array(z.string()),
-                })
-                .optional(),
-            }),
-          ),
-          overall: z.object({
-            variations: z.array(
-              z.object({
-                variationId: z.string(),
-                variationName: z.string().optional(),
-                weight: z.number().nullable(),
-                mean: z.number().nullable(),
-                users: z.number().nullable(),
-              }),
-            ),
-          }),
-          leaves: z.array(
-            z.object({
-              leafId: z.number().int(),
-              updateMessage: z.string().nullable(),
-              error: z.string().nullable(),
-              clauses: z.array(contextualLeafClauseValidator),
-              variations: z.array(
-                z.object({
-                  variationId: z.string(),
-                  variationName: z.string().optional(),
-                  weight: z.number().nullable(),
-                  bestArmProbability: z.number().nullable(),
-                  users: z.number().nullable(),
-                  mean: z.number().nullable(),
-                  variance: z.number().nullable(),
-                }),
-              ),
-              contexts: z.array(
-                z.object({
-                  attributes: z.record(z.string(), z.string()),
-                  variations: z.array(
-                    z.object({
-                      variationId: z.string(),
-                      variationName: z.string().optional(),
-                      users: z.number().nullable(),
-                      mean: z.number().nullable(),
-                      variance: z.number().nullable(),
-                    }),
-                  ),
-                }),
-              ),
-            }),
-          ),
-        })
-        .nullable(),
-      latest: z
-        .object({
-          id: z.string(),
-          status: z.enum(["running", "success", "error"]),
-          error: z.string(),
-          queries: z.array(z.unknown()),
-          runStarted: z.string().nullable(),
-          dateCreated: z.string(),
-          multipleExposures: z.number(),
-          type: z.string(),
-          triggeredBy: z.string(),
-          srm: z
-            .object({
-              statistic: z.number(),
-              pValue: z.number(),
-              degreesOfFreedom: z.number().int().nonnegative(),
-            })
-            .nullable(),
-        })
-        .nullable(),
-    })
-    .strict(),
-  summary: "Get latest Contextual Bandit results",
-  description:
-    "Returns the latest contextual-bandit stats engine output (per-context responses tagged with their leaf, the per-leaf targeting conditions, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
-  operationId: "getContextualBanditResults",
-  tags: ["ContextualBandits"],
-  method: "get" as const,
-  path: "/contextual-bandits/:id/results",
-};
-
-export const getContextualBanditLinkedFeaturesValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: contextualBanditIdOnlyParam,
-  responseSchema: z
-    .object({
-      linkedFeatures: z.array(z.unknown()),
-      environments: z.array(z.string()),
-    })
-    .strict(),
-  summary: "Get features linked to a Contextual Bandit",
-  description:
-    "Returns the features that reference this contextual bandit via a `contextual-bandit-ref` rule, enriched with each feature's live/draft state, per-environment rule state, and variation values. Same payload the GrowthBook UI uses to render the Linked Features section.",
-  operationId: "getContextualBanditLinkedFeatures",
-  tags: ["ContextualBandits"],
-  method: "get" as const,
-  path: "/contextual-bandits/:id/linked-features",
-};
-
-const contextualBanditLinkedFeatureRuleFields = {
+export const contextualBanditLinkedFeatureRuleFields = {
   variations: z
     .array(
       z
@@ -644,93 +501,7 @@ const contextualBanditLinkedFeatureRuleFields = {
     ),
 };
 
-const contextualBanditLinkedFeatureDraftVersionField = z.coerce
+export const contextualBanditLinkedFeatureDraftVersionField = z.coerce
   .number()
   .int()
   .optional();
-
-export const addContextualBanditLinkedFeatureValidator = {
-  bodySchema: z
-    .object({
-      ...contextualBanditLinkedFeatureRuleFields,
-      draftVersion: contextualBanditLinkedFeatureDraftVersionField.describe(
-        "Add the rule to this existing draft revision instead of starting a new one.",
-      ),
-    })
-    .strict(),
-  querySchema: z.never(),
-  paramsSchema: contextualBanditIdAndFeatureParam,
-  responseSchema: z
-    .object({
-      featureId: z.string(),
-      ruleId: z.string(),
-      revisionVersion: z.number(),
-      published: z.boolean(),
-    })
-    .strict(),
-  summary: "Link a feature to a Contextual Bandit",
-  description:
-    "Adds a `contextual-bandit-ref` rule to the bottom of the feature's rule list and links the feature to this contextual bandit. The rule lands in a draft revision that auto-publishes when the contextual bandit starts, unless `autoPublish` is set. Targeting (condition, Saved Groups, prerequisites, coverage) is inherited from the contextual bandit and cannot be set on the rule.",
-  operationId: "addContextualBanditLinkedFeature",
-  tags: ["ContextualBandits"],
-  method: "post" as const,
-  path: "/contextual-bandits/:id/linked-feature/:featureId",
-};
-
-export const updateContextualBanditLinkedFeatureValidator = {
-  bodySchema: z
-    .object({
-      ...contextualBanditLinkedFeatureRuleFields,
-      draftVersion: contextualBanditLinkedFeatureDraftVersionField.describe(
-        "Update the rule on this existing draft revision instead of starting a new one.",
-      ),
-    })
-    .strict(),
-  querySchema: z.never(),
-  paramsSchema: contextualBanditIdAndFeatureParam,
-  responseSchema: z
-    .object({
-      featureId: z.string(),
-      ruleIds: z.array(z.string()),
-      revisionVersion: z.number(),
-      published: z.boolean(),
-    })
-    .strict(),
-  summary: "Replace a Contextual Bandit's rule on a linked feature",
-  description:
-    "Replaces every `contextual-bandit-ref` rule pointing at this contextual bandit on the feature, keeping each rule's id and position in the rule list. Every field is replaced, so omitted optional fields revert to their defaults. Returns a 400 when the feature has no such rule on the target revision, or when it has several that are not identical to each other. The change lands in a draft revision that auto-publishes when the contextual bandit starts, unless `autoPublish` is set. Targeting (condition, Saved Groups, prerequisites, coverage) is inherited from the contextual bandit and cannot be set on the rule.",
-  operationId: "updateContextualBanditLinkedFeature",
-  tags: ["ContextualBandits"],
-  method: "put" as const,
-  path: "/contextual-bandits/:id/linked-feature/:featureId",
-};
-
-export const deleteContextualBanditLinkedFeatureValidator = {
-  bodySchema: z.never(),
-  querySchema: z
-    .object({
-      autoPublish: booleanQueryField.describe(
-        "Publish the resulting revision immediately instead of leaving it as a draft.",
-      ),
-      draftVersion: contextualBanditLinkedFeatureDraftVersionField.describe(
-        "Remove the rule from this existing draft revision instead of live. Required when the rule hasn't been published yet — omitting it targets the live revision, which has nothing to remove.",
-      ),
-    })
-    .strict(),
-  paramsSchema: contextualBanditIdAndFeatureParam,
-  responseSchema: z
-    .object({
-      featureId: z.string(),
-      removedRuleIds: z.array(z.string()),
-      revisionVersion: z.number().nullable(),
-      published: z.boolean(),
-    })
-    .strict(),
-  summary: "Unlink a feature from a Contextual Bandit",
-  description:
-    "Removes every `contextual-bandit-ref` rule pointing at this contextual bandit from the feature and drops the feature from the bandit's linked-feature list. The rule removal lands in a draft revision unless `autoPublish` is set. When the feature has no such rule left, only the linkage is cleared.",
-  operationId: "deleteContextualBanditLinkedFeature",
-  tags: ["ContextualBandits"],
-  method: "delete" as const,
-  path: "/contextual-bandits/:id/linked-feature/:featureId",
-};

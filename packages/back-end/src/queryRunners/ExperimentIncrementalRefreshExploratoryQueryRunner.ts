@@ -1,3 +1,5 @@
+import { resolveExposureQueryForAnalysis } from "shared/util";
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   ExperimentMetricInterface,
   getFactMetricFactTableIds,
@@ -93,12 +95,12 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     throw new Error("Exposure query not found");
   }
 
-  const resolvedExposureQuery = {
-    query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
-  };
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
+    exposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
+  );
 
-  // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
+  // Only include metrics tied to this experiment, which is governed by the snapshotSettings.metricSettings
   // after the introduction of metric slices
   const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
     snapshotSettings,
@@ -318,7 +320,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     }
   }
 
-  // Multi-source pass — mirrors the main runner. Soft-skip any group whose
+  // Multi-source pass — mirrors the main runner. Soft-skip any metric whose
   // caches haven't all been built yet.
   const fanOut = planMetricFanOut(factMetrics);
   const multiSourceSubGroups = buildMultiSourceSubGroups<ExploratoryPipeline>({
@@ -414,11 +416,20 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       );
   }
 
+  prepareAnalysisData(
+    params: Pick<
+      ExperimentIncrementalRefreshExploratoryQueryParams,
+      "metricMap" | "variationNames"
+    >,
+  ): void {
+    this.metricMap = params.metricMap;
+    this.variationNames = params.variationNames;
+  }
+
   async startQueries(
     params: ExperimentIncrementalRefreshExploratoryQueryParams,
   ): Promise<Queries> {
-    this.metricMap = params.metricMap;
-    this.variationNames = params.variationNames;
+    this.prepareAnalysisData(params);
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
@@ -514,13 +525,15 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
+    // Reached from the runner's own failure paths, where neither the queries
+    // nor the analysis is known to be at fault.
     const wrote = await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
-      {
-        queries: this.model.queries,
-        error,
-      },
+      { queries: this.model.queries, error },
+      "unknown",
+      { concludedBy: this.concludedBy },
+      this.experimentUpdateExecutionLogger,
     );
     if (wrote) {
       await this.context.models.incrementalRefresh
@@ -540,12 +553,14 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     runStarted,
     result,
     error,
+    failureCause,
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -563,6 +578,8 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
+      conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

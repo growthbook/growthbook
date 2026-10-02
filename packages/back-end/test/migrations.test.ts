@@ -11,6 +11,7 @@ import { LegacyMetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
@@ -47,6 +48,7 @@ import {
   normalizeJsonSchemaDef,
   pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
+  upgradeExposureQuery,
   upgradeExperimentDoc,
   upgradeFeatureRule,
   upgradeMetricDoc,
@@ -1140,6 +1142,7 @@ describe("Datasource Migration", () => {
             name: "Logged-in User Experiments",
             query: "testing",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
           },
           {
             id: "anonymous_id",
@@ -1148,6 +1151,7 @@ describe("Datasource Migration", () => {
             name: "Anonymous Visitor Experiments",
             query: "testing",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
           },
         ],
       },
@@ -1198,6 +1202,7 @@ describe("Datasource Migration", () => {
             query:
               "SELECT\n  user_id as user_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
           },
           {
             id: "anonymous_id",
@@ -1207,10 +1212,104 @@ describe("Datasource Migration", () => {
             query:
               "SELECT\n  anonymous_id as anonymous_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
           },
         ],
       },
     });
+  });
+
+  it("normalizes exposure query identifier types", () => {
+    const datasource = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      name: "",
+      description: "",
+      organization: "",
+      params: "",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "legacy",
+              name: "Legacy",
+              userIdType: "user_id",
+              dimensions: [],
+              query: "SELECT user_id",
+            },
+            {
+              id: "multi",
+              name: "Multi",
+              userIdType: "anonymous_id",
+              userIdTypes: ["user_id", "anonymous_id"],
+              dimensions: [],
+              query: "SELECT user_id, anonymous_id",
+            },
+          ],
+        },
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const exposureQueries = upgradeDatasourceObject(cloneDeep(datasource))
+      .settings.queries?.exposure;
+
+    expect(exposureQueries?.[0]).toMatchObject({
+      userIdType: "user_id",
+      userIdTypes: ["user_id"],
+    });
+    // The legacy identifier is frozen, so it doesn't follow userIdTypes[0].
+    expect(exposureQueries?.[1]).toMatchObject({
+      userIdType: "anonymous_id",
+      userIdTypes: ["user_id", "anonymous_id"],
+    });
+  });
+
+  it("fills a missing legacy identifier from userIdTypes and drops empty scalars", () => {
+    expect(
+      upgradeExposureQuery({
+        id: "q",
+        name: "Q",
+        userIdType: "",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dimensions: [],
+        query: "",
+      }),
+    ).toMatchObject({ userIdType: "user_id" });
+    expect(
+      upgradeExposureQuery({
+        id: "q",
+        name: "Q",
+        userIdType: "",
+        userIdTypes: [],
+        dimensions: [],
+        query: "",
+      }).userIdTypes,
+    ).toEqual([]);
+  });
+
+  it("upgrades exposure queries idempotently", () => {
+    const queries: ExposureQuery[] = [
+      {
+        id: "legacy",
+        name: "Legacy",
+        userIdType: "user_id",
+        dimensions: [],
+        query: "",
+      } as unknown as ExposureQuery,
+      {
+        id: "multi",
+        name: "Multi",
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dimensions: [],
+        query: "",
+      },
+    ];
+    const once = queries.map((q) => upgradeExposureQuery(cloneDeep(q)));
+    const twice = once.map((q) => upgradeExposureQuery(cloneDeep(q)));
+    expect(twice).toEqual(once);
   });
 
   it("migrates pipelineSettings: add mode if not existing", () => {
@@ -1442,6 +1541,31 @@ describe("v0 Feature Migration", () => {
       ...origFeature,
       draft: undefined,
     });
+  });
+
+  it("stores a rule value written as a raw JSON type as its string form", () => {
+    const force = (value: unknown) =>
+      ({ id: "r", type: "force", value }) as unknown as FeatureRule;
+    expect(upgradeFeatureRule(force(false)).value).toBe("false");
+    expect(upgradeFeatureRule(force({ limit: 5 })).value).toBe('{"limit":5}');
+    expect(upgradeFeatureRule(force("true")).value).toBe("true");
+    expect(upgradeFeatureRule(force(undefined))).toEqual(force(undefined));
+  });
+
+  it("reads a stored null environments list as no environments", () => {
+    const rule = (fields: Record<string, unknown>) =>
+      ({
+        id: "r",
+        type: "force",
+        value: "x",
+        ...fields,
+      }) as unknown as FeatureRule;
+    expect(
+      upgradeFeatureRule(rule({ allEnvironments: false, environments: null })),
+    ).toEqual(rule({ allEnvironments: false, environments: [] }));
+    expect(
+      upgradeFeatureRule(rule({ allEnvironments: true, environments: null })),
+    ).toEqual(rule({ allEnvironments: true }));
   });
 
   it("migrates old feature rules", () => {

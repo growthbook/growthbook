@@ -25,9 +25,12 @@ export interface MultiSourceSubGroup<P> {
 }
 
 // Build the set of multi-source sub-groups for a fan-out. Each sub-group
-// collects metrics that need the same set of fact table caches joined — both
-// cross-FT ratio metrics and multi-FT funnel metrics. Metrics sharing the
-// same sorted FT set are grouped into a single joined stats query.
+// collects metrics that need the same set of cache tables joined — both
+// cross-FT ratio metrics and multi-FT funnel metrics. The stats query joins
+// exactly one cache table per fact table, so caches are resolved per metric:
+// a fact table's metrics are chunked across several cache tables once they
+// exceed the per-query column budget, and two metrics over the same fact
+// tables only share a stats query when every one of their caches match.
 //
 // When getWindowKey is set, metrics over the same caches but with different
 // conversion windows split into separate sub-groups.
@@ -35,7 +38,8 @@ export interface MultiSourceSubGroup<P> {
 // `onMissingPipeline` controls behavior when a metric's cache hasn't been
 // built yet:
 //   - "throw": main runner — missing pipeline is a bug.
-//   - "skip": exploratory runner — soft-skip until main run catches up.
+//   - "skip": exploratory runner — soft-skip the metric until the main run
+//     catches up.
 export function buildMultiSourceSubGroups<P extends MultiSourcePipelineRef>({
   multiSourceGroups,
   metricSourceGroups,
@@ -51,84 +55,61 @@ export function buildMultiSourceSubGroups<P extends MultiSourcePipelineRef>({
 }): MultiSourceSubGroup<P>[] {
   const subGroupMap = new Map<string, MultiSourceSubGroup<P>>();
 
-  for (const group of multiSourceGroups) {
-    // Resolve pipelines for each fact table in the group.
+  // Resolve the cache pipeline that holds `metric`'s columns for each fact
+  // table, sorted by groupId for a canonical key. Returns null when a cache is
+  // missing and onMissingPipeline is "skip".
+  const resolvePipelines = (
+    metric: FactMetricInterface,
+    factTableIds: string[],
+  ): P[] | null => {
     const pipelines: P[] = [];
-    const seenGroupIds = new Set<string>();
-    let skip = false;
-
-    for (const ftId of group.factTableIds) {
+    for (const ftId of factTableIds) {
       const sourceGroup = metricSourceGroups.find(
         (g) =>
-          g.factTableId === ftId &&
-          g.metrics.some((m) => group.metrics.some((gm) => gm.id === m.id)),
+          g.factTableId === ftId && g.metrics.some((m) => m.id === metric.id),
       );
-      if (!sourceGroup) {
-        if (onMissingPipeline === "throw") {
-          throw new Error(
-            `Multi-source metric group is missing a source group for fact table "${ftId}".`,
-          );
-        }
-        skip = true;
-        break;
-      }
-      if (seenGroupIds.has(sourceGroup.groupId)) continue;
-      seenGroupIds.add(sourceGroup.groupId);
-
-      const pipeline = pipelineByGroupId.get(sourceGroup.groupId);
+      const pipeline = sourceGroup
+        ? pipelineByGroupId.get(sourceGroup.groupId)
+        : undefined;
       if (!pipeline) {
         if (onMissingPipeline === "throw") {
           throw new Error(
-            `Multi-source metric group is missing its pipeline for group "${sourceGroup.groupId}".`,
+            `Multi-source metric "${metric.id}" is missing its source group or pipeline for fact table "${ftId}".`,
           );
         }
-        skip = true;
-        break;
+        return null;
       }
       pipelines.push(pipeline);
     }
-    if (skip) continue;
-
-    // Sort pipelines by groupId for a canonical key.
     pipelines.sort((a, b) => a.group.groupId.localeCompare(b.group.groupId));
-    const pipelineKey = pipelines.map((p) => p.group.groupId).join("__");
+    return pipelines;
+  };
 
-    if (!getWindowKey) {
-      // No window partitioning — all metrics in this group share one sub-group.
-      const existing = subGroupMap.get(pipelineKey);
+  for (const group of multiSourceGroups) {
+    for (const metric of group.metrics) {
+      const pipelines = resolvePipelines(metric, group.factTableIds);
+      if (!pipelines) continue;
+
+      const pipelineKey = pipelines.map((p) => p.group.groupId).join("__");
+      const windowKey = getWindowKey?.(metric) ?? null;
+      const subGroupKey = windowKey
+        ? `${pipelineKey}__${windowKey}`
+        : pipelineKey;
+      const crossFtEntry = group.crossFtRatioMetrics.find(
+        (c) => c.metric.id === metric.id,
+      );
+
+      const existing = subGroupMap.get(subGroupKey);
       if (existing) {
-        existing.metrics.push(...group.metrics);
-        existing.crossFtRatioMetrics.push(...group.crossFtRatioMetrics);
+        existing.metrics.push(metric);
+        if (crossFtEntry) existing.crossFtRatioMetrics.push(crossFtEntry);
       } else {
-        subGroupMap.set(pipelineKey, {
+        subGroupMap.set(subGroupKey, {
           pipelines,
-          metrics: [...group.metrics],
-          crossFtRatioMetrics: [...group.crossFtRatioMetrics],
-          windowKey: null,
+          metrics: [metric],
+          crossFtRatioMetrics: crossFtEntry ? [crossFtEntry] : [],
+          windowKey,
         });
-      }
-    } else {
-      // Partition by window key — metrics with different windows split.
-      for (const metric of group.metrics) {
-        const windowKey = getWindowKey(metric) ?? null;
-        const subGroupKey = windowKey
-          ? `${pipelineKey}__${windowKey}`
-          : pipelineKey;
-        const crossFtEntry = group.crossFtRatioMetrics.find(
-          (c) => c.metric.id === metric.id,
-        );
-        const existing = subGroupMap.get(subGroupKey);
-        if (existing) {
-          existing.metrics.push(metric);
-          if (crossFtEntry) existing.crossFtRatioMetrics.push(crossFtEntry);
-        } else {
-          subGroupMap.set(subGroupKey, {
-            pipelines,
-            metrics: [metric],
-            crossFtRatioMetrics: crossFtEntry ? [crossFtEntry] : [],
-            windowKey,
-          });
-        }
       }
     }
   }

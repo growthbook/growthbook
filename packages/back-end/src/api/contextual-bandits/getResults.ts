@@ -1,28 +1,38 @@
-import { getContextualBanditResultsValidator } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import {
   buildContextualBanditResultsView,
   computeOverallVariationWeights,
+  resolveSnapshotVariations,
 } from "shared/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getContextualBanditResultsForUi } from "back-end/src/enterprise/services/contextualBandits";
 import { loadContextualBanditForRead } from "./_shared";
 
 export const getContextualBanditResults = createApiRequestHandler(
-  getContextualBanditResultsValidator,
+  contextualBanditEndpoints.getContextualBanditResults,
 )(async (req) => {
   const { contextualBandit } = await loadContextualBanditForRead(
     req.context,
     req.params.id,
   );
-  const { contextualBanditSnapshot, latestSnapshotSummary, srm } =
-    await getContextualBanditResultsForUi(req.context, contextualBandit);
+  const {
+    contextualBanditSnapshot,
+    latestSnapshotSummary,
+    snapshotVariationIds,
+    srm,
+  } = await getContextualBanditResultsForUi(req.context, contextualBandit);
+
+  const snapshotVariations = resolveSnapshotVariations(
+    snapshotVariationIds ?? [],
+    contextualBandit.variations,
+  );
 
   const overallWeights = contextualBanditSnapshot
     ? computeOverallVariationWeights(
         contextualBanditSnapshot.responses,
-        contextualBandit.variations.length,
+        snapshotVariations.length,
       ).map((weight, i) => ({
-        variationId: contextualBandit.variations[i].id,
+        variationId: snapshotVariations[i].id,
         weight,
       }))
     : null;
@@ -30,7 +40,7 @@ export const getContextualBanditResults = createApiRequestHandler(
   const results = contextualBanditSnapshot
     ? buildContextualBanditResultsView(
         contextualBanditSnapshot,
-        contextualBandit.variations,
+        snapshotVariations,
       )
     : null;
 

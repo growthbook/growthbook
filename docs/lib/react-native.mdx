@@ -1,7 +1,6 @@
 ---
 title: React Native SDK
 description: Use the GrowthBook React Native SDK to evaluate feature flags and run A/B tests in iOS and Android apps, including targeting and tracking.
-slug: react-native
 toc_max_heading_level: 5
 ---
 
@@ -200,7 +199,7 @@ Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook inst
 
 #### Synchronous Init
 
-There is a alternate synchronous version of init named `initSync`, which can be especially useful in SSR to prevent hydration mismatches. There are some restrictions/differences:
+There is an alternate synchronous version of init named `initSync`, which can be especially useful in SSR to prevent hydration mismatches. There are some restrictions/differences:
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
@@ -240,7 +239,7 @@ React Native does not support SSE out-of-the-box, but there is a small helper li
 npm install --save react-native-sse
 ```
 
-The, tell GrowthBook to use this polyfill:
+Then, tell GrowthBook to use this polyfill:
 
 ```js
 import { setPolyfills } from "@growthbook/growthbook";
@@ -361,7 +360,7 @@ const gb = new GrowthBook({
 
 Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
-This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
+This same tracking callback is used for both feature flag experiments and AI Visual Editor experiments.
 
 ### Feature Flag Experiments
 
@@ -375,19 +374,19 @@ useFeatureIsOn("new-signup-form")
 
 If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
 
-### Visual Editor Experiments
+### AI Visual Editor Experiments
 
-Visual Editor experiments are not supported in React Native at this time.
+AI Visual Editor experiments are not supported in React Native at this time.
 
 ### URL Redirect Experiments
 
-URL Redirect experiments are no supported in React Native at this time.
+URL Redirect experiments are not supported in React Native at this time.
 
 ### Sticky Bucketing
 
 Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
 
-The JS SDK exports several implementations of this service for reference, although you will need to build your own to work in a React Native environments.
+The JS SDK exports several implementations of this service for reference, although you will need to build your own to work in a React Native environment.
 
 Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations.
 
@@ -457,7 +456,7 @@ const salt = "f09jq3fij"; // Your organization's secure attribute salt (see Orga
 // hashing a secureString attribute
 const userEmail = sha256(salt + user.email);
 
-// hashing an secureString[] attribute
+// hashing a secureString[] attribute
 const userTags = user.tags.map(tag => sha256(salt + tag));
 
 gb.setAttributes({
@@ -618,7 +617,7 @@ const isDarkModeOn = useFeatureIsOn("dark_mode");
 ## Examples
 
 - [React Native <ExternalLink />](https://github.com/growthbook/examples/tree/main/react-native-cli)
-- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+- [TypeScript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
 
 ## Supported Features
 

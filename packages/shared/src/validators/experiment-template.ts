@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
 import { customMetricSlice } from "./experiments";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
@@ -25,6 +29,7 @@ export const experimentTemplateInterface = baseSchema
 
     datasource: z.string(),
     exposureQueryId: z.string(),
+    exposureQueryIdentifierType: z.string().optional(),
 
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -40,7 +45,7 @@ export const experimentTemplateInterface = baseSchema
 
     // Located in phases array for ExperimentInterface
     targeting: z.object({
-      coverage: z.number(),
+      coverage: z.number().min(0).max(1),
       savedGroups: z.array(savedGroupTargeting).optional(),
       prerequisites: z.array(featurePrerequisite).optional(),
       condition: z.string(),
@@ -72,7 +77,7 @@ export const apiExperimentTemplateValidator = namedSchema(
     customFields: z.record(z.string(), z.string()).optional(),
 
     datasource: z.string(),
-    exposureQueryId: z.string(),
+    ...apiAssignmentQueryResponseFields("exposureQuery"),
 
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -88,7 +93,7 @@ export const apiExperimentTemplateValidator = namedSchema(
 
     // Located in phases array for ExperimentInterface
     targeting: z.object({
-      coverage: z.number(),
+      coverage: z.number().min(0).max(1),
       savedGroups: z.array(savedGroupTargeting).optional(),
       prerequisites: z.array(featurePrerequisite).optional(),
       condition: z.string(),
@@ -123,7 +128,7 @@ export const apiCreateExperimentTemplateBody = z.strictObject({
   customFields: z.record(z.string(), z.string()).optional(),
 
   datasource: z.string(),
-  exposureQueryId: z.string(),
+  ...apiAssignmentQueryInputFields("exposureQuery"),
 
   hashAttribute: z.string().optional(),
   fallbackAttribute: z.string().optional(),
@@ -138,7 +143,7 @@ export const apiCreateExperimentTemplateBody = z.strictObject({
   skipPartialData: z.boolean().optional(),
 
   targeting: z.object({
-    coverage: z.number(),
+    coverage: z.number().min(0).max(1),
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     condition: z.string(),

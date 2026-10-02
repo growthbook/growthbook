@@ -11,6 +11,8 @@ import {
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
   MergeResultChanges,
+  rebasedRevisionChanges,
+  REBASED_REVISION_FIELDS,
 } from "shared/util";
 import {
   FeatureInterface,
@@ -41,7 +43,16 @@ import {
   RevisionReview,
   reviewerKeyForEventUser,
 } from "shared/validators";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import {
+  featureForSavedGroupValidation,
+  Feature as SavedGroupScopeFeature,
+} from "back-end/src/util/savedGroupProjectScope.util";
 import { ConflictError } from "back-end/src/util/errors";
+import {
+  getFeatureRevisionValueUpdatesForPublish,
+  normalizeFeatureJSONValues,
+} from "back-end/src/util/featureValues";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -146,6 +157,11 @@ const featureRevisionSchema = new mongoose.Schema({
   metadata: {},
   holdout: {},
   rampActions: [{}],
+  // No default: absent (legacy, unrecorded) must stay distinct from empty.
+  rampAttachments: {
+    type: [{ _id: false, rampScheduleId: String, ruleId: String }],
+    default: undefined,
+  },
   // Users who have made edits to this draft beyond the original author.
   contributors: [{}],
   // Active reviewer verdicts for the current review cycle. Maintained by the
@@ -850,7 +866,11 @@ const SPARSE_REVISION_PROJECTION = {
   environmentsEnabled: 0,
   prerequisites: 0,
   archived: 0,
-  metadata: 0,
+  // Keep the small envelope fields: the approval inbox derives who may review
+  // a draft from its staged project and targeting.
+  "metadata.description": 0,
+  "metadata.jsonSchema": 0,
+  "metadata.customFields": 0,
   baseVersion: 0,
   datePublished: 0,
   publishedBy: 0,
@@ -939,6 +959,7 @@ export async function createInitialRevision(
   user: EventUser | null,
   environments: string[],
   date?: Date,
+  comment?: string,
 ) {
   const rules: FeatureRule[] = (feature.rules ?? [])
     .filter(isPlausibleFeatureRule)
@@ -962,7 +983,7 @@ export async function createInitialRevision(
     baseVersion: 0,
     status: "published",
     publishedBy: user,
-    comment: "",
+    comment: comment ?? "",
     defaultValue: feature.defaultValue,
     rules,
     environmentsEnabled,
@@ -1122,7 +1143,18 @@ export async function prepareFeatureRevision({
     ...(revertedFrom !== undefined ? { revertedFrom } : {}),
   } as FeatureRevisionInterface;
 
-  return { revision, baseRevision, baseVersion };
+  return {
+    revision: normalizeFeatureJSONValues(
+      // Like the values above, metadata inherits live plus changes; baseRevision is only the merge baseline.
+      { valueType: metadata.valueType ?? feature.valueType },
+      revision,
+      (metadata.valueType ?? feature.valueType) === feature.valueType
+        ? feature
+        : undefined,
+    ),
+    baseRevision,
+    baseVersion,
+  };
 }
 
 export async function createRevision({
@@ -1139,11 +1171,14 @@ export async function createRevision({
   canBypassApprovalChecks,
   revertedFrom,
   preInsertValidation,
+  savedGroupScopeBaseline,
 }: PrepareFeatureRevisionParams & {
   publish?: boolean;
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
   preInsertValidation?: (revision: FeatureRevisionInterface) => Promise<void>;
+  // Internal ramp restoration of persisted targeting; never request-supplied.
+  savedGroupScopeBaseline?: SavedGroupScopeFeature;
 }) {
   const prepared = await prepareFeatureRevision({
     context,
@@ -1158,6 +1193,12 @@ export async function createRevision({
   });
   const { revision, baseRevision } = prepared;
   baseVersion = prepared.baseVersion;
+
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, revision),
+    savedGroupScopeBaseline ? [feature, savedGroupScopeBaseline] : feature,
+  );
 
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -1376,7 +1417,9 @@ export function computeRevisionUpdate(
 
   // Persistence chokepoint: rules go through `normalizeRulesInputToV2`
   // (also dedups ids and logs collisions). No-op on already-v2 arrays.
-  const normalizedChanges: RevisionChanges =
+  const currentValueType = revision.metadata?.valueType ?? feature.valueType;
+  const valueType = changes.metadata?.valueType ?? currentValueType;
+  const normalizedRules =
     "rules" in changes && changes.rules !== undefined
       ? {
           ...changes,
@@ -1386,6 +1429,16 @@ export function computeRevisionUpdate(
           }),
         }
       : changes;
+  const normalizedChanges: RevisionChanges = normalizeFeatureJSONValues(
+    { valueType },
+    {
+      ...(valueType !== currentValueType
+        ? { defaultValue: revision.defaultValue, rules: revision.rules }
+        : {}),
+      ...normalizedRules,
+    },
+    valueType === currentValueType ? revision : undefined,
+  );
 
   // An approval was given for the draft as it stood. Derived here from the
   // edit itself, so no caller can add a gated change under a standing approval.
@@ -1450,6 +1503,11 @@ export async function prevalidateRevisionUpdate(
     revision,
     changes,
   );
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, proposedRevision),
+    featureForSavedGroupValidation(feature, revision),
+  );
   await runValidateFeatureRevisionHooks({
     context,
     feature,
@@ -1504,6 +1562,12 @@ export async function updateRevision(
     clearRevertedFrom,
     staleReviews,
   } = computeRevisionUpdate(context, feature, revision, changes, { rebase });
+
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, proposedRevision),
+    featureForSavedGroupValidation(feature, revision),
+  );
 
   await runValidateFeatureRevisionHooks({
     context,
@@ -1588,13 +1652,60 @@ export async function updateRevision(
   return updatedRevision;
 }
 
+// The merge a publish lands, so the published record can hold it.
+export type PublishRebase = {
+  result: MergeResultChanges;
+  environmentIds: string[];
+};
+
+// What the publish lands, written on the record the way a manual rebase writes
+// it: the merge over live, project scopes scrubbed. A current draft keeps its
+// base version and lands its own content.
+function landedRecord(
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  rebase: PublishRebase,
+) {
+  return rebasedRevisionChanges({
+    feature,
+    revision,
+    liveVersion: feature.version,
+    result: rebase.result,
+    environmentIds: rebase.environmentIds,
+    pruneRampActions: false,
+  });
+}
+
+// The live record as hooks see it, so they judge what this publish changes.
+export function liveRevisionBeforePublish(
+  revision: FeatureRevisionInterface,
+  feature: FeatureInterface,
+): FeatureRevisionInterface {
+  return {
+    ...revision,
+    ...liveRevisionFromFeature(
+      {
+        version: feature.version,
+        defaultValue: feature.defaultValue,
+        rules: feature.rules ?? [],
+      },
+      feature,
+    ),
+  };
+}
+
 // Pure computation of the changes markRevisionAsPublished() will validate and persist
 export function computeRevisionPublishChanges(
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
-  comment?: string,
+  comment: string | undefined,
+  rebase: PublishRebase,
 ): Partial<FeatureRevisionInterface> {
+  const landed = landedRecord(feature, revision, rebase).changes;
   return {
+    ...landed,
+    ...getFeatureRevisionValueUpdatesForPublish(feature, landed),
     status: "published",
     publishedBy: user,
     datePublished: new Date(),
@@ -1611,13 +1722,20 @@ export async function markRevisionAsPublished(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
+  rebase: PublishRebase,
   comment?: string,
 ): Promise<Date | null> {
   // "re-publish" only applies to a revision that was already live; publishing
   // an approved (or otherwise in-flight) draft for the first time is a "publish".
   const action = revision.status === "published" ? "re-publish" : "publish";
 
-  const changes = computeRevisionPublishChanges(revision, user, comment);
+  const changes = computeRevisionPublishChanges(
+    feature,
+    revision,
+    user,
+    comment,
+    rebase,
+  );
 
   await runValidateFeatureRevisionHooks({
     context,
@@ -1626,7 +1744,7 @@ export async function markRevisionAsPublished(
       ...revision,
       ...changes,
     },
-    original: revision,
+    original: liveRevisionBeforePublish(revision, feature),
   });
 
   // Guarded, like the bulk claim: unguarded, two concurrent publishes of the
@@ -1644,6 +1762,7 @@ export async function markRevisionAsPublished(
     );
   }
 
+  await logRebaseAtPublish(context, feature, revision, user, rebase);
   // Fire and forget - no route that marks the revision as published expects the log to be there immediately
   // Note: no comment in the payload — publish events are plain lifecycle
   // markers. Any publish-time comment only feeds the revision description
@@ -1664,6 +1783,30 @@ export async function markRevisionAsPublished(
   await dispatchRevisionPublishedHook(context, revision);
 
   return claimStamp;
+}
+
+// The rebase a publish performed on a draft behind live, logged ahead of the
+// publish entry the way a manual rebase is.
+async function logRebaseAtPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+  rebase: PublishRebase,
+): Promise<void> {
+  if (revision.baseVersion === feature.version) return;
+  try {
+    await context.models.featureRevisionLogs.create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "rebase",
+      subject: `on top of revision #${feature.version} at publish`,
+      user,
+      value: landedRecord(feature, revision, rebase).logValue,
+    });
+  } catch (e) {
+    logger.error(e, "Error creating revisionlog");
+  }
 }
 
 // The guarded publish transition, shared by every path that claims one: single
@@ -1729,14 +1872,16 @@ function revisionClaimBaseline(revision: FeatureRevisionInterface): {
 // and published-hook dispatch are deferred to
 // emitFeatureRevisionPublishedSideEffects.
 export async function claimFeatureRevisionAsPublished(
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
   expected: { status: string; dateUpdated: Date },
+  rebase: PublishRebase,
   comment?: string,
 ): Promise<{ claimed: boolean; claimStamp: Date | null }> {
   return applyRevisionPublishClaim(
     revision,
-    computeRevisionPublishChanges(revision, user, comment),
+    computeRevisionPublishChanges(feature, revision, user, comment, rebase),
     expected,
   );
 }
@@ -1763,8 +1908,18 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
     // datePublished, making this rollback a no-op instead of reverting it.
     ...(claimStamp ? { datePublished: claimStamp } : {}),
   };
+  // A behind-live claim rebased the record; put every rebased field back,
+  // dropping the ones the draft never carried.
+  const rebased: Record<string, unknown> = {};
+  const unset: Record<string, 1> = {};
+  for (const field of REBASED_REVISION_FIELDS) {
+    if (original[field] === undefined) unset[field] = 1;
+    else rebased[field] = original[field];
+  }
   const update = (withLockOthers: boolean) => ({
+    ...(Object.keys(unset).length ? { $unset: unset } : {}),
     $set: {
+      ...rebased,
       status: original.status,
       publishedBy: original.publishedBy ?? null,
       datePublished: original.datePublished ?? null,
@@ -1816,10 +1971,13 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
  */
 export async function emitFeatureRevisionPublishedSideEffects(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
+  rebase: PublishRebase,
 ): Promise<void> {
   const action = revision.status === "published" ? "re-publish" : "publish";
+  await logRebaseAtPublish(context, feature, revision, user, rebase);
   context.models.featureRevisionLogs
     .create({
       featureId: revision.featureId,
@@ -1867,10 +2025,12 @@ export async function markRevisionAsReviewRequested(
     );
   }
 
-  // The auto-publish later runs with the arming user's authority, so record
-  // who that was. Actors without a user ID (e.g. API keys) can still arm —
-  // the publish then falls back to `createdBy`.
-  const enabledBy = armed && user && "id" in user ? user.id : null;
+  // The auto-publish later runs with the armer's authority, so record who that
+  // was: a user as themselves, an org API key as itself, never the author.
+  const enabledBy =
+    !armed || !user
+      ? null
+      : ("id" in user && user.id) || ("apiKey" in user && user.apiKey) || null;
 
   const unset: Record<string, 1> = {};
   if (enabledBy === null) unset.autoPublishEnabledBy = 1;
@@ -2227,6 +2387,26 @@ export async function recordScheduledPublishFailure(
     { new: true },
   ).select("scheduledPublishAttempts");
   return doc?.scheduledPublishAttempts ?? 0;
+}
+
+// Raw write (no dateUpdated bump): the stamp is a CAS baseline other flows
+// guard on, and recording what landed is not an edit.
+export async function setRevisionRampAttachments(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+  rampAttachments: NonNullable<FeatureRevisionInterface["rampAttachments"]>,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+      status: "published",
+    },
+    { $set: { rampAttachments } },
+  );
 }
 
 // Delay the next poller retry of a failing scheduled publish (backoff). The
