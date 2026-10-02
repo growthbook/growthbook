@@ -930,12 +930,12 @@ export const notificationCategoryPresets: Record<
     default: [
       "experiment.status.started",
       "experiment.status.stopped",
-      "experiment.status.endingSoon",
-      "experiment.status.stale",
+      "experiment.deleted",
       "experiment.decision.ship",
       "experiment.decision.rollback",
       "experiment.decision.review",
       "experiment.warning",
+      "experiment.guardrailFailed",
     ],
     all: eventsInCategory("experiment"),
   },
@@ -946,12 +946,9 @@ export const notificationCategoryPresets: Record<
   feature: {
     default: [
       "feature.revision.published",
-      "feature.revision.reverted",
       "feature.saferollout.ship",
       "feature.saferollout.rollback",
       "feature.saferollout.unhealthy",
-      "feature.revision.reviewRequested",
-      "feature.revision.changesRequested",
     ],
     all: eventsInCategory("feature"),
   },
