@@ -651,12 +651,21 @@ export const recursiveWalk = (object: any, onNode: NodeHandler) => {
   if (object === null || typeof object !== "object") {
     return;
   }
-  // If currently walking over an object or array, iterate the entries and call onNode before recurring
-  Object.entries(object).forEach((node) => {
-    onNode(node, object);
-    // Recompute the reference for the recursive call as the key may have changed
-    recursiveWalk(object[node[0]], onNode);
-  });
+  const walked = new Set<string>();
+  let pending = Object.keys(object);
+  while (pending.length) {
+    for (const key of pending) {
+      walked.add(key);
+      // An earlier handler in this pass may have moved it
+      if (!(key in object)) continue;
+      onNode([key, object[key]], object);
+      // Recompute the reference for the recursive call as the key may have changed
+      recursiveWalk(object[key], onNode);
+    }
+    // A handler may have re-homed values under keys this pass has not seen,
+    // e.g. rewriting `$savedGroups` moves its siblings into a new `$and`.
+    pending = Object.keys(object).filter((key) => !walked.has(key));
+  }
 };
 
 export function truncateString(s: string, numChars: number) {
