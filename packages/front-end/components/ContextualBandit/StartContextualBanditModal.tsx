@@ -8,6 +8,8 @@ import {
 } from "react-icons/pi";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
+import { contextualBanditHasServableVisualChanges } from "shared/experiments";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import Button from "@/ui/Button";
@@ -30,6 +32,9 @@ import {
 export interface Props {
   cb: ApiContextualBanditInterface;
   linkedFeatures?: LinkedFeatureInfo[];
+  visualChangesets?: VisualChangesetInterface[];
+  visualChangesetsLoading?: boolean;
+  visualChangesetsError?: Error;
   startContextualBandit: () => Promise<void>;
   close: () => void;
 }
@@ -43,9 +48,16 @@ type BlockerItem = {
 function computeBlockers(
   cb: ApiContextualBanditInterface,
   linkedFeatures: LinkedFeatureInfo[],
+  visualChangesets: VisualChangesetInterface[],
+  visualChangesetsLoading: boolean,
+  visualChangesetsError: Error | undefined,
 ): { hardBlockerItems: BlockerItem[]; softBlockerItems: BlockerItem[] } {
   const hardBlockerItems: BlockerItem[] = [];
   const softBlockerItems: BlockerItem[] = [];
+  const hasVisualContent = contextualBanditHasServableVisualChanges(
+    cb,
+    visualChangesets,
+  );
 
   const featureLink = (f: LinkedFeatureInfo) => (
     <Link
@@ -59,16 +71,36 @@ function computeBlockers(
     </Link>
   );
 
-  if (linkedFeatures.length === 0) {
-    hardBlockerItems.push({
-      key: "no-linked-feature",
-      hardBlock: true,
-      display: (
-        <>
-          Link at least one Feature Flag before this Contextual Bandit can start
-        </>
-      ),
-    });
+  if (linkedFeatures.length === 0 && !cb.hasURLRedirects) {
+    if (visualChangesetsError) {
+      hardBlockerItems.push({
+        key: "visual-changes-error",
+        hardBlock: true,
+        display: (
+          <>
+            Couldn&apos;t load this contextual bandit&apos;s visual changes (
+            {visualChangesetsError.message}). Reload the page and try again.
+          </>
+        ),
+      });
+    } else if (visualChangesetsLoading) {
+      hardBlockerItems.push({
+        key: "visual-changes-loading",
+        hardBlock: true,
+        display: <>Checking for saved Visual Editor changes…</>,
+      });
+    } else if (!hasVisualContent) {
+      hardBlockerItems.push({
+        key: "no-linked-change",
+        hardBlock: true,
+        display: (
+          <>
+            Link at least one Feature Flag or save a Visual Editor change before
+            this Contextual Bandit can start
+          </>
+        ),
+      });
+    }
   }
 
   linkedFeatures
@@ -243,6 +275,9 @@ function LinkedChangeSection({
 export default function StartContextualBanditModal({
   cb,
   linkedFeatures = [],
+  visualChangesets = [],
+  visualChangesetsLoading = false,
+  visualChangesetsError,
   startContextualBandit,
   close,
 }: Props) {
@@ -255,6 +290,9 @@ export default function StartContextualBanditModal({
   const { hardBlockerItems, softBlockerItems } = computeBlockers(
     cb,
     linkedFeatures,
+    visualChangesets,
+    visualChangesetsLoading,
+    visualChangesetsError,
   );
   const hasHardBlockers = hardBlockerItems.length > 0;
   const hasBlockers = hasHardBlockers || softBlockerItems.length > 0;
