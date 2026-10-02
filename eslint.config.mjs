@@ -15,6 +15,7 @@ import * as tsParser from "@typescript-eslint/parser";
 import js from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
 import noAlertClassname from "./eslint-rules/no-alert-classname.mjs";
+import noRestApiPath from "./eslint-rules/no-rest-api-path.mjs";
 import restrictedQueryTypes from "./eslint-rules/restricted-query-types.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -264,6 +265,7 @@ export default defineConfig([
       local: {
         rules: {
           "no-alert-classname": noAlertClassname,
+          "no-rest-api-path": noRestApiPath,
         },
       },
     },
@@ -297,6 +299,7 @@ export default defineConfig([
         },
       ],
       "local/no-alert-classname": "error",
+      "local/no-rest-api-path": "error",
     },
   },
   {
@@ -319,6 +322,12 @@ export default defineConfig([
             "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead.",
         },
       ],
+    },
+  },
+  {
+    files: ["./packages/front-end/test/**"],
+    rules: {
+      "local/no-rest-api-path": "off",
     },
   },
   {

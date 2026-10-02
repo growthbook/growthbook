@@ -21,6 +21,7 @@ function normalizeApiPath(rawPath: string): string {
   const path = rawPath.split("?")[0];
   if (path.startsWith("/api/")) return path;
   if (/^\/v\d+\//.test(path)) return `/api${path}`;
+  // eslint-disable-next-line local/no-rest-api-path -- normalizes paths parsed from AI tool-call output for matching; makes no request
   if (path.startsWith("/")) return `/api/v1${path}`;
   return path;
 }
