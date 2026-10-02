@@ -1,9 +1,10 @@
 import { Response } from "express";
+import { z } from "zod";
 import { ExperimentInterface } from "shared/types/experiment";
-import { DEFAULT_CHECKLIST_TASK_LABELS } from "shared/constants";
+import { builtInChecklistItemKeyValidator } from "shared/validators";
 import {
+  BuiltInChecklistItemKey,
   ChecklistTask,
-  DefaultChecklistTaskKey,
 } from "shared/types/experimentLaunchChecklist";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -22,23 +23,36 @@ import {
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 
-function parseHiddenDefaultTasks(keys: unknown): DefaultChecklistTaskKey[] {
-  if (!Array.isArray(keys)) return [];
-  const known = Object.keys(DEFAULT_CHECKLIST_TASK_LABELS);
-  return keys.filter((k): k is DefaultChecklistTaskKey => known.includes(k));
+const hiddenBuiltInItemsValidator = z
+  .array(builtInChecklistItemKeyValidator)
+  .nullish();
+
+// Omitted means "leave unchanged" (undefined), null clears the list
+function parseHiddenBuiltInItems(
+  value: unknown,
+): BuiltInChecklistItemKey[] | undefined {
+  const parsed = hiddenBuiltInItemsValidator.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(
+      `hiddenBuiltInItems must only contain: ${builtInChecklistItemKeyValidator.options.join(", ")}`,
+    );
+  }
+  return parsed.data === null ? [] : parsed.data;
 }
 
 export async function postExperimentLaunchChecklist(
   req: AuthRequest<{
     tasks: ChecklistTask[];
     projectId?: string;
-    hiddenDefaultTasks?: unknown;
+    hiddenBuiltInItems?: unknown;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const { tasks, projectId, hiddenDefaultTasks } = req.body;
+  const { tasks, projectId } = req.body;
+  const hiddenBuiltInItems =
+    parseHiddenBuiltInItems(req.body.hiddenBuiltInItems) ?? [];
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     context.throwPlanDoesNotAllowError(
@@ -83,7 +97,7 @@ export async function postExperimentLaunchChecklist(
     userId,
     tasks,
     projectId || "",
-    parseHiddenDefaultTasks(hiddenDefaultTasks),
+    hiddenBuiltInItems,
   );
 
   return res.status(200).json({
@@ -167,14 +181,17 @@ export async function getExperimentCheckList(
 
 export async function putExperimentLaunchChecklist(
   req: AuthRequest<
-    { tasks: ChecklistTask[]; hiddenDefaultTasks?: unknown },
+    { tasks: ChecklistTask[]; hiddenBuiltInItems?: unknown },
     { id: string }
   >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const { tasks, hiddenDefaultTasks } = req.body;
+  const { tasks } = req.body;
+  const hiddenBuiltInItems = parseHiddenBuiltInItems(
+    req.body.hiddenBuiltInItems,
+  );
 
   const { id } = req.params;
 
@@ -210,10 +227,7 @@ export async function putExperimentLaunchChecklist(
     userId,
     id,
     tasks,
-    // Leave the saved list alone when a client doesn't send one
-    (hiddenDefaultTasks ?? null) === null
-      ? null
-      : parseHiddenDefaultTasks(hiddenDefaultTasks),
+    hiddenBuiltInItems,
   );
 
   return res.status(200).json({

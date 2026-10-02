@@ -1,9 +1,10 @@
 import {
+  BuiltInChecklistItemKey,
   ChecklistTask,
-  DefaultChecklistTaskKey,
   ExperimentLaunchChecklistInterface,
 } from "shared/types/experimentLaunchChecklist";
-import { DEFAULT_CHECKLIST_TASK_LABELS } from "shared/constants";
+import { BUILT_IN_CHECKLIST_ITEM_LABELS } from "shared/constants";
+import { builtInChecklistItemKeyValidator } from "shared/validators";
 import { useEffect, useState } from "react";
 import { FaPlusCircle } from "react-icons/fa";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
@@ -41,8 +42,8 @@ export default function ExperimentCheckListModal({
   const [experimentLaunchChecklist, setExperimentLaunchChecklist] = useState<
     ChecklistTask[]
   >([]);
-  const [hiddenDefaultTasks, setHiddenDefaultTasks] = useState<
-    DefaultChecklistTaskKey[]
+  const [hiddenBuiltInItems, setHiddenBuiltInItems] = useState<
+    BuiltInChecklistItemKey[]
   >([]);
   const [newTaskInput, setNewTaskInput] = useState<ChecklistTask | undefined>(
     undefined,
@@ -56,7 +57,7 @@ export default function ExperimentCheckListModal({
     if (checklist?.id) {
       await apiCall(`/experiments/launch-checklist/${checklist.id}`, {
         method: "PUT",
-        body: JSON.stringify({ tasks, hiddenDefaultTasks }),
+        body: JSON.stringify({ tasks, hiddenBuiltInItems }),
       });
     } else {
       await apiCall(`/experiments/launch-checklist`, {
@@ -64,7 +65,7 @@ export default function ExperimentCheckListModal({
         body: JSON.stringify({
           tasks,
           projectId: projectParams?.projectId,
-          hiddenDefaultTasks,
+          hiddenBuiltInItems,
         }),
       });
     }
@@ -77,7 +78,7 @@ export default function ExperimentCheckListModal({
 
       if (data.checklist) {
         setExperimentLaunchChecklist(data.checklist.tasks);
-        setHiddenDefaultTasks(data.checklist.hiddenDefaultTasks ?? []);
+        setHiddenBuiltInItems(data.checklist.hiddenBuiltInItems ?? []);
       }
     }
   }, [data]);
@@ -119,17 +120,13 @@ export default function ExperimentCheckListModal({
               URL Redirects always require an SDK Connection.
             </Text>
             <Flex direction="column" gap="2" mb="4">
-              {(
-                Object.keys(
-                  DEFAULT_CHECKLIST_TASK_LABELS,
-                ) as DefaultChecklistTaskKey[]
-              ).map((key) => (
+              {builtInChecklistItemKeyValidator.options.map((key) => (
                 <Checkbox
                   key={key}
-                  label={DEFAULT_CHECKLIST_TASK_LABELS[key]}
-                  value={!hiddenDefaultTasks.includes(key)}
+                  label={BUILT_IN_CHECKLIST_ITEM_LABELS[key]}
+                  value={!hiddenBuiltInItems.includes(key)}
                   setValue={(shown) =>
-                    setHiddenDefaultTasks((prev) =>
+                    setHiddenBuiltInItems((prev) =>
                       shown ? prev.filter((k) => k !== key) : [...prev, key],
                     )
                   }

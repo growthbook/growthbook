@@ -1,6 +1,6 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
-import { DefaultChecklistTaskKey } from "shared/types/experimentLaunchChecklist";
+import { BuiltInChecklistItemKey } from "shared/types/experimentLaunchChecklist";
 import {
   ApprovalFlowConfigurations,
   LearningStatus,
@@ -341,9 +341,8 @@ export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
 
 export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;
 
-// Built-in pre-launch checklist items an org or project checklist can hide
-export const DEFAULT_CHECKLIST_TASK_LABELS: Record<
-  DefaultChecklistTaskKey,
+export const BUILT_IN_CHECKLIST_ITEM_LABELS: Record<
+  BuiltInChecklistItemKey,
   string
 > = {
   datasource: "Select a Data Source",

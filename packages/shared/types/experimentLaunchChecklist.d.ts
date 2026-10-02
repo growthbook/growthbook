@@ -1,10 +1,6 @@
-export type DefaultChecklistTaskKey =
-  | "datasource"
-  | "exposureQuery"
-  | "goalMetric"
-  | "linkedChanges"
-  | "targeting"
-  | "sdkConnection";
+import { BuiltInChecklistItemKey } from "shared/validators";
+
+export { BuiltInChecklistItemKey } from "shared/validators";
 
 export interface ChecklistTask {
   task: string;
@@ -30,5 +26,5 @@ export interface ExperimentLaunchChecklistInterface {
   updatedByUserId: string;
   tasks: ChecklistTask[];
   projectId: string;
-  hiddenDefaultTasks?: DefaultChecklistTaskKey[];
+  hiddenBuiltInItems?: BuiltInChecklistItemKey[];
 }

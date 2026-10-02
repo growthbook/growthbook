@@ -14,7 +14,11 @@ import {
   ChecklistStatus,
   ExperimentStartChecklistStatus,
 } from "shared/validators";
-import { experimentHasLiveLinkedChanges } from "shared/util";
+import { BuiltInChecklistItemKey } from "shared/types/experimentLaunchChecklist";
+import {
+  experimentHasLiveLinkedChanges,
+  getHiddenBuiltInChecklistItems,
+} from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -239,21 +243,16 @@ export async function getExperimentStartChecklistStatus(
         ))) ||
       (await getExperimentLaunchChecklist(context.org.id, ""))
     : null;
-  // Bandits can't run without their defaults (a live linked change and a goal metric)
-  const hidden = new Set<string>(
-    isBandit ? [] : (checklist?.hiddenDefaultTasks ?? []),
-  );
-  // Visual Editor changes and URL Redirects only reach users through an SDK Connection
-  if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
-    hidden.delete("sdkConnection");
-  }
+  const hidden = getHiddenBuiltInChecklistItems(checklist, experiment);
 
   const items: StartChecklistItemStatus[] = [];
-  const pushDefault = (item: StartChecklistItemStatus) => {
+  const pushBuiltIn = (
+    item: StartChecklistItemStatus & { key: BuiltInChecklistItemKey },
+  ) => {
     if (!hidden.has(item.key)) items.push(item);
   };
 
-  pushDefault({
+  pushBuiltIn({
     key: "linkedChanges",
     required: true,
     status:
@@ -278,7 +277,7 @@ export async function getExperimentStartChecklistStatus(
     });
   }
 
-  pushDefault({
+  pushBuiltIn({
     key: "targeting",
     required: true,
     status: experiment.phases.length > 0 ? "complete" : "incomplete",
@@ -286,7 +285,7 @@ export async function getExperimentStartChecklistStatus(
     reason: "Configure at least one phase with assignment/targeting settings.",
   });
 
-  pushDefault({
+  pushBuiltIn({
     key: "sdkConnection",
     required: true,
     status: sdkConnections.length > 0 ? "complete" : "incomplete",
