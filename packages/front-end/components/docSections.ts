@@ -115,7 +115,7 @@ export const docSections = {
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
   url_redirects: "/app/url-redirects",
-  temporaryRollout: "/app/visual/legacy#stopping-an-experiment",
+  temporaryRollout: "/app/visual",
   encryptedSDKEndpoints: "/lib/js#loading-features-and-experiments",
   hashSecureAttributes: "/lib/js#secure-attributes",
   autoMetrics: "/app/metrics/legacy#auto-generate-metrics",
