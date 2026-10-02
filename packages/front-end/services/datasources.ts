@@ -11,6 +11,8 @@ import {
   capitalizeFirstCharacter,
   resolveAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
+  isExposureQueryAvailableForProjects,
+  isProjectListValidForProject,
 } from "shared/util";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
@@ -1023,6 +1025,41 @@ export function isIdentifierUndeclared(
     !!identifierType &&
     !getExposureQueryIdentifierTypes(query).includes(identifierType)
   );
+}
+
+export function getExposureQueriesForProject(
+  exposureQueries: ExposureQuery[],
+  project: string | undefined,
+): ExposureQuery[] {
+  return exposureQueries.filter((q) =>
+    isProjectListValidForProject(q.projects, project),
+  );
+}
+
+/** Queries usable by a single Project, or by every one of a holdout's Projects. */
+export function getExposureQueriesInScope(
+  datasource: Pick<DataSourceInterfaceWithParams, "settings" | "projects">,
+  project: string | undefined,
+  projects?: string[],
+): ExposureQuery[] {
+  const all = datasource.settings?.queries?.exposure ?? [];
+  return projects
+    ? all.filter((q) =>
+        isExposureQueryAvailableForProjects(q, projects, datasource.projects),
+      )
+    : getExposureQueriesForProject(all, project);
+}
+
+/** How a saved selection drifted from what its scope and query now allow. */
+export function getAssignmentQueryDrift(
+  query: ExposureQuery | undefined,
+  identifierType: string | undefined,
+  scopedQueries: ExposureQuery[],
+): { outOfScope: boolean; identifierUndeclared: boolean } {
+  return {
+    outOfScope: !!query && !scopedQueries.some((q) => q.id === query.id),
+    identifierUndeclared: isIdentifierUndeclared(query, identifierType),
+  };
 }
 
 /**

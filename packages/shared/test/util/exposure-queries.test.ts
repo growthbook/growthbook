@@ -8,6 +8,8 @@ import {
   parseAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   flattenExposureQueryInput,
+  getExposureQueriesOutsideProjectScope,
+  isExposureQueryAvailableForProjects,
   getIdentifierTypeForSettingsHash,
   getPreferredIdentifierType,
   withKeptIdentifierType,
@@ -676,5 +678,141 @@ describe("getPreferredIdentifierType", () => {
         userIdTypes: ["user_id"],
       }),
     ).toBe("user_id");
+  });
+});
+
+describe("getExposureQueriesOutsideProjectScope", () => {
+  it("flags a query scoped to a project the data source is not", () => {
+    const result = getExposureQueriesOutsideProjectScope(
+      [{ id: "q1", name: "Q1", projects: ["p1", "p3"] }],
+      ["p1", "p2"],
+    );
+    expect(result).toEqual([{ id: "q1", name: "Q1", invalidProjects: ["p3"] }]);
+  });
+
+  it("allows a query whose projects are a subset of the data source's", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [{ id: "q1", name: "Q1", projects: ["p1"] }],
+        ["p1", "p2"],
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats an empty data source project list as all projects", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [{ id: "q1", name: "Q1", projects: ["p1"] }],
+        [],
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats a query with no projects as inheriting the data source scope", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [
+          { id: "q1", name: "Q1", projects: [] },
+          { id: "q2", name: "Q2", projects: undefined },
+        ],
+        ["p1"],
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("isExposureQueryAvailableForProjects", () => {
+  it("allows an unrestricted query for any projects, including all", () => {
+    expect(isExposureQueryAvailableForProjects({ projects: [] }, [], [])).toBe(
+      true,
+    );
+    expect(isExposureQueryAvailableForProjects({}, ["prj_a"], undefined)).toBe(
+      true,
+    );
+  });
+
+  it("requires a scoped query to cover every project", () => {
+    const query = { projects: ["prj_a", "prj_b"] };
+    expect(isExposureQueryAvailableForProjects(query, ["prj_a"], [])).toBe(
+      true,
+    );
+    expect(
+      isExposureQueryAvailableForProjects(query, ["prj_a", "prj_c"], []),
+    ).toBe(false);
+  });
+
+  it("rejects a scoped query when all projects are covered", () => {
+    expect(
+      isExposureQueryAvailableForProjects({ projects: ["prj_a"] }, [], []),
+    ).toBe(false);
+  });
+
+  it("applies the data source's projects to an unscoped query", () => {
+    const dsProjects = ["prj_a", "prj_b"];
+    expect(
+      isExposureQueryAvailableForProjects({ projects: [] }, [], dsProjects),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        ["prj_a", "prj_c"],
+        dsProjects,
+      ),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        ["prj_b"],
+        dsProjects,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("assignment query project scope", () => {
+  const scoped = query({
+    id: "eq_scoped",
+    name: "Scoped",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: ["prj_a"],
+  });
+
+  it("rejects a query outside the project, unless the scope check is skipped", () => {
+    const selection = {
+      exposureQueryId: "eq_scoped",
+      onOmitted: "defaultToFirst" as const,
+    };
+    expect(
+      parseAssignmentQuerySelection([scoped], {
+        ...selection,
+        scope: { project: "prj_b" },
+      }),
+    ).toEqual({
+      ok: false,
+      error:
+        'Assignment query "Scoped" isn\'t available for the selected project',
+    });
+    expect(parseAssignmentQuerySelection([scoped], selection).ok).toBe(true);
+  });
+
+  it("only checks a new or changed selection", () => {
+    const previous = { datasource: "ds_1", exposureQueryId: "eq_scoped" };
+    expect(
+      resolveAssignmentQuerySelectionChange([scoped], {
+        previous,
+        next: previous,
+        onOmitted: "defaultToFirst",
+        scope: { project: "prj_b" },
+      }),
+    ).toMatchObject({ ok: true, changed: false });
+    expect(
+      resolveAssignmentQuerySelectionChange([scoped], {
+        previous: null,
+        next: previous,
+        onOmitted: "defaultToFirst",
+        scope: { project: "prj_b" },
+      }).ok,
+    ).toBe(false);
   });
 });

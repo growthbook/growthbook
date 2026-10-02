@@ -181,11 +181,20 @@ export function getNewExperimentDatasourceDefaults({
       )?.userIdType ?? "anonymous_id")
     : "anonymous_id";
 
-  const exposureQuery = getExposureQuery(
+  let exposureQuery = getExposureQuery(
     initialDatasource.settings,
     initialValue?.exposureQueryId,
     initialUserIdType,
   );
+  if (
+    exposureQuery &&
+    !isProjectListValidForProject(exposureQuery.projects, project)
+  ) {
+    exposureQuery =
+      initialDatasource.settings?.queries?.exposure?.find((q) =>
+        isProjectListValidForProject(q.projects, project),
+      ) ?? null;
+  }
 
   const importedQuery =
     isImport &&
@@ -768,6 +777,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     getExposureQueryIdentifierTypes(selectedExposureQuery).length > 1;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: selectedProject,
     hashAttribute: selectedHashAttribute,
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,

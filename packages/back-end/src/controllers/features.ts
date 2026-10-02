@@ -3416,6 +3416,7 @@ export async function postFeatureRule(
     validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
       omit(safeRolloutFields, "rampUpSchedule"),
       context,
+      { project: feature.project ?? "" },
     );
 
     rule.status = "running";

@@ -115,7 +115,10 @@ import {
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
+import {
+  getExperimentAssignmentQueryScope,
+  resolveAssignmentQueryIdentifier,
+} from "back-end/src/services/assignmentQuerySelection";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
@@ -1385,6 +1388,7 @@ export async function postExperiments(
           exposureQueryId: obj.exposureQueryId,
           identifierType: obj.exposureQueryIdentifierType,
           onOmitted: "defaultToFirst",
+          scope: { project: obj.project ?? "" },
         },
       );
       if (!parsed.ok) throw new Error(parsed.error);
@@ -2031,6 +2035,11 @@ export async function postExperiment(
       identifierType: data.exposureQueryIdentifierType,
     },
     onOmitted: "defaultToFirst",
+    getScope: getExperimentAssignmentQueryScope(
+      context,
+      experiment,
+      changes.project ?? experiment.project ?? "",
+    ),
   });
   // Also overrides an echoed identifier on an unchanged selection, so an
   // implicit experiment stays implicit.

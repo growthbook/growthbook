@@ -55,6 +55,7 @@ import {
   AssignmentQueryCopySource,
   getCopiedAssignmentQueryNotice,
   getCopySourceIdentifierType,
+  getExposureQueriesForProject,
 } from "@/services/datasources";
 import AssignmentQueryFields, {
   useAssignmentQuerySelection,
@@ -226,6 +227,7 @@ export default function ExperimentRefNewFields({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: project,
     hashAttribute,
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,
@@ -248,9 +250,10 @@ export default function ExperimentRefNewFields({
       t.attributes?.includes(attribute),
     )?.userIdType;
     if (!identifierType) return null;
-    const query = datasource?.settings?.queries?.exposure?.find((q) =>
-      getExposureQueryIdentifierTypes(q).includes(identifierType),
-    );
+    const query = getExposureQueriesForProject(
+      datasource?.settings?.queries?.exposure ?? [],
+      project,
+    ).find((q) => getExposureQueryIdentifierTypes(q).includes(identifierType));
     if (!query) return null;
     return { exposureQueryId: query.id, identifierType };
   };

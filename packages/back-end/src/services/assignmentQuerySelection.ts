@@ -11,6 +11,7 @@ import type {
 } from "shared/validators";
 import {
   apiMonitoringConfigToInternal,
+  AssignmentQueryScope,
   AssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   parseAssignmentQuerySelection,
@@ -18,8 +19,34 @@ import {
   toMonitoringSelection,
   withKeptIdentifierType,
 } from "shared/util";
+import type { ExperimentInterface } from "shared/types/experiment";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
+
+// Where a new or changed selection is used, checked against the query's
+// projects. Computed lazily since some scopes need a lookup (holdouts).
+export type GetAssignmentQueryScope = (
+  datasource: DataSourceInterface,
+) => AssignmentQueryScope | Promise<AssignmentQueryScope>;
+
+// An experiment's selection is scoped to its project. A holdout's must cover
+// every project the holdout does, and a query without its own projects
+// inherits its data source's.
+export function getExperimentAssignmentQueryScope(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "id" | "type" | "project">,
+  project: string = experiment.project ?? "",
+): GetAssignmentQueryScope {
+  return async (datasource) =>
+    experiment.type === "holdout"
+      ? {
+          projects:
+            (await context.models.holdout.getByExperimentId(experiment.id))
+              ?.projects ?? [],
+          datasourceProjects: datasource.projects,
+        }
+      : { project };
+}
 
 /**
  * Whether `next` changes `previous` (always when `previous` is null), with the
@@ -73,11 +100,13 @@ export async function resolveAssignmentQueryIdentifier(
     next,
     onOmitted,
     field,
+    getScope,
   }: {
     previous: AssignmentQuerySelection | null;
     next: AssignmentQuerySelection;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     field?: "assignmentQuery" | "exposureQuery";
+    getScope?: GetAssignmentQueryScope;
   },
 ): Promise<{ identifierType: string | undefined; changed: boolean }> {
   const kept = withKeptIdentifierType(previous, next);
@@ -97,7 +126,13 @@ export async function resolveAssignmentQueryIdentifier(
   }
   const result = resolveAssignmentQuerySelectionChange(
     selection.datasource.settings.queries?.exposure ?? [],
-    { previous, next: kept, onOmitted, field },
+    {
+      previous,
+      next: kept,
+      onOmitted,
+      field,
+      scope: await getScope?.(selection.datasource),
+    },
   );
   if (!result.ok) throw new Error(result.error);
   return result;
@@ -111,6 +146,7 @@ export async function assertValidAssignmentQuerySelectionChange(
   context: ReqContext | ApiReqContext,
   previous: AssignmentQuerySelection | null,
   next: AssignmentQuerySelection,
+  getScope?: GetAssignmentQueryScope,
 ): Promise<void> {
   const selection = await loadChangedAssignmentQuerySelection(
     context,
@@ -124,6 +160,7 @@ export async function assertValidAssignmentQuerySelectionChange(
       exposureQueryId: next.exposureQueryId,
       identifierType: next.identifierType,
       onOmitted: "defaultToFirst",
+      scope: await getScope?.(selection.datasource),
     },
   );
   if (!parsed.ok) throw new Error(parsed.error);

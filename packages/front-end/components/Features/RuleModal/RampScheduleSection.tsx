@@ -1028,6 +1028,7 @@ export default function RampScheduleSection({
     hasSavedMonitoringProp || !!ruleRampSchedule?.monitoringConfig;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource: selectedDatasource,
+    project: feature?.project,
     hashAttribute,
     exposureQueryId: state.monitoring.exposureQueryId,
     /** Legacy configs store none; they analyze on the query's legacy one. */
@@ -3209,8 +3210,8 @@ export default function RampScheduleSection({
         {state.monitoring.datasourceId &&
         assignmentQuerySelection.identifierTypes.length === 0 ? (
           <HelperText status="warning" size="sm">
-            This Data Source has no assignment queries. Add one in the Data
-            Source settings.
+            No assignment queries are scoped to this Project. Add one in the
+            Data Source settings.
           </HelperText>
         ) : null}
         <AssignmentQueryDriftWarning selection={assignmentQuerySelection} />

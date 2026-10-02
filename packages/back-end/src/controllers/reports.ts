@@ -12,6 +12,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { getAllVariations } from "shared/experiments";
+import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
 import {
@@ -35,7 +36,10 @@ import {
 } from "back-end/src/models/ReportModel";
 import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/ExperimentReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
+import {
+  getExperimentAssignmentQueryScope,
+  resolveAssignmentQueryIdentifier,
+} from "back-end/src/services/assignmentQuerySelection";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
   getContextForAgendaJobByOrgId,
@@ -455,6 +459,7 @@ async function applyReportAssignmentQuery(
   context: ReqContext,
   previous: ReportAssignmentQuerySelection,
   next: ReportAssignmentQuerySelection,
+  experiment: ExperimentInterface | null,
   requestedIdentifierType: string | undefined,
 ) {
   const toSelection = (s: ReportAssignmentQuerySelection) => ({
@@ -466,6 +471,9 @@ async function applyReportAssignmentQuery(
     previous: toSelection(previous),
     next: { ...toSelection(next), identifierType: requestedIdentifierType },
     onOmitted: "defaultToFirst",
+    getScope: experiment
+      ? getExperimentAssignmentQueryScope(context, experiment)
+      : () => ({ project: "" }),
   });
   // `next` is saved whole: an absent key clears the stored identifier, where an
   // undefined one would persist as null.
@@ -577,6 +585,7 @@ export async function putReport(
         context,
         report.experimentAnalysisSettings,
         updates.experimentAnalysisSettings,
+        experiment,
         data.experimentAnalysisSettings?.exposureQueryIdentifierType,
       );
     }
@@ -630,6 +639,7 @@ export async function putReport(
         context,
         report.args,
         updates.args,
+        experiment,
         req.body.args?.exposureQueryIdentifierType,
       );
 

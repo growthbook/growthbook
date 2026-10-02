@@ -5,6 +5,7 @@ import type {
   ApiAssignmentQueryRefInput,
   AssignmentQueryField,
 } from "../validators/assignment-query-field";
+import { isProjectListValidForProject } from ".";
 
 type ExposureQueryIdentity = Pick<
   ExposureQuery,
@@ -129,8 +130,46 @@ export function flattenExposureQueryInput<
 
 type SelectableExposureQuery = Pick<
   ExposureQuery,
-  "id" | "name" | "userIdType" | "userIdTypes"
+  "id" | "name" | "userIdType" | "userIdTypes" | "projects"
 >;
+
+/**
+ * Where a selection is used: a single `project`, or `projects` that must all be
+ * covered (holdouts). Omit both to skip the check.
+ */
+export type AssignmentQueryScope = {
+  project?: string;
+  projects?: string[];
+  // Inherited by queries without their own project scope (holdout check).
+  datasourceProjects?: string[];
+};
+
+function getAssignmentQueryScopeError(
+  query: Pick<ExposureQuery, "id" | "name" | "projects">,
+  { project, projects, datasourceProjects }: AssignmentQueryScope,
+): string | null {
+  const name = query.name || query.id;
+  if (projects) {
+    if (
+      isExposureQueryAvailableForProjects(query, projects, datasourceProjects)
+    ) {
+      return null;
+    }
+    const scopeSource = query.projects?.length
+      ? "its own"
+      : "its data source's";
+    return projects.length
+      ? `Assignment query "${name}" isn't available for every project this holdout covers because of ${scopeSource} project scope`
+      : `Assignment query "${name}" is limited by ${scopeSource} project scope, so it can't be used by a holdout that covers all projects`;
+  }
+  if (
+    project !== undefined &&
+    !isProjectListValidForProject(query.projects, project)
+  ) {
+    return `Assignment query "${name}" isn't available for the selected project`;
+  }
+  return null;
+}
 
 export type ParsedAssignmentQuerySelection<
   Q extends SelectableExposureQuery = SelectableExposureQuery,
@@ -162,12 +201,14 @@ export function parseAssignmentQuerySelection<
     identifierType,
     onOmitted,
     field,
+    scope,
   }: {
     exposureQueryId: string;
     identifierType?: string;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     /** The REST field that errors tell the caller to set. */
     field?: string;
+    scope?: AssignmentQueryScope;
   },
 ): ParsedAssignmentQuerySelection<Q> {
   const query = exposureQueries.find((q) => q.id === exposureQueryId);
@@ -178,6 +219,8 @@ export function parseAssignmentQuerySelection<
     };
   }
   const name = query.name || query.id;
+  const scopeError = scope ? getAssignmentQueryScopeError(query, scope) : null;
+  if (scopeError) return { ok: false, error: scopeError };
   const declared = getExposureQueryIdentifierTypes(query);
   const identifierField = `${field ? `${field}.` : ""}identifierType`;
   if (identifierType) {
@@ -300,11 +343,14 @@ export function resolveAssignmentQuerySelectionChange(
     next,
     onOmitted,
     field,
+    scope,
   }: {
     previous: AssignmentQuerySelection | null;
     next: AssignmentQuerySelection;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     field?: string;
+    // Only checked for a new or changed selection.
+    scope?: AssignmentQueryScope;
   },
 ): AssignmentQuerySelectionChange {
   const kept = withKeptIdentifierType(previous, next);
@@ -323,10 +369,54 @@ export function resolveAssignmentQuerySelectionChange(
     identifierType: kept.identifierType,
     onOmitted,
     field,
+    scope,
   });
   return parsed.ok
     ? { ok: true, identifierType: parsed.identifierType, changed: true }
     : parsed;
+}
+
+/**
+ * For resources spanning several projects (holdouts): the query must be usable
+ * by every one of them. A query with no projects inherits its data source's,
+ * and no projects on either means all. A holdout with no projects covers all
+ * projects, so only an unrestricted query qualifies.
+ */
+export function isExposureQueryAvailableForProjects(
+  query: Pick<ExposureQuery, "projects">,
+  projects: string[],
+  datasourceProjects: string[] | undefined,
+): boolean {
+  const scope = query.projects?.length
+    ? query.projects
+    : (datasourceProjects ?? []);
+  if (!scope.length) return true;
+  if (!projects.length) return false;
+  return projects.every((project) => scope.includes(project));
+}
+
+/**
+ * Queries that violate `EAQ.projects ⊆ datasource.projects`. Empty
+ * `datasourceProjects` means all projects (nothing out of scope); a query with no
+ * projects inherits the data source scope.
+ */
+export function getExposureQueriesOutsideProjectScope(
+  exposureQueries: Pick<ExposureQuery, "id" | "name" | "projects">[],
+  datasourceProjects: string[],
+): { id: string; name: string; invalidProjects: string[] }[] {
+  if (!datasourceProjects.length) return [];
+  const allowed = new Set(datasourceProjects);
+  const violations: { id: string; name: string; invalidProjects: string[] }[] =
+    [];
+  for (const query of exposureQueries) {
+    const invalidProjects = (query.projects ?? []).filter(
+      (project) => !allowed.has(project),
+    );
+    if (invalidProjects.length) {
+      violations.push({ id: query.id, name: query.name, invalidProjects });
+    }
+  }
+  return violations;
 }
 
 /**

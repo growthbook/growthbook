@@ -448,6 +448,8 @@ export class RampScheduleModel extends BaseClass {
       this.context,
       previousDoc?.monitoringConfig,
       doc.monitoringConfig,
+      // Undefined (no anchoring feature) skips the scope check.
+      () => ({ project: this.getProject(doc) }),
     );
   }
   protected override async beforeUpdate(

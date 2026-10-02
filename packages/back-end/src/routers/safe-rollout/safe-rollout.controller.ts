@@ -217,10 +217,13 @@ export async function putSafeRollout(
     throw new Error("Could not find safe rollout");
   }
 
+  // The resolver only scope-checks a changed selection, so a rollout whose
+  // query later fell out of scope can still be edited.
+  const feature = await getFeature(context, safeRollout.featureId);
   const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
     safeRolloutFields,
     context,
-    safeRollout,
+    { previous: safeRollout, project: feature?.project ?? "" },
   );
 
   await context.models.safeRollout.update(safeRollout, {

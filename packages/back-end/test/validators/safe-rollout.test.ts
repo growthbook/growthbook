@@ -66,7 +66,7 @@ describe("validateCreateSafeRolloutFields", () => {
     const validated = await validateCreateSafeRolloutFields(
       { ...fields, exposureQueryId: "eq_single" },
       context,
-      stored,
+      { previous: stored },
     );
     expect(validated.exposureQueryIdentifierType).toBe("company_id");
   });
@@ -79,7 +79,7 @@ describe("validateCreateSafeRolloutFields", () => {
         exposureQueryIdentifierType: "anonymous_id",
       },
       context,
-      { datasourceId: "ds_1", exposureQueryId: "eq_multi" },
+      { previous: { datasourceId: "ds_1", exposureQueryId: "eq_multi" } },
     );
     expect(validated.exposureQueryIdentifierType).toBeUndefined();
   });
@@ -110,8 +110,7 @@ describe("validateCreateSafeRolloutFields", () => {
       validateCreateSafeRolloutFields(
         { ...fields, exposureQueryId: "eq_multi" },
         context,
-        null,
-        "requireUnambiguous",
+        { onOmitted: "requireUnambiguous" },
       ),
     ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
   });

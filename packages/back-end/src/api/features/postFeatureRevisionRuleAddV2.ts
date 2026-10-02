@@ -268,8 +268,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       const validatedFields = await validateCreateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),
         req.context,
-        null,
-        "requireUnambiguous",
+        {
+          onOmitted: "requireUnambiguous",
+          project: feature.project ?? "",
+        },
       );
 
       const defaultRampSteps = [
