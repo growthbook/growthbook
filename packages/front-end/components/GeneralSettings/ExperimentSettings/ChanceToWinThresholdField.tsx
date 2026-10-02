@@ -5,7 +5,10 @@ import {
   RegisterOptions,
   UseFormReturn,
 } from "react-hook-form";
+import { Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
+import Tooltip from "@/ui/Tooltip";
+import { GBInfo } from "@/components/Icons";
 
 export function getConfidenceLevelHighlight(percent: number | undefined): {
   highlightColor: string;
@@ -90,7 +93,20 @@ export default function ChanceToWinThresholdField<
   return (
     <Field
       size="legacy"
-      label={label}
+      label={
+        <>
+          {label}
+          <Tooltip content="A variation is called a winner when its chance to win is above this threshold. Under a flat prior, use 97.5% to match the frequentist engine's default P-value threshold of 0.05.">
+            <Flex
+              ml="2"
+              display="inline-flex"
+              style={{ verticalAlign: "middle" }}
+            >
+              <GBInfo />
+            </Flex>
+          </Tooltip>
+        </>
+      }
       type="number"
       step="any"
       min="70"
