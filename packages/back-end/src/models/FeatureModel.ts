@@ -661,12 +661,34 @@ export async function getAllFeaturesForGraph(
   context: ReqContext | ApiReqContext,
   options: { includeArchived?: boolean; ids?: string[] } = {},
 ): Promise<FeatureInterface[]> {
-  return getAllFeaturesProjected(context, options, {
-    ...EDITOR_FIELDS_PROJECTION,
-    defaultValue: 0,
-    "rules.value": 0,
-    "rules.variations.value": 0,
-  });
+  return getAllFeaturesProjected(context, options, GRAPH_PROJECTION);
+}
+
+// `ids` plus every feature whose prerequisites name one of them, shaped like
+// getAllFeaturesForGraph: what a one-hop dependents question needs. Legacy
+// documents keep rules per environment where a query can't see them, so
+// they always come back and the caller's own check decides.
+export async function getFeaturesWithPrerequisitesOn(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<FeatureInterface[]> {
+  if (!ids.length) return [];
+  return getAllFeaturesProjected(
+    context,
+    {
+      includeArchived,
+      filter: {
+        $or: [
+          { id: { $in: ids } },
+          { "prerequisites.id": { $in: ids } },
+          { "rules.prerequisites.id": { $in: ids } },
+          { rules: { $exists: false } },
+        ],
+      },
+    },
+    GRAPH_PROJECTION,
+  );
 }
 
 const EDITOR_FIELDS_PROJECTION = {
@@ -676,18 +698,31 @@ const EDITOR_FIELDS_PROJECTION = {
   draft: 0,
 } as const;
 
+const GRAPH_PROJECTION = {
+  ...EDITOR_FIELDS_PROJECTION,
+  defaultValue: 0,
+  "rules.value": 0,
+  "rules.variations.value": 0,
+} as const;
+
 async function getAllFeaturesProjected(
   context: ReqContext | ApiReqContext,
   {
     includeArchived = false,
     ids,
-  }: { includeArchived?: boolean; ids?: string[] },
+    filter,
+  }: {
+    includeArchived?: boolean;
+    ids?: string[];
+    filter?: FilterQuery<FeatureDocument>;
+  },
   projection: Record<string, 0>,
 ): Promise<FeatureInterface[]> {
   if (ids && !ids.length) return [];
   const q: FilterQuery<FeatureDocument> = {
     ...featureListQuery(context.org.id, { includeArchived }),
     ...(ids ? { id: { $in: ids } } : {}),
+    ...(filter ? { $and: [filter] } : {}),
   };
 
   const docs = await FeatureModel.find(q, projection).lean<

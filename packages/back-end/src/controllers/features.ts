@@ -140,6 +140,7 @@ import {
   getAllFeaturesWithoutEditorFields,
   getFeature,
   getFeaturesByIds,
+  getFeaturesWithPrerequisitesOn,
   getFeatureMetaInfoById,
   getFeatureMetaInfoByIds,
   getFeatureEnvStatus,
@@ -7927,9 +7928,16 @@ export async function getFeaturesDependents(
 
   const allEnvIds = getEnvironments(context.org).map((e) => e.id);
 
+  // Dependents are one hop: only the features and experiments whose
+  // prerequisites name a requested flag can be one.
   const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeaturesForGraph(context, { includeArchived: true }),
-    getAllExperimentsForStaleGraph(context, { includeArchived: true }),
+    getFeaturesWithPrerequisitesOn(context, featureIds, {
+      includeArchived: true,
+    }),
+    getAllExperimentsForStaleGraph(context, {
+      includeArchived: true,
+      prerequisiteIds: featureIds,
+    }),
   ]);
 
   const {

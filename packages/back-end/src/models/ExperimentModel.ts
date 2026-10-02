@@ -677,14 +677,25 @@ export async function getExistingExperimentIds(
 
 export async function getAllExperimentsForStaleGraph(
   context: ReqContext | ApiReqContext,
-  { includeArchived = false }: { includeArchived?: boolean } = {},
+  {
+    includeArchived = false,
+    prerequisiteIds,
+  }: {
+    includeArchived?: boolean;
+    // Only experiments whose phases name one of these as a prerequisite
+    prerequisiteIds?: string[];
+  } = {},
 ): Promise<ExperimentInterface[]> {
+  if (prerequisiteIds && !prerequisiteIds.length) return [];
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
     type: { $ne: "holdout" },
   };
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+  if (prerequisiteIds) {
+    query["phases.prerequisites.id"] = { $in: prerequisiteIds };
   }
 
   const docs = await getCollection(COLLECTION)
