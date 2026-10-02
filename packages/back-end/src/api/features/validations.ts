@@ -49,6 +49,11 @@ import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import { ApiReqContext } from "back-end/types/api";
 import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import {
+  getSavedGroupIdsInTargeting,
+  loadSavedGroupsWithNested,
+  TargetingSource,
+} from "back-end/src/util/featureDefinitionReferences.util";
+import {
   assertValidChangedRuleExperimentIds,
   assertValidChangedRuleProjectIds,
   validateRulesScheduleRules,
@@ -732,11 +737,16 @@ export const validateCustomFields = async (
   });
 };
 
-// Reference checks read ids and conditions, never the ID lists.
+// Reference checks read ids and conditions, never the ID lists, and only for
+// the groups the targeting names and the groups those reach.
 async function getSavedGroupsForValidation(
   context: ReqContext | ApiReqContext,
+  targets: TargetingSource[],
 ): Promise<GroupMap> {
-  const groups = await context.models.savedGroups.getAllWithoutValues();
+  const groups = await loadSavedGroupsWithNested(
+    getSavedGroupIdsInTargeting(targets),
+    (ids) => context.models.savedGroups.getAllWithoutValues(ids),
+  );
   return new Map(groups.map((group) => [group.id, group]));
 }
 
@@ -749,7 +759,7 @@ export async function validateRuleReferences(
 ): Promise<void> {
   validateRuleReferencesWithGroups(
     rule,
-    await getSavedGroupsForValidation(context),
+    await getSavedGroupsForValidation(context, [rule]),
   );
 }
 
@@ -760,7 +770,7 @@ export async function validateRulesReferences(
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
   if (!rules.length) return;
-  const groupMap = await getSavedGroupsForValidation(context);
+  const groupMap = await getSavedGroupsForValidation(context, rules);
   const savedGroupIds = new Set(groupMap.keys());
   for (const rule of rules) {
     validatePrerequisiteConditions(rule.prerequisites ?? []);
@@ -883,7 +893,9 @@ export async function validatePrerequisiteReferences(
 ): Promise<void> {
   assertPrerequisiteGroupIds(
     prerequisites,
-    new Set((await getSavedGroupsForValidation(context)).keys()),
+    new Set(
+      (await getSavedGroupsForValidation(context, [{ prerequisites }])).keys(),
+    ),
   );
 }
 

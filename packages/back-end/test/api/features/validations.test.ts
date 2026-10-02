@@ -402,7 +402,8 @@ describe("validateChangedPhaseReferences", () => {
         ctx,
       ),
     ).resolves.toBeUndefined();
-    expect(getAllWithoutValues).toHaveBeenCalledTimes(2);
+    // Only the phase naming a group loads groups.
+    expect(getAllWithoutValues).toHaveBeenCalledTimes(1);
     // History is exempt for what any stored phase holds; the served (last)
     // phase only for what the served stored phase holds.
     const served = { condition: '{"country": "US"}' };

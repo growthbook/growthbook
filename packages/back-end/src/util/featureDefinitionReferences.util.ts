@@ -15,7 +15,7 @@ export type FeatureDefinitionSources = {
   bandits?: Iterable<TargetingSource>;
 };
 
-type TargetingSource = {
+export type TargetingSource = {
   condition?: unknown;
   savedGroups?: unknown;
   prerequisites?: readonly { condition?: unknown }[] | null;
@@ -91,13 +91,25 @@ export function getSavedGroupIdsForFeatureDefinitions(
       }
     }
   }
-  for (const bandit of sources.bandits ?? []) {
-    addTargetingIds(ids, bandit);
-    for (const p of bandit.prerequisites ?? []) {
+  getSavedGroupIdsInTargeting(sources.bandits ?? []).forEach((id) =>
+    ids.add(id),
+  );
+
+  return [...ids];
+}
+
+// Every Saved Group id these targeting blocks (condition, saved groups and
+// prerequisite conditions) name directly.
+export function getSavedGroupIdsInTargeting(
+  targets: Iterable<TargetingSource>,
+): string[] {
+  const ids = new Set<string>();
+  for (const target of targets) {
+    addTargetingIds(ids, target);
+    for (const p of target.prerequisites ?? []) {
       addConditionIds(ids, p.condition);
     }
   }
-
   return [...ids];
 }
 
