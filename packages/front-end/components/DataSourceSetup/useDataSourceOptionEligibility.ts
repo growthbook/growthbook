@@ -20,10 +20,10 @@ const NO_PERMISSION: DataSourceOptionAvailability = {
   reason: "You don't have permission to add Data Sources in this project.",
 };
 
-function noAccess(name: string): DataSourceOptionAvailability {
+function noAccess(existing: string): DataSourceOptionAvailability {
   return {
     status: "unavailable",
-    reason: `Your organization already has a ${name}. Ask an admin for access.`,
+    reason: `Your organization already has ${existing}, but you do not have access.`,
   };
 }
 
@@ -71,7 +71,7 @@ export function useDataSourceOptionEligibility(): {
       datasourceId: existingManagedWarehouse.id,
     };
   } else if (hasManagedWarehouse) {
-    managed = noAccess("Managed Warehouse");
+    managed = noAccess("a Managed Warehouse");
   } else if (!canCreate) {
     managed = NO_PERMISSION;
   } else if (isLegacyProPlan) {
@@ -91,7 +91,7 @@ export function useDataSourceOptionEligibility(): {
       datasourceId: existingEventForwarder.id,
     };
   } else if (hasEventForwarder) {
-    eventForwarder = noAccess("Event Forwarder");
+    eventForwarder = noAccess("an Event Forwarder");
   } else if (!canCreate) {
     eventForwarder = NO_PERMISSION;
   } else if (isLegacyProPlan) {

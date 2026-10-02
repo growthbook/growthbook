@@ -6,6 +6,7 @@ import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DataSourceOptionsTable from "@/components/DataSourceSetup/DataSourceOptionsTable";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
+import { isCloud } from "@/services/env";
 import Heading from "@/ui/Heading";
 
 const NewDataSourcePage: FC = () => {
@@ -13,7 +14,8 @@ const NewDataSourcePage: FC = () => {
   const growthbook = useGrowthBook();
   const enabled = useNewDataSourceOnboarding();
   // Flag values load asynchronously; don't redirect before they arrive.
-  const flagsReady = !!growthbook?.ready;
+  // Self-hosted never qualifies, so it doesn't need to wait.
+  const flagsReady = !!growthbook?.ready || !isCloud();
 
   useEffect(() => {
     if (!enabled && flagsReady) router.replace("/datasources");
