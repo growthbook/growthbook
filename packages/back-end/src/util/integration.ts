@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { QueryMetadata } from "shared/types/query";
@@ -39,34 +38,29 @@ export function toOptionalNumber(value: unknown): number | undefined {
   return Number.isFinite(num) ? num : undefined;
 }
 
-// Where each client library puts its error code, checked in priority order
-const warehouseErrorValidator = z.object({
-  // BigQuery (`code` is just the HTTP status)
-  errors: z.array(z.object({ reason: z.string().optional() })).optional(),
-  // Presto / Trino
-  errorName: z.string().optional(),
-  // Databricks
-  response: z.object({ sqlState: z.string().nullish() }).optional(),
-  // Snowflake, Postgres, Redshift, MySQL, ClickHouse, Athena, Node network errors
-  code: z.union([z.string(), z.number()]).optional(),
-  sqlState: z.string().optional(),
-  // Databricks fallback (ERROR / CANCELED / TIMEOUT)
-  errorCode: z.union([z.string(), z.number()]).optional(),
-});
-
-// The warehouse's own error code, for grouping failures more reliably than by message
 export function getWarehouseErrorCode(error: unknown): string | undefined {
-  const parsed = warehouseErrorValidator.safeParse(error);
-  if (!parsed.success) return undefined;
-  const e = parsed.data;
-  const code =
-    e.errors?.[0]?.reason ??
-    e.errorName ??
-    e.response?.sqlState ??
-    e.code ??
-    e.sqlState ??
-    e.errorCode;
-  return (code ?? "") === "" ? undefined : String(code);
+  const options = [
+    "data.data.queries.0.errorCode", // Snowflake
+    "errors.0.reason", // BigQuery
+    "errorName", // Presto / Trino
+    "response.sqlState", // Databricks
+    "code", // Node network errors
+    "sqlState", // Node network errors
+    "errorCode", // Databricks generic fallback
+  ];
+
+  const isRecord = (obj: unknown): obj is Record<string, unknown> =>
+    !!obj && typeof obj === "object";
+
+  for (const option of options) {
+    const value = option.split(".").reduce((obj: unknown, key) => {
+      if (key === "0") return Array.isArray(obj) ? obj[0] : undefined;
+      return isRecord(obj) ? obj[key] : undefined;
+    }, error);
+    if (typeof value === "number" && value !== -1) return String(value);
+    if (typeof value === "string" && value) return value;
+  }
+  return undefined;
 }
 
 // get the query tag string for the integration

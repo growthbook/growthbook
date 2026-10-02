@@ -5,6 +5,7 @@ import {
   queryStatisticsValidator,
   queryStatusValidator,
   queryLogValidator,
+  testQueryTypeValidator,
   sqlResultChunkValidator,
 } from "shared/validators";
 import type { PopulationDataInterface } from "shared/types/population-data";
@@ -24,6 +25,8 @@ export type Queries = QueryPointer[];
 export type QueryStatistics = z.infer<typeof queryStatisticsValidator>;
 
 export type QueryLogInterface = z.infer<typeof queryLogValidator>;
+
+export type TestQueryType = z.infer<typeof testQueryTypeValidator>;
 
 export type QueryType =
   // Internal fallback. Do not use this value.
@@ -94,8 +97,12 @@ export type QueryType =
   // ---
   // User-provided SQL (SQL explorer ad-hoc queries)
   | "freeFormQuery"
-  // User-initiated datasource test / validation queries
-  | "testQuery"
+  // "Test Query" button runs, one type per SQL editor
+  | TestQueryType
+  // Validates new or changed exposure queries when a data source is saved
+  | "exposureQueryValidation"
+  // Validates new or changed feature usage queries when a data source is saved
+  | "featureUsageQueryValidation"
   // Datasource connectivity probe (SELECT 1)
   | "connectionTest"
   // Schema introspection: list tables + column counts

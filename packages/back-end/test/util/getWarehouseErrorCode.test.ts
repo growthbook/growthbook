@@ -23,6 +23,21 @@ describe("getWarehouseErrorCode", () => {
       "002003",
     ],
     [
+      "Snowflake failed query code from the attached monitoring response",
+      {
+        code: -1,
+        sqlState: null,
+        data: { data: { queries: [{ errorCode: "000904" }] } },
+      },
+      "000904",
+    ],
+    ["the -1 placeholder as missing", { code: -1, sqlState: "42000" }, "42000"],
+    [
+      "other properties when one has an odd shape",
+      { data: "x", code: "EX" },
+      "EX",
+    ],
+    [
       "numeric codes as strings",
       Object.assign(new Error("x"), { code: 1301 }),
       "1301",
