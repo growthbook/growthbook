@@ -25,6 +25,7 @@ import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
 import DataSourceOptionsTable from "@/components/DataSourceSetup/DataSourceOptionsTable";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 
 function ManagedWarehouseDriver() {
@@ -143,8 +144,6 @@ const DataSourcesPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const { effectiveAccountPlan, license } = useUser();
   const newDataSourceOnboarding = useNewDataSourceOnboarding();
-  const showDataSourceOptions =
-    newDataSourceOnboarding && filteredDatasources.length === 0;
 
   // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan, or is on a trial
   const showManagedWarehouse =
@@ -154,6 +153,21 @@ const DataSourcesPage: FC = () => {
     (effectiveAccountPlan === "starter" ||
       license?.isTrial ||
       !!license?.orbSubscription);
+
+  if (filteredDatasources.length === 0) {
+    // Wait for the flag so the old empty state doesn't flash first.
+    if (!newDataSourceOnboarding.ready) {
+      return <LoadingOverlay />;
+    }
+    if (newDataSourceOnboarding.enabled) {
+      return (
+        <div className="container-fluid pagecontents">
+          <h1 className="mb-3">Data Sources</h1>
+          <DataSourceOptionsTable />
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="container-fluid pagecontents">
@@ -175,7 +189,6 @@ const DataSourcesPage: FC = () => {
         <h1>Data Sources</h1>
         <div className="ml-auto" />
         {filteredDatasources.length === 0 &&
-          !showDataSourceOptions &&
           !hasFileConfig() &&
           !demoDataSourceExists && (
             <Button
@@ -201,7 +214,6 @@ const DataSourcesPage: FC = () => {
             </Button>
           )}
         {filteredDatasources.length === 0 &&
-        !showDataSourceOptions &&
         demoDataSourceExists &&
         demoProjectId &&
         demoDataSourceId ? (
@@ -209,7 +221,7 @@ const DataSourcesPage: FC = () => {
             View Sample Data Source
           </LinkButton>
         ) : null}
-        {!hasFileConfig() && !showDataSourceOptions && (
+        {!hasFileConfig() && (
           <Tooltip
             body="You don't have permission to add data sources in this project."
             shouldDisplay={
@@ -221,7 +233,7 @@ const DataSourcesPage: FC = () => {
                 !permissionsUtil.canViewCreateDataSourceModal(project, projects)
               }
               onClick={() =>
-                newDataSourceOnboarding
+                newDataSourceOnboarding.enabled
                   ? router.push("/datasources/new")
                   : setNewModalData({})
               }
@@ -234,8 +246,6 @@ const DataSourcesPage: FC = () => {
       </div>
       {filteredDatasources.length > 0 ? (
         <DataSources />
-      ) : showDataSourceOptions ? (
-        <DataSourceOptionsTable />
       ) : (
         <div className="appbox p-5 mb-3">
           <div className="text-center mt-3">

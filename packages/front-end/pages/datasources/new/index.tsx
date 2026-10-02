@@ -1,25 +1,19 @@
 import { FC, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Box } from "@radix-ui/themes";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DataSourceOptionsTable from "@/components/DataSourceSetup/DataSourceOptionsTable";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
-import { isCloud } from "@/services/env";
 import Heading from "@/ui/Heading";
 
 const NewDataSourcePage: FC = () => {
   const router = useRouter();
-  const growthbook = useGrowthBook();
-  const enabled = useNewDataSourceOnboarding();
-  // Flag values load asynchronously; don't redirect before they arrive.
-  // Self-hosted never qualifies, so it doesn't need to wait.
-  const flagsReady = !!growthbook?.ready || !isCloud();
+  const { enabled, ready } = useNewDataSourceOnboarding();
 
   useEffect(() => {
-    if (!enabled && flagsReady) router.replace("/datasources");
-  }, [router, enabled, flagsReady]);
+    if (ready && !enabled) router.replace("/datasources");
+  }, [router, enabled, ready]);
 
   if (!enabled) {
     return <LoadingOverlay />;

@@ -37,6 +37,7 @@ import {
   DataSourceOptionKey,
   useDataSourceOptionEligibility,
 } from "./useDataSourceOptionEligibility";
+import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";
 import SampleDataSourceLink from "./SampleDataSourceLink";
 
 const OPTION_KEYS: DataSourceOptionKey[] = [
@@ -86,6 +87,14 @@ const OPTION_HEADS: Record<
 };
 
 const OPTION_COLUMN_STYLE = { borderLeft: "1px solid var(--gray-a5)" };
+
+type OptionAction = {
+  label: string;
+  variant: "solid" | "outline";
+  onClick: () => void;
+  icon?: ReactNode;
+  reason?: string;
+};
 
 type Indicator = "yes" | "no";
 
@@ -229,20 +238,15 @@ function ComparisonCellContent({ indicator, text, detail }: ComparisonCell) {
 export default function DataSourceOptionsTable() {
   const router = useRouter();
   const { mutateDefinitions } = useDefinitions();
-  const {
-    options: eligibility,
-    showPricing,
-    pricingFootnote,
-  } = useDataSourceOptionEligibility();
+  const eligibility = useDataSourceOptionEligibility();
+  const { pricing, showPricing, pricingFootnote } =
+    useDataSourceOptionPricing();
 
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
   const [newDataSourceFormOpen, setNewDataSourceFormOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
-  const setUpActions: Record<
-    DataSourceOptionKey,
-    { label: string; variant: "solid" | "outline"; onClick: () => void }
-  > = {
+  const setUpActions: Record<DataSourceOptionKey, OptionAction> = {
     managed: {
       label: "Set up Managed Warehouse",
       variant: "solid",
@@ -260,24 +264,32 @@ export default function DataSourceOptionsTable() {
     },
   };
 
-  const renderAction = (option: DataSourceOptionKey) => {
-    const { availability } = eligibility[option];
-    let { label, variant, onClick } = setUpActions[option];
-    let icon: ReactNode = null;
-    const reason =
-      availability.status === "unavailable" ? availability.reason : null;
-
-    if (availability.status === "already-set-up") {
-      label = `View ${OPTION_HEADS[option].name}`;
-      variant = "outline";
-      onClick = () => router.push(`/datasources/${availability.datasourceId}`);
-    } else if (availability.status === "upgrade-required") {
-      label = "Upgrade to Pro";
-      variant = "outline";
-      icon = <GBPremiumBadge />;
-      onClick = () => setUpgradeOpen(true);
+  const getAction = (option: DataSourceOptionKey): OptionAction => {
+    const availability = eligibility[option];
+    switch (availability.status) {
+      case "available":
+        return setUpActions[option];
+      case "already-set-up":
+        return {
+          label: `View ${OPTION_HEADS[option].name}`,
+          variant: "outline",
+          onClick: () =>
+            router.push(`/datasources/${availability.datasourceId}`),
+        };
+      case "upgrade-required":
+        return {
+          label: "Upgrade to Pro",
+          variant: "outline",
+          icon: <GBPremiumBadge />,
+          onClick: () => setUpgradeOpen(true),
+        };
+      case "unavailable":
+        return { ...setUpActions[option], reason: availability.reason };
     }
+  };
 
+  const renderAction = (option: DataSourceOptionKey) => {
+    const { label, variant, icon, onClick, reason } = getAction(option);
     return (
       <Tooltip
         body={reason}
@@ -286,7 +298,7 @@ export default function DataSourceOptionsTable() {
       >
         <Button
           variant={variant}
-          icon={icon}
+          icon={icon ?? null}
           iconPosition="right"
           disabled={!!reason}
           style={{ width: "100%" }}
@@ -344,8 +356,7 @@ export default function DataSourceOptionsTable() {
                 <OptionHead
                   option={option}
                   upgradeRequired={
-                    eligibility[option].availability.status ===
-                    "upgrade-required"
+                    eligibility[option].status === "upgrade-required"
                   }
                 />
               </TableColumnHeader>
@@ -377,7 +388,7 @@ export default function DataSourceOptionsTable() {
                 <Text weight="medium">Event pricing</Text>
               </TableRowHeaderCell>
               {OPTION_KEYS.map((option) => {
-                const { headline, detail } = eligibility[option].pricing;
+                const { headline, detail } = pricing[option];
                 return (
                   <TableCell key={option} style={OPTION_COLUMN_STYLE}>
                     <Text as="div" weight="semibold">
