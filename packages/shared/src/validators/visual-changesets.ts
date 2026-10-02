@@ -102,7 +102,7 @@ export type ApiVisualEditorCbExperimentStub = z.infer<
 >;
 
 // Corresponds to payload-schemas/PostExperimentVisualChangesetPayload.yaml
-const postVisualChangesetBody = z
+export const postVisualChangesetBody = z
   .object({
     editorUrl: z
       .string()

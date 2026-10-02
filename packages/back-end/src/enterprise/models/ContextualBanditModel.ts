@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from "uuid";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
+  apiContextualBanditListVisualChangesetsReturn,
+  apiContextualBanditPostVisualChangesetsReturn,
   apiContextualBanditRefreshReturn,
   apiContextualBanditVariationsReturn,
   apiCreateContextualBanditBody,
@@ -17,6 +19,8 @@ import {
   ContextualBanditVariation,
   contextualBanditValidator,
   LeafWeight,
+  listContextualBanditVisualChangesetsEndpoint,
+  postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
@@ -28,11 +32,19 @@ import {
   ContextualBanditLinkageState,
   generateVariationId,
   getContextualBanditIdsFromRules,
+  hasVisualChanges,
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import { isFactMetricId } from "shared/experiments";
+import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { NotFoundError } from "back-end/src/util/errors";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
+  createVisualChangeset,
+  findVisualChangesetsByContextualBandit,
+  toVisualChangesetApiInterface,
+} from "back-end/src/models/VisualChangesetModel";
+import { ContextualBanditChangesetOwner } from "back-end/src/services/changesetOwner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
@@ -109,10 +121,18 @@ const BaseClass = MakeModelClass({
             req.context,
             cb,
           );
-          if (linkedFeatures.length === 0) {
-            throw new Error(
-              "Link at least one Feature Flag before starting this contextual bandit",
-            );
+          if (linkedFeatures.length === 0 && !cb.hasURLRedirects) {
+            const changesets = cb.hasVisualChangesets
+              ? await findVisualChangesetsByContextualBandit(
+                  cb.id,
+                  req.context.org.id,
+                )
+              : [];
+            if (!changesets.some((c) => hasVisualChanges(c.visualChanges))) {
+              throw new Error(
+                "Link at least one Feature Flag or save a Visual Editor change before starting this contextual bandit",
+              );
+            }
           }
           const { updated } = await executeContextualBanditStart(
             req.context,
@@ -222,6 +242,67 @@ const BaseClass = MakeModelClass({
           return { status: 200 };
         },
       }),
+      defineCustomApiHandler({
+        ...postContextualBanditVisualChangesetsEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<
+          z.infer<typeof apiContextualBanditPostVisualChangesetsReturn>
+        > => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const owner = new ContextualBanditChangesetOwner(req.context, cb);
+          if (!owner.canCreateChangeset()) {
+            req.context.permissions.throwPermissionError();
+          }
+          owner.assertCanCreateChangeset();
+          const urlPatterns: VisualChangesetURLPattern[] =
+            req.body.urlPatterns.map((p) => ({
+              type: p.type,
+              pattern: p.pattern,
+              include: p.include ?? true,
+            }));
+
+          const visualChangeset = await createVisualChangeset({
+            owner,
+            urlPatterns,
+            editorUrl: req.body.editorUrl,
+            context: req.context,
+          });
+
+          return {
+            visualChangeset: toVisualChangesetApiInterface(visualChangeset),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...listContextualBanditVisualChangesetsEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<
+          z.infer<typeof apiContextualBanditListVisualChangesetsReturn>
+        > => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const changesets = await findVisualChangesetsByContextualBandit(
+            cb.id,
+            req.context.org.id,
+          );
+          return {
+            visualChangesets: changesets.map((vc) =>
+              toVisualChangesetApiInterface(vc),
+            ),
+          };
+        },
+      }),
     ],
   },
 });
@@ -280,6 +361,8 @@ export function toApiContextualBandit(
     stageDateStarted: doc.stageDateStarted?.toISOString(),
     autoSnapshots: doc.autoSnapshots,
     nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
+    hasVisualChangesets: doc.hasVisualChangesets,
+    hasURLRedirects: doc.hasURLRedirects,
   };
 }
 
