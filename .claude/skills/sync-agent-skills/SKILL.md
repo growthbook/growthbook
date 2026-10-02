@@ -13,13 +13,13 @@ Use `$SKILLS_SRC`, `skills-src/`, or the `path` in `packages/back-end/agent-skil
 
 ## 2. Decide the scope
 
-- **This branch:** base spec is `git show $(git merge-base HEAD origin/main):packages/back-end/generated/spec.yaml`. Regenerate the head spec first with `pnpm --filter back-end generate-openapi`.
-- **Catch-up since the last sync:** find when the growthbook/skills `Sync with GrowthBook` workflow last succeeded (`gh run list -R growthbook/skills --workflow sync-from-growthbook.yml --status success`, ignoring runs titled "Dry run"). Use the spec at the last `origin/main` commit before that time as the base, and list `git log --since=<that time> origin/main -- $(grep -v '^#' scripts/agent-skills-watch-paths.txt)` for behavior changes the spec cannot show.
+- **This branch:** run `base=$(git merge-base HEAD origin/main)` (it must succeed; unshallow first if needed) and use `git show "$base":packages/back-end/generated/spec.yaml` as the base spec. Regenerate the head spec first with `pnpm --filter back-end generate-openapi`.
+- **Catch-up since the last sync:** the last reviewed GrowthBook commit is in the newest `sync-state` artifact of growthbook/skills (`gh api 'repos/growthbook/skills/actions/artifacts?name=sync-state&per_page=1'`, then download it; `state.json` has `growthbook`). Use the spec at that commit as the base and `origin/main`'s spec as the head (`git show origin/main:packages/back-end/generated/spec.yaml`), and list `git log <that commit>..origin/main -- $(grep -v '^#' scripts/agent-skills-watch-paths.txt)` for behavior changes the spec cannot show.
 
 ## 3. Run the checker
 
 ```bash
-node scripts/check-agent-skills-drift.mjs --skills <checkout> --base-spec <base-spec>
+node scripts/check-agent-skills-drift.mjs --skills <checkout> --base-spec <base-spec> [--spec <head-spec>]
 ```
 
 ## 4. Verify each finding against the source
@@ -48,7 +48,7 @@ It prints "Guard passed" or the list of problems, and exits 1 on any problem.
 
 Show the user the findings and the proposed skills diff. Only after they confirm:
 
-1. If an open growthbook/skills PR already covers this change (it names the GrowthBook PR, or the GrowthBook PR links it), add a commit there. Otherwise open a PR on a new branch and link it from the GrowthBook PR as `growthbook/skills#<number>`.
+1. If an open growthbook/skills PR already covers this change, add a commit there. Otherwise open a PR on a new branch and link it from the GrowthBook PR as `growthbook/skills#<number>`, so the sync job leaves that change to it.
 2. After it merges, the `Bump agent skills` workflow updates `packages/back-end/agent-skills.lock.json` here. Run it manually if the bump can't wait for the next weekday.
 
 Never push or open PRs without confirmation.

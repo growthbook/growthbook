@@ -23,27 +23,32 @@ node scripts/check-agent-skills-drift.mjs --skills ../skills
 To see which skills your branch affects, pass the spec from where your branch started. Use the merge base, not `origin/main`; otherwise operations added on `main` since you branched show up as removed:
 
 ```bash
-git show "$(git merge-base HEAD origin/main):packages/back-end/generated/spec.yaml" > /tmp/base-spec.yaml
-node scripts/check-agent-skills-drift.mjs --skills ../skills --base-spec /tmp/base-spec.yaml
+base=$(git merge-base HEAD origin/main) &&
+  git show "$base:packages/back-end/generated/spec.yaml" > /tmp/base-spec.yaml &&
+  node scripts/check-agent-skills-drift.mjs --skills ../skills --base-spec /tmp/base-spec.yaml
 ```
+
+In a shallow clone, `git fetch --unshallow` first so the merge base exists. The checker refuses an empty or unparseable spec.
 
 The report has these sections:
 
-- **Skills affected by this change** — operations a skill uses that were removed (including a literal route that now falls through to a `{param}` sibling), newly deprecated, or changed. Changes inside shared `components` schemas count; description and example text does not. Read each file and decide whether it needs an edit.
-- **New findings compared with the baseline skills** — with `--baseline-skills <dir>`, broken references the baseline checkout did not have.
+- **Skills affected by this change** — operations a skill uses that were removed (including a literal route that now falls through to a `{param}` sibling in router order), newly deprecated, or changed. Renaming a path parameter is not a removal. Changes inside shared `components` schemas count; descriptions, titles, examples, and code samples do not. Read each file and decide whether it needs an edit.
+- **New findings compared with the baseline skills** — with `--baseline-skills <dir>`, broken references beyond what the baseline checkout had, counted per method and path, so moving a reference between files or respelling a placeholder is not new.
 - **References to endpoints that do not exist** — a skill calls a path or method missing from the spec.
 - **References to deprecated endpoints** — a skill uses an operation marked deprecated; move it to the replacement.
 
-The checker reads only references with a method and a versioned path, such as `GET /api/v2/features/<id>` or `POST /v2/features`, so it cannot see behavior or guardrail changes. Review those by hand using the list above. Add `--json` for machine-readable output.
+The checker reads references with a method and a versioned path, such as `GET /api/v2/features/<id>` or `POST /v2/features`, and quoted `/api/vN/...` paths without a method. It skips negated mentions such as "not `POST /api/v1/...`". It cannot see behavior or guardrail changes. Review those by hand using the list above. Add `--json` for machine-readable output.
 
-CI runs the same check (`.github/workflows/agent-skills-drift.yml`) on PRs that change `spec.yaml` or the lock file, against the skills commit pinned in `agent-skills.lock.json` (what deploys ship). It fails when the PR removes or deprecates an operation a pinned skill uses (the in-app assistant drops deprecated routes), or when a lock bump pins skills with broken references the previous pin did not have. Everything else is a warning in the job summary.
+CI runs the same check (`.github/workflows/agent-skills-drift.yml`) on PRs that change `spec.yaml` or the lock file, against the skills commit pinned in `agent-skills.lock.json` (what deploys ship). It fails when the PR removes an operation a pinned skill uses, or when a lock bump pins skills with broken references the previous pin did not have. Deprecations and other changes are warnings in the job summary; the in-app assistant drops deprecated routes, so treat a deprecation warning as a skills update to make soon.
+
+If your PR has to remove an operation a pinned skill uses, open the skills PR first and pin its head commit in `agent-skills.lock.json` in your PR, so the check passes and deploys ship skills that match. The bump workflow only moves the pin forward along growthbook/skills `main`, so it leaves that pin alone until the skills PR merges.
 
 After a merge to `main`, the job checks growthbook/skills `main` and, if a skill uses a changed operation, sends a `growthbook-api-changed` dispatch to growthbook/skills (requires the `SKILLS_BOT_TOKEN` secret). The sync workflow there reviews every watched commit since its last run, updates the skills, and opens or updates a draft `sync/growthbook` PR. It also runs weekly for behavior changes the spec cannot show.
 
 ## When your change affects a skill
 
 1. Note the affected skill files in the PR description.
-2. Open a PR in growthbook/skills that updates them, or leave it to the sync job. Follow that repo's `CLAUDE.md`. The Zod validators here are the contract. If you open one, link it in this PR's description as `growthbook/skills#<number>`. The sync job then leaves this PR's skill changes to your skills PR. When it reviews this PR on its own, it adds any remaining edits there as a commit; otherwise it lists the pairing in its sync PR.
+2. Open a PR in growthbook/skills that updates them, or leave it to the sync job. Follow that repo's `CLAUDE.md`. The Zod validators here are the contract. If you open one, link it in this PR's description as `growthbook/skills#<number>`. The sync job then leaves this PR's skill changes to your skills PR (forks included) and lists the pairing in its own sync PR; it never pushes to your PR.
 3. After the skills PR merges, the `Bump agent skills` workflow opens a PR here that updates `packages/back-end/agent-skills.lock.json` (weekdays, or run it manually), so the in-app assistant picks it up.
 
 If the API change is not deployed yet, merge the skills PR after the API ships. Plugin users run skills `main` against GrowthBook Cloud.

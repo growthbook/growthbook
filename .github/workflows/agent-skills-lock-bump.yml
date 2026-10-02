@@ -35,9 +35,13 @@ jobs:
           REPOSITORY=$(node -p "require('./$LOCK').repository")
           CURRENT=$(node -p "require('./$LOCK').commit")
           LATEST=$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)
-          if [ "$CURRENT" = "$LATEST" ]; then
-            echo "Agent skills are up to date at $CURRENT."
-            echo "current=true" >> "$GITHUB_OUTPUT"
+          # "ahead" means main is ahead of the pin. Any other status means the
+          # pin is already at, past, or off main (for example an unmerged
+          # skills PR pinned on purpose), so never move it back.
+          STATUS=$(gh api "repos/$REPOSITORY/compare/$CURRENT...$LATEST" --jq .status)
+          if [ "$STATUS" != "ahead" ]; then
+            echo "Pin $CURRENT is $STATUS relative to main; nothing to bump."
+            [ "$STATUS" = "identical" ] && echo "current=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           node -e '

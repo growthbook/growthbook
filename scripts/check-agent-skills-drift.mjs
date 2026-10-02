@@ -2,20 +2,24 @@
 /**
  * Check growthbook/skills against the REST API in generated/spec.yaml.
  *
- * Reports skill references (`GET /api/v2/...`) to endpoints that are missing
- * or deprecated. With --base-spec, also reports skill references whose
- * operation was removed, re-routed, newly deprecated, or changed (including
- * shared component schemas). With --baseline-skills, reports findings that
- * the baseline skills checkout did not have.
+ * Reports skill references to endpoints that are missing or deprecated:
+ * `GET /api/v2/...` style calls, and quoted `/api/vN/...` paths without a
+ * method. References resolve the way the API router does: the first route
+ * registered for the method whose template matches, in spec order.
+ *
+ * With --base-spec, also reports skill references whose operation was
+ * removed, newly deprecated, or changed (including referenced components,
+ * but not doc text or code samples). With --baseline-skills, reports broken
+ * references beyond what the baseline checkout already had, counted per
+ * method and path so moving or respelling one is not new.
  *
  * Usage:
  *   node scripts/check-agent-skills-drift.mjs [--skills <dir>] [--spec <file>]
  *     [--base-spec <file>] [--baseline-skills <dir>] [--strict] [--json]
  *
- * --skills defaults to $SKILLS_SRC, then skills-src/. --strict exits 1 on
- * blocking drift: a skill uses an operation the change removes or deprecates,
- * a finding is new compared with --baseline-skills, or (with neither base)
- * any missing endpoint.
+ * --skills defaults to $SKILLS_SRC, then skills-src/. --strict exits 1 when a
+ * skill uses an operation the change removes, when --baseline-skills finds
+ * new broken references, or (with neither) on any missing endpoint.
  */
 
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
@@ -30,17 +34,16 @@ const METHODS = ["get", "post", "put", "patch", "delete"];
 const PATH_RE = /^ {2}(\/\S+):\s*$/;
 const METHOD_RE = new RegExp(`^ {4}(${METHODS.join("|")}):\\s*$`);
 const COMPONENT_TYPE_RE = /^ {2}([A-Za-z]+):\s*$/;
-const COMPONENT_RE = /^ {4}([A-Za-z0-9_.-]+):\s*$/;
-const COMPONENT_REF_RE = /#\/components\/([A-Za-z]+)\/([A-Za-z0-9_.-]+)/g;
+const COMPONENT_RE = /^ {4}(\S.*?):\s*$/;
+const COMPONENT_REF_RE = /#\/components\/([A-Za-z]+)\/([^'"\n]+)/g;
 const REF_RE =
   /\b(GET|POST|PUT|PATCH|DELETE)\s+['"`]?((?:\/api)?\/v\d+\/[^\s'"`)?]+)/g;
-const DOC_KEY_RE = /^(\s*)(description|summary|example|examples):\s*\S/;
-
-function isDeprecated(body) {
-  return (
-    /^ {6}deprecated: true$/m.test(body) || body.includes("**Deprecated.**")
-  );
-}
+const PATH_ONLY_RE = /[`'"](\/api\/v\d+\/[^\s'"`)?]+)/g;
+const NEGATION_RE = /\b(not|never|instead of|rather than|avoid)\s+[`'"]?$/i;
+const DOC_KEY_RE =
+  /^(\s*)(- )?(description|summary|example|examples|title):\s*\S/;
+const DOC_BLOCK_RE = /^(\s*)(- )?(x-codeSamples|examples):\s*$/;
+const PLACEHOLDER_RE = /^(<[^>]+>|:\w+|\{[^}]+\}|\$\{?\w+\}?)$/;
 
 export function parseSpec(specText) {
   const operations = new Map();
@@ -56,14 +59,14 @@ export function parseSpec(specText) {
         method: current.method,
         path: current.path,
         body,
-        deprecated: isDeprecated(body),
+        deprecated: /^ {6}deprecated: true$/m.test(body),
       });
     } else if (current?.kind === "component") {
       components.set(current.key, current.lines.join("\n"));
     }
     current = null;
   };
-  for (const line of specText.split("\n")) {
+  for (const line of specText.split(/\r?\n/)) {
     if (/^\S/.test(line)) {
       flush();
       section = /^paths:\s*$/.test(line)
@@ -119,25 +122,45 @@ export function parseSpec(specText) {
   return { operations, components };
 }
 
-// Doc text (description, summary, examples) changes often and never changes
-// what a request must look like, so signatures leave it out. A property that
-// happens to be named `description` has no inline value and is kept.
+// Doc text (descriptions, titles, examples, code samples) never changes what
+// a request must look like, so signatures leave it out. A property that
+// happens to be named `description` or `title` has no inline value and is
+// kept.
 export function stripDocText(body) {
   const out = [];
   let skipIndent = null;
+  // When a doc key opens a list item, its dash moves to the next sibling key
+  // so `- title: X` + `$ref: Y` matches a plain `- $ref: Y`.
+  let dashIndent = null;
+  const flushDash = () => {
+    if (dashIndent !== null) out.push(`${" ".repeat(dashIndent)}-`);
+    dashIndent = null;
+  };
   for (const line of body.split("\n")) {
     const indent = line.length - line.trimStart().length;
     if (skipIndent !== null) {
       if (line.trim() === "" || indent > skipIndent) continue;
       skipIndent = null;
     }
-    const doc = DOC_KEY_RE.exec(line);
+    const doc = DOC_KEY_RE.exec(line) ?? DOC_BLOCK_RE.exec(line);
     if (doc) {
-      skipIndent = doc[1].length;
+      const keyIndent = doc[1].length + (doc[2] ? 2 : 0);
+      if (doc[2]) {
+        flushDash();
+        dashIndent = doc[1].length;
+      }
+      skipIndent = keyIndent;
       continue;
     }
+    if (dashIndent !== null && indent === dashIndent + 2) {
+      out.push(`${" ".repeat(dashIndent)}- ${line.trimStart()}`);
+      dashIndent = null;
+      continue;
+    }
+    flushDash();
     out.push(line);
   }
+  flushDash();
   return out.join("\n");
 }
 
@@ -160,58 +183,66 @@ export function operationSignature(operation, components) {
   ].join("\n---\n");
 }
 
+const cleanPath = (raw) => raw.replace(/^\/api/, "").replace(/[.,;:]+$/, "");
+
 export function extractSkillReferences(text) {
   const refs = [];
-  const lines = text.split("\n");
-  lines.forEach((line, index) => {
+  text.split("\n").forEach((line, index) => {
+    const spans = [];
     for (const match of line.matchAll(REF_RE)) {
+      spans.push([match.index, match.index + match[0].length]);
+      if (NEGATION_RE.test(line.slice(0, match.index))) continue;
       refs.push({
         method: match[1],
-        path: match[2].replace(/^\/api/, "").replace(/[.,;:]+$/, ""),
+        path: cleanPath(match[2]),
         line: index + 1,
       });
+    }
+    for (const match of line.matchAll(PATH_ONLY_RE)) {
+      const inSpan = spans.some(
+        ([start, end]) => match.index >= start && match.index < end,
+      );
+      if (inSpan || NEGATION_RE.test(line.slice(0, match.index))) continue;
+      // Wildcards and elisions in prose are patterns, not paths.
+      if (/\*|\.\.\./.test(match[1])) continue;
+      refs.push({ method: "ANY", path: cleanPath(match[1]), line: index + 1 });
     }
   });
   return refs;
 }
 
-const isSpecParam = (segment) => /^\{[^}]+\}$/.test(segment);
-
-function scoreMatch(refPath, specPath) {
+function templateMatches(refPath, specPath) {
   const refSegments = refPath.split("/");
   const specSegments = specPath.split("/");
-  if (refSegments.length !== specSegments.length) return -1;
-  let score = 0;
-  for (let i = 0; i < specSegments.length; i++) {
-    if (specSegments[i] === refSegments[i]) score++;
-    else if (!isSpecParam(specSegments[i])) return -1;
-  }
-  return score;
+  if (refSegments.length !== specSegments.length) return false;
+  return specSegments.every(
+    (segment, i) => /^\{[^}]+\}$/.test(segment) || segment === refSegments[i],
+  );
 }
 
+// Route identity ignores parameter names: `{id}` and `{experimentId}` in the
+// same place are the same route.
+export const routeKey = (method, specPath) =>
+  `${method} ${specPath.replace(/\{[^}]+\}/g, "{}")}`;
+
 export function resolveReference(ref, operations) {
-  const specPaths = new Set([...operations.values()].map((op) => op.path));
-  let bestPath = null;
-  let bestScore = -1;
-  for (const specPath of specPaths) {
-    const score = scoreMatch(ref.path, specPath);
-    if (score > bestScore) {
-      bestScore = score;
-      bestPath = specPath;
+  let anyPath = null;
+  for (const op of operations.values()) {
+    if (!templateMatches(ref.path, op.path)) continue;
+    if (ref.method === "ANY" || op.method === ref.method) {
+      return {
+        status: op.deprecated ? "deprecated" : "ok",
+        key: `${op.method} ${op.path}`,
+        route: routeKey(op.method, op.path),
+      };
     }
+    anyPath ??= op.path;
   }
-  if (!bestPath) return { status: "missing-path" };
-  const operation = operations.get(`${ref.method} ${bestPath}`);
-  if (!operation) {
-    const methods = METHODS.map((m) => m.toUpperCase()).filter((m) =>
-      operations.has(`${m} ${bestPath}`),
-    );
-    return { status: "missing-method", path: bestPath, methods };
-  }
-  return {
-    status: operation.deprecated ? "deprecated" : "ok",
-    key: `${operation.method} ${operation.path}`,
-  };
+  if (!anyPath) return { status: "missing-path" };
+  const methods = [...operations.values()]
+    .filter((op) => op.path === anyPath)
+    .map((op) => op.method);
+  return { status: "missing-method", path: anyPath, methods };
 }
 
 function markdownFiles(dir) {
@@ -222,8 +253,13 @@ function markdownFiles(dir) {
   });
 }
 
-export const findingKey = ({ file, method, path: refPath }) =>
-  `${file}|${method}|${refPath}`;
+// Findings are compared by method and normalized path, not file, so moving a
+// reference or respelling its placeholder is not a new finding.
+export const findingKey = ({ method, path: refPath }) =>
+  `${method} ${refPath
+    .split("/")
+    .map((s) => (PLACEHOLDER_RE.test(s) ? "{}" : s))
+    .join("/")}`;
 
 function findings(skillFiles, operations) {
   const missing = [];
@@ -252,6 +288,24 @@ function findings(skillFiles, operations) {
   return { missing, deprecated };
 }
 
+export function newFindings(current, baseline) {
+  const counts = new Map();
+  for (const finding of baseline) {
+    const key = findingKey(finding);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const introduced = [];
+  for (const finding of current) {
+    const key = findingKey(finding);
+    const left = counts.get(key) ?? 0;
+    if (left > 0) counts.set(key, left - 1);
+    else introduced.push(finding);
+  }
+  return introduced;
+}
+
+const KIND_RANK = { removed: 3, deprecated: 2, changed: 1, added: 0 };
+
 export function analyze({
   skillFiles,
   spec,
@@ -262,6 +316,7 @@ export function analyze({
   const impacted = new Map();
   const mark = (key, kind, file) => {
     const entry = impacted.get(key) ?? { kind, files: new Set() };
+    if (KIND_RANK[kind] > KIND_RANK[entry.kind]) entry.kind = kind;
     entry.files.add(file);
     impacted.set(key, entry);
   };
@@ -269,13 +324,14 @@ export function analyze({
   if (baseSpec) {
     for (const { file, text } of skillFiles) {
       for (const ref of extractSkillReferences(text)) {
+        if (ref.method === "ANY") continue;
         const before = resolveReference(ref, baseSpec.operations);
         const after = resolveReference(ref, spec.operations);
         if (!before.key) {
           if (after.key) mark(after.key, "added", file);
           continue;
         }
-        if (after.key !== before.key) {
+        if (after.route !== before.route) {
           mark(before.key, "removed", file);
           continue;
         }
@@ -299,29 +355,26 @@ export function analyze({
       baselineSkillFiles,
       (baseSpec ?? spec).operations,
     );
-    const known = new Set(
-      [...baseline.missing, ...baseline.deprecated].map(findingKey),
-    );
-    introduced = [...missing, ...deprecated].filter(
-      (finding) => !known.has(findingKey(finding)),
+    introduced = newFindings(
+      [...missing, ...deprecated],
+      [...baseline.missing, ...baseline.deprecated],
     );
   }
   return { missing, deprecated, impacted, introduced };
 }
 
-const BLOCKING_KINDS = new Set(["removed", "deprecated"]);
-
 export function hasBlockingDrift(result, { hasBase, hasBaseline }) {
   if (hasBaseline && result.introduced.length > 0) return true;
   if (hasBase) {
-    return [...result.impacted.values()].some(({ kind }) =>
-      BLOCKING_KINDS.has(kind),
-    );
+    return [...result.impacted.values()].some(({ kind }) => kind === "removed");
   }
   return !hasBaseline && result.missing.length > 0;
 }
 
-const label = (finding) => `${finding.method} /api${finding.path}`;
+const label = (finding) =>
+  finding.method === "ANY"
+    ? `/api${finding.path}`
+    : `${finding.method} /api${finding.path}`;
 const location = (finding) => `${finding.file}:${finding.line}`;
 
 export function formatReport(
@@ -333,7 +386,7 @@ export function formatReport(
     out.push(
       "### Skills affected by this change",
       "",
-      "These operations changed in `spec.yaml` and are used by a skill. Update the skill in growthbook/skills; the lock bump follows automatically.",
+      "These operations changed in `spec.yaml` and are used by a skill. Removals fail this check; update the skill in growthbook/skills, or see `.agents/guides/agent-skills.md`.",
       "",
     );
     for (const [key, { kind, files }] of [...impacted].sort()) {
@@ -395,14 +448,17 @@ export function toJson(result) {
 
 function parseArgs(argv) {
   const args = { strict: false, json: false };
+  const valued = ["--skills", "--spec", "--base-spec", "--baseline-skills"];
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     if (flag === "--strict") args.strict = true;
     else if (flag === "--json") args.json = true;
-    else if (
-      ["--skills", "--spec", "--base-spec", "--baseline-skills"].includes(flag)
-    ) {
-      args[flag.slice(2)] = argv[++i];
+    else if (valued.includes(flag)) {
+      const value = argv[++i];
+      if (!value || value.startsWith("--")) {
+        throw new Error(`${flag} needs a value`);
+      }
+      args[flag.slice(2)] = value;
     } else {
       throw new Error(`Unknown argument: ${flag}`);
     }
@@ -410,13 +466,17 @@ function parseArgs(argv) {
   return args;
 }
 
+function fail(message) {
+  process.stderr.write(`${message}\n`);
+  process.exit(2);
+}
+
 function readSkills(root) {
   const skillsDir = path.join(root, "skills");
   if (!existsSync(skillsDir)) {
-    process.stderr.write(
-      `No skills/ directory in ${root}. Pass --skills <growthbook/skills checkout> or set SKILLS_SRC.\n`,
+    fail(
+      `No skills/ directory in ${root}. Pass --skills <growthbook/skills checkout> or set SKILLS_SRC.`,
     );
-    process.exit(2);
   }
   return markdownFiles(skillsDir).map((file) => ({
     file: path.relative(root, file),
@@ -424,26 +484,25 @@ function readSkills(root) {
   }));
 }
 
+function readSpec(file, label) {
+  const spec = parseSpec(readFileSync(path.resolve(file), "utf8"));
+  if (spec.operations.size === 0) {
+    fail(`The ${label} spec (${file}) has no operations under paths:.`);
+  }
+  return spec;
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const skillsRoot = path.resolve(
     args.skills ?? process.env.SKILLS_SRC ?? path.join(REPO_ROOT, "skills-src"),
   );
-  const spec = parseSpec(
-    readFileSync(
-      path.resolve(
-        args.spec ??
-          path.join(REPO_ROOT, "packages/back-end/generated/spec.yaml"),
-      ),
-      "utf8",
-    ),
+  const spec = readSpec(
+    args.spec ?? path.join(REPO_ROOT, "packages/back-end/generated/spec.yaml"),
+    "head",
   );
-  if (spec.operations.size === 0) {
-    process.stderr.write("The spec has no operations under paths:.\n");
-    process.exit(2);
-  }
   const baseSpec = args["base-spec"]
-    ? parseSpec(readFileSync(path.resolve(args["base-spec"]), "utf8"))
+    ? readSpec(args["base-spec"], "base")
     : null;
   const result = analyze({
     skillFiles: readSkills(skillsRoot),
@@ -453,20 +512,19 @@ function main() {
       ? readSkills(path.resolve(args["baseline-skills"]))
       : null,
   });
-  process.stdout.write(
-    args.json
-      ? JSON.stringify(toJson(result), null, 2) + "\n"
-      : formatReport(result, { skillsLabel: path.basename(skillsRoot) }) + "\n",
-  );
-  if (
+  const text = args.json
+    ? JSON.stringify(toJson(result), null, 2) + "\n"
+    : formatReport(result, { skillsLabel: path.basename(skillsRoot) }) + "\n";
+  const blocking =
     args.strict &&
     hasBlockingDrift(result, {
       hasBase: baseSpec !== null,
       hasBaseline: Boolean(args["baseline-skills"]),
-    })
-  ) {
-    process.exit(1);
-  }
+    });
+  // Set the exit code instead of calling exit() so piped output is flushed.
+  process.stdout.write(text, () => {
+    if (blocking) process.exitCode = 1;
+  });
 }
 
 if (

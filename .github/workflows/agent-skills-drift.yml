@@ -53,7 +53,12 @@ jobs:
             git fetch --depth=1 origin "$BASE_SHA"
           fi
           git show "$BASE_SHA:packages/back-end/generated/spec.yaml" > "$RUNNER_TEMP/base-spec.yaml"
-          BASE_PIN=$(git show "$BASE_SHA:$LOCK" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).commit")
+          # Branches cut before the lock file existed have no previous pin.
+          if ! BASE_LOCK=$(git show "$BASE_SHA:$LOCK" 2>/dev/null); then
+            echo "The base has no $LOCK; skipping the pin comparison."
+            exit 0
+          fi
+          BASE_PIN=$(node -p "JSON.parse(process.argv[1]).commit" "$BASE_LOCK")
           HEAD_PIN=$(node -p "require('./$LOCK').commit")
           echo "pin=$BASE_PIN" >> "$GITHUB_OUTPUT"
           if [ "$BASE_PIN" != "$HEAD_PIN" ]; then
@@ -71,8 +76,8 @@ jobs:
           ref: ${{ steps.base.outputs.pin }}
           path: skills-base
 
-      # On PRs, fail when a skill uses an operation the PR removes or
-      # deprecates, or when a lock bump pins skills with new broken calls.
+      # On PRs, fail when a skill uses an operation the PR removes, or when a
+      # lock bump pins skills with new broken calls. Deprecations warn.
       - name: Check the pinned skills against the OpenAPI spec
         env:
           STRICT: ${{ github.event_name == 'pull_request' && '--strict' || '' }}

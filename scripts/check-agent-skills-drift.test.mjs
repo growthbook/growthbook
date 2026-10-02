@@ -225,3 +225,187 @@ test("baseline comparison flags new findings even when the count is unchanged", 
   assert.equal(hasBlockingDrift(same, { hasBaseline: true }), false);
   assert.deepEqual(toJson(same).introduced, []);
 });
+
+test("resolves in registration order and ignores parameter renames", () => {
+  const ordered = (paths) => parseSpec(spec(paths));
+  const latestFirst = ordered([
+    "  /v2/features/{id}/revisions/latest:",
+    "    get:",
+    "      operationId: latest",
+    "  /v2/features/{id}/revisions/{version}:",
+    "    get:",
+    "      operationId: byVersion",
+  ]);
+  const versionFirst = ordered([
+    "  /v2/features/{id}/revisions/{version}:",
+    "    get:",
+    "      operationId: byVersion",
+    "  /v2/features/{id}/revisions/latest:",
+    "    get:",
+    "      operationId: latest",
+  ]);
+  const skill = [
+    { file: "skills/x.md", text: "GET /api/v2/features/<id>/revisions/latest" },
+  ];
+  const moved = analyze({
+    skillFiles: skill,
+    spec: versionFirst,
+    baseSpec: latestFirst,
+  });
+  assert.equal(
+    moved.impacted.get("GET /v2/features/{id}/revisions/latest").kind,
+    "removed",
+  );
+
+  const renamed = analyze({
+    skillFiles: [
+      { file: "skills/x.md", text: "POST /api/v1/experiments/e_1/stop" },
+    ],
+    spec: ordered([
+      "  /v1/experiments/{experimentId}/stop:",
+      "    post:",
+      "      x: 1",
+    ]),
+    baseSpec: ordered([
+      "  /v1/experiments/{id}/stop:",
+      "    post:",
+      "      x: 1",
+    ]),
+  });
+  assert.equal(renamed.impacted.size, 0);
+});
+
+test("parses component names with spaces and ignores doc-only list items", () => {
+  const withRule = (extra) =>
+    parseSpec(
+      spec(
+        [
+          "  /v2/rules:",
+          "    post:",
+          "      requestBody:",
+          "        oneOf:",
+          ...extra,
+        ],
+        [
+          "    Experiment:",
+          "      type: object",
+          "    Targeting Rule:",
+          "      properties:",
+          "        condition:",
+          "          type: string",
+        ],
+      ),
+    );
+  const plain = withRule([
+    "          - $ref: '#/components/schemas/Targeting Rule'",
+  ]);
+  const titled = withRule([
+    "          - title: Targeting Rule",
+    "            $ref: '#/components/schemas/Targeting Rule'",
+  ]);
+  assert.ok(plain.components.has("schemas/Targeting Rule"));
+  const skillFiles = [{ file: "skills/x.md", text: "POST /api/v2/rules" }];
+  assert.equal(
+    analyze({ skillFiles, spec: titled, baseSpec: plain }).impacted.size,
+    0,
+  );
+  const changed = parseSpec(
+    spec(
+      [
+        "  /v2/rules:",
+        "    post:",
+        "      requestBody:",
+        "        oneOf:",
+        "          - $ref: '#/components/schemas/Targeting Rule'",
+      ],
+      [
+        "    Experiment:",
+        "      type: object",
+        "    Targeting Rule:",
+        "      properties:",
+        "        condition:",
+        "          type: object",
+      ],
+    ),
+  );
+  assert.equal(
+    analyze({ skillFiles, spec: changed, baseSpec: plain }).impacted.get(
+      "POST /v2/rules",
+    ).kind,
+    "changed",
+  );
+  assert.equal(
+    analyze({
+      skillFiles: [{ file: "x", text: "POST /api/v2/experiments" }],
+      spec: changed,
+      baseSpec: plain,
+    }).impacted.size,
+    0,
+  );
+});
+
+test("only route-level deprecated: true deprecates, and negated mentions are not uses", () => {
+  const fieldNote = parseSpec(
+    spec([
+      "  /v1/x:",
+      "    post:",
+      "      requestBody:",
+      "        description: '**Deprecated.** old field'",
+    ]),
+  );
+  assert.equal(fieldNote.operations.get("POST /v1/x").deprecated, false);
+  const refs = extractSkillReferences(
+    "Use `/stop`, not `POST /api/v1/experiments/<id>`. Call `POST /api/v1/experiments/<id>/stop`.",
+  );
+  assert.deepEqual(
+    refs.map((r) => `${r.method} ${r.path}`),
+    ["POST /v1/experiments/<id>/stop"],
+  );
+});
+
+test("checks quoted paths without a method, skipping wildcards", () => {
+  const result = analyze({
+    skillFiles: [
+      {
+        file: "skills/x.md",
+        text: "The `/api/v1/features` list and `/api/v2/feature-search` endpoint, or `/api/v1/product-analytics/*-exploration`.",
+      },
+    ],
+    spec: parseSpec(HEAD),
+  });
+  assert.deepEqual(
+    result.missing.map((m) => `${m.method} ${m.path}`),
+    ["ANY /v2/feature-search"],
+  );
+});
+
+test("baseline counts findings per endpoint, not per file or placeholder", () => {
+  const baseline = [
+    {
+      file: "skills/a.md",
+      text: "GET /api/v2/flag-revisions\nDELETE /api/v1/experiments/<id>",
+    },
+  ];
+  const moved = [
+    { file: "skills/b.md", text: "GET /api/v2/flag-revisions" },
+    { file: "skills/a.md", text: "DELETE /api/v1/experiments/<experiment-id>" },
+  ];
+  const head = parseSpec(HEAD);
+  assert.deepEqual(
+    analyze({ skillFiles: moved, spec: head, baselineSkillFiles: baseline })
+      .introduced,
+    [],
+  );
+  const extra = [
+    ...moved,
+    { file: "skills/c.md", text: "GET /api/v2/flag-revisions?x=1" },
+  ];
+  assert.deepEqual(
+    analyze({
+      skillFiles: extra,
+      spec: head,
+      baselineSkillFiles: baseline,
+    }).introduced.map((f) => f.file),
+    ["skills/c.md"],
+  );
+});
