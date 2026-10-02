@@ -416,6 +416,9 @@ tags:
   - name: AutoRuns
     x-displayName: Auto Runs
     description: ''
+  - name: Populations
+    x-displayName: Populations
+    description: Multi-step analytics audiences built from fact tables (MVP).
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -693,6 +696,9 @@ tags:
   - name: PaginationFields_model
     x-displayName: Pagination Fields
     description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
+  - name: Population_model
+    x-displayName: Population
+    description: <SchemaDefinition schemaRef="#/components/schemas/Population" />
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
@@ -61927,6 +61933,416 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/auto-runs/{id}/artifacts' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/populations/{id}:
+    get:
+      operationId: getPopulation
+      summary: Get a single population
+      tags:
+        - Populations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  population:
+                    $ref: '#/components/schemas/Population'
+                required:
+                  - population
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/populations/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deletePopulation
+      summary: Delete a single population
+      tags:
+        - Populations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/populations/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updatePopulation
+      summary: Update a single population
+      tags:
+        - Populations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                projects:
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                userIdTypes:
+                  type: array
+                  items:
+                    type: string
+                steps:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      source:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            const: factTable
+                          factTableId:
+                            type: string
+                        required:
+                          - type
+                          - factTableId
+                        additionalProperties: false
+                      rowFilters:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            operator:
+                              type: string
+                              enum:
+                                - '='
+                                - '!='
+                                - <
+                                - <=
+                                - '>'
+                                - '>='
+                                - between
+                                - not_between
+                                - in
+                                - not_in
+                                - contains
+                                - not_contains
+                                - matches_pattern
+                                - not_matches_pattern
+                                - starts_with
+                                - ends_with
+                                - is_null
+                                - not_null
+                                - is_true
+                                - is_false
+                                - sql_expr
+                                - saved_filter
+                            column:
+                              type: string
+                            values:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - operator
+                          additionalProperties: false
+                      aggregateFilter:
+                        type: string
+                      aggregateFilterColumn:
+                        type: string
+                      windowSettings:
+                        description: >-
+                          Controls which event timestamps count for this step.
+                          Conversion windows (and delay) are only allowed on
+                          steps after the first.
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - none
+                              - conversion
+                              - lookback
+                          delayValue:
+                            type: number
+                          delayUnit:
+                            type: string
+                            enum:
+                              - minutes
+                              - hours
+                              - days
+                              - weeks
+                          windowValue:
+                            type: number
+                          windowUnit:
+                            type: string
+                            enum:
+                              - minutes
+                              - hours
+                              - days
+                              - weeks
+                        required:
+                          - type
+                          - delayValue
+                          - delayUnit
+                          - windowValue
+                          - windowUnit
+                        additionalProperties: false
+                    required:
+                      - source
+                      - rowFilters
+                      - windowSettings
+                    additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  population:
+                    $ref: '#/components/schemas/Population'
+                required:
+                  - population
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/populations/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/populations:
+    post:
+      operationId: createPopulation
+      summary: Create a single population
+      tags:
+        - Populations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                projects:
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                datasource:
+                  type: string
+                userIdTypes:
+                  type: array
+                  items:
+                    type: string
+                steps:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      source:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            const: factTable
+                          factTableId:
+                            type: string
+                        required:
+                          - type
+                          - factTableId
+                        additionalProperties: false
+                      rowFilters:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            operator:
+                              type: string
+                              enum:
+                                - '='
+                                - '!='
+                                - <
+                                - <=
+                                - '>'
+                                - '>='
+                                - between
+                                - not_between
+                                - in
+                                - not_in
+                                - contains
+                                - not_contains
+                                - matches_pattern
+                                - not_matches_pattern
+                                - starts_with
+                                - ends_with
+                                - is_null
+                                - not_null
+                                - is_true
+                                - is_false
+                                - sql_expr
+                                - saved_filter
+                            column:
+                              type: string
+                            values:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - operator
+                          additionalProperties: false
+                      aggregateFilter:
+                        type: string
+                      aggregateFilterColumn:
+                        type: string
+                      windowSettings:
+                        description: >-
+                          Controls which event timestamps count for this step.
+                          Conversion windows (and delay) are only allowed on
+                          steps after the first.
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - none
+                              - conversion
+                              - lookback
+                          delayValue:
+                            type: number
+                          delayUnit:
+                            type: string
+                            enum:
+                              - minutes
+                              - hours
+                              - days
+                              - weeks
+                          windowValue:
+                            type: number
+                          windowUnit:
+                            type: string
+                            enum:
+                              - minutes
+                              - hours
+                              - days
+                              - weeks
+                        required:
+                          - type
+                          - delayValue
+                          - delayUnit
+                          - windowValue
+                          - windowUnit
+                        additionalProperties: false
+                    required:
+                      - source
+                      - rowFilters
+                      - windowSettings
+                    additionalProperties: false
+              required:
+                - name
+                - datasource
+                - steps
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  population:
+                    $ref: '#/components/schemas/Population'
+                required:
+                  - population
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/populations' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listPopulations
+      summary: Get all populations
+      tags:
+        - Populations
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  populations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Population'
+                required:
+                  - populations
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/populations' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -81207,6 +81623,156 @@ components:
         - dateCompleted
         - url
       additionalProperties: false
+    Population:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          maxLength: 10000
+        projects:
+          type: array
+          items:
+            type: string
+        datasource:
+          type: string
+        userIdTypes:
+          type: array
+          items:
+            type: string
+        steps:
+          minItems: 1
+          type: array
+          items:
+            type: object
+            properties:
+              source:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    const: factTable
+                  factTableId:
+                    type: string
+                required:
+                  - type
+                  - factTableId
+                additionalProperties: false
+              rowFilters:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    operator:
+                      type: string
+                      enum:
+                        - '='
+                        - '!='
+                        - <
+                        - <=
+                        - '>'
+                        - '>='
+                        - between
+                        - not_between
+                        - in
+                        - not_in
+                        - contains
+                        - not_contains
+                        - matches_pattern
+                        - not_matches_pattern
+                        - starts_with
+                        - ends_with
+                        - is_null
+                        - not_null
+                        - is_true
+                        - is_false
+                        - sql_expr
+                        - saved_filter
+                    column:
+                      type: string
+                    values:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - operator
+                  additionalProperties: false
+              aggregateFilter:
+                type: string
+              aggregateFilterColumn:
+                type: string
+              windowSettings:
+                description: >-
+                  Controls which event timestamps count for this step.
+                  Conversion windows (and delay) are only allowed on steps after
+                  the first.
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum:
+                      - none
+                      - conversion
+                      - lookback
+                  delayValue:
+                    type: number
+                  delayUnit:
+                    type: string
+                    enum:
+                      - minutes
+                      - hours
+                      - days
+                      - weeks
+                  windowValue:
+                    type: number
+                  windowUnit:
+                    type: string
+                    enum:
+                      - minutes
+                      - hours
+                      - days
+                      - weeks
+                required:
+                  - type
+                  - delayValue
+                  - delayUnit
+                  - windowValue
+                  - windowUnit
+                additionalProperties: false
+            required:
+              - source
+              - rowFilters
+              - windowSettings
+            additionalProperties: false
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - name
+        - description
+        - projects
+        - datasource
+        - userIdTypes
+        - steps
+      additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -84517,6 +85083,7 @@ x-tagGroups:
       - Learnings
       - Holdouts
       - AutoRuns
+      - Populations
   - name: Models
     tags:
       - AggregatedFactTable_model
@@ -84600,6 +85167,7 @@ x-tagGroups:
       - NamespaceExperimentMember_model
       - Organization_model
       - PaginationFields_model
+      - Population_model
       - Project_model
       - Query_model
       - RampSchedule_model
