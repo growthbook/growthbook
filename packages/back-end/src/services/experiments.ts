@@ -40,6 +40,9 @@ import {
   MatchingRule,
   naiveFlattenV1Rules,
   validateCondition,
+  assertExposureQueryDeclaresIdentifierType,
+  toApiAssignmentQueryRef,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -253,6 +256,7 @@ import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
 } from "./datasource";
+import { getExposureQueriesForDatasource } from "./assignmentQuerySelection";
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
@@ -559,20 +563,19 @@ export function isJoinableMetric({
   metricId,
   metricMap,
   factTableMap,
-  exposureQuery,
+  identifierType,
   datasource,
 }: {
   metricId: string;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  exposureQuery?: ExposureQuery;
+  identifierType?: string;
   datasource?: DataSourceInterface;
 }): boolean {
-  if (!exposureQuery || !datasource) {
+  if (!identifierType || !datasource) {
     // be lenient and allow metrics through
     return true;
   }
-  const experimentIdType = exposureQuery.userIdType;
   const metric = metricMap.get(metricId);
 
   if (!metric) {
@@ -583,7 +586,7 @@ export function isJoinableMetric({
   if (isFactMetric(metric)) {
     return isFactMetricJoinable(
       metric,
-      experimentIdType,
+      identifierType,
       (id) => factTableMap.get(id),
       datasource.settings,
     );
@@ -591,7 +594,7 @@ export function isJoinableMetric({
 
   return isMetricJoinable(
     metric.userIdTypes ?? [],
-    experimentIdType,
+    identifierType,
     datasource.settings,
   );
 }
@@ -648,6 +651,17 @@ export function getSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === experiment.exposureQueryId,
   );
+  // A missing query is left to the query builder to surface.
+  if (exposureQuery) {
+    assertExposureQueryDeclaresIdentifierType(
+      exposureQuery,
+      experiment.exposureQueryIdentifierType,
+    );
+  }
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    experiment.exposureQueryIdentifierType,
+  );
 
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
@@ -699,7 +713,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -711,7 +725,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -723,7 +737,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -900,6 +914,7 @@ export function getSnapshotSettings({
     regressionAdjustmentEnabled,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType,
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -1728,6 +1743,7 @@ async function planSnapshotQueryRunner({
     incrementalRefreshModel &&
     exploratoryOverallRequiresFullRefresh({
       snapshotSettings,
+      exposureQueries: datasource.settings.queries?.exposure ?? [],
       incrementalRefreshModel,
       latestOverallSnapshotId,
     })
@@ -1917,6 +1933,7 @@ export async function planSnapshot({
           ...snapshotSettingsArgs,
           incrementalRefreshModel: null,
         }),
+        exposureQueries: datasource.settings.queries?.exposure ?? [],
       })
     ) {
       legacyIncrementalRefresh = legacyDoc;
@@ -2092,6 +2109,7 @@ export async function createSnapshotFromPlan({
         legacyExperimentSettingsHash:
           getExperimentSettingsHashForIncrementalRefresh(
             plan.snapshot.settings,
+            datasource.settings.queries?.exposure ?? [],
           ),
       });
     if (!hasIncrementalRefreshLock) {
@@ -3445,6 +3463,11 @@ export async function toExperimentApiInterface(
     })),
     settings: {
       datasourceId: experiment.datasource || "",
+      assignmentQuery: toApiAssignmentQueryRef(
+        experiment.exposureQueryId,
+        experiment.exposureQueryIdentifierType,
+        await getExposureQueriesForDatasource(context, experiment.datasource),
+      ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
@@ -3610,6 +3633,7 @@ export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
+  exposureQueries: ExposureQuery[],
 ): ApiExperimentResults {
   const dimension = toApiDimension(snapshot.dimension);
 
@@ -3676,6 +3700,15 @@ export function toSnapshotApiInterface(
       "",
     settings: {
       datasourceId: experiment.datasource || "",
+      /**
+       * Legacy contract: settings describe the current experiment, not the
+       * snapshot (bulk results are the snapshot-authoritative view).
+       */
+      assignmentQuery: toApiAssignmentQueryRef(
+        experiment.exposureQueryId,
+        experiment.exposureQueryIdentifierType,
+        exposureQueries,
+      ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: snapshot.settings.segment,
@@ -4699,8 +4732,18 @@ function apiScheduleToInterface(
   };
 }
 
+export type PostExperimentApiPayload = z.infer<
+  typeof postExperimentValidator.bodySchema
+> & {
+  /**
+   * Internal-only: the handler resolves this from assignmentQuery or a
+   * template.
+   */
+  assignmentQueryIdentifierType?: string;
+};
+
 export function postExperimentApiPayloadToInterface(
-  payload: z.infer<typeof postExperimentValidator.bodySchema>,
+  payload: PostExperimentApiPayload,
   organization: OrganizationInterface,
   datasource: DataSourceInterface | null,
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
@@ -4800,6 +4843,8 @@ export function postExperimentApiPayloadToInterface(
       payload.assignmentQueryId ||
       datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
+    /** Parsed by the caller, which has the data source's queries. */
+    exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
     name: payload.name || "",
     type: payload.type || "standard",
     phases,
@@ -4891,7 +4936,7 @@ export function postExperimentApiPayloadToInterface(
   return obj;
 }
 
-type UpdateExperimentApiPayload = z.infer<
+export type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
 >;
 

@@ -182,7 +182,7 @@
                     "pages": [
                       "features/feature-flag-experiments",
                       {
-                        "group": "Visual Editor",
+                        "group": "AI Visual Editor",
                         "root": "app/visual",
                         "pages": [
                           "app/visual/install-and-connect",
@@ -1224,6 +1224,7 @@
               "api/Safe Rollout Rule_model",
               "api/SavedGroup_model",
               "api/SavedGroupApprovalRule_model",
+              "api/SavedGroupReferenceResource_model",
               "api/SavedGroupReferences_model",
               "api/SavedGroupRevision_model",
               "api/SavedGroupRevisionActivityLogEntry_model",
@@ -1654,6 +1655,10 @@
     {
       "source": "/bandits/contextual-bandit-via-api",
       "destination": "/bandits/contextual-via-api"
+    },
+    {
+      "source": "/event-trackers/missing-event-tracker-docs",
+      "destination": "/event-trackers/custom"
     }
   ]
 }

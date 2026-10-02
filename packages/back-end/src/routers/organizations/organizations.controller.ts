@@ -9,7 +9,7 @@ import {
   parseIntWithDefaultCapped,
   pruneApprovalRuleReferences,
 } from "shared/util";
-import { getRoles, getDefaultRole } from "shared/permissions";
+import { getRoles } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
@@ -44,8 +44,11 @@ import {
 import {
   acceptInvite,
   addMemberToOrg,
-  addPendingMemberToOrg,
+  addMemberToOrgWithDefaultRole,
+  addPendingMemberToOrgWithDefaultRole,
+  assertCanUpdateDefaultRole,
   assertMemberRoleInfoValid,
+  sanitizeDefaultRoleUpdate,
   assertRoleAssignmentAllowed,
   assertRoleChangeAllowed,
   expandOrgMembers,
@@ -673,19 +676,17 @@ export async function putMember(
       await acceptInvite(invite.key, req.userId, req.email);
     } else if (organization.autoApproveMembers) {
       // if auto approve, add user as member
-      await addMemberToOrg({
+      await addMemberToOrgWithDefaultRole({
         organization,
         userId: req.userId,
-        ...getDefaultRole(organization),
       });
     } else {
       // otherwise, add user as pending member
-      await addPendingMemberToOrg({
+      await addPendingMemberToOrgWithDefaultRole({
         organization,
         name: req.name || "",
         userId: req.userId,
         email: req.email,
-        ...getDefaultRole(organization),
       });
 
       try {
@@ -760,6 +761,7 @@ export async function postMemberApproval(
       limitAccessByEnvironment: pendingMember.limitAccessByEnvironment,
       environments: pendingMember.environments,
       projectRoles: pendingMember.projectRoles,
+      additionalRoles: pendingMember.additionalRoles,
     });
   } catch (e) {
     return res.status(400).json({
@@ -1730,21 +1732,15 @@ export async function putOrganization(
         throw new Error(
           "Not supported: Updating namespaces not supported via this route.",
         );
-      } else if (k === "defaultRole") {
-        if (!context.permissions.canManageOrgSettings()) {
-          context.permissions.throwPermissionError();
-        }
-        const newRole = settings.defaultRole?.role;
-        if (newRole) {
-          // Only gate a change so an existing non-admin default keeps working
-          assertRoleChangeAllowed(org, getDefaultRole(org).role, newRole);
-        }
       } else {
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();
         }
       }
     });
+    if ("defaultRole" in settings) {
+      await sanitizeDefaultRoleUpdate(context, settings);
+    }
   }
 
   try {
@@ -2381,8 +2377,13 @@ export async function addOrphanedUser(
   const { org } = context;
 
   const { id } = req.params;
-  const { role, environments, limitAccessByEnvironment, projectRoles } =
-    req.body;
+  const {
+    role,
+    environments,
+    limitAccessByEnvironment,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
 
   // Make sure user exists
   const user = await getUserById(id);
@@ -2409,6 +2410,7 @@ export async function addOrphanedUser(
       limitAccessByEnvironment,
       environments,
       projectRoles,
+      additionalRoles,
     });
     await assertProjectRulesReferenceProjects(context, undefined, projectRoles);
   } catch (e) {
@@ -2434,6 +2436,7 @@ export async function addOrphanedUser(
     environments,
     limitAccessByEnvironment,
     projectRoles,
+    additionalRoles,
   });
 
   return res.status(200).json({
@@ -2580,29 +2583,31 @@ export async function putDefaultRole(
   const { org } = context;
   const { defaultRole } = req.body;
 
-  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+  await assertCanUpdateDefaultRole(context, defaultRole);
 
-  if (!commercialFeatures.includes("sso")) {
-    throw new Error(
-      "Must have a commercial License Key to update the organization's default role.",
-    );
-  }
-
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Only gate a change so an existing non-admin default keeps working
-  assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
-
-  assertMemberRoleInfoValid(org, defaultRole);
-
-  updateOrganization(org.id, {
+  await updateOrganization(org.id, {
     settings: {
       ...org.settings,
       defaultRole,
     },
   });
+
+  try {
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(
+        { settings: { defaultRole: org.settings?.defaultRole } },
+        { settings: { defaultRole } },
+      ),
+    });
+  } catch (e) {
+    // The role is already saved; don't report the update as failed
+    req.log.error(e, "Failed to audit default role update");
+  }
 
   res.status(200).json({
     status: 200,
