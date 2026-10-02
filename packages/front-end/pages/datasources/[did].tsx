@@ -53,8 +53,9 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
 import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
-import AddEventTrackerModal from "@/components/Settings/EditDataSource/AddEventTrackerModal";
-import { getDatasourceTemplatesForDatasource } from "@/services/initial-resources";
+import AddEventTrackerModal, {
+  getAddableEventTrackers,
+} from "@/components/Settings/EditDataSource/AddEventTrackerModal";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -151,7 +152,7 @@ const DataSourcePage: FC = () => {
 
   const canAddEventTracker =
     !!d &&
-    getDatasourceTemplatesForDatasource(d).length > 0 &&
+    getAddableEventTrackers(d).length > 0 &&
     canUpdateDataSourceSettings &&
     permissionsUtil.canCreateFactTable({ projects: d?.projects || [] });
 

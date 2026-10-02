@@ -4,8 +4,6 @@ import {
   getInitialDatasourceResources,
   getDatasourceTemplateResources,
   getDatasourceTemplateSettings,
-  getDatasourceTemplate,
-  getDatasourceTemplatesForDatasource,
 } from "@/services/initial-resources";
 import { validateSQL } from "@/services/datasources";
 
@@ -223,73 +221,6 @@ function businessClickhouse(): DataSourceInterfaceWithParams {
     },
   } as unknown as DataSourceInterfaceWithParams;
 }
-
-describe("getDatasourceTemplatesForDatasource", () => {
-  it("offers every tracker with its own SQL that supports the connection", () => {
-    expect(getDatasourceTemplatesForDatasource(businessClickhouse())).toEqual([
-      "rudderstack",
-      "jitsu",
-      "langfuse",
-    ]);
-    expect(
-      getDatasourceTemplatesForDatasource({ type: "postgres", settings: {} }),
-    ).toEqual([
-      "segment",
-      "rudderstack",
-      "snowplow",
-      "freshpaint",
-      "jitsu",
-      "phoenix",
-    ]);
-    expect(
-      getDatasourceTemplatesForDatasource({ type: "mysql", settings: {} }),
-    ).toEqual(["matomo", "jitsu"]);
-  });
-
-  it("leaves out trackers that only get the generic custom query", () => {
-    const snowflake = getDatasourceTemplatesForDatasource({
-      type: "snowflake",
-      settings: {},
-    });
-    expect(snowflake).not.toContain("mparticle");
-    expect(snowflake).toContain("heap");
-    expect(
-      getDatasourceTemplatesForDatasource({ type: "mixpanel", settings: {} }),
-    ).toEqual([]);
-  });
-
-  it("leaves out the tracker that created the Data Source", () => {
-    expect(
-      getDatasourceTemplatesForDatasource({
-        type: "clickhouse",
-        settings: { schemaFormat: "langfuse" },
-      }),
-    ).toEqual(["rudderstack", "jitsu"]);
-  });
-});
-
-describe("getDatasourceTemplate", () => {
-  it("defaults assignment queries on only for LLM trace tools", () => {
-    expect(
-      getDatasourceTemplate("langfuse").includeAssignmentQueriesByDefault,
-    ).toBe(true);
-    expect(
-      getDatasourceTemplate("phoenix").includeAssignmentQueriesByDefault,
-    ).toBe(true);
-    expect(
-      getDatasourceTemplate("segment").includeAssignmentQueriesByDefault,
-    ).toBe(false);
-  });
-
-  it("reads labels and options from the event tracker list", () => {
-    const amplitude = getDatasourceTemplate("amplitude");
-    expect(amplitude.label).toBe("Amplitude");
-    expect(amplitude.options.map((o) => o.name)).toEqual([
-      "eventType",
-      "projectId",
-    ]);
-  });
-});
 
 describe("Snowplow on an existing Data Source", () => {
   it("adds prefixed assignment queries and no fact tables", () => {

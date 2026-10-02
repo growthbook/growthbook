@@ -30,7 +30,6 @@ import { eventSchemas } from "@/services/eventSchema";
 import {
   getInitialSettings,
   getTablePrefix,
-  hasEventTrackerSql,
   LANGFUSE_TABLES,
   langfuseProjectClause,
   PHOENIX_SESSION_ID_EXPR,
@@ -1157,45 +1156,11 @@ export function getInitialDatasourceResources({
   };
 }
 
-export type DatasourceTemplate = SchemaFormat;
-
-// LLM trace tools record exposures as tags on the traces, so their assignment
-// queries are usually wanted. Other trackers with fact tables almost always
-// share the Data Source's existing assignment query instead.
-const TRACKERS_WITH_OWN_ASSIGNMENTS: readonly SchemaFormat[] = [
-  "langfuse",
-  "phoenix",
-];
-
-export function getDatasourceTemplate(template: DatasourceTemplate) {
-  const schema = eventSchemas.find((s) => s.value === template);
-  return {
-    label: schema?.label ?? template,
-    options: schema?.options ?? [],
-    includeAssignmentQueriesByDefault:
-      TRACKERS_WITH_OWN_ASSIGNMENTS.includes(template),
-  };
-}
-
-// The wizard's event trackers with SQL of their own that support this
-// connection type. The one that created the Data Source is already set up,
-// so it is left out.
-export function getDatasourceTemplatesForDatasource(
-  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings">,
-): DatasourceTemplate[] {
-  return eventSchemas
-    .filter(
-      (s) =>
-        !!s.types?.includes(datasource.type) &&
-        hasEventTrackerSql(s.value) &&
-        datasource.settings?.schemaFormat !== s.value,
-    )
-    .map((s) => s.value);
-}
-
-// The template's identifier types, plus (optionally) its assignment queries
-// and identity join, merged into the Data Source's existing settings. Ids are
-// prefixed with the template so they never collide with existing queries.
+// An event tracker's identifier types, plus (optionally) its assignment
+// queries and identity join, merged into an existing Data Source's settings.
+// The wizard can save getInitialSettings as-is; here that would wipe what is
+// already there, and the tracker's query ids (e.g. "user_id") would collide,
+// so ids are prefixed with the tracker.
 export function getDatasourceTemplateSettings({
   datasource,
   template,
@@ -1203,7 +1168,7 @@ export function getDatasourceTemplateSettings({
   includeAssignmentQueries,
 }: {
   datasource: DataSourceInterfaceWithParams;
-  template: DatasourceTemplate;
+  template: SchemaFormat;
   schemaOptions: Record<string, string>;
   includeAssignmentQueries: boolean;
 }): DataSourceSettings {
@@ -1218,7 +1183,8 @@ export function getDatasourceTemplateSettings({
   );
   const existingExposure = settings.queries?.exposure || [];
   const existingJoins = settings.queries?.identityJoins || [];
-  const { label } = getDatasourceTemplate(template);
+  const label =
+    eventSchemas.find((s) => s.value === template)?.label ?? template;
 
   const exposure = includeAssignmentQueries
     ? initial.queries.exposure
@@ -1254,8 +1220,9 @@ export function getDatasourceTemplateSettings({
   };
 }
 
-// The template's fact tables, filters, and metrics, minus any fact table the
-// Data Source already has by name, so applying it twice adds no duplicates.
+// An event tracker's fact tables, filters, and metrics for an existing Data
+// Source, minus any fact table it already has by name, so applying the
+// tracker twice adds no duplicates.
 export function getDatasourceTemplateResources({
   datasource,
   template,
@@ -1263,7 +1230,7 @@ export function getDatasourceTemplateResources({
   existingFactTables,
 }: {
   datasource: DataSourceInterfaceWithParams;
-  template: DatasourceTemplate;
+  template: SchemaFormat;
   schemaOptions: Record<string, string>;
   existingFactTables: Pick<
     FactTableInterface,

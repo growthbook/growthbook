@@ -3,18 +3,18 @@ import { Box, Flex } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
+  SchemaFormat,
 } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   createInitialResources,
-  DatasourceTemplate,
   InitialDatasourceResources,
-  getDatasourceTemplate,
   getDatasourceTemplateResources,
   getDatasourceTemplateSettings,
-  getDatasourceTemplatesForDatasource,
 } from "@/services/initial-resources";
+import { hasEventTrackerSql } from "@/services/datasources";
+import { eventSchemas } from "@/services/eventSchema";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import track from "@/services/track";
@@ -25,6 +25,24 @@ import { TextField } from "@/ui/TextField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+
+// The wizard's event trackers for this connection type, minus the one that
+// created the Data Source and those with no SQL of their own.
+export function getAddableEventTrackers(
+  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings">,
+) {
+  return eventSchemas.filter(
+    (s) =>
+      !!s.types?.includes(datasource.type) &&
+      hasEventTrackerSql(s.value) &&
+      s.value !== datasource.settings?.schemaFormat,
+  );
+}
+
+// LLM trace tools record exposures as tags on the traces, so their assignment
+// queries are usually wanted. Other trackers with fact tables almost always
+// share the Data Source's existing assignment query instead.
+const TRACKERS_WITH_OWN_ASSIGNMENTS: SchemaFormat[] = ["langfuse", "phoenix"];
 
 function plural(count: number, singular: string, pluralForm?: string) {
   return `${count} ${count === 1 ? singular : (pluralForm ?? `${singular}s`)}`;
@@ -89,17 +107,17 @@ export default function AddEventTrackerModal({
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  const templates = getDatasourceTemplatesForDatasource(datasource);
-  const [template, setTemplate] = useState<DatasourceTemplate>(templates[0]);
+  const trackers = getAddableEventTrackers(datasource);
+  const [tracker, setTracker] = useState(trackers[0]);
+  const template = tracker.value;
+  const { label, options = [] } = tracker;
   const [schemaOptions, setSchemaOptions] = useState<Record<string, string>>(
     {},
   );
   const [includeAssignmentQueries, setIncludeAssignmentQueries] = useState(
-    getDatasourceTemplate(templates[0]).includeAssignmentQueriesByDefault,
+    TRACKERS_WITH_OWN_ASSIGNMENTS.includes(template),
   );
   const [progress, setProgress] = useState<number | null>(null);
-
-  const { label, options } = getDatasourceTemplate(template);
 
   // Whether the tracker comes with fact tables at all for this connection
   // (assignment queries don't affect them). Without any, assignment queries
@@ -200,18 +218,21 @@ export default function AddEventTrackerModal({
             Event tracker
           </Text>
           <RadioCards
-            options={templates.map((t) => ({
-              value: t,
-              label: getDatasourceTemplate(t).label,
-              avatar: <DataSourceLogo eventTracker={t} showLabel={false} />,
+            options={trackers.map((t) => ({
+              value: t.value,
+              label: t.label,
+              avatar: (
+                <DataSourceLogo eventTracker={t.value} showLabel={false} />
+              ),
             }))}
             value={template}
             setValue={(v) => {
-              const next = v as DatasourceTemplate;
-              setTemplate(next);
+              const next = trackers.find((t) => t.value === v);
+              if (!next) return;
+              setTracker(next);
               setSchemaOptions({});
               setIncludeAssignmentQueries(
-                getDatasourceTemplate(next).includeAssignmentQueriesByDefault,
+                TRACKERS_WITH_OWN_ASSIGNMENTS.includes(next.value),
               );
             }}
             columns="2"
