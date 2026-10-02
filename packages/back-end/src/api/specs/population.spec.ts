@@ -17,6 +17,6 @@ export const populationApiSpec = {
   includeDefaultCrud: true,
   navDisplayName: "Populations",
   navDescription:
-    "Multi-step analytics audiences built from fact tables, experiments, or features.",
+    "Multi-step analytics audiences built from fact tables (MVP).",
 } satisfies OpenApiModelSpec;
 export default populationApiSpec;

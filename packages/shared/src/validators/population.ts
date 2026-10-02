@@ -11,28 +11,14 @@ import {
   windowSettingsValidator,
 } from "./fact-table";
 
-export const populationStepSourceValidator = z.discriminatedUnion("type", [
-  z
-    .object({
-      type: z.literal("factTable"),
-      factTableId: z.string(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal("experiment"),
-      experimentId: z.string(),
-      variationIds: z.array(z.string()),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal("feature"),
-      featureId: z.string(),
-      values: z.array(z.string()),
-    })
-    .strict(),
-]);
+// MVP: factTable is the only supported step source. Experiment/feature
+// sources may be added later without changing the `type` discriminator.
+export const populationStepSourceValidator = z
+  .object({
+    type: z.literal("factTable"),
+    factTableId: z.string(),
+  })
+  .strict();
 
 export const populationStepValidator = z
   .object({
@@ -100,28 +86,7 @@ const apiPopulationRowFilter = z
     path: ["values"],
   });
 
-export const apiPopulationStepSourceValidator = z.discriminatedUnion("type", [
-  z
-    .object({
-      type: z.literal("factTable"),
-      factTableId: z.string(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal("experiment"),
-      experimentId: z.string(),
-      variationIds: z.array(z.string()),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal("feature"),
-      featureId: z.string(),
-      values: z.array(z.string()),
-    })
-    .strict(),
-]);
+export const apiPopulationStepSourceValidator = populationStepSourceValidator;
 
 export const apiPopulationStepValidator = z
   .object({
