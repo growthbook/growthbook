@@ -7,6 +7,7 @@ import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { strictEnvironmentChecksOn } from "back-end/src/util/apiSafetyChecks";
 import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
 import {
   resolveOwnerEmail,
@@ -20,6 +21,7 @@ import {
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObjV2,
   getFeatureDefinitionLookups,
+  toApiRevisionV2,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { auditDetailsCreate } from "back-end/src/services/audit";
@@ -28,13 +30,17 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
-import type { ApiFeatureEnvSettings } from "./postFeature";
 import {
   assertValidFeatureRules,
   validateCustomFields,
   validateRuleAttributes,
 } from "./validations";
 import { validateEnvKeys } from "./postFeature";
+import {
+  openCreateReviewDraft,
+  recordCreateReviewDraft,
+  resolveCreateApproval,
+} from "./createApproval";
 import {
   assertConfigSchemaCompat,
   assertValidProjectId,
@@ -44,12 +50,15 @@ import {
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
   assertNoRawConfigExtends,
+  checkEnvironmentStates,
+  checkRuleScopes,
   composeConfigBacking,
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
 
 export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
   async (req) => {
+    const requireExplicit = strictEnvironmentChecksOn(req.context.org);
     if (
       !req.context.permissions.canCreateFeature(
         req.body,
@@ -60,6 +69,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
         getApiCreateEnabledEnvironments(
           getEnvironments(req.context.org),
           req.body.environments,
+          { requireExplicit },
         ),
       )
     ) {
@@ -83,6 +93,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       orgEnvs.map((e) => e.id),
       Object.keys(req.body.environments ?? {}),
     );
+    checkRuleScopes(req, req.body.rules ?? []);
 
     if (
       req.context.org.settings?.requireProjectForFeatures &&
@@ -129,10 +140,12 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       customFields: req.body.customFields,
     };
 
+    checkEnvironmentStates(req, orgEnvs, feature, req.body.environments);
     feature.environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
       feature,
       orgEnvs,
-      (req.body.environments ?? {}) as ApiFeatureEnvSettings,
+      req.body.environments ?? {},
+      { requireExplicit },
     );
 
     // Opt-in registered-attribute check before any DB writes. The env-rules
@@ -220,10 +233,14 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       baseConfig: feature.baseConfig,
     });
 
+    const { draftEnvironments, bypassedGates } = resolveCreateApproval(
+      req,
+      feature,
+      !!req.body.requestReview,
+    );
     // The environments a new flag starts enabled in are its whole live footprint,
     // so gating those on publish is the only control needed — and a flag enabling
-    // none is in no payload at all, leaving create authority sufficient. Approval
-    // doesn't apply: there's no prior state to review a new flag against.
+    // none is in no payload at all, leaving create authority sufficient.
     await assertCanCreateFeatureInState({
       context: req.context,
       feature,
@@ -244,12 +261,28 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     await createFeature(req.context, feature, {
       comment: req.body.comment,
     });
+    const draft = draftEnvironments.length
+      ? await openCreateReviewDraft(
+          req,
+          feature,
+          draftEnvironments,
+          req.body.comment ?? "",
+        )
+      : null;
 
     await req.audit({
       event: "feature.create",
       entity: { object: "feature", id: feature.id },
       details: auditDetailsCreate(feature),
     });
+    if (draft) {
+      await recordCreateReviewDraft(
+        req,
+        feature,
+        draft,
+        req.body.comment ?? "",
+      );
+    }
 
     const experimentMap = await getExperimentMapForFeature(
       req.context,
@@ -279,6 +312,8 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
         }),
         req.context,
       ),
+      ...(draft ? { draft: toApiRevisionV2(draft) } : {}),
+      ...(bypassedGates.length ? { bypassedGates } : {}),
     };
   },
 );

@@ -19,6 +19,7 @@ import {
   MergeConflictError,
   SoftWarningError,
 } from "./errors";
+import { withRecordedNotices } from "./apiSafetyChecks";
 import { IS_MULTI_ORG } from "./secrets";
 
 export type { ApiEndpointSpec, ExampleRequest, HttpVerb, RequestSchemas };
@@ -173,6 +174,8 @@ export type RawApiRequestHandler<
  *  - The returned `body` is the in-memory object; callers are responsible for
  *    serialization (`res.json` over HTTP, `JSON.stringify` round-trip for the
  *    dispatcher's on-the-wire fidelity).
+ *  - Notices the handler recorded with `applySafetyCheck` are merged into a
+ *    successful body as `notices`.
  */
 export async function runApiHandler(
   req: { params: unknown; query: unknown; body: unknown },
@@ -214,7 +217,7 @@ export async function runApiHandler(
 
   try {
     const result = await handler(req as never);
-    return { status: 200, body: result };
+    return { status: 200, body: withRecordedNotices(req, result) };
   } catch (e) {
     const body: ApiErrorResponse = { message: e.message };
     if (e instanceof ApiError) {

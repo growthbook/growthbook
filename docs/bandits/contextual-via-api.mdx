@@ -82,13 +82,16 @@ curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/linked-
     "variations": [
       { "variationId": "var_abc123", "value": "Sign up" },
       { "variationId": "var_def456", "value": "Get started free" }
-    ]
+    ],
+    "environments": ["production"]
   }'
 ```
 
 `variations` must cover every Contextual Bandit variation exactly once — `variationId` is the `id` of each entry in the CB's `variations` array, not its `key`. Targeting (`condition`, saved groups, prerequisites, `coverage`) lives on the Contextual Bandit and is inherited by the rule, so those fields are not accepted here.
 
-The rule is appended to the bottom of the flag's rule list in a new draft revision, which auto-publishes when you start the Contextual Bandit. Pass `"autoPublish": true` to publish it right away, or `"draftVersion": 7` to add the rule to an existing draft instead of starting a new one. By default the rule applies to every environment; pass `"allEnvironments": false` with `"environments": ["production"]` to narrow it.
+Set the rule's environments with `"environments": [...]`, or send `"allEnvironments": true` to run it everywhere, production included. When your organization turns on **Require explicit environments and approval on create**, a link that sets neither is rejected with `rule_scope_required`. Until then, the rule applies to every environment and the response includes a `notices` entry about it. When you replace the rule with `PUT` on the same path, leaving out both fields keeps the rule's current environments.
+
+The rule is appended to the bottom of the flag's rule list in a new draft revision, which auto-publishes when you start the Contextual Bandit. Pass `"autoPublish": true` to publish it right away, or `"draftVersion": 7` to add the rule to an existing draft instead of starting a new one.
 
 Response:
 

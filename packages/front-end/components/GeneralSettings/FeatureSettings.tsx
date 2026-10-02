@@ -2,6 +2,7 @@ import { isEqual } from "lodash";
 import React, { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { FaExclamationCircle } from "react-icons/fa";
+import { STRICT_ENVIRONMENT_CHECKS_LABEL } from "shared/validators";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
@@ -176,6 +177,20 @@ export default function FeatureSettings() {
               value={!!form.watch("defaultFeatureRulesInAllEnvs")}
               setValue={(value) =>
                 form.setValue("defaultFeatureRulesInAllEnvs", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-strictEnvironmentChecks"
+              label={STRICT_ENVIRONMENT_CHECKS_LABEL}
+              description="Reject API requests that leave out environments, instead of defaulting them. Where approval flows apply, a new Feature Flag that turns on a review-gated environment also needs review."
+              value={!!form.watch("strictEnvironmentChecks")}
+              setValue={(value) =>
+                form.setValue("strictEnvironmentChecks", value, {
                   shouldDirty: true,
                 })
               }

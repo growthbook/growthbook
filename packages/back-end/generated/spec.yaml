@@ -141,6 +141,34 @@ info:
     `skipHooks`, `bypassApprovalPermission`, `restApiBypassesReviews`, or
     `revertsBypassApproval` (reverts only). This field is omitted when no gates
     were bypassed.
+
+
+    ### Explicit environments
+
+
+    Some Feature Flag writes fill in environments the request leaves out. Once
+    your organization turns on **Require explicit environments and approval on
+    create**, they reject those requests instead:
+
+
+    - `rule_scope_required` (400): a rule sets neither `environments` nor
+    `allEnvironments`. `details.rules` lists the rules by index.
+
+    - `environment_state_required` (400): a new Feature Flag does not set
+    `enabled` for every environment it can be in. `details.missing` lists them,
+    and `details.environments` lists every environment it can be in.
+
+    - `create_requires_approval` (422): a new Feature Flag turns on an
+    environment that needs approval, and the caller cannot bypass approval. Send
+    `requestReview: true` to create it off in those environments, with a draft
+    that turns them on and requests review.
+
+
+    Until the setting is on, these requests succeed as before, and the response
+    includes a `notices` array. Each notice has the `code` it will be rejected
+    with, a `message` with the fix, and an optional `path` into the request
+    body. The `strictEnvironmentChecks` field of `GET /settings` reports whether
+    the setting is on.
 servers:
   - url: https://api.growthbook.io/api
     description: GrowthBook Cloud
@@ -923,9 +951,12 @@ paths:
                     type: string
                 environments:
                   description: >-
-                    Settings for each environment, keyed by environment ID. Any
-                    environment you leave out is enabled or disabled per that
-                    environment's "Default state for new features" setting.
+                    Settings for each environment, keyed by environment ID. Once
+                    the organization turns on "Require explicit environments and
+                    approval on create", list every environment the Feature Flag
+                    can be in. Until then, any environment you leave out is
+                    enabled or disabled per that environment's "Default state
+                    for new features" setting.
                   type: object
                   propertyNames:
                     type: string
@@ -2304,9 +2335,17 @@ paths:
                     type: string
                 comment:
                   description: >-
-                    Comment to record on the feature's initial revision.
-                    Defaults to an empty comment.
+                    Comment to record on the feature's initial revision, and on
+                    the draft when `requestReview` opens one. Defaults to an
+                    empty comment.
                   type: string
+                requestReview:
+                  description: >-
+                    When turning on an environment needs approval, create the
+                    Feature Flag off in that environment and open a draft that
+                    turns it on and requests review. The draft is returned as
+                    `draft`. Has no effect when no environment needs approval.
+                  type: boolean
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -2352,9 +2391,78 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV1'
+                  draft:
+                    description: >-
+                      The draft `requestReview` opened: it turns on the
+                      environments that need approval, and is waiting for
+                      review. Present only when the create needed one.
+                    $ref: '#/components/schemas/FeatureRevisionV1'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
+                  notices:
+                    description: >-
+                      Parts of this request that succeeded only because the
+                      organization has not turned on "Require explicit
+                      environments and approval on create". Each one is
+                      rejected, with the same `code`, once it is on. Present
+                      only when there is at least one.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/notices'
                 required:
                   - feature
                 additionalProperties: false
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A new Feature Flag does not set `enabled` for every
+                  environment it can be in
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - environment_state_required
+                  details:
+                    $ref: >-
+                      #/components/schemas/ApiErrorEnvironmentStateRequiredDetails
+                required:
+                  - message
+                  - code
+                  - details
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A new Feature Flag turns on an environment that requires
+                  approval
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - create_requires_approval
+                  details:
+                    $ref: '#/components/schemas/ApiErrorCreateRequiresApprovalDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -8185,6 +8293,22 @@ paths:
         `allEnvironments` / `environments` scope fields.
 
 
+        ### Environments and approval
+
+
+        Set `enabled` under `environments` for every environment the Feature
+        Flag can be in, and give every rule `environments` or `allEnvironments:
+        true`. Once the organization turns on "Require explicit environments and
+        approval on create", a create that leaves either out is rejected with
+        `environment_state_required` or `rule_scope_required`. A create that
+        turns on an environment that needs approval is also rejected, with
+        `create_requires_approval`, unless the caller can bypass approval. Send
+        `requestReview: true` to create the Feature Flag off in those
+        environments, with a draft that turns them on and requests review. Until
+        the setting is on, these creates succeed as before, and the response
+        lists what would be rejected in `notices`.
+
+
         ### Config-backed features (Config mode)
 
 
@@ -8452,8 +8576,12 @@ paths:
                             type: boolean
                           allEnvironments:
                             description: >-
-                              When true the rule applies to all environments
-                              (default).
+                              When true the rule applies to every environment,
+                              production included. Set this or `environments`. A
+                              rule with neither applies to every environment,
+                              and is rejected once the organization turns on
+                              "Require explicit environments and approval on
+                              create".
                             type: boolean
                           environments:
                             description: >-
@@ -8621,8 +8749,12 @@ paths:
                                 const: 2
                           allEnvironments:
                             description: >-
-                              When true the rule applies to all environments
-                              (default).
+                              When true the rule applies to every environment,
+                              production included. Set this or `environments`. A
+                              rule with neither applies to every environment,
+                              and is rejected once the organization turns on
+                              "Require explicit environments and approval on
+                              create".
                             type: boolean
                           environments:
                             description: >-
@@ -8791,8 +8923,12 @@ paths:
                             type: boolean
                           allEnvironments:
                             description: >-
-                              When true the rule applies to all environments
-                              (default).
+                              When true the rule applies to every environment,
+                              production included. Set this or `environments`. A
+                              rule with neither applies to every environment,
+                              and is rejected once the organization turns on
+                              "Require explicit environments and approval on
+                              create".
                             type: boolean
                           environments:
                             description: >-
@@ -8954,8 +9090,12 @@ paths:
                               - stopped
                           allEnvironments:
                             description: >-
-                              When true the rule applies to all environments
-                              (default).
+                              When true the rule applies to every environment,
+                              production included. Set this or `environments`. A
+                              rule with neither applies to every environment,
+                              and is rejected once the organization turns on
+                              "Require explicit environments and approval on
+                              create".
                             type: boolean
                           environments:
                             description: >-
@@ -8993,7 +9133,8 @@ paths:
                         additionalProperties: false
                 environments:
                   description: >-
-                    Per-environment enabled state. V2 rules are specified on the
+                    Whether the Feature Flag starts on in each environment,
+                    keyed by environment ID. V2 rules are specified on the
                     top-level `rules` field.
                   type: object
                   propertyNames:
@@ -9002,6 +9143,13 @@ paths:
                     type: object
                     properties:
                       enabled:
+                        description: >-
+                          Whether the Feature Flag starts on in this
+                          environment. Required for every environment the
+                          Feature Flag can be in once the organization turns on
+                          "Require explicit environments and approval on
+                          create". Until then, an omitted value falls back to
+                          the environment's "Default state for new features".
                         type: boolean
                     additionalProperties: false
                 prerequisites:
@@ -9022,9 +9170,17 @@ paths:
                     type: string
                 comment:
                   description: >-
-                    Comment to record on the feature's initial revision.
-                    Defaults to an empty comment.
+                    Comment to record on the feature's initial revision, and on
+                    the draft when `requestReview` opens one. Defaults to an
+                    empty comment.
                   type: string
+                requestReview:
+                  description: >-
+                    When turning on an environment needs approval, create the
+                    Feature Flag off in that environment and open a draft that
+                    turns it on and requests review. The draft is returned as
+                    `draft`. Has no effect when no environment needs approval.
+                  type: boolean
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -9070,9 +9226,94 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV2'
+                  draft:
+                    description: >-
+                      The draft `requestReview` opened: it turns on the
+                      environments that need approval, and is waiting for
+                      review. Present only when the create needed one.
+                    $ref: '#/components/schemas/FeatureRevisionV2'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
+                  notices:
+                    description: >-
+                      Parts of this request that succeeded only because the
+                      organization has not turned on "Require explicit
+                      environments and approval on create". Each one is
+                      rejected, with the same `code`, once it is on. Present
+                      only when there is at least one.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/notices'
                 required:
                   - feature
                 additionalProperties: false
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: A rule sets neither `environments` nor `allEnvironments`
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - rule_scope_required
+                      details:
+                        $ref: '#/components/schemas/ApiErrorRuleScopeRequiredDetails'
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: >-
+                      A new Feature Flag does not set `enabled` for every
+                      environment it can be in
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - environment_state_required
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorEnvironmentStateRequiredDetails
+                    required:
+                      - message
+                      - code
+                      - details
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A new Feature Flag turns on an environment that requires
+                  approval
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - create_requires_approval
+                  details:
+                    $ref: '#/components/schemas/ApiErrorCreateRequiresApprovalDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -9327,8 +9568,12 @@ paths:
                             type: boolean
                           allEnvironments:
                             description: >-
-                              When true the rule applies to all environments
-                              (default).
+                              When true the rule applies to every environment,
+                              production included. Set this or `environments`. A
+                              rule with neither applies to every environment,
+                              and is rejected once the organization turns on
+                              "Require explicit environments and approval on
+                              create".
                             type: boolean
                           environments:
                             description: >-
@@ -9496,8 +9741,12 @@ paths:
                                 const: 2
                           allEnvironments:
                             description: >-
-                              When true the rule applies to all environments
-                              (default).
+                              When true the rule applies to every environment,
+                              production included. Set this or `environments`. A
+                              rule with neither applies to every environment,
+                              and is rejected once the organization turns on
+                              "Require explicit environments and approval on
+                              create".
                             type: boolean
                           environments:
                             description: >-
@@ -9666,8 +9915,12 @@ paths:
                             type: boolean
                           allEnvironments:
                             description: >-
-                              When true the rule applies to all environments
-                              (default).
+                              When true the rule applies to every environment,
+                              production included. Set this or `environments`. A
+                              rule with neither applies to every environment,
+                              and is rejected once the organization turns on
+                              "Require explicit environments and approval on
+                              create".
                             type: boolean
                           environments:
                             description: >-
@@ -9829,8 +10082,12 @@ paths:
                               - stopped
                           allEnvironments:
                             description: >-
-                              When true the rule applies to all environments
-                              (default).
+                              When true the rule applies to every environment,
+                              production included. Set this or `environments`. A
+                              rule with neither applies to every environment,
+                              and is rejected once the organization turns on
+                              "Require explicit environments and approval on
+                              create".
                             type: boolean
                           environments:
                             description: >-
@@ -9970,9 +10227,39 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/bypassedGates'
+                  notices:
+                    description: >-
+                      Parts of this request that succeeded only because the
+                      organization has not turned on "Require explicit
+                      environments and approval on create". Each one is
+                      rejected, with the same `code`, once it is on. Present
+                      only when there is at least one.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/notices'
                 required:
                   - feature
                 additionalProperties: false
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                description: A rule sets neither `environments` nor `allEnvironments`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - rule_scope_required
+                  details:
+                    $ref: '#/components/schemas/ApiErrorRuleScopeRequiredDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -11436,7 +11723,9 @@ paths:
       description: >-
         Appends a new rule to the revision's rule list. Supply `allEnvironments:
         true` on the rule to target all environments, or `environments: [...]`
-        to scope to specific ones.
+        to scope to specific ones. A rule with neither targets all environments,
+        and is rejected once the organization turns on "Require explicit
+        environments and approval on create".
 
 
         **Scheduling:** For `force` and `rollout` rules, attach a schedule via
@@ -12045,9 +12334,39 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV2'
+                  notices:
+                    description: >-
+                      Parts of this request that succeeded only because the
+                      organization has not turned on "Require explicit
+                      environments and approval on create". Each one is
+                      rejected, with the same `code`, once it is on. Present
+                      only when there is at least one.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/notices'
                 required:
                   - revision
                 additionalProperties: false
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                description: A rule sets neither `environments` nor `allEnvironments`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - rule_scope_required
+                  details:
+                    $ref: '#/components/schemas/ApiErrorRuleScopeRequiredDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18204,7 +18523,13 @@ paths:
                 enabled:
                   type: boolean
                 allEnvironments:
-                  description: Apply the rule in every environment. Defaults to true.
+                  description: >-
+                    Apply the rule in every environment, production included.
+                    When linking, set this or `environments`: a link with
+                    neither applies the rule everywhere, and is rejected once
+                    the organization turns on "Require explicit environments and
+                    approval on create". When updating, omit both to keep the
+                    rule's current environments.
                   type: boolean
                 environments:
                   description: Environments to apply the rule in when not all.
@@ -18246,12 +18571,42 @@ paths:
                     type: number
                   published:
                     type: boolean
+                  notices:
+                    description: >-
+                      Parts of this request that succeeded only because the
+                      organization has not turned on "Require explicit
+                      environments and approval on create". Each one is
+                      rejected, with the same `code`, once it is on. Present
+                      only when there is at least one.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/notices'
                 required:
                   - featureId
                   - ruleId
                   - revisionVersion
                   - published
                 additionalProperties: false
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                description: A rule sets neither `environments` nor `allEnvironments`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - rule_scope_required
+                  details:
+                    $ref: '#/components/schemas/ApiErrorRuleScopeRequiredDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18266,7 +18621,9 @@ paths:
         Replaces every `contextual-bandit-ref` rule pointing at this contextual
         bandit on the feature, keeping each rule's id and position in the rule
         list. Every field is replaced, so omitted optional fields revert to
-        their defaults. Returns a 400 when the feature has no such rule on the
+        their defaults, except the environment scope: omit both
+        `allEnvironments` and `environments` to keep the rule's current
+        environments. Returns a 400 when the feature has no such rule on the
         target revision, or when it has several that are not identical to each
         other. The change lands in a draft revision that auto-publishes when the
         contextual bandit starts, unless `autoPublish` is set. Targeting
@@ -18329,7 +18686,13 @@ paths:
                 enabled:
                   type: boolean
                 allEnvironments:
-                  description: Apply the rule in every environment. Defaults to true.
+                  description: >-
+                    Apply the rule in every environment, production included.
+                    When linking, set this or `environments`: a link with
+                    neither applies the rule everywhere, and is rejected once
+                    the organization turns on "Require explicit environments and
+                    approval on create". When updating, omit both to keep the
+                    rule's current environments.
                   type: boolean
                 environments:
                   description: Environments to apply the rule in when not all.
@@ -63741,16 +64104,6 @@ components:
         - hasMore
         - nextOffset
       additionalProperties: false
-    FeatureWithRevisionsV1:
-      allOf:
-        - $ref: '#/components/schemas/FeatureV1'
-        - type: object
-          properties:
-            revisions:
-              type: array
-              items:
-                $ref: '#/components/schemas/FeatureRevisionV1'
-          additionalProperties: false
     FeatureRevisionV1:
       type: object
       properties:
@@ -64910,6 +65263,16 @@ components:
         - status
         - rules
       additionalProperties: false
+    FeatureWithRevisionsV1:
+      allOf:
+        - $ref: '#/components/schemas/FeatureV1'
+        - type: object
+          properties:
+            revisions:
+              type: array
+              items:
+                $ref: '#/components/schemas/FeatureRevisionV1'
+          additionalProperties: false
     FeatureV2:
       type: object
       properties:
@@ -65315,16 +65678,6 @@ components:
       required:
         - type
       additionalProperties: false
-    FeatureWithRevisionsV2:
-      allOf:
-        - $ref: '#/components/schemas/FeatureV2'
-        - type: object
-          properties:
-            revisions:
-              type: array
-              items:
-                $ref: '#/components/schemas/FeatureRevisionV2'
-          additionalProperties: false
     FeatureRevisionV2:
       type: object
       properties:
@@ -66579,6 +66932,16 @@ components:
         - status
         - rules
       additionalProperties: false
+    FeatureWithRevisionsV2:
+      allOf:
+        - $ref: '#/components/schemas/FeatureV2'
+        - type: object
+          properties:
+            revisions:
+              type: array
+              items:
+                $ref: '#/components/schemas/FeatureRevisionV2'
+          additionalProperties: false
     Targeting Rule:
       description: >-
         A targeting rule that serves a specific value to users matching the
@@ -66625,8 +66988,10 @@ components:
             additionalProperties: false
         allEnvironments:
           description: >-
-            When true the rule applies to all environments. Omit both scope
-            fields to apply to all environments.
+            When true the rule applies to every environment, production
+            included. Set this or `environments`. A rule with neither applies to
+            every environment, and is rejected once the organization turns on
+            "Require explicit environments and approval on create".
           type: boolean
         environments:
           description: >-
@@ -66732,8 +67097,10 @@ components:
             additionalProperties: false
         allEnvironments:
           description: >-
-            When true the rule applies to all environments. Omit both scope
-            fields to apply to all environments.
+            When true the rule applies to every environment, production
+            included. Set this or `environments`. A rule with neither applies to
+            every environment, and is rejected once the organization turns on
+            "Require explicit environments and approval on create".
           type: boolean
         environments:
           description: >-
@@ -66827,8 +67194,10 @@ components:
             additionalProperties: false
         allEnvironments:
           description: >-
-            When true the rule applies to all environments. Omit both scope
-            fields to apply to all environments.
+            When true the rule applies to every environment, production
+            included. Set this or `environments`. A rule with neither applies to
+            every environment, and is rejected once the organization turns on
+            "Require explicit environments and approval on create".
           type: boolean
         environments:
           description: >-
@@ -72646,6 +73015,12 @@ components:
           items:
             $ref: '#/components/schemas/TargetingReviewRule'
         restApiBypassesReviews:
+          type: boolean
+        strictEnvironmentChecks:
+          description: >-
+            When true, write requests must state environments instead of having
+            them filled in, and a new Feature Flag that turns on an environment
+            that needs approval needs review first.
           type: boolean
         requireRebaseBeforePublish:
           type: boolean
@@ -81962,6 +82337,45 @@ components:
         - pattern
         - example
       additionalProperties: false
+    ApiErrorRuleScopeRequiredDetails:
+      type: object
+      properties:
+        rules:
+          description: Zero-based indexes of the rules that have no scope.
+          type: array
+          items:
+            type: integer
+      required:
+        - rules
+      additionalProperties: false
+    ApiErrorEnvironmentStateRequiredDetails:
+      type: object
+      properties:
+        missing:
+          description: Environments the request does not set `enabled` for.
+          type: array
+          items:
+            type: string
+        environments:
+          description: Every environment the Feature Flag can be in.
+          type: array
+          items:
+            type: string
+      required:
+        - missing
+        - environments
+      additionalProperties: false
+    ApiErrorCreateRequiresApprovalDetails:
+      type: object
+      properties:
+        environments:
+          description: Environments that need approval to turn on.
+          type: array
+          items:
+            type: string
+      required:
+        - environments
+      additionalProperties: false
     bypassedGates:
       type: object
       properties:
@@ -81992,6 +82406,24 @@ components:
         - type
         - outcome
         - via
+      additionalProperties: false
+    notices:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+            - rule_scope_required
+            - environment_state_required
+            - create_requires_approval
+        message:
+          type: string
+        path:
+          description: The part of the request body the notice is about.
+          type: string
+      required:
+        - code
+        - message
       additionalProperties: false
     features:
       description: >-

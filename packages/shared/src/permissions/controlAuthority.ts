@@ -14,6 +14,7 @@ type PermissionsUtil = Pick<
   | "canRevisionAction"
   | "canCreateFeature"
   | "canPublishFeature"
+  | "canBypassFlagApprovalChecks"
 >;
 
 type ProjectScoped = { project?: string; projects?: string[] };
@@ -193,15 +194,20 @@ export function holdsFeatureMoveDestination(
 }
 
 // Enabling an environment at creation reaches the SDK payload immediately.
+// `reviewGatedEnvironments` are the ones where that needs approval
+// (`getCreateReviewRequirement`); only an approval bypass enables those here.
 export function canEnableEnvironmentOnCreate(
   permissionsUtil: PermissionsUtil,
   project: string | undefined,
   environmentId: string,
+  reviewGatedEnvironments: string[] = [],
 ): boolean {
   const envs = [environmentId];
   return (
     permissionsUtil.canCreateFeature({ project }, envs) &&
-    permissionsUtil.canPublishFeature({ project }, envs)
+    permissionsUtil.canPublishFeature({ project }, envs) &&
+    (!reviewGatedEnvironments.includes(environmentId) ||
+      permissionsUtil.canBypassFlagApprovalChecks({ project }, "feature"))
   );
 }
 

@@ -31,6 +31,12 @@ A feature can be enabled for an environment but still act as "off" if its value 
 
 </Warning>
 
+## Default state for new features
+
+Each environment's **Default state for new features** decides whether a new Feature Flag starts on there. In the app it sets that environment's checkbox when you create a Feature Flag. A REST API create uses it for any environment the request leaves out.
+
+When your organization turns on **Require explicit environments and approval on create** (**Settings → General → Feature Flags**), REST API creates stop using it. A create must set `enabled` to `true` or `false` for every environment the Feature Flag can be in, or it is rejected with `environment_state_required`. Every rule a REST API write adds must set `environments` or `allEnvironments`, or it is rejected with `rule_scope_required`. While the setting is off, these requests succeed as before, and the response lists what would be rejected in a `notices` array. New organizations start with the setting on. Where approval flows apply, the setting also requires review for a new Feature Flag that starts on in a gated environment; see [Approval on create](/features/publishing-and-approval-flows#approval-on-create).
+
 ## Environments and SDKs
 
 Each SDK Connection is tied to a specific environment and has its own unique SDK key. When the SDK fetches its configuration, it receives **only the features and rules for that environment**, keeping your production and development environments separate.

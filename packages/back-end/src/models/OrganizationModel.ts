@@ -253,6 +253,8 @@ export async function createOrganization({
       ],
       disablePrecomputedDimensions: false,
       restApiBypassesReviews: false,
+      // Absent on orgs created before this setting, which reads as off.
+      strictEnvironmentChecks: true,
       requireRebaseBeforePublish: false,
       revertsBypassApproval: false,
       configsExtensibleByDefault: true,

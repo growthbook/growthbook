@@ -6,6 +6,7 @@ import {
   namedSchemaRegistry,
   apiErrorRegistry,
   ApiErrorCode,
+  STRICT_ENVIRONMENT_CHECKS_LABEL,
 } from "shared/validators";
 import type { ApiEndpointSpec } from "shared/api-spec";
 import * as endpointModules from "shared/api-endpoints";
@@ -604,6 +605,16 @@ Publish responses include a \`gates\` array that explains every blocker:
 For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in \`resolution\`.
 
 When a successful publish bypasses a gate, the response includes \`bypassedGates\`. Each entry reports the gate \`type\` and how it was bypassed in \`via\`, which is one of \`ignoreWarnings\`, \`skipSchemaValidation\`, \`skipHooks\`, \`bypassApprovalPermission\`, \`restApiBypassesReviews\`, or \`revertsBypassApproval\` (reverts only). This field is omitted when no gates were bypassed.
+
+### Explicit environments
+
+Some Feature Flag writes fill in environments the request leaves out. Once your organization turns on **${STRICT_ENVIRONMENT_CHECKS_LABEL}**, they reject those requests instead:
+
+- \`rule_scope_required\` (400): a rule sets neither \`environments\` nor \`allEnvironments\`. \`details.rules\` lists the rules by index.
+- \`environment_state_required\` (400): a new Feature Flag does not set \`enabled\` for every environment it can be in. \`details.missing\` lists them, and \`details.environments\` lists every environment it can be in.
+- \`create_requires_approval\` (422): a new Feature Flag turns on an environment that needs approval, and the caller cannot bypass approval. Send \`requestReview: true\` to create it off in those environments, with a draft that turns them on and requests review.
+
+Until the setting is on, these requests succeed as before, and the response includes a \`notices\` array. Each notice has the \`code\` it will be rejected with, a \`message\` with the fix, and an optional \`path\` into the request body. The \`strictEnvironmentChecks\` field of \`GET /settings\` reports whether the setting is on.
 `,
     },
     servers: [
@@ -687,6 +698,7 @@ curl https://api.growthbook.io/api/v1/features \
     "403": "Forbidden",
     "404": "Not Found",
     "409": "Conflict",
+    "422": "Unprocessable Entity",
     "500": "Internal Server Error",
   };
 

@@ -5,6 +5,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { featurePublishEnvironmentIds } from "back-end/src/services/featurePublishGates";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { strictEnvironmentChecksOn } from "back-end/src/util/apiSafetyChecks";
 import {
   resolveOwnerForCreate,
   resolveOwnerEmail,
@@ -18,6 +19,7 @@ import {
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
   getFeatureDefinitionLookups,
+  toApiRevision,
 } from "back-end/src/services/features";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -28,6 +30,11 @@ import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDra
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateCustomFields, validateRulesReferences } from "./validations";
 import {
+  openCreateReviewDraft,
+  recordCreateReviewDraft,
+  resolveCreateApproval,
+} from "./createApproval";
+import {
   assertValidProjectId,
   assertValidProjectIds,
   assertValidRuleProjectIds,
@@ -36,6 +43,7 @@ import {
   validateEnvRulesScheduleRules,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
+  checkEnvironmentStates,
 } from "./v2Shared";
 
 export type ApiFeatureEnvSettings = NonNullable<
@@ -55,7 +63,7 @@ export const validateEnvKeys = (
     throw new Error(
       `Environment key(s) '${invalidEnvKeys.join(
         "', '",
-      )}' not recognized. Please create the environment or remove it from your environment settings and try again.`,
+      )}' not recognized. Valid environments: ${orgEnvKeys.join(", ")}. Please create the environment or remove it from your environment settings and try again.`,
     );
   }
 };
@@ -63,6 +71,7 @@ export const validateEnvKeys = (
 export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   req,
 ) => {
+  const requireExplicit = strictEnvironmentChecksOn(req.context.org);
   if (
     !req.context.permissions.canCreateFeature(
       req.body,
@@ -73,6 +82,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
       getApiCreateEnabledEnvironments(
         getEnvironments(req.context.org),
         req.body.environments,
+        { requireExplicit },
       ),
     )
   ) {
@@ -146,10 +156,12 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     customFields: req.body.customFields,
   };
 
+  checkEnvironmentStates(req, orgEnvs, feature, req.body.environments);
   const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
     feature,
     orgEnvs,
     req.body.environments ?? {},
+    { requireExplicit },
   );
 
   feature.environmentSettings = environmentSettings;
@@ -194,6 +206,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     "Default value",
   );
 
+  const { draftEnvironments, bypassedGates } = resolveCreateApproval(
+    req,
+    feature,
+    !!req.body.requestReview,
+  );
   await assertCanCreateFeatureInState({
     context: req.context,
     feature,
@@ -212,6 +229,14 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   addIdsToFlatRules(feature.rules, feature.id);
 
   await createFeature(req.context, feature, { comment: req.body.comment });
+  const draft = draftEnvironments.length
+    ? await openCreateReviewDraft(
+        req,
+        feature,
+        draftEnvironments,
+        req.body.comment ?? "",
+      )
+    : null;
 
   await req.audit({
     event: "feature.create",
@@ -221,6 +246,9 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     },
     details: auditDetailsCreate(feature),
   });
+  if (draft) {
+    await recordCreateReviewDraft(req, feature, draft, req.body.comment ?? "");
+  }
 
   const experimentMap = await getExperimentMapForFeature(
     req.context,
@@ -249,5 +277,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
       }),
       req.context,
     ),
+    ...(draft ? { draft: toApiRevision(draft, req.context, feature) } : {}),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
   };
 });

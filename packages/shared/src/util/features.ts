@@ -1405,6 +1405,38 @@ export function featureMetadataEnvelope(
   };
 }
 
+// Revision 1's content, as `createInitialRevision` stores it.
+export function initialRevisionFields(
+  feature: FeatureInterface,
+  environments: string[],
+): Pick<
+  FeatureRevisionInterface,
+  | "defaultValue"
+  | "rules"
+  | "environmentsEnabled"
+  | "prerequisites"
+  | "archived"
+  | "holdout"
+  | "metadata"
+> {
+  return {
+    defaultValue: feature.defaultValue,
+    rules: feature.rules ?? [],
+    environmentsEnabled: Object.fromEntries(
+      environments.map((env) => [
+        env,
+        feature.environmentSettings?.[env]?.enabled ?? false,
+      ]),
+    ),
+    prerequisites: feature.prerequisites || [],
+    archived: feature.archived ?? false,
+    // A feature can be created already attached to a holdout; omitting it here
+    // left revision 1 disagreeing with the feature document.
+    holdout: feature.holdout ?? null,
+    metadata: featureMetadataEnvelope(feature),
+  };
+}
+
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{
@@ -4164,6 +4196,76 @@ export function checkIfRevisionNeedsReview(
   args: Parameters<typeof getRevisionReviewRequirement>[0],
 ): boolean {
   return getRevisionReviewRequirement(args).required;
+}
+
+// Stand-ins for the fields a create's review decision never reads.
+const NEW_FEATURE_FOR_REVIEW: FeatureInterface = {
+  id: "",
+  organization: "",
+  owner: "",
+  valueType: "boolean",
+  defaultValue: "",
+  version: 1,
+  dateCreated: new Date(0),
+  dateUpdated: new Date(0),
+  environmentSettings: {},
+  rules: [],
+};
+
+// A create is judged as an edit from the same Feature Flag disabled everywhere,
+// one environment at a time, so it gates exactly as turning those environments
+// on would. Returns the enabled environments that need review.
+export function getCreateReviewRequirement({
+  feature,
+  orgEnvironments,
+  settings,
+  requireApprovalsLicensed = true,
+}: {
+  // Both sides of the comparison share everything but the toggles, so a caller
+  // without a whole Feature Flag may pass just its scope and toggles.
+  feature: Pick<FeatureInterface, "environmentSettings"> &
+    Partial<FeatureInterface>;
+  orgEnvironments: Environment[];
+  settings?: OrganizationSettings;
+  requireApprovalsLicensed?: boolean;
+}): { required: boolean; environments: string[] } {
+  const subject: FeatureInterface = { ...NEW_FEATURE_FOR_REVIEW, ...feature };
+  const envIds = orgEnvironments.map((e) => e.id);
+  const disabled = Object.fromEntries(
+    envIds.map((id) => [id, { enabled: false }]),
+  );
+  const asRevision = (
+    environmentSettings: FeatureInterface["environmentSettings"],
+  ): FeatureRevisionInterface => ({
+    featureId: subject.id,
+    organization: subject.organization,
+    version: 1,
+    baseVersion: 0,
+    dateCreated: subject.dateCreated,
+    dateUpdated: subject.dateUpdated,
+    datePublished: null,
+    createdBy: null,
+    publishedBy: null,
+    status: "draft",
+    comment: "",
+    ...initialRevisionFields({ ...subject, environmentSettings }, envIds),
+  });
+  const baseRevision = asRevision(disabled);
+  const environments = filterEnvironmentsByFeature(orgEnvironments, subject)
+    .map((e) => e.id)
+    .filter((env) => !!subject.environmentSettings[env]?.enabled)
+    .filter(
+      (env) =>
+        getRevisionReviewRequirement({
+          feature: subject,
+          baseRevision,
+          revision: asRevision({ ...disabled, [env]: { enabled: true } }),
+          orgEnvironments,
+          settings,
+          requireApprovalsLicensed,
+        }).required,
+    );
+  return { required: environments.length > 0, environments };
 }
 
 // Entity pairing a single governance `project` with a secondary targeting scope.

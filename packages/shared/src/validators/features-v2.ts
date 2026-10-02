@@ -16,6 +16,10 @@ import {
   requiredUnlessPatOwnerInputField,
 } from "./owner-field";
 import {
+  STRICT_ENVIRONMENT_CHECKS_LABEL,
+  withNotices,
+} from "./api-safety-checks";
+import {
   apiEventUserValidator,
   apiFeatureBaseRuleValidator,
   apiFeatureForceRuleValidator,
@@ -27,6 +31,7 @@ import {
   apiFeatureHoldout,
   revisionStatusFilterSchema,
   apiRevisionRampAction,
+  createRequestReviewField,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 
@@ -443,9 +448,22 @@ const featureV2ResponseSchema = z
   .strict();
 
 // See features.ts: an update can land a live revision and bypass approval.
-const featureV2UpdateResponseSchema = featureV2ResponseSchema.extend({
-  bypassedGates: publishBypassedGatesField,
-});
+const featureV2UpdateResponseSchema = withNotices(
+  featureV2ResponseSchema.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
+);
+
+const featureV2CreateResponseSchema = withNotices(
+  featureV2ResponseSchema.extend({
+    draft: apiFeatureRevisionV2Validator
+      .optional()
+      .describe(
+        "The draft `requestReview` opened: it turns on the environments that need approval, and is waiting for review. Present only when the create needed one.",
+      ),
+    bypassedGates: publishBypassedGatesField,
+  }),
+);
 
 // ---- Shared param schemas ----
 
@@ -458,15 +476,16 @@ const idParams = z
 // ---- V2 POST/PUT body schemas ----
 
 // V2 POST/PUT body rule — same rule shapes as v1 input but with scope fields
-// embedded alongside the rule definition. Scope defaults to allEnvironments:
-// true so callers only need to supply `environments` when scoping to specific
-// envs.
+// embedded alongside the rule definition. A rule with neither scope field runs
+// everywhere, unless the org's strictEnvironmentChecks rejects it.
 const v2RuleScopeInput = z
   .object({
     allEnvironments: z
       .boolean()
       .optional()
-      .describe("When true the rule applies to all environments (default)."),
+      .describe(
+        `When true the rule applies to every environment, production included. Set this or \`environments\`. A rule with neither applies to every environment, and is rejected once the organization turns on "${STRICT_ENVIRONMENT_CHECKS_LABEL}".`,
+      ),
     environments: z
       .array(z.string())
       .optional()
@@ -666,6 +685,15 @@ const postFeatureEnvironmentV2 = z.object({
   enabled: z.boolean().optional(),
 });
 
+const createFeatureEnvironmentV2 = z.object({
+  enabled: z
+    .boolean()
+    .optional()
+    .describe(
+      `Whether the Feature Flag starts on in this environment. Required for every environment the Feature Flag can be in once the organization turns on "${STRICT_ENVIRONMENT_CHECKS_LABEL}". Until then, an omitted value falls back to the environment's "Default state for new features".`,
+    ),
+});
+
 // ---- V2 PostFeaturePayload ----
 export const postFeatureBodyV2 = z
   .object({
@@ -713,9 +741,9 @@ export const postFeatureBodyV2 = z
       )
       .optional(),
     environments: z
-      .record(z.string(), postFeatureEnvironmentV2)
+      .record(z.string(), createFeatureEnvironmentV2)
       .describe(
-        "Per-environment enabled state. V2 rules are specified on the top-level `rules` field.",
+        "Whether the Feature Flag starts on in each environment, keyed by environment ID. V2 rules are specified on the top-level `rules` field.",
       )
       .optional(),
     prerequisites: z
@@ -732,9 +760,10 @@ export const postFeatureBodyV2 = z
     comment: z
       .string()
       .describe(
-        "Comment to record on the feature's initial revision. Defaults to an empty comment.",
+        "Comment to record on the feature's initial revision, and on the draft when `requestReview` opens one. Defaults to an empty comment.",
       )
       .optional(),
+    requestReview: createRequestReviewField,
     ...publishOverrideBodyFields,
   })
   .strict();
@@ -857,10 +886,12 @@ export const postFeatureV2Validator = {
   bodySchema: postFeatureBodyV2,
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: z.never(),
-  responseSchema: featureV2ResponseSchema,
+  responseSchema: featureV2CreateResponseSchema,
   summary: "Create a single feature",
   description:
     "Creates a new Feature Flag. The caller needs Create access in its Project, plus Publish access for any environment the Feature Flag starts enabled in — one that starts disabled everywhere needs Create alone. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
+    "### Environments and approval\n\n" +
+    `Set \`enabled\` under \`environments\` for every environment the Feature Flag can be in, and give every rule \`environments\` or \`allEnvironments: true\`. Once the organization turns on "${STRICT_ENVIRONMENT_CHECKS_LABEL}", a create that leaves either out is rejected with \`environment_state_required\` or \`rule_scope_required\`. A create that turns on an environment that needs approval is also rejected, with \`create_requires_approval\`, unless the caller can bypass approval. Send \`requestReview: true\` to create the Feature Flag off in those environments, with a draft that turns them on and requests review. Until the setting is on, these creates succeed as before, and the response lists what would be rejected in \`notices\`.\n\n` +
     "### Config-backed features (Config mode)\n\n" +
     'A JSON feature can be backed by a shared **config** — the config supplies the base JSON value and schema, and the feature\'s *rule* values become override *patches* merged on top (nested objects deep-merge; arrays and scalars replace). The default value is exactly a config with no overrides (see below). Config backing is set exclusively through dedicated fields — never a raw `$extends: ["@config:…"]` inside a value string (that is rejected). `@const:` references inside values still work.\n\n' +
     '- **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig: "<configKey>"` to put the Feature Flag in Config mode. The config must be live. This is the family root and the base the default value patches.\n' +
@@ -883,6 +914,11 @@ export const postFeatureV2Validator = {
   method: "post" as const,
   path: "/features",
   version: "v2" as const,
+  possibleErrors: [
+    "rule_scope_required",
+    "environment_state_required",
+    "create_requires_approval",
+  ] as const,
 };
 
 export const getFeatureV2Validator = {
@@ -923,6 +959,7 @@ export const updateFeatureV2Validator = {
   method: "post" as const,
   path: "/features/:id",
   version: "v2" as const,
+  possibleErrors: ["rule_scope_required"] as const,
 };
 
 export const deleteFeatureV2Validator = {

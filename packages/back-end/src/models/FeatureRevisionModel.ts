@@ -8,6 +8,7 @@ import {
   fillRevisionFromFeature,
   getApplicableEnvIds,
   getRevisionReviewRequirement,
+  initialRevisionFields,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
   MergeResultChanges,
@@ -964,11 +965,6 @@ export async function createInitialRevision(
   const rules: FeatureRule[] = (feature.rules ?? [])
     .filter(isPlausibleFeatureRule)
     .map((r) => upgradeFeatureRule(r));
-  const environmentsEnabled: Record<string, boolean> = {};
-  environments.forEach((env) => {
-    environmentsEnabled[env] =
-      feature.environmentSettings?.[env]?.enabled ?? false;
-  });
 
   date = date || new Date();
 
@@ -984,15 +980,7 @@ export async function createInitialRevision(
     status: "published",
     publishedBy: user,
     comment: comment ?? "",
-    defaultValue: feature.defaultValue,
-    rules,
-    environmentsEnabled,
-    prerequisites: feature.prerequisites || [],
-    archived: feature.archived ?? false,
-    // A feature can be created already attached to a holdout; omitting it here
-    // left revision 1 disagreeing with the feature document.
-    holdout: feature.holdout ?? null,
-    metadata: featureMetadataEnvelope(feature),
+    ...initialRevisionFields({ ...feature, rules }, environments),
   });
 
   return toInterface(doc, context, feature);

@@ -80,7 +80,7 @@ export function authoredFeatureDraft(
 // A new flag's live footprint is exactly the environments it starts enabled in, so
 // publish authority is required for those and nothing else: a flag that starts
 // disabled everywhere reaches no SDK payload, and Create alone is enough. Approval
-// doesn't apply either — there is no prior state to review it against.
+// is a separate gate (`getCreateReviewRequirement`), which callers apply first.
 export async function assertCanCreateFeatureInState({
   context,
   feature,

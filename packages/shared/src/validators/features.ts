@@ -32,8 +32,20 @@ import {
   apiRampMonitoringConfigInput,
   stepHoldConditions,
 } from "./ramp-schedule";
+import {
+  STRICT_ENVIRONMENT_CHECKS_LABEL,
+  withNotices,
+} from "./api-safety-checks";
 
 import { namedSchema } from "./openapi-helpers";
+
+// Shared by the v1 and v2 create bodies.
+export const createRequestReviewField = z
+  .boolean()
+  .optional()
+  .describe(
+    "When turning on an environment needs approval, create the Feature Flag off in that environment and open a draft that turns it on and requests review. The draft is returned as `draft`. Has no effect when no environment needs approval.",
+  );
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -1644,6 +1656,17 @@ const featureUpdateResponseSchema = featureResponseSchema.extend({
   bypassedGates: publishBypassedGatesField,
 });
 
+const featureCreateResponseSchema = withNotices(
+  featureResponseSchema.extend({
+    draft: apiFeatureRevisionValidator
+      .optional()
+      .describe(
+        "The draft `requestReview` opened: it turns on the environments that need approval, and is waiting for review. Present only when the create needed one.",
+      ),
+    bypassedGates: publishBypassedGatesField,
+  }),
+);
+
 // ---- PostFeaturePayload ----
 const postFeatureBody = z
   .object({
@@ -1692,7 +1715,7 @@ const postFeatureBody = z
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
-        'Settings for each environment, keyed by environment ID. Any environment you leave out is enabled or disabled per that environment\'s "Default state for new features" setting.',
+        `Settings for each environment, keyed by environment ID. Once the organization turns on "${STRICT_ENVIRONMENT_CHECKS_LABEL}", list every environment the Feature Flag can be in. Until then, any environment you leave out is enabled or disabled per that environment's "Default state for new features" setting.`,
       )
       .optional(),
     prerequisites: z
@@ -1709,9 +1732,10 @@ const postFeatureBody = z
     comment: z
       .string()
       .describe(
-        "Comment to record on the feature's initial revision. Defaults to an empty comment.",
+        "Comment to record on the feature's initial revision, and on the draft when `requestReview` opens one. Defaults to an empty comment.",
       )
       .optional(),
+    requestReview: createRequestReviewField,
     ...publishOverrideBodyFields,
   })
   .strict();
@@ -1840,7 +1864,7 @@ export const postFeatureValidator = {
   bodySchema: postFeatureBody,
   querySchema: z.never(),
   paramsSchema: z.never(),
-  responseSchema: featureResponseSchema,
+  responseSchema: featureCreateResponseSchema,
   summary: "Create a single feature",
   description:
     "**Deprecated.** Use [POST /v2/features](#operation/postFeatureV2) instead.",
@@ -1850,6 +1874,10 @@ export const postFeatureValidator = {
   tags: ["features"],
   method: "post" as const,
   path: "/features",
+  possibleErrors: [
+    "environment_state_required",
+    "create_requires_approval",
+  ] as const,
 };
 
 export const getFeatureValidator = {
