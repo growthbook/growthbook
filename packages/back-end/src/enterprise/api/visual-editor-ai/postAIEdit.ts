@@ -221,6 +221,7 @@ const bodySchema = z
     streamingMode: z.boolean().optional(),
     // Save the result rather than returning it for the caller to persist.
     persist: z.boolean().optional(),
+    allowRunningExperiment: z.boolean().optional(),
     // Bytes so the back-end never fetches; `url` is the hosted copy for placing it.
     attachments: z
       .array(
@@ -780,6 +781,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     conversationHistory,
     locale,
     persist,
+    allowRunningExperiment,
     attachments,
     resume,
   } = req.body;
@@ -807,7 +809,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // save is held; a preview changes nothing.
   const auditLiveEdit = persist
     ? owner.requireWrite(req, {
-        allowRunning: false,
+        allowRunning: !!allowRunningExperiment,
         visualChangesetId,
       })
     : async () => {};

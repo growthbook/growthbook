@@ -121,6 +121,7 @@ function buildPrompt({
   pastExperiments,
 }: {
   currentExperiment: {
+    kind?: "experiment" | "contextual-bandit";
     name: string;
     hypothesis?: string;
     description?: string;
@@ -128,7 +129,11 @@ function buildPrompt({
   pageHints?: z.infer<typeof pageHintsSchema>;
   pastExperiments: PastExperimentSummary[];
 }): string {
-  const currentBlock = `Current experiment:\n- Name: ${currentExperiment.name}\n${
+  const currentBlock = `Current ${
+    promptContext.kind === "contextual-bandit"
+      ? "contextual bandit (each variation is an arm the bandit optimizes across user contexts)"
+      : "experiment"
+  }:\n- Name: ${currentExperiment.name}\n${
     currentExperiment.hypothesis
       ? `- Hypothesis: ${currentExperiment.hypothesis}\n`
       : ""
@@ -242,6 +247,7 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     instructions,
     prompt: buildPrompt({
       currentExperiment: {
+        kind: promptContext.kind,
         name: promptContext.name,
         hypothesis: promptContext.hypothesis || undefined,
         description: promptContext.description || undefined,
