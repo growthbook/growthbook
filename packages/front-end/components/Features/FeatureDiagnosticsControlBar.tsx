@@ -392,7 +392,7 @@ export default function FeatureDiagnosticsControlBar({
   // server.
   const [themeRoot, setThemeRoot] = useState<HTMLElement | null>(null);
   useEffect(() => {
-    setThemeRoot(document.querySelector(".radix-themes"));
+    setThemeRoot(document.querySelector<HTMLElement>(".radix-themes"));
   }, []);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Staged separately from `filters`: every commit is a warehouse read, so a
