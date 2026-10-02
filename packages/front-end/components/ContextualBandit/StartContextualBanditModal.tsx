@@ -6,8 +6,12 @@ import {
   PiWarningFill,
   PiWarningOctagonFill,
 } from "react-icons/pi";
-import { ApiContextualBanditInterface } from "shared/validators";
+import {
+  ApiContextualBanditInterface,
+  ApiVisualChangeset,
+} from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
+import { visualChangeHasContent } from "shared/util";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import Button from "@/ui/Button";
@@ -30,6 +34,7 @@ import {
 export interface Props {
   cb: ApiContextualBanditInterface;
   linkedFeatures?: LinkedFeatureInfo[];
+  visualChangesets?: ApiVisualChangeset[];
   startContextualBandit: () => Promise<void>;
   close: () => void;
 }
@@ -43,9 +48,13 @@ type BlockerItem = {
 function computeBlockers(
   cb: ApiContextualBanditInterface,
   linkedFeatures: LinkedFeatureInfo[],
+  visualChangesets: ApiVisualChangeset[],
 ): { hardBlockerItems: BlockerItem[]; softBlockerItems: BlockerItem[] } {
   const hardBlockerItems: BlockerItem[] = [];
   const softBlockerItems: BlockerItem[] = [];
+  const hasVisualContent = visualChangesets.some((vc) =>
+    vc.visualChanges.some(visualChangeHasContent),
+  );
 
   const featureLink = (f: LinkedFeatureInfo) => (
     <Link
@@ -59,13 +68,14 @@ function computeBlockers(
     </Link>
   );
 
-  if (linkedFeatures.length === 0) {
+  if (linkedFeatures.length === 0 && !hasVisualContent && !cb.hasURLRedirects) {
     hardBlockerItems.push({
-      key: "no-linked-feature",
+      key: "no-linked-change",
       hardBlock: true,
       display: (
         <>
-          Link at least one Feature Flag before this Contextual Bandit can start
+          Link at least one Feature Flag or save a Visual Editor change before
+          this Contextual Bandit can start
         </>
       ),
     });
@@ -243,6 +253,7 @@ function LinkedChangeSection({
 export default function StartContextualBanditModal({
   cb,
   linkedFeatures = [],
+  visualChangesets = [],
   startContextualBandit,
   close,
 }: Props) {
@@ -255,6 +266,7 @@ export default function StartContextualBanditModal({
   const { hardBlockerItems, softBlockerItems } = computeBlockers(
     cb,
     linkedFeatures,
+    visualChangesets,
   );
   const hasHardBlockers = hardBlockerItems.length > 0;
   const hasBlockers = hasHardBlockers || softBlockerItems.length > 0;
