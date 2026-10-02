@@ -1,5 +1,6 @@
 import { FC, useEffect } from "react";
 import { useRouter } from "next/router";
+import { Box } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -23,7 +24,7 @@ const NewDataSourcePage: FC = () => {
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <Box p="15px" mx="auto" maxWidth="1340px">
       <PageHead
         breadcrumb={[
           { display: "Data Sources", href: "/datasources" },
@@ -34,7 +35,7 @@ const NewDataSourcePage: FC = () => {
         Add Data Source
       </Heading>
       <DataSourceOptionsTable />
-    </div>
+    </Box>
   );
 };
 
