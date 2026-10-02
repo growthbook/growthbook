@@ -269,6 +269,16 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     );
   }
 
+  /**
+   * Metadata for `ids` plus every group they reach through condition groups:
+   * what a client needs to reason about the targeting those ids express.
+   */
+  public async getMetadataWithNested(
+    ids: string[],
+  ): Promise<SavedGroupMetadata[]> {
+    return loadSavedGroupsWithNested(ids, (wanted) => this.getMetadata(wanted));
+  }
+
   /** Everything but the ID lists, which can be enormous. All groups, or `ids`. */
   public async getAllWithoutValues(
     ids?: string[],

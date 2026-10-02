@@ -1258,7 +1258,8 @@ export const getSavedGroupsMetadata = async (
 ) => {
   const context = getContextFromReq(req);
   const ids = [...new Set(req.query.ids.split(",").filter(Boolean))];
-  const savedGroups = await context.models.savedGroups.getMetadata(ids);
+  const savedGroups =
+    await context.models.savedGroups.getMetadataWithNested(ids);
   return res.status(200).json({ status: 200, savedGroups });
 };
 

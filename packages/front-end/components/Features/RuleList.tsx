@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  SavedGroupMetadata,
-  SavedGroupWithoutValues,
-} from "shared/types/saved-group";
+import { SavedGroupMetadata } from "shared/types/saved-group";
+import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
 import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
@@ -127,65 +125,58 @@ export default function RuleList(props: RuleListProps) {
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const { savedGroups, getProjectById } = useDefinitions();
+  const { getProjectById } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const { data: savedGroupsWithCondition } = useApi<{
-    savedGroups: SavedGroupWithoutValues[];
-  }>("/saved-groups");
-  const conditionById = useMemo<Map<string, string | undefined>>(() => {
-    const map = new Map<string, string | undefined>();
-    for (const g of savedGroupsWithCondition?.savedGroups ?? []) {
-      map.set(g.id, g.condition);
-    }
-    return map;
-  }, [savedGroupsWithCondition]);
-
-  // Missing conditions or values keep conflict detection conservative.
-  const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
-    const map = new Map<string, SavedGroupForConflicts>();
-    for (const g of savedGroups) {
-      map.set(g.id, {
-        type: g.type,
-        attributeKey: g.attributeKey,
-        condition: conditionById.get(g.id),
-      });
-    }
-    return map;
-  }, [savedGroups, conditionById]);
-
-  // ID-list saved group ids referenced by this feature's rules (any env).
-  const referencedListGroupIds = useMemo<string[]>(() => {
+  // Saved group ids this feature's rules name (any env), in targeting entries
+  // and inside conditions.
+  const referencedGroupIds = useMemo<string[]>(() => {
     const ids = new Set<string>();
     for (const r of feature.rules ?? []) {
-      for (const sg of r.savedGroups ?? []) {
-        for (const id of sg.ids) {
-          if (savedGroupDefs.get(id)?.type === "list") ids.add(id);
-        }
+      for (const sg of r.savedGroups ?? []) sg.ids.forEach((id) => ids.add(id));
+      if (!r.condition) continue;
+      try {
+        forEachSavedGroupIdInCondition(JSON.parse(r.condition), (id) =>
+          ids.add(id),
+        );
+      } catch {
+        // A malformed condition is opaque to the conflict analysis anyway.
       }
     }
     return [...ids];
-  }, [feature.rules, savedGroupDefs]);
+  }, [feature.rules]);
 
-  // Lists over the conflict-analysis cap stay opaque, so their values are
-  // never fetched.
-  const metadataPath = referencedListGroupIds.length
+  // Those groups plus the ones they reach through condition groups, without
+  // values. Missing entries keep conflict detection conservative.
+  const metadataPath = referencedGroupIds.length
     ? `/saved-groups/metadata?ids=${encodeURIComponent(
-        referencedListGroupIds.join(","),
+        referencedGroupIds.join(","),
       )}`
     : "";
-  const { data: referencedListMetadata } = useApi<{
+  const { data: referencedMetadata } = useApi<{
     savedGroups: SavedGroupMetadata[];
   }>(metadataPath, { shouldRun: () => !!metadataPath });
-  const listGroupIdsToLoad = useMemo<string[]>(() => {
-    if (!referencedListMetadata) return [];
-    const large = new Set(
-      referencedListMetadata.savedGroups
-        .filter((g) => g.largeValues)
+  const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
+    const map = new Map<string, SavedGroupForConflicts>();
+    for (const g of referencedMetadata?.savedGroups ?? []) {
+      map.set(g.id, {
+        type: g.type,
+        attributeKey: g.attributeKey,
+        condition: g.condition,
+      });
+    }
+    return map;
+  }, [referencedMetadata]);
+
+  // Lists over the conflict-analysis cap stay opaque, so their values are
+  // never fetched; empty lists have nothing to fetch.
+  const listGroupIdsToLoad = useMemo<string[]>(
+    () =>
+      (referencedMetadata?.savedGroups ?? [])
+        .filter((g) => g.type === "list" && g.hasValues && !g.largeValues)
         .map((g) => g.id),
-    );
-    return referencedListGroupIds.filter((id) => !large.has(id));
-  }, [referencedListMetadata, referencedListGroupIds]);
+    [referencedMetadata],
+  );
 
   // Lazily-fetched ID-list values, keyed by saved group id.
   const [listGroupValues, setListGroupValues] = useState<Map<string, string[]>>(
