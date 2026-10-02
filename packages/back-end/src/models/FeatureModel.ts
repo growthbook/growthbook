@@ -1512,6 +1512,22 @@ export async function updateFeature(
     allUpdates.environmentSettings = { ...feature.environmentSettings };
   }
 
+  // The reverse case: a write that replaces `environmentSettings` without
+  // `rules` (an environment toggle) stores the map as the read returned it.
+  // That map has no `{env}.rules`, and its inherited environments are filled
+  // in, so a doc that keeps its rules per environment loses its only copy and
+  // a child environment stops inheriting its parent's rules. Persist the
+  // rules that read returned in the same write, scrubbed like a publish's.
+  if (
+    allUpdates.environmentSettings !== undefined &&
+    allUpdates.rules === undefined &&
+    Array.isArray(feature.rules)
+  ) {
+    allUpdates.rules = (
+      await scrubDeadProjectScopes(context, { rules: feature.rules })
+    ).rules;
+  }
+
   const normalizedUpdates = buildFeatureUpdate(allUpdates);
 
   if (Array.isArray(normalizedUpdates.rules)) {
