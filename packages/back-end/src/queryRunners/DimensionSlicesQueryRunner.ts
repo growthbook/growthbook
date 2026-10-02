@@ -7,6 +7,7 @@ import {
   DimensionSlicesResult,
 } from "shared/types/dimension";
 import { Queries } from "shared/types/query";
+import { getPreferredIdentifierType } from "shared/util";
 import {
   getDimensionSlicesById,
   updateDimensionSlices,
@@ -52,7 +53,9 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
         query: this.integration.getDimensionSlicesQuery({
           exposureQuery: {
             query: exposureQuery?.query ?? "",
-            userIdType: exposureQuery?.userIdType ?? "",
+            identifierType: exposureQuery
+              ? getPreferredIdentifierType(exposureQuery)
+              : "",
           },
           dimensions: dimensions,
           lookbackDays: params.lookbackDays,

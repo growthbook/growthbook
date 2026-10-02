@@ -563,30 +563,24 @@ function assertDatabricksIdentifier(segment: string, label: string): string {
   return s;
 }
 
-export function parseDatabricksEventForwarderTablePrefix(
-  input: string,
+// Validates each field on its own so errors name the field the user edits.
+export function normalizeDatabricksEventForwarderDestination(
+  destination: DatabricksEventForwarderTablePrefix,
 ): DatabricksEventForwarderTablePrefix {
-  const segments = splitQualifiedPath(input);
-
-  if (segments.length !== 3) {
-    throw new Error(
-      "Databricks destination must be catalog.schema.prefix (three dot-separated parts).",
-    );
-  }
-
   return {
-    catalog: assertDatabricksIdentifier(segments[0], "Catalog"),
-    schema: assertDatabricksIdentifier(segments[1], "Schema"),
+    catalog: assertDatabricksIdentifier(
+      unwrapIdentifier(destination.catalog),
+      "Catalog",
+    ),
+    schema: assertDatabricksIdentifier(
+      unwrapIdentifier(destination.schema),
+      "Schema",
+    ),
+    // Empty prefix falls back to the default, like BigQuery and Snowflake.
     tablePrefix: normalizeDatabricksTablePrefixForEventForwarder(
-      assertNonEmptySegment(segments[2], "Table prefix"),
+      destination.tablePrefix,
     ),
   };
-}
-
-export function formatDatabricksEventForwarderTablePrefix(
-  destination: DatabricksEventForwarderTablePrefix,
-): string {
-  return `${destination.catalog.trim()}.${destination.schema.trim()}.${destination.tablePrefix.trim()}`;
 }
 
 export function resolveDatabricksEventForwarderTables(
@@ -602,6 +596,30 @@ export function resolveDatabricksEventForwarderTables(
     experiment_viewed: qualify(names.experimentViewed),
     feature_usage: qualify(names.featureUsage),
   };
+}
+
+// Placeholder template from the connection host: Azure and GCP hosts carry the
+// workspace id (adb-<id>.<n>.azuredatabricks.net, <id>.<n>.gcp.databricks.com);
+// the region never does.
+export function suggestDatabricksEventForwarderZerobusEndpoint(
+  host: string | undefined,
+): string {
+  const h = (host ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "");
+  if (h.endsWith(".azuredatabricks.net")) {
+    const id = h.match(/^adb-(\d+)\./)?.[1] ?? "<workspace-id>";
+    return `https://${id}.zerobus.<region>.azuredatabricks.net`;
+  }
+  if (h.endsWith(".cloud.databricks.com")) {
+    return "https://<workspace-id>.zerobus.<region>.cloud.databricks.com";
+  }
+  if (h.endsWith(".gcp.databricks.com")) {
+    const id = h.match(/^(\d+)\./)?.[1] ?? "<workspace-id>";
+    return `https://${id}.zerobus.<region>.gcp.databricks.com`;
+  }
+  return "";
 }
 
 // https://<workspace-id>.zerobus.<region>.{cloud|gcp}.databricks.com | .azuredatabricks.net

@@ -16,6 +16,12 @@ import { PermissionError } from "shared/util";
 import { BaseSchemaWithPrimaryKey } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { EntityType, EventType } from "shared/types/audit";
+import {
+  ApiBaseSchema,
+  CrudAction,
+  CrudValidatorOverrides,
+  DefaultCrudValidators,
+} from "shared/api-model";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -29,13 +35,7 @@ import {
   ForeignRefsCacheKeys,
 } from "back-end/src/services/context";
 import { ApiRequest } from "back-end/src/util/handler";
-import {
-  ApiBaseSchema,
-  ApiModelConfig,
-  CrudValidatorOverrides,
-  DefaultCrudValidators,
-} from "back-end/src/api/ApiModel";
-import { CrudAction } from "back-end/src/api/apiModelHandlers";
+import { ApiModelConfig } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
 import {
   DefinitionsVersionScope,

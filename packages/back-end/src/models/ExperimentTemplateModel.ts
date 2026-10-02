@@ -1,18 +1,82 @@
 import {
+  ApiAssignmentQueryRefInput,
   ApiExperimentTemplateInterface,
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
+import {
+  flattenExposureQueryInput,
+  toApiAssignmentQueryRef,
+} from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
-import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+} from "back-end/src/services/owner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   experimentTemplateApiSpec,
   bulkImportExperimentTemplatesEndpoint,
 } from "back-end/src/api/specs/experiment-template.spec";
+import {
+  resolveAssignmentQueryIdentifier,
+  assertValidAssignmentQuerySelectionChange,
+} from "back-end/src/services/assignmentQuerySelection";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import { MakeModelClass } from "./BaseModel";
 
 const ID_PREFIX = "tmplt__";
+
+type ApiTemplateBody = {
+  datasource?: string;
+  exposureQuery?: ApiAssignmentQueryRefInput;
+  exposureQueryId?: string;
+};
+
+/**
+ * The API's grouped exposureQuery supersedes the deprecated exposureQueryId;
+ * the model stays flat.
+ */
+async function toTemplateWriteBody<T extends ApiTemplateBody>(
+  context: ReqContext | ApiReqContext,
+  body: T,
+  existing: ExperimentTemplateInterface | null,
+) {
+  const flat = flattenExposureQueryInput(body);
+  if (flat.exposureQueryId === undefined) return flat;
+  const { identifierType: exposureQueryIdentifierType } =
+    await resolveAssignmentQueryIdentifier(context, {
+      previous: existing
+        ? {
+            datasource: existing.datasource,
+            exposureQueryId: existing.exposureQueryId,
+            identifierType: existing.exposureQueryIdentifierType,
+          }
+        : null,
+      next: {
+        datasource: flat.datasource ?? existing?.datasource ?? "",
+        exposureQueryId: flat.exposureQueryId,
+        identifierType: flat.exposureQueryIdentifierType,
+      },
+      onOmitted: "requireUnambiguous",
+      field: "exposureQuery",
+    });
+  // Always keyed: on update, undefined clears an identifier the new selection
+  // doesn't use.
+  return { ...flat, exposureQueryIdentifierType };
+}
+
+/** Both fields are optional in the API body, so creates must check for one. */
+function withRequiredExposureQuery<T extends { exposureQueryId?: string }>(
+  body: T,
+): T & { exposureQueryId: string } {
+  const { exposureQueryId } = body;
+  if (exposureQueryId === undefined) {
+    throw new Error("exposureQuery is required");
+  }
+  return { ...body, exposureQueryId };
+}
 
 const BaseClass = MakeModelClass({
   schema: experimentTemplateInterface,
@@ -56,16 +120,21 @@ const BaseClass = MakeModelClass({
               ? id
               : `${ID_PREFIX}${id}`;
             const existing = existingById.get(normalizedId);
+            const normalizedData = await toTemplateWriteBody(
+              req.context,
+              data,
+              existing ?? null,
+            );
             if (existing) {
               await req.context.models.experimentTemplates.update(
                 existing,
-                data,
+                normalizedData,
               );
               updated++;
             } else {
               const created =
                 await req.context.models.experimentTemplates.create({
-                  ...data,
+                  ...withRequiredExposureQuery(normalizedData),
                   id: normalizedId,
                   owner: "", // Will be inferred in BaseModel if possible
                 });
@@ -104,8 +173,75 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.permissions.canDeleteExperimentTemplate(doc);
   }
 
-  protected hasPremiumFeature(): boolean {
+  protected override hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("templates");
+  }
+
+  /** Runs for internal and REST writes. */
+  protected override async customValidation(
+    doc: ExperimentTemplateInterface,
+    previousDoc?: ExperimentTemplateInterface,
+  ) {
+    await assertValidAssignmentQuerySelectionChange(
+      this.context,
+      previousDoc
+        ? {
+            datasource: previousDoc.datasource,
+            exposureQueryId: previousDoc.exposureQueryId,
+            identifierType: previousDoc.exposureQueryIdentifierType,
+          }
+        : null,
+      {
+        datasource: doc.datasource,
+        exposureQueryId: doc.exposureQueryId,
+        identifierType: doc.exposureQueryIdentifierType,
+      },
+    );
+  }
+
+  protected override async processApiCreateBody(rawBody: unknown) {
+    const body = await toTemplateWriteBody(
+      this.context,
+      rawBody as ApiTemplateBody,
+      null,
+    );
+    return super.processApiCreateBody(withRequiredExposureQuery(body));
+  }
+
+  /**
+   * Overridden to read the stored query, which processApiUpdateBody can't see.
+   */
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ) {
+    const { id } = req.params as { id: string };
+    const toUpdate = (await toTemplateWriteBody(
+      this.context,
+      req.body,
+      await this.getById(id),
+    )) as UpdateProps<ExperimentTemplateInterface>;
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.context,
+    );
+  }
+
+  protected override toApiInterface(
+    doc: ExperimentTemplateInterface,
+  ): ApiExperimentTemplateInterface {
+    const { exposureQueryIdentifierType, ...base } = super.toApiInterface(
+      doc,
+    ) as ExperimentTemplateInterface & ApiExperimentTemplateInterface;
+    return {
+      ...base,
+      exposureQuery: toApiAssignmentQueryRef(
+        doc.exposureQueryId,
+        exposureQueryIdentifierType,
+        // BaseModel caches the template's data source on read and write.
+        this.getForeignRefs(doc, false).datasource?.settings?.queries
+          ?.exposure ?? [],
+      ),
+    };
   }
 
   public override async handleApiList(

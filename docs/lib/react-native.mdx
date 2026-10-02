@@ -1,7 +1,6 @@
 ---
 title: React Native SDK
 description: Use the GrowthBook React Native SDK to evaluate feature flags and run A/B tests in iOS and Android apps, including targeting and tracking.
-slug: react-native
 toc_max_heading_level: 5
 ---
 
@@ -361,7 +360,7 @@ const gb = new GrowthBook({
 
 Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
-This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
+This same tracking callback is used for both feature flag experiments and AI Visual Editor experiments.
 
 ### Feature Flag Experiments
 
@@ -375,9 +374,9 @@ useFeatureIsOn("new-signup-form")
 
 If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
 
-### Visual Editor Experiments
+### AI Visual Editor Experiments
 
-Visual Editor experiments are not supported in React Native at this time.
+AI Visual Editor experiments are not supported in React Native at this time.
 
 ### URL Redirect Experiments
 

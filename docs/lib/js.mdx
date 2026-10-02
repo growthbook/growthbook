@@ -2,7 +2,6 @@
 title: JavaScript SDK
 description: Install the GrowthBook JavaScript SDK to evaluate feature flags and run A/B tests in the browser with vanilla JS or TypeScript.
 sidebarTitle: JavaScript
-slug: js
 toc_max_heading_level: 5
 ---
 
@@ -50,7 +49,7 @@ const gb = new GrowthBook({
 });
 
 // Download features and experiments from the CDN
-// Also, start running any Visual Editor or URL Redirect experiments
+// Also, start running any AI Visual Editor or URL Redirect experiments
 await gb.init();
 ```
 
@@ -423,7 +422,7 @@ const gb = new GrowthBook({
 
 Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
-This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
+This same tracking callback is used for both feature flag experiments and AI Visual Editor experiments.
 
 ### Feature Flag Experiments
 
@@ -437,11 +436,11 @@ const newLogin = gb.isOn("new-signup-form");
 
 If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
 
-### Visual Editor Experiments
+### AI Visual Editor Experiments
 
-Experiments created through the GrowthBook Visual Editor will run automatically as soon as their targeting conditions are met.
+Experiments created through the GrowthBook AI Visual Editor will run automatically as soon as their targeting conditions are met.
 
-**Note**: Visual Editor experiments are only supported in a web browser environment. They will not run in Node.js, Mobile apps, or Desktop apps.
+**Note**: AI Visual Editor experiments are only supported in a web browser environment. They will not run in Node.js, Mobile apps, or Desktop apps.
 
 If you are using this SDK in a Single Page App (SPA), you will need to let the GrowthBook instance know when the URL changes so the active experiments can update accordingly.
 
@@ -452,21 +451,21 @@ function onRouteChange() {
 }
 ```
 
-Visual Editor experiments are enabled by default, but can be disabled with various GrowthBook constructor settings:
+AI Visual Editor experiments are enabled by default, but can be disabled with various GrowthBook constructor settings:
 
-- **disableVisualExperiments** - If true, all visual editor experiments will be skipped
-- **disableJsInjection** - If true, any visual editor experiment that injects custom JavaScript will be skipped.
+- **disableVisualExperiments** - If true, all AI Visual Editor experiments will be skipped
+- **disableJsInjection** - If true, any AI Visual Editor experiment that injects custom JavaScript will be skipped.
 
 #### Content Security Policy
 
-If you plan to use the Custom JavaScript feature of the Visual Editor and you have a Content Security Policy on your site, there are two options:
+If you plan to use the Custom JavaScript feature of the AI Visual Editor and you have a Content Security Policy on your site, there are two options:
 
 1. Enable `unsafe-inline` script-src
 2. OR generate a unique nonce value, add it to your script-src directive, and pass it into the GrowthBook constructor as `jsInjectionNonce`
 
 ### URL Redirect Experiments
 
-Similarly to Visual Editor experiments, URL redirect tests will run automatically if targeting conditions are met.
+Similarly to AI Visual Editor experiments, URL redirect tests will run automatically if targeting conditions are met.
 
 If you are using this SDK in a Single Page App (SPA), you'll want to pass in a custom navigation function into the SDK (as default navigation for URL Redirects uses `window.location.replace(url)`) and set the `navigateDelay` to 0.
 

@@ -37,6 +37,8 @@ import {
   stripConfigExtends,
   toApiNamespace,
   validateFeatureValue,
+  contextualBanditTargetingServes,
+  monitoringConfigToApi,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -953,21 +955,41 @@ export async function getExperimentsDependingOnAsPrerequisite(
     .map((e) => e.id);
 }
 
+// Contextual bandits whose served targeting gates on `featureId`.
+export async function getContextualBanditsDependingOnAsPrerequisite(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<string[]> {
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
+  const bandits = await scanContext.models.contextualBandits.getAll();
+  return bandits
+    .filter(
+      (cb) =>
+        contextualBanditTargetingServes(cb) &&
+        cb.prerequisites?.some((p) => p.id === featureId),
+    )
+    .map((cb) => cb.id);
+}
+
 export async function assertFeatureDeletable(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<void> {
-  const [features, experiments] = await Promise.all([
+  const [features, experiments, bandits] = await Promise.all([
     getFeaturesDependingOnAsPrerequisite(context, featureId),
     getExperimentsDependingOnAsPrerequisite(context, featureId),
+    getContextualBanditsDependingOnAsPrerequisite(context, featureId),
   ]);
-  if (!features.length && !experiments.length) return;
+  if (!features.length && !experiments.length && !bandits.length) return;
   // Count only — the dependent scan is org-wide (so a dependent in a project
   // the caller can't read still blocks), so naming ids would disclose
   // cross-project resources. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
   const parts = [
     [features.length, "live Feature Flag(s)"],
     [experiments.length, "Experiment(s)"],
+    [bandits.length, "Contextual Bandit(s)"],
   ]
     .filter(([n]) => n)
     .map(([n, label]) => `${n} ${label}`)
@@ -2512,6 +2534,19 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   }
 }
 
+/**
+ * Pending ramp actions store the monitoring config flat; the API groups it. No
+ * queries are loaded here, so an action saved without an identifier reports
+ * null until it publishes.
+ */
+function rampActionToApi(action: RevisionRampAction) {
+  if (action.mode === "detach") return action;
+  const { monitoringConfig, ...rest } = action;
+  return monitoringConfig
+    ? { ...rest, monitoringConfig: monitoringConfigToApi(monitoringConfig, []) }
+    : rest;
+}
+
 // Convenience wrapper that pulls the env list off the request context and
 // the project off the (optional) parent feature.
 export function toApiRevision(
@@ -2581,7 +2616,7 @@ export function revisionToApiInterface(
       },
     }),
     ...(rev.rampActions !== undefined && {
-      rampActions: rev.rampActions,
+      rampActions: rev.rampActions.map(rampActionToApi),
     }),
   };
 }
@@ -2734,7 +2769,7 @@ export function revisionToApiInterfaceV2(
       },
     }),
     ...(rev.rampActions !== undefined && {
-      rampActions: rev.rampActions,
+      rampActions: rev.rampActions.map(rampActionToApi),
     }),
     ...(rev.autoPublishOnApproval !== undefined && {
       autoPublishOnApproval: rev.autoPublishOnApproval,
