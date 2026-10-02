@@ -28,6 +28,7 @@ type EventForwarderRow = {
 const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
   bigquery: "BigQuery",
   snowflake: "Snowflake",
+  databricks: "Databricks",
 };
 
 const EditOrganization: FC<{
@@ -367,9 +368,9 @@ const EditOrganization: FC<{
                 <b>Deprecated:</b>
                 <div className="small">
                   This is an old way to enable enterprise features for an
-                  organization, which does not expire, and does not restrict not
-                  restrict seats. Please uncheck this and instead user Retool
-                  and set a licenseKey instead.
+                  organization, which does not expire, and does not restrict
+                  seats. Please uncheck this and use Retool to set a licenseKey
+                  instead.
                 </div>
               </div>
               <div className="mt-3">

@@ -16,6 +16,7 @@ import type {
 import {
   getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
+  flattenExposureQueryInput,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
@@ -284,8 +285,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
       const validatedFields = await validateCreateSafeRolloutFields(
-        validatableFields,
+        flattenExposureQueryInput(validatableFields),
         req.context,
+        null,
+        "requireUnambiguous",
       );
 
       const defaultRampSteps = [
@@ -315,7 +318,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, feature)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          rule.id,
+          feature,
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       // A startDate implies the rule should be disabled until the ramp fires.

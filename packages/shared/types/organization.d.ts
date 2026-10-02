@@ -213,6 +213,7 @@ export type SDKAttribute = {
   projects?: string[];
   disableEqualityConditions?: boolean;
   tags?: string[];
+  customFields?: Record<string, string>;
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
@@ -282,6 +283,8 @@ export interface OrganizationSettings {
   srmThreshold?: number;
   aiEnabled?: boolean;
   aiAskDataEnabled?: boolean;
+  // AI Assistant skill names turned off for this org, so new skills start enabled.
+  disabledAgentSkills?: string[];
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
   // Voice dictation. Unset resolves in getAISettingsForOrg.
@@ -389,6 +392,8 @@ export interface OrganizationSettings {
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
   requireUniqueExperimentTrackingKeys?: boolean;
+  experimentKeyExample?: string;
+  experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;

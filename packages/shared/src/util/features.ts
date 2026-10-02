@@ -9,6 +9,7 @@ import {
   ContextualBanditRefRule,
   ExperimentRefRule,
   RevisionMetadata,
+  RevisionChanges,
   ApiFeature,
 } from "shared/validators";
 import {
@@ -45,7 +46,7 @@ import {
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
-  expandNestedSavedGroups,
+  createV1SavedGroupsOperatorHandler,
   EXTENDS_KEY,
 } from "../sdk-versioning";
 import {
@@ -2146,6 +2147,75 @@ export function pruneOrphanedRampActions<T extends { ruleId?: string }>(
   return { kept, pruned };
 }
 
+// The record fields a rebase rewrites; a failed publish restores exactly these.
+export const REBASED_REVISION_FIELDS = [
+  "baseVersion",
+  "defaultValue",
+  "rules",
+  "environmentsEnabled",
+  "prerequisites",
+  "archived",
+  "metadata",
+  "holdout",
+] as const;
+
+export type RebasedRevisionChanges = Required<
+  Pick<RevisionChanges, (typeof REBASED_REVISION_FIELDS)[number]>
+> &
+  Pick<RevisionChanges, "rampActions">;
+
+// A draft re-expressed on top of live, the way a rebase records it. A draft
+// that goes on being edited also drops ramp actions whose rule the merge removed.
+export function rebasedRevisionChanges({
+  feature,
+  revision,
+  liveVersion,
+  result,
+  environmentIds,
+  pruneRampActions = true,
+}: {
+  feature: FeatureInterface;
+  revision: Pick<FeatureRevisionInterface, "rampActions">;
+  liveVersion: number;
+  result: MergeResultChanges;
+  environmentIds: string[];
+  pruneRampActions?: boolean;
+}): { changes: RebasedRevisionChanges; logValue: string } {
+  const rules = result.rules ?? feature.rules ?? [];
+  const environmentsEnabled: Record<string, boolean> = {};
+  environmentIds.forEach((env) => {
+    environmentsEnabled[env] =
+      result.environmentsEnabled?.[env] ??
+      feature.environmentSettings?.[env]?.enabled ??
+      false;
+  });
+  const liveMetadata = featureMetadataEnvelope(feature);
+  const { kept, pruned } = pruneRampActions
+    ? pruneOrphanedRampActions(revision.rampActions, rules)
+    : { kept: revision.rampActions, pruned: [] };
+  return {
+    changes: {
+      baseVersion: liveVersion,
+      defaultValue: result.defaultValue ?? feature.defaultValue,
+      rules,
+      environmentsEnabled,
+      prerequisites: result.prerequisites ?? feature.prerequisites ?? [],
+      archived: result.archived ?? feature.archived ?? false,
+      metadata: result.metadata
+        ? { ...liveMetadata, ...result.metadata }
+        : liveMetadata,
+      holdout:
+        "holdout" in result
+          ? (result.holdout ?? null)
+          : (feature.holdout ?? null),
+      ...(pruned.length > 0 ? { rampActions: kept } : {}),
+    },
+    logValue: JSON.stringify(
+      pruned.length > 0 ? { ...result, prunedRampActions: pruned } : result,
+    ),
+  };
+}
+
 export function autoMerge(
   live: RevisionFields,
   base: RevisionFields,
@@ -2497,7 +2567,10 @@ export function validateCondition(
     }
 
     const scrubbed = cloneDeep(res);
-    recursiveWalk(scrubbed, expandNestedSavedGroups(groupMap || new Map()));
+    recursiveWalk(
+      scrubbed,
+      createV1SavedGroupsOperatorHandler(groupMap || new Map()),
+    );
     if (conditionHasSavedGroupErrors(scrubbed, skipSavedGroupCycleCheck)) {
       return {
         success: false,
@@ -2989,7 +3062,7 @@ export function getDependentExperiments(
   });
 }
 
-// Simplified version of getParsedCondition() from: back-end/src/util/features.ts
+// Simplified version of mergeConditionAndSavedGroups() from: back-end/src/util/features.ts
 export function getParsedPrereqCondition(condition: string) {
   if (condition && condition !== "{}") {
     try {

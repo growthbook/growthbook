@@ -196,6 +196,20 @@ export async function updateReport(
   );
 }
 
+/** Sets report.snapshot only while it still points at `expected`. */
+export async function updateReportSnapshotIfUnchanged(
+  organization: string,
+  id: string,
+  expected: string,
+  snapshot: string,
+): Promise<boolean> {
+  const { modifiedCount } = await ReportModel.updateOne(
+    { organization, id, snapshot: expected },
+    { $set: { snapshot, dateUpdated: new Date() } },
+  );
+  return modifiedCount > 0;
+}
+
 export async function deleteReportById(organization: string, id: string) {
   await ReportModel.deleteOne({
     organization,

@@ -33,6 +33,8 @@ import {
 
 export * from "./strings";
 export * from "./units-query-settings";
+export * from "./exposure-queries";
+export * from "./ramp-monitoring";
 export * from "./event-forwarder-destination";
 export * from "./features";
 export * from "./featureHealth";
@@ -545,6 +547,7 @@ export function ruleFootprint(
 ): string[] {
   if (rule.allEnvironments) return applicableEnvs;
   if (rule.environments === undefined) return applicableEnvs;
+  if (!Array.isArray(rule.environments)) return [];
   const applicableSet = new Set(applicableEnvs);
   return rule.environments.filter((e) => applicableSet.has(e));
 }
@@ -751,6 +754,33 @@ export function ratioVarianceFromSums({
   );
 }
 
+// Targeting names a saved group in its condition, its saved-group list, or a
+// prerequisite's condition; all three reach the SDK payload. Conditions hold
+// the id as a JSON string, so match it quoted and not as a bare substring.
+export function targetingReferencesSavedGroup(
+  targeting: {
+    condition?: string | null;
+    savedGroups?: { ids: string[] }[] | null;
+    prerequisites?: { condition?: string | null }[] | null;
+  },
+  savedGroupId: string,
+): boolean {
+  const quoted = `"${savedGroupId}"`;
+  return (
+    !!targeting.condition?.includes(quoted) ||
+    !!targeting.savedGroups?.some((g) => g.ids.includes(savedGroupId)) ||
+    !!targeting.prerequisites?.some((p) => p.condition?.includes(quoted))
+  );
+}
+
+// A stopped bandit's rule leaves the payload for good; until then its
+// targeting is served on its linked features, archived or not.
+export function contextualBanditTargetingServes(cb: {
+  status: string;
+}): boolean {
+  return cb.status !== "stopped";
+}
+
 export function featuresReferencingSavedGroups({
   savedGroups,
   features,
@@ -765,14 +795,17 @@ export function featuresReferencingSavedGroups({
     savedGroups.forEach((savedGroup) => {
       const matches = getMatchingRules(
         feature,
-        (rule) =>
-          rule.condition?.includes(savedGroup.id) ||
-          rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false,
+        (rule) => targetingReferencesSavedGroup(rule, savedGroup.id),
         environments.map((e) => e.id),
       );
 
-      if (matches.length > 0) {
+      if (
+        matches.length > 0 ||
+        targetingReferencesSavedGroup(
+          { prerequisites: feature.prerequisites },
+          savedGroup.id,
+        )
+      ) {
         referenceMap[savedGroup.id] ||= [];
         referenceMap[savedGroup.id].push(feature);
       }
@@ -794,11 +827,8 @@ export function experimentsReferencingSavedGroups({
   > = {};
   savedGroups.forEach((savedGroup) => {
     experiments.forEach((experiment) => {
-      const matchingPhases = experiment.phases.filter(
-        (phase) =>
-          phase.condition?.includes(savedGroup.id) ||
-          phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false,
+      const matchingPhases = experiment.phases.filter((phase) =>
+        targetingReferencesSavedGroup(phase, savedGroup.id),
       );
 
       if (matchingPhases.length > 0) {

@@ -18,6 +18,13 @@ import { assertValidExperimentPrerequisites } from "../../src/services/prerequis
 import { BadRequestError, NotFoundError } from "../../src/util/errors";
 import { setupApp } from "./api.setup";
 
+// Serializers resolve legacy identifiers through the request's data source cache,
+// which these mock contexts don't have.
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock("../../src/services/files", () => ({
   getSignedImageUrl: async (path) => `https://signed.example.com/${path}`,
   uploadFile: jest
@@ -96,13 +103,23 @@ describe("experiments API", () => {
         },
         savedGroups: {
           getAll: jest.fn().mockResolvedValue([]),
+          getAllWithoutValues: jest.fn().mockResolvedValue([]),
         },
         dataSources: {
           getById: jest.fn().mockResolvedValue({
             id: "ds_123",
             type: "postgres",
             settings: {
-              queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+              queries: {
+                exposure: [
+                  {
+                    id: "user_id",
+                    name: "User ID",
+                    userIdType: "user_id",
+                    userIdTypes: ["user_id"],
+                  },
+                ],
+              },
             },
           }),
         },
@@ -387,6 +404,7 @@ describe("experiments API", () => {
         ...experiment,
         datasource: "ds_test",
         exposureQueryId: "user_id",
+        exposureQueryIdentifierType: "anonymous_id",
         segment: "seg_123",
         goalMetrics: ["met_1", "met_2"],
         secondaryMetrics: ["met_3"],
@@ -404,6 +422,10 @@ describe("experiments API", () => {
       expect(res.body.experiment.settings).toBeDefined();
       expect(res.body.experiment.settings.datasourceId).toBe("ds_test");
       expect(res.body.experiment.settings.assignmentQueryId).toBe("user_id");
+      expect(res.body.experiment.settings.assignmentQuery).toEqual({
+        id: "user_id",
+        identifierType: "anonymous_id",
+      });
       expect(res.body.experiment.settings.goals).toHaveLength(2);
       expect(res.body.experiment.settings.secondaryMetrics).toHaveLength(1);
       expect(res.body.experiment.settings.guardrails).toHaveLength(1);
@@ -775,7 +797,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id", "anonymous_id"],
+              },
+            ],
+          },
         },
       });
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
@@ -786,7 +817,7 @@ describe("experiments API", () => {
         name: "New Experiment",
         hypothesis: "This will increase conversions",
         datasourceId: "ds_123",
-        assignmentQueryId: "user_id",
+        assignmentQuery: { id: "user_id", identifierType: "anonymous_id" },
         variations: [
           {
             key: "control",
@@ -810,7 +841,186 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
-      expect(createExperiment).toHaveBeenCalled();
+      expect(createExperiment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            exposureQueryIdentifierType: "anonymous_id",
+          }),
+        }),
+      );
+    });
+
+    it("rejects assignmentQuery and the deprecated flat id naming different queries", async () => {
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
+        },
+      });
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_conflict",
+          name: "Conflict",
+          datasourceId: "ds_123",
+          assignmentQuery: { id: "user_id", identifierType: "user_id" },
+          assignmentQueryId: "anonymous_id",
+          variations: [
+            { key: "control", name: "Control" },
+            { key: "treatment", name: "Treatment" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain("name different assignment queries");
+      expect(createExperiment).not.toHaveBeenCalled();
+    });
+
+    describe("assignment query selection", () => {
+      const variations = [
+        { key: "control", name: "Control" },
+        { key: "treatment", name: "Treatment" },
+      ];
+      const template = {
+        id: "tmplt__1",
+        datasource: "ds_123",
+        targeting: { coverage: 1, condition: "{}" },
+        goalMetrics: [],
+      };
+      beforeEach(() => {
+        (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+        (createExperiment as jest.Mock).mockResolvedValue(experiment);
+        (getDataSourceById as jest.Mock).mockResolvedValue({
+          id: "ds_123",
+          type: "postgres",
+          settings: {
+            queries: {
+              exposure: [
+                {
+                  id: "eq_multi",
+                  name: "Multi",
+                  userIdType: "anonymous_id",
+                  userIdTypes: ["user_id", "anonymous_id"],
+                },
+                {
+                  id: "eq_dropped",
+                  name: "Dropped",
+                  userIdType: "user_id",
+                  userIdTypes: ["anonymous_id"],
+                },
+              ],
+            },
+          },
+        });
+      });
+      const createdData = () =>
+        (createExperiment as jest.Mock).mock.calls[0][0].data;
+      const post = (body: Record<string, unknown>) =>
+        request(app)
+          .post("/api/v1/experiments")
+          .send({ trackingKey: "exp_new", name: "New", variations, ...body })
+          .set("Authorization", "Bearer foo");
+
+      it("rejects a flat-id create on a query that declares several identifier types", async () => {
+        const res = await post({
+          datasourceId: "ds_123",
+          assignmentQueryId: "eq_multi",
+        });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(
+          'Assignment query "Multi" declares several identifier types (user_id, anonymous_id). Set assignmentQuery.identifierType to choose one.',
+        );
+        expect(createExperiment).not.toHaveBeenCalled();
+      });
+
+      it("rejects a flat-id create on a query that dropped its legacy identifier", async () => {
+        const res = await post({
+          datasourceId: "ds_123",
+          assignmentQueryId: "eq_dropped",
+        });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(
+          'Assignment query "Dropped" no longer declares its default identifier type "user_id". Set assignmentQuery.identifierType to choose one.',
+        );
+        expect(createExperiment).not.toHaveBeenCalled();
+      });
+
+      it("leaves a template-derived create implicit when the template is", async () => {
+        updateReqContext({
+          models: {
+            experimentTemplates: {
+              getById: jest.fn().mockResolvedValue({
+                ...template,
+                exposureQueryId: "eq_multi",
+              }),
+            },
+          },
+        });
+
+        const res = await post({ templateId: "tmplt__1" });
+
+        expect(res.status).toBe(200);
+        expect(createdData()).toMatchObject({
+          datasource: "ds_123",
+          exposureQueryId: "eq_multi",
+        });
+        expect(createdData().exposureQueryIdentifierType).toBeUndefined();
+      });
+
+      it("copies a template's explicit identifier", async () => {
+        updateReqContext({
+          models: {
+            experimentTemplates: {
+              getById: jest.fn().mockResolvedValue({
+                ...template,
+                exposureQueryId: "eq_multi",
+                exposureQueryIdentifierType: "user_id",
+              }),
+            },
+          },
+        });
+
+        const res = await post({ templateId: "tmplt__1" });
+
+        expect(res.status).toBe(200);
+        expect(createdData().exposureQueryIdentifierType).toBe("user_id");
+      });
+
+      it("rejects a template whose query dropped its legacy identifier", async () => {
+        updateReqContext({
+          models: {
+            experimentTemplates: {
+              getById: jest.fn().mockResolvedValue({
+                ...template,
+                exposureQueryId: "eq_dropped",
+              }),
+            },
+          },
+        });
+
+        const res = await post({ templateId: "tmplt__1" });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(
+          'Template "tmplt__1": Assignment query "Dropped" no longer declares its default identifier type "user_id". Set exposureQuery.identifierType to choose one. Update the template\'s assignment settings.',
+        );
+        expect(createExperiment).not.toHaveBeenCalled();
+      });
     });
 
     it("rejects a phase prerequisite on a flag that does not exist", async () => {
@@ -823,7 +1033,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
       const res = await request(app)
@@ -866,7 +1085,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
       const res = await request(app)
@@ -901,7 +1129,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
@@ -947,7 +1184,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
@@ -1174,6 +1420,36 @@ describe("experiments API", () => {
       expect(res.body.message).toContain(
         "requires unique experiment tracking keys",
       );
+    });
+
+    it("rejects a trackingKey that doesn't match experimentKeyRegexValidator", async () => {
+      const orgWithSetting = {
+        ...org,
+        settings: { experimentKeyRegexValidator: "^exp-" },
+      };
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        permissions: { canCreateExperiment: () => true },
+      });
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_123",
+          name: "Bad key",
+          assignmentQueryId: "user_id",
+          variations: [
+            { key: "control", name: "Control" },
+            { key: "treatment", name: "Treatment" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain("must match the regex validator");
+      expect(res.body.code).toBe("invalid_tracking_key");
+      expect(createExperiment).not.toHaveBeenCalled();
     });
 
     it("validates datasource exists", async () => {
@@ -1812,6 +2088,138 @@ describe("experiments API", () => {
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
+    describe("assignment query selection", () => {
+      const withSelection = {
+        ...experiment,
+        datasource: "ds_123",
+        exposureQueryId: "eq_single",
+        exposureQueryIdentifierType: "company_id",
+      };
+      beforeEach(() => {
+        (getExperimentById as jest.Mock).mockResolvedValue(withSelection);
+        (updateExperiment as jest.Mock).mockImplementation(
+          ({ experiment, changes }) => ({ ...experiment, ...changes }),
+        );
+        (getDataSourceById as jest.Mock).mockResolvedValue({
+          id: "ds_123",
+          type: "postgres",
+          settings: {
+            queries: {
+              exposure: [
+                {
+                  id: "eq_single",
+                  name: "Single",
+                  userIdType: "user_id",
+                  userIdTypes: ["user_id"],
+                },
+                {
+                  id: "eq_multi",
+                  name: "Multi",
+                  userIdType: "anonymous_id",
+                  userIdTypes: ["anonymous_id", "user_id"],
+                },
+                {
+                  id: "eq_dropped",
+                  name: "Dropped",
+                  userIdType: "user_id",
+                  userIdTypes: ["anonymous_id"],
+                },
+              ],
+            },
+          },
+        });
+      });
+
+      it("accepts re-sending a selection whose query no longer declares it", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            assignmentQuery: { id: "eq_single", identifierType: "company_id" },
+          })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+      });
+
+      it("clears the old identifier when repointing by flat id to an implicit query", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...withSelection,
+          exposureQueryId: "eq_multi",
+          exposureQueryIdentifierType: "user_id",
+        });
+
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ assignmentQueryId: "eq_single" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+        const { changes } = (updateExperiment as jest.Mock).mock.calls[0][0];
+        expect(changes).toMatchObject({ exposureQueryId: "eq_single" });
+        expect(changes).toHaveProperty(
+          "exposureQueryIdentifierType",
+          undefined,
+        );
+      });
+
+      it("rejects repointing by flat id to a query that declares several identifier types", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ assignmentQueryId: "eq_multi" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain(
+          "declares several identifier types (anonymous_id, user_id)",
+        );
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("rejects repointing by flat id to a query that dropped its legacy identifier", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ assignmentQueryId: "eq_dropped" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain(
+          'no longer declares its default identifier type "user_id"',
+        );
+      });
+
+      it("keeps an implicit experiment implicit when the update echoes its resolved identifier", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...withSelection,
+          exposureQueryId: "eq_multi",
+          exposureQueryIdentifierType: undefined,
+        });
+
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            assignmentQuery: { id: "eq_multi", identifierType: "anonymous_id" },
+          })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+        expect(
+          (updateExperiment as jest.Mock).mock.calls[0][0].changes,
+        ).not.toHaveProperty("exposureQueryIdentifierType");
+      });
+
+      it("rejects the grouped field without an identifier on an ambiguous query", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ assignmentQuery: { id: "eq_multi" } })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain(
+          "declares several identifier types (anonymous_id, user_id)",
+        );
+      });
+    });
+
     it("revalidates and rejects when changing project to one with required custom fields", async () => {
       const getCustomFieldsBySectionAndProject = jest
         .fn()
@@ -2052,6 +2460,31 @@ describe("experiments API", () => {
       );
     });
 
+    it("rejects a changed trackingKey that doesn't match experimentKeyRegexValidator", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        trackingKey: "original_key",
+      });
+      const orgWithSetting = {
+        ...org,
+        settings: { experimentKeyRegexValidator: "^exp-" },
+      };
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        permissions: { canUpdateExperiment: () => true },
+      });
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({ trackingKey: "bad_key" })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain("must match the regex validator");
+      expect(res.body.code).toBe("invalid_tracking_key");
+    });
+
     it("updates experiment variations with signed URLs", async () => {
       updateReqContext({
         org,
@@ -2073,7 +2506,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
 

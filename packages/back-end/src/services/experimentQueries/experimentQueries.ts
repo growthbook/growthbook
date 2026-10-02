@@ -1,8 +1,10 @@
 import {
   ExperimentMetricInterface,
+  needsPercentileCapSubquery,
   isFactMetric,
   isLegacyMetric,
-  isPercentileCappedMetric,
+  isLowerPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
   isRegressionAdjusted,
   quantileMetricType,
   eligibleForUncappedMetric,
@@ -26,12 +28,14 @@ import {
   BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
   BASE_METRIC_FLOAT_COLS,
   BASE_METRIC_FLOAT_COLS_UNCAPPED,
+  BASE_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS,
   BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   MAX_METRICS_PER_QUERY,
   N_STAR_VALUES,
   RATIO_METRIC_CUPED_FLOAT_COLS,
   RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
   RATIO_METRIC_FLOAT_COLS,
+  RATIO_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS,
   RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   RATIO_METRIC_FLOAT_COLS_UNCAPPED,
 } from "./constants";
@@ -110,23 +114,44 @@ export function getNonQuantileNonFunnelFloatColumns({
   })();
 
   const percentileCappingCols = (() => {
-    if (!isPercentileCappedMetric(metric)) {
-      return [];
+    const cols: string[] = [];
+    if (isUpperPercentileCappedMetric(metric)) {
+      switch (metric.metricType) {
+        case "mean":
+        case "proportion":
+        case "dailyParticipation":
+        case "retention":
+          cols.push(...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS);
+          break;
+        case "ratio":
+          cols.push(
+            ...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+            ...RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+          );
+          break;
+        case "quantile":
+          break;
+      }
     }
-    switch (metric.metricType) {
-      case "mean":
-      case "proportion":
-      case "dailyParticipation":
-      case "retention":
-        return BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS;
-      case "ratio":
-        return [
-          ...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
-          ...RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
-        ];
-      case "quantile":
-        return [];
+    if (isLowerPercentileCappedMetric(metric)) {
+      switch (metric.metricType) {
+        case "mean":
+        case "proportion":
+        case "dailyParticipation":
+        case "retention":
+          cols.push(...BASE_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS);
+          break;
+        case "ratio":
+          cols.push(
+            ...BASE_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS,
+            ...RATIO_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS,
+          );
+          break;
+        case "quantile":
+          break;
+      }
     }
+    return cols;
   })();
 
   const uncappedCols = (() => {
@@ -137,9 +162,9 @@ export function getNonQuantileNonFunnelFloatColumns({
       case "proportion":
       case "retention":
       case "quantile":
+      case "dailyParticipation":
         return [];
       case "mean":
-      case "dailyParticipation":
         return [
           ...BASE_METRIC_FLOAT_COLS_UNCAPPED,
           ...(regressionAdjusted ? BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED : []),
@@ -334,7 +359,7 @@ export function getFactMetricGroups(
   factMetrics.forEach((m) => {
     // Skip grouping metrics with percentile caps if they cannot be grouped at all
     if (
-      m.cappingSettings.type === "percentile" &&
+      needsPercentileCapSubquery(m) &&
       !integration.getSourceProperties().canGroupPercentileCappedMetrics
     ) {
       return;

@@ -104,6 +104,7 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -3050,7 +3051,7 @@ export default function ReviewAndPublish({
                       )}
                       {scheduleError && (
                         <Callout status="error" mt="2">
-                          {scheduleError}
+                          <MarkdownLinks text={scheduleError} />
                         </Callout>
                       )}
                       {/* Unchecking "Automatically publish" cancels the schedule;
@@ -3311,12 +3312,12 @@ export default function ReviewAndPublish({
                     <Flex direction="column" gap="2" mt="3">
                       {submitError && (
                         <Callout status="error" size="sm">
-                          {submitError}
+                          <MarkdownLinks text={submitError} />
                         </Callout>
                       )}
                       {secondaryError && (
                         <Callout status="error" size="sm">
-                          {secondaryError}
+                          <MarkdownLinks text={secondaryError} />
                         </Callout>
                       )}
                     </Flex>

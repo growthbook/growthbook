@@ -175,15 +175,15 @@ describe("validateRuleAttributes (V2 helper)", () => {
 // Reject/accept outcomes are pinned end-to-end in ruleReferenceIntegrity.test.ts;
 // this covers what that harness cannot observe.
 describe("validateRulesReferences", () => {
-  const getAll = jest.fn();
+  const getAllWithoutValues = jest.fn();
   const ctx = {
     org: { settings: { attributeSchema: [] } },
-    models: { savedGroups: { getAll } },
+    models: { savedGroups: { getAllWithoutValues } },
   } as unknown as ApiReqContext;
 
   beforeEach(() => {
-    getAll.mockReset();
-    getAll.mockResolvedValue([
+    getAllWithoutValues.mockReset();
+    getAllWithoutValues.mockResolvedValue([
       { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
     ]);
   });
@@ -200,12 +200,30 @@ describe("validateRulesReferences", () => {
         ctx,
       ),
     ).resolves.toBeUndefined();
-    expect(getAll).toHaveBeenCalledTimes(1);
+    expect(getAllWithoutValues).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a prerequisite whose condition names an unknown group", async () => {
+    await expect(
+      validateRulesReferences(
+        [
+          {
+            prerequisites: [
+              {
+                id: "parent",
+                condition: '{"value": {"$inGroup": "grp_missing"}}',
+              },
+            ],
+          },
+        ],
+        ctx,
+      ),
+    ).rejects.toThrow(/prerequisite "parent".*grp_missing/);
   });
 
   it("does not load saved groups for an empty rules list", async () => {
     await validateRulesReferences([], ctx);
-    expect(getAll).not.toHaveBeenCalled();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
   });
 });
 
@@ -287,7 +305,9 @@ describe("rampPatchEntriesForTargets", () => {
 describe("rule write composites", () => {
   const ctx = {
     org: { id: "org_1", settings: { environments: [{ id: "production" }] } },
-    models: { savedGroups: { getAll: jest.fn().mockResolvedValue([]) } },
+    models: {
+      savedGroups: { getAllWithoutValues: jest.fn().mockResolvedValue([]) },
+    },
     getAllProjectIds: async () => [],
     hasPremiumFeature: () => true,
     canSkipSchemaValidationFor: () => false,
@@ -346,10 +366,10 @@ describe("rule write composites", () => {
 });
 
 describe("validateChangedPhaseReferences", () => {
-  const getAll = jest.fn();
+  const getAllWithoutValues = jest.fn();
   const ctx = {
     org: { id: "org_1", settings: { attributeSchema: [] } },
-    models: { savedGroups: { getAll } },
+    models: { savedGroups: { getAllWithoutValues } },
   } as unknown as ApiReqContext;
   const stale = {
     condition: '{"id": {"$inGroup": "grp_gone"}}',
@@ -357,8 +377,8 @@ describe("validateChangedPhaseReferences", () => {
   };
 
   beforeEach(() => {
-    getAll.mockReset();
-    getAll.mockResolvedValue([
+    getAllWithoutValues.mockReset();
+    getAllWithoutValues.mockResolvedValue([
       { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
     ]);
   });
@@ -382,7 +402,7 @@ describe("validateChangedPhaseReferences", () => {
         ctx,
       ),
     ).resolves.toBeUndefined();
-    expect(getAll).toHaveBeenCalledTimes(2);
+    expect(getAllWithoutValues).toHaveBeenCalledTimes(2);
     // History is exempt for what any stored phase holds; the served (last)
     // phase only for what the served stored phase holds.
     const served = { condition: '{"country": "US"}' };
@@ -448,7 +468,7 @@ describe("stagedFeatureOf", () => {
 });
 
 describe("validateRampPlanPatches", () => {
-  const getAll = jest.fn();
+  const getAllWithoutValues = jest.fn();
   const ctx = {
     org: {
       id: "org_1",
@@ -457,7 +477,7 @@ describe("validateRampPlanPatches", () => {
         environments: [{ id: "production" }, { id: "qa" }],
       },
     },
-    models: { savedGroups: { getAll } },
+    models: { savedGroups: { getAllWithoutValues } },
   } as unknown as ApiReqContext;
   (ctx as { scanContextOverride?: ApiReqContext }).scanContextOverride = ctx;
   const envSettings = {
@@ -499,8 +519,8 @@ describe("validateRampPlanPatches", () => {
   };
 
   beforeEach(() => {
-    getAll.mockReset();
-    getAll.mockResolvedValue([
+    getAllWithoutValues.mockReset();
+    getAllWithoutValues.mockResolvedValue([
       { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
     ]);
     loadFeatures.mockReset();
@@ -515,7 +535,7 @@ describe("validateRampPlanPatches", () => {
         { condition: null, savedGroups: null },
       ]),
     ).resolves.toBeUndefined();
-    expect(getAll).not.toHaveBeenCalled();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
     expect(loadFeatures).not.toHaveBeenCalled();
   });
 
@@ -528,7 +548,7 @@ describe("validateRampPlanPatches", () => {
         prereqOnParent,
       ]),
     ).resolves.toBeUndefined();
-    expect(getAll).toHaveBeenCalledTimes(1);
+    expect(getAllWithoutValues).toHaveBeenCalledTimes(1);
   });
 
   // Bad conditions, missing groups and unknown environments are asserted end
@@ -544,10 +564,26 @@ describe("validateRampPlanPatches", () => {
       { prerequisites: [{ id: "parent_flag", condition: "{" }] },
       /prerequisite/i,
     ],
+    [
+      "a null environments list",
+      { environments: null },
+      /environments cannot be null/,
+    ],
+    [
+      "a null environments list beside an explicit non-wildcard",
+      { allEnvironments: false, environments: null },
+      /environments cannot be null/,
+    ],
   ])("rejects %s", async (_label, patch, message) => {
     const result = run([patch]);
     await expect(result).rejects.toThrow(BadRequestError);
     await expect(result).rejects.toThrow(message);
+  });
+
+  it("accepts the anchor spelling of a rule with no list on a first write", async () => {
+    await expect(
+      run([{ allEnvironments: true, environments: null }]),
+    ).resolves.toBeUndefined();
   });
 
   it("ignores the environments list on a patch scoped to all environments", async () => {
@@ -640,12 +676,6 @@ describe("validateRampPlanPatches", () => {
       // (ruleAppliesToEnv), on the target rule and on the patch alike.
       await expect(
         run([prereqOnParent], feature, { allEnvironments: false }),
-      ).rejects.toThrow(/circular dependency/);
-      await expect(
-        run([{ ...prereqOnParent, environments: null }], feature, {
-          allEnvironments: false,
-          environments: ["qa"],
-        }),
       ).rejects.toThrow(/circular dependency/);
     });
   });
@@ -794,7 +824,7 @@ describe("validateRampPlanPatches", () => {
     await expect(
       run([{ ...stale, ruleId: "fr_1__production" }], feature, null, stored),
     ).resolves.toBeUndefined();
-    expect(getAll).not.toHaveBeenCalled();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
     await expect(
       run(
         [{ ...stale, condition: '{"country": "DE"}' }],
@@ -840,18 +870,20 @@ describe("Saved Group scope in ramp patches", () => {
       condition: '{"id":{"$inGroup":"scoped"}}',
     },
   ];
+  // The scope check reads through the scan context, reference checks through
+  // the request context.
   const getAllWithoutValues = jest.fn().mockResolvedValue(groups);
   const context = {
     org: { settings: { enforceSavedGroupProjectScope: true } },
     models: {
       savedGroups: {
-        getAll: jest.fn().mockResolvedValue(groups),
-        getAllWithoutValues,
+        getAllWithoutValues: jest.fn().mockResolvedValue(groups),
       },
     },
   } as unknown as ApiReqContext;
-  (context as { scanContextOverride?: ApiReqContext }).scanContextOverride =
-    context;
+  (context as { scanContextOverride?: ApiReqContext }).scanContextOverride = {
+    models: { savedGroups: { getAllWithoutValues } },
+  } as unknown as ApiReqContext;
   const rule: FeatureRule = {
     id: "rule",
     type: "force",
@@ -973,15 +1005,47 @@ describe("Saved Group scope in ramp patches", () => {
 });
 
 describe("normalizeInlineRampSchedule", () => {
-  it("omits startActions and endActions when the input does not provide them", () => {
-    const action = normalizeInlineRampSchedule({ steps: [] }, "r1");
+  /** Only the monitoring cases read this, from the request's foreignRefs. */
+  const datasource = {
+    id: "ds_1",
+    settings: {
+      queries: {
+        exposure: [
+          {
+            id: "eq_multi",
+            name: "Multi",
+            userIdType: "anonymous_id",
+            userIdTypes: ["user_id", "anonymous_id"],
+            query: "SELECT 1",
+            dimensions: [],
+          },
+        ],
+      },
+    },
+  };
+  const context = {
+    foreignRefs: { datasource: new Map([["ds_1", datasource]]) },
+    dangerouslyGetDataSourceByIdBypassPermission: jest.fn(),
+  } as unknown as ApiReqContext;
+  const monitoring = {
+    datasourceId: "ds_1",
+    guardrailMetricIds: ["met_1"],
+  };
+
+  it("omits startActions and endActions when the input does not provide them", async () => {
+    const action = await normalizeInlineRampSchedule(
+      context,
+      { steps: [] },
+      "r1",
+    );
     expect("startActions" in action).toBe(false);
     expect("endActions" in action).toBe(false);
     expect(action).toMatchObject({ mode: "create", ruleId: "r1", steps: [] });
   });
 
-  it("normalizes provided startActions and endActions into feature-rule actions", () => {
-    const action = normalizeInlineRampSchedule(
+  it("normalizes provided startActions and endActions into feature-rule actions", async () => {
+    const action = await normalizeInlineRampSchedule(
+      context,
       {
         steps: [],
         startActions: [{ patch: { coverage: 0 } }],
@@ -995,5 +1059,57 @@ describe("normalizeInlineRampSchedule", () => {
     expect(action.endActions).toEqual([
       { targetType: "feature-rule", targetId: "t1", patch: { coverage: 1 } },
     ]);
+  });
+
+  it("keeps the live ramp's identifier when re-sending its query without one", async () => {
+    const action = await normalizeInlineRampSchedule(
+      context,
+      {
+        steps: [],
+        monitoringConfig: { ...monitoring, exposureQuery: { id: "eq_multi" } },
+      },
+      "r1",
+      undefined,
+      {
+        previousMonitoringConfig: {
+          ...monitoring,
+          exposureQueryId: "eq_multi",
+          exposureQueryIdentifierType: "user_id",
+        },
+      },
+    );
+    expect(action.monitoringConfig).toMatchObject({
+      exposureQueryId: "eq_multi",
+      exposureQueryIdentifierType: "user_id",
+    });
+  });
+
+  it("rejects a new selection by flat id on an ambiguous query", async () => {
+    await expect(
+      normalizeInlineRampSchedule(
+        context,
+        {
+          steps: [],
+          monitoringConfig: { ...monitoring, exposureQueryId: "eq_multi" },
+        },
+        "r1",
+      ),
+    ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
+  });
+
+  it("requires the grouped field to name an identifier on an ambiguous query", async () => {
+    await expect(
+      normalizeInlineRampSchedule(
+        context,
+        {
+          steps: [],
+          monitoringConfig: {
+            ...monitoring,
+            exposureQuery: { id: "eq_multi" },
+          },
+        },
+        "r1",
+      ),
+    ).rejects.toThrow("Set exposureQuery.identifierType to choose one");
   });
 });

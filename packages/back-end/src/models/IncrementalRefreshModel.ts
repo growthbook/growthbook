@@ -239,6 +239,17 @@ export class IncrementalRefreshModel extends BaseClass {
     return doc !== null;
   }
 
+  public async hasFreshLockHeartbeat(
+    experimentId: string,
+    snapshotId: string,
+  ): Promise<boolean> {
+    const doc = await this.getLockedBySnapshotId(experimentId, snapshotId);
+    if (!doc?.lockHeartbeatAt) return false;
+    return (
+      Date.now() - doc.lockHeartbeatAt.getTime() < INCREMENTAL_LOCK_STALE_MS
+    );
+  }
+
   public async updateByExperimentIdIfCurrentExecution(
     experimentId: string,
     executionId: string,

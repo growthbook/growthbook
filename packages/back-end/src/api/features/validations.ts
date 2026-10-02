@@ -5,6 +5,7 @@ import type {
 } from "shared/validators";
 import {
   apiRevisionRampCreateAction,
+  RampMonitoringConfig,
   RevisionRampCreateAction,
   ACTIVE_DRAFT_STATUSES,
   inlineRampScheduleInput,
@@ -20,10 +21,8 @@ import {
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
-  assertFeatureValuesValid,
-  getSavedGroupMap,
-} from "back-end/src/services/features";
+import type { GroupMap } from "shared/types/saved-group";
+import { assertFeatureValuesValid } from "back-end/src/services/features";
 import {
   applyPatchToRule,
   normalizeRampPlanForceValues,
@@ -48,6 +47,7 @@ import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import { ApiReqContext } from "back-end/types/api";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import {
   assertValidChangedRuleExperimentIds,
   assertValidChangedRuleProjectIds,
@@ -60,14 +60,21 @@ type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 
 type RampForceFeature = Pick<FeatureInterface, "valueType">;
 
+type RampNormalizeOptions = {
+  validateStartActions?: boolean;
+  /** The rule's live ramp config, when the action will update that ramp. */
+  previousMonitoringConfig?: RampMonitoringConfig | null;
+};
+
 // targetId is a placeholder — real UUID is injected at publish time. `force`
 // values are brought to the string form rule values use (and validated against
 // the feature when given) so a draft plan reads back the way it will apply.
-function normalizeRevisionRampCreateAction(
+async function normalizeRevisionRampCreateAction(
+  context: ReqContext | ApiReqContext,
   input: z.infer<typeof apiRevisionRampCreateAction>,
   feature?: RampForceFeature,
-  opts?: { validateStartActions?: boolean },
-): RevisionRampCreateAction {
+  opts?: RampNormalizeOptions,
+): Promise<RevisionRampCreateAction> {
   input = normalizeRampPlanForceValues(input, feature, opts);
   const normalizeAction = (a: {
     targetId?: string;
@@ -79,9 +86,20 @@ function normalizeRevisionRampCreateAction(
   });
   // Omitted startActions/endActions stay omitted: an `undefined` value would be
   // persisted as `null` (rampActions is a Mixed array).
-  const { startActions, endActions, ...rest } = input;
+  const { startActions, endActions, monitoringConfig, ...rest } = input;
   return {
     ...rest,
+    // Stores the identifier a new or changed selection resolves to; re-sending
+    // the live ramp's query without one keeps its identifier.
+    ...(monitoringConfig
+      ? {
+          monitoringConfig: await resolveApiMonitoringConfig(
+            context,
+            monitoringConfig,
+            opts?.previousMonitoringConfig,
+          ),
+        }
+      : {}),
     steps: (input.steps ?? []).map((s) => ({
       interval: s.interval,
       actions: (s.actions ?? []).map(normalizeAction),
@@ -105,12 +123,14 @@ export const DRAFT_STATUSES = ACTIVE_DRAFT_STATUSES;
 // `ruleId` alone.  Legacy stored actions may still carry an `environment`
 // field that the resolver handles, but new emissions must not set it.
 export function normalizeInlineRampSchedule(
+  context: ReqContext | ApiReqContext,
   input: InlineRampScheduleInput,
   ruleId: string,
   feature?: RampForceFeature,
-  opts?: { validateStartActions?: boolean },
-): RevisionRampCreateAction {
+  opts?: RampNormalizeOptions,
+): Promise<RevisionRampCreateAction> {
   return normalizeRevisionRampCreateAction(
+    context,
     {
       ...input,
       mode: "create" as const,
@@ -487,6 +507,19 @@ export async function validateRampPlanPatches(
   );
 
   try {
+    // Null is neither a list nor a wildcard, except beside `allEnvironments:
+    // true`, which is how anchors spell a rule with no list (and how a GET
+    // response replays them). An echo of a stored anchor is not a change.
+    if (
+      withChanges.some(
+        ({ changed }) =>
+          changed.environments === null && changed.allEnvironments !== true,
+      )
+    ) {
+      throw new BadRequestError(
+        "environments cannot be null; omit it to keep the rule's environments, or set allEnvironments",
+      );
+    }
     assertRampCoverageHashProvided(entries);
     // A hash attribute the anchor names gets the rule write's registration
     // check: a typo would bucket nobody once the rule is a rollout.
@@ -699,7 +732,13 @@ export const validateCustomFields = async (
   });
 };
 
-type SavedGroupMap = Awaited<ReturnType<typeof getSavedGroupMap>>;
+// Reference checks read ids and conditions, never the ID lists.
+async function getSavedGroupsForValidation(
+  context: ReqContext | ApiReqContext,
+): Promise<GroupMap> {
+  const groups = await context.models.savedGroups.getAllWithoutValues();
+  return new Map(groups.map((group) => [group.id, group]));
+}
 
 // Verify the saved-group references in a rule exist. Call on the final rule —
 // saved groups are loaded once. Prerequisite parents are checked separately
@@ -708,7 +747,10 @@ export async function validateRuleReferences(
   rule: Pick<FeatureRule, "condition" | "savedGroups">,
   context: ApiReqContext,
 ): Promise<void> {
-  validateRuleReferencesWithGroups(rule, await getSavedGroupMap(context));
+  validateRuleReferencesWithGroups(
+    rule,
+    await getSavedGroupsForValidation(context),
+  );
 }
 
 // Bulk form for endpoints that take a whole rules array (feature create /
@@ -718,9 +760,11 @@ export async function validateRulesReferences(
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
   if (!rules.length) return;
-  const groupMap = await getSavedGroupMap(context);
+  const groupMap = await getSavedGroupsForValidation(context);
+  const savedGroupIds = new Set(groupMap.keys());
   for (const rule of rules) {
     validatePrerequisiteConditions(rule.prerequisites ?? []);
+    assertPrerequisiteGroupIds(rule.prerequisites ?? [], savedGroupIds);
     validateRuleReferencesWithGroups(rule, groupMap);
   }
 }
@@ -729,9 +773,16 @@ export async function validateRulesReferences(
 // differ from the stored rule with the same id are checked, so resending a
 // stored rule unchanged never re-validates references the caller cannot read
 // (saved groups and features are read-filtered).
-export async function validateChangedRuleReferences(
-  inbound: FeatureRule[],
-  stored: FeatureRule[],
+type RuleReferenceFields = Pick<
+  FeatureRule,
+  "id" | "condition" | "savedGroups" | "prerequisites"
+> & { allEnvironments?: boolean; environments?: string[] };
+
+export async function validateChangedRuleReferences<
+  T extends RuleReferenceFields,
+>(
+  inbound: T[],
+  stored: T[],
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
   await validateRulesReferences(
@@ -799,7 +850,7 @@ export async function validateChangedPhaseReferences(
 
 function validateRuleReferencesWithGroups(
   rule: Pick<FeatureRule, "condition" | "savedGroups">,
-  groupMap: SavedGroupMap,
+  groupMap: GroupMap,
 ): void {
   const savedGroupIds = new Set(groupMap.keys());
   for (const sg of rule.savedGroups ?? []) {
@@ -830,9 +881,16 @@ export async function validatePrerequisiteReferences(
   prerequisites: FeaturePrerequisite[],
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
-  const savedGroupIds = new Set(
-    (await context.models.savedGroups.getAll()).map((sg) => sg.id),
+  assertPrerequisiteGroupIds(
+    prerequisites,
+    new Set((await getSavedGroupsForValidation(context)).keys()),
   );
+}
+
+function assertPrerequisiteGroupIds(
+  prerequisites: FeaturePrerequisite[],
+  savedGroupIds: Set<string>,
+): void {
   for (const prereq of prerequisites) {
     if (prereq.condition && prereq.condition !== "{}") {
       const inGroupError = findInvalidInGroupId(
