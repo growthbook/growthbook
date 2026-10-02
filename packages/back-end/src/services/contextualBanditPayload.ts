@@ -1,7 +1,13 @@
+import type { AutoExperiment } from "@growthbook/growthbook";
 import {
+  AutoExperimentWithMetadata,
   ContextualBanditDefinitions,
   FeatureDefinition,
 } from "shared/types/sdk";
+import type { ContextualBanditInterface } from "shared/validators";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { getActiveVariations } from "shared/experiments";
+import { pairedWeightsToPositional } from "back-end/src/util/features";
 import { logger } from "back-end/src/util/logger";
 import { Histogram, metrics } from "back-end/src/util/metrics";
 
@@ -81,4 +87,74 @@ export function recordContextualBanditPayloadMetrics(
   } catch (e) {
     logger.error({ err: e }, "Error recording sdk_payload CB size metrics");
   }
+}
+
+export type CbVisualExperiment = {
+  type: "cb-visual";
+  contextualBandit: ContextualBanditInterface;
+  visualChangeset: VisualChangesetInterface;
+};
+
+export function filterCbVisualExperimentsByProject(
+  cbVisualExperiments: CbVisualExperiment[],
+  projectList: string[],
+): CbVisualExperiment[] {
+  if (!projectList.length) return cbVisualExperiments;
+  return cbVisualExperiments.filter((e) =>
+    projectList.includes(e.contextualBandit.project || ""),
+  );
+}
+
+export function buildCbVisualAutoExperiment({
+  cbVisualExperiment,
+  changeId,
+  condition,
+  includeExperimentNames,
+}: {
+  cbVisualExperiment: CbVisualExperiment;
+  changeId: string;
+  condition: AutoExperimentWithMetadata["condition"];
+  includeExperimentNames?: boolean;
+}): AutoExperimentWithMetadata | null {
+  const { contextualBandit: cb, visualChangeset } = cbVisualExperiment;
+  const cbVariations = getActiveVariations(cb.variations);
+  if (cbVariations.length === 0) return null;
+
+  const variations = cbVariations.map((v) => {
+    const match = visualChangeset.visualChanges.find(
+      (vc) => vc.variation === v.id,
+    );
+    return {
+      css: match?.css || "",
+      js: match?.js || "",
+      domMutations: match?.domMutations || [],
+    };
+  }) as AutoExperiment["variations"];
+
+  const weights = cb.variationWeights
+    ? pairedWeightsToPositional(cb.variationWeights, cbVariations)
+    : undefined;
+
+  return {
+    key: cb.trackingKey,
+    changeId,
+    status: cb.status,
+    variations,
+    hashVersion: 2,
+    hashAttribute: cb.hashAttribute,
+    disableStickyBucketing: true,
+    urlPatterns: visualChangeset.urlPatterns,
+    weights,
+    meta: cbVariations.map((v) =>
+      includeExperimentNames === true
+        ? { key: v.key, name: v.name }
+        : { key: v.key },
+    ),
+    seed: cb.seed,
+    ...(includeExperimentNames === true ? { name: cb.name } : {}),
+    phase: "0",
+    condition,
+    coverage: cb.coverage,
+    contextualBanditRef: cb.id,
+  };
 }
