@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { QueryMetadata } from "shared/types/query";
@@ -36,6 +37,36 @@ export function toOptionalNumber(value: unknown): number | undefined {
   if ((value ?? null) === null) return undefined;
   const num = Number(value);
   return Number.isFinite(num) ? num : undefined;
+}
+
+// Where each client library puts its error code, checked in priority order
+const warehouseErrorValidator = z.object({
+  // BigQuery (`code` is just the HTTP status)
+  errors: z.array(z.object({ reason: z.string().optional() })).optional(),
+  // Presto / Trino
+  errorName: z.string().optional(),
+  // Databricks
+  response: z.object({ sqlState: z.string().nullish() }).optional(),
+  // Snowflake, Postgres, Redshift, MySQL, ClickHouse, Athena, Node network errors
+  code: z.union([z.string(), z.number()]).optional(),
+  sqlState: z.string().optional(),
+  // Databricks fallback (ERROR / CANCELED / TIMEOUT)
+  errorCode: z.union([z.string(), z.number()]).optional(),
+});
+
+// The warehouse's own error code, for grouping failures more reliably than by message
+export function getWarehouseErrorCode(error: unknown): string | undefined {
+  const parsed = warehouseErrorValidator.safeParse(error);
+  if (!parsed.success) return undefined;
+  const e = parsed.data;
+  const code =
+    e.errors?.[0]?.reason ??
+    e.errorName ??
+    e.response?.sqlState ??
+    e.code ??
+    e.sqlState ??
+    e.errorCode;
+  return (code ?? "") === "" ? undefined : String(code);
 }
 
 // get the query tag string for the integration

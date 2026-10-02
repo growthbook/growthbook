@@ -157,10 +157,7 @@ const snowflakeQueryMonitoringValidator = z.object({
   data: z.object({
     queries: z.array(
       z.object({
-        startTime: z.number().nullish(),
-        endTime: z.number().nullish(),
-        warehouseName: z.string().nullish(),
-        warehouseExternalSize: z.string().nullish(),
+        // -1 when no warehouse ran the query (result cache or metadata only)
         clusterNumber: z.number().nullish(),
         stats: z.record(z.string(), z.unknown()).nullish(),
       }),
@@ -190,16 +187,6 @@ export function snowflakeMonitoringToStatistics(
     bytesProcessed: count("scanBytes"),
     partitionsScanned: count("scanFiles"),
     partitionsTotal: count("scanOriginalFiles"),
-    queuedOverloadMs: count("queuedLoadTime"),
-    queuedProvisioningMs: count("queuedResumeTime"),
-    bytesSpilledLocal: count("ioLocalTempWriteBytes"),
-    // Not observed in testing; assumed to mirror the local spill counter
-    bytesSpilledRemote: count("ioRemoteTempWriteBytes"),
-    warehouseStartTime: query.startTime ?? undefined,
-    warehouseEndTime: query.endTime ?? undefined,
-    warehouseName: query.warehouseName ?? undefined,
-    warehouseSize: query.warehouseExternalSize ?? undefined,
-    warehouseClusterNumber: query.clusterNumber ?? undefined,
   };
 }
 
