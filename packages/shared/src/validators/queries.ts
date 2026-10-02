@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { baseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
 
 export const queryStatusValidator = z.enum([
@@ -92,3 +93,50 @@ export const getQueryValidator = {
   path: "/queries/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
+
+export const queryStatisticsValidator = z.object({
+  executionDurationMs: z.number().optional(),
+  totalSlotMs: z.number().optional(),
+  rowsProcessed: z.number().optional(),
+  bytesProcessed: z.number().optional(),
+  bytesBilled: z.number().optional(),
+  rowsInserted: z.number().optional(),
+  warehouseCachedResult: z.boolean().optional(),
+  partitionsUsed: z.boolean().optional(),
+  physicalWrittenBytes: z.number().optional(),
+  // Partitions read vs. available, to measure pruning (BigQuery reports only partitions read)
+  partitionsScanned: z.number().optional(),
+  partitionsTotal: z.number().optional(),
+  // Time spent waiting because the warehouse was saturated vs. resuming from suspended
+  queuedOverloadMs: z.number().optional(),
+  queuedProvisioningMs: z.number().optional(),
+  bytesSpilledLocal: z.number().optional(),
+  bytesSpilledRemote: z.number().optional(),
+  // Warehouse-side timestamps (epoch ms), free of GrowthBook's connect and fetch overhead
+  warehouseStartTime: z.number().optional(),
+  warehouseEndTime: z.number().optional(),
+  warehouseName: z.string().optional(),
+  warehouseSize: z.string().optional(),
+  // Snowflake reports -1 when no warehouse ran the query (result cache or metadata only)
+  warehouseClusterNumber: z.number().optional(),
+});
+
+// One row per query GrowthBook sends to a warehouse, including queries with no Query document
+export const queryUsageValidator = baseSchema
+  .extend({
+    datasource: z.string(),
+    datasourceType: z.string(),
+    queryType: z.string(),
+    status: z.enum(["succeeded", "failed"]),
+    startedAt: z.date(),
+    durationMs: z.number(),
+    // The warehouse's own job/query ID, for joining with its query history
+    externalId: z.string().optional(),
+    queryId: z.string().optional(),
+    experimentId: z.string().optional(),
+    snapshotTriggeredBy: z.string().optional(),
+    snapshotType: z.string().optional(),
+    userId: z.string().optional(),
+    statistics: queryStatisticsValidator.optional(),
+  })
+  .strict();

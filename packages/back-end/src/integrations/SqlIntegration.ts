@@ -119,11 +119,13 @@ import {
 import { ExplorationConfig } from "shared/validators";
 import {
   AdditionalQueryMetadata,
+  QueryStatistics,
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
 import { conversionWindowToSeconds } from "shared/funnels";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -339,8 +341,60 @@ export default abstract class SqlIntegration
         userName: this.context.userName,
         ...this.additionalMetadata,
       };
-      return originalRunQuery.call(this, sql, setExternalId, metadata);
+      const startedAt = new Date();
+      let externalId: string | undefined;
+      try {
+        const response = await originalRunQuery.call(
+          this,
+          sql,
+          async (id, idMetadata) => {
+            externalId = id;
+            await setExternalId?.(id, idMetadata);
+          },
+          metadata,
+        );
+        void this.recordQueryUsage(
+          metadata,
+          startedAt,
+          externalId,
+          "succeeded",
+          response.statistics,
+        );
+        return response;
+      } catch (e) {
+        void this.recordQueryUsage(metadata, startedAt, externalId, "failed");
+        throw e;
+      }
     };
+  }
+
+  // One row per warehouse query; not awaited, so it never delays or fails the query
+  private async recordQueryUsage(
+    metadata: RunQueryMetadata,
+    startedAt: Date,
+    externalId: string | undefined,
+    status: "succeeded" | "failed",
+    statistics?: QueryStatistics,
+  ) {
+    try {
+      await this.context.models.queryUsages.create({
+        datasource: this.datasource.id,
+        datasourceType: this.datasource.type,
+        queryType: metadata.queryType,
+        status,
+        startedAt,
+        durationMs: Date.now() - startedAt.getTime(),
+        externalId,
+        queryId: metadata.queryId,
+        experimentId: metadata.experimentId,
+        snapshotTriggeredBy: metadata.snapshotTriggeredBy,
+        snapshotType: metadata.snapshotType,
+        userId: metadata.userId || undefined,
+        statistics,
+      });
+    } catch (e) {
+      logger.warn(e, `Failed to record query usage for ${this.datasource.id}`);
+    }
   }
 
   setAdditionalQueryMetadata(additionalQueryMetadata: AdditionalQueryMetadata) {
