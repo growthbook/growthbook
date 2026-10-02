@@ -40,6 +40,7 @@ jest.mock("back-end/src/models/MetricModel", () => ({
           name: "Goal",
           datasource: "ds_1",
           metricType: "mean",
+          numerator: { factTableId: "ftb_1" },
         },
       ],
     ]),

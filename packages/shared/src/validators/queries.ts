@@ -134,6 +134,7 @@ export const queryUsageValidator = baseSchema
     externalId: z.string().optional(),
     queryId: z.string().optional(),
     experimentId: z.string().optional(),
+    factTableIds: z.array(z.string()).optional(),
     snapshotTriggeredBy: z.string().optional(),
     snapshotType: z.string().optional(),
     userId: z.string().optional(),

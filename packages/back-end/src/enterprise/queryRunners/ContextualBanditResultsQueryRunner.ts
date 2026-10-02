@@ -7,7 +7,11 @@ import {
   queryHasContextualBanditSrmColumns,
 } from "shared/validators";
 import { buildUnitsQuerySettingsFromCb } from "shared/util";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  getFactMetricFactTableIds,
+  isFactMetric,
+} from "shared/experiments";
 import {
   ContextualBanditSrmQueryResponseRows,
   ExperimentMetricQueryResponseRows,
@@ -149,6 +153,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
           );
           return { rows: res.rows as ExperimentMetricQueryResponseRows };
         },
+        factTableIds: getFactMetricFactTableIds(decisionMetric),
         queryType: "experimentResults",
       }),
     ];
