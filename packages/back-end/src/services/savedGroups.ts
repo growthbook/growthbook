@@ -100,7 +100,7 @@ export function findSavedGroupDependents({
 
 // The payloads a change to `groupId` can alter, or null when only an
 // org-wide refresh is known to be safe.
-async function getSavedGroupPayloadKeys(
+export async function getSavedGroupPayloadKeys(
   context: ReqContext,
   groupId: string,
 ): Promise<SDKPayloadKey[] | null> {

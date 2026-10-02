@@ -20,7 +20,10 @@ import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organiz
 import {
   getFeatureDefinitions,
   refreshSDKPayloadCache,
+  isSDKConnectionAffectedByPayloadKey,
 } from "back-end/src/services/features";
+import { getSavedGroupPayloadKeys } from "back-end/src/services/savedGroups";
+import type { ReqContext } from "back-end/types/request";
 import {
   connectTestMongo,
   disconnectTestMongo,
@@ -1146,4 +1149,70 @@ describe("refreshSDKPayloadCache", () => {
       expect(payloadDiff(direct.payload, scoped[savedGroupFormat])).toEqual([]);
     },
   );
+});
+
+// Saving a group rebuilds only the connections its reference scan selects. A
+// source the scan misses would leave a changed payload stale with no error,
+// so change each group in turn and require every connection whose payload
+// changed to be one the scan selects, and a group nothing reads to select none.
+describe("saved-group refresh scope", () => {
+  const probe = (group: (typeof savedGroups)[number]) =>
+    group.type === "list"
+      ? { values: [`probe-${group.id}`] }
+      : { condition: JSON.stringify({ probe_attr: group.id }) };
+
+  it("selects every connection whose payload a saved-group change alters", async () => {
+    const collection = mongoose.connection.db!.collection("savedgroups");
+    const before = Object.fromEntries(
+      await Promise.all(
+        FORMATS.map(
+          async (f) => [f, (await buildPayload(f, "scoped")).payload] as const,
+        ),
+      ),
+    );
+    const misses: string[] = [];
+    const overreach: string[] = [];
+    for (const group of savedGroups) {
+      await collection.updateOne({ id: group.id }, { $set: probe(group) });
+      try {
+        const keys = await getSavedGroupPayloadKeys(
+          context as unknown as ReqContext,
+          group.id,
+        );
+        const changed: SavedGroupFormat[] = [];
+        for (const format of FORMATS) {
+          const after = (await buildPayload(format, "scoped")).payload;
+          if (payloadDiff(before[format], after).length) changed.push(format);
+        }
+        const selects = (format: SavedGroupFormat) =>
+          keys === null ||
+          keys.some((key) =>
+            isSDKConnectionAffectedByPayloadKey(connectionFor(format), key),
+          );
+        const missed = changed.filter((format) => !selects(format));
+        if (missed.length) misses.push(`${group.id}: ${missed.join(", ")}`);
+        if (!changed.length && keys !== null && keys.length) {
+          overreach.push(group.id);
+        }
+      } finally {
+        await collection.updateOne(
+          { id: group.id },
+          {
+            $set:
+              group.type === "list"
+                ? { values: group.values }
+                : { condition: group.condition },
+          },
+        );
+      }
+    }
+    expect(misses).toEqual([]);
+    // Over-selection only costs a rebuild, but a group nothing reads should
+    // not refresh anything.
+    expect(
+      overreach.filter((id) =>
+        ["grp_huge", "grp_unused_condition"].includes(id),
+      ),
+    ).toEqual([]);
+  });
 });
