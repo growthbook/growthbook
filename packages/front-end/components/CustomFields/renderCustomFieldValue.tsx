@@ -22,6 +22,10 @@ export function renderCustomFieldValue(
   field: CustomField,
   value: unknown,
 ): ReactNode {
+  if (customFieldValueToText(field, value).trim() === "") {
+    return <Text color="text-mid">--</Text>;
+  }
+
   const stringValue =
     typeof value === "boolean"
       ? toCustomFieldBooleanString(value)
@@ -33,51 +37,59 @@ export function renderCustomFieldValue(
     case "markdown":
       return <Markdown>{stringValue}</Markdown>;
     case "textarea":
-      return <div style={{ whiteSpace: "pre" }}>{stringValue}</div>;
+      return <div style={{ whiteSpace: "pre-wrap" }}>{stringValue}</div>;
     case "url":
-      if (stringValue !== "") {
-        return (
-          <Link href={stringValue} target="_blank" rel="noreferrer">
-            {stringValue}
-          </Link>
-        );
-      }
-      break;
+      return (
+        <Link href={stringValue} target="_blank" rel="noreferrer">
+          {stringValue}
+        </Link>
+      );
     case "boolean":
-      return <>{isCustomFieldBooleanTrue(value) ? "yes" : "no"}</>;
+      return isCustomFieldBooleanTrue(value) ? "yes" : "no";
     case "date":
-      if (stringValue) {
-        return new Date(stringValue).toLocaleDateString();
-      }
-      break;
+      return new Date(stringValue).toLocaleDateString();
     case "datetime":
-      if (stringValue) {
-        return new Date(stringValue).toLocaleString();
-      }
-      break;
+      return new Date(stringValue).toLocaleString();
     case "text":
     case "enum":
     case "number":
-      break;
+      return stringValue;
     default: {
       const exhaustiveCheck: never = field.type;
       return exhaustiveCheck;
     }
   }
-
-  return stringValue || <Text color="text-mid">--</Text>;
 }
+
+// Limit URLs to 3 lines if they are too long
+const urlClamp: React.CSSProperties = {
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: 3,
+  overflow: "hidden",
+};
 
 /** DataList rows for a set of fields, so no surface renders them differently. */
 export function customFieldDataListItems(
   fields: CustomField[],
   values: Record<string, unknown> | undefined,
 ): DataListItem[] {
-  return fields.map((f) => ({
-    label: f.name,
-    value: renderCustomFieldValue(f, values?.[f.id] ?? ""),
-    tooltip: f.description,
-  }));
+  return fields.map((f) => {
+    const raw = values?.[f.id] ?? "";
+    const value = renderCustomFieldValue(f, raw);
+    return {
+      label: f.name,
+      value:
+        f.type === "url" ? (
+          <span style={urlClamp} title={customFieldValueToText(f, raw)}>
+            {value}
+          </span>
+        ) : (
+          value
+        ),
+      tooltip: f.description,
+    };
+  });
 }
 
 /**

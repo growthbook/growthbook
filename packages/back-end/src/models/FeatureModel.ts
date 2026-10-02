@@ -1512,6 +1512,18 @@ export async function updateFeature(
     allUpdates.environmentSettings = { ...feature.environmentSettings };
   }
 
+  // The reverse case: an env-settings write without `rules` would drop rules
+  // kept per environment or inherited, so persist the read's (scrubbed) rules.
+  if (
+    allUpdates.environmentSettings !== undefined &&
+    allUpdates.rules === undefined &&
+    Array.isArray(feature.rules)
+  ) {
+    allUpdates.rules = (
+      await scrubDeadProjectScopes(context, { rules: feature.rules })
+    ).rules;
+  }
+
   const normalizedUpdates = buildFeatureUpdate(allUpdates);
 
   if (Array.isArray(normalizedUpdates.rules)) {
@@ -1842,17 +1854,23 @@ export async function removeProjectFromFeatures(
           ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
           : rule,
       );
+      // Advance the stamp so a landing that read the dead scope loses its guard.
+      const stamp = advancedGuardStamp(feature.dateUpdated);
       const written = await FeatureModel.updateOne(
         {
           organization: context.org.id,
           id: feature.id,
           dateUpdated: feature.dateUpdated,
         },
-        { $set: { rules: updatedRules } },
+        { $set: { rules: updatedRules, dateUpdated: stamp } },
       );
       if (written.matchedCount > 0) {
         scrubbed = true;
-        const updatedFeature = { ...feature, rules: updatedRules };
+        const updatedFeature = {
+          ...feature,
+          rules: updatedRules,
+          dateUpdated: stamp,
+        };
         onFeatureUpdate(context, feature, updatedFeature, project).catch(
           (e) => {
             logger.error(e, "Error refreshing SDK Payload on feature update");
