@@ -669,6 +669,43 @@ export function generateAutoExperimentsPayload({
   return sdkExperiments.filter(isValidSDKExperiment);
 }
 
+// The saved groups these definitions can read, with values, plus any group
+// those reach through condition groups. Never every group in the org.
+export async function loadSavedGroupsForDefinitions(
+  context: ReqContext | ApiReqContext,
+  sources: FeatureDefinitionSources,
+): Promise<SavedGroupInterface[]> {
+  return loadSavedGroupsWithNested(
+    getSavedGroupIdsForFeatureDefinitions(sources),
+    (ids) => context.models.savedGroups.getByIdsWithValues(ids),
+  );
+}
+
+// Groups for evaluating one feature revision: what its rules and the
+// experiments they reference can read.
+export async function getSavedGroupMapForFeatureRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  experimentMap: Map<string, ExperimentInterface>,
+): Promise<GroupMap> {
+  const experiments = [...(feature.rules ?? []), ...(revision.rules ?? [])]
+    .map((rule) =>
+      rule?.type === "experiment-ref"
+        ? experimentMap.get(rule.experimentId)
+        : undefined,
+    )
+    .filter((e): e is ExperimentInterface => !!e);
+  return getSavedGroupMap(
+    context,
+    await loadSavedGroupsForDefinitions(context, {
+      features: [feature],
+      revisions: [revision],
+      experiments,
+    }),
+  );
+}
+
 export async function getSavedGroupMap(
   context: ReqContext | ApiReqContext,
   savedGroups?: SavedGroupInterface[],
@@ -1202,17 +1239,14 @@ export async function refreshSDKPayloadCache({
   // Only the groups the payload's targeting references (plus any group those
   // reference), never every group in the org. Holdouts and contextual bandits
   // carry targeting the features and experiments do not.
-  const savedGroups = await loadSavedGroupsWithNested(
-    getSavedGroupIdsForFeatureDefinitions({
-      features: allFeatures,
-      experiments: [
-        ...experimentMap.values(),
-        ...getPayloadHoldoutExperiments(Object.values(holdoutsMapByEnv)),
-      ],
-      bandits: cbMap.values(),
-    }),
-    (ids) => context.models.savedGroups.getByIdsWithValues(ids),
-  );
+  const savedGroups = await loadSavedGroupsForDefinitions(context, {
+    features: allFeatures,
+    experiments: [
+      ...experimentMap.values(),
+      ...getPayloadHoldoutExperiments(Object.values(holdoutsMapByEnv)),
+    ],
+    bandits: cbMap.values(),
+  });
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const constants = await getResolvableValues(context);
   const rampMonitoredRuleMap =
@@ -1950,17 +1984,14 @@ export async function getFeatureDefinitions(
     await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
   const cbMap = await getPayloadContextualBandits(context, allFeatures);
 
-  const allSavedGroups = await loadSavedGroupsWithNested(
-    getSavedGroupIdsForFeatureDefinitions({
-      features: allFeatures,
-      experiments: [
-        ...experimentMap.values(),
-        ...getPayloadHoldoutExperiments([holdoutsMap]),
-      ],
-      bandits: cbMap.values(),
-    }),
-    (ids) => context.models.savedGroups.getByIdsWithValues(ids),
-  );
+  const allSavedGroups = await loadSavedGroupsForDefinitions(context, {
+    features: allFeatures,
+    experiments: [
+      ...experimentMap.values(),
+      ...getPayloadHoldoutExperiments([holdoutsMap]),
+    ],
+    bandits: cbMap.values(),
+  });
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
   return buildSDKPayloadForConnection({
     context,
