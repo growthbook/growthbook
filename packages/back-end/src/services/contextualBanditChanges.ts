@@ -1,4 +1,6 @@
+import isEqual from "lodash/isEqual";
 import { ContextualBanditInterface } from "shared/validators";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -17,6 +19,32 @@ import {
   publishPendingFeatureDraftsForContextualBandit,
 } from "back-end/src/services/experiment-feature";
 
+const SDK_PAYLOAD_FIELDS = [
+  "status",
+  "archived",
+  "project",
+  "name",
+  "tags",
+  "trackingKey",
+  "hashAttribute",
+  "seed",
+  "coverage",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+] as const;
+
+export function contextualBanditUpdateAffectsPayload(
+  existing: ContextualBanditInterface,
+  updates: Partial<ContextualBanditInterface>,
+  updated: ContextualBanditInterface,
+): boolean {
+  if (existing.status === "draft" && updated.status === "draft") return false;
+  return SDK_PAYLOAD_FIELDS.some(
+    (field) => field in updates && !isEqual(existing[field], updated[field]),
+  );
+}
+
 export async function refreshLinkedFeaturePayloads(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
@@ -24,24 +52,45 @@ export async function refreshLinkedFeaturePayloads(
     | "contextualBandit.start"
     | "contextualBandit.stop"
     | "contextualBandit.refresh",
+  options: { includeVisualKeys?: boolean } = {},
 ): Promise<void> {
-  const features = await getAllFeatures(context);
-  if (!features.length) return;
-
   const environments = getEnvironmentIdsFromOrg(context.org);
+  const features = await getAllFeatures(context);
   const allProjectIds = await context.getAllProjectIds();
-  const payloadKeys = getAffectedSDKPayloadKeys(
-    features,
-    environments,
-    (rule) => {
-      if (rule.enabled === false) return false;
-      return (
-        rule.type === "contextual-bandit-ref" &&
-        rule.contextualBanditId === cb.id
-      );
-    },
-    allProjectIds,
-  );
+
+  const payloadKeys: SDKPayloadKey[] = features.length
+    ? getAffectedSDKPayloadKeys(
+        features,
+        environments,
+        (rule) => {
+          if (rule.enabled === false) return false;
+          return (
+            rule.type === "contextual-bandit-ref" &&
+            rule.contextualBanditId === cb.id
+          );
+        },
+        allProjectIds,
+      )
+    : [];
+
+  if (
+    options.includeVisualKeys ||
+    cb.hasVisualChangesets ||
+    cb.hasURLRedirects
+  ) {
+    const seen = new Set(
+      payloadKeys.map((k) => `${k.environment}|${k.project}`),
+    );
+    for (const environment of environments) {
+      for (const project of ["", ...(cb.project ? [cb.project] : [])]) {
+        const dedupeKey = `${environment}|${project}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        payloadKeys.push({ environment, project });
+      }
+    }
+  }
+
   if (payloadKeys.length === 0) return;
   queueSDKPayloadRefresh({
     context,
@@ -92,6 +141,7 @@ export async function executeContextualBanditStart(
   const updated = await context.models.contextualBandits.update(
     cb,
     startChanges,
+    { skipSDKRefresh: true },
   );
 
   await context.auditLog({
@@ -132,10 +182,14 @@ export async function executeContextualBanditStop(
 
   const now = new Date();
 
-  const updated = await context.models.contextualBandits.update(cb, {
-    status: "stopped",
-    dateStopped: cb.dateStopped ?? now,
-  });
+  const updated = await context.models.contextualBandits.update(
+    cb,
+    {
+      status: "stopped",
+      dateStopped: cb.dateStopped ?? now,
+    },
+    { skipSDKRefresh: true },
+  );
 
   await context.auditLog({
     event: "contextualBandit.stop",

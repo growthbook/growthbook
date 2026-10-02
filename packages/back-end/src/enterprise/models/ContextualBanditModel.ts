@@ -38,6 +38,7 @@ import { validateChangedRuleReferences } from "back-end/src/api/features/validat
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
+  contextualBanditUpdateAffectsPayload,
   executeContextualBanditStart,
   executeContextualBanditStop,
   refreshLinkedFeaturePayloads,
@@ -67,6 +68,10 @@ const COLLECTION = "contextualbandits";
 type LinkageChanges = Partial<
   Pick<ContextualBanditInterface, "linkedFeatures" | "pendingFeatureDrafts">
 >;
+
+type WriteOptions = {
+  skipSDKRefresh?: boolean;
+};
 
 const BaseClass = MakeModelClass({
   schema: contextualBanditValidator,
@@ -315,7 +320,7 @@ export function toApiContextualBandit(
   };
 }
 
-export class ContextualBanditModel extends BaseClass {
+export class ContextualBanditModel extends BaseClass<WriteOptions> {
   protected migrate(legacyDoc: unknown): ContextualBanditInterface {
     const doc = legacyDoc as ContextualBanditInterface;
     return {
@@ -550,6 +555,29 @@ export class ContextualBanditModel extends BaseClass {
 
   protected canDelete(doc: ContextualBanditInterface): boolean {
     return this.context.permissions.canDeleteContextualBandit(doc);
+  }
+
+  protected async afterUpdate(
+    existing: ContextualBanditInterface,
+    updates: Partial<ContextualBanditInterface>,
+    newDoc: ContextualBanditInterface,
+    writeOptions?: WriteOptions,
+  ) {
+    if (writeOptions?.skipSDKRefresh) return;
+    if (!contextualBanditUpdateAffectsPayload(existing, updates, newDoc))
+      return;
+    await refreshLinkedFeaturePayloads(
+      this.context,
+      newDoc,
+      "contextualBandit.refresh",
+    );
+    if ((existing.project || "") !== (newDoc.project || "")) {
+      await refreshLinkedFeaturePayloads(
+        this.context,
+        existing,
+        "contextualBandit.refresh",
+      );
+    }
   }
 
   protected async afterDelete(doc: ContextualBanditInterface) {

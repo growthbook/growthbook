@@ -2,9 +2,20 @@ import { ContextualBanditInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureDefinition } from "shared/types/sdk";
 import { GroupMap } from "shared/types/saved-group";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getFeatureDefinition } from "back-end/src/util/features";
-import { filterUsedContextualBandits } from "back-end/src/services/features";
-import { measureContextualBanditPayload } from "back-end/src/services/contextualBanditPayload";
+import { ApiReqContext } from "back-end/types/api";
+import {
+  buildSDKPayloadForConnection,
+  filterUsedContextualBandits,
+  generateAutoExperimentsPayload,
+} from "back-end/src/services/features";
+import {
+  CbVisualExperiment,
+  getContextualBanditPrerequisiteDependents,
+  getCbVisualPrerequisiteIds,
+  measureContextualBanditPayload,
+} from "back-end/src/services/contextualBanditPayload";
 
 // services/features.ts transitively imports datasource integrations, which
 // load native modules (kerberos, lz4) that aren't available in all
@@ -631,5 +642,325 @@ describe("measureContextualBanditPayload", () => {
       maxSingleCbBytes: 0,
       maxLeaves: 0,
     });
+  });
+});
+
+describe("CB visual changesets in the auto-experiments payload", () => {
+  const V0 = { id: "v0", name: "Control", key: "0", screenshots: [] };
+  const V1 = { id: "v1", name: "Treatment", key: "1", screenshots: [] };
+  const V2 = { id: "v2", name: "Added", key: "2", screenshots: [] };
+
+  function makeChangeset(
+    variationIds: string[],
+    overrides: Partial<VisualChangesetInterface> = {},
+  ): VisualChangesetInterface {
+    return {
+      id: "vcs_1",
+      organization: "org_1",
+      contextualBandit: "cb_1",
+      editorUrl: "https://example.com/",
+      urlPatterns: [
+        { include: true, type: "simple", pattern: "https://example.com/" },
+      ],
+      visualChanges: variationIds.map((id) => ({
+        id: `vc_${id}`,
+        variation: id,
+        description: "",
+        css: id === "v0" ? "" : `.${id} { display: block; }`,
+        domMutations: [],
+      })),
+      ...overrides,
+    } as VisualChangesetInterface;
+  }
+
+  function payloadFor(
+    cb: ContextualBanditInterface,
+    vcs: VisualChangesetInterface,
+  ) {
+    return generateAutoExperimentsPayload({
+      visualExperiments: [],
+      urlRedirectExperiments: [],
+      cbVisualExperiments: [
+        { type: "cb-visual", contextualBandit: cb, visualChangeset: vcs },
+      ],
+      groupMap,
+      features: [],
+      environment: "production",
+      capabilities: ["contextualBandits", "contextualBanditsAuto"],
+      includeExperimentNames: true,
+    });
+  }
+
+  it("emits one entry per changeset, keyed by the CB tracking key with its ref", () => {
+    const cb = makeCb({ variations: [V0, V1], hasVisualChangesets: true });
+    const [exp] = payloadFor(cb, makeChangeset(["v0", "v1"]));
+    expect(exp).toMatchObject({
+      key: "cb_1_tk",
+      contextualBanditRef: "cb_1",
+      disableStickyBucketing: true,
+      hashVersion: 2,
+      hashAttribute: "id",
+      status: "running",
+    });
+    expect(exp.variations).toHaveLength(2);
+    expect(exp.meta).toEqual([
+      { key: "0", name: "Control" },
+      { key: "1", name: "Treatment" },
+    ]);
+    expect(exp.variations[1]).toMatchObject({ css: ".v1 { display: block; }" });
+  });
+
+  it("emits nothing for a changeset with no visual content", () => {
+    const cb = makeCb({ variations: [V0, V1], hasVisualChangesets: true });
+    const empty = makeChangeset(["v0", "v1"], {
+      visualChanges: ["v0", "v1"].map((id) => ({
+        id: `vc_${id}`,
+        variation: id,
+        description: "",
+        css: "",
+        domMutations: [],
+      })),
+    });
+    expect(payloadFor(cb, empty)).toHaveLength(0);
+  });
+
+  it("emits nothing for a draft CB", () => {
+    const cb = makeCb({ status: "draft", hasVisualChangesets: true });
+    expect(payloadFor(cb, makeChangeset(["v0", "v1"]))).toHaveLength(0);
+  });
+
+  it("serves nothing to an SDK without contextualBanditsAuto", () => {
+    const cb = makeCb({ hasVisualChangesets: true });
+    const payload = generateAutoExperimentsPayload({
+      visualExperiments: [],
+      urlRedirectExperiments: [],
+      cbVisualExperiments: [
+        {
+          type: "cb-visual",
+          contextualBandit: cb,
+          visualChangeset: makeChangeset(["v0", "v1"]),
+        },
+      ],
+      groupMap,
+      features: [],
+      environment: "production",
+      capabilities: ["contextualBandits"],
+    });
+    expect(payload).toHaveLength(0);
+  });
+
+  it("serves only active arms, in the same positions as the leaf weights", () => {
+    const cb = makeCb({
+      variations: [
+        V0,
+        { ...V1, status: "pending" },
+        V2,
+        {
+          ...{ id: "v3", name: "Gone", key: "3", screenshots: [] },
+          status: "deactivated",
+        },
+      ],
+      variationWeights: [
+        { variationId: "v0", weight: 0.5 },
+        { variationId: "v2", weight: 0.5 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.2 },
+            { variationId: "v2", weight: 0.8 },
+          ],
+        },
+      ],
+      hasVisualChangesets: true,
+    } as unknown as Partial<ContextualBanditInterface>);
+    const vcs = makeChangeset(["v0", "v1", "v2", "v3"]);
+    const [exp] = payloadFor(cb, vcs);
+
+    expect(exp.meta?.map((m) => m.key)).toEqual(["0", "2"]);
+    expect(exp.variations).toHaveLength(2);
+    expect(exp.variations[1]).toMatchObject({ css: ".v2 { display: block; }" });
+    expect(exp.weights).toEqual([0.5, 0.5]);
+
+    const map = filterUsedContextualBandits(new Map([[cb.id, cb]]), {}, [exp]);
+    expect(map?.cb_1.contexts[0].weights).toEqual([0.2, 0.8]);
+    expect(map?.cb_1.contexts[0].weights).toHaveLength(exp.variations.length);
+  });
+
+  it("emits nothing when no arm is active", () => {
+    const cb = makeCb({
+      variations: [
+        { ...V0, status: "deactivated" },
+        { ...V1, status: "pending" },
+      ],
+      hasVisualChangesets: true,
+    } as unknown as Partial<ContextualBanditInterface>);
+    expect(payloadFor(cb, makeChangeset(["v0", "v1"]))).toHaveLength(0);
+  });
+});
+
+describe("CB visual prerequisites in another project", () => {
+  const prerequisite = { id: "parent", condition: '{"value": true}' };
+
+  function cbVisual(
+    cb: ContextualBanditInterface,
+    id = "vcs_1",
+  ): CbVisualExperiment {
+    return {
+      type: "cb-visual",
+      contextualBandit: cb,
+      visualChangeset: {
+        id,
+        organization: "org_1",
+        contextualBandit: cb.id,
+        editorUrl: "https://example.com/",
+        urlPatterns: [
+          { include: true, type: "simple", pattern: "https://example.com/" },
+        ],
+        visualChanges: ["v0", "v1"].map((v) => ({
+          id: `vc_${v}`,
+          variation: v,
+          description: "",
+          css: v === "v0" ? "" : `.${v} { display: block; }`,
+          domMutations: [],
+        })),
+      } as VisualChangesetInterface,
+    };
+  }
+
+  const parent = {
+    id: "parent",
+    project: "prj_b",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    defaultValue: "true",
+    organization: "org_1",
+    owner: "",
+    valueType: "boolean",
+    archived: false,
+    description: "",
+    version: 1,
+    environmentSettings: {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            type: "experiment",
+            id: "parent-exp",
+            enabled: true,
+            coverage: 1,
+            values: [
+              { value: "false", weight: 0.5 },
+              { value: "true", weight: 0.5 },
+            ],
+            hashAttribute: "id",
+          },
+        ],
+      },
+    },
+  } as unknown as FeatureInterface;
+
+  const gatedCb = () =>
+    makeCb({
+      project: "prj_a",
+      hasVisualChangesets: true,
+      prerequisites: [prerequisite],
+    } as unknown as Partial<ContextualBanditInterface>);
+
+  const context = {
+    org: { id: "org_1", name: "Org", settings: {} },
+    models: {},
+  } as unknown as ApiReqContext;
+
+  function build(includeReferencedPrerequisites: boolean) {
+    return buildSDKPayloadForConnection({
+      context,
+      connection: {
+        capabilities: [
+          "bucketingV2",
+          "prerequisites",
+          "contextualBandits",
+          "contextualBanditsAuto",
+        ],
+        environment: "production",
+        projects: ["prj_a"],
+        includeReferencedPrerequisites,
+        includeVisualExperiments: true,
+      },
+      data: {
+        features: [parent],
+        experimentMap: new Map(),
+        groupMap: new Map(),
+        safeRolloutMap: new Map(),
+        savedGroups: [],
+        holdoutsMap: new Map(),
+        visualExperiments: [],
+        urlRedirectExperiments: [],
+        cbVisualExperiments: [cbVisual(gatedCb())],
+      },
+    });
+  }
+
+  it("carries the parent so the gated visual experiment is served", async () => {
+    const out = await build(true);
+
+    expect(out.features.parent).toBeDefined();
+    expect(out.experiments).toHaveLength(1);
+    expect(out.experiments?.[0].parentConditions).toEqual([
+      expect.objectContaining({ id: "parent" }),
+    ]);
+  });
+
+  it("drops the gated visual experiment when the parent is not carried", async () => {
+    const out = await build(false);
+
+    expect(out.features.parent).toBeUndefined();
+    expect(out.experiments ?? []).toHaveLength(0);
+  });
+
+  it("collects each bandit's prerequisites once across its changesets", () => {
+    const cb = gatedCb();
+    expect(
+      getCbVisualPrerequisiteIds([cbVisual(cb), cbVisual(cb, "vcs_2")]),
+    ).toEqual(["parent"]);
+  });
+
+  it("collects prerequisites only for bandits the connection will serve", () => {
+    const cb = gatedCb();
+    const draft = { ...cb, status: "draft" as const };
+    const empty = cbVisual(cb, "vcs_empty");
+    empty.visualChangeset.visualChanges =
+      empty.visualChangeset.visualChanges.map((c) => ({
+        ...c,
+        css: "",
+        js: "",
+        domMutations: [],
+      }));
+    expect(getCbVisualPrerequisiteIds([cbVisual(draft)])).toEqual([]);
+    expect(getCbVisualPrerequisiteIds([empty])).toEqual([]);
+    expect(
+      getCbVisualPrerequisiteIds([cbVisual(cb)], ["prerequisites"]),
+    ).toEqual([]);
+    expect(
+      getCbVisualPrerequisiteIds(
+        [cbVisual(cb)],
+        ["prerequisites", "contextualBanditsAuto"],
+      ),
+    ).toEqual(["parent"]);
+  });
+
+  it("lists bandits with a project and prerequisites as dependents", () => {
+    expect(
+      getContextualBanditPrerequisiteDependents([
+        gatedCb(),
+        makeCb({
+          id: "cb_2",
+          prerequisites: [prerequisite],
+        } as unknown as Partial<ContextualBanditInterface>),
+        makeCb({ id: "cb_3", project: "prj_c" }),
+      ]),
+    ).toEqual([{ projects: ["prj_a"], prerequisiteIds: ["parent"] }]);
   });
 });
