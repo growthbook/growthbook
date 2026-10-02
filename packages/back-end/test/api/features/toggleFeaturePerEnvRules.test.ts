@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
-import { getFeature } from "back-end/src/models/FeatureModel";
+import { getFeature, updateFeature } from "back-end/src/models/FeatureModel";
 import {
   createInitialRevision,
   getRevision,
@@ -113,10 +113,10 @@ async function toggleStagingOff(app: Parameters<typeof request>[0]) {
     .send({ environments: { staging: false } });
 }
 
-describe("POST /api/v1/features/:id/toggle", () => {
-  const { app, setReqContext } = setupApp();
-  const org = makeOrg([{ id: "production" }, { id: "staging" }]);
+const { app, setReqContext } = setupApp();
+const org = makeOrg([{ id: "production" }, { id: "staging" }]);
 
+describe("POST /api/v1/features/:id/toggle", () => {
   it("keeps the rules of a document that stores them per environment", async () => {
     const context = makeContext(org);
     setReqContext(context);
@@ -271,5 +271,38 @@ describe("POST /api/v1/features/:id/toggle", () => {
     expect(doc.environmentSettings.staging.enabled).toBe(false);
     expect(doc.rules).toEqual(storedRules);
     expect(await readRules(context)).toEqual(rulesBefore);
+  });
+});
+
+describe("updateFeature with environment settings and explicit rules", () => {
+  it("writes the rules it was given rather than the ones it read", async () => {
+    const context = makeContext(org);
+    await seedFeature({
+      environmentSettings: {
+        production: { enabled: true, rules: [rule("fr_a", "a")] },
+        staging: { enabled: true, rules: [rule("fr_a", "a")] },
+      },
+    });
+    const feature = await getFeature(context, FEATURE_ID);
+    if (!feature) throw new Error("feature missing");
+    expect(feature.rules).toHaveLength(1);
+
+    await updateFeature(
+      context,
+      feature,
+      {
+        environmentSettings: {
+          ...feature.environmentSettings,
+          staging: { enabled: false },
+        },
+        rules: [],
+      },
+      { casOnDateUpdated: feature.dateUpdated },
+    );
+
+    const doc = await getFeatureDoc();
+    expect(doc.rules).toEqual([]);
+    expect(doc.environmentSettings.production.rules).toBeUndefined();
+    expect(await readRules(context)).toEqual([]);
   });
 });
