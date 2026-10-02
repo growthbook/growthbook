@@ -2,6 +2,10 @@ import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { banditStageType, screenshot, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
+import {
+  apiVisualChangesetValidator,
+  postVisualChangesetBody,
+} from "./visual-changesets";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
@@ -85,6 +89,8 @@ export const contextualBanditValidator = baseSchema
     banditModelVersion: z.number().int().nonnegative(),
 
     linkedFeatures: z.array(z.string()).optional(),
+    hasVisualChangesets: z.boolean().optional(),
+    hasURLRedirects: z.boolean().optional(),
 
     pendingFeatureDrafts: z
       .array(
@@ -170,6 +176,8 @@ export const apiContextualBanditValidator = namedSchema(
     stageDateStarted: z.iso.datetime().optional(),
     autoSnapshots: z.boolean().optional(),
     nextSnapshotAttempt: z.iso.datetime().optional(),
+    hasVisualChangesets: z.boolean().optional(),
+    hasURLRedirects: z.boolean().optional(),
   }),
 );
 
@@ -417,6 +425,30 @@ export const apiContextualBanditCancelReturn = z
     status: z.number(),
   })
   .describe("Contextual Bandit snapshot refresh canceled");
+
+export const apiContextualBanditPostVisualChangesetsValidator = {
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: postVisualChangesetBody,
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditPostVisualChangesetsReturn = z.object({
+  visualChangeset: apiVisualChangesetValidator,
+});
+
+export const apiContextualBanditListVisualChangesetsValidator = {
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: z.never(),
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditListVisualChangesetsReturn = z.object({
+  visualChangesets: z.array(apiVisualChangesetValidator),
+});
 
 export const contextualBanditIdAndSnapshotParam = z
   .object({

@@ -1,4 +1,5 @@
 import { ContextualBanditInterface } from "shared/validators";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -25,23 +26,39 @@ export async function refreshLinkedFeaturePayloads(
     | "contextualBandit.stop"
     | "contextualBandit.refresh",
 ): Promise<void> {
-  const features = await getAllFeatures(context);
-  if (!features.length) return;
-
   const environments = getEnvironmentIdsFromOrg(context.org);
+  const features = await getAllFeatures(context);
   const allProjectIds = await context.getAllProjectIds();
-  const payloadKeys = getAffectedSDKPayloadKeys(
-    features,
-    environments,
-    (rule) => {
-      if (rule.enabled === false) return false;
-      return (
-        rule.type === "contextual-bandit-ref" &&
-        rule.contextualBanditId === cb.id
-      );
-    },
-    allProjectIds,
-  );
+
+  const payloadKeys: SDKPayloadKey[] = features.length
+    ? getAffectedSDKPayloadKeys(
+        features,
+        environments,
+        (rule) => {
+          if (rule.enabled === false) return false;
+          return (
+            rule.type === "contextual-bandit-ref" &&
+            rule.contextualBanditId === cb.id
+          );
+        },
+        allProjectIds,
+      )
+    : [];
+
+  if (cb.hasVisualChangesets || cb.hasURLRedirects) {
+    const seen = new Set(
+      payloadKeys.map((k) => `${k.environment}|${k.project}`),
+    );
+    for (const environment of environments) {
+      for (const project of ["", ...(cb.project ? [cb.project] : [])]) {
+        const dedupeKey = `${environment}|${project}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        payloadKeys.push({ environment, project });
+      }
+    }
+  }
+
   if (payloadKeys.length === 0) return;
   queueSDKPayloadRefresh({
     context,

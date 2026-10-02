@@ -786,6 +786,11 @@ tags:
   - name: VisualChangeset_model
     x-displayName: Visual Changeset
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChangeset" />
+  - name: VisualEditorCbExperimentStub_model
+    x-displayName: Visual Editor Cb Experiment Stub
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/VisualEditorCbExperimentStub" />
 security:
   - bearerAuth: []
   - basicAuth: []
@@ -21478,7 +21483,11 @@ paths:
                   visualChangeset:
                     $ref: '#/components/schemas/VisualChangeset'
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    anyOf:
+                      - title: Experiment
+                        $ref: '#/components/schemas/Experiment'
+                      - title: Visual Editor Cb Experiment Stub
+                        $ref: '#/components/schemas/VisualEditorCbExperimentStub'
                 required:
                   - visualChangeset
                 additionalProperties: false
@@ -52310,6 +52319,112 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/cancel' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/visual-changesets:
+    post:
+      operationId: postContextualBanditVisualChangesets
+      summary: Create a visual changeset for a Contextual Bandit
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                editorUrl:
+                  description: >-
+                    URL of the page opened in the visual editor when creating
+                    this changeset
+                  type: string
+                urlPatterns:
+                  description: >-
+                    URL patterns that determine which pages this visual
+                    changeset applies to
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        type: boolean
+                      type:
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                    required:
+                      - type
+                      - pattern
+                    additionalProperties: {}
+              required:
+                - editorUrl
+                - urlPatterns
+              additionalProperties: {}
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visualChangeset:
+                    $ref: '#/components/schemas/VisualChangeset'
+                required:
+                  - visualChangeset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/visual-changesets'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listContextualBanditVisualChangesets
+      summary: List visual changesets for a Contextual Bandit
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visualChangesets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VisualChangeset'
+                required:
+                  - visualChangesets
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/visual-changesets'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandit-queries/{id}:
     get:
       operationId: getContextualBanditQuery
@@ -68241,6 +68356,8 @@ components:
           type: string
         experiment:
           type: string
+        contextualBandit:
+          type: string
         visualChanges:
           type: array
           items:
@@ -68287,7 +68404,6 @@ components:
       required:
         - urlPatterns
         - editorUrl
-        - experiment
         - visualChanges
       additionalProperties: false
     Metric:
@@ -69210,6 +69326,66 @@ components:
         - databases
         - dateCreated
         - dateUpdated
+      additionalProperties: false
+    VisualEditorCbExperimentStub:
+      type: object
+      properties:
+        id:
+          type: string
+        trackingKey:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        project:
+          type: string
+        hashAttribute:
+          type: string
+        hashVersion:
+          anyOf:
+            - type: number
+              const: 1
+            - type: number
+              const: 2
+        type:
+          type: string
+          const: contextual-bandit
+        variations:
+          type: array
+          items:
+            type: object
+            properties:
+              variationId:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              status:
+                type: string
+                enum:
+                  - active
+                  - pending
+                  - deactivated
+            required:
+              - variationId
+              - key
+              - name
+              - description
+            additionalProperties: false
+      required:
+        - id
+        - trackingKey
+        - name
+        - status
+        - project
+        - hashAttribute
+        - hashVersion
+        - type
+        - variations
       additionalProperties: false
     SavedGroup:
       type: object
@@ -77954,6 +78130,10 @@ components:
         nextSnapshotAttempt:
           type: string
           format: date-time
+        hasVisualChangesets:
+          type: boolean
+        hasURLRedirects:
+          type: boolean
       required:
         - id
         - dateCreated
@@ -84627,3 +84807,4 @@ x-tagGroups:
       - Team_model
       - VisualChange_model
       - VisualChangeset_model
+      - VisualEditorCbExperimentStub_model

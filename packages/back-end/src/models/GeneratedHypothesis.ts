@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
 import { ExperimentInterface } from "shared/types/experiment";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { ReqContext } from "back-end/types/request";
 import { createExperiment } from "./ExperimentModel";
 import { createVisualChangeset } from "./VisualChangesetModel";
@@ -147,7 +148,7 @@ export const findOrCreateGeneratedHypothesis = async (
   ) {
     // visual change
     await createVisualChangeset({
-      experiment: createdExperiment,
+      owner: new ExperimentChangesetOwner(context, createdExperiment),
       context,
       urlPatterns: payload?.urlPatterns,
       editorUrl: payload?.targetUrl,

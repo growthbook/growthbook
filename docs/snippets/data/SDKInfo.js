@@ -26,6 +26,9 @@ export default {
         experimentation: "All versions",
       },
       {
+        contextualBanditsAuto: "≥ v1.8.0",
+      },
+      {
         savedGroupReferencesV2: "≥ v1.8.0",
       },
       {
@@ -115,6 +118,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBanditsAuto: "≥ v1.8.0",
       },
       {
         savedGroupReferencesV2: "≥ v1.8.0",
@@ -307,6 +313,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBanditsAuto: "≥ v1.8.0",
       },
       {
         savedGroupReferencesV2: "≥ v1.8.0",
@@ -886,6 +895,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBanditsAuto: "≥ v1.8.0",
       },
       {
         savedGroupReferencesV2: "≥ v1.8.0",
