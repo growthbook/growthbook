@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import * as echarts from "echarts/core";
+import { PiInfo } from "react-icons/pi";
+import { factMetricValidator } from "shared/validators";
 import type {
   ComparisonMode,
   ExplorationConfig,
@@ -9,6 +11,7 @@ import type {
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
+import { ago, date, datetime } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
   extendDateBucketsForward,
@@ -34,6 +37,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
+import Button from "@/ui/Button";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import {
   buildAlignedComparisonOverlayForExplorer,
@@ -55,7 +60,16 @@ import {
   CHART_COLORS,
   COMPARISON_SERIES_COLORS,
   getChartThemeColors,
+  cssColorToHex,
 } from "@/enterprise/components/ProductAnalytics/chart-theme";
+import {
+  getMetricPreviewPartLabels,
+  getMetricPreviewSummary,
+} from "@/components/FactTables/MetricEditor/metricPreview";
+import {
+  fillDailyBuckets,
+  formatUtcWeekday,
+} from "@/components/FactTables/MetricEditor/activityChart";
 import FunnelChart from "./FunnelChart";
 import JourneyChart from "./JourneyChart";
 
@@ -131,6 +145,7 @@ export default function ExplorerChart({
   submittedExploreState,
   loading,
   animate = true,
+  compact = false,
   submittedPreviousTimeFrame = null,
   submittedComparisonMode = null,
   serverBigNumberTrends = null,
@@ -143,6 +158,7 @@ export default function ExplorerChart({
   loading: boolean;
   /** When false, ECharts entry animations are disabled (e.g. for already-seen charts). */
   animate?: boolean;
+  compact?: boolean;
   submittedPreviousTimeFrame?: ExplorationConfig["dateRange"] | null;
   submittedComparisonMode?: ComparisonMode | null;
   serverBigNumberTrends?:
@@ -153,7 +169,28 @@ export default function ExplorerChart({
   const { textColor, tooltipBackgroundColor, gridLineColor } =
     getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
-  const { getFactMetricById } = useDefinitions();
+  const definitions = useDefinitions();
+  // Keep stale results tied to the submitted definition, not the current draft.
+  const getFactMetricById = useCallback(
+    (id: string) => {
+      const value =
+        submittedExploreState.dataset.type === "metric"
+          ? submittedExploreState.dataset.values.find(
+              (value) => value.metricId === id,
+            )
+          : null;
+      return value?.draftMetric
+        ? factMetricValidator.parse({
+            ...value.draftMetric,
+            id,
+            organization: "",
+            dateCreated: new Date(0),
+            dateUpdated: new Date(0),
+          })
+        : definitions.getFactMetricById(id);
+    },
+    [submittedExploreState.dataset, definitions],
+  );
 
   // ECharts only auto-resizes on window resize, not when its parent container
   // changes (e.g. a dashboard block being resized via react-grid-layout or the
@@ -208,6 +245,15 @@ export default function ExplorerChart({
     submittedExploreState,
     getFactMetricById,
   );
+  const previewMetric =
+    compact &&
+    submittedExploreState.dataset.type === "metric" &&
+    submittedExploreState.dataset.values.length === 1
+      ? (submittedExploreState.dataset.values[0].draftMetric ??
+        getFactMetricById(
+          submittedExploreState.dataset.values[0].metricId ?? "",
+        ))
+      : null;
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
     submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
@@ -242,6 +288,15 @@ export default function ExplorerChart({
     getFactMetricById,
     serverBigNumberTrends,
   ]);
+
+  const previewMetricType = previewMetric?.metricType ?? null;
+  const previewParts = previewMetricType
+    ? getMetricPreviewPartLabels(previewMetricType)
+    : null;
+  const previewSummary =
+    previewMetric && exploration
+      ? getMetricPreviewSummary(exploration.result.rows, previewMetric)
+      : null;
 
   const bigNumberCards = useMemo(() => {
     if (
@@ -348,7 +403,7 @@ export default function ExplorerChart({
 
     // Bar charts: sort categories by total value; timeseries: chronological
     let sortedXValues: string[];
-    if (isBarType) {
+    if (isBarType && !compact) {
       const xValueTotals = computeDimensionTotals(rows, 0, renderOpts);
       // Horizontal bars render bottom-to-top, so sort ascending for largest on top
       sortedXValues = Array.from(uniqueXValues).sort((a, b) =>
@@ -358,6 +413,14 @@ export default function ExplorerChart({
       );
     } else {
       sortedXValues = Array.from(uniqueXValues).sort();
+    }
+    // The metric preview's daily bars need a slot for days without rows, or
+    // the weekday labels silently skip them.
+    if (compact && firstDimensionIsDate && resolvedGranularity === "day") {
+      sortedXValues = fillDailyBuckets(sortedXValues, {
+        dateStart: exploration.dateStart,
+        dateEnd: exploration.dateEnd,
+      });
     }
 
     // A custom comparison window can hold more buckets than the primary. The
@@ -688,6 +751,43 @@ export default function ExplorerChart({
     const xAxis = isHorizontalBar ? valueAxis : categoryAxisOption;
     const yAxis = isHorizontalBar ? categoryAxisOption : valueAxis;
 
+    // Metric preview bars: the day, its value, and the parts behind it.
+    const compactTooltip = () => {
+      const parts = previewMetricType
+        ? getMetricPreviewPartLabels(previewMetricType)
+        : null;
+      const cellsByDay = new Map(
+        rows.map((row) => [String(row.dimensions[0] ?? ""), row.values?.[0]]),
+      );
+      return {
+        appendTo: "body",
+        trigger: "axis",
+        padding: [10, 14],
+        backgroundColor: tooltipBackgroundColor,
+        textStyle: { color: textColor },
+        axisPointer: { type: "shadow" },
+        formatter: (params: unknown) => {
+          const point = (Array.isArray(params) ? params[0] : params) as {
+            name?: string;
+            value?: number;
+          };
+          const day = String(point?.name ?? "");
+          const cell = cellsByDay.get(day);
+          const lines = [
+            `<strong>${date(new Date(`${day.slice(0, 10)}T00:00:00Z`), "UTC")}</strong>`,
+            `Value: ${formatNumber(point?.value ?? 0)}`,
+          ];
+          if (parts) {
+            lines.push(
+              `${parts.numerator}: ${formatNumber(cell?.numerator ?? 0)}`,
+              `${parts.denominator}: ${formatNumber(cell?.denominator ?? 0)}`,
+            );
+          }
+          return lines.join("<br/>");
+        },
+      };
+    };
+
     const tooltipFormatter = buildExplorerChartTooltipFormatter({
       chartType,
       resolvedGranularity,
@@ -730,7 +830,7 @@ export default function ExplorerChart({
         // In compare mode a custom HTML legend (ComparisonChartLegend) renders
         // above the chart instead. The ECharts legend stays in the option (so
         // legendSelect/legendUnSelect actions still toggle series) but hidden.
-        show: comparisonPeriodLabels ? false : legendShow,
+        show: compact || comparisonPeriodLabels ? false : legendShow,
         type: "plain",
         left: "center",
         top: 8,
@@ -758,12 +858,41 @@ export default function ExplorerChart({
             }
           : {}),
       },
-      xAxis,
-      yAxis,
-      series: seriesConfigs,
+      xAxis: compact
+        ? {
+            ...categoryAxis,
+            name: "",
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { show: false },
+            axisLabel: {
+              color: cssColorToHex("var(--gray-10)"),
+              formatter: (day: string) => formatUtcWeekday(day, "short"),
+            },
+          }
+        : xAxis,
+      ...(compact ? { tooltip: compactTooltip() } : {}),
+      yAxis: compact ? { ...valueAxis, show: false } : yAxis,
+      series: compact
+        ? sortedSeriesKeys.map((key) => ({
+            name: seriesMeta[key]?.name ?? key,
+            type: "bar",
+            barCategoryGap: "15%",
+            data: sortedXValues.map((day) => ({
+              // Days without rows plot as zero (see fillDailyBuckets above).
+              value: dataMap[key][day] ?? 0,
+              itemStyle: {
+                color: cssColorToHex("var(--violet-9)"),
+                borderRadius: [2, 2, 0, 0],
+              },
+            })),
+          }))
+        : seriesConfigs,
     };
   }, [
     exploration?.result?.rows,
+    exploration?.dateStart,
+    exploration?.dateEnd,
     comparisonExploration?.result?.rows,
     compareEnabled,
     submittedExploreState,
@@ -774,6 +903,8 @@ export default function ExplorerChart({
     gridLineColor,
     tooltipBackgroundColor,
     animate,
+    compact,
+    previewMetricType,
     customCategoryAxisName,
     valueAxisName,
     chartBoxSize,
@@ -875,8 +1006,8 @@ export default function ExplorerChart({
         direction="column"
         position="relative"
         style={{
-          border: "1px solid var(--gray-a3)",
-          borderRadius: "var(--radius-4)",
+          border: compact ? undefined : "1px solid var(--gray-a3)",
+          borderRadius: compact ? undefined : "var(--radius-4)",
           flex: 1,
           minHeight: 0,
         }}
@@ -894,6 +1025,7 @@ export default function ExplorerChart({
             exploration={exploration}
             submittedExploreState={submittedExploreState}
             animate={animate}
+            compact={compact}
           />
         )}
       </Flex>
@@ -935,8 +1067,8 @@ export default function ExplorerChart({
       direction="column"
       position="relative"
       style={{
-        border: "1px solid var(--gray-a3)",
-        borderRadius: "var(--radius-4)",
+        border: compact ? undefined : "1px solid var(--gray-a3)",
+        borderRadius: compact ? undefined : "var(--radius-4)",
         flex: 1,
         minHeight: 0,
         minWidth: 0,
@@ -972,6 +1104,34 @@ export default function ExplorerChart({
           <Text color="text-mid" weight="medium">
             The query ran successfully, but no data was returned.
           </Text>
+        </Flex>
+      ) : compact && bigNumberCards?.length ? (
+        <Flex
+          direction="column"
+          gap="2"
+          pb="4"
+          style={{ borderBottom: "1px solid var(--gray-a5)" }}
+        >
+          {bigNumberCards.map((card, index) => {
+            const sample =
+              exploration.result?.rows[0]?.values?.[index]?.denominator;
+            return (
+              <div key={card.label}>
+                <div
+                  style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}
+                >
+                  {formatNumber(card.value)}
+                </div>
+                <Text as="div" size="sm" color="text-mid">
+                  {card.label}
+                  {!renderOpts.isRatioByIndex[index] &&
+                  (sample ?? null) !== null
+                    ? ` · ${sample?.toLocaleString()} units in sample`
+                    : ""}
+                </Text>
+              </div>
+            );
+          })}
         </Flex>
       ) : bigNumberCards && bigNumberCards.length > 0 ? (
         <Flex
@@ -1034,6 +1194,65 @@ export default function ExplorerChart({
           direction="column"
           style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%" }}
         >
+          {compact && (
+            <Box pb="2">
+              <Flex align="center" gap="2">
+                <div
+                  style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}
+                >
+                  {previewSummary?.value === null || !previewSummary
+                    ? "—"
+                    : formatNumber(previewSummary.value)}
+                </div>
+                <Tooltip
+                  content={
+                    <Box>
+                      <Text as="div" size="sm">
+                        {previewSummary?.label}
+                      </Text>
+                      {previewMetric?.metricType === "proportion" && (
+                        <Text as="div" size="sm">
+                          Units matching the metric’s conditions each day, not
+                          an experiment conversion rate. A unit may appear on
+                          multiple days.
+                        </Text>
+                      )}
+                    </Box>
+                  }
+                >
+                  <Button
+                    variant="ghost"
+                    color="gray"
+                    size="sm"
+                    aria-label="What this number means"
+                  >
+                    <PiInfo />
+                  </Button>
+                </Tooltip>
+              </Flex>
+              <Text as="div" size="sm" color="text-mid">
+                {previewSummary?.label}
+                {previewSummary?.date && (
+                  <>
+                    {" · "}
+                    <Tooltip content={datetime(previewSummary.date)}>
+                      <span>{ago(previewSummary.date)}</span>
+                    </Tooltip>
+                  </>
+                )}
+              </Text>
+              {previewParts &&
+                previewSummary &&
+                previewSummary.denominator !== null && (
+                  <Text as="div" size="sm" color="text-mid">
+                    {previewParts.numerator}:{" "}
+                    {formatNumber(previewSummary.numerator)} ·{" "}
+                    {previewParts.denominatorTotal}:{" "}
+                    {formatNumber(previewSummary.denominator)}
+                  </Text>
+                )}
+            </Box>
+          )}
           {compareReturnedNoData ? (
             <Box px="4" pt="3">
               <Callout status="info">
@@ -1070,16 +1289,26 @@ export default function ExplorerChart({
                 ...chartConfig,
                 ...(animate ? {} : { animation: false }),
                 padding: [0, 0, 0, 0],
-                grid: {
-                  left: CHART_GRID.left,
-                  right: CHART_GRID.right,
-                  top: chartConfig.legend?.show
-                    ? CHART_GRID.topWithLegend
-                    : CHART_GRID.top,
-                  bottom: CHART_GRID.bottom,
-                },
+                grid: compact
+                  ? { top: 20, right: 0, bottom: 28, left: 0 }
+                  : {
+                      left: CHART_GRID.left,
+                      right: CHART_GRID.right,
+                      top: chartConfig.legend?.show
+                        ? CHART_GRID.topWithLegend
+                        : CHART_GRID.top,
+                      bottom: CHART_GRID.bottom,
+                    },
               }}
-              style={{ width: "100%", height: "100%" }}
+              style={
+                compact
+                  ? {
+                      width: "100%",
+                      height: "auto",
+                      aspectRatio: "2 / 1",
+                    }
+                  : { width: "100%", height: "100%" }
+              }
               onChartReady={(chart) => {
                 chartInstanceRef.current = chart ?? null;
                 if (chartsContext && chart) {

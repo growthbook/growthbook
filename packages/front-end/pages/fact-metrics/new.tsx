@@ -9,8 +9,10 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import Badge from "@/ui/Badge";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -26,6 +28,8 @@ import {
 
 export default function NewFactMetricPage() {
   const router = useRouter();
+  const [actionsContainer, setActionsContainer] =
+    useState<HTMLDivElement | null>(null);
   const {
     project,
     ready,
@@ -201,9 +205,15 @@ export default function NewFactMetricPage() {
           { display: "New Fact Metric" },
         ]}
       />
-      <Heading as="h1" mb="3">
-        New Fact Metric
-      </Heading>
+      <Flex align="center" justify="between" gap="3" wrap="wrap" mb="3">
+        <Flex align="center" gap="3" wrap="wrap">
+          <Heading as="h1" mb="0">
+            New Fact Metric
+          </Heading>
+          <Badge label="Draft" color="pink" variant="solid" radius="full" />
+        </Flex>
+        <div ref={setActionsContainer} style={{ minHeight: 40, minWidth: 1 }} />
+      </Flex>
       {!canCreate ? (
         <Callout status="error">
           You don&apos;t have permission to create Fact Metrics in this Project.{" "}
@@ -247,6 +257,7 @@ export default function NewFactMetricPage() {
             </Callout>
           )}
           <MetricWorkspace
+            actionsContainer={actionsContainer}
             existing={null}
             duplicateFrom={duplicateFrom}
             initialFactTable={initialFactTable}
@@ -261,9 +272,17 @@ export default function NewFactMetricPage() {
       )}
       {showLegacySwitch && (
         <Flex mt="3">
-          <Button variant="ghost" onClick={() => setShowLegacyForm(true)}>
-            Use legacy SQL metric form
-          </Button>
+          <DropdownMenu
+            trigger={
+              <Button variant="ghost" color="gray" size="sm">
+                More options
+              </Button>
+            }
+          >
+            <DropdownMenuItem onClick={() => setShowLegacyForm(true)}>
+              Use legacy SQL metric form
+            </DropdownMenuItem>
+          </DropdownMenu>
         </Flex>
       )}
     </div>

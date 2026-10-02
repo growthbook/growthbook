@@ -19,6 +19,7 @@ export default function ColumnSelect({
   onChange,
   label = "Column",
   canEdit = true,
+  showUnavailableWarning = true,
 }: {
   shape: RatioShape;
   factTable: FactTableDefinition | null;
@@ -27,6 +28,7 @@ export default function ColumnSelect({
   onChange: (column: string) => void;
   label?: string;
   canEdit?: boolean;
+  showUnavailableWarning?: boolean;
 }) {
   if (!canEdit) {
     const agg = aggregationForShape(shape);
@@ -48,6 +50,7 @@ export default function ColumnSelect({
   });
   if (columns.length === 0) {
     if (
+      !showUnavailableWarning ||
       !factTable ||
       shape === "count" ||
       shape === "days" ||
