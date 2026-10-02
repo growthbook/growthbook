@@ -66,7 +66,6 @@ import {
 } from "shared/sdk-versioning";
 import {
   ACTIVE_DRAFT_STATUSES,
-  HoldoutInterface,
   RampScheduleInterface,
   RampStepAction,
   RevisionMetadata,
@@ -137,6 +136,7 @@ import {
   deleteFeature,
   editFeatureRule,
   getAllFeatures,
+  getAllFeaturesForGraph,
   getAllFeaturesWithoutEditorFields,
   getFeature,
   getFeaturesByIds,
@@ -6473,46 +6473,39 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const minimalRevisions = await getMinimalRevisions(context, org.id, id);
+  const [minimalRevisions, pageRevisions, rampScheduleDocs, codeRefs, holdout] =
+    await Promise.all([
+      getMinimalRevisions(context, org.id, id),
+      getFeaturePageRevisions(context, org.id, id, feature),
+      context.models.rampSchedules.getAllByFeatureId(feature.id),
+      getAllCodeRefsForFeature({ feature: feature.id, organization: org }),
+      feature.holdout
+        ? context.models.holdout.getById(feature.holdout.id)
+        : null,
+    ]);
+  let fullRevisions = pageRevisions;
 
-  let fullRevisions = await getFeaturePageRevisions(
-    context,
-    org.id,
-    id,
-    feature,
-  );
-
-  // The above only fetches the most recent revisions
-  // If we're requesting a specific version that's older than that, fetch it directly
-  if (req.query.v) {
-    const version = parseInt(req.query.v);
-    if (!fullRevisions.some((r) => r.version === version)) {
-      const revision = await getRevision({
+  // The above only fetches the most recent revisions. The requested version
+  // and the live version must always be present, so fetch any that fall
+  // outside that window.
+  const requestedVersion = req.query.v ? parseInt(req.query.v) : null;
+  const missingVersions = [...new Set([requestedVersion, feature.version])]
+    .filter((v): v is number => v !== null && !Number.isNaN(v))
+    .filter((v) => !fullRevisions.some((r) => r.version === v));
+  const fetchedRevisions = await Promise.all(
+    missingVersions.map((version) =>
+      getRevision({
         context,
         organization: org.id,
         featureId: id,
         feature,
         version,
-      });
-      if (revision) {
-        fullRevisions.push(revision);
-      }
-    }
-  }
-
-  // Make sure we always select the live version, even if it's not one of the most recent revisions
-  if (!fullRevisions.some((r) => r.version === feature.version)) {
-    const revision = await getRevision({
-      context,
-      organization: org.id,
-      featureId: id,
-      feature,
-      version: feature.version,
-    });
-    if (revision) {
-      fullRevisions.push(revision);
-    }
-  }
+      }),
+    ),
+  );
+  fetchedRevisions.forEach((revision) => {
+    if (revision) fullRevisions.push(revision);
+  });
 
   // Historically, we haven't properly cleared revision history when deleting a feature
   // So if you create a feature with the same name as a previously deleted one, it would inherit the revision history
@@ -6583,12 +6576,10 @@ export async function getFeatureById(
       experimentsMap.set(exp.id, exp);
     });
   }
-  // find active ramp schedules for this feature (before safe rollouts so we
-  // can check for ramp-linked safe rollout IDs).
+  // Ramp schedules come before safe rollouts so we can check for ramp-linked
+  // safe rollout IDs.
   const now = Date.now();
-  const rampSchedules = (
-    await context.models.rampSchedules.getAllByFeatureId(feature.id)
-  ).map((rs) =>
+  const rampSchedules = rampScheduleDocs.map((rs) =>
     rs.startedAt ? { ...rs, elapsedMs: now - rs.startedAt.getTime() } : rs,
   );
 
@@ -6616,18 +6607,6 @@ export async function getFeatureById(
 
   const live = fullRevisions.find((r) => r.version === feature.version);
   await repairFeatureDriftIfNeeded(context, feature, live, environments);
-
-  // find code references
-  const codeRefs = await getAllCodeRefsForFeature({
-    feature: feature.id,
-    organization: org,
-  });
-
-  // find holdout
-  let holdout: HoldoutInterface | null = null;
-  if (feature.holdout) {
-    holdout = await context.models.holdout.getById(feature.holdout.id);
-  }
 
   res.status(200).json({
     status: 200,
@@ -7762,13 +7741,19 @@ export async function getFeaturesHealth(
 
   const [
     allFeatures,
+    requestedFeatures,
     allExperiments,
     draftRevisions,
     allRampSchedules,
     safeRollouts,
     jsonSchemas,
   ] = await Promise.all([
-    getAllFeaturesWithoutEditorFields(context),
+    // The graph only needs references; the health signals validate the
+    // requested features' values, so those load in full.
+    featureIds
+      ? getAllFeaturesForGraph(context)
+      : getAllFeaturesWithoutEditorFields(context),
+    featureIds ? getFeaturesByIds(context, featureIds) : null,
     getAllExperimentsForStaleGraph(context),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
@@ -7802,10 +7787,7 @@ export async function getFeaturesHealth(
     }
   }
 
-  const targetIds = featureIds ? new Set(featureIds) : null;
-  const targetFeatures = targetIds
-    ? allFeatures.filter((f) => targetIds.has(f.id))
-    : allFeatures;
+  const targetFeatures = requestedFeatures ?? allFeatures;
   const knownExperimentIds = await getExistingExperimentIds(context, [
     ...new Set(
       targetFeatures.flatMap((f) =>
@@ -7926,7 +7908,7 @@ export async function getFeaturesDependents(
   const allEnvIds = getEnvironments(context.org).map((e) => e.id);
 
   const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeaturesWithoutEditorFields(context, { includeArchived: true }),
+    getAllFeaturesForGraph(context, { includeArchived: true }),
     getAllExperimentsForStaleGraph(context, { includeArchived: true }),
   ]);
 
@@ -8179,7 +8161,9 @@ export async function getFeatureDependencyIndex(
   >,
 ) {
   const context = getContextFromReq(req);
-  const allFeatures = await getAllFeatures(context, { includeArchived: true });
+  const allFeatures = await getAllFeaturesForGraph(context, {
+    includeArchived: true,
+  });
 
   const prereqIds = new Set<string>();
   for (let i = 0; i < allFeatures.length; i++) {

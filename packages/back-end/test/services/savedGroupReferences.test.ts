@@ -1,10 +1,10 @@
 import type { ReqContext } from "back-end/types/request";
-import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { loadSavedGroupReferences } from "back-end/src/services/savedGroups";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeaturesWithoutEditorFields: jest.fn(async () => []),
+  getAllFeaturesForGraph: jest.fn(async () => []),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllExperiments: jest.fn(async () => []),
@@ -34,13 +34,13 @@ describe("loadSavedGroupReferences", () => {
     }) as unknown as ReqContext;
 
   beforeEach(() => {
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([]);
+    jest.mocked(getAllFeaturesForGraph).mockResolvedValue([]);
     jest.mocked(getAllExperiments).mockResolvedValue([]);
   });
 
   it("sees a group named only inside a prerequisite condition, on every holder", async () => {
     const gate = { id: "parent", condition: '{"value":{"$inGroup":"sg_1"}}' };
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+    jest.mocked(getAllFeaturesForGraph).mockResolvedValue([
       {
         id: "f_rule",
         environmentSettings: { production: { enabled: true } },

@@ -1,3 +1,4 @@
+import { SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES } from "shared/constants";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
 import {
@@ -229,6 +230,22 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     await touchDefinitionsVersion(this.context.org.id);
   }
 
+  /**
+   * Full groups, ID lists included, for the given ids. Payload builds load the
+   * groups their features reference this way instead of every group in the org.
+   */
+  public async getByIdsWithValues(
+    ids: string[],
+  ): Promise<SavedGroupInterface[]> {
+    if (!ids.length) return [];
+    const groups = await this._find(idsQuery(ids));
+    const requested = new Set(ids);
+    const overlay = this.scanOverlay
+      ? new Map([...this.scanOverlay].filter(([id]) => requested.has(id)))
+      : null;
+    return overlayDocsById(groups, overlay);
+  }
+
   /** Everything but the ID lists, which can be enormous. All groups, or `ids`. */
   public async getAllWithoutValues(
     ids?: string[],
@@ -251,7 +268,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
   /** As `getAllWithoutValues`, with whether each ID list is non-empty. */
   public async getMetadata(ids: string[]): Promise<SavedGroupMetadata[]> {
     if (!ids.length) return [];
-    const [groups, withValues] = await Promise.all([
+    const [groups, withValues, large] = await Promise.all([
       this.getAllWithoutValues(ids),
       this._find(
         { ...idsQuery(ids), values: { $type: "array", $ne: [] } } as Parameters<
@@ -259,8 +276,20 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
         >[0],
         { projection: { values: 0, condition: 0 } },
       ),
+      // Only a list longer than the cap has an element past it. Sized in
+      // Mongo so no ID list leaves the database.
+      this._find(
+        {
+          ...idsQuery(ids),
+          [`values.${SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES}`]: {
+            $exists: true,
+          },
+        } as Parameters<typeof this._find>[0],
+        { projection: { values: 0, condition: 0 } },
+      ),
     ]);
     const nonEmpty = new Set(withValues.map((group) => group.id));
+    const largeIds = new Set(large.map((group) => group.id));
     return groups.map((group) => {
       const proposed = this.scanOverlay?.get(group.id);
       return {
@@ -268,6 +297,10 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
         hasValues: proposed
           ? !!proposed.values?.length
           : nonEmpty.has(group.id),
+        largeValues: proposed
+          ? (proposed.values?.length ?? 0) >
+            SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES
+          : largeIds.has(group.id),
       };
     });
   }

@@ -228,7 +228,7 @@ export async function validateConditionForGroup(
   savedGroup: SavedGroupInterface,
   condition: string,
 ): Promise<void> {
-  const allSavedGroups = await context.models.savedGroups.getAll();
+  const allSavedGroups = await context.models.savedGroups.getAllWithoutValues();
   const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
   groupMap.set(savedGroup.id, { ...savedGroup, condition });
   const conditionRes = validateCondition(condition, groupMap);

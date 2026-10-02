@@ -13,6 +13,7 @@ import {
   SavedGroupWithoutValues,
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
+  SavedGroupMetadata,
 } from "shared/types/saved-group";
 import {
   Revision,
@@ -101,7 +102,8 @@ export const postSavedGroup = async (
   let uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
-    const allSavedGroups = await context.models.savedGroups.getAll();
+    const allSavedGroups =
+      await context.models.savedGroups.getAllWithoutValues();
     const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
     const conditionRes = validateCondition(
       condition,
@@ -735,7 +737,8 @@ export const putSavedGroup = async (
     // Validate condition to make sure it's valid. When skipCycleCheck=1 (used by
     // importers), still validate general JSON/syntax but skip saved-group
     // cyclic/invalid reference checks so users can fix them later.
-    const allSavedGroups = await context.models.savedGroups.getAll();
+    const allSavedGroups =
+      await context.models.savedGroups.getAllWithoutValues();
     const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
     // Include the updated condition in the savedGroupsObj for validation
     groupMap.set(savedGroup.id, {
@@ -1246,3 +1249,17 @@ export const getSavedGroupDraftStates = async (
 };
 
 // endregion GET /saved-groups/draft-states
+
+// region GET /saved-groups/metadata
+
+export const getSavedGroupsMetadata = async (
+  req: AuthRequest<null, Record<string, never>, { ids: string }>,
+  res: Response<{ status: 200; savedGroups: SavedGroupMetadata[] }>,
+) => {
+  const context = getContextFromReq(req);
+  const ids = [...new Set(req.query.ids.split(",").filter(Boolean))];
+  const savedGroups = await context.models.savedGroups.getMetadata(ids);
+  return res.status(200).json({ status: 200, savedGroups });
+};
+
+// endregion GET /saved-groups/metadata

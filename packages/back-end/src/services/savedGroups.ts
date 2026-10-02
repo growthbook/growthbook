@@ -10,7 +10,7 @@ import {
   getPayloadKeysForAllEnvs,
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
-import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { BadRequestError } from "back-end/src/util/errors";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
@@ -78,7 +78,7 @@ export async function loadSavedGroupReferences(
   // this loader honors the bulk publisher's feature scan overlay so the scan
   // can evaluate a release's proposed end-state.
   const [allFeatures, allExperiments, allBandits] = await Promise.all([
-    getAllFeaturesWithoutEditorFields(context, {}),
+    getAllFeaturesForGraph(context, {}),
     getAllExperiments(context, {}),
     context.models.contextualBandits.getAll(),
   ]);

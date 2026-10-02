@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
-import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import {
+  SavedGroupMetadata,
+  SavedGroupWithoutValues,
+} from "shared/types/saved-group";
 import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
@@ -164,15 +167,33 @@ export default function RuleList(props: RuleListProps) {
     return [...ids];
   }, [feature.rules, savedGroupDefs]);
 
+  // Lists over the conflict-analysis cap stay opaque, so their values are
+  // never fetched.
+  const metadataPath = referencedListGroupIds.length
+    ? `/saved-groups/metadata?ids=${encodeURIComponent(
+        referencedListGroupIds.join(","),
+      )}`
+    : "";
+  const { data: referencedListMetadata } = useApi<{
+    savedGroups: SavedGroupMetadata[];
+  }>(metadataPath, { shouldRun: () => !!metadataPath });
+  const listGroupIdsToLoad = useMemo<string[]>(() => {
+    if (!referencedListMetadata) return [];
+    const large = new Set(
+      referencedListMetadata.savedGroups
+        .filter((g) => g.largeValues)
+        .map((g) => g.id),
+    );
+    return referencedListGroupIds.filter((id) => !large.has(id));
+  }, [referencedListMetadata, referencedListGroupIds]);
+
   // Lazily-fetched ID-list values, keyed by saved group id.
   const [listGroupValues, setListGroupValues] = useState<Map<string, string[]>>(
     new Map(),
   );
 
   useEffect(() => {
-    const toFetch = referencedListGroupIds.filter(
-      (id) => !listGroupValues.has(id),
-    );
+    const toFetch = listGroupIdsToLoad.filter((id) => !listGroupValues.has(id));
     if (!toFetch.length) return;
     let cancelled = false;
     Promise.all(
@@ -192,7 +213,7 @@ export default function RuleList(props: RuleListProps) {
     return () => {
       cancelled = true;
     };
-  }, [referencedListGroupIds, listGroupValues, apiCall]);
+  }, [listGroupIdsToLoad, listGroupValues, apiCall]);
 
   const savedGroupConflictMap = useMemo<
     Map<string, SavedGroupForConflicts>
