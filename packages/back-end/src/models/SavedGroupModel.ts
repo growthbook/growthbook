@@ -1,4 +1,5 @@
 import { SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES } from "shared/constants";
+import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
 import {
@@ -20,6 +21,7 @@ import {
 } from "back-end/src/events/bulkPublishCorrelation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
+import { loadSavedGroupsWithNested } from "back-end/src/util/featureDefinitionReferences.util";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logSavedGroupCreatedEvent,
@@ -244,6 +246,27 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       ? new Map([...this.scanOverlay].filter(([id]) => requested.has(id)))
       : null;
     return overlayDocsById(groups, overlay);
+  }
+
+  /**
+   * The groups a condition names, plus any those reach through condition
+   * groups, without values: what validating the condition's references needs.
+   */
+  public async getReferencedWithoutValues(
+    condition: string | undefined,
+  ): Promise<SavedGroupWithoutValues[]> {
+    if (!condition) return [];
+    const ids: string[] = [];
+    try {
+      forEachSavedGroupIdInCondition(JSON.parse(condition), (id) =>
+        ids.push(id),
+      );
+    } catch {
+      return [];
+    }
+    return loadSavedGroupsWithNested(ids, (wanted) =>
+      this.getAllWithoutValues(wanted),
+    );
   }
 
   /** Everything but the ID lists, which can be enormous. All groups, or `ids`. */

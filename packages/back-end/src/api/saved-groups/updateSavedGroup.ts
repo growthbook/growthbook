@@ -82,9 +82,11 @@ export const updateSavedGroup = createApiRequestHandler(
     condition &&
     condition !== savedGroup.condition
   ) {
-    const allSavedGroups =
-      await req.context.models.savedGroups.getAllWithoutValues();
-    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    const referencedGroups =
+      await req.context.models.savedGroups.getReferencedWithoutValues(
+        condition,
+      );
+    const groupMap = new Map(referencedGroups.map((sg) => [sg.id, sg]));
     // Include the updated condition in the groupMap for validation
     groupMap.set(savedGroup.id, {
       ...savedGroup,
