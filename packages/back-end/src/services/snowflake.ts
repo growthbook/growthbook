@@ -202,7 +202,7 @@ export function snowflakeMonitoringToStatistics(
   };
 }
 
-const QUERY_STATISTICS_TIMEOUT_MS = 10000;
+const QUERY_STATISTICS_TIMEOUT_MS = 3000;
 
 // Best effort: a missing or slow stats response must never fail the query.
 async function getSnowflakeQueryStatistics(
