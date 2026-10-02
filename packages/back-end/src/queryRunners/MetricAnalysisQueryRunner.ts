@@ -1,6 +1,10 @@
 import { UpdateProps } from "shared/types/base-model";
 import { getValidDateOffsetByUTC } from "shared/dates";
-import { isBinomialMetric, isRatioMetric } from "shared/experiments";
+import {
+  getFactMetricFactTableIds,
+  isBinomialMetric,
+  isRatioMetric,
+} from "shared/experiments";
 import {
   meanVarianceFromSums,
   proportionVarianceFromSums,
@@ -95,6 +99,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
             setExternalId,
             queryMetadata,
           ),
+        factTableIds: getFactMetricFactTableIds(this.metric),
         queryType: "metricAnalysis",
       }),
     ];

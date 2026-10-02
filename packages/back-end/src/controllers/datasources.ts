@@ -19,6 +19,7 @@ import { TemplateVariables } from "shared/types/sql";
 import {
   eventForwarderAccessTestCreateBodySchema,
   eventForwarderAccessTestEditBodySchema,
+  testQueryTypeValidator,
 } from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
@@ -1334,10 +1335,14 @@ export async function testLimitedQuery(
     timestampColumn?: string;
     limit?: number;
     detectColumns?: boolean;
+    queryType?: unknown;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
+  const queryType = testQueryTypeValidator
+    .catch("testQuery")
+    .parse(req.body.queryType);
 
   const {
     query,
@@ -1376,6 +1381,7 @@ export async function testLimitedQuery(
     maxLimit,
     timestampColumn,
     detectColumns,
+    queryType,
   );
 
   res.status(200).json({

@@ -31,6 +31,38 @@ export function applyMetricOverrides(
   return;
 }
 
+// Warehouse stats are often strings or missing; Number(undefined) would record NaN
+export function toOptionalNumber(value: unknown): number | undefined {
+  if ((value ?? null) === null) return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+}
+
+export function getWarehouseErrorCode(error: unknown): string | undefined {
+  const options = [
+    "data.data.queries.0.errorCode", // Snowflake
+    "errors.0.reason", // BigQuery
+    "errorName", // Presto / Trino
+    "response.sqlState", // Databricks
+    "code", // Node network errors
+    "sqlState", // Node network errors
+    "errorCode", // Databricks generic fallback
+  ];
+
+  const isRecord = (obj: unknown): obj is Record<string, unknown> =>
+    !!obj && typeof obj === "object";
+
+  for (const option of options) {
+    const value = option.split(".").reduce((obj: unknown, key) => {
+      if (key === "0") return Array.isArray(obj) ? obj[0] : undefined;
+      return isRecord(obj) ? obj[key] : undefined;
+    }, error);
+    if (typeof value === "number" && value !== -1) return String(value);
+    if (typeof value === "string" && value) return value;
+  }
+  return undefined;
+}
+
 // get the query tag string for the integration
 export function getQueryTagString(
   queryMetadata: QueryMetadata,

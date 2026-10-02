@@ -24,7 +24,7 @@ import {
   FactTableColumnType,
 } from "shared/types/fact-table";
 import { FeatureInterface } from "shared/types/feature";
-import { QueryStatistics, QueryType } from "shared/types/query";
+import { QueryStatistics, QueryType, TestQueryType } from "shared/types/query";
 import {
   formatQueryExecutionErrorForApi,
   DataSourceParamsForType,
@@ -366,6 +366,7 @@ export async function testQuery(
   timestampColumn?: string,
   // Return detected output columns along with sampled rows.
   detectColumns?: boolean,
+  queryType: TestQueryType = "testQuery",
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
@@ -397,7 +398,7 @@ export async function testQuery(
     const result = await integration.runTestQuery(
       sql,
       timestampCols,
-      "testQuery",
+      queryType,
     );
 
     return {
@@ -476,7 +477,11 @@ export async function testQueryValidity(
     "timestamp",
   );
   try {
-    const results = await integration.runTestQuery(sql, undefined, "testQuery");
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "exposureQueryValidation",
+    );
     return findMissingRequiredColumns(
       results,
       requiredColumns,
@@ -505,7 +510,11 @@ export async function testFeatureUsageQueryValidity(
     "timestamp",
   );
   try {
-    const results = await integration.runTestQuery(sql, undefined, "testQuery");
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "featureUsageQueryValidation",
+    );
     return findMissingRequiredColumns(
       results,
       requiredColumns,

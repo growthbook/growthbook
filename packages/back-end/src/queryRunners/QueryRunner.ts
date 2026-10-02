@@ -80,6 +80,8 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   onFailure?: () => void;
   queryType: QueryType;
   runAtEnd?: boolean;
+  // Fact tables the query reads; added to its metadata for usage attribution
+  factTableIds?: string[];
 };
 
 const FINISH_EVENT = "finish";
@@ -1192,12 +1194,16 @@ export abstract class QueryRunner<
       query,
       dependencies,
       runAtEnd,
-      run,
       process,
       onFailure: specifiedOnFailureCallback,
       onSuccess,
       queryType,
+      factTableIds,
     } = params;
+    const run: typeof params.run = factTableIds
+      ? (query, setExternalId, queryMetadata) =>
+          params.run(query, setExternalId, { ...queryMetadata, factTableIds })
+      : params.run;
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.debug("Trying to reuse existing query for " + name);

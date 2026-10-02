@@ -151,7 +151,8 @@ export default class ClickHouse extends SqlIntegration {
         }),
         statistics: data.statistics
           ? {
-              executionDurationMs: data.statistics.elapsed,
+              // ClickHouse reports elapsed in seconds
+              executionDurationMs: data.statistics.elapsed * 1000,
               rowsProcessed: data.statistics.rows_read,
               bytesProcessed: data.statistics.bytes_read,
             }

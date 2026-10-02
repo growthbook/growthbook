@@ -1,8 +1,18 @@
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 010d4793fc069048ad384e4ed839f1331cb67d98..502bd551c0728d9f51f39655349bbef45dcb280f 100644
+index 010d4793fc069048ad384e4ed839f1331cb67d98..35c91b08a21c79fb13b4bb906d01dbc081565747 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
-@@ -299,13 +299,18 @@ declare module 'snowflake-sdk' {
+@@ -285,6 +285,9 @@ declare module 'snowflake-sdk' {
+      */
+     getQueryStatusThrowIfError(queryId: string): Promise<string>;
+ 
++    /** Raw `/monitoring/queries/{queryId}` response body; GrowthBook patch, undocumented shape. */
++    getQueryMonitoringData(queryId: string): Promise<unknown>;
++
+     /**
+      *  Gets the results from a previously ran query based on queryId.
+      */
+@@ -299,13 +302,18 @@ declare module 'snowflake-sdk' {
  
      /**
       * Checks whether the given status is currently running.
@@ -23,3 +33,18 @@ index 010d4793fc069048ad384e4ed839f1331cb67d98..502bd551c0728d9f51f39655349bbef4
  
      /**
       * Returns a JSON-serialized string of the connection state (master/session
+diff --git a/dist/lib/connection/connection.js b/dist/lib/connection/connection.js
+index 47d43aa44241e28d89f874ad74d55fcffbca7622..9206d0c897390307252d74b143d639ba1616d0b6 100644
+--- a/dist/lib/connection/connection.js
++++ b/dist/lib/connection/connection.js
+@@ -426,6 +426,10 @@ function Connection(context) {
+         Logger.getInstance().trace('Connection[id: %s] - getQueryStatus called for Query[id: %s]', this.getId(), queryId);
+         return extractQueryStatus(await getQueryResponse(queryId));
+     };
++    /** Raw monitoring response body for a query (GrowthBook patch). */
++    this.getQueryMonitoringData = async function (queryId) {
++        return getQueryResponse(queryId);
++    };
+     /**
+      * Gets the status of the query based on queryId and throws if there's an error.
+      *

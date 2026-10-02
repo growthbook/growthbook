@@ -3,6 +3,7 @@ import { PiDotsThreeVertical, PiPlay, PiWarningFill } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { TestQueryRow } from "shared/types/integrations";
 import { DetectedFactTableColumn } from "shared/types/fact-table";
+import type { TestQueryType } from "shared/types/query";
 import { isProjectListValidForProject, parseIntWithDefault } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -99,6 +100,7 @@ export default function NewFactTableSqlStep({
             datasourceId,
             limit,
             detectColumns: true,
+            queryType: "factTableTest" satisfies TestQueryType,
           }),
         });
         const results = { ...res, error: res.error || "" };
