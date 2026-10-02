@@ -13,6 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
 
 const generatePlatformUrl = (
@@ -42,7 +43,7 @@ export default function FeaturesStats({
   const hasFeature = hasCommercialFeature("code-references");
   const permissionsUtil = usePermissionsUtil();
 
-  const { data } = useApi<{ codeRefs: FeatureCodeRefsInterface[] }>(
+  const { data, error } = useApi<{ codeRefs: FeatureCodeRefsInterface[] }>(
     `/feature/${featureId}/code-refs`,
     { shouldRun: () => hasFeature && !!codeReferencesEnabled },
   );
@@ -113,6 +114,15 @@ export default function FeaturesStats({
     );
   }
 
+  if (error) {
+    return (
+      <div className="contents container-fluid pagecontents">
+        <Callout status="error" mt="4">
+          Failed to load code references.
+        </Callout>
+      </div>
+    );
+  }
   if (!data) return <LoadingOverlay />;
 
   return (

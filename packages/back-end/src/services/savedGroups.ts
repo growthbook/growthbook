@@ -62,7 +62,8 @@ export async function loadSavedGroupReferences(
   context: ReqContext | ApiReqContext,
   savedGroupId: string,
 ): Promise<SavedGroupReferences | null> {
-  const allSavedGroups = await context.models.savedGroups.getAll();
+  // The scan reads ids and conditions; ID lists can be enormous.
+  const allSavedGroups = await context.models.savedGroups.getAllWithoutValues();
   const targetGroup = allSavedGroups.find((sg) => sg.id === savedGroupId);
   if (!targetGroup) return null;
 

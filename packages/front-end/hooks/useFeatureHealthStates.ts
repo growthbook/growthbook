@@ -55,6 +55,10 @@ export function FeatureHealthStatesProvider({
   const lastRequested = useRef(new Map<string, number>());
   const [loading, setLoading] = useState(false);
   const inflightKey = useRef<string | null>(null);
+  // Orders requests against invalidations, so a response that was already in
+  // flight when an id was invalidated cannot overwrite the fresh result.
+  const clock = useRef(0);
+  const invalidatedAt = useRef(new Map<string, number>());
 
   // Resolves to whether the request succeeded; a failed window is retried by
   // the next refresh instead of surfacing as an unhandled rejection.
@@ -68,13 +72,18 @@ export function FeatureHealthStatesProvider({
         ids !== undefined
           ? `/features/health?ids=${encodeURIComponent(ids.join(","))}`
           : "/features/health";
+      const startedAt = ++clock.current;
       setLoading(true);
       try {
         const res = await apiCall<{ features: FeatureHealthStateMap }>(url);
-        const incoming = res.features ?? {};
+        const isCurrent = (id: string) =>
+          (invalidatedAt.current.get(id) ?? 0) < startedAt;
+        const incoming = Object.fromEntries(
+          Object.entries(res.features ?? {}).filter(([id]) => isCurrent(id)),
+        );
         const now = Date.now();
         if (ids === undefined) hasFetchedAll.current = true;
-        (ids ?? Object.keys(incoming)).forEach((id) => {
+        (ids ?? Object.keys(incoming)).filter(isCurrent).forEach((id) => {
           loadedIds.current.add(id);
           entryTimestamps.current[id] = now;
         });
@@ -115,9 +124,11 @@ export function FeatureHealthStatesProvider({
   }, []);
 
   const invalidate = useCallback((ids: string[]) => {
+    const at = ++clock.current;
     ids.forEach((id) => {
       loadedIds.current.delete(id);
       delete entryTimestamps.current[id];
+      invalidatedAt.current.set(id, at);
     });
     hasFetchedAll.current = false;
     // A forced refetch must not be deduplicated against a request in flight.
@@ -131,7 +142,7 @@ export function FeatureHealthStatesProvider({
       id = setTimeout(async () => {
         if (cancelled) return;
         let failed = false;
-        if (hasFetchedAll.current && keepAllFresh.current) {
+        if (keepAllFresh.current) {
           failed = !(await doFetch());
         } else {
           const cutoff = Date.now() - ENTRY_TTL_MS;

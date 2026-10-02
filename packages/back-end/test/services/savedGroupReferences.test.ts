@@ -28,7 +28,7 @@ describe("loadSavedGroupReferences", () => {
     ({
       org: { id: "org", settings: { environments: [{ id: "production" }] } },
       models: {
-        savedGroups: { getAll: async () => [group] },
+        savedGroups: { getAllWithoutValues: async () => [group] },
         contextualBandits: { getAll: async () => bandits },
       },
     }) as unknown as ReqContext;
