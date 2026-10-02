@@ -21,6 +21,26 @@ jest.mock("back-end/src/models/ExperimentModel", () => {
   );
 });
 
+const mockExecuteVariationChange = jest.fn();
+
+jest.mock("back-end/src/enterprise/services/contextualBandits", () => {
+  const overrides: Record<string, unknown> = {
+    executeContextualBanditVariationChange: (...args: unknown[]) =>
+      mockExecuteVariationChange(...args),
+  };
+  return new Proxy(
+    {},
+    {
+      get: (_t, prop: string) =>
+        prop in overrides
+          ? overrides[prop]
+          : jest.requireActual(
+              "back-end/src/enterprise/services/contextualBandits",
+            )[prop],
+    },
+  );
+});
+
 jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
   () => ({
@@ -56,9 +76,24 @@ const draftExperiment = {
   hasVisualChangesets: true,
 };
 
+const draftCb = {
+  id: "cb_1",
+  organization: ORG.id,
+  trackingKey: "cb-1",
+  name: "CB one",
+  status: "draft",
+  archived: false,
+  project: "",
+  hashAttribute: "id",
+  variations: baseVariations.map((v) => ({ ...v, screenshots: [] })),
+  hasVisualChangesets: true,
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+};
+
 type OwnerCase = {
-  kind: "experiment";
-  ownerField: "experiment";
+  kind: "experiment" | "contextual-bandit";
+  ownerField: "experiment" | "contextualBandit";
   ownerId: string;
   seedOwner: (overrides?: Record<string, unknown>) => void;
   permissionKeys: string[];
@@ -79,7 +114,20 @@ const OWNERS: OwnerCase[] = [
     permissionKeys: ["canUpdateVisualChange", "canCreateVisualChange"],
     ownerUpdateKeys: ["canUpdateExperiment"],
   },
+  {
+    kind: "contextual-bandit",
+    ownerField: "contextualBandit",
+    ownerId: draftCb.id,
+    seedOwner: (overrides = {}) => {
+      mockCbGetById.mockResolvedValue({ ...draftCb, ...overrides });
+    },
+    permissionKeys: ["canUpdateVisualChange", "canCreateVisualChange"],
+    ownerUpdateKeys: ["canUpdateContextualBandit"],
+  },
 ];
+
+const mockCbGetById = jest.fn();
+const mockCbUpdate = jest.fn();
 
 describe("visual changeset owner adapter", () => {
   const { app, auditMock, setReqContext } = setupApp();
@@ -113,6 +161,12 @@ describe("visual changeset owner adapter", () => {
       permissions: permissions(grant, overrides),
       hasPremiumFeature: () => true,
       getAllProjectIds: async () => [],
+      models: {
+        contextualBandits: {
+          getById: (...args: unknown[]) => mockCbGetById(...args),
+          update: (...args: unknown[]) => mockCbUpdate(...args),
+        },
+      },
     });
   };
 
@@ -154,6 +208,10 @@ describe("visual changeset owner adapter", () => {
     mockUpdateExperiment.mockImplementation(
       async ({ experiment, changes }) => ({ ...experiment, ...changes }),
     );
+    mockCbUpdate.mockImplementation(async (cb, changes) => ({
+      ...cb,
+      ...changes,
+    }));
   });
 
   describe.each(OWNERS)("$kind owner", (owner) => {
@@ -326,16 +384,21 @@ describe("visual changeset owner adapter", () => {
         .send({ visualChangesetId: CHANGESET_ID, name: "Renamed" });
       expect(res.status).toBe(200);
       expect(res.body.name).toBe("Renamed");
-      expect(mockUpdateExperiment).toHaveBeenCalledTimes(1);
+      const updater =
+        owner.kind === "experiment" ? mockUpdateExperiment : mockCbUpdate;
+      expect(updater).toHaveBeenCalledTimes(1);
     });
 
     it("skips the owner write when the name is unchanged", async () => {
       await seedChangeset(owner);
+      const currentName =
+        owner.kind === "experiment" ? draftExperiment.name : draftCb.name;
       const res = await request(app)
         .post("/api/v1/visual-editor/rename-experiment")
-        .send({ visualChangesetId: CHANGESET_ID, name: draftExperiment.name });
+        .send({ visualChangesetId: CHANGESET_ID, name: currentName });
       expect(res.status).toBe(200);
       expect(mockUpdateExperiment).not.toHaveBeenCalled();
+      expect(mockCbUpdate).not.toHaveBeenCalled();
     });
   });
 
@@ -425,6 +488,190 @@ describe("visual changeset owner adapter", () => {
       await seedChangeset(OWNERS[0]);
       const res = await createChangeset();
       expect(res.status).toBe(200);
+    });
+
+    it("refuses to create a changeset on a stopped contextual bandit", async () => {
+      OWNERS[1].seedOwner({ status: "stopped" });
+      await seedChangeset(OWNERS[1]);
+      const res = await createChangeset();
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/stopped/);
+      expect(
+        await VisualChangesetModel.countDocuments({ contextualBandit: "cb_1" }),
+      ).toBe(1);
+    });
+  });
+
+  describe("contextual bandit owner permissions", () => {
+    beforeEach(() => OWNERS[1].seedOwner());
+
+    const saveChange = () =>
+      request(app)
+        .put(
+          `/api/v1/visual-changesets/${CHANGESET_ID}/visual-change/${VISUAL_CHANGE_ID}`,
+        )
+        .send({ variation: TREATMENT_ID, css: "h1 { color: red; }" });
+    const rename = () =>
+      request(app)
+        .post("/api/v1/visual-editor/rename-experiment")
+        .send({ visualChangesetId: CHANGESET_ID, name: "Renamed" });
+    const addVariant = () =>
+      request(app)
+        .post("/api/v1/visual-editor/add-variant")
+        .send({ visualChangesetId: CHANGESET_ID });
+
+    it("lets a visual-editor-only user save changes but not touch the bandit", async () => {
+      await seedChangeset(OWNERS[1]);
+      setContext(true, { canUpdateContextualBandit: false });
+      expect((await saveChange()).status).toBe(200);
+      expect((await readTreatmentChange()).css).toBe("h1 { color: red; }");
+      expect((await rename()).body.message).toMatch(/permission error/);
+      expect((await addVariant()).body.message).toMatch(/permission error/);
+      expect(mockCbUpdate).not.toHaveBeenCalled();
+      expect(mockExecuteVariationChange).not.toHaveBeenCalled();
+    });
+
+    it("lets a bandit-only user rename but not save visual changes", async () => {
+      await seedChangeset(OWNERS[1]);
+      setContext(true, {
+        canUpdateVisualChange: false,
+        canCreateVisualChange: false,
+      });
+      expect((await saveChange()).body.message).toMatch(/permission error/);
+      expect((await readTreatmentChange()).css).toBe("");
+      expect((await addVariant()).body.message).toMatch(/permission error/);
+      expect((await rename()).status).toBe(200);
+    });
+  });
+
+  describe("contextual bandit owner variations", () => {
+    it("exposes each arm's status on the editor stub", async () => {
+      OWNERS[1].seedOwner({
+        variations: [
+          ...draftCb.variations,
+          {
+            id: "var_2",
+            key: "2",
+            name: "Variation 2",
+            description: "",
+            screenshots: [],
+            status: "pending",
+          },
+        ],
+      });
+      await seedChangeset(OWNERS[1]);
+      const res = await request(app).get(
+        `/api/v1/visual-changesets/${CHANGESET_ID}?includeExperiment=1`,
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.experiment.variations).toHaveLength(3);
+      expect(res.body.experiment.variations[2].status).toBe("pending");
+    });
+
+    beforeEach(() => {
+      OWNERS[1].seedOwner();
+      mockExecuteVariationChange.mockImplementation(async (_ctx, cb, args) => {
+        let variations = [...cb.variations];
+        for (const add of args.addVariations ?? []) {
+          variations.push({
+            id: `var_${variations.length}`,
+            key: `${variations.length}`,
+            name: add.name,
+            description: "",
+            screenshots: [],
+            status: "pending",
+          });
+        }
+        for (const id of args.removeVariationIds ?? []) {
+          variations = variations.map((v) =>
+            v.id === id ? { ...v, status: "deactivated" } : v,
+          );
+        }
+        for (const u of args.updateVariations ?? []) {
+          variations = variations.map((v) =>
+            v.id === u.id ? { ...v, ...u } : v,
+          );
+        }
+        return {
+          updated: { ...cb, variations },
+          featureDraftPublishFailures: [],
+        };
+      });
+    });
+
+    it("adds an arm through the CB variation service and seeds its visual change", async () => {
+      await seedChangeset(OWNERS[1]);
+      const res = await request(app)
+        .post("/api/v1/visual-editor/add-variant")
+        .send({
+          visualChangesetId: CHANGESET_ID,
+          name: "Variation 2",
+          sourceVariationId: TREATMENT_ID,
+        });
+      expect(res.status).toBe(200);
+      expect(mockExecuteVariationChange).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ id: draftCb.id }),
+        { addVariations: [{ name: "Variation 2" }] },
+      );
+      expect(res.body.newVariationId).toBe("var_2");
+      const saved = await readChangeset();
+      const entry = saved.visualChanges.find(
+        (vc: { variation: string }) => vc.variation === "var_2",
+      );
+      expect(entry).toBeTruthy();
+      expect(res.body.experiment.variations).toHaveLength(3);
+      expect(res.body.experiment.variations[2].status).toBe("pending");
+    });
+
+    it("removes an arm through the CB variation service", async () => {
+      await seedChangeset(OWNERS[1]);
+      const res = await request(app)
+        .post("/api/v1/visual-editor/delete-variant")
+        .send({ visualChangesetId: CHANGESET_ID, variationId: TREATMENT_ID });
+      expect(res.status).toBe(200);
+      expect(mockExecuteVariationChange).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { removeVariationIds: [TREATMENT_ID] },
+      );
+      expect(
+        (await readChangeset()).visualChanges.find(
+          (vc: { variation: string }) => vc.variation === TREATMENT_ID,
+        ),
+      ).toBeUndefined();
+      expect(res.body.experiment.variations).toHaveLength(1);
+    });
+
+    it("renames an arm through the CB variation service", async () => {
+      await seedChangeset(OWNERS[1]);
+      const res = await request(app)
+        .post("/api/v1/visual-editor/rename-variant")
+        .send({
+          visualChangesetId: CHANGESET_ID,
+          variationId: TREATMENT_ID,
+          name: "Promo",
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe("Promo");
+      expect(mockExecuteVariationChange).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { updateVariations: [{ id: TREATMENT_ID, name: "Promo" }] },
+      );
+    });
+
+    it("surfaces the service's validation errors as 400s", async () => {
+      await seedChangeset(OWNERS[1]);
+      mockExecuteVariationChange.mockRejectedValue(
+        new Error("A contextual bandit must have at least 2 variations."),
+      );
+      const res = await request(app)
+        .post("/api/v1/visual-editor/delete-variant")
+        .send({ visualChangesetId: CHANGESET_ID, variationId: TREATMENT_ID });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/at least 2 variations/);
+      expect((await readChangeset()).visualChanges).toHaveLength(1);
     });
   });
 });

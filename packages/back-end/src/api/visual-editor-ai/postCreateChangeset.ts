@@ -58,6 +58,7 @@ export const postCreateChangeset = createApiRequestHandler(validation)(async (
   if (!owner.canCreateChangeset()) {
     context.permissions.throwPermissionError();
   }
+  owner.assertCanCreateChangeset();
 
   // Omit `visualChanges` so createVisualChangeset auto-generates one empty
   // entry per current variation.
