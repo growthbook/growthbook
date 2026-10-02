@@ -1,9 +1,5 @@
 import { z } from "zod";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
-import {
-  getAllExperiments,
-  getExperimentById,
-} from "back-end/src/models/ExperimentModel";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import {
   parsePrompt,
   secondsUntilAICanBeUsedAgainForModel,
@@ -12,6 +8,7 @@ import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 
 const pageHintsSchema = z.object({
   url: z.string().optional(),
@@ -179,23 +176,11 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const changeset = await findVisualChangesetById(
-    visualChangesetId,
-    req.organization.id,
-  );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const currentExperiment = await getExperimentById(
-    context,
-    changeset.experiment,
-  );
-  if (!currentExperiment)
-    return context.throwNotFoundError("Experiment not found");
-
-  if (!context.permissions.canUpdateVisualChange(currentExperiment)) {
+  const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
+  const currentExperiment = owner.promptContext();
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
