@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
+import * as validators from "shared/validators";
 import {
   namedSchemaRegistry,
   apiErrorRegistry,
@@ -463,13 +464,28 @@ type Path = {
 
 type CodeSample = { lang: string; source: string };
 
-// The front-end calls shared/api-endpoints by path, so an endpoint with no
+type SharedEndpoint = Pick<
+  ApiEndpointSpec<unknown, unknown, unknown, unknown>,
+  "method" | "path" | "operationId" | "version"
+>;
+
+function isSharedEndpoint(value: unknown): value is SharedEndpoint {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "operationId" in value &&
+    "method" in value &&
+    "path" in value
+  );
+}
+
+// The front-end calls shared endpoints by path, so an endpoint with no
 // mounted route type-checks everywhere and only fails as a 404 at runtime.
 function assertSharedEndpointsMounted() {
-  const endpoints: Pick<
-    ApiEndpointSpec<unknown, unknown, unknown, unknown>,
-    "method" | "path" | "operationId" | "version"
-  >[] = Object.values(endpointModules).flatMap((m) => Object.values(m));
+  const endpoints: SharedEndpoint[] = [
+    ...Object.values(endpointModules).flatMap((m) => Object.values(m)),
+    ...Object.values(validators).filter(isSharedEndpoint),
+  ];
   const unmounted = endpoints.filter(
     (endpoint) =>
       allRoutes.filter(
@@ -482,7 +498,7 @@ function assertSharedEndpointsMounted() {
   );
   if (unmounted.length > 0) {
     throw new Error(
-      "These shared/api-endpoints endpoints are not mounted exactly once by the back-end:\n" +
+      "These shared/api-endpoints or shared/validators endpoints are not mounted exactly once by the back-end:\n" +
         unmounted
           .map(
             ({ method, path, operationId }) =>

@@ -92,6 +92,7 @@ New data models use `MakeModelClass()` in `src/models/`. Define a Zod schema in 
 - **Read:** `useApi<T>("/endpoint")` — SWR-based hook with org-scoped caching.
 - **Write:** `apiCall("/endpoint", { method: "POST", body: JSON.stringify(data) })` from `useAuth()`.
 - **Cache refresh:** Call `mutate()` from `useApi` after mutations, or `mutateDefinitions()` for global state.
+- **REST API (`/api/v1`, `/api/v2`):** `useRestApi(spec, args)` / `useRestApiCall()` from `@/services/restApi` with an endpoint from `shared/api-endpoints` or `shared/validators`, never `useApi`/`apiCall`. See `.agents/guides/frontend/data-fetching.md`.
 
 ### Front-end: UI Component Hierarchy
 
@@ -131,6 +132,7 @@ The detailed reference material lives under `.agents/guides/`. Read the relevant
 - Front-end React/UI: `.agents/guides/frontend/react-patterns.md`
 - Front-end data fetching: `.agents/guides/frontend/data-fetching.md`
 - Back-end APIs: `.agents/guides/backend/api-patterns.md`
+- Migrating REST endpoints to shared: `.agents/guides/backend/how-to-migrate-endpoints-to-shared.md`
 - Back-end models: `.agents/guides/backend/model-patterns.md`
 - Legacy model migrations: `.agents/guides/backend/legacy-model-migration-patterns.md`
 - Docs (Mintlify MDX): `.agents/guides/docs.md`
