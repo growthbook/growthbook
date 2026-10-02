@@ -1258,7 +1258,7 @@
     ],
     "primary": {
       "type": "button",
-      "label": "Log in",
+      "label": "Open App",
       "href": "https://app.growthbook.io/"
     }
   },
