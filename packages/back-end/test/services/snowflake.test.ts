@@ -128,10 +128,6 @@ describe("snowflakeMonitoringToStatistics", () => {
     expect(
       snowflakeMonitoringToStatistics(
         response({
-          startTime: 1790906152954,
-          endTime: 1790906165101,
-          warehouseName: "GB_WH",
-          warehouseExternalSize: "X-Small",
           clusterNumber: 1,
           stats: {
             xpExecTime: 9792,
@@ -139,8 +135,6 @@ describe("snowflakeMonitoringToStatistics", () => {
             scanFiles: 2,
             scanOriginalFiles: 291,
             queuedLoadTime: 1479,
-            queuedResumeTime: 453,
-            ioLocalTempWriteBytes: 573087744,
           },
         }),
       ),
@@ -149,47 +143,34 @@ describe("snowflakeMonitoringToStatistics", () => {
       bytesProcessed: 4644879984,
       partitionsScanned: 2,
       partitionsTotal: 291,
-      queuedOverloadMs: 1479,
-      queuedProvisioningMs: 453,
-      bytesSpilledLocal: 573087744,
-      bytesSpilledRemote: 0,
-      warehouseStartTime: 1790906152954,
-      warehouseEndTime: 1790906165101,
-      warehouseName: "GB_WH",
-      warehouseSize: "X-Small",
-      warehouseClusterNumber: 1,
     });
   });
 
   it("reports zeros for a query that used no warehouse", () => {
-    const statistics = snowflakeMonitoringToStatistics(
-      response({
-        warehouseName: "GB_WH",
-        warehouseExternalSize: null,
-        clusterNumber: -1,
-        stats: { gsExecTime: 25, compilationTime: 145 },
-      }),
-    );
-    expect(statistics).toMatchObject({
+    expect(
+      snowflakeMonitoringToStatistics(
+        response({
+          clusterNumber: -1,
+          stats: { gsExecTime: 25, compilationTime: 145 },
+        }),
+      ),
+    ).toEqual({
       executionDurationMs: 0,
       bytesProcessed: 0,
-      warehouseClusterNumber: -1,
+      partitionsScanned: 0,
+      partitionsTotal: 0,
     });
-    expect(statistics?.warehouseSize).toBeUndefined();
   });
 
   it("leaves counters unset when the stats format is unrecognized", () => {
     const statistics = snowflakeMonitoringToStatistics(
       response({
-        warehouseName: "GB_WH",
         clusterNumber: 1,
         stats: { renamedExecTime: 9792, renamedScanBytes: 4644879984 },
       }),
     );
     expect(statistics?.executionDurationMs).toBeUndefined();
     expect(statistics?.bytesProcessed).toBeUndefined();
-    expect(statistics?.queuedOverloadMs).toBeUndefined();
-    expect(statistics?.warehouseName).toBe("GB_WH");
   });
 
   it("returns undefined for an unexpected response", () => {

@@ -107,18 +107,6 @@ export const queryStatisticsValidator = z.object({
   // Partitions read vs. available, to measure pruning (BigQuery reports only partitions read)
   partitionsScanned: z.number().optional(),
   partitionsTotal: z.number().optional(),
-  // Time spent waiting because the warehouse was saturated vs. resuming from suspended
-  queuedOverloadMs: z.number().optional(),
-  queuedProvisioningMs: z.number().optional(),
-  bytesSpilledLocal: z.number().optional(),
-  bytesSpilledRemote: z.number().optional(),
-  // Warehouse-side timestamps (epoch ms), free of GrowthBook's connect and fetch overhead
-  warehouseStartTime: z.number().optional(),
-  warehouseEndTime: z.number().optional(),
-  warehouseName: z.string().optional(),
-  warehouseSize: z.string().optional(),
-  // Snowflake reports -1 when no warehouse ran the query (result cache or metadata only)
-  warehouseClusterNumber: z.number().optional(),
 });
 
 // One row per query GrowthBook sends to a warehouse, including queries with no Query document
@@ -138,6 +126,10 @@ export const queryUsageValidator = baseSchema
     snapshotTriggeredBy: z.string().optional(),
     snapshotType: z.string().optional(),
     userId: z.string().optional(),
+    rowsReturned: z.number().optional(),
+    error: z.string().optional(),
+    // The warehouse's own error code, e.g. Snowflake 002003 or BigQuery notFound
+    errorCode: z.string().optional(),
     statistics: queryStatisticsValidator.optional(),
   })
   .strict();

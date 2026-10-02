@@ -119,13 +119,16 @@ import {
 import { ExplorationConfig } from "shared/validators";
 import {
   AdditionalQueryMetadata,
-  QueryStatistics,
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
 import { conversionWindowToSeconds } from "shared/funnels";
-import { MissingDatasourceParamsError } from "back-end/src/util/errors";
+import {
+  getErrorMessage,
+  MissingDatasourceParamsError,
+} from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { getWarehouseErrorCode } from "back-end/src/util/integration";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -283,6 +286,8 @@ function getFunnelPassthroughColumns({
   return cols;
 }
 
+const MAX_USAGE_ERROR_LENGTH = 100;
+
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface, PipelineIntegration
 {
@@ -353,16 +358,15 @@ export default abstract class SqlIntegration
           },
           metadata,
         );
-        void this.recordQueryUsage(
-          metadata,
-          startedAt,
-          externalId,
-          "succeeded",
-          response.statistics,
-        );
+        void this.recordQueryUsage(metadata, startedAt, externalId, {
+          response,
+        });
         return response;
       } catch (e) {
-        void this.recordQueryUsage(metadata, startedAt, externalId, "failed");
+        void this.recordQueryUsage(metadata, startedAt, externalId, {
+          error: getErrorMessage(e),
+          errorCode: getWarehouseErrorCode(e),
+        });
         throw e;
       }
     };
@@ -373,15 +377,17 @@ export default abstract class SqlIntegration
     metadata: RunQueryMetadata,
     startedAt: Date,
     externalId: string | undefined,
-    status: "succeeded" | "failed",
-    statistics?: QueryStatistics,
+    outcome:
+      | { response: QueryResponse }
+      | { error: string; errorCode?: string },
   ) {
+    const response = "response" in outcome ? outcome.response : undefined;
     try {
       await this.context.models.queryUsages.create({
         datasource: this.datasource.id,
         datasourceType: this.datasource.type,
         queryType: metadata.queryType,
-        status,
+        status: response ? "succeeded" : "failed",
         startedAt,
         durationMs: Date.now() - startedAt.getTime(),
         externalId,
@@ -391,7 +397,14 @@ export default abstract class SqlIntegration
         snapshotTriggeredBy: metadata.snapshotTriggeredBy,
         snapshotType: metadata.snapshotType,
         userId: metadata.userId || undefined,
-        statistics,
+        rowsReturned: response?.rows.length,
+        statistics: response?.statistics,
+        // Just enough for a short preview in the UI
+        error:
+          "error" in outcome
+            ? outcome.error.slice(0, MAX_USAGE_ERROR_LENGTH)
+            : undefined,
+        errorCode: "error" in outcome ? outcome.errorCode : undefined,
       });
     } catch (e) {
       logger.warn(e, `Failed to record query usage for ${this.datasource.id}`);

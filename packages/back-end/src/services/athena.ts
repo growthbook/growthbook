@@ -190,6 +190,11 @@ export async function runAthenaQuery(
             const State = resp.QueryExecution?.Status?.State;
             const StateChangeReason =
               resp.QueryExecution?.Status?.StateChangeReason;
+            // Keep Athena's error type so failures can be grouped by code
+            const failure = (message: string) =>
+              Object.assign(new Error(message), {
+                code: resp.QueryExecution?.Status?.AthenaError?.ErrorType,
+              });
 
             if (State === "RUNNING" || State === "QUEUED") {
               if (timeWaitingForFailure > 0) {
@@ -217,12 +222,12 @@ export async function runAthenaQuery(
                   logger.debug(
                     `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`,
                   );
-                  reject(new Error(StateChangeReason));
+                  reject(failure(StateChangeReason));
                 } else {
                   resolve(false);
                 }
               } else {
-                reject(new Error(StateChangeReason || "Query failed"));
+                reject(failure(StateChangeReason || "Query failed"));
               }
             } else if (State === "CANCELLED") {
               reject(new Error("Query was cancelled"));
