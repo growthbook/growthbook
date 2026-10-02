@@ -77,11 +77,15 @@ export async function loadSavedGroupReferences(
   // The lean loader: the reference scan reads only rules/env settings, and
   // this loader honors the bulk publisher's feature scan overlay so the scan
   // can evaluate a release's proposed end-state.
-  const [allFeatures, allExperiments, allBandits] = await Promise.all([
-    getAllFeaturesForGraph(context, {}),
-    getAllExperiments(context, {}),
-    context.models.contextualBandits.getAll(),
-  ]);
+  const [allFeatures, allExperiments, holdoutExperiments, allBandits] =
+    await Promise.all([
+      getAllFeaturesForGraph(context, {}),
+      getAllExperiments(context, {}),
+      // Left out of the default experiment query; a holdout's phase targeting
+      // is served on every feature it holds out.
+      getAllExperiments(context, { type: "holdout" }),
+      context.models.contextualBandits.getAll(),
+    ]);
 
   const featureRefMap = featuresReferencingSavedGroups({
     savedGroups: savedGroupsToCheck,
@@ -91,7 +95,7 @@ export async function loadSavedGroupReferences(
 
   const experimentRefMap = experimentsReferencingSavedGroups({
     savedGroups: savedGroupsToCheck,
-    experiments: allExperiments,
+    experiments: [...allExperiments, ...holdoutExperiments],
   });
 
   const featuresSet = new Map<
