@@ -33,9 +33,21 @@ This supports Java applications using Java version 1.8 and higher.
 - `com.squareup.okhttp3:okhttp:5.4.0`
 - `com.squareup.okhttp3:okhttp-sse:5.4.0`
 
-If your application or another library declares OkHttp 4.x, move that dependency to 5.4.0 as well. Both artifacts use the same Maven coordinates as in 0.10.10, so resolution keeps a single version. A forced 4.x version replaces the 5.4.0 dependency this SDK publishes.
+OkHttp 5 also brings in `kotlin-stdlib` 2.x and `okio` 3.x transitively. If your application or another library declares OkHttp 4.x, move it to 5.4.0 as well:
 
-The published coordinates changed in the same release. 0.10.x installed `com.github.growthbook:growthbook-sdk-java`. At 0.11.0 that coordinate is a JitPack aggregator POM: it depends on `com.github.growthbook.growthbook-sdk-java:lib`, plus the Caffeine and JCache adapter modules. Depend on `lib` for the SDK itself, and add an adapter module only when you want that cache.
+- **Gradle** reads the OkHttp Gradle module metadata, so `com.squareup.okhttp3:okhttp` keeps resolving to a single version. A forced or BOM-managed 4.x version wins over the 5.4.0 this SDK requests.
+- **Maven** does not read that metadata. At 5.x, the `com.squareup.okhttp3:okhttp` jar contains no classes. The JVM classes are in `com.squareup.okhttp3:okhttp-jvm`, which the SDK gets through `okhttp-sse`. Do not keep a direct `okhttp:4.x` dependency next to the SDK, because both versions end up on the classpath. If you depend on OkHttp directly, use `com.squareup.okhttp3:okhttp-jvm:5.4.0`.
+- **Spring Boot 3.3 and earlier** (including 2.7) manage `okhttp.version` as 4.x in their dependency BOM, which downgrades the SDK's OkHttp. Override it, for example with `ext['okhttp.version'] = '5.4.0'` in Gradle or `<okhttp.version>5.4.0</okhttp.version>` in Maven. Spring Boot 3.4 and later no longer manage OkHttp.
+
+The published coordinates changed in the same release. 0.10.x installed `com.github.growthbook:growthbook-sdk-java`. At 0.11.0 that coordinate is a JitPack aggregator POM: it depends on `com.github.growthbook.growthbook-sdk-java:lib`, plus the Caffeine and JCache adapter modules, which also pull in `com.github.ben-manes.caffeine:caffeine:2.9.3` and `javax.cache:cache-api:1.1.1`. Depend on `lib` for the SDK itself, and add an adapter module only when you want that cache.
+
+Other changes to check when upgrading:
+
+- `GrowthBookClient.initialize()` validates `Options` and returns `false` for settings 0.10.x accepted. See [Configuration validation](#configuration-validation).
+- Feature fetches retry by default. A failing synchronous `initialize()` or `refreshFeatures()` can block for about 15 seconds before it fails. See [Customizing refresh timing and retries](#customizing-refresh-timing-and-retries).
+- Server-Sent Events reconnects stop after `retryPolicy` max attempts consecutive failures (default: 5). 0.10.x reconnected indefinitely.
+- Each `GrowthBookClient` has its own features repository. In 0.10.x, all clients in a JVM shared the repository of the first client that was initialized.
+- `TrackData.getResult()` returns `ExperimentResult<T>` instead of `FeatureResult<T>`. Custom implementations of `IGrowthBook` must implement the new `FeatureKey` methods.
 
 </Warning>
 
@@ -113,7 +125,7 @@ gb.shutdown();
 
 #### Configuring the client with Options
 
-The `Options` builder configures the `GrowthBookClient`. `clientKey` is required. `apiHost` must be an `http` or `https` URL.
+The `Options` builder configures the `GrowthBookClient`. `apiHost` and `clientKey` are required. `apiHost` must use `http` or `https`; a host without a scheme is treated as `https`.
 
 | Field name                         | Type                           | Description                                                                                                                                                   |
 | ---------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -123,6 +135,7 @@ The `Options` builder configures the `GrowthBookClient`. `clientKey` is required
 | `enabled`                          | `Boolean`                      | Whether the SDK is enabled (default: `true`).                                                                                                                 |
 | `isQaMode`                         | `Boolean`                      | QA mode. When `true`, random assignment is disabled and only forced variations are used (default: `false`).                                                   |
 | `allowUrlOverrides`                | `Boolean`                      | Allow forcing feature and experiment values via the URL (default: `false`). See [Overriding Feature Values](#overriding-feature-values).                      |
+| `url`                              | `String`                       | URL used for URL overrides and sent as `url` in remote evaluation requests.                                                                                   |
 | `refreshStrategy`                  | `FeatureRefreshStrategy`       | `STALE_WHILE_REVALIDATE` (default), `SERVER_SENT_EVENTS`, or `REMOTE_EVAL_STRATEGY`. See [Caching and refreshing behavior](#caching-and-refreshing-behavior). |
 | `swrTtlSeconds`                    | `Integer`                      | How often features are considered stale when using `STALE_WHILE_REVALIDATE` (default: `60`).                                                                  |
 | `backgroundFetchInterval`          | `Duration`                     | Optional minimum interval between non-forced background refreshes.                                                                                            |
@@ -132,7 +145,7 @@ The `Options` builder configures the `GrowthBookClient`. `clientKey` is required
 | `cacheManager`                     | `GbCacheManager`               | A custom cache implementation, used when `cacheMode` is `CUSTOM`.                                                                                             |
 | `isCacheDisabled`                  | `Boolean`                      | Disables cache persistence entirely (default: `false`).                                                                                                       |
 | `stickyBucketService`              | `StickyBucketService`          | Enables [Sticky Bucketing](#sticky-bucketing).                                                                                                                |
-| `stickyBucketIdentifierAttributes` | `List<String>`                 | Attribute keys used to look up sticky bucket assignments.                                                                                                     |
+| `stickyBucketIdentifierAttributes` | `List<String>`                 | Accepted, but not used for sticky bucket lookups in 0.11.0. `GrowthBookClient` looks up assignments for every primitive user attribute.                       |
 | `trackingCallBackWithUser`         | `TrackingCallbackWithUser`     | Invoked when a user is included in an experiment. The builder method name is `trackingCallBackWithUser`. See [Tracking Callback](#tracking-callback).         |
 | `featureUsageCallbackWithUser`     | `FeatureUsageCallbackWithUser` | Invoked every time a feature is evaluated. See [Feature Usage Callback](#feature-usage-callback).                                                             |
 | `featureRefreshCallback`           | `FeatureRefreshCallback`       | Invoked when features are refreshed in the background.                                                                                                        |
@@ -151,7 +164,7 @@ The `Options` builder configures the `GrowthBookClient`. `clientKey` is required
 
 Checks include:
 
-- `apiHost` is present and is an `http` or `https` URL
+- `apiHost` is present and uses `http` or `https` (a host without a scheme is treated as `https`)
 - `clientKey` is present
 - `swrTtlSeconds` is greater than `0` when set
 - `backgroundFetchInterval` is not negative when set
@@ -160,6 +173,9 @@ Checks include:
 - Remote evaluation constraints, listed under [Remote Evaluation](#remote-evaluation)
 
 ```java
+import growthbook.sdk.java.exception.InvalidOptionsException;
+import growthbook.sdk.java.multiusermode.configurations.OptionsValidator;
+
 Options options = Options.builder()
         .apiHost("https://cdn.growthbook.io")
         .clientKey("sdk-abc123")
@@ -246,7 +262,7 @@ The GrowthBook context `GBContext` can be created either by implementing the bui
 | `encryptionKey`                    | `String`                 | Decryption key for encrypted SDK payloads. See [Working with Encrypted features](#working-with-encrypted-features).                                                                                                                                                                                                      |
 | `allowUrlOverrides`                | `Boolean`                | Allow forcing feature and experiment values via the URL (default: `false`). See [Overriding Feature Values](#overriding-feature-values).                                                                                                                                                                                 |
 | `stickyBucketService`              | `StickyBucketService`    | Enables [Sticky Bucketing](#sticky-bucketing).                                                                                                                                                                                                                                                                           |
-| `stickyBucketIdentifierAttributes` | `List<String>`           | Attribute keys used to look up sticky bucket assignments.                                                                                                                                                                                                                                                                |
+| `stickyBucketIdentifierAttributes` | `List<String>`           | Accepted, but not used for sticky bucket lookups in 0.11.0. `GrowthBook` derives lookup attributes from each experiment's `hashAttribute` and `fallbackAttribute`.                                                                                                                                                       |
 | `savedGroups`                      | `JsonObject`             | Saved Groups data, when not embedded in the features payload.                                                                                                                                                                                                                                                            |
 | `apiHost`                          | `String`                 | API host used for [Remote Evaluation](#remote-evaluation).                                                                                                                                                                                                                                                               |
 | `clientKey`                        | `String`                 | SDK client key used for remote evaluation.                                                                                                                                                                                                                                                                               |
@@ -416,12 +432,12 @@ Every feature has a "value" which is assigned to a user. This value can be any J
 
 There are 4 main methods for evaluating features.
 
-| Method                        | Return type            | Description                                                                                                               |
-| ----------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **`isOn(String)`**            | `Boolean`              | Returns true if the value is a truthy value                                                                               |
-| **`isOff(String)`**           | `Boolean`              | Returns true if the value is a falsy value                                                                                |
-| **`getFeatureValue(String)`** | generic `T` (nullable) | Returns the value cast to the generic type. Type is inferred based on the `defaultValue` argument provided.               |
-| **`evalFeature(String)`**     | `FeatureResult<T>`     | Returns a feature result with a value of generic type `T`. The value type needs to be specified in the generic parameter. |
+| Method                                        | Return type            | Description                                                                                                 |
+| --------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **`isOn(String)`**                            | `Boolean`              | Returns true if the value is a truthy value                                                                 |
+| **`isOff(String)`**                           | `Boolean`              | Returns true if the value is a falsy value                                                                  |
+| **`getFeatureValue(String, T defaultValue)`** | generic `T` (nullable) | Returns the value cast to the generic type. Type is inferred based on the `defaultValue` argument provided. |
+| **`evalFeature(String, Class<T>)`**           | `FeatureResult<T>`     | Returns a feature result with more info about why the value was assigned.                                   |
 
 `GrowthBookClient` methods take a `UserContext`. On that client, `getFeatureValue` and `evalFeature` also take a `Class<T>`, such as `String.class`. `GrowthBook.evalFeature` takes a `Class<T>` as well. The primitive `GrowthBook.getFeatureValue` overloads still infer the type from `defaultValue`.
 
@@ -458,8 +474,8 @@ Integer maxItems = gb.getFeatureValue("max_items", 10, Integer.class, userContex
 
 // Get detailed feature result
 FeatureResult<Float> priceResult = gb.evalFeature("donut_price", Float.class, userContext);
-Float price = priceResult.getValue();
-String source = priceResult.getSource().toString();
+Object price = priceResult.getValue();
+FeatureResultSource source = priceResult.getSource();
 ```
 
 ```java Traditional Client
@@ -488,8 +504,8 @@ Integer maxItems = growthBook.getFeatureValue("max_items", 10);
 
 // Get detailed feature result
 FeatureResult<Float> priceResult = growthBook.evalFeature("donut_price", Float.class);
-Float price = priceResult.getValue();
-String source = priceResult.getSource().toString();
+Object price = priceResult.getValue();
+FeatureResultSource source = priceResult.getSource();
 ```
 
 </CodeGroup>
@@ -533,11 +549,11 @@ In short, the type of the `defaultValue` argument will determine the return type
 
 The `evalFeature` method returns a `FeatureResult<T>` object with more info about why the feature was assigned to the user. The `T` type corresponds to the value type of the feature. In the above example, `T` is `Float`.
 
-`FeatureResult<T>` It has the following getters.
+`FeatureResult<T>` has the following getters. `getValue()` returns the raw evaluated value as `Object`, so cast it yourself, or use `getFeatureValue` when you only need the typed value.
 
 | Method                      | Return type                           | Description                                                                                  |
 | --------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
-| **`getValue()`**            | generic `T` (nullable)                | The evaluated value of the feature                                                           |
+| **`getValue()`**            | `Object` (nullable)                   | The evaluated value of the feature                                                           |
 | **`getSource()`**           | `enum FeatureResultSource` (nullable) | The reason/source for the evaluated feature value.                                           |
 | **`getRuleId()`**           | `String` (nullable)                   | ID of the rule that was used to assign the value to the user.                                |
 | **`getExperiment()`**       | `Experiment<T>` (nullable)            | The experiment details, available only if the feature evaluates due to an experiment.        |
@@ -552,6 +568,9 @@ As expected in Kotlin, you can access these getters using property accessors.
 `FeatureKey` carries both the feature identifier and its value type. Declare keys once with `TypedKey`, then pass them to `GrowthBookClient` or `GrowthBook` instead of raw strings.
 
 ```java
+import growthbook.sdk.java.model.FeatureKey;
+import growthbook.sdk.java.model.TypedKey;
+
 public final class Features {
     public static final FeatureKey<Boolean> NEW_HOME = TypedKey.ofBoolean("new-home");
     public static final FeatureKey<String> THEME = TypedKey.ofString("theme");
@@ -586,6 +605,8 @@ FeatureResult<Boolean> result = growthBook.getFeature(Features.NEW_HOME);
 
 Instead of declaring all features up-front in the context and referencing them by IDs in your code, you can also just run an experiment directly. This is done with the `growthbook.run(Experiment<T>)` method.
 
+The `Experiment` builder takes `ArrayList` values for `variations` and `weights`, and a Gson `JsonObject` for `conditionJson`.
+
 <CodeGroup>
 
 ```java Enhanced Client
@@ -607,9 +628,9 @@ UserContext userContext = UserContext.builder()
 Experiment<Float> donutPriceExperiment = Experiment
     .<Float>builder()
     .key("donut-price-test")
-    .variations(Arrays.asList(2.50f, 3.00f, 3.50f))
-    .weights(Arrays.asList(0.33f, 0.33f, 0.34f))
-    .conditionJson("{\"employee\": true}")
+    .variations(new ArrayList<>(Arrays.asList(2.50f, 3.00f, 3.50f)))
+    .weights(new ArrayList<>(Arrays.asList(0.33f, 0.33f, 0.34f)))
+    .conditionJson(JsonParser.parseString("{\"employee\": true}").getAsJsonObject())
     .build();
 
 ExperimentResult<Float> result = gb.run(donutPriceExperiment, userContext);
@@ -627,7 +648,7 @@ if (result.getInExperiment()) {
 Experiment<String> buttonColorExperiment = Experiment
     .<String>builder()
     .key("button-color")
-    .variations(Arrays.asList("blue", "red", "green"))
+    .variations(new ArrayList<>(Arrays.asList("blue", "red", "green")))
     .build();
 
 ExperimentResult<String> colorResult = gb.run(buttonColorExperiment, userContext);
@@ -648,9 +669,9 @@ GrowthBook growthBook = new GrowthBook(context);
 Experiment<Float> donutPriceExperiment = Experiment
     .<Float>builder()
     .key("donut-price-test")
-    .variations(Arrays.asList(2.50f, 3.00f, 3.50f))
-    .weights(Arrays.asList(0.33f, 0.33f, 0.34f))
-    .conditionJson("{\"employee\": true}")
+    .variations(new ArrayList<>(Arrays.asList(2.50f, 3.00f, 3.50f)))
+    .weights(new ArrayList<>(Arrays.asList(0.33f, 0.33f, 0.34f)))
+    .conditionJson(JsonParser.parseString("{\"employee\": true}").getAsJsonObject())
     .build();
 
 ExperimentResult<Float> result = growthBook.run(donutPriceExperiment);
@@ -668,7 +689,7 @@ if (result.getInExperiment()) {
 Experiment<String> buttonColorExperiment = Experiment
     .<String>builder()
     .key("button-color")
-    .variations(Arrays.asList("blue", "red", "green"))
+    .variations(new ArrayList<>(Arrays.asList("blue", "red", "green")))
     .build();
 
 ExperimentResult<String> colorResult = growthBook.run(buttonColorExperiment);
@@ -701,7 +722,7 @@ This section covers how to track and monitor feature usage and experiment impres
 
 1. **Tracking Callback** - Called when a user is included in an experiment
 2. **Feature Usage Callback** - Called every time a feature is evaluated
-3. **Experiment Run Callback** - Called for every experiment evaluation (regardless of inclusion)
+3. **Experiment Run Callback** - Called when an inline experiment is run with `run()` (regardless of inclusion)
 
 #### Tracking Callback
 
@@ -722,11 +743,12 @@ TrackingCallbackWithUser trackingCallback = new TrackingCallbackWithUser() {
         UserContext userContext
     ) {
         // Send to your analytics system
-        analytics.track("experiment_viewed", Map.of(
-            "experiment_id", experiment.getKey(),
-            "variation_id", experimentResult.getVariationId(),
-            "user_id", experimentResult.getHashAttribute()
-        ));
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("experiment_id", experiment.getKey());
+        properties.put("variation_id", experimentResult.getVariationId());
+        properties.put("hash_attribute", experimentResult.getHashAttribute()); // e.g. "id"
+        properties.put("hash_value", experimentResult.getHashValue()); // e.g. the user's id
+        analytics.track("experiment_viewed", properties);
     }
 };
 
@@ -799,11 +821,11 @@ FeatureUsageCallbackWithUser featureUsageCallback = new FeatureUsageCallbackWith
                    featureKey, featureResult.getValue());
 
         // Send to analytics
-        analytics.track("feature_used", Map.of(
-            "feature_key", featureKey,
-            "feature_value", featureResult.getValue(),
-            "source", featureResult.getSource().toString()
-        ));
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("feature_key", featureKey);
+        properties.put("feature_value", featureResult.getValue());
+        properties.put("source", String.valueOf(featureResult.getSource()));
+        analytics.track("feature_used", properties);
     }
 };
 
@@ -859,7 +881,9 @@ boolean darkMode = growthBook.isOn("dark_mode");
 
 #### Experiment Run Callback
 
-You can subscribe to experiment run evaluations using the `ExperimentRunCallback`. **This callback is called for every experiment evaluation, regardless of whether the user is included in the experiment**.
+You can subscribe to inline experiment runs using the `ExperimentRunCallback`. **This callback is called regardless of whether the user is included in the experiment**.
+
+Subscriptions fire from `run()` only, not from feature evaluation such as `isOn()` or `evalFeature()`. They fire the first time an experiment key is run, and again only when `inExperiment` or the variation changes for that key on the same instance. On a shared `GrowthBookClient`, that state is kept per experiment key across all users, not per user.
 
 <CodeGroup>
 
@@ -871,13 +895,13 @@ ExperimentRunCallback experimentRunCallback = new ExperimentRunCallback() {
         Experiment<ValueType> experiment,
         ExperimentResult<ValueType> experimentResult
     ) {
-        // Track all experiment evaluations (included and excluded users)
-        analytics.track("experiment_evaluated", Map.of(
-            "experiment_id", experiment.getKey(),
-            "user_in_experiment", experimentResult.getInExperiment(),
-            "variation_id", experimentResult.getVariationId(),
-            "hash_used", experimentResult.getHashUsed()
-        ));
+        // Track inline experiment runs (included and excluded users)
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("experiment_id", experiment.getKey());
+        properties.put("user_in_experiment", experimentResult.getInExperiment());
+        properties.put("variation_id", experimentResult.getVariationId());
+        properties.put("hash_used", experimentResult.getHashUsed());
+        analytics.track("experiment_evaluated", properties);
     }
 };
 
@@ -900,7 +924,7 @@ UserContext userContext = UserContext.builder()
 Experiment<String> buttonColorExperiment = Experiment
     .<String>builder()
     .key("button-color")
-    .variations(Arrays.asList("blue", "red", "green"))
+    .variations(new ArrayList<>(Arrays.asList("blue", "red", "green")))
     .build();
 
 ExperimentResult<String> result = gb.run(buttonColorExperiment, userContext);
@@ -936,7 +960,7 @@ growthBook.subscribe(experimentRunCallback);
 Experiment<String> buttonColorExperiment = Experiment
     .<String>builder()
     .key("button-color")
-    .variations(Arrays.asList("blue", "red", "green"))
+    .variations(new ArrayList<>(Arrays.asList("blue", "red", "green")))
     .build();
 
 ExperimentResult<String> result = growthBook.run(buttonColorExperiment);
@@ -946,24 +970,30 @@ ExperimentResult<String> result = growthBook.run(buttonColorExperiment);
 
 #### Multiple Callback Subscriptions
 
-You can subscribe to multiple experiment run callbacks:
+You can subscribe to multiple experiment run callbacks. `onRun` is a generic method, so implement the callback with a class or an anonymous class. A Java lambda cannot implement it.
 
 <CodeGroup>
 
 ```java Enhanced Client
 // Multiple callbacks for different purposes
-ExperimentRunCallback analyticsCallback = (experiment, result) -> {
-    // Send to analytics
-    analytics.track("experiment_run", Map.of(
-        "experiment", experiment.getKey(),
-        "included", result.getInExperiment()
-    ));
+ExperimentRunCallback analyticsCallback = new ExperimentRunCallback() {
+    @Override
+    public <ValueType> void onRun(Experiment<ValueType> experiment, ExperimentResult<ValueType> result) {
+        // Send to analytics
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("experiment", experiment.getKey());
+        properties.put("included", result.getInExperiment());
+        analytics.track("experiment_run", properties);
+    }
 };
 
-ExperimentRunCallback loggingCallback = (experiment, result) -> {
-    // Log for debugging
-    logger.debug("Experiment {} evaluated for user {}",
-                experiment.getKey(), result.getHashAttribute());
+ExperimentRunCallback loggingCallback = new ExperimentRunCallback() {
+    @Override
+    public <ValueType> void onRun(Experiment<ValueType> experiment, ExperimentResult<ValueType> result) {
+        // Log for debugging
+        logger.debug("Experiment {} evaluated for {} {}",
+                experiment.getKey(), result.getHashAttribute(), result.getHashValue());
+    }
 };
 
 // Subscribe multiple callbacks
@@ -973,14 +1003,20 @@ gb.subscribe(loggingCallback);
 
 ```java Traditional Client
 // Multiple callbacks for different purposes
-ExperimentRunCallback analyticsCallback = (experiment, result) -> {
-    // Send to analytics
-    System.out.println("Analytics: " + experiment.getKey());
+ExperimentRunCallback analyticsCallback = new ExperimentRunCallback() {
+    @Override
+    public <ValueType> void onRun(Experiment<ValueType> experiment, ExperimentResult<ValueType> result) {
+        // Send to analytics
+        System.out.println("Analytics: " + experiment.getKey());
+    }
 };
 
-ExperimentRunCallback loggingCallback = (experiment, result) -> {
-    // Log for debugging
-    System.out.println("Debug: " + experiment.getKey());
+ExperimentRunCallback loggingCallback = new ExperimentRunCallback() {
+    @Override
+    public <ValueType> void onRun(Experiment<ValueType> experiment, ExperimentResult<ValueType> result) {
+        // Log for debugging
+        System.out.println("Debug: " + experiment.getKey());
+    }
 };
 
 // Subscribe multiple callbacks
@@ -1087,7 +1123,7 @@ If you're using [GrowthBook Cloud <ExternalLink/>](https://app.growthbook.io), t
 
 `FeatureRefreshStrategy.REMOTE_EVAL_STRATEGY` is a repository refresh mode. On `initialize()`, `GBFeaturesRepository` calls `fetchForRemoteEval` with the configured `RequestBodyForRemoteEval`.
 
-That strategy is separate from `Options.remoteEval(true)`, which is the client remote evaluation path described in [Remote Evaluation](#remote-evaluation). Setting only `REMOTE_EVAL_STRATEGY` does not set `remoteEval`.
+That strategy is separate from `Options.remoteEval(true)`, which is the client remote evaluation path described in [Remote Evaluation](#remote-evaluation). Setting only `REMOTE_EVAL_STRATEGY` does not set `remoteEval`. When `remoteEval(true)` is set, `GrowthBookClient.initialize()` does not create a features repository for evaluation, so this strategy does not apply.
 
 #### Caching feature payloads
 
@@ -1096,7 +1132,7 @@ The SDK can persist the fetched feature payload so a restart does not require a 
 | Mode     | Behavior                                                                             |
 | -------- | ------------------------------------------------------------------------------------ |
 | `AUTO`   | Default. Uses `FILE` when a writable directory is available, otherwise `MEMORY`.     |
-| `FILE`   | Persists the payload to a directory on disk. Set the location with `cacheDirectory`. |
+| `FILE`   | Persists the payload to a directory on disk. Falls back to `MEMORY` if it can't.     |
 | `MEMORY` | In-process memory cache only. No filesystem writes.                                  |
 | `NONE`   | No cache persistence. The runtime still keeps the latest fetched features in memory. |
 | `CUSTOM` | Use a `GbCacheManager` supplied with `cacheManager`.                                 |
@@ -1109,6 +1145,8 @@ Options options = Options.builder()
         .cacheDirectory("/var/cache/growthbook")
         .build();
 ```
+
+`AUTO` and `FILE` use `cacheDirectory` when it is set. Otherwise `AUTO` tries the `growthbook.cache.dir` system property, then the platform cache directory, then `java.io.tmpdir`, so it usually writes to disk.
 
 `isCacheDisabled(true)` turns persistence off. `CacheMode.CUSTOM` requires a `cacheManager`. Supplying a `cacheManager` while caching is disabled fails [configuration validation](#configuration-validation).
 
@@ -1123,6 +1161,8 @@ dependencies {
 ```
 
 ```java
+import growthbook.sdk.java.cache.caffeine.CaffeineGbCacheManager;
+
 Options options = Options.builder()
         .apiHost("https://cdn.growthbook.io")
         .clientKey("sdk-abc123")
@@ -1134,7 +1174,7 @@ Options options = Options.builder()
         .build();
 ```
 
-`CaffeineGbCacheManager.builder()` returns `CaffeineCacheOptions.Builder`. `buildManager()` returns the cache manager. `maximumSize` defaults to `1000`. `maximumWeight(long)` bounds the cache by UTF-8 payload bytes and takes precedence over `maximumSize`. `recordStats(true)` enables `stats()`.
+`CaffeineGbCacheManager.builder()` returns `CaffeineCacheOptions.Builder`. `buildManager()` returns the cache manager. `maximumSize` defaults to `1000`. `maximumWeight(long)` bounds the cache by UTF-8 payload bytes and takes precedence over `maximumSize`. `recordStats(true)` turns on the counters reported by `stats()`; without it they stay at `0`.
 
 ##### JCache adapter
 
@@ -1147,6 +1187,7 @@ dependencies {
 ```
 
 ```java
+import growthbook.sdk.java.cache.jcache.JCacheGbCacheManager;
 import javax.cache.Caching;
 import javax.cache.CacheManager;
 
@@ -1166,7 +1207,7 @@ Options options = Options.builder()
 
 #### Customizing refresh timing and retries
 
-You can set a minimum interval between non-forced background refreshes and a bounded exponential retry policy for feature fetches. When `retryPolicy` is omitted, the repository uses `FeatureFetchRetryPolicy`'s default: 5 total attempts, with retry waits of 1s, 2s, 4s, and 8s. The default maximum delay is 16 seconds.
+You can set a minimum interval between non-forced background refreshes and a bounded exponential retry policy for feature fetches. When `retryPolicy` is omitted, the repository uses `FeatureFetchRetryPolicy`'s default: 5 total attempts, with retry waits of 1s, 2s, 4s, and 8s. The default maximum delay is 16 seconds. Network errors, `408`, `429`, and `5xx` responses are retried. Retries run on the calling thread, so a failing `initialize()` can block for about 15 seconds with the default policy. The same `maxAttempts` limits consecutive Server-Sent Events reconnect attempts.
 
 ```java
 Options options = Options.builder()
@@ -1200,6 +1241,8 @@ Sticky Bucketing keeps users on the same experiment variant when user attributes
 
 Provide a `StickyBucketService`. The SDK includes `InMemoryStickyBucketServiceImpl`. Implement the interface yourself for a database or other store.
 
+The SDK chooses which attributes to look up. `GrowthBookClient` requests assignments for every primitive user attribute. `GrowthBook` uses each experiment's `hashAttribute` and `fallbackAttribute`. The `stickyBucketIdentifierAttributes` option is accepted but not used for this in 0.11.0.
+
 A `StickyAssignmentsDocument` has three fields:
 
 - `attributeName`: the attribute used to identify the user, such as `id` or `cookie_id`
@@ -1218,7 +1261,6 @@ Options options = Options.builder()
         .apiHost("https://cdn.growthbook.io")
         .clientKey("sdk-abc123")
         .stickyBucketService(stickyBucketService)
-        .stickyBucketIdentifierAttributes(Arrays.asList("id", "deviceId"))
         .build();
 
 GrowthBookClient gb = new GrowthBookClient(options);
@@ -1243,7 +1285,7 @@ GrowthBook growthBook = new GrowthBook(context);
 
 ### Implementing a custom StickyBucketService
 
-Implement `StickyBucketService` to persist assignments. `getAssignments`, `saveAssignments`, and `getAllAssignments` are the interface methods. `InMemoryStickyBucketServiceImpl` stores documents under `attributeName + "||" + attributeValue`.
+Implement `StickyBucketService` to persist assignments. `getAssignments`, `saveAssignments`, and `getAllAssignments` are the interface methods. The map returned by `getAllAssignments` must be keyed by `attributeName + "||" + attributeValue`, because the SDK looks documents up by that key. `InMemoryStickyBucketServiceImpl` uses the same format.
 
 ```java
 public class MapStickyBucketService implements StickyBucketService {
@@ -1277,11 +1319,11 @@ Do not set `stickyBucketService` when `remoteEval` is enabled. Remote evaluation
 
 ## Remote Evaluation
 
-**Available starting in version 0.11.0**
+**The `remoteEval` option is available starting in version 0.11.0.** `refreshForRemoteEval` and `FeatureRefreshStrategy.REMOTE_EVAL_STRATEGY` were available earlier.
 
-Remote Evaluation evaluates feature flags on a private server. Targeting rules and unused variations stay off the client. Do not use Remote Evaluation from a backend SDK. Enable it in the SDK Connection settings. Cloud customers need a self-hosted [GrowthBook Proxy](/self-host/proxy) or another remote evaluation backend. Read the [remote evaluation guide](/self-host/remote-evaluation).
+Remote Evaluation evaluates feature flags on a private server. Targeting rules and unused variations stay off the client. On a trusted server it is usually unnecessary, because the SDK can evaluate the full payload locally. It is mainly useful for Android and other clients you don't control. Enable it in the SDK Connection settings. Cloud customers need a self-hosted [GrowthBook Proxy](/self-host/proxy) or another remote evaluation backend. Read the [remote evaluation guide](/self-host/remote-evaluation).
 
-On `GrowthBookClient`, set `remoteEval(true)`. `initialize()` prepares the remote evaluation client and returns `false` when setup fails. Later evaluations call the remote API for the current user attributes and cache the response. `preloadRemoteEval(UserContext)` warms that cache and returns `false` when remote evaluation is off or the request fails.
+On `GrowthBookClient`, set `remoteEval(true)`. `initialize()` prepares the remote evaluation client and returns `false` when setup fails. Later evaluations call the remote API for the current user attributes and cache the response. If that request fails, the SDK logs a warning and evaluates against an empty feature set, so features return their fallback values. `preloadRemoteEval(UserContext)` warms that cache and returns `false` when remote evaluation is off or the request fails.
 
 ```java
 Options options = Options.builder()
@@ -1321,7 +1363,9 @@ body.setAttributes(attributes);
 gb.refreshForRemoteEval(body);
 ```
 
-`GBContext.builder().remoteEval(true)` is the same flag for a traditional `GrowthBook` instance. It also requires `apiHost` and `clientKey`.
+With `refreshStrategy(FeatureRefreshStrategy.SERVER_SENT_EVENTS)`, the client listens for feature updates and clears the remote evaluation cache when they arrive.
+
+`GBContext.builder().remoteEval(true)` is the same flag for a traditional `GrowthBook` instance. It also requires `apiHost` and `clientKey`. With an invalid configuration, `new GrowthBook(context)` throws `InvalidOptionsException` instead of returning a failure value.
 
 ## Custom Fields
 
@@ -1353,6 +1397,9 @@ if (experiment != null && experiment.hasCustomField("team")) {
 The snapshot also includes SDK, config, client, feature, refresh, cache, streaming, and remote evaluation sections through `getSdk()`, `getConfig()`, `getClient()`, `getFeatures()`, `getRefresh()`, `getCache()`, `getStreaming()`, and `getRemoteEval()`.
 
 ```java
+import growthbook.sdk.java.diagnostics.model.Diagnostics;
+import growthbook.sdk.java.diagnostics.model.enums.DiagnosticsHealthState;
+
 Diagnostics diagnostics = gb.getDiagnostics();
 DiagnosticsHealthState state = diagnostics.getHealth().getState();
 String json = diagnostics.toJson();
