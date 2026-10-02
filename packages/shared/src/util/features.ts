@@ -42,8 +42,8 @@ import { RampScheduleInterface, RampTarget } from "../validators/ramp-schedule";
 import { hasTargetingConfigured } from "../experiments/targeting";
 import { getValidDate } from "../dates";
 import {
-  conditionHasSavedGroupErrors,
   createV1SavedGroupsOperatorHandler,
+  describeSavedGroupError,
   EXTENDS_KEY,
 } from "../sdk-versioning";
 import {
@@ -2583,11 +2583,19 @@ export function validateCondition(
       scrubbed,
       createV1SavedGroupsOperatorHandler(groupMap || new Map()),
     );
-    if (conditionHasSavedGroupErrors(scrubbed, skipSavedGroupCycleCheck)) {
+    const savedGroupError = describeSavedGroupError(
+      scrubbed,
+      skipSavedGroupCycleCheck,
+    );
+    if (savedGroupError) {
       return {
         success: false,
         empty: false,
-        error: "Condition includes invalid or cyclic saved group reference",
+        // Callers without the groups (forms that don't offer the operator)
+        // can't tell a missing group from an existing one
+        error: groupMap
+          ? savedGroupError
+          : "Saved Groups cannot be referenced inside this condition. Use Saved Group targeting instead.",
       };
     }
 
@@ -2608,6 +2616,30 @@ export function validateCondition(
       return { success: false, empty: false, error: errMsg };
     }
   }
+}
+
+// Prerequisite conditions run against {"value": <flag_value>}, never the
+// user's attributes, so a Saved Group's targeting has nothing to match there.
+export function validatePrerequisiteCondition(
+  condition?: string,
+): ValidateConditionReturn {
+  let usesSavedGroups = false;
+  try {
+    recursiveWalk(JSON.parse(condition || "{}"), ([key]) => {
+      if (key === "$savedGroups") usesSavedGroups = true;
+    });
+  } catch {
+    // validateCondition reports the syntax error
+  }
+  if (usesSavedGroups) {
+    return {
+      success: false,
+      empty: false,
+      error:
+        '$savedGroups cannot be used in prerequisite conditions, which are evaluated against {"value": <flag_value>} rather than attributes. Use $inGroup to match the value against a Saved Group\'s list.',
+    };
+  }
+  return validateCondition(condition);
 }
 
 export function validateAndFixCondition(

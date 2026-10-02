@@ -18,6 +18,7 @@ import {
   findStoredRuleCounterpart,
   stemRuleId,
   validateCondition,
+  validatePrerequisiteCondition,
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -48,11 +49,7 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import { ApiReqContext } from "back-end/types/api";
 import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
-import {
-  getSavedGroupIdsInTargeting,
-  loadSavedGroupsWithNested,
-  TargetingSource,
-} from "back-end/src/util/featureDefinitionReferences.util";
+import { getSavedGroupsForValidation } from "back-end/src/services/savedGroups";
 import {
   assertValidChangedRuleExperimentIds,
   assertValidChangedRuleProjectIds,
@@ -737,19 +734,6 @@ export const validateCustomFields = async (
   });
 };
 
-// Reference checks read ids and conditions, never the ID lists, and only for
-// the groups the targeting names and the groups those reach.
-async function getSavedGroupsForValidation(
-  context: ReqContext | ApiReqContext,
-  targets: TargetingSource[],
-): Promise<GroupMap> {
-  const groups = await loadSavedGroupsWithNested(
-    getSavedGroupIdsInTargeting(targets),
-    (ids) => context.models.savedGroups.getAllWithoutValues(ids),
-  );
-  return new Map(groups.map((group) => [group.id, group]));
-}
-
 // Verify the saved-group references in a rule exist. Call on the final rule —
 // saved groups are loaded once. Prerequisite parents are checked separately
 // by assertValidPrerequisiteParents.
@@ -996,7 +980,7 @@ export function validatePrerequisiteConditions(
 ): void {
   for (const prereq of prerequisites) {
     if (prereq.condition) {
-      const res = validateCondition(prereq.condition);
+      const res = validatePrerequisiteCondition(prereq.condition);
       if (!res.success) {
         throw new BadRequestError(
           `Invalid condition on prerequisite "${prereq.id}": ${res.error}`,

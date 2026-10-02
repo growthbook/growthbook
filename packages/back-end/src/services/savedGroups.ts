@@ -7,7 +7,10 @@ import {
 import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
 import type { FeatureInterface } from "shared/types/feature";
 import type { ExperimentInterface } from "shared/types/experiment";
-import type { SavedGroupWithoutValues } from "shared/types/saved-group";
+import type {
+  GroupMap,
+  SavedGroupWithoutValues,
+} from "shared/types/saved-group";
 import type { ContextualBanditInterface } from "shared/validators";
 import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ReqContext } from "back-end/types/request";
@@ -21,7 +24,12 @@ import { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
-import { getSavedGroupIdsForFeatureDefinitions } from "back-end/src/util/featureDefinitionReferences.util";
+import {
+  getSavedGroupIdsForFeatureDefinitions,
+  getSavedGroupIdsInTargeting,
+  loadSavedGroupsWithNested,
+  TargetingSource,
+} from "back-end/src/util/featureDefinitionReferences.util";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
@@ -142,6 +150,19 @@ export async function getSavedGroupPayloadKeys(
       ),
     ),
   ];
+}
+
+// Reference checks read ids and conditions, never the ID lists, and only for
+// the groups the targeting names and the groups those reach.
+export async function getSavedGroupsForValidation(
+  context: ReqContext | ApiReqContext,
+  targets: TargetingSource[],
+): Promise<GroupMap> {
+  const groups = await loadSavedGroupsWithNested(
+    getSavedGroupIdsInTargeting(targets),
+    (ids) => context.models.savedGroups.getAllWithoutValues(ids),
+  );
+  return new Map(groups.map((group) => [group.id, group]));
 }
 
 export async function savedGroupUpdated(

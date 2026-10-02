@@ -40,6 +40,7 @@ import {
   MatchingRule,
   naiveFlattenV1Rules,
   validateCondition,
+  validatePrerequisiteCondition,
   assertExposureQueryDeclaresIdentifierType,
   toApiAssignmentQueryRef,
   resolveAnalysisIdentifierType,
@@ -165,6 +166,7 @@ import {
   PRESET_DECISION_CRITERIA,
   getPresetDecisionCriteriaForOrg,
 } from "shared/enterprise";
+import type { GroupMap } from "shared/types/saved-group";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -4746,6 +4748,8 @@ export function postExperimentApiPayloadToInterface(
   payload: PostExperimentApiPayload,
   organization: OrganizationInterface,
   datasource: DataSourceInterface | null,
+  // The saved groups the phase conditions name (getSavedGroupsForValidation)
+  groupMap?: GroupMap,
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
   const variationIds = payload.variations.map(
     (variation) =>
@@ -4759,12 +4763,14 @@ export function postExperimentApiPayloadToInterface(
     // Accept the GET-response field names as aliases so a GET -> POST
     // round-trip is lossless. The POST-only fields take precedence when set.
     const condition = p.condition || p.targetingCondition || "{}";
-    const conditionRes = validateCondition(condition);
+    const conditionRes = validateCondition(condition, groupMap);
     if (!conditionRes.success) {
       throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
     }
     p.prerequisites?.forEach((prerequisite) => {
-      const conditionRes = validateCondition(prerequisite.condition);
+      const conditionRes = validatePrerequisiteCondition(
+        prerequisite.condition,
+      );
       if (!conditionRes.success) {
         throw new Error(
           `Invalid prerequisite condition: ${conditionRes.error}`,
@@ -4997,6 +5003,7 @@ function resolveExperimentUpdateVariationsAndPhases(
   variations: UpdateExperimentApiPayload["variations"],
   experiment: ExperimentInterface,
   orgNamespaces: Namespaces[] | undefined,
+  groupMap: GroupMap | undefined,
 ): Partial<ExperimentInterface> {
   const hasPhasePayload = phases !== undefined;
   const hasVariationPayload = variations !== undefined;
@@ -5017,12 +5024,14 @@ function resolveExperimentUpdateVariationsAndPhases(
       // Accept the GET-response field names as aliases so a GET -> POST
       // round-trip is lossless. The POST-only fields take precedence when set.
       const condition = p.condition || p.targetingCondition || "{}";
-      const conditionRes = validateCondition(condition);
+      const conditionRes = validateCondition(condition, groupMap);
       if (!conditionRes.success) {
         throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
       }
       p.prerequisites?.forEach((prerequisite) => {
-        const conditionRes = validateCondition(prerequisite.condition);
+        const conditionRes = validatePrerequisiteCondition(
+          prerequisite.condition,
+        );
         if (!conditionRes.success) {
           throw new Error(
             `Invalid prerequisite condition: ${conditionRes.error}`,
@@ -5161,6 +5170,8 @@ export function updateExperimentApiPayloadToInterface(
   experiment: ExperimentInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
   organization: OrganizationInterface,
+  // The saved groups the phase conditions name (getSavedGroupsForValidation)
+  groupMap?: GroupMap,
 ): Partial<ExperimentInterface> {
   const {
     trackingKey,
@@ -5270,6 +5281,7 @@ export function updateExperimentApiPayloadToInterface(
       variations,
       experiment,
       organization.settings?.namespaces,
+      groupMap,
     ),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
