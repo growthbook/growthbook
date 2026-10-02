@@ -80,6 +80,7 @@ export type MetricFormProps = {
   onSuccess?: () => void;
   secondaryCTA?: ReactElement;
   switchToFact?: () => void;
+  header?: string;
 };
 
 export function usesValueColumn(sql: string) {
@@ -218,6 +219,7 @@ const MetricForm: FC<MetricFormProps> = ({
   onSuccess,
   secondaryCTA,
   switchToFact,
+  header,
 }) => {
   const {
     datasources,
@@ -646,7 +648,7 @@ const MetricForm: FC<MetricFormProps> = ({
       <PagedModal
         trackingEventModalType={trackingEventModalType}
         inline={inline}
-        header={edit ? "Edit Metric" : "New Metric"}
+        header={header ?? (edit ? "Edit Metric" : "New Metric")}
         close={onClose}
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
         disabledMessage={disabledMessage}
