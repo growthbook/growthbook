@@ -46,7 +46,11 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
-import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
+import {
+  ContextualBanditChangesetOwner,
+  ExperimentChangesetOwner,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -4115,31 +4119,34 @@ export async function deleteVisualChangeset(
     throw new Error("Visual Changeset not found");
   }
 
-  const experiment = await getExperimentById(
-    context,
-    visualChangeset.experiment,
-  );
+  const owner = await resolveChangesetOwner(context, visualChangeset);
+  const orgEnvironments = context.org.settings?.environments || [];
 
-  const linkedFeatureIds = experiment?.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = experiment
-    ? getAffectedEnvsForExperiment({
-        experiment,
-        linkedFeatures,
-        orgEnvironments: context.org.settings?.environments || [],
-      })
-    : [];
-  if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
-    context.permissions.throwPermissionError();
+  if (owner instanceof ContextualBanditChangesetOwner) {
+    const envs = orgEnvironments.map((e) => e.id);
+    if (!context.permissions.canRunContextualBandit(owner.cb, envs)) {
+      context.permissions.throwPermissionError();
+    }
+  } else {
+    const experiment =
+      owner instanceof ExperimentChangesetOwner ? owner.experiment : null;
+    const linkedFeatureIds = experiment?.linkedFeatures || [];
+    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+    const envs = experiment
+      ? getAffectedEnvsForExperiment({
+          experiment,
+          linkedFeatures,
+          orgEnvironments,
+        })
+      : [];
+    if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   await deleteVisualChangesetById({
     visualChangeset,
-    owner: experiment
-      ? new ExperimentChangesetOwner(context, experiment)
-      : null,
+    owner,
     context,
   });
 

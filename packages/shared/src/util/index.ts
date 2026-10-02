@@ -339,8 +339,12 @@ export function isValidEnvironment(
   return environments.includes(env);
 }
 
+export const visualChangeHasContent = (
+  vc: Pick<VisualChange, "js" | "domMutations"> & { css?: string },
+) => !!vc.css || !!vc.domMutations.length || !!vc.js;
+
 export const hasVisualChanges = (visualChanges: VisualChange[]) =>
-  visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length || !!vc.js);
+  visualChanges.some(visualChangeHasContent);
 
 export type MatchingRule = {
   environmentId: string;

@@ -64,7 +64,10 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
   experiment: {
     type: String,
     index: true,
-    required: true,
+  },
+  contextualBandit: {
+    type: String,
+    index: true,
   },
   // VisualChanges are associated with one of the variations of the experiment
   // associated with the VisualChangeset
@@ -127,6 +130,7 @@ export function toVisualChangesetApiInterface(
     urlPatterns: visualChangeset.urlPatterns,
     editorUrl: visualChangeset.editorUrl,
     experiment: visualChangeset.experiment,
+    contextualBandit: visualChangeset.contextualBandit,
     visualChanges: visualChangeset.visualChanges.map((c) => ({
       id: c.id,
       description: c.description,
@@ -190,6 +194,33 @@ export async function findVisualChangesets(
   limit?: number,
 ): Promise<VisualChangesetInterface[]> {
   let query = VisualChangesetModel.find({ organization });
+  if (limit && limit > 0) {
+    query = query.sort({ _id: -1 }).limit(limit);
+  }
+  return (await query).map(toInterface);
+}
+
+export async function findVisualChangesetsByContextualBandit(
+  contextualBanditId: string,
+  organization: string,
+): Promise<VisualChangesetInterface[]> {
+  const changesets = await VisualChangesetModel.find({
+    organization,
+    contextualBandit: contextualBanditId,
+  });
+  return changesets.map(toInterface);
+}
+
+export async function findVisualChangesetsByContextualBanditIds(
+  contextualBanditIds: string[],
+  organization: string,
+  limit?: number,
+): Promise<VisualChangesetInterface[]> {
+  if (!contextualBanditIds.length) return [];
+  let query = VisualChangesetModel.find({
+    organization,
+    contextualBandit: { $in: contextualBanditIds },
+  });
   if (limit && limit > 0) {
     query = query.sort({ _id: -1 }).limit(limit);
   }
@@ -310,7 +341,9 @@ export const createVisualChangeset = async ({
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
       id: uniqid("vcs_"),
-      experiment: owner.id,
+      ...(owner.kind === "contextual-bandit"
+        ? { contextualBandit: owner.id }
+        : { experiment: owner.id }),
       organization: context.org.id,
       urlPatterns,
       editorUrl,
@@ -531,10 +564,7 @@ export const deleteVisualChangesetById = async ({
 
   // if the owner has no more visual changesets, clear its flag
   if (owner) {
-    const remaining = await findVisualChangesetsByExperiment(
-      owner.id,
-      context.org.id,
-    );
+    const remaining = await findVisualChangesetsByOwner(owner, context.org.id);
     if (remaining.length === 0) {
       await owner.setHasVisualChangesets(false);
     }
@@ -545,3 +575,12 @@ export const deleteVisualChangesetById = async ({
     owner,
   });
 };
+
+async function findVisualChangesetsByOwner(
+  owner: Pick<ChangesetOwner, "kind" | "id">,
+  organization: string,
+): Promise<VisualChangesetInterface[]> {
+  return owner.kind === "contextual-bandit"
+    ? findVisualChangesetsByContextualBandit(owner.id, organization)
+    : findVisualChangesetsByExperiment(owner.id, organization);
+}

@@ -36,6 +36,13 @@ export function getActiveVariations<T extends VariationWithStatus>(
 ): T[] {
   return variations.filter(isActiveVariation);
 }
+
+export function canEditContextualBanditVisualChanges(cb: {
+  archived?: boolean;
+  status: string;
+}): boolean {
+  return !cb.archived && cb.status !== "stopped";
+}
 type VariationDiff = {
   addedIds: string[];
   removedIds: string[];
