@@ -1,8 +1,22 @@
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 010d4793fc069048ad384e4ed839f1331cb67d98..502bd551c0728d9f51f39655349bbef45dcb280f 100644
+index 010d4793fc069048ad384e4ed839f1331cb67d98..340cd4d810225f3fffac888e5ecb693ec4cb035a 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
-@@ -299,13 +299,18 @@ declare module 'snowflake-sdk' {
+@@ -285,6 +285,13 @@ declare module 'snowflake-sdk' {
+      */
+     getQueryStatusThrowIfError(queryId: string): Promise<string>;
+ 
++    /**
++     * Returns the raw `/monitoring/queries/{queryId}` response body that
++     * `getQueryStatus` reads the status from. Added by GrowthBook's patch;
++     * the shape is undocumented, so validate it before use.
++     */
++    getQueryMonitoringData(queryId: string): Promise<unknown>;
++
+     /**
+      *  Gets the results from a previously ran query based on queryId.
+      */
+@@ -299,13 +306,18 @@ declare module 'snowflake-sdk' {
  
      /**
       * Checks whether the given status is currently running.
@@ -23,3 +37,24 @@ index 010d4793fc069048ad384e4ed839f1331cb67d98..502bd551c0728d9f51f39655349bbef4
  
      /**
       * Returns a JSON-serialized string of the connection state (master/session
+diff --git a/dist/lib/connection/connection.js b/dist/lib/connection/connection.js
+index 47d43aa44241e28d89f874ad74d55fcffbca7622..1ca5255a977b23f0d42b7ab9b0deb35bd34aaaba 100644
+--- a/dist/lib/connection/connection.js
++++ b/dist/lib/connection/connection.js
+@@ -426,6 +426,16 @@ function Connection(context) {
+         Logger.getInstance().trace('Connection[id: %s] - getQueryStatus called for Query[id: %s]', this.getId(), queryId);
+         return extractQueryStatus(await getQueryResponse(queryId));
+     };
++    /**
++     * Returns the raw monitoring response body for a query (GrowthBook patch).
++     *
++     * @param {String} queryId
++     *
++     * @returns {Object} the query response
++     */
++    this.getQueryMonitoringData = async function (queryId) {
++        return getQueryResponse(queryId);
++    };
+     /**
+      * Gets the status of the query based on queryId and throws if there's an error.
+      *

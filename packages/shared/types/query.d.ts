@@ -29,6 +29,21 @@ export type QueryStatistics = {
   warehouseCachedResult?: boolean;
   partitionsUsed?: boolean;
   physicalWrittenBytes?: number;
+  // Micro-partitions read vs. available, so pruning can be measured (Snowflake)
+  partitionsScanned?: number;
+  partitionsTotal?: number;
+  // Time spent waiting because the warehouse was saturated vs. resuming from suspended
+  queuedOverloadMs?: number;
+  queuedProvisioningMs?: number;
+  bytesSpilledLocal?: number;
+  bytesSpilledRemote?: number;
+  // Warehouse-side timestamps (epoch ms), free of GrowthBook's connect and fetch overhead
+  warehouseStartTime?: number;
+  warehouseEndTime?: number;
+  warehouseName?: string;
+  warehouseSize?: string;
+  // Snowflake reports -1 when no warehouse ran the query (result cache or metadata only)
+  warehouseClusterNumber?: number;
 };
 
 export type QueryType =
