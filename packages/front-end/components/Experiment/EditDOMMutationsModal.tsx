@@ -1,4 +1,3 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DOMMutation, VisualChange } from "shared/types/visual-changeset";
 import React, { FC, useCallback, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
@@ -12,11 +11,11 @@ import Callout from "@/ui/Callout";
 const actionValues = ["append", "set", "remove"];
 
 const EditDOMMutationsModal: FC<{
-  experiment: ExperimentInterfaceStringDates;
+  owner: { status: string; noun: string };
   visualChange: VisualChange;
   close: () => void;
   onSave: (newVisualChange: VisualChange) => void;
-}> = ({ experiment, close, visualChange, onSave }) => {
+}> = ({ owner, close, visualChange, onSave }) => {
   const [newVisualChange, setNewVisualChange] =
     useState<VisualChange>(visualChange);
   const [useAdvanced, setUseAdvanced] = useState(false);
@@ -352,11 +351,11 @@ const EditDOMMutationsModal: FC<{
       }
     >
       <div>
-        {experiment.status === "running" && (
+        {owner.status === "running" && (
           <Callout status="warning">
-            <strong>Warning:</strong> This experiment is currently running. Any
-            changes made here may introduce unpredictable effects in your
-            experiment results.
+            <strong>Warning:</strong> This {owner.noun} is currently running.
+            Any changes made here may introduce unpredictable effects in your
+            {" " + owner.noun} results.
           </Callout>
         )}
         <div className="mb-4">

@@ -1,10 +1,12 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useRouter } from "next/router";
 import React, { ReactElement, useState } from "react";
+import { canEditContextualBanditVisualChanges } from "shared/experiments";
 import { useRestApiCall } from "@/services/restApi";
 import {
   useContextualBandit,
   useContextualBanditLinkedFeatures,
+  useContextualBanditVisualChangesets,
 } from "@/hooks/useContextualBandits";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -25,6 +27,7 @@ import ContextualBanditAnalysisMetricsModal from "@/components/ContextualBandit/
 import ContextualBanditTrafficTargetingModal from "@/components/ContextualBandit/ContextualBanditTrafficTargetingModal";
 import ContextualBanditVariationsModal from "@/components/ContextualBandit/ContextualBanditVariationsModal";
 import LinkFeatureToContextualBanditModal from "@/components/Features/FeatureModal/LinkFeatureToContextualBanditModal";
+import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 
 const ContextualBanditPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -46,6 +49,8 @@ const ContextualBanditPage = (): ReactElement => {
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [featureModalOpen, setFeatureModalOpen] = useState(false);
+  const [visualChangesetModalOpen, setVisualChangesetModalOpen] =
+    useState(false);
 
   const rawId = typeof cbid === "string" ? cbid : "";
   const {
@@ -55,6 +60,12 @@ const ContextualBanditPage = (): ReactElement => {
   } = useContextualBandit(rawId || undefined);
   const { linkedFeatures, mutate: mutateLinkedFeatures } =
     useContextualBanditLinkedFeatures(rawId || undefined);
+  const {
+    visualChangesets,
+    loading: visualChangesetsLoading,
+    error: visualChangesetsError,
+    mutate: mutateVisualChangesets,
+  } = useContextualBanditVisualChangesets(rawId || undefined);
 
   const orgId = organization.id ?? "";
   useSwitchOrg(cb?.id && orgId ? orgId : null);
@@ -91,6 +102,24 @@ const ContextualBanditPage = (): ReactElement => {
   const canEdit =
     permissionsUtil.canViewContextualBanditModal(cb.project) && !cb.archived;
   const canEditVariations = canEdit && cb.status !== "stopped";
+  const canAddLinkedChanges =
+    canEdit &&
+    canEditContextualBanditVisualChanges(cb) &&
+    permissionsUtil.canUpdateContextualBandit(
+      { project: cb.project },
+      { project: cb.project },
+    );
+  const canAddVisualChanges =
+    canAddLinkedChanges &&
+    permissionsUtil.canCreateVisualChange({ project: cb.project });
+  const canEditVisualChangesets =
+    canEditContextualBanditVisualChanges(cb) &&
+    permissionsUtil.canUpdateVisualChange({ project: cb.project });
+  const mutateLinkedChanges = () => {
+    mutate();
+    mutateLinkedFeatures();
+    mutateVisualChangesets();
+  };
   const canRun =
     !cb.archived &&
     permissionsUtil.canRunContextualBandit({ project: cb.project }, envs);
@@ -126,10 +155,21 @@ const ContextualBanditPage = (): ReactElement => {
           }
           duplicate={canEdit ? () => setDuplicateModalOpen(true) : undefined}
           linkedFeatures={linkedFeatures}
-          linkedFeaturesMutate={mutateLinkedFeatures}
-          canAddFeature={canEdit}
+          linkedChangesMutate={mutateLinkedChanges}
           setFeatureModal={
-            canEdit ? (open) => setFeatureModalOpen(open) : undefined
+            canAddLinkedChanges
+              ? (open) => setFeatureModalOpen(open)
+              : undefined
+          }
+          visualChangesets={visualChangesets}
+          visualChangesetsLoading={visualChangesetsLoading}
+          visualChangesetsError={visualChangesetsError}
+          canAddLinkedChanges={canAddLinkedChanges}
+          canEditVisualChangesets={canEditVisualChangesets}
+          setVisualChangesetModal={
+            canAddVisualChanges
+              ? (open) => setVisualChangesetModalOpen(open)
+              : undefined
           }
         />
       </div>
@@ -228,6 +268,23 @@ const ContextualBanditPage = (): ReactElement => {
             mutateLinkedFeatures();
           }}
           close={() => setFeatureModalOpen(false)}
+          source="cbid"
+        />
+      )}
+      {visualChangesetModalOpen && (
+        <VisualChangesetModal
+          mode="add"
+          create={(body) =>
+            restApiCall(
+              contextualBanditEndpoints.postContextualBanditVisualChangesets,
+              { params: { id: cb.id }, body },
+            )
+          }
+          mutate={() => {
+            mutate();
+            mutateVisualChangesets();
+          }}
+          close={() => setVisualChangesetModalOpen(false)}
           source="cbid"
         />
       )}
