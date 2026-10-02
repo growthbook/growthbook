@@ -4,7 +4,11 @@ import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { createInitialRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  createInitialRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
+import { repairFeatureDriftIfNeeded } from "back-end/src/services/featureDriftRepair";
 import { setupApp } from "../api.setup";
 
 // An environment toggle (POST /api/v1/features/:id/toggle) writes
@@ -219,6 +223,24 @@ describe("POST /api/v1/features/:id/toggle", () => {
 
     const doc = await getFeatureDoc();
     expect(doc.rules[0].projects).toEqual(["prj_kept"]);
+
+    // The live revision still names the deleted project; a flag page load's
+    // drift repair must not copy it back.
+    const feature = await getFeature(context, FEATURE_ID);
+    if (!feature) throw new Error("feature missing");
+    const live = await getRevision({
+      context,
+      organization: ORG_ID,
+      featureId: FEATURE_ID,
+      feature,
+      version: feature.version,
+    });
+    expect(live?.rules[0].projects).toEqual(["prj_kept", "prj_gone"]);
+    await repairFeatureDriftIfNeeded(context, feature, live ?? undefined, [
+      "production",
+      "staging",
+    ]);
+    expect((await getFeatureDoc()).rules[0].projects).toEqual(["prj_kept"]);
   });
 
   it("leaves the rules of a document on top-level rules as they were", async () => {

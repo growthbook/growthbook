@@ -1858,17 +1858,23 @@ export async function removeProjectFromFeatures(
           ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
           : rule,
       );
+      // Advance the stamp so a landing that read the deleted scope loses its guard.
+      const stamp = advancedGuardStamp(feature.dateUpdated);
       const written = await FeatureModel.updateOne(
         {
           organization: context.org.id,
           id: feature.id,
           dateUpdated: feature.dateUpdated,
         },
-        { $set: { rules: updatedRules } },
+        { $set: { rules: updatedRules, dateUpdated: stamp } },
       );
       if (written.matchedCount > 0) {
         scrubbed = true;
-        const updatedFeature = { ...feature, rules: updatedRules };
+        const updatedFeature = {
+          ...feature,
+          rules: updatedRules,
+          dateUpdated: stamp,
+        };
         onFeatureUpdate(context, feature, updatedFeature, project).catch(
           (e) => {
             logger.error(e, "Error refreshing SDK Payload on feature update");
