@@ -51,8 +51,6 @@ export async function postExperimentLaunchChecklist(
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const { tasks, projectId } = req.body;
-  const hiddenBuiltInItems =
-    parseHiddenBuiltInItems(req.body.hiddenBuiltInItems) ?? [];
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     context.throwPlanDoesNotAllowError(
@@ -77,6 +75,9 @@ export async function postExperimentLaunchChecklist(
       context.permissions.throwPermissionError();
     }
   }
+
+  const hiddenBuiltInItems =
+    parseHiddenBuiltInItems(req.body.hiddenBuiltInItems) ?? [];
 
   const existingChecklist = await getExperimentLaunchChecklist(
     org.id,
@@ -189,9 +190,6 @@ export async function putExperimentLaunchChecklist(
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const { tasks } = req.body;
-  const hiddenBuiltInItems = parseHiddenBuiltInItems(
-    req.body.hiddenBuiltInItems,
-  );
 
   const { id } = req.params;
 
@@ -227,7 +225,7 @@ export async function putExperimentLaunchChecklist(
     userId,
     id,
     tasks,
-    hiddenBuiltInItems,
+    parseHiddenBuiltInItems(req.body.hiddenBuiltInItems),
   );
 
   return res.status(200).json({
