@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { getInitialDatasourceResources } from "@/services/initial-resources";
+import {
+  getInitialDatasourceResources,
+  getDatasourceTemplateResources,
+  getDatasourceTemplateSettings,
+} from "@/services/initial-resources";
 import { validateSQL } from "@/services/datasources";
 
 // initial-resources imports getDefaultFactMetricProps, which pulls in a React
@@ -186,4 +190,191 @@ describe("getInitialDatasourceResources", () => {
       ).toBe(0);
     },
   );
+});
+
+// An existing business Data Source on the ClickHouse instance Langfuse writes
+// to, with its own identifier types and assignment query.
+function businessClickhouse(): DataSourceInterfaceWithParams {
+  return {
+    id: "ds_business",
+    type: "clickhouse",
+    params: { url: "http://localhost:8123", database: "default" },
+    settings: {
+      schemaFormat: "custom",
+      userIdTypes: [
+        { userIdType: "user_id", description: "" },
+        { userIdType: "anonymous_id", description: "" },
+      ],
+      queries: {
+        exposure: [
+          {
+            id: "user_id",
+            name: "Logged-in users",
+            userIdType: "user_id",
+            userIdTypes: ["user_id"],
+            query: "SELECT * FROM experiment_viewed",
+            dimensions: [],
+          },
+        ],
+        identityJoins: [],
+      },
+    },
+  } as unknown as DataSourceInterfaceWithParams;
+}
+
+describe("Snowplow on an existing Data Source", () => {
+  it("adds prefixed assignment queries and no fact tables", () => {
+    const ds = {
+      id: "ds_pg",
+      type: "postgres",
+      params: { host: "localhost", database: "app", defaultSchema: "atomic" },
+      settings: { schemaFormat: "custom", userIdTypes: [] },
+    } as unknown as DataSourceInterfaceWithParams;
+    const settings = getDatasourceTemplateSettings({
+      datasource: ds,
+      template: "snowplow",
+      schemaOptions: {},
+      includeAssignmentQueries: true,
+    });
+    const exposure = settings.queries?.exposure || [];
+    expect(exposure.length).toBeGreaterThan(0);
+    expect(exposure.every((q) => q.id.startsWith("snowplow_"))).toBe(true);
+    expect(exposure[0].name.startsWith("Snowplow: ")).toBe(true);
+    expect(
+      getDatasourceTemplateResources({
+        datasource: { ...ds, settings },
+        template: "snowplow",
+        schemaOptions: {},
+        existingFactTables: [],
+      }).factTables,
+    ).toEqual([]);
+  });
+});
+
+describe("Segment template on an existing Data Source", () => {
+  it("builds fact tables against the Data Source's schema", () => {
+    const ds = {
+      id: "ds_pg",
+      type: "postgres",
+      params: { host: "localhost", database: "app", defaultSchema: "segment" },
+      settings: { schemaFormat: "custom", userIdTypes: [] },
+    } as unknown as DataSourceInterfaceWithParams;
+    const settings = getDatasourceTemplateSettings({
+      datasource: ds,
+      template: "segment",
+      schemaOptions: {},
+      includeAssignmentQueries: false,
+    });
+    expect(settings.userIdTypes?.map((t) => t.userIdType).sort()).toEqual([
+      "anonymous_id",
+      "user_id",
+    ]);
+    const resources = getDatasourceTemplateResources({
+      datasource: { ...ds, settings },
+      template: "segment",
+      schemaOptions: {},
+      existingFactTables: [],
+    });
+    expect(resources.factTables.length).toBeGreaterThan(0);
+    expect(resources.factTables[0].factTable.sql).toContain(
+      "FROM segment.tracks",
+    );
+  });
+});
+
+describe("getDatasourceTemplateSettings", () => {
+  it("adds only the missing identifier types and keeps existing queries", () => {
+    const settings = getDatasourceTemplateSettings({
+      datasource: businessClickhouse(),
+      template: "langfuse",
+      schemaOptions: {},
+      includeAssignmentQueries: false,
+    });
+    expect(settings.schemaFormat).toBe("custom");
+    expect(settings.userIdTypes?.map((t) => t.userIdType)).toEqual([
+      "user_id",
+      "anonymous_id",
+      "session_id",
+      "trace_id",
+    ]);
+    expect(settings.queries?.exposure?.map((q) => q.id)).toEqual(["user_id"]);
+    expect(settings.queries?.identityJoins).toEqual([]);
+  });
+
+  it("adds prefixed assignment queries scoped to the project", () => {
+    const settings = getDatasourceTemplateSettings({
+      datasource: businessClickhouse(),
+      template: "langfuse",
+      schemaOptions: { projectId: "proj_1" },
+      includeAssignmentQueries: true,
+    });
+    const exposure = settings.queries?.exposure || [];
+    expect(exposure.map((q) => q.id)).toEqual([
+      "user_id",
+      "langfuse_user_id",
+      "langfuse_session_id",
+      "langfuse_trace_id",
+    ]);
+    expect(exposure[1].name).toBe("Langfuse: Logged-in Users");
+    expect(exposure[1].query).toContain("t.project_id = 'proj_1'");
+    expect(settings.queries?.identityJoins?.[0].ids).toEqual([
+      "user_id",
+      "session_id",
+    ]);
+  });
+
+  it("is a no-op when applied a second time", () => {
+    const ds = businessClickhouse();
+    const once = getDatasourceTemplateSettings({
+      datasource: ds,
+      template: "langfuse",
+      schemaOptions: {},
+      includeAssignmentQueries: true,
+    });
+    const twice = getDatasourceTemplateSettings({
+      datasource: { ...ds, settings: once },
+      template: "langfuse",
+      schemaOptions: {},
+      includeAssignmentQueries: true,
+    });
+    expect(twice).toEqual(once);
+  });
+});
+
+describe("getDatasourceTemplateResources", () => {
+  it("builds the template's fact tables for an existing Data Source", () => {
+    const resources = getDatasourceTemplateResources({
+      datasource: businessClickhouse(),
+      template: "langfuse",
+      schemaOptions: {},
+      existingFactTables: [],
+    });
+    expect(resources.factTables.map((f) => f.factTable.name)).toEqual([
+      "Langfuse Traces",
+      "Langfuse Observations",
+      "Langfuse Scores",
+    ]);
+  });
+
+  it("skips fact tables the Data Source already has", () => {
+    const resources = getDatasourceTemplateResources({
+      datasource: businessClickhouse(),
+      template: "langfuse",
+      schemaOptions: {},
+      existingFactTables: [
+        { name: "Langfuse Traces", datasource: "ds_business", archived: false },
+        // Archived, or on another Data Source: still created.
+        { name: "Langfuse Scores", datasource: "ds_business", archived: true },
+        {
+          name: "Langfuse Observations",
+          datasource: "ds_other",
+          archived: false,
+        },
+      ],
+    });
+    expect(resources.factTables.map((f) => f.factTable.name)).toEqual([
+      "Langfuse Observations",
+      "Langfuse Scores",
+    ]);
+  });
 });
