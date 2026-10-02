@@ -455,6 +455,20 @@ export async function createDataSource(
     throw new Error("Cannot add. Data sources managed by config.yml");
   }
 
+  // Unfiltered by project permissions so a Managed Warehouse the user can't
+  // read still counts.
+  if (
+    type === "growthbook_clickhouse" &&
+    (await DataSourceModel.exists({
+      organization: context.org.id,
+      type: "growthbook_clickhouse",
+    }))
+  ) {
+    throw new Error(
+      "Your organization already has a Managed Warehouse. Only one is allowed per organization.",
+    );
+  }
+
   id = id || uniqid("ds_");
   projects = projects || [];
 
