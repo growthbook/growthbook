@@ -666,24 +666,29 @@ export async function getAllFeaturesForGraph(
 
 // `ids` plus every feature whose prerequisites name one of them, shaped like
 // getAllFeaturesForGraph: what a one-hop dependents question needs. Legacy
-// documents keep rules per environment where a query can't see them, so
-// they always come back and the caller's own check decides.
+// documents keep their rules per environment, so those are matched per org
+// environment; documents with no environment settings at all always come
+// back. The caller's own check decides.
 export async function getFeaturesWithPrerequisitesOn(
   context: ReqContext | ApiReqContext,
   ids: string[],
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
   if (!ids.length) return [];
+  const named = { $in: ids };
   return getAllFeaturesProjected(
     context,
     {
       includeArchived,
       filter: {
         $or: [
-          { id: { $in: ids } },
-          { "prerequisites.id": { $in: ids } },
-          { "rules.prerequisites.id": { $in: ids } },
-          { rules: { $exists: false } },
+          { id: named },
+          { "prerequisites.id": named },
+          { "rules.prerequisites.id": named },
+          ...getEnvironmentIdsFromOrg(context.org).map((env) => ({
+            [`environmentSettings.${env}.rules.prerequisites.id`]: named,
+          })),
+          { environmentSettings: { $exists: false } },
         ],
       },
     },
