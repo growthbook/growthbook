@@ -30,7 +30,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { GBPremiumBadge } from "@/components/Icons";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import {
@@ -38,6 +37,7 @@ import {
   useDataSourceOptionEligibility,
 } from "./useDataSourceOptionEligibility";
 import SampleDataSourceLink from "./SampleDataSourceLink";
+import ManagedWarehouseModal from "./ManagedWarehouseModal";
 
 const OPTION_KEYS: DataSourceOptionKey[] = [
   "managed",
@@ -301,7 +301,10 @@ export default function DataSourceOptionsTable() {
   return (
     <>
       {managedWarehouseOpen ? (
-        <ManagedWarehouseModal close={() => setManagedWarehouseOpen(false)} />
+        <ManagedWarehouseModal
+          source="datasource-options"
+          close={() => setManagedWarehouseOpen(false)}
+        />
       ) : null}
       {newDataSourceFormOpen ? (
         <NewDataSourceForm

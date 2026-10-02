@@ -23,7 +23,7 @@ import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
-import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
+import ManagedWarehouseModal from "@/components/DataSourceSetup/ManagedWarehouseModal";
 import DataSourceOptionsTable from "@/components/DataSourceSetup/DataSourceOptionsTable";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 
@@ -58,7 +58,12 @@ function ManagedWarehouseDriver() {
 
   return (
     <>
-      {open ? <ManagedWarehouseModal close={() => setOpen(false)} /> : null}
+      {open ? (
+        <ManagedWarehouseModal
+          source="datasource-list"
+          close={() => setOpen(false)}
+        />
+      ) : null}
       <Flex
         style={{
           position: "relative",
