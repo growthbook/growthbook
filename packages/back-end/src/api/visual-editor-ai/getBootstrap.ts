@@ -1,8 +1,10 @@
 import { z } from "zod";
 import type { ExperimentInterface } from "shared/types/experiment";
+import type { ContextualBanditInterface } from "shared/validators";
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import {
   findVisualChangesets,
+  findVisualChangesetsByContextualBanditIds,
   findVisualChangesetsByExperimentIds,
 } from "back-end/src/models/VisualChangesetModel";
 import {
@@ -13,6 +15,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import {
   ChangesetOwner,
+  ContextualBanditChangesetOwner,
   ExperimentChangesetOwner,
 } from "back-end/src/services/changesetOwner";
 import { requireUserAuth } from "./requireUserAuth";
@@ -72,18 +75,29 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   const search = (req.query.search ?? "").trim();
   let changesets: VisualChangesetInterface[];
   let experiments: ExperimentInterface[];
+  let contextualBandits: ContextualBanditInterface[] = [];
   if (search) {
-    experiments = await findVisualExperimentsByName(
-      context,
-      search,
-      SEARCH_EXPERIMENT_CAP,
-    );
+    [experiments, contextualBandits] = await Promise.all([
+      findVisualExperimentsByName(context, search, SEARCH_EXPERIMENT_CAP),
+      context.models.contextualBandits.findVisualByName(
+        search,
+        SEARCH_EXPERIMENT_CAP,
+      ),
+    ]);
 
-    changesets = await findVisualChangesetsByExperimentIds(
-      experiments.map((e) => e.id),
-      req.organization.id,
-      CANDIDATE_CHANGESET_CAP,
-    );
+    const [experimentChangesets, cbChangesets] = await Promise.all([
+      findVisualChangesetsByExperimentIds(
+        experiments.map((e) => e.id),
+        req.organization.id,
+        CANDIDATE_CHANGESET_CAP,
+      ),
+      findVisualChangesetsByContextualBanditIds(
+        contextualBandits.map((cb) => cb.id),
+        req.organization.id,
+        CANDIDATE_CHANGESET_CAP,
+      ),
+    ]);
+    changesets = [...experimentChangesets, ...cbChangesets];
   } else {
     // `findVisualChangesets` returns newest-`_id`-first; we rely on that
     // as the tiebreaker after the dateUpdated sort below.
@@ -91,7 +105,13 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       req.organization.id,
       CANDIDATE_CHANGESET_CAP,
     );
-    const expIds = Array.from(new Set(changesets.map((cs) => cs.experiment)));
+    const expIds = Array.from(
+      new Set(
+        changesets
+          .map((cs) => cs.experiment)
+          .filter((id): id is string => !!id),
+      ),
+    );
     experiments = await getExperimentsByIds(context, expIds);
   }
   const ownerByKey = new Map<string, ChangesetOwner>(
@@ -100,6 +120,34 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       new ExperimentChangesetOwner(context, e),
     ]),
   );
+
+  for (const cb of contextualBandits) {
+    ownerByKey.set(
+      `contextual-bandit:${cb.id}`,
+      new ContextualBanditChangesetOwner(context, cb),
+    );
+  }
+
+  const cbIds = Array.from(
+    new Set(
+      changesets
+        .map((cs) => cs.contextualBandit)
+        .filter((id): id is string => !!id),
+    ),
+  ).filter((id) => !ownerByKey.has(`contextual-bandit:${id}`));
+  if (cbIds.length > 0) {
+    const cbs = await Promise.all(
+      cbIds.map((id) => context.models.contextualBandits.getById(id)),
+    );
+    for (const cb of cbs) {
+      if (cb) {
+        ownerByKey.set(
+          `contextual-bandit:${cb.id}`,
+          new ContextualBanditChangesetOwner(context, cb),
+        );
+      }
+    }
+  }
 
   // dateUpdated / dateCreated arrive as Date from Mongoose but may be
   // strings in some serialization paths.
@@ -127,7 +175,11 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   };
   const recentExperiments: RecentRow[] = [];
   for (const cs of changesets) {
-    const owner = ownerByKey.get(`experiment:${cs.experiment}`);
+    const owner = cs.contextualBandit
+      ? ownerByKey.get(`contextual-bandit:${cs.contextualBandit}`)
+      : cs.experiment
+        ? ownerByKey.get(`experiment:${cs.experiment}`)
+        : undefined;
     // Skip changesets whose owner we can't read (deleted or no
     // permission) — an orphan row the user can't open is a dead end.
     if (!owner) continue;
@@ -148,8 +200,8 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       editable: owner.isEditable(),
     });
   }
-  // Default (non-search) list: editable rows first (draft experiments),
-  // then by most-recently-updated within each group.
+  // Default (non-search) list: editable rows first (draft experiments,
+  // draft or running CBs), then by most-recently-updated within each group.
   // Sorting these ahead of the trim means they win the MAX_RECENT slots
   // over older stopped ones.
   recentExperiments.sort((a, b) => {
