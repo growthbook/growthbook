@@ -402,6 +402,56 @@ async function findMetrics(
   );
 }
 
+/**
+ * Names for prompts: official first, then most recently updated; archived
+ * excluded. Mongo only — config.yml metrics aren't included.
+ */
+export async function getRecentMetricNames(
+  context: ReqContext | ApiReqContext,
+  {
+    limit,
+    datasourceId,
+    readableProjects,
+  }: {
+    limit: number;
+    datasourceId?: string;
+    /** From `getProjectsWithPermission`; null means every project. */
+    readableProjects: string[] | null;
+  },
+): Promise<string[]> {
+  if (readableProjects?.length === 0) return [];
+  const docs = await getCollection(COLLECTION)
+    .find(
+      {
+        organization: context.org.id,
+        status: { $ne: "archived" },
+        ...(datasourceId ? { datasource: datasourceId } : {}),
+        // Pre-filter in Mongo so the limit stays bounded. No-project metrics
+        // are org-wide and stay readable whenever any project is.
+        ...(readableProjects
+          ? {
+              $or: [
+                { projects: { $in: readableProjects } },
+                { projects: { $size: 0 } },
+                { projects: { $exists: false } },
+              ],
+            }
+          : {}),
+      },
+      {
+        projection: { _id: 0, name: 1, projects: 1 },
+        // managedBy is "" when not official, so descending puts "admin"/"api" first.
+        sort: { managedBy: -1, dateUpdated: -1 },
+        limit,
+      },
+    )
+    .toArray();
+  // The permission check stays the authority.
+  return docs
+    .filter((m) => context.permissions.canReadMultiProjectResource(m.projects))
+    .map((m) => m.name);
+}
+
 export async function getMetricsByOrganization(
   context: ReqContext | ApiReqContext,
   options?: {

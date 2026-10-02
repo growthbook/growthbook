@@ -343,31 +343,24 @@ export default function AISettings({
             </Flex>
           ) : (
             <Flex align="start" direction="column" flexGrow="1" pt="6">
-              <Flex align="start" gap="3" mb="6">
-                <Box>
-                  <Checkbox
-                    value={form.watch("aiEnabled") && aiAgreedTo}
-                    setValue={(v) => {
-                      if (v && !aiAgreedTo) {
-                        setOptInModal(true);
-                        return;
-                      }
-                      form.setValue("aiEnabled", v);
-                    }}
-                    id="toggle-aiEnabled"
-                    disabled={!canEdit}
-                    mt="1"
-                  />
-                </Box>
-                <Flex direction="column">
-                  <Text size="3" className="font-weight-semibold">
-                    <label htmlFor="toggle-aiEnabled">Enable AI features</label>
-                  </Text>
-                  <Text>
-                    Used to allow various AI features throughout GrowthBook.
-                  </Text>
-                </Flex>
-              </Flex>
+              {/* Same label/description layout as the skills list below. */}
+              <Checkbox
+                id="toggle-aiEnabled"
+                align="start"
+                weight="medium"
+                label="Enable AI features"
+                description="Used to allow various AI features throughout GrowthBook."
+                value={form.watch("aiEnabled") && aiAgreedTo}
+                setValue={(v) => {
+                  if (v && !aiAgreedTo) {
+                    setOptInModal(true);
+                    return;
+                  }
+                  form.setValue("aiEnabled", v);
+                }}
+                disabled={!canEdit}
+                mb="4"
+              />
               {!canEdit && (
                 <Box mb="6" width="100%">
                   <Callout status="info">
@@ -377,29 +370,30 @@ export default function AISettings({
                 </Box>
               )}
               {form.watch("aiEnabled") && aiAgreedTo && (
-                <Flex gap="3" align="start" mb="4" mt="2">
-                  <Box>
-                    <Checkbox
-                      value={form.watch("aiAskDataEnabled") ?? false}
-                      setValue={(v) => form.setValue("aiAskDataEnabled", v)}
-                      id="toggle-aiAskDataEnabled"
-                      disabled={!canEdit}
-                      mt="1"
-                    />
-                  </Box>
-                  <Flex direction="column">
-                    <Text size="3" weight="medium">
-                      <label htmlFor="toggle-aiAskDataEnabled">
-                        Ask your data
-                      </label>
-                    </Text>
-                    <Text>
-                      Allow users to ask questions about data in natural
-                      language. Schema, queries, and results are sent to the AI
-                      provider.
-                    </Text>
-                  </Flex>
-                </Flex>
+                <Checkbox
+                  id="toggle-aiAskDataEnabled"
+                  align="start"
+                  weight="medium"
+                  label="Ask your data"
+                  description="Allow users to ask questions about data in natural language. Schema, queries, and results are sent to the AI provider."
+                  value={form.watch("aiAskDataEnabled") ?? false}
+                  setValue={(v) => form.setValue("aiAskDataEnabled", v)}
+                  disabled={!canEdit}
+                  mb="4"
+                />
+              )}
+              {form.watch("aiEnabled") && aiAgreedTo && (
+                <Checkbox
+                  id="toggle-aiAutocompleteEnabled"
+                  align="start"
+                  weight="medium"
+                  label="AI Assistant autocomplete"
+                  description="Suggest how to finish a message as users type in the AI Assistant. Each pause in typing is an AI call, so this adds to usage even when suggestions aren't accepted."
+                  value={form.watch("aiAutocompleteEnabled") ?? true}
+                  setValue={(v) => form.setValue("aiAutocompleteEnabled", v)}
+                  disabled={!canEdit}
+                  mb="4"
+                />
               )}
               {form.watch("aiEnabled") && aiAgreedTo && (
                 <AgentSkillsSettings canEdit={canEdit} />

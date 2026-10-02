@@ -726,6 +726,46 @@ export async function getFeaturesPage(
     );
 }
 
+/** Keys of the most recently touched readable features — names only, for prompts. */
+export async function getRecentFeatureIds(
+  context: ReqContext | ApiReqContext,
+  {
+    limit,
+    readableProjects,
+  }: {
+    limit: number;
+    /** From `getProjectsWithPermission`; null means every project. */
+    readableProjects: string[] | null;
+  },
+): Promise<string[]> {
+  if (readableProjects?.length === 0) return [];
+  // The allowlist pre-filters in Mongo so the limit stays bounded; the
+  // permission check below is still the authority.
+  const docs = await FeatureModel.find(
+    featureListQuery(context.org.id, {
+      projectIds: readableProjects ?? undefined,
+    }),
+    {
+      _id: 0,
+      id: 1,
+      project: 1,
+      targetingProjects: 1,
+      targetingAllProjects: 1,
+    },
+  )
+    .sort({ dateUpdated: -1 })
+    .limit(limit)
+    .lean<
+      Pick<
+        FeatureInterface,
+        "id" | "project" | "targetingProjects" | "targetingAllProjects"
+      >[]
+    >();
+  return docs
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
+    .map((f) => f.id);
+}
+
 export async function countFeatures(
   context: ReqContext | ApiReqContext,
   {
