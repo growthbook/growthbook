@@ -35,32 +35,37 @@ export function applyMetricOverrides(
 export function getQueryTagString(
   queryMetadata: QueryMetadata,
   maxLength: number,
+  encode: (value: string) => string = (value) => value,
 ): string {
   const metadata = {
     application: "growthbook",
     ...queryMetadata,
   };
 
-  let json = JSON.stringify(metadata);
+  let tag = encode(JSON.stringify(metadata));
 
-  if (json.length > maxLength) {
+  if (tag.length > maxLength) {
     // delete any key that has tags and try again
     const tagKeys = Object.keys(metadata).filter((key) => key.includes("tags"));
     if (tagKeys.length > 0) {
-      json = JSON.stringify({
-        ...Object.fromEntries(
-          Object.entries(metadata).filter(([key]) => !tagKeys.includes(key)),
-        ),
-      });
+      tag = encode(
+        JSON.stringify({
+          ...Object.fromEntries(
+            Object.entries(metadata).filter(([key]) => !tagKeys.includes(key)),
+          ),
+        }),
+      );
     }
   }
 
   // if still too long, just send the application key
-  if (json.length > maxLength) {
-    logger.warn("Query tag is too long, truncating", { json });
-    json = JSON.stringify({
-      application: "growthbook",
-    });
+  if (tag.length > maxLength) {
+    logger.warn("Query tag is too long, truncating", { tag });
+    tag = encode(
+      JSON.stringify({
+        application: "growthbook",
+      }),
+    );
   }
-  return json;
+  return tag;
 }
