@@ -209,7 +209,8 @@ describe("mergeConditionAndSavedGroups", () => {
       },
     });
 
-    // Only 1 valid saved group
+    // An "any" entry skips a missing group; an "all" entry that needs one
+    // matches nobody
     expect(
       mergeConditionAndSavedGroups({
         savedGroupStrategy: v1Strategy(groupMap),
@@ -220,7 +221,7 @@ describe("mergeConditionAndSavedGroups", () => {
         ],
       }),
     ).toEqual({
-      id_b: { $inGroup: "b" },
+      $and: [{ id_b: { $inGroup: "b" } }, { __sgUnknown__: "g" }],
     });
 
     // Condition + a bunch of saved groups
@@ -231,7 +232,7 @@ describe("mergeConditionAndSavedGroups", () => {
         savedGroups: [
           {
             match: "all",
-            ids: ["a", "b", "x"],
+            ids: ["a", "b"],
           },
           {
             match: "any",
@@ -4287,8 +4288,22 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
     });
   });
 
-  it("drops a group that is not in the map, in every format", () => {
-    const sg: SavedGroupTargeting[] = [{ match: "all", ids: ["gone"] }];
+  it("matches nobody when an entry needs a group that is not in the map, in every format", () => {
+    const needs: SavedGroupTargeting[][] = [
+      [{ match: "all", ids: ["gone"] }],
+      [{ match: "any", ids: ["gone"] }],
+    ];
+    [inline(), v1(), v2()].forEach((s) => {
+      needs.forEach((sg) => {
+        expect(build(s, JSON.stringify({ country: "US" }), sg)).toEqual({
+          $and: [{ country: "US" }, { __sgUnknown__: "gone" }],
+        });
+      });
+    });
+  });
+
+  it("drops a group that is not in the map from a none entry, in every format", () => {
+    const sg: SavedGroupTargeting[] = [{ match: "none", ids: ["gone"] }];
     [inline(), v1(), v2()].forEach((s) => {
       expect(build(s, JSON.stringify({ country: "US" }), sg)).toEqual({
         country: "US",

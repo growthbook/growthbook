@@ -52,9 +52,11 @@ import {
   VariationWeightPair,
 } from "shared/validators";
 import {
+  conditionHasSavedGroupErrors,
   getJSONValue,
   getPayloadAllowedKeys,
   getSavedGroupPayloadStrategy,
+  SAVED_GROUP_ERROR_UNKNOWN,
   resolveConstantRefs,
   ConstantValueMap,
   SavedGroupPayloadStrategy,
@@ -280,6 +282,24 @@ export function mergeConditionAndSavedGroups({
 
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
+      // A group that no longer exists is served as empty. An "in" entry that
+      // needs it can then match nobody, so it fails closed. A "none" entry
+      // drops it: excluding an empty group excludes nobody, and failing closed
+      // there would block every user over a configuration mistake. The health
+      // check reports both.
+      const missing = ids.filter((id) => !groupMap.has(id));
+      if (
+        missing.length &&
+        match !== "none" &&
+        (match === "all" || missing.length === ids.length)
+      ) {
+        logger.warn(
+          { savedGroupIds: missing },
+          "Saved group targeting names groups that do not exist; the rule matches nobody",
+        );
+        conditions.push({ [SAVED_GROUP_ERROR_UNKNOWN]: missing[0] });
+        return;
+      }
       const groupIds = ids.filter((id) => {
         const group = groupMap.get(id);
         if (!group) return false;
@@ -347,6 +367,12 @@ export function mergeConditionAndSavedGroups({
   conditions.forEach((cond) => {
     recursiveWalk(cond, savedGroupStrategy.createSavedGroupsOperatorHandler());
   });
+  if (conditions.some((cond) => conditionHasSavedGroupErrors(cond))) {
+    logger.warn(
+      { condition, savedGroups },
+      "Saved group targeting cannot be resolved and is served as an empty group",
+    );
+  }
 
   // Exactly one condition, return it
   if (conditions.length === 1) {
