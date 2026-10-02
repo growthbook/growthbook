@@ -9,7 +9,7 @@ import {
   TempRolloutStaleReason,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { buildFeatureLookups } from "back-end/src/util/features";
@@ -39,7 +39,7 @@ export async function computeFeatureStale(
     // The verdict reports the values the requested features evaluate to,
     // so those load in full.
     loadStaleGraph(context, ids),
-    getFeaturesByIds(context, ids),
+    getAllFeaturesWithoutEditorFields(context, { ids, includeArchived: true }),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
       featureIds: ids,

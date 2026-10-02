@@ -627,20 +627,28 @@ export async function getFeaturePageRevisions(
   featureId: string,
   feature: RevisionFeatureContext | undefined,
 ): Promise<FeatureRevisionInterface[]> {
-  // Lean initial load: top-5 recent + all active drafts in parallel, then deduplicate.
-  const [recentDocs, activeDraftDocs] = await Promise.all([
-    // Top-5 most recent: covers the revision history UI without fetching everything.
-    FeatureRevisionModel.find({ organization, featureId })
-      .select("-log")
-      .sort({ version: -1 })
-      .limit(5),
-    // All active drafts: a draft created from an old revision may fall outside the top-5 window.
-    FeatureRevisionModel.find({
-      organization,
-      featureId,
-      status: { $in: ACTIVE_DRAFT_STATUSES },
-    }).select("-log"),
-  ]);
+  // Top-5 most recent: covers the revision history UI without fetching everything.
+  const recentDocs = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+  })
+    .select("-log")
+    .sort({ version: -1 })
+    .limit(5);
+  // Active drafts outside that window: a draft created from an old revision
+  // may fall outside it. Drafts already in it are not read twice.
+  const olderActiveDraftDocs = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    status: { $in: ACTIVE_DRAFT_STATUSES },
+    version: { $nin: recentDocs.map((d) => d.version) },
+  }).select("-log");
+  const activeDraftDocs = [
+    ...recentDocs.filter((d) =>
+      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(d.status),
+    ),
+    ...olderActiveDraftDocs,
+  ];
 
   const seen = new Set<number>();
   const merged: FeatureRevisionDocument[] = [];

@@ -7782,7 +7782,12 @@ export async function getFeaturesHealth(
           getAllFeaturesWithoutEditorFields(context),
           getAllExperimentsForStaleGraph(context),
         ]).then(([features, experiments]) => ({ features, experiments })),
-    featureIds ? getFeaturesByIds(context, featureIds) : null,
+    featureIds
+      ? getAllFeaturesWithoutEditorFields(context, {
+          ids: featureIds,
+          includeArchived: true,
+        })
+      : null,
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
       featureIds,
