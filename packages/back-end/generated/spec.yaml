@@ -52319,6 +52319,112 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/cancel' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/visual-changesets:
+    post:
+      operationId: postContextualBanditVisualChangesets
+      summary: Create a visual changeset for a Contextual Bandit
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                editorUrl:
+                  description: >-
+                    URL of the page opened in the visual editor when creating
+                    this changeset
+                  type: string
+                urlPatterns:
+                  description: >-
+                    URL patterns that determine which pages this visual
+                    changeset applies to
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        type: boolean
+                      type:
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                    required:
+                      - type
+                      - pattern
+                    additionalProperties: {}
+              required:
+                - editorUrl
+                - urlPatterns
+              additionalProperties: {}
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visualChangeset:
+                    $ref: '#/components/schemas/VisualChangeset'
+                required:
+                  - visualChangeset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/visual-changesets'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listContextualBanditVisualChangesets
+      summary: List visual changesets for a Contextual Bandit
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visualChangesets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VisualChangeset'
+                required:
+                  - visualChangesets
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/visual-changesets'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandit-queries/{id}:
     get:
       operationId: getContextualBanditQuery
