@@ -1,0 +1,83 @@
+---
+title: Self-hosted Slack setup
+sidebarTitle: Self-hosted setup
+description: "Create a Slack app for your self-hosted GrowthBook instance from a pre-filled manifest, set SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, and SLACK_SIGNING_SECRET, and connect your workspace."
+---
+
+GrowthBook Cloud uses GrowthBook's own Slack app. A self-hosted instance needs its own app, which you create in Slack from a manifest that GrowthBook fills in for you. After that, connecting a workspace works the same as on Cloud.
+
+## Before you start
+
+- `APP_ORIGIN` and `API_HOST` are set to the URLs people use to reach your instance. GrowthBook builds the manifest from them. See [Domains and Ports](/self-host/env#domains-and-ports).
+- You can create apps in your Slack workspace.
+- For the [AI assistant](/integrations/slack/ai-assistant), Slack must be able to reach `API_HOST` over HTTPS from the public internet, and you need an Enterprise license. Notifications don't need either, because GrowthBook only sends messages to Slack.
+
+## 1. Copy the manifest from GrowthBook
+
+1. In GrowthBook, go to **Settings → Slack**.
+2. Under **Finish Self-Hosted Slack Setup**, click **Set up Slack app**.
+3. Copy the manifest shown in the dialog. It already contains your instance's URLs.
+
+## 2. Create the Slack app
+
+1. Open [Slack's Your Apps page](https://api.slack.com/apps?new_app=1) and click **Create New App**.
+2. Choose **From a manifest** and pick your workspace.
+3. Paste the manifest and create the app.
+
+## 3. Add the credentials to GrowthBook
+
+1. In your new Slack app, go to **Basic Information → App Credentials**.
+2. Copy the three values into these environment variables on your GrowthBook API server:
+
+   | Slack credential | Environment variable   |
+   | ---------------- | ---------------------- |
+   | Client ID        | `SLACK_CLIENT_ID`      |
+   | Client Secret    | `SLACK_CLIENT_SECRET`  |
+   | Signing Secret   | `SLACK_SIGNING_SECRET` |
+
+   With Docker Compose, for example:
+
+   ```yml
+   growthbook:
+     environment:
+       - SLACK_CLIENT_ID=1234567890.1234567890
+       - SLACK_CLIENT_SECRET=your-client-secret
+       - SLACK_SIGNING_SECRET=your-signing-secret
+   ```
+
+3. Restart GrowthBook and reload the Slack integration page.
+
+`SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` are required to connect a workspace and send notifications. `SLACK_SIGNING_SECRET` lets GrowthBook verify requests that Slack sends to it, which the AI assistant and its **Confirm** buttons need.
+
+## 4. Verify the events URL
+
+If you plan to use the AI assistant, open your Slack app's **Event Subscriptions** page and make sure Slack shows the request URL as verified. If it doesn't, Slack can't reach your API server. Check that `API_HOST` is public and served over HTTPS.
+
+## 5. Connect your workspace
+
+Click **Connect to Slack** and follow the steps in [Connect your Slack workspace](/integrations/slack#connect-your-slack-workspace).
+
+## Updating an existing Slack app
+
+If you created your Slack app by hand or from an older manifest, update it to match the current one. Copy the manifest from **Set up Slack app** and paste it into your app's **App Manifest** page in Slack, or set these values yourself:
+
+- **OAuth redirect URL:** `https://YOUR_APP_ORIGIN/integrations/slack`
+- **Event Subscriptions request URL:** `https://YOUR_API_HOST/integrations/slack/events`
+- **Interactivity request URL:** `https://YOUR_API_HOST/integrations/slack/interactions`
+- **Bot events:** `app_mention`, `message.im`, `app_home_opened`, `link_shared`. If the app still has the old `assistant_thread_started` event, remove it.
+- **Bot scopes:**
+
+  | Scope                          | Used for                                            |
+  | ------------------------------ | --------------------------------------------------- |
+  | `chat:write`                   | Notifications, assistant replies, and account links |
+  | `files:write`                  | Uploading notification image cards                  |
+  | `channels:read`, `groups:read` | Listing public and private channels                 |
+  | `channels:join`                | Joining a public channel you add for notifications  |
+  | `assistant:write`              | Starter prompts in the app's Messages tab           |
+  | `im:history`                   | Reading direct messages sent to the app             |
+  | `app_mentions:read`            | Reading messages that mention `@GrowthBook`         |
+  | `links:read`, `links:write`    | Reserved for link previews in a future release      |
+
+GrowthBook doesn't need channel history scopes such as `channels:history`, `groups:history`, or `mpim:history`, so don't add them.
+
+After you add scopes, open **Settings → Slack** in GrowthBook and choose **Manage workspace → Reconnect** so Slack grants the new permissions. A **Reconnect needed** badge means scopes are still missing.
