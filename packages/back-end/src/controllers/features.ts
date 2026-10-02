@@ -6367,6 +6367,24 @@ export async function getFeatures(
   });
 }
 
+// Code references are only shown on the flag's Stats tab, so they load there
+// rather than with the flag.
+export async function getFeatureCodeRefs(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const feature = await getFeature(context, req.params.id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  const codeRefs = await getAllCodeRefsForFeature({
+    feature: feature.id,
+    organization: context.org,
+  });
+  res.status(200).json({ status: 200, codeRefs });
+}
+
 export async function getFeatureRevisions(
   req: AuthRequest<null, { id: string }, { versions?: string }>,
   res: Response,
@@ -6473,12 +6491,11 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const [minimalRevisions, pageRevisions, rampScheduleDocs, codeRefs, holdout] =
+  const [minimalRevisions, pageRevisions, rampScheduleDocs, holdout] =
     await Promise.all([
       getMinimalRevisions(context, org.id, id),
       getFeaturePageRevisions(context, org.id, id, feature),
       context.models.rampSchedules.getAllByFeatureId(feature.id),
-      getAllCodeRefsForFeature({ feature: feature.id, organization: org }),
       feature.holdout
         ? context.models.holdout.getById(feature.holdout.id)
         : null,
@@ -6492,20 +6509,17 @@ export async function getFeatureById(
   const missingVersions = [...new Set([requestedVersion, feature.version])]
     .filter((v): v is number => v !== null && !Number.isNaN(v))
     .filter((v) => !fullRevisions.some((r) => r.version === v));
-  const fetchedRevisions = await Promise.all(
-    missingVersions.map((version) =>
-      getRevision({
+  if (missingVersions.length) {
+    fullRevisions.push(
+      ...(await getRevisionsByVersions({
         context,
         organization: org.id,
         featureId: id,
         feature,
-        version,
-      }),
-    ),
-  );
-  fetchedRevisions.forEach((revision) => {
-    if (revision) fullRevisions.push(revision);
-  });
+        versions: missingVersions,
+      })),
+    );
+  }
 
   // Historically, we haven't properly cleared revision history when deleting a feature
   // So if you create a feature with the same name as a previously deleted one, it would inherit the revision history
@@ -6615,7 +6629,6 @@ export async function getFeatureById(
     revisions: fullRevisions,
     experiments: [...experimentsMap.values()],
     safeRollouts: [...safeRolloutMap.values()],
-    codeRefs,
     holdout,
     rampSchedules,
   });

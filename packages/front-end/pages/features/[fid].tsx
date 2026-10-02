@@ -252,7 +252,7 @@ export default function FeaturePage() {
         )}
 
         {tab === "stats" && (
-          <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+          <FeaturesStats orgSettings={orgSettings} featureId={feature.id} />
         )}
 
         {tab === "diagnostics" && (

@@ -12,6 +12,8 @@ import Button from "@/components/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import useApi from "@/hooks/useApi";
 
 const generatePlatformUrl = (
   platformUrl: string,
@@ -25,10 +27,10 @@ const generatePlatformUrl = (
 
 export default function FeaturesStats({
   orgSettings,
-  codeRefs: allCodeRefs,
+  featureId,
 }: {
   orgSettings: OrganizationSettings;
-  codeRefs: FeatureCodeRefsInterface[];
+  featureId: string;
 }) {
   const router = useRouter();
   const {
@@ -39,6 +41,12 @@ export default function FeaturesStats({
   const { hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("code-references");
   const permissionsUtil = usePermissionsUtil();
+
+  const { data } = useApi<{ codeRefs: FeatureCodeRefsInterface[] }>(
+    `/feature/${featureId}/code-refs`,
+    { shouldRun: () => hasFeature && !!codeReferencesEnabled },
+  );
+  const allCodeRefs = useMemo(() => data?.codeRefs ?? [], [data]);
 
   const codeRefs = useMemo(() => {
     if (!codeRefsBranchesToFilter || codeRefsBranchesToFilter.length === 0) {
@@ -104,6 +112,8 @@ export default function FeaturesStats({
       </>
     );
   }
+
+  if (!data) return <LoadingOverlay />;
 
   return (
     <div className="contents container-fluid pagecontents">

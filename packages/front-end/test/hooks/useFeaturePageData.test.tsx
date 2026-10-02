@@ -57,7 +57,6 @@ function basePayload(fullRevisions: FeatureRevisionInterface[]) {
     revisions: fullRevisions,
     experiments: [],
     safeRollouts: [],
-    codeRefs: [],
     holdout: undefined,
     rampSchedules: [],
   };

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureCodeRefsInterface } from "shared/types/code-refs";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature, mergeRevision } from "shared/util";
@@ -19,7 +18,6 @@ type FeaturePageResponse = {
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[];
   safeRollouts: SafeRolloutInterface[];
-  codeRefs: FeatureCodeRefsInterface[];
   holdout: HoldoutInterface | undefined;
   rampSchedules: RampScheduleInterface[];
 };
