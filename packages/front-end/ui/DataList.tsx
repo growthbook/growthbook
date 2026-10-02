@@ -59,7 +59,7 @@ export default function DataList({
                 </Tooltip>
               ) : null}
             </Text>
-            <Text>{value}</Text>
+            <Text overflowWrap="break-word">{value}</Text>
           </Flex>
         ))}
       </Grid>

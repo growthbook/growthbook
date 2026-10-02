@@ -574,7 +574,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.10.10",
+      version: "0.11.0",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
