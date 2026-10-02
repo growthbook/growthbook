@@ -4,14 +4,18 @@ import pick from "lodash/pick";
 import pickBy from "lodash/pickBy";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { hasVisualChanges } from "shared/util";
+import { hasVisualChanges, isDefined } from "shared/util";
 import {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "shared/types/visual-changeset";
-import { ApiVisualChangeset } from "shared/validators";
+import {
+  ApiVisualChangeset,
+  ContextualBanditInterface,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
+import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
 import type {
   ChangesetOwner,
@@ -225,6 +229,60 @@ export async function findVisualChangesetsByContextualBanditIds(
     query = query.sort({ _id: -1 }).limit(limit);
   }
   return (await query).map(toInterface);
+}
+
+const cbOwnedFilter = (context: ReqContext | ApiReqContext) => ({
+  organization: context.org.id,
+  contextualBandit: { $exists: true, $ne: null },
+});
+
+async function getContextualBanditsByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<ContextualBanditInterface[]> {
+  if (!ids.length) return [];
+  const cbs = await context.models.contextualBandits.getByIds(ids);
+  return cbs.filter((cb) => !cb.archived);
+}
+
+export async function getContextualBanditsWithVisualChangesets(
+  context: ReqContext | ApiReqContext,
+): Promise<ContextualBanditInterface[]> {
+  const ids: unknown[] = await VisualChangesetModel.distinct(
+    "contextualBandit",
+    cbOwnedFilter(context),
+  );
+  return getContextualBanditsByIds(
+    context,
+    ids.filter((id): id is string => typeof id === "string" && id !== ""),
+  );
+}
+
+export async function getAllCbVisualExperiments(
+  context: ReqContext | ApiReqContext,
+): Promise<CbVisualExperiment[]> {
+  const changesets = (
+    await VisualChangesetModel.find(cbOwnedFilter(context))
+  ).map(toInterface);
+
+  if (!changesets.length) return [];
+
+  const cbs = await getContextualBanditsByIds(
+    context,
+    Array.from(
+      new Set(changesets.map((c) => c.contextualBandit).filter(isDefined)),
+    ),
+  );
+  const cbById = new Map(cbs.map((cb) => [cb.id, cb]));
+
+  const out: CbVisualExperiment[] = [];
+  for (const c of changesets) {
+    if (!c.contextualBandit) continue;
+    const cb = cbById.get(c.contextualBandit);
+    if (!cb) continue;
+    out.push({ type: "cb-visual", contextualBandit: cb, visualChangeset: c });
+  }
+  return out;
 }
 
 export async function createVisualChange(

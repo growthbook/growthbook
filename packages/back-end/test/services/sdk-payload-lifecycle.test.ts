@@ -23,6 +23,7 @@ import {
 } from "back-end/src/services/features";
 import * as FeatureModel from "back-end/src/models/FeatureModel";
 import * as ExperimentModel from "back-end/src/models/ExperimentModel";
+import * as VisualChangesetModel from "back-end/src/models/VisualChangesetModel";
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   findSDKConnectionByKey: jest.fn(),
@@ -42,6 +43,10 @@ jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeatures: jest.fn().mockResolvedValue([]),
   getAllFeaturesWithoutEditorFields: jest.fn().mockResolvedValue([]),
+}));
+jest.mock("back-end/src/models/VisualChangesetModel", () => ({
+  getAllCbVisualExperiments: jest.fn().mockResolvedValue([]),
+  getContextualBanditsWithVisualChangesets: jest.fn().mockResolvedValue([]),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllPayloadExperiments: jest.fn().mockResolvedValue(new Map()),
@@ -315,6 +320,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       expect(
         ExperimentModel.getAllURLRedirectExperiments,
       ).not.toHaveBeenCalled();
+      expect(
+        VisualChangesetModel.getAllCbVisualExperiments,
+      ).not.toHaveBeenCalled();
     }
     const twoEnvOrg = {
       ...minimalContext().org,
@@ -531,6 +539,12 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           (
             ExperimentModel.getAllPayloadExperiments as jest.Mock
           ).mockResolvedValue(new Map());
+          (
+            VisualChangesetModel.getAllCbVisualExperiments as jest.Mock
+          ).mockResolvedValue([]);
+          (
+            VisualChangesetModel.getContextualBanditsWithVisualChangesets as jest.Mock
+          ).mockResolvedValue([]);
           getSDKPayloadCacheLocationMock.mockReturnValue(storage);
           upsert = jest.fn().mockResolvedValue(undefined);
           mockModels = {
@@ -637,6 +651,24 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           useFeatures([parent, viaExperiment]);
           await refresh();
           expectNotified([connA, connB], ["prj-a", "prj-b"]);
+        });
+
+        it("prerequisite on a contextual bandit with a visual changeset", async () => {
+          (
+            VisualChangesetModel.getContextualBanditsWithVisualChangesets as jest.Mock
+          ).mockResolvedValue([
+            {
+              id: "cb-x",
+              project: "prj-b",
+              prerequisites: [{ id: "parent-flag", condition: "{}" }],
+            },
+          ]);
+          useFeatures([parent]);
+          await refresh();
+          expectNotified([connA, connB], ["prj-a", "prj-b"]);
+          expect(
+            VisualChangesetModel.getAllCbVisualExperiments,
+          ).toHaveBeenCalledTimes(storage === "none" ? 0 : 1);
         });
 
         it("all-projects dependent: every project's connection is notified and the project list is consulted", async () => {

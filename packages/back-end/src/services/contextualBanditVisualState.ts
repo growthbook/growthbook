@@ -75,6 +75,7 @@ export async function onContextualBanditVisualStateChanged(
     context,
     current,
     "contextualBandit.refresh",
+    { includeVisualKeys: changesetDeleted },
   );
   return current;
 }

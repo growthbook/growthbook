@@ -695,14 +695,18 @@ export function featuresWithPrerequisiteClosure(
   features: FeatureInterface[],
   featuresMap: Map<string, FeatureInterface>,
   experimentMap?: Map<string, ExperimentInterface>,
+  seedIds: string[] = [],
 ): { features: FeatureInterface[]; carried: Set<string> } {
   const carried = new Set<string>();
   const present = new Set(features.map((f) => f.id));
 
-  let frontier = features;
-  while (frontier.length) {
+  let wanted = [
+    ...seedIds,
+    ...getPrerequisiteIdsInFeatures(features, experimentMap),
+  ];
+  while (wanted.length) {
     const next: FeatureInterface[] = [];
-    for (const id of getPrerequisiteIdsInFeatures(frontier, experimentMap)) {
+    for (const id of wanted) {
       if (present.has(id)) continue;
       const parent = featuresMap.get(id);
       if (!parent) continue;
@@ -710,7 +714,7 @@ export function featuresWithPrerequisiteClosure(
       carried.add(id);
       next.push(parent);
     }
-    frontier = next;
+    wanted = getPrerequisiteIdsInFeatures(next, experimentMap);
   }
 
   return {
@@ -729,6 +733,7 @@ export function buildPrerequisiteProjectReach(
   features: FeatureInterface[],
   allProjectIds: string[] = [],
   experimentMap?: Map<string, ExperimentInterface>,
+  otherDependents: { projects: string[]; prerequisiteIds: string[] }[] = [],
 ): Map<string, Set<string>> {
   const featuresMap = new Map(features.map((f) => [f.id, f]));
   const reach = new Map<string, Set<string>>();
@@ -740,17 +745,8 @@ export function buildPrerequisiteProjectReach(
     reach.set(from, set);
   };
 
-  for (const dependent of features) {
-    // An all-projects dependent carries its prerequisites everywhere. The ""
-    // key doesn't cover that — it only reaches connections with no project
-    // filter unless treatEmptyProjectAsGlobal.
-    const dependentProjects =
-      getTargetingProjectIds(dependent) ?? allProjectIds;
-
-    for (const parentId of getPrerequisiteIdsInFeatures(
-      [dependent],
-      experimentMap,
-    )) {
+  const linkParents = (dependentProjects: string[], parentIds: string[]) => {
+    for (const parentId of parentIds) {
       const parent = featuresMap.get(parentId);
       if (!parent) continue;
       const parentProjects = getTargetingProjectIds(parent);
@@ -759,6 +755,19 @@ export function buildPrerequisiteProjectReach(
         dependentProjects.forEach((to) => link(from, to)),
       );
     }
+  };
+
+  for (const dependent of features) {
+    // An all-projects dependent carries its prerequisites everywhere. The ""
+    // key doesn't cover that — it only reaches connections with no project
+    // filter unless treatEmptyProjectAsGlobal.
+    linkParents(
+      getTargetingProjectIds(dependent) ?? allProjectIds,
+      getPrerequisiteIdsInFeatures([dependent], experimentMap),
+    );
+  }
+  for (const { projects, prerequisiteIds } of otherDependents) {
+    linkParents(projects, prerequisiteIds);
   }
 
   // A grandparent reaches wherever its parent reaches.

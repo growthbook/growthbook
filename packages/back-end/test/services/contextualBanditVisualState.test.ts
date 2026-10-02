@@ -178,6 +178,7 @@ describe("onContextualBanditVisualStateChanged", () => {
       context,
       fresh,
       "contextualBandit.refresh",
+      { includeVisualKeys: false },
     );
     expect(result).toBe(fresh);
   });
@@ -212,10 +213,11 @@ describe("onContextualBanditVisualStateChanged", () => {
       context,
       cb,
       "contextualBandit.refresh",
+      { includeVisualKeys: false },
     );
   });
 
-  it("syncs and activates arms after the last changeset is deleted", async () => {
+  it("syncs, activates and refreshes every visual key after the last changeset is deleted", async () => {
     const cb = makeCb({
       hasVisualChangesets: false,
       variations: [arm("v0"), arm("v1"), arm("v2", "pending")],
@@ -235,6 +237,7 @@ describe("onContextualBanditVisualStateChanged", () => {
       context,
       cb,
       "contextualBandit.refresh",
+      { includeVisualKeys: true },
     );
   });
 
