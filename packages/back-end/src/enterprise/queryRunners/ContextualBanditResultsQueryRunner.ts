@@ -78,6 +78,9 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
   ): Promise<Queries> {
     this.snapshotSettings = params.snapshotSettings;
     this.variationNames = params.variationNames;
+    this.integration.setAdditionalQueryMetadata?.({
+      experimentId: params.snapshotSettings.experimentId,
+    });
 
     const cb = await this.loadCbDoc();
 
