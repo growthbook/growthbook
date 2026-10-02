@@ -13,9 +13,9 @@ jobs:
         uses: actions/checkout@v5
         with:
           # This value must be set if the lookback configuration option is
-          # defined for find-code-refs. Read more:
+          # defined for find-code-refs. Read more: 
           # https://github.com/growthbook/gb-find-code-refs#searching-for-unused-flags-extinctions
-          fetch-depth: 11
+          fetch-depth: 11 
       - name: GrowthBook Code References
         uses: growthbook/coderefs-action@2.11.6-1
         with:
