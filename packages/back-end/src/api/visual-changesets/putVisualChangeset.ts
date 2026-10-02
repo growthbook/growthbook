@@ -1,6 +1,5 @@
 import omit from "lodash/omit";
 import { putVisualChangesetValidator } from "shared/validators";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
@@ -8,7 +7,10 @@ import {
   VisualChangesetUpdates,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { requireVisualChangeWrite } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
+import {
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
 
 export const putVisualChangeset = createApiRequestHandler(
   putVisualChangesetValidator,
@@ -20,24 +22,6 @@ export const putVisualChangeset = createApiRequestHandler(
   if (!visualChangeset) {
     throw new Error("Visual Changeset not found");
   }
-
-  const experiment = await getExperimentById(
-    req.context,
-    visualChangeset.experiment,
-  );
-
-  if (!experiment) {
-    throw new Error("Experiment not found");
-  }
-
-  if (!req.context.permissions.canUpdateVisualChange(experiment)) {
-    req.context.permissions.throwPermissionError();
-  }
-  // Re-checked on every save so a stale editor can't clobber a test started since it loaded.
-  const auditLiveEdit = requireVisualChangeWrite(req, experiment, {
-    allowRunning: !!req.body.allowRunningExperiment,
-    visualChangesetId: visualChangeset.id,
-  });
 
   const updates: VisualChangesetUpdates = {
     ...omit(req.body, ["urlPatterns", "allowRunningExperiment"]),
@@ -52,9 +36,22 @@ export const putVisualChangeset = createApiRequestHandler(
       : {}),
   };
 
+  const owner = await resolveChangesetOwner(req.context, visualChangeset);
+  if (!owner) {
+    throw new Error(ownerNotFoundMessage());
+  }
+  if (!owner.canUpdateVisualChange()) {
+    req.context.permissions.throwPermissionError();
+  }
+  // Re-checked on every save so a stale editor can't clobber a test started since it loaded.
+  const auditLiveEdit = owner.requireWrite(req, {
+    allowRunning: !!req.body.allowRunningExperiment,
+    visualChangesetId: visualChangeset.id,
+  });
+
   const res = await updateVisualChangeset({
     visualChangeset,
-    experiment,
+    owner,
     context: req.context,
     updates,
   });

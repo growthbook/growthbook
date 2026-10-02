@@ -1,12 +1,6 @@
 import { z } from "zod";
-import type { Changeset } from "shared/types/experiment";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
-import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { requireUserAuth } from "./requireUserAuth";
 
 // Renames only the display `name` — tracking key is intentionally left
@@ -39,39 +33,16 @@ export const postRenameExperiment = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const changeset = await findVisualChangesetById(
-    visualChangesetId,
-    req.organization.id,
-  );
-  if (!changeset) {
-    return context.throwNotFoundError("Visual changeset not found");
-  }
+  const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
 
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) {
-    return context.throwNotFoundError("Experiment not found");
-  }
-
-  // Rename lives on the experiment, not the changeset, so gate on
-  // canUpdateExperiment (not canUpdateVisualChange).
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  // Rename lives on the owner, not the changeset, so gate on the
+  // owner's update permission (not canUpdateVisualChange).
+  if (!owner.canUpdateOwner()) {
     context.permissions.throwPermissionError();
   }
 
   // Skip the write when unchanged to avoid spurious dateUpdated bumps
   // (which would invalidate SDK payload caches).
-  const trimmed = name.trim();
-  if (trimmed === experiment.name) {
-    return { name: experiment.name };
-  }
-
-  const changes: Changeset = { name: trimmed };
-  await validateExperimentChange({ context, experiment, changes });
-  await updateExperiment({
-    context,
-    experiment,
-    changes,
-  });
-
-  return { name: trimmed };
+  const renamed = await owner.rename(name);
+  return { name: renamed };
 });

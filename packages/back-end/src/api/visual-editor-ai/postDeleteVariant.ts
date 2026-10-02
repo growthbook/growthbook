@@ -1,28 +1,17 @@
 import { z } from "zod";
-import type { Changeset } from "shared/types/experiment";
-import type { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
-import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import { toExperimentApiInterface } from "back-end/src/services/experiments";
-import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
-import { requireDraftExperiment } from "./requireDraftExperiment";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { requireUserAuth } from "./requireUserAuth";
 
 const bodySchema = z
   .object({
     visualChangesetId: z.string(),
-    // Internal variation `id` — matches experiment.variations[].id and
-    // visualChange.variation.
     variationId: z.string(),
   })
   .strict();
@@ -40,10 +29,9 @@ const validation = {
   excludeFromSpec: true,
 };
 
-// Removes a variation from the experiment (variations, every phase's
-// variations list, and weights) plus its matching visual change. The inverse
-// of postAddVariant. Returns the refreshed changeset + experiment so the side
-// panel re-renders in one round-trip.
+// Removes a variation from the owner plus its matching visual change. The
+// inverse of postAddVariant. Returns the refreshed changeset + experiment so
+// the side panel re-renders in one round-trip.
 export const postDeleteVariant = createApiRequestHandler(validation)(async (
   req,
 ) => {
@@ -51,123 +39,45 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const changeset = await findVisualChangesetById(
+  const { changeset, owner } = await loadChangesetWithOwner(
+    context,
     visualChangesetId,
-    req.organization.id,
   );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
 
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-
-  // Mutates the experiment AND the changeset — both gates required.
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+  if (!owner.canManageVariations()) {
     context.permissions.throwPermissionError();
   }
-  if (!context.permissions.canUpdateVisualChange(experiment)) {
-    context.permissions.throwPermissionError();
-  }
-  requireDraftExperiment(context, experiment);
+  const auditLiveEdit = owner.requireWrite(req, {
+    allowRunning: false,
+    visualChangesetId,
+  });
 
-  const idx = experiment.variations.findIndex((v) => v.id === variationId);
-  if (idx < 0) {
-    return context.throwBadRequestError(
-      "Variation not found in this experiment",
-    );
-  }
-  // Index 0 is the control/baseline — never removable here.
-  if (idx === 0) {
-    return context.throwBadRequestError(
-      "The control variation can't be deleted",
-    );
-  }
-  // Keep at least control + one variant.
-  if (experiment.variations.length <= 2) {
-    return context.throwBadRequestError(
-      "An experiment must keep at least one variant besides control",
-    );
-  }
+  const removed = await owner.removeVariation(variationId);
 
-  const nextVariations = experiment.variations.filter(
-    (v) => v.id !== variationId,
-  );
-
-  // Only edit the LATEST phase — older phases are historical records and are
-  // left untouched (matching add-variant and the rest of our endpoints; we
-  // don't rewrite past traffic allocations). In the latest phase, drop the
-  // deleted variation from its variations list and remove its weight.
-  // variationWeights is index-aligned with experiment.variations (see
-  // toExperimentApiInterface), so remove the weight at index `idx` and
-  // renormalize the rest to preserve the phase's ratios; fall back to an equal
-  // split only if the phase's weights don't line up (legacy data).
-  const originalCount = experiment.variations.length;
-  const phases = (experiment.phases || []).map((p) => ({ ...p }));
-  if (phases.length > 0) {
-    const latest = phases[phases.length - 1];
-    if (latest.variations !== undefined) {
-      latest.variations = latest.variations.filter(
-        (pv) => pv.id !== variationId,
-      );
-    }
-    if (
-      latest.variationWeights !== undefined &&
-      latest.variationWeights.length
-    ) {
-      latest.variationWeights =
-        latest.variationWeights.length === originalCount
-          ? renormalizeWeights(
-              latest.variationWeights.filter((_, i) => i !== idx),
-            )
-          : renormalizeWeights(new Array(nextVariations.length).fill(1));
-    }
-  }
-
-  const changes: Changeset = {
-    variations: nextVariations,
-    ...(phases.length > 0 ? { phases } : {}),
-  };
-  await validateExperimentChange({ context, experiment, changes });
-
-  const nextVisualChanges = changeset.visualChanges.filter(
-    (vc) => vc.variation !== variationId,
-  );
-
-  // Two documents, two writes, and no cross-collection transaction is
-  // available here. Do the REVERSIBLE write (remove the variation) first and
-  // the DESTRUCTIVE one (drop the user-authored visual change) second. If the
-  // visual-change write fails, roll the experiment back — so we never (a) lose
-  // the variant's authored css/js/domMutations while the variant survives, nor
-  // (b) orphan a visual change onto a variation that no longer exists. The
-  // snapshot below (copies, taken before the first write) drives the rollback.
-  const rollback: Changeset = {
-    variations: experiment.variations.map((v) => ({ ...v })),
-    ...(experiment.phases
-      ? { phases: experiment.phases.map((p) => ({ ...p })) }
-      : {}),
-  };
-  const deleted = await updateExperiment({ context, experiment, changes });
   try {
+    const current =
+      (await findVisualChangesetById(visualChangesetId, req.organization.id)) ??
+      changeset;
+    const nextVisualChanges = current.visualChanges.filter(
+      (vc) => vc.variation !== variationId,
+    );
     await updateVisualChangeset({
-      visualChangeset: changeset,
-      experiment,
+      visualChangeset: current,
+      owner,
       context,
       updates: { visualChanges: nextVisualChanges },
     });
   } catch (e) {
+    if (!removed.rollback) {
+      logger.error(
+        { err: e, variationId, visualChangesetId },
+        "[visual-editor/delete-variant] visual-change write failed after an irreversible variation removal; its visual change remains",
+      );
+      throw e;
+    }
     try {
-      // Restore against the POST-delete experiment (`deleted`), not the
-      // original: updateExperiment early-returns when hasActualChanges finds
-      // no diff, so diffing the rollback against the unchanged original object
-      // would silently skip the write and leave the variation deleted.
-      await updateExperiment({
-        context,
-        experiment: deleted,
-        changes: rollback,
-      });
+      await removed.rollback();
     } catch (rollbackErr) {
-      // Rollback also failed: the variation is gone but its visual change is
-      // still stored (orphaned). Content isn't lost — log for cleanup.
       logger.error(
         { err: rollbackErr, variationId, visualChangesetId },
         "[visual-editor/delete-variant] rollback failed after visual-change write error; variation removed but its visual change remains",
@@ -175,29 +85,16 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     }
     throw e;
   }
+  await auditLiveEdit();
 
-  // Re-read so the response matches the initial-load shape.
   const refreshedChangeset = await findVisualChangesetById(
     visualChangesetId,
     req.organization.id,
   );
-  const refreshedExperiment = await getExperimentById(
-    context,
-    changeset.experiment,
-  );
-  if (!refreshedExperiment) {
+  const apiExperiment = await owner.toEditorExperiment();
+  if (!apiExperiment) {
     throw new Error("Experiment vanished between write and re-read");
   }
-  if (refreshedExperiment.type === "holdout") {
-    throw new Error("Visual changesets are not supported on holdouts");
-  }
-  const apiExperiment = await resolveOwnerEmail(
-    await toExperimentApiInterface(
-      context,
-      refreshedExperiment as ExperimentInterfaceExcludingHoldouts,
-    ),
-    context,
-  );
 
   return {
     visualChangeset: refreshedChangeset
@@ -206,19 +103,3 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     experiment: apiExperiment,
   };
 });
-
-// Rescale weights so they sum to 1 while preserving their ratios. Falls back
-// to an equal split only when every remaining weight is zero. Rounds to 4 dp
-// and absorbs the rounding drift into the first entry (matching the weight
-// convention used by postAddVariant).
-function renormalizeWeights(weights: number[]): number[] {
-  if (weights.length === 0) return weights;
-  const sum = weights.reduce((a, b) => a + b, 0);
-  const base =
-    sum > 0
-      ? weights.map((w) => Number((w / sum).toFixed(4)))
-      : new Array(weights.length).fill(Number((1 / weights.length).toFixed(4)));
-  const drift = Number((1 - base.reduce((a, b) => a + b, 0)).toFixed(4));
-  base[0] = Number((base[0] + drift).toFixed(4));
-  return base;
-}
