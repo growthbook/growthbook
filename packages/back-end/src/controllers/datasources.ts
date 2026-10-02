@@ -352,14 +352,13 @@ export async function postManagedWarehouse(
     "growthbook_clickhouse",
     params,
     datasourceSettings,
-    "managed_warehouse",
   );
 
   const integration = getSourceIntegrationObject(context, datasource);
 
   res.status(200).json({
     status: 200,
-    id: "managed_warehouse",
+    id: datasource.id,
     datasource: await getDataSourceWithParams(context, integration),
   });
 }

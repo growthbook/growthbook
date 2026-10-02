@@ -441,6 +441,20 @@ function assertEventForwarderManagedRecordsIntact(
   }
 }
 
+export const MANAGED_WAREHOUSE_DATASOURCE_ID = "managed_warehouse";
+
+const DUPLICATE_MANAGED_WAREHOUSE_ERROR =
+  "Your organization already has a Managed Warehouse. Only one is allowed per organization.";
+
+function isDuplicateKeyError(e: unknown): boolean {
+  return (
+    !!e &&
+    typeof e === "object" &&
+    "code" in e &&
+    (e as { code: unknown }).code === 11000
+  );
+}
+
 export async function createDataSource(
   context: ReqContext,
   name: string,
@@ -455,21 +469,24 @@ export async function createDataSource(
     throw new Error("Cannot add. Data sources managed by config.yml");
   }
 
+  const isManagedWarehouseType = type === "growthbook_clickhouse";
   // Unfiltered by project permissions so a Managed Warehouse the user can't
   // read still counts.
   if (
-    type === "growthbook_clickhouse" &&
+    isManagedWarehouseType &&
     (await DataSourceModel.exists({
       organization: context.org.id,
       type: "growthbook_clickhouse",
     }))
   ) {
-    throw new Error(
-      "Your organization already has a Managed Warehouse. Only one is allowed per organization.",
-    );
+    throw new Error(DUPLICATE_MANAGED_WAREHOUSE_ERROR);
   }
 
-  id = id || uniqid("ds_");
+  // A fixed id lets the (id, organization) unique index reject a second
+  // Managed Warehouse from overlapping requests that both pass the check above.
+  id = isManagedWarehouseType
+    ? MANAGED_WAREHOUSE_DATASOURCE_ID
+    : id || uniqid("ds_");
   projects = projects || [];
 
   if (type === "google_analytics") {
@@ -516,9 +533,15 @@ export async function createDataSource(
   assertUniqueUserIdTypeNames(settings);
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
-  const model = (await DataSourceModel.create(
-    datasource,
-  )) as DataSourceDocument;
+  let model: DataSourceDocument;
+  try {
+    model = (await DataSourceModel.create(datasource)) as DataSourceDocument;
+  } catch (e) {
+    if (isManagedWarehouseType && isDuplicateKeyError(e)) {
+      throw new Error(DUPLICATE_MANAGED_WAREHOUSE_ERROR);
+    }
+    throw e;
+  }
   context.forgetDataSourceRefs();
 
   const integration = getSourceIntegrationObject(context, datasource);
