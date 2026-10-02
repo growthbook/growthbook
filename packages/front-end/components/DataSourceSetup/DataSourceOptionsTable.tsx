@@ -10,7 +10,6 @@ import {
   PiPaperPlaneTilt,
   PiSlidersHorizontal,
 } from "react-icons/pi";
-import { DataSourceType } from "shared/types/datasource";
 import { CommercialFeature } from "shared/enterprise";
 import { supportsEventForwarder } from "shared/util";
 import Table, {
@@ -49,7 +48,6 @@ const OPTION_KEYS: DataSourceOptionKey[] = [
 const eventForwarderConnections = dataSourceConnections.filter((o) =>
   supportsEventForwarder({ type: o.type }),
 );
-const eventForwarderTypes = eventForwarderConnections.map((o) => o.type);
 
 const OPTION_HEADS: Record<
   DataSourceOptionKey,
@@ -238,9 +236,7 @@ export default function DataSourceOptionsTable() {
   } = useDataSourceOptionEligibility();
 
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
-  const [newDataSourceForm, setNewDataSourceForm] = useState<{
-    allowedTypes?: DataSourceType[];
-  } | null>(null);
+  const [newDataSourceFormOpen, setNewDataSourceFormOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const setUpActions: Record<
@@ -255,13 +251,12 @@ export default function DataSourceOptionsTable() {
     "event-forwarder": {
       label: "Set up Event Forwarder",
       variant: "outline",
-      onClick: () =>
-        setNewDataSourceForm({ allowedTypes: eventForwarderTypes }),
+      onClick: () => setNewDataSourceFormOpen(true),
     },
     custom: {
       label: "Set up Custom Data Source",
       variant: "outline",
-      onClick: () => setNewDataSourceForm({}),
+      onClick: () => setNewDataSourceFormOpen(true),
     },
   };
 
@@ -308,16 +303,15 @@ export default function DataSourceOptionsTable() {
       {managedWarehouseOpen ? (
         <ManagedWarehouseModal close={() => setManagedWarehouseOpen(false)} />
       ) : null}
-      {newDataSourceForm ? (
+      {newDataSourceFormOpen ? (
         <NewDataSourceForm
           source="datasource-options"
-          allowedTypes={newDataSourceForm.allowedTypes}
           showImportSampleData={false}
           onSuccess={async (id) => {
             await mutateDefinitions({});
             await router.push(`/datasources/${id}`);
           }}
-          onCancel={() => setNewDataSourceForm(null)}
+          onCancel={() => setNewDataSourceFormOpen(false)}
         />
       ) : null}
       {upgradeOpen ? (

@@ -6,19 +6,13 @@ import RadioCards from "@/ui/RadioCards";
 export interface Props {
   value: DataSourceType | "";
   setValue: (value: DataSourceType) => void;
-  allowedTypes?: DataSourceType[];
 }
 
-export default function DataSourceTypeSelector({
-  value,
-  setValue,
-  allowedTypes,
-}: Props) {
+export default function DataSourceTypeSelector({ value, setValue }: Props) {
   return (
     <RadioCards
       options={dataSourceConnections
         .filter((o) => o.type !== "google_analytics" && o.type !== "mixpanel")
-        .filter((o) => !allowedTypes || allowedTypes.includes(o.type))
         .map((o) => {
           return {
             value: o.type,
