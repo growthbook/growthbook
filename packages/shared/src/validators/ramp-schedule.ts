@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 
@@ -84,6 +88,7 @@ export type RampMonitoringMode = z.infer<typeof rampMonitoringMode>;
 export const rampMonitoringConfig = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
+  exposureQueryIdentifierType: z.string().optional(),
   guardrailMetricIds: z.array(z.string()).min(1),
   signalMetricIds: z.array(z.string()).optional(),
   updateScheduleMinutes: z.number().min(10).optional().nullable(),
@@ -101,6 +106,22 @@ export const rampMonitoringConfig = z.object({
   multipleExposureAction: experimentHealthAction.optional(),
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
+
+/**
+ * API shape: `exposureQuery` supersedes the deprecated `exposureQueryId`. The
+ * internal rampMonitoringConfig stays flat.
+ */
+export const apiRampMonitoringConfig = rampMonitoringConfig
+  .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
+  .extend(apiAssignmentQueryResponseFields("exposureQuery"));
+export type ApiRampMonitoringConfig = z.infer<typeof apiRampMonitoringConfig>;
+
+export const apiRampMonitoringConfigInput = rampMonitoringConfig
+  .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
+  .extend(apiAssignmentQueryInputFields("exposureQuery"));
+export type ApiRampMonitoringConfigInput = z.infer<
+  typeof apiRampMonitoringConfigInput
+>;
 
 export const rampStepAction = z.object({
   targetType: z.literal("feature-rule"),
@@ -570,7 +591,7 @@ export const apiRampScheduleTemplateValidator = namedSchema(
     steps: z.array(apiTemplateRampStep),
     endPatch: templateEndPatchValidator.optional(),
     official: z.boolean().optional(),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfig.nullish(),
     lockdownConfig: lockdownConfigSchema.nullish(),
     order: z
       .number()
@@ -579,6 +600,9 @@ export const apiRampScheduleTemplateValidator = namedSchema(
       ),
   }),
 );
+export type ApiRampScheduleTemplateInterface = z.infer<
+  typeof apiRampScheduleTemplateValidator
+>;
 
 const apiRampStep = z.object({
   ...apiRampStepCommon,
@@ -659,7 +683,7 @@ export const apiRampScheduleInterface = namedSchema(
         "Milliseconds since startedAt (computed at response time, not stored)",
       ),
     lockdownConfig: lockdownConfigSchema.optional(),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfig.nullish(),
     experimentHealthAction: experimentHealthAction.optional(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
     stepApproval: z

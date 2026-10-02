@@ -37,6 +37,7 @@ export * from "./saved-queries";
 export * from "./segment";
 export * from "./auto-run";
 export * from "./shared";
+export * from "./assignment-query-field";
 export * from "./signup-attribution";
 export * from "./snapshot-analysis-chunks";
 export * from "./webhook-secrets";

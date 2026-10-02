@@ -51,7 +51,9 @@ export const listReports = createApiRequestHandler(listReportsValidator)(async (
 
   return {
     reports: await resolveOwnerEmails(
-      filtered.map((r) => toReportApiInterface(r)),
+      await Promise.all(
+        filtered.map((r) => toReportApiInterface(req.context, r)),
+      ),
       req.context,
     ),
     ...returnFields,

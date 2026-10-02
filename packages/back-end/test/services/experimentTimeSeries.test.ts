@@ -22,6 +22,10 @@ import {
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 import { factTableFactory } from "back-end/test/factories/FactTable.factory";
 
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
+
 function makeAnalysisSettings(
   overrides: Partial<ExperimentSnapshotAnalysisSettings> = {},
 ): ExperimentSnapshotAnalysisSettings {
