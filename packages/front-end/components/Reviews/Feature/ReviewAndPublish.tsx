@@ -442,10 +442,17 @@ export default function ReviewAndPublish({
   const readonlyBaseRevision = revisions.find(
     (r) => r.version === revision?.baseVersion,
   );
-  const readonlyBeforeInput = readonlyBaseRevision
-    ? toDiffInput(readonlyBaseRevision)
-    : liveBaseInput;
-  const readonlyAfterInput = revision ? toDiffInput(revision) : liveBaseInput;
+  // Stable inputs keep useFeatureRevisionDiff's memo, and the diff viewers
+  // below it, from recomputing on every render
+  const readonlyBeforeInput = useMemo(
+    () =>
+      readonlyBaseRevision ? toDiffInput(readonlyBaseRevision) : liveBaseInput,
+    [readonlyBaseRevision, toDiffInput, liveBaseInput],
+  );
+  const readonlyAfterInput = useMemo(
+    () => (revision ? toDiffInput(revision) : liveBaseInput),
+    [revision, toDiffInput, liveBaseInput],
+  );
   const readonlyDiffs = useFeatureRevisionDiff({
     current: readonlyBeforeInput,
     draft: readonlyAfterInput,
@@ -1192,7 +1199,7 @@ export default function ReviewAndPublish({
     [],
   );
 
-  const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const currentRevisionData = liveBaseInput;
   // Three modes, picked by what's available:
   //  - merge success: diff against the merged result (what publish would do).
   //    `draftDiffInput` is intentionally sparse — only fields the merge
@@ -1201,11 +1208,15 @@ export default function ReviewAndPublish({
   //    to the raw draft revision so reviewers can still see what's at stake
   //    (draft vs live, with conflicting items marked by the conflict modal).
   //  - no revision: shouldn't happen at this point, but keep a no-op shape.
-  const draftDiffInput: FeatureRevisionDiffInput = mergeResult?.success
-    ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
-    : revision
-      ? revisionToFeatureRevisionDiffInput(revision, currentRevisionData)
-      : currentRevisionData;
+  const draftDiffInput: FeatureRevisionDiffInput = useMemo(
+    () =>
+      mergeResult?.success
+        ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
+        : revision
+          ? revisionToFeatureRevisionDiffInput(revision, currentRevisionData)
+          : currentRevisionData,
+    [mergeResult, revision, currentRevisionData],
+  );
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: draftDiffInput,
@@ -1213,10 +1224,16 @@ export default function ReviewAndPublish({
   // Preview diffs for the conflict modal's "Review Changes" step: what the
   // draft will contain once the chosen resolutions are applied and the
   // rebase runs.
-  const resolvedDraftDiffInput: FeatureRevisionDiffInput =
-    resolvedMergeResult?.success
-      ? mergeResultToDiffInput(resolvedMergeResult.result, currentRevisionData)
-      : draftDiffInput;
+  const resolvedDraftDiffInput: FeatureRevisionDiffInput = useMemo(
+    () =>
+      resolvedMergeResult?.success
+        ? mergeResultToDiffInput(
+            resolvedMergeResult.result,
+            currentRevisionData,
+          )
+        : draftDiffInput,
+    [resolvedMergeResult, draftDiffInput, currentRevisionData],
+  );
   const resolvedResultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: resolvedDraftDiffInput,
