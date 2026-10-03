@@ -160,9 +160,10 @@ function alertsExplanation(
   level: SdkPayloadSizeLevel,
 ) {
   const limit = formatSdkPayloadBytes(alerts[0].limitBytes);
+  const connections = pluralConnections(alerts.length);
   return level === "over-limit"
-    ? `Over the ${limit} cache limit. SDKs get no updates until these payloads are smaller.`
-    : `Nearing the ${limit} cache limit. Past it, SDKs get no updates.`;
+    ? `${connections} over the ${limit} cache limit. SDKs get no updates until these payloads are smaller.`
+    : `${connections} nearing the ${limit} cache limit. Past it, SDKs get no updates.`;
 }
 
 function Fix({ fix }: { fix: SdkPayloadSizeFix }) {
