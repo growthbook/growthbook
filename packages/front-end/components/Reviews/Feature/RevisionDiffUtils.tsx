@@ -1,10 +1,5 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
@@ -390,31 +385,28 @@ export function CopyAsButton({
     timeout: 2000,
   });
   const formattedRef = useRef<HTMLDivElement>(null);
-  const textFor = useCallback(
-    (format: CopyDiffFormat): string => {
-      if (format === "formatted") {
-        const root = formattedRef.current;
-        const rendered = root ? formattedNodeToText(root) : "";
-        if (rendered)
-          return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
-      }
-      return formatDiffForCopy(format, {
-        entityName,
-        entityType: entityNoun,
-        diffs,
-        raw,
-      });
-    },
-    [entityName, entityNoun, diffs, raw],
-  );
-  // "Formatted changes" draws its text in full only when picked, then copies
-  // it once rendered
+  const textFor = (format: CopyDiffFormat): string => {
+    if (format === "formatted") {
+      const root = formattedRef.current;
+      const rendered = root ? formattedNodeToText(root) : "";
+      if (rendered)
+        return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
+    }
+    return formatDiffForCopy(format, {
+      entityName,
+      entityType: entityNoun,
+      diffs,
+      raw,
+    });
+  };
+  // "Formatted changes" draws its text in full only when picked. It renders
+  // synchronously inside the click, since clipboard writes need the gesture.
   const [formattedRequested, setFormattedRequested] = useState(false);
-  useEffect(() => {
-    if (!formattedRequested) return;
+  const copyFormatted = () => {
+    flushSync(() => setFormattedRequested(true));
     performCopy(textFor("formatted"));
     setFormattedRequested(false);
-  }, [formattedRequested, performCopy, textFor]);
+  };
 
   if (!copySupported) return null;
 
@@ -457,7 +449,7 @@ export function CopyAsButton({
             style={{ padding: 0, height: "auto" }}
             onClick={() =>
               f.value === "formatted" && formattedChanges
-                ? setFormattedRequested(true)
+                ? copyFormatted()
                 : performCopy(textFor(f.value as CopyDiffFormat))
             }
           >
@@ -671,18 +663,18 @@ export function ExpandableDiff({
   const commentsEnabled = !!anchorKey && !!comments;
 
   // A timeline reference to a line in this section opens it past the size gate
-  const [expandRequested, setExpandRequested] = useState(false);
+  const [expandedFor, setExpandedFor] = useState<[string, string] | null>(null);
   useEffect(() => {
     if (!anchorKey) return;
     const onExpand = (e: Event) => {
       if ((e as CustomEvent<string>).detail !== anchorKey) return;
-      setExpandRequested(true);
+      setExpandedFor([a, b]);
       setOpen(true);
     };
     window.addEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
     return () =>
       window.removeEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
-  }, [anchorKey]);
+  }, [anchorKey, a, b]);
 
   // Line diff of the section, computed once; per-line snapshots (the
   // before/after window embedded in a composed comment's diff-ref block) are
@@ -812,7 +804,7 @@ export function ExpandableDiff({
           <LazyDiffViewer
             oldValue={a}
             newValue={b}
-            alwaysShow={expandRequested}
+            alwaysShow={expandedFor?.[0] === a && expandedFor?.[1] === b}
             styles={diffStyles}
             leftTitle={leftTitle}
             rightTitle={rightTitle}
