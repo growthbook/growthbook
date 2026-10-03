@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
 import {
@@ -32,8 +32,9 @@ export type Props = Omit<
 const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
 
 // Past this many values a list is edited as text: a token per value can't be
-// scanned or edited, and thousands of them freeze the page
-const RAW_TEXT_ONLY_AFTER_VALUES = 200;
+// scanned or edited, and thousands of them freeze the page. Crossing it
+// switches to text; going back below it never switches back mid-edit.
+const RAW_TEXT_AFTER_VALUES = 200;
 
 const baseComponents = {
   DropdownIndicator: null,
@@ -175,8 +176,24 @@ export default function StringArrayField({
   const usesLegacyHeight = legacyHeight ?? size === undefined;
   const styleSize = usesLegacyHeight ? "legacy" : resolvedSize;
   const [inputValue, setInputValue] = useState("");
-  const [rawTextMode, setRawTextMode] = useState(false);
-  const rawTextOnly = value.length > RAW_TEXT_ONLY_AFTER_VALUES;
+  const tooManyForTokens = value.length > RAW_TEXT_AFTER_VALUES;
+  const [rawTextMode, setRawTextMode] = useState(tooManyForTokens);
+  const [focusRawText, setFocusRawText] = useState(false);
+  const rawTextRef = useRef<HTMLTextAreaElement>(null);
+
+  // A paste that crosses the limit moves the edit into the text box
+  useEffect(() => {
+    if (tooManyForTokens && !rawTextMode) {
+      setRawTextMode(true);
+      setFocusRawText(true);
+    }
+  }, [tooManyForTokens, rawTextMode]);
+  useEffect(() => {
+    if (focusRawText && rawTextRef.current) {
+      rawTextRef.current.focus();
+      setFocusRawText(false);
+    }
+  }, [focusRawText, rawTextMode]);
 
   const showButtons = enableRawTextMode || showCopyButton;
   const components = {
@@ -306,13 +323,11 @@ export default function StringArrayField({
     <Field
       {...fieldProps}
       helpText={
-        rawTextOnly || rawTextMode
-          ? (helpText ?? "Separate values by comma")
-          : helpText
+        rawTextMode ? (helpText ?? "Separate values by comma") : helpText
       }
       helpTextClassName="mt-0"
       render={(id, ref) => {
-        if (rawTextOnly || (enableRawTextMode && rawTextMode)) {
+        if (rawTextMode) {
           return (
             <div
               className={clsx(
@@ -326,6 +341,7 @@ export default function StringArrayField({
               >
                 <div className="gb-select__value-container gb-select__raw-text-value-container">
                   <TextareaAutosize
+                    ref={rawTextRef}
                     id={id}
                     className="form-control gb-select__raw-text-input"
                     value={rawTextValue}
@@ -339,7 +355,7 @@ export default function StringArrayField({
                     style={{ resize: "none" }}
                   />
                 </div>
-                {!rawTextOnly && (
+                {enableRawTextMode && !tooManyForTokens && (
                   <div className="gb-select__indicators">
                     <RawTextModeToggleButton
                       rawTextMode={true}
