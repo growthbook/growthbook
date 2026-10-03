@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import {
@@ -909,7 +909,7 @@ export function ExpandableConflict({
                   Use External Change
                 </Button>
               </Flex>
-              <ReactDiffViewer
+              <LazyDiffViewer
                 oldValue={conflict.base}
                 newValue={conflict.live}
                 compareMethod={DiffMethod.LINES}
@@ -971,7 +971,7 @@ export function ExpandableConflict({
                   Use My Change
                 </Button>
               </Flex>
-              <ReactDiffViewer
+              <LazyDiffViewer
                 oldValue={conflict.base}
                 newValue={conflict.revision}
                 compareMethod={DiffMethod.LINES}

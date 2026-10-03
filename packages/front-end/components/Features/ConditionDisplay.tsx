@@ -7,6 +7,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { Popover } from "@/ui/Popover";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
@@ -155,30 +156,31 @@ export function MultiValuesDisplay({
         );
       })}
       {values.length > MULTI_VALUE_LIMIT && (
-        <Tooltip
-          body={
-            <div>
-              {values.slice(MULTI_VALUE_LIMIT).map((v, i) => {
-                const isSavedGroup = savedGroupIds?.has(v);
-                const group = isSavedGroup ? getSavedGroupById(v) : null;
-                const isLast = i === values.slice(MULTI_VALUE_LIMIT).length - 1;
-                return (
-                  <span key={i}>
-                    {isSavedGroup && group
-                      ? group.groupName
-                      : displayMap?.[v] || v}
-                    {!isLast && ", "}
-                  </span>
-                );
-              })}
-            </div>
+        // A list can run to thousands of ids: one wrapped, scrollable block
+        <Popover
+          openOnHover
+          side="bottom"
+          align="start"
+          contentStyle={{ maxWidth: 480, maxHeight: 240, overflowY: "auto" }}
+          trigger={
+            <span className="mr-1">
+              <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
+            </span>
           }
-          usePortal
-        >
-          <span className="mr-1">
-            <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
-          </span>
-        </Tooltip>
+          content={
+            <Text size="sm" color="text-mid">
+              {values
+                .slice(MULTI_VALUE_LIMIT)
+                .map((v) => {
+                  const group = savedGroupIds?.has(v)
+                    ? getSavedGroupById(v)
+                    : null;
+                  return group ? group.groupName : displayMap?.[v] || v;
+                })
+                .join(", ")}
+            </Text>
+          }
+        />
       )}
     </>
   );
