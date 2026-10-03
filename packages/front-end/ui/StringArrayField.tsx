@@ -218,31 +218,41 @@ export default function StringArrayField({
     origOnChange(val);
   };
 
-  const handleRawTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const raw = e.target.value;
+  const setRawText = (raw: string) => {
     if (raw === "") {
       onChange([]);
       return;
     }
     const next = raw
-      .split(rawTextSeparator)
+      .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
     onChange(next);
   };
 
   const rawTextValue = value.join(",");
-  // Text splits where tokens would: on commas, plus new lines and tabs when
-  // Enter and Tab end a token and no stored value already contains one
-  const rawTextSeparator = useMemo(() => {
-    const splitOn = (char: string, key: string) =>
-      delimiters.includes(key) && !value.some((v) => v.includes(char));
-    return new RegExp(
-      `[,${splitOn("\n", "Enter") ? "\\n" : ""}${
-        splitOn("\t", "Tab") ? "\\t" : ""
-      }]`,
+  // Pasted lines and tabs become commas when Enter and Tab end a token, as a
+  // paste in token mode splits them; typed text splits on commas only, so
+  // stored values that contain one stay whole
+  const handleRawTextPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const separators = `${delimiters.includes("Enter") ? "\n" : ""}${
+      delimiters.includes("Tab") ? "\t" : ""
+    }`;
+    const pasted = e.clipboardData.getData("text");
+    if (!separators || !new RegExp(`[${separators}]`).test(pasted)) return;
+    e.preventDefault();
+    const target = e.currentTarget;
+    // Empty entries from leading or doubled separators are dropped on parse
+    const normalized = pasted.replace(
+      new RegExp(`\r?[${separators}]+`, "g"),
+      ",",
     );
-  }, [delimiters, value]);
+    const raw =
+      target.value.slice(0, target.selectionStart) +
+      normalized +
+      target.value.slice(target.selectionEnd);
+    setRawText(raw);
+  };
 
   const sizeStyles = useMemo(() => {
     const sizeMinHeight: Record<StringArrayFieldSize, number> = {
@@ -348,7 +358,8 @@ export default function StringArrayField({
                     id={id}
                     className="form-control gb-select__raw-text-input"
                     value={rawTextValue}
-                    onChange={handleRawTextChange}
+                    onChange={(e) => setRawText(e.target.value)}
+                    onPaste={handleRawTextPaste}
                     placeholder={placeholder ?? "value 1, value 2..."}
                     minRows={1}
                     maxRows={10}
