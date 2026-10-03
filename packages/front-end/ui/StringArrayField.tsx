@@ -233,12 +233,16 @@ export default function StringArrayField({
 
   const rawTextValue = value.join(",");
   // Text splits where tokens would: on commas, plus new lines and tabs when
-  // Enter and Tab end a token
-  const rawTextSeparator = new RegExp(
-    `[,${delimiters.includes("Enter") ? "\\n" : ""}${
-      delimiters.includes("Tab") ? "\\t" : ""
-    }]`,
-  );
+  // Enter and Tab end a token and no stored value already contains one
+  const rawTextSeparator = useMemo(() => {
+    const splitOn = (char: string, key: string) =>
+      delimiters.includes(key) && !value.some((v) => v.includes(char));
+    return new RegExp(
+      `[,${splitOn("\n", "Enter") ? "\\n" : ""}${
+        splitOn("\t", "Tab") ? "\\t" : ""
+      }]`,
+    );
+  }, [delimiters, value]);
 
   const sizeStyles = useMemo(() => {
     const sizeMinHeight: Record<StringArrayFieldSize, number> = {
