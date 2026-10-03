@@ -17,6 +17,7 @@ import { parsePlainJSONObject } from "shared/util";
 import InlineCode, {
   LinkifyConfig,
 } from "@/components/SyntaxHighlighting/InlineCode";
+import VirtualizedCode from "@/components/SyntaxHighlighting/VirtualizedCode";
 import { useConstantLinkify } from "@/components/Constants/useConstantLinkify";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -63,6 +64,8 @@ function getBoldLineNumbers(
   });
   return bold;
 }
+
+const VIRTUALIZE_AFTER_LINES = 50;
 
 export default function ValueDisplay({
   value,
@@ -137,6 +140,19 @@ export default function ValueDisplay({
       return value;
     }
   }, [value, type, sparseMerge]);
+
+  // Past this many lines only the visible ones are highlighted, inside a box
+  // that scrolls even when the caller set no height limit
+  const virtualize = useMemo(
+    () => formatted.split("\n").length > VIRTUALIZE_AFTER_LINES,
+    [formatted],
+  );
+  const boxStyle =
+    virtualize &&
+    fullStyle.maxHeight === undefined &&
+    fullStyle.height === undefined
+      ? { ...fullStyle, maxHeight: "70vh", overflowY: "auto" as const }
+      : fullStyle;
 
   // 1-based line numbers of the overridden keys, bolded in the expanded value.
   const boldLines = useMemo(
@@ -213,14 +229,25 @@ export default function ValueDisplay({
   return (
     <>
       <Box position="relative">
-        <Box ref={scrollBoxRef} style={fullStyle} className={fullClassName}>
-          <InlineCode
-            language="json"
-            code={formatted}
-            boldLines={sparseMerge ? boldLines : undefined}
-            linkify={resolvedLinkify}
-            fontSize={fontSize}
-          />
+        <Box ref={scrollBoxRef} style={boxStyle} className={fullClassName}>
+          {virtualize ? (
+            <VirtualizedCode
+              scrollRef={scrollBoxRef}
+              language="json"
+              code={formatted}
+              boldLines={sparseMerge ? boldLines : undefined}
+              linkify={resolvedLinkify}
+              fontSize={fontSize}
+            />
+          ) : (
+            <InlineCode
+              language="json"
+              code={formatted}
+              boldLines={sparseMerge ? boldLines : undefined}
+              linkify={resolvedLinkify}
+              fontSize={fontSize}
+            />
+          )}
         </Box>
         {!isFullscreen && (
           <Flex

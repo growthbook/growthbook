@@ -5,7 +5,14 @@ import {
 } from "shared/types/feature-revision";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef, ReactElement, useMemo, useState } from "react";
+import React, {
+  forwardRef,
+  ReactElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -1975,9 +1982,29 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
   },
 );
 
+// Rules past the first few start as a sized placeholder that keeps its
+// sortable slot, and render once they come near the viewport. A rule that has
+// rendered stays rendered.
+const EAGER_RULES = 10;
+const ESTIMATED_RULE_HEIGHT = 180;
+
 export function SortableRule(props: SortableProps) {
   const { attributes, listeners, setNodeRef, transform, transition, active } =
     useSortable({ id: props.rule.id });
+  const [rendered, setRendered] = useState(props.i < EAGER_RULES);
+  const placeholderRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (rendered || !placeholderRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setRendered(true);
+      },
+      { rootMargin: "1000px 0px" },
+    );
+    observer.observe(placeholderRef.current);
+    return () => observer.disconnect();
+  }, [rendered]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -1985,6 +2012,18 @@ export function SortableRule(props: SortableProps) {
     opacity: active?.id === props.rule.id ? 0.3 : 1,
     margin: -1,
   };
+
+  if (!rendered) {
+    return (
+      <div
+        ref={(el) => {
+          setNodeRef(el);
+          placeholderRef.current = el;
+        }}
+        style={{ ...style, minHeight: ESTIMATED_RULE_HEIGHT }}
+      />
+    );
+  }
 
   return (
     <Rule
