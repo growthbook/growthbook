@@ -1,4 +1,8 @@
-import { SdkPayloadSize, SdkPayloadSizeAlert } from "shared/validators";
+import {
+  SdkConnectionCacheAuditContext,
+  SdkPayloadSize,
+  SdkPayloadSizeAlert,
+} from "shared/validators";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   describeSdkPayloadSize,
@@ -34,6 +38,22 @@ export async function getSdkPayloadSizeLimitBytes(): Promise<number | null> {
   );
 }
 
+// Room for the cache document's own fields (id, organization, dates, version)
+const CACHE_DOCUMENT_FIELDS_BYTES = 1024;
+
+// The cache stores the payload alongside its audit context, and it's the whole
+// document that has to fit under the database's limit
+export function estimateCacheDocumentBytes(
+  json: string,
+  auditContext: SdkConnectionCacheAuditContext | undefined,
+): number {
+  return (
+    Buffer.byteLength(json) +
+    (auditContext ? Buffer.byteLength(JSON.stringify(auditContext)) : 0) +
+    CACHE_DOCUMENT_FIELDS_BYTES
+  );
+}
+
 // Never throws: a failure here must not stop the payload from being cached
 export async function recordSdkPayloadSize(
   context: ReqContext,
@@ -54,27 +74,45 @@ export async function recordSdkPayloadSize(
       connection,
       level,
     );
-    if (claimed && notify && level !== "ok") {
-      await notifySdkPayloadSize(context, connection, payloadSize, level);
+    if (!claimed || !notify || level === "ok") return;
+    const sent = await notifySdkPayloadSize(
+      context,
+      connection,
+      payloadSize,
+      level,
+    );
+    // Hand the level back so the next refresh tries again
+    if (!sent) {
+      await claimSDKConnectionNotifiedPayloadSizeLevel(
+        context,
+        { ...connection, notifiedPayloadSizeLevel: level },
+        notified,
+      );
     }
   } catch (e) {
     logger.error(e, "Error recording SDK payload size");
   }
 }
 
+// Returns whether the event was saved. Email is best effort on top of it.
 async function notifySdkPayloadSize(
   context: ReqContext,
   connection: SDKConnectionInterface,
   payloadSize: SdkPayloadSize,
   level: "warning" | "danger" | "over-limit",
-) {
+): Promise<boolean> {
   const message = describeSdkPayloadSize(payloadSize);
+  // Without names: subscribers, and even admins, may be denied a Project the
+  // connection covers. The SDK Connection's page lists them per viewer.
   const recommendations = getSdkPayloadSizeRecommendations(
     connection,
     payloadSize,
-  );
+  ).map((r) => ({
+    type: r.type,
+    message: describeSdkPayloadSizeRecommendation(r, { withNames: false }),
+  }));
 
-  await createEvent({
+  const eventId = await createEvent({
     context,
     object: "sdkConnection",
     objectId: connection.id,
@@ -89,12 +127,7 @@ async function notifySdkPayloadSize(
         bytes: payloadSize.bytes,
         limitBytes: payloadSize.limitBytes,
         message,
-        recommendations: recommendations.map((r) => ({
-          type: r.type,
-          message: describeSdkPayloadSizeRecommendation(r, {
-            withNames: false,
-          }),
-        })),
+        recommendations,
       },
     },
     projects: connection.projects,
@@ -103,21 +136,20 @@ async function notifySdkPayloadSize(
     containsSecrets: false,
   });
 
-  if (!isEmailEnabled()) return;
+  if (!eventId) return false;
+  if (!isEmailEnabled()) return true;
   try {
     await sendSdkPayloadSizeEmail({
       emails: await getAdminEmails(context),
       connectionId: connection.id,
       connectionName: connection.name,
       message,
-      // Admins can read every Project, so they get the names
-      recommendations: recommendations.map((r) =>
-        describeSdkPayloadSizeRecommendation(r, { withNames: true }),
-      ),
+      recommendations: recommendations.map((r) => r.message),
     });
   } catch (e) {
     logger.error(e, "Failed to send SDK payload size email");
   }
+  return true;
 }
 
 async function getAdminEmails(context: ReqContext): Promise<string[]> {

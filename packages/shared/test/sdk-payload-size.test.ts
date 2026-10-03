@@ -44,15 +44,9 @@ describe("nextNotifiedSdkPayloadSizeLevel", () => {
 });
 
 describe("measureSdkPayloadSize", () => {
-  it("counts UTF-8 bytes and skips the breakdown below the warning level", () => {
-    const payload = { features: { f: { defaultValue: "é" } } };
-    const size = measureSdkPayloadSize(
-      payload,
-      JSON.stringify(payload),
-      limitBytes,
-    );
-    expect(size.bytes).toBe(JSON.stringify(payload).length + 1);
-    expect(size.breakdown).toBeNull();
+  it("skips the breakdown below the warning level", () => {
+    const payload = { features: { f: { defaultValue: 1 } } };
+    expect(measureSdkPayloadSize(payload, MB, limitBytes).breakdown).toBeNull();
   });
 
   it("names the largest features and saved groups once large", () => {
@@ -62,11 +56,7 @@ describe("measureSdkPayloadSize", () => {
       savedGroups: { grp_a: ["1", "2"] },
       encryptedExperiments: "abc",
     };
-    const size = measureSdkPayloadSize(
-      payload,
-      JSON.stringify(payload),
-      limitBytes,
-    );
+    const size = measureSdkPayloadSize(payload, 9 * MB, limitBytes);
     expect(size.breakdown?.largestFeatures.map((f) => f.id)).toEqual([
       "huge",
       "small",

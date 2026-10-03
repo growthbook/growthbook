@@ -143,8 +143,10 @@ export const createEventWithPayload = async <
     >;
 
     if (notify) await new EventNotifier(event.id).perform();
+    return event.id;
   } catch (e) {
     logger.error(e);
+    return null;
   }
 };
 

@@ -198,6 +198,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
+  estimateCacheDocumentBytes,
   getSdkPayloadSizeLimitBytes,
   recordSdkPayloadSize,
 } from "back-end/src/services/sdkPayloadSize";
@@ -1290,7 +1291,11 @@ export async function refreshSDKPayloadCache({
           await recordSdkPayloadSize(
             context,
             connection,
-            measureSdkPayloadSize(contents, json, payloadSizeLimitBytes),
+            measureSdkPayloadSize(
+              contents,
+              estimateCacheDocumentBytes(json, auditContext),
+              payloadSizeLimitBytes,
+            ),
           );
         }
         await context.models.sdkConnectionCache.upsert(

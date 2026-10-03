@@ -68,6 +68,7 @@ beforeEach(() => {
     .mocked(claimSDKConnectionNotifiedPayloadSizeLevel)
     .mockResolvedValue(true);
   jest.mocked(isEmailEnabled).mockReturnValue(true);
+  jest.mocked(createEvent).mockResolvedValue("event-1");
   jest
     .mocked(getUsersByIds)
     .mockResolvedValue([{ email: "admin@example.com" }] as never);
@@ -112,6 +113,17 @@ it("announces a rise once, by event, Slack, and email to admins", async () => {
     "owner@example.com",
     "admin@example.com",
   ]);
+});
+
+it("hands the level back when the event isn't saved, so it retries", async () => {
+  jest.mocked(createEvent).mockResolvedValue(null);
+  await recordSdkPayloadSize(context, connection, size(9 * MB));
+  expect(claimSDKConnectionNotifiedPayloadSizeLevel).toHaveBeenLastCalledWith(
+    context,
+    expect.objectContaining({ notifiedPayloadSizeLevel: "warning" }),
+    "ok",
+  );
+  expect(sendSdkPayloadSizeEmail).not.toHaveBeenCalled();
 });
 
 it("stays quiet when another refresh claimed the level first", async () => {

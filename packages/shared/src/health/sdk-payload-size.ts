@@ -93,15 +93,16 @@ export function nextNotifiedSdkPayloadSizeLevel(
   };
 }
 
-const byteLength = (value: unknown) =>
-  new TextEncoder().encode(JSON.stringify(value) ?? "").length;
+// Characters rather than encoded bytes: close enough to rank the largest
+// parts, without encoding a copy of each one
+const jsonLength = (value: unknown) => (JSON.stringify(value) ?? "").length;
 
 function largestEntries(section: unknown) {
   if (!section || typeof section !== "object" || Array.isArray(section)) {
     return [];
   }
   return Object.entries(section)
-    .map(([id, value]) => ({ id, bytes: byteLength(value) }))
+    .map(([id, value]) => ({ id, bytes: jsonLength(value) }))
     .sort((a, b) => b.bytes - a.bytes)
     .slice(0, LARGEST_ENTRIES);
 }
@@ -111,7 +112,7 @@ function measureBreakdown(
 ): SdkPayloadSizeBreakdown {
   return {
     sections: Object.fromEntries(
-      Object.entries(payload).map(([key, value]) => [key, byteLength(value)]),
+      Object.entries(payload).map(([key, value]) => [key, jsonLength(value)]),
     ),
     largestFeatures: largestEntries(payload.features),
     largestSavedGroups: largestEntries(payload.savedGroups),
@@ -120,10 +121,9 @@ function measureBreakdown(
 
 export function measureSdkPayloadSize(
   payload: Record<string, unknown>,
-  json: string,
+  bytes: number,
   limitBytes: number,
 ): SdkPayloadSize {
-  const bytes = new TextEncoder().encode(json).length;
   return {
     bytes,
     limitBytes,
