@@ -124,10 +124,12 @@ function largestEntries(section: unknown) {
 
 function measureBreakdown(
   payload: Record<string, unknown>,
+  bytes: number,
   now: Date,
 ): SdkPayloadSizeBreakdown {
   return {
     measuredAt: now,
+    bytes,
     sections: Object.fromEntries(
       Object.entries(payload).map(([key, value]) => [
         key,
@@ -140,20 +142,29 @@ function measureBreakdown(
 }
 
 // The breakdown serializes every Feature Flag and Saved Group again, and
-// payloads refresh on every publish (or thousands of times in a bulk update),
-// so it's measured at most this often per connection, whatever the level does
+// payloads refresh on every publish (or thousands of times in a bulk update).
+// It's measured again hourly, or sooner once the payload has changed enough
+// for the largest entries to have moved, but never more than this often.
 const BREAKDOWN_MAX_AGE_MS = 60 * 60 * 1000;
+const BREAKDOWN_MIN_AGE_MS = 5 * 60 * 1000;
+const BREAKDOWN_STALE_SIZE_CHANGE = 0.05;
 
 // Smaller size changes aren't worth a write on every payload refresh
 const RECORDED_SIZE_CHANGE = 0.01;
 
 function reusableBreakdown(
   previous: SdkPayloadSize | null,
+  bytes: number,
   now: Date,
 ): SdkPayloadSizeBreakdown | null {
-  if (!previous?.breakdown) return null;
-  const age = now.getTime() - new Date(previous.breakdown.measuredAt).getTime();
-  return age < BREAKDOWN_MAX_AGE_MS ? previous.breakdown : null;
+  const breakdown = previous?.breakdown;
+  if (!breakdown) return null;
+  const age = now.getTime() - new Date(breakdown.measuredAt).getTime();
+  if (age < BREAKDOWN_MIN_AGE_MS) return breakdown;
+  const moved =
+    Math.abs(bytes - breakdown.bytes) >
+    breakdown.bytes * BREAKDOWN_STALE_SIZE_CHANGE;
+  return age < BREAKDOWN_MAX_AGE_MS && !moved ? breakdown : null;
 }
 
 export function measureSdkPayloadSize(
@@ -163,13 +174,13 @@ export function measureSdkPayloadSize(
   previous: SdkPayloadSize | null,
   now: Date = new Date(),
 ): SdkPayloadSize {
-  const reusable = reusableBreakdown(previous, now);
+  const reusable = reusableBreakdown(previous, bytes, now);
   // Kept below the warning level too, so a payload hovering at the threshold
   // doesn't measure again every time it crosses back over
   const breakdown =
     getSdkPayloadSizeLevel({ bytes, limitBytes }) === "ok"
       ? (previous?.breakdown ?? null)
-      : (reusable ?? measureBreakdown(payload, now));
+      : (reusable ?? measureBreakdown(payload, bytes, now));
   return { bytes, limitBytes, measuredAt: now, breakdown };
 }
 

@@ -15,6 +15,8 @@ const sdkPayloadSizeEntryValidator = z.object({
 
 export const sdkPayloadSizeBreakdownValidator = z.object({
   measuredAt: z.date(),
+  // The payload's total size when this was measured
+  bytes: z.number(),
   // Bytes per top-level payload key (features, savedGroups, experiments, ...)
   sections: z.record(z.string(), z.number()),
   // Empty when that section is encrypted

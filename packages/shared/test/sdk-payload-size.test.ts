@@ -101,7 +101,7 @@ describe("reusing measurements across payload refreshes", () => {
     expect(shouldRecordSdkPayloadSize(first, next)).toBe(false);
   });
 
-  it("measures at most hourly, even as the level flaps across a threshold", () => {
+  it("reuses the breakdown while the level flaps, then measures hourly", () => {
     const dipped = measureSdkPayloadSize(
       payload,
       MB,
@@ -137,6 +137,18 @@ describe("reusing measurements across payload refreshes", () => {
     expect(shouldRecordSdkPayloadSize(first, later)).toBe(true);
   });
 
+  it("measures early once the payload moves 5%, but not within 5 minutes", () => {
+    const minutes = (m: number) => at(m * 60 * 1000);
+    const shrunk = (m: number) =>
+      measureSdkPayloadSize(payload, 8.5 * MB, limitBytes, first, minutes(m));
+    expect(shrunk(2).breakdown).toBe(first.breakdown);
+    expect(shrunk(10).breakdown).not.toBe(first.breakdown);
+    expect(
+      measureSdkPayloadSize(payload, 8.9 * MB, limitBytes, first, minutes(10))
+        .breakdown,
+    ).toBe(first.breakdown);
+  });
+
   it("writes when the size moves more than 1%", () => {
     const next = measureSdkPayloadSize(
       payload,
@@ -156,6 +168,7 @@ describe("getSdkPayloadSizeRecommendations", () => {
     measuredAt: new Date(),
     breakdown: {
       measuredAt: new Date(),
+      bytes: 10 * MB,
       sections: {},
       largestFeatures: [
         { id: "huge", bytes: 6 * MB },
