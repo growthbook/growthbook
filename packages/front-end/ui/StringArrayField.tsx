@@ -31,6 +31,10 @@ export type Props = Omit<
 
 const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
 
+// Past this many values a list is edited as text: a token per value can't be
+// scanned or edited, and thousands of them freeze the page
+const RAW_TEXT_ONLY_AFTER_VALUES = 200;
+
 const baseComponents = {
   DropdownIndicator: null,
 };
@@ -172,6 +176,7 @@ export default function StringArrayField({
   const styleSize = usesLegacyHeight ? "legacy" : resolvedSize;
   const [inputValue, setInputValue] = useState("");
   const [rawTextMode, setRawTextMode] = useState(false);
+  const rawTextOnly = value.length > RAW_TEXT_ONLY_AFTER_VALUES;
 
   const showButtons = enableRawTextMode || showCopyButton;
   const components = {
@@ -301,11 +306,13 @@ export default function StringArrayField({
     <Field
       {...fieldProps}
       helpText={
-        rawTextMode ? (helpText ?? "Separate values by comma") : helpText
+        rawTextOnly || rawTextMode
+          ? (helpText ?? "Separate values by comma")
+          : helpText
       }
       helpTextClassName="mt-0"
       render={(id, ref) => {
-        if (enableRawTextMode && rawTextMode) {
+        if (rawTextOnly || (enableRawTextMode && rawTextMode)) {
           return (
             <div
               className={clsx(
@@ -325,18 +332,21 @@ export default function StringArrayField({
                     onChange={handleRawTextChange}
                     placeholder={placeholder ?? "value 1, value 2..."}
                     minRows={1}
+                    maxRows={10}
                     disabled={disabled}
                     required={fieldProps.required}
                     autoFocus={autoFocus}
                     style={{ resize: "none" }}
                   />
                 </div>
-                <div className="gb-select__indicators">
-                  <RawTextModeToggleButton
-                    rawTextMode={true}
-                    onToggle={() => setRawTextMode(false)}
-                  />
-                </div>
+                {!rawTextOnly && (
+                  <div className="gb-select__indicators">
+                    <RawTextModeToggleButton
+                      rawTextMode={true}
+                      onToggle={() => setRawTextMode(false)}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           );
