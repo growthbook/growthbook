@@ -140,8 +140,8 @@ function measureBreakdown(
 }
 
 // The breakdown serializes every Feature Flag and Saved Group again, and
-// payloads refresh on every publish, so it's reused until the level changes
-// or it's this old
+// payloads refresh on every publish (or thousands of times in a bulk update),
+// so it's measured at most this often per connection, whatever the level does
 const BREAKDOWN_MAX_AGE_MS = 60 * 60 * 1000;
 
 // Smaller size changes aren't worth a write on every payload refresh
@@ -149,12 +149,9 @@ const RECORDED_SIZE_CHANGE = 0.01;
 
 function reusableBreakdown(
   previous: SdkPayloadSize | null,
-  level: SdkPayloadSizeLevel,
   now: Date,
 ): SdkPayloadSizeBreakdown | null {
-  if (!previous?.breakdown || getSdkPayloadSizeLevel(previous) !== level) {
-    return null;
-  }
+  if (!previous?.breakdown) return null;
   const age = now.getTime() - new Date(previous.breakdown.measuredAt).getTime();
   return age < BREAKDOWN_MAX_AGE_MS ? previous.breakdown : null;
 }
@@ -166,17 +163,14 @@ export function measureSdkPayloadSize(
   previous: SdkPayloadSize | null,
   now: Date = new Date(),
 ): SdkPayloadSize {
-  const level = getSdkPayloadSizeLevel({ bytes, limitBytes });
-  return {
-    bytes,
-    limitBytes,
-    measuredAt: now,
-    breakdown:
-      level === "ok"
-        ? null
-        : (reusableBreakdown(previous, level, now) ??
-          measureBreakdown(payload, now)),
-  };
+  const reusable = reusableBreakdown(previous, now);
+  // Kept below the warning level too, so a payload hovering at the threshold
+  // doesn't measure again every time it crosses back over
+  const breakdown =
+    getSdkPayloadSizeLevel({ bytes, limitBytes }) === "ok"
+      ? (previous?.breakdown ?? null)
+      : (reusable ?? measureBreakdown(payload, now));
+  return { bytes, limitBytes, measuredAt: now, breakdown };
 }
 
 // Whether a new measurement is worth writing over the stored one

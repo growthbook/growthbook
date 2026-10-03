@@ -101,14 +101,40 @@ describe("reusing measurements across payload refreshes", () => {
     expect(shouldRecordSdkPayloadSize(first, next)).toBe(false);
   });
 
-  it("measures again once the breakdown is old or the level changes", () => {
-    for (const next of [
-      measureSdkPayloadSize(payload, 9 * MB, limitBytes, first, at(2 * hour)),
-      measureSdkPayloadSize(payload, 13 * MB, limitBytes, first, at(60)),
-    ]) {
-      expect(next.breakdown).not.toBe(first.breakdown);
-      expect(shouldRecordSdkPayloadSize(first, next)).toBe(true);
-    }
+  it("measures at most hourly, even as the level flaps across a threshold", () => {
+    const dipped = measureSdkPayloadSize(
+      payload,
+      MB,
+      limitBytes,
+      first,
+      at(60),
+    );
+    const back = measureSdkPayloadSize(
+      payload,
+      9 * MB,
+      limitBytes,
+      dipped,
+      at(120),
+    );
+    const higher = measureSdkPayloadSize(
+      payload,
+      13 * MB,
+      limitBytes,
+      back,
+      at(180),
+    );
+    expect(back.breakdown).toBe(first.breakdown);
+    expect(higher.breakdown).toBe(first.breakdown);
+
+    const later = measureSdkPayloadSize(
+      payload,
+      9 * MB,
+      limitBytes,
+      first,
+      at(2 * hour),
+    );
+    expect(later.breakdown).not.toBe(first.breakdown);
+    expect(shouldRecordSdkPayloadSize(first, later)).toBe(true);
   });
 
   it("writes when the size moves more than 1%", () => {
