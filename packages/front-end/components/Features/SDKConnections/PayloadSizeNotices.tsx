@@ -155,15 +155,15 @@ export function PayloadSizeCallout({
   );
 }
 
-function alertsExplanation(
-  alerts: SdkPayloadSizeAlert[],
-  level: SdkPayloadSizeLevel,
-) {
+function alertsExplanation(alerts: SdkPayloadSizeAlert[]) {
   const limit = formatSdkPayloadBytes(alerts[0].limitBytes);
-  const connections = pluralConnections(alerts.length);
-  return level === "over-limit"
-    ? `${connections} over the ${limit} cache limit. SDKs get no updates until these payloads are smaller.`
-    : `${connections} nearing the ${limit} cache limit. Past it, SDKs get no updates.`;
+  const over = alerts.filter((a) => a.level === "over-limit").length;
+  const nearing = alerts.length - over;
+  if (!over) {
+    return `${pluralConnections(nearing)} nearing the ${limit} cache limit. Past it, SDKs get no updates.`;
+  }
+  const others = nearing ? ` and ${nearing} nearing it` : "";
+  return `${pluralConnections(over)} over the ${limit} cache limit${others}. Over it, SDKs get no updates until the payload is smaller.`;
 }
 
 function Fix({ fix }: { fix: SdkPayloadSizeFix }) {
@@ -224,13 +224,18 @@ export function PayloadSizeTopNavNotice() {
   const level = worstSdkPayloadSizeLevel(
     sdkPayloadSizeAlerts.map((a) => a.level),
   );
+  // The pill names the worst level, so it counts only connections at it
+  const count =
+    level === "over-limit"
+      ? sdkPayloadSizeAlerts.filter((a) => a.level === "over-limit").length
+      : sdkPayloadSizeAlerts.length;
   const fixes = summarizeSdkPayloadSizeFixes(sdkPayloadSizeAlerts);
   return (
     <Tooltip
       body={
         <Box className={styles["notice-tooltip"]}>
           <Text as="p" mb="2">
-            {alertsExplanation(sdkPayloadSizeAlerts, level)}
+            {alertsExplanation(sdkPayloadSizeAlerts)}
           </Text>
           {fixes.length > 0 && (
             <>
@@ -268,10 +273,10 @@ export function PayloadSizeTopNavNotice() {
         }}
       >
         <PiWarningFill size={15} />
-        {connectionsNoun(sdkPayloadSizeAlerts.length)}{" "}
+        {connectionsNoun(count)}{" "}
         {level === "over-limit" ? "over max size" : "nearing max size"}
         <Badge
-          label={String(sdkPayloadSizeAlerts.length)}
+          label={String(count)}
           color={levelColor(level)}
           variant="solid"
           radius="full"
