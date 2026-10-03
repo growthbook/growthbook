@@ -1,24 +1,29 @@
 import { memo, useMemo, useState } from "react";
+import { diffLines } from "diff";
 import ReactDiffViewer, {
   DiffMethod,
   ReactDiffViewerProps,
 } from "react-diff-viewer-continued";
 import Button from "@/ui/Button";
 
-// Each changed line is a table row, and a section that adds or replaces a
-// large value changes every line, so past this many a diff waits to be asked
-// for. Unchanged lines fold, so long but mostly equal sections still render.
+// Each changed line is a table row, and a section that adds, replaces or
+// reorders a large value changes most lines, so past this many a diff waits
+// to be asked for. Unchanged lines fold, so long but mostly equal sections
+// still render.
 const COLLAPSE_AFTER_CHANGED_LINES = 400;
 
-// Lines present on only one side; cheap, and close to the rows a line diff draws
-function countChangedLines(a: string, b: string): number {
-  const aLines = a.split("\n");
-  const bLines = b.split("\n");
-  const inA = new Set(aLines);
-  const inB = new Set(bLines);
-  return (
-    aLines.filter((line) => !inB.has(line)).length +
-    bLines.filter((line) => !inA.has(line)).length
+// Added plus removed lines, or null once the diff passes the limit or takes
+// too long; the search stops early, so huge or reordered values stay cheap
+function countChangedLines(a: string, b: string): number | null {
+  const changes = diffLines(a, b, {
+    maxEditLength: COLLAPSE_AFTER_CHANGED_LINES,
+    timeout: 100,
+  });
+  if (!changes) return null;
+  return changes.reduce(
+    (count, change) =>
+      change.added || change.removed ? count + change.count : count,
+    0,
   );
 }
 
@@ -34,14 +39,24 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
     () => countChangedLines(oldValue, newValue),
     [oldValue, newValue],
   );
-  const [show, setShow] = useState(
-    changedLines <= COLLAPSE_AFTER_CHANGED_LINES,
-  );
+  // Expanding applies to the values it was clicked for
+  const [expanded, setExpanded] = useState<[string, string] | null>(null);
+  const show =
+    (changedLines !== null && changedLines <= COLLAPSE_AFTER_CHANGED_LINES) ||
+    (expanded?.[0] === oldValue && expanded?.[1] === newValue);
 
   if (!show) {
     return (
-      <Button variant="ghost" size="sm" onClick={() => setShow(true)}>
-        Show diff ({changedLines.toLocaleString()} changed lines)
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setExpanded([oldValue, newValue])}
+      >
+        Show diff (
+        {changedLines === null
+          ? `over ${COLLAPSE_AFTER_CHANGED_LINES} changed lines`
+          : `${changedLines.toLocaleString()} changed lines`}
+        )
       </Button>
     );
   }

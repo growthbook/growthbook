@@ -225,13 +225,20 @@ export default function StringArrayField({
       return;
     }
     const next = raw
-      .split(",")
+      .split(rawTextSeparator)
       .map((s) => s.trim())
       .filter(Boolean);
     onChange(next);
   };
 
   const rawTextValue = value.join(",");
+  // Text splits where tokens would: on commas, plus new lines and tabs when
+  // Enter and Tab end a token
+  const rawTextSeparator = new RegExp(
+    `[,${delimiters.includes("Enter") ? "\\n" : ""}${
+      delimiters.includes("Tab") ? "\\t" : ""
+    }]`,
+  );
 
   const sizeStyles = useMemo(() => {
     const sizeMinHeight: Record<StringArrayFieldSize, number> = {
@@ -347,7 +354,7 @@ export default function StringArrayField({
                     style={{ resize: "none" }}
                   />
                 </div>
-                {enableRawTextMode && !tooManyForTokens && (
+                {!tooManyForTokens && (
                   <div className="gb-select__indicators">
                     <RawTextModeToggleButton
                       rawTextMode={true}
