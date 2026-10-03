@@ -1,5 +1,5 @@
 import stringify from "json-stringify-pretty-compact";
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useMemo, useRef } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
@@ -9,6 +9,7 @@ import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import VirtualizedCode from "@/components/SyntaxHighlighting/VirtualizedCode";
 import Badge from "@/ui/Badge";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import { PlainEntityBadge } from "@/components/Features/EntityBadge";
@@ -112,6 +113,22 @@ function getValue(
 }
 
 const MULTI_VALUE_LIMIT = 3;
+
+// A condition shown as JSON scrolls inside a bounded box past this many lines,
+// highlighting only the visible ones
+const BOUNDED_JSON_AFTER_LINES = 50;
+
+function ConditionJson({ code }: { code: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  if (code.split("\n").length <= BOUNDED_JSON_AFTER_LINES) {
+    return <InlineCode language="json" code={code} />;
+  }
+  return (
+    <Box ref={scrollRef} style={{ maxHeight: 400, overflowY: "auto" }}>
+      <VirtualizedCode scrollRef={scrollRef} language="json" code={code} />
+    </Box>
+  );
+}
 
 export function MultiValuesDisplay({
   values,
@@ -530,7 +547,7 @@ export default function ConditionDisplay({
               {prefixUsed && <Text weight="medium">AND</Text>}
               <Text>prerequisite</Text>
               <FeatureBadge featureId={p.id} />
-              <InlineCode language="json" code={jsonFormattedCondition} />
+              <ConditionJson code={jsonFormattedCondition} />
             </Flex>,
           );
           prefixUsed = true;
@@ -573,7 +590,7 @@ export default function ConditionDisplay({
       parts.push(
         <div className="w-100" key={partId++}>
           {!prefixUsed && prefix}
-          <InlineCode language="json" code={jsonFormattedCondition} />
+          <ConditionJson code={jsonFormattedCondition} />
         </div>,
       );
       prefixUsed = true;

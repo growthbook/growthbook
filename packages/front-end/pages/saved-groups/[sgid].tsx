@@ -64,7 +64,7 @@ import {
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
-import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import SavedGroupReferences from "@/components/SavedGroups/SavedGroupReferences";
 import SavedGroupReferencesList from "@/components/SavedGroups/SavedGroupReferencesList";
 import Checkbox from "@/ui/Checkbox";
@@ -1443,9 +1443,9 @@ export default function EditSavedGroupPage() {
                   <Flex direction="row" gap="2">
                     <Text weight="medium">IF</Text>
                     <Box>
-                      <ConditionDisplay
+                      <TruncatedConditionDisplay
                         condition={displayedSavedGroup?.condition || ""}
-                        savedGroups={[]}
+                        maxLength={5000}
                       />
                     </Box>
                   </Flex>
