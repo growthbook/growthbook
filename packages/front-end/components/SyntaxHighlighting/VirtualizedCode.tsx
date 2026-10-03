@@ -23,26 +23,19 @@ export default function VirtualizedCode({
     overscan: 10,
   });
 
+  // Rows stay in normal flow between spacers, rather than absolutely
+  // positioned, so the code still has a width inside shrink-to-fit layouts
+  const items = virtualizer.getVirtualItems();
+  const paddingTop = items[0]?.start ?? 0;
+  const paddingBottom = virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0);
+
   return (
-    <div
-      style={{
-        height: virtualizer.getTotalSize(),
-        position: "relative",
-        width: "100%",
-      }}
-    >
-      {virtualizer.getVirtualItems().map((item) => (
+    <div style={{ paddingTop, paddingBottom }}>
+      {items.map((item) => (
         <div
           key={item.index}
           data-index={item.index}
           ref={virtualizer.measureElement}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            transform: `translateY(${item.start}px)`,
-          }}
         >
           <InlineCode
             {...lineProps}
