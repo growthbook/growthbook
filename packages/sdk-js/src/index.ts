@@ -22,6 +22,7 @@ export type {
   ContextualBanditDefinition,
   FeatureRule,
   FeatureResult,
+  FeatureResultReason,
   FeatureResultSource,
   Experiment,
   CBContext,
