@@ -339,3 +339,14 @@ export const entityEvents = {
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
 
 export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;
+
+// SDK Connection settings that add optional data to the SDK payload
+export const SDK_OPTIONAL_PAYLOAD_SETTINGS = [
+  "includeDraftExperiments",
+  "includeVisualExperiments",
+  "includeRedirectExperiments",
+  "includeProjectIdInMetadata",
+  "includeCustomFieldsInMetadata",
+  "includeTagsInMetadata",
+  "includeExperimentScheduleInMetadata",
+] as const;
