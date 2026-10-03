@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
@@ -32,6 +38,7 @@ import {
   RevisionRampDetachAction,
 } from "shared/validators";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
+import { RenderInFullContext } from "@/components/SyntaxHighlighting/VirtualizedCode";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
@@ -382,24 +389,33 @@ export function CopyAsButton({
     timeout: 2000,
   });
   const formattedRef = useRef<HTMLDivElement>(null);
-  const [menuOpened, setMenuOpened] = useState(false);
+  const textFor = useCallback(
+    (format: CopyDiffFormat): string => {
+      if (format === "formatted") {
+        const root = formattedRef.current;
+        const rendered = root ? formattedNodeToText(root) : "";
+        if (rendered)
+          return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
+      }
+      return formatDiffForCopy(format, {
+        entityName,
+        entityType: entityNoun,
+        diffs,
+        raw,
+      });
+    },
+    [entityName, entityNoun, diffs, raw],
+  );
+  // "Formatted changes" draws its text in full only when picked, then copies
+  // it once rendered
+  const [formattedRequested, setFormattedRequested] = useState(false);
+  useEffect(() => {
+    if (!formattedRequested) return;
+    performCopy(textFor("formatted"));
+    setFormattedRequested(false);
+  }, [formattedRequested, performCopy, textFor]);
 
   if (!copySupported) return null;
-
-  const textFor = (format: CopyDiffFormat): string => {
-    if (format === "formatted") {
-      const root = formattedRef.current;
-      const rendered = root ? formattedNodeToText(root) : "";
-      if (rendered)
-        return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
-    }
-    return formatDiffForCopy(format, {
-      entityName,
-      entityType: entityNoun,
-      diffs,
-      raw,
-    });
-  };
 
   const formatIcons: Record<CopyDiffFormat, React.ReactNode> = {
     formatted: <PiListBullets size={22} />,
@@ -412,7 +428,6 @@ export function CopyAsButton({
     <>
       <DropdownMenu
         menuPlacement="end"
-        onOpenChange={(open) => open && setMenuOpened(true)}
         // Wide enough that the label + description sit on single lines.
         menuWidth={340}
         // Soft variant keeps a light highlight on hover so the icon + subtext stay
@@ -439,7 +454,11 @@ export function CopyAsButton({
           <DropdownMenuItem
             key={f.value}
             style={{ padding: 0, height: "auto" }}
-            onClick={() => performCopy(textFor(f.value as CopyDiffFormat))}
+            onClick={() =>
+              f.value === "formatted" && formattedChanges
+                ? setFormattedRequested(true)
+                : performCopy(textFor(f.value as CopyDiffFormat))
+            }
           >
             {/* `currentColor` everywhere so the icon and subtext track the item's
               text color, which Radix swaps to the high-contrast accent on hover.
@@ -474,7 +493,7 @@ export function CopyAsButton({
           </DropdownMenuItem>
         ))}
       </DropdownMenu>
-      {formattedChanges && menuOpened && (
+      {formattedChanges && formattedRequested && (
         <Box
           ref={formattedRef}
           aria-hidden
@@ -486,7 +505,9 @@ export function CopyAsButton({
             pointerEvents: "none",
           }}
         >
-          {formattedChanges}
+          <RenderInFullContext.Provider value={true}>
+            {formattedChanges}
+          </RenderInFullContext.Provider>
         </Box>
       )}
     </>
@@ -744,6 +765,10 @@ export function ExpandableDiff({
     [commentsEnabled, anchorKey, comments],
   );
 
+  const hasLineComments =
+    commentsEnabled &&
+    [...comments.anchors.keys()].some((id) => id.startsWith(`${anchorKey}:`));
+
   if (a === b) return null;
 
   return (
@@ -776,6 +801,8 @@ export function ExpandableDiff({
           <LazyDiffViewer
             oldValue={a}
             newValue={b}
+            // Comment links in the timeline scroll to lines in this diff
+            alwaysShow={hasLineComments}
             styles={diffStyles}
             leftTitle={leftTitle}
             rightTitle={rightTitle}

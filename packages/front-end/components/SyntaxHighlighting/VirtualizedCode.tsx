@@ -1,9 +1,13 @@
-import { RefObject, useMemo } from "react";
+import { createContext, RefObject, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import InlineCode, { Props as InlineCodeProps } from "./InlineCode";
 
 // 0.85rem at line-height 1.5; wrapped lines are measured as they render
 const ESTIMATED_LINE_HEIGHT = 20;
+
+// Inside it, long code and large diffs render in full: for offscreen renders
+// that are read back as text, such as Copy as → Formatted changes
+export const RenderInFullContext = createContext(false);
 
 // Code longer than this is worth virtualizing inside a scrolling box
 export function isLongCode(code: string): boolean {

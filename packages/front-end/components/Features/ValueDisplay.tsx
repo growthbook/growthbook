@@ -5,6 +5,7 @@ import {
 } from "shared/types/feature";
 import React, {
   CSSProperties,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -19,6 +20,7 @@ import InlineCode, {
 } from "@/components/SyntaxHighlighting/InlineCode";
 import VirtualizedCode, {
   isLongCode,
+  RenderInFullContext,
 } from "@/components/SyntaxHighlighting/VirtualizedCode";
 import { useConstantLinkify } from "@/components/Constants/useConstantLinkify";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
@@ -143,7 +145,11 @@ export default function ValueDisplay({
 
   // Long values highlight only the visible lines, inside a box that scrolls
   // even when the caller set no height limit
-  const virtualize = useMemo(() => isLongCode(formatted), [formatted]);
+  const renderInFull = useContext(RenderInFullContext);
+  const virtualize = useMemo(
+    () => !renderInFull && isLongCode(formatted),
+    [renderInFull, formatted],
+  );
   const boxStyle =
     virtualize &&
     fullStyle.maxHeight === undefined &&

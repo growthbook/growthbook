@@ -1,9 +1,10 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useContext, useMemo, useState } from "react";
 import { diffLines } from "diff";
 import ReactDiffViewer, {
   DiffMethod,
   ReactDiffViewerProps,
 } from "react-diff-viewer-continued";
+import { RenderInFullContext } from "@/components/SyntaxHighlighting/VirtualizedCode";
 import Button from "@/ui/Button";
 
 // Each changed line is a table row, and a section that adds, replaces or
@@ -33,8 +34,15 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
   oldValue,
   newValue,
   compareMethod = DiffMethod.LINES,
+  alwaysShow = false,
   ...props
-}: ReactDiffViewerProps & { oldValue: string; newValue: string }) {
+}: ReactDiffViewerProps & {
+  oldValue: string;
+  newValue: string;
+  // Skips the size gate, e.g. for a section whose lines carry comments
+  alwaysShow?: boolean;
+}) {
+  const renderInFull = useContext(RenderInFullContext);
   const changedLines = useMemo(
     () => countChangedLines(oldValue, newValue),
     [oldValue, newValue],
@@ -42,6 +50,8 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
   // Expanding applies to the values it was clicked for
   const [expanded, setExpanded] = useState<[string, string] | null>(null);
   const show =
+    alwaysShow ||
+    renderInFull ||
     (changedLines !== null && changedLines <= COLLAPSE_AFTER_CHANGED_LINES) ||
     (expanded?.[0] === oldValue && expanded?.[1] === newValue);
 

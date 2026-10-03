@@ -1,5 +1,5 @@
 import stringify from "json-stringify-pretty-compact";
-import { ReactNode, useMemo, useRef } from "react";
+import { ReactNode, useContext, useMemo, useRef } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
@@ -11,6 +11,7 @@ import { Popover } from "@/ui/Popover";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import VirtualizedCode, {
   isLongCode,
+  RenderInFullContext,
 } from "@/components/SyntaxHighlighting/VirtualizedCode";
 import Badge from "@/ui/Badge";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
@@ -120,7 +121,8 @@ const MULTI_VALUE_LIMIT = 3;
 // only the visible lines
 function ConditionJson({ code }: { code: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  if (!isLongCode(code)) {
+  const renderInFull = useContext(RenderInFullContext);
+  if (renderInFull || !isLongCode(code)) {
     return <InlineCode language="json" code={code} />;
   }
   return (

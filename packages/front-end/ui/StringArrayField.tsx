@@ -218,19 +218,29 @@ export default function StringArrayField({
     origOnChange(val);
   };
 
+  // The text as typed while editing; parsing drops empty entries, so text
+  // rebuilt from the list would eat a trailing comma before the next value
+  const [rawTextDraft, setRawTextDraft] = useState<string | null>(null);
   const setRawText = (raw: string) => {
-    if (raw === "") {
-      onChange([]);
-      return;
-    }
-    const next = raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    onChange(next);
+    setRawTextDraft(raw);
+    onChange(
+      raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+  };
+  // Inserts at the caret like typing, so the caret and undo history hold
+  const insertRawText = (target: HTMLTextAreaElement, text: string): void => {
+    if (document.execCommand("insertText", false, text)) return;
+    setRawText(
+      target.value.slice(0, target.selectionStart) +
+        text +
+        target.value.slice(target.selectionEnd),
+    );
   };
 
-  const rawTextValue = value.join(",");
+  const rawTextValue = rawTextDraft ?? value.join(",");
   // Pasted lines and tabs become commas when Enter and Tab end a token, as a
   // paste in token mode splits them; typed text splits on commas only, so
   // stored values that contain one stay whole
@@ -241,17 +251,19 @@ export default function StringArrayField({
     const pasted = e.clipboardData.getData("text");
     if (!separators || !new RegExp(`[${separators}]`).test(pasted)) return;
     e.preventDefault();
-    const target = e.currentTarget;
     // Empty entries from leading or doubled separators are dropped on parse
-    const normalized = pasted.replace(
-      new RegExp(`\r?[${separators}]+`, "g"),
-      ",",
+    insertRawText(
+      e.currentTarget,
+      pasted.replace(new RegExp(`\r?[${separators}]+`, "g"), ","),
     );
-    const raw =
-      target.value.slice(0, target.selectionStart) +
-      normalized +
-      target.value.slice(target.selectionEnd);
-    setRawText(raw);
+  };
+  // Enter ends a value here too when it does in token mode
+  const handleRawTextKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    if (e.key !== "Enter" || !delimiters.includes("Enter")) return;
+    e.preventDefault();
+    insertRawText(e.currentTarget, ",");
   };
 
   const sizeStyles = useMemo(() => {
@@ -360,6 +372,8 @@ export default function StringArrayField({
                     value={rawTextValue}
                     onChange={(e) => setRawText(e.target.value)}
                     onPaste={handleRawTextPaste}
+                    onKeyDown={handleRawTextKeyDown}
+                    onBlur={() => setRawTextDraft(null)}
                     placeholder={placeholder ?? "value 1, value 2..."}
                     minRows={1}
                     maxRows={10}
