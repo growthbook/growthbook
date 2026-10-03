@@ -9,7 +9,9 @@ import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
-import VirtualizedCode from "@/components/SyntaxHighlighting/VirtualizedCode";
+import VirtualizedCode, {
+  isLongCode,
+} from "@/components/SyntaxHighlighting/VirtualizedCode";
 import Badge from "@/ui/Badge";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import { PlainEntityBadge } from "@/components/Features/EntityBadge";
@@ -114,13 +116,11 @@ function getValue(
 
 const MULTI_VALUE_LIMIT = 3;
 
-// A condition shown as JSON scrolls inside a bounded box past this many lines,
-// highlighting only the visible ones
-const BOUNDED_JSON_AFTER_LINES = 50;
-
+// A long condition shown as JSON scrolls inside a bounded box, highlighting
+// only the visible lines
 function ConditionJson({ code }: { code: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  if (code.split("\n").length <= BOUNDED_JSON_AFTER_LINES) {
+  if (!isLongCode(code)) {
     return <InlineCode language="json" code={code} />;
   }
   return (

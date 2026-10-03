@@ -17,7 +17,9 @@ import { parsePlainJSONObject } from "shared/util";
 import InlineCode, {
   LinkifyConfig,
 } from "@/components/SyntaxHighlighting/InlineCode";
-import VirtualizedCode from "@/components/SyntaxHighlighting/VirtualizedCode";
+import VirtualizedCode, {
+  isLongCode,
+} from "@/components/SyntaxHighlighting/VirtualizedCode";
 import { useConstantLinkify } from "@/components/Constants/useConstantLinkify";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -64,8 +66,6 @@ function getBoldLineNumbers(
   });
   return bold;
 }
-
-const VIRTUALIZE_AFTER_LINES = 50;
 
 export default function ValueDisplay({
   value,
@@ -141,12 +141,9 @@ export default function ValueDisplay({
     }
   }, [value, type, sparseMerge]);
 
-  // Past this many lines only the visible ones are highlighted, inside a box
-  // that scrolls even when the caller set no height limit
-  const virtualize = useMemo(
-    () => formatted.split("\n").length > VIRTUALIZE_AFTER_LINES,
-    [formatted],
-  );
+  // Long values highlight only the visible lines, inside a box that scrolls
+  // even when the caller set no height limit
+  const virtualize = useMemo(() => isLongCode(formatted), [formatted]);
   const boxStyle =
     virtualize &&
     fullStyle.maxHeight === undefined &&

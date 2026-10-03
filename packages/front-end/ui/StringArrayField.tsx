@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
 import {
@@ -179,7 +179,6 @@ export default function StringArrayField({
   const tooManyForTokens = value.length > RAW_TEXT_AFTER_VALUES;
   const [rawTextMode, setRawTextMode] = useState(tooManyForTokens);
   const [focusRawText, setFocusRawText] = useState(false);
-  const rawTextRef = useRef<HTMLTextAreaElement>(null);
 
   // A paste that crosses the limit moves the edit into the text box
   useEffect(() => {
@@ -188,12 +187,6 @@ export default function StringArrayField({
       setFocusRawText(true);
     }
   }, [tooManyForTokens, rawTextMode]);
-  useEffect(() => {
-    if (focusRawText && rawTextRef.current) {
-      rawTextRef.current.focus();
-      setFocusRawText(false);
-    }
-  }, [focusRawText, rawTextMode]);
 
   const showButtons = enableRawTextMode || showCopyButton;
   const components = {
@@ -341,7 +334,6 @@ export default function StringArrayField({
               >
                 <div className="gb-select__value-container gb-select__raw-text-value-container">
                   <TextareaAutosize
-                    ref={rawTextRef}
                     id={id}
                     className="form-control gb-select__raw-text-input"
                     value={rawTextValue}
@@ -351,7 +343,7 @@ export default function StringArrayField({
                     maxRows={10}
                     disabled={disabled}
                     required={fieldProps.required}
-                    autoFocus={autoFocus}
+                    autoFocus={autoFocus || focusRawText}
                     style={{ resize: "none" }}
                   />
                 </div>

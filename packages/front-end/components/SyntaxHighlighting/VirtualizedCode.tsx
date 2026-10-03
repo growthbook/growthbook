@@ -5,6 +5,11 @@ import InlineCode, { Props as InlineCodeProps } from "./InlineCode";
 // 0.85rem at line-height 1.5; wrapped lines are measured as they render
 const ESTIMATED_LINE_HEIGHT = 20;
 
+// Code longer than this is worth virtualizing inside a scrolling box
+export function isLongCode(code: string): boolean {
+  return code.split("\n").length > 50;
+}
+
 // Highlights only the lines scrolled into view, so a value thousands of lines
 // long costs what its visible window costs. `scrollRef` must be the element
 // that scrolls (a bounded height with overflow auto).

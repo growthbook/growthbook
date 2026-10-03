@@ -33,7 +33,9 @@ function flattenRows(children: ReactNode): Row[] {
       return;
     }
     rows.push({
-      element: cloneElement(child, { children: null } as never),
+      element: cloneElement(child as ReactElement<{ children?: ReactNode }>, {
+        children: null,
+      }),
       isHeading: true,
     });
     Children.forEach(props.children, (option) => {
