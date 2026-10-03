@@ -1,5 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
@@ -385,28 +390,41 @@ export function CopyAsButton({
     timeout: 2000,
   });
   const formattedRef = useRef<HTMLDivElement>(null);
-  const textFor = (format: CopyDiffFormat): string => {
-    if (format === "formatted") {
-      const root = formattedRef.current;
-      const rendered = root ? formattedNodeToText(root) : "";
-      if (rendered)
-        return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
-    }
-    return formatDiffForCopy(format, {
-      entityName,
-      entityType: entityNoun,
-      diffs,
-      raw,
-    });
-  };
-  // "Formatted changes" draws its text in full only when picked. It renders
-  // synchronously inside the click, since clipboard writes need the gesture.
+  const textFor = useCallback(
+    (format: CopyDiffFormat): string => {
+      if (format === "formatted") {
+        const root = formattedRef.current;
+        const rendered = root ? formattedNodeToText(root) : "";
+        if (rendered)
+          return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
+      }
+      return formatDiffForCopy(format, {
+        entityName,
+        entityType: entityNoun,
+        diffs,
+        raw,
+      });
+    },
+    [entityName, entityNoun, diffs, raw],
+  );
+  // "Formatted changes" draws its text in full only when picked. The copy
+  // starts inside the click and gets its text once that render commits.
   const [formattedRequested, setFormattedRequested] = useState(false);
+  const resolveFormatted = useRef<((text: string) => void) | null>(null);
   const copyFormatted = () => {
-    flushSync(() => setFormattedRequested(true));
-    performCopy(textFor("formatted"));
-    setFormattedRequested(false);
+    performCopy(
+      new Promise<string>((resolve) => {
+        resolveFormatted.current = resolve;
+      }),
+    );
+    setFormattedRequested(true);
   };
+  useEffect(() => {
+    if (!formattedRequested) return;
+    resolveFormatted.current?.(textFor("formatted"));
+    resolveFormatted.current = null;
+    setFormattedRequested(false);
+  }, [formattedRequested, textFor]);
 
   if (!copySupported) return null;
 
