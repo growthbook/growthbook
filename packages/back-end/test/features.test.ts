@@ -4130,6 +4130,7 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
       "cond_a",
       { type: "condition", condition: JSON.stringify({ browser: "chrome" }) },
     ],
+    ["cond_empty", { type: "condition", condition: "{}" }],
   ]);
 
   const inline = () =>
@@ -4293,6 +4294,8 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
     const needs: SavedGroupTargeting[][] = [
       [{ match: "all", ids: ["gone"] }],
       [{ match: "any", ids: ["gone"] }],
+      // The group that exists is empty, so nothing is left to match
+      [{ match: "any", ids: ["gone", "cond_empty"] }],
     ];
     [inline(), v1(), v2()].forEach((s) => {
       needs.forEach((sg) => {

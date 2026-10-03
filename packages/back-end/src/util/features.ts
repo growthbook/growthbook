@@ -292,20 +292,12 @@ export function mergeConditionAndSavedGroups({
 
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
-      // A group that no longer exists is served as empty. An "in" entry that
-      // needs it can then match nobody, so it fails closed. A "none" entry
-      // drops it: excluding an empty group excludes nobody, and failing closed
-      // there would block every user over a configuration mistake. The health
-      // check reports both.
+      // A group that no longer exists is served as empty. An "all" entry that
+      // names one, or an "any" entry left with no usable group, then matches
+      // nobody, so it fails closed. A "none" entry drops it: excluding an
+      // empty group excludes nobody, and failing closed there would block
+      // every user over a configuration mistake. The health check reports both.
       const missing = ids.filter((id) => !groupMap.has(id));
-      if (
-        missing.length &&
-        match !== "none" &&
-        (match === "all" || missing.length === ids.length)
-      ) {
-        conditions.push({ [SAVED_GROUP_ERROR_UNKNOWN]: missing[0] });
-        return;
-      }
       const groupIds = ids.filter((id) => {
         const group = groupMap.get(id);
         if (!group) return false;
@@ -321,6 +313,14 @@ export function mergeConditionAndSavedGroups({
         }
         return true;
       });
+      if (
+        missing.length &&
+        match !== "none" &&
+        (match === "all" || !groupIds.length)
+      ) {
+        conditions.push({ [SAVED_GROUP_ERROR_UNKNOWN]: missing[0] });
+        return;
+      }
       if (!groupIds.length) return;
 
       // Add each group as a separate top-level AND
@@ -763,8 +763,10 @@ export function buildPrerequisiteProjectReach(
   const featuresMap = new Map(features.map((f) => [f.id, f]));
   const reach = new Map<string, Set<string>>();
 
+  // A parent with no project ("") is carried too: project-scoped connections
+  // only match the "" key when treatEmptyProjectAsGlobal is on.
   const link = (from: string, to: string) => {
-    if (!from || !to || from === to) return;
+    if (!to || from === to) return;
     const set = reach.get(from) ?? new Set<string>();
     set.add(to);
     reach.set(from, set);
