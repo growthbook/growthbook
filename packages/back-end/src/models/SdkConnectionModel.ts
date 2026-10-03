@@ -182,11 +182,18 @@ export async function findSDKConnectionsByOrganization(
   const docs = await SDKConnectionModel.find({
     organization: context.org.id,
   });
+  return readableConnections(context, docs);
+}
 
-  const connections = docs.map(toInterface);
-  return connections.filter((conn) =>
-    context.permissions.canReadMultiProjectResource(conn.projects),
-  );
+function readableConnections(
+  context: ReqContext | ApiReqContext,
+  docs: SDKConnectionDocument[],
+): SDKConnectionInterface[] {
+  return docs
+    .map(toInterface)
+    .filter((conn) =>
+      context.permissions.canReadMultiProjectResource(conn.projects),
+    );
 }
 
 // Not filtered by the caller's project read access: used as a referential
@@ -562,11 +569,7 @@ export async function findSDKConnectionsWithPayloadOver(
     organization: context.org.id,
     "payloadSize.bytes": { $gte: minBytes },
   });
-  return docs
-    .map(toInterface)
-    .filter((conn) =>
-      context.permissions.canReadMultiProjectResource(conn.projects),
-    );
+  return readableConnections(context, docs);
 }
 
 export async function setSDKConnectionPayloadSize(

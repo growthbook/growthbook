@@ -211,8 +211,11 @@ function Fix({ fix }: { fix: SdkPayloadSizeFix }) {
   }
 }
 
+const connectionsNoun = (count: number) =>
+  count === 1 ? "SDK Connection" : "SDK Connections";
+
 const pluralConnections = (count: number) =>
-  `${count} SDK Connection${count === 1 ? "" : "s"}`;
+  `${count} ${connectionsNoun(count)}`;
 
 export function PayloadSizeTopNavNotice() {
   const { sdkPayloadSizeAlerts } = useUser();
@@ -220,8 +223,6 @@ export function PayloadSizeTopNavNotice() {
   const level = worstSdkPayloadSizeLevel(
     sdkPayloadSizeAlerts.map((a) => a.level),
   );
-  const connections =
-    sdkPayloadSizeAlerts.length === 1 ? "SDK Connection" : "SDK Connections";
   const fixes = summarizeSdkPayloadSizeFixes(sdkPayloadSizeAlerts);
   return (
     <Tooltip
@@ -266,7 +267,7 @@ export function PayloadSizeTopNavNotice() {
         }}
       >
         <PiWarningFill size={15} />
-        {connections}{" "}
+        {connectionsNoun(sdkPayloadSizeAlerts.length)}{" "}
         {level === "over-limit" ? "over max size" : "nearing max size"}
         <Badge
           label={String(sdkPayloadSizeAlerts.length)}
