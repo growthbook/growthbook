@@ -145,9 +145,18 @@ export default function NPSSurvey() {
   const suppressed = withinCooldown(npsSurveyAt);
   // Tenure is the account's own age, so a new hire at an established org isn't
   // asked on their first day.
+  //
+  // Staff skip sampling and tenure. At a 5% rate with a staggered start day only
+  // about 1 in 23 eligible users sees the card on a given day, which makes the
+  // live path impractical to exercise on demand. Everything else still applies —
+  // the webhook must be configured, the cooldown still suppresses, and the
+  // response is recorded and forwarded normally rather than as a `?show-nps`
+  // preview. A rate of 0 turns the survey off for staff too.
   const eligible =
-    meetsMinimumTenure(accountCreatedAt, minTenureDays) &&
-    inSampledCohort(userId, sampleRate);
+    sampleRate > 0 &&
+    (isStaff ||
+      (meetsMinimumTenure(accountCreatedAt, minTenureDays) &&
+        inSampledCohort(userId, sampleRate)));
   // Latched, not derived: `?show-nps` disappears on client-side navigation,
   // which would flip a staff preview into a real response mid-card.
   const [forceShow, setForceShow] = useState(false);
