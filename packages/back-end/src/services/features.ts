@@ -134,6 +134,7 @@ import {
   type ReviewAuthorityFootprint,
   getEnvsForRampTarget,
 } from "shared/util";
+import { measureSdkPayloadSize } from "shared/health";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import {
   FeatureDefinitionSources,
@@ -196,6 +197,11 @@ import {
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import {
+  estimateCacheDocumentBytes,
+  getSdkPayloadSizeLimitBytes,
+  recordSdkPayloadSize,
+} from "back-end/src/services/sdkPayloadSize";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import {
   getContextForAgendaJobByOrgObject,
@@ -1217,6 +1223,8 @@ export async function refreshSDKPayloadCache({
     rawData.projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
+  const payloadSizeLimitBytes = await getSdkPayloadSizeLimitBytes();
+
   const promises = connectionsUpdated.map((connection) => {
     const env = connection.environment;
     const holdoutsMap = holdoutsMapByEnv[env];
@@ -1278,9 +1286,21 @@ export async function refreshSDKPayloadCache({
               }
             : undefined;
 
+        const json = JSON.stringify(contents);
+        if (payloadSizeLimitBytes !== null) {
+          await recordSdkPayloadSize(
+            context,
+            connection,
+            measureSdkPayloadSize(
+              contents,
+              estimateCacheDocumentBytes(json, auditContext),
+              payloadSizeLimitBytes,
+            ),
+          );
+        }
         await context.models.sdkConnectionCache.upsert(
           connection.key,
-          JSON.stringify(contents),
+          json,
           auditContext,
         );
       } catch (e) {

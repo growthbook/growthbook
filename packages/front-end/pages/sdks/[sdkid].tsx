@@ -34,6 +34,7 @@ import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { docUrl } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import { PayloadSizeCallout } from "@/components/Features/SDKConnections/PayloadSizeNotices";
 
 export default function SDKConnectionPage() {
   const router = useRouter();
@@ -233,6 +234,7 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
+      <PayloadSizeCallout connection={connection} />
       {!supportsBucketingV2 && (
         <Callout status="warning" mb="3">
           <Text weight="semibold">
