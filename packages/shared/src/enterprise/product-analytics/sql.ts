@@ -628,6 +628,8 @@ function getStaticDimensionFilters(
       d.column,
       factTable,
       helpers.jsonExtract,
+      "",
+      helpers.identifierQuote,
     );
     const valueList = d.values
       .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
