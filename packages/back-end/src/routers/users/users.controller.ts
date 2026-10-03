@@ -19,6 +19,7 @@ import {
   escapeSlackMrkdwn,
   truncateSlackText,
 } from "back-end/src/util/slack.util";
+import { postNpsResponseToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
@@ -292,6 +293,15 @@ export async function postNpsResponse(
       disposition,
       preview: isPreview,
     });
+  }
+
+  if (IS_CLOUD && status === "responded" && score !== undefined && !isPreview) {
+    postNpsResponseToLicenseServer({
+      email: req.email,
+      score,
+      feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
+      respondedAt: new Date().toISOString(),
+    }).catch(() => {});
   }
 
   res.status(200).json({
