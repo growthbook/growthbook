@@ -93,16 +93,31 @@ export function nextNotifiedSdkPayloadSizeLevel(
   };
 }
 
-// Characters rather than encoded bytes: close enough to rank the largest
-// parts, without encoding a copy of each one
-const jsonLength = (value: unknown) => (JSON.stringify(value) ?? "").length;
+// UTF-8 byte length counted in place, rather than encoding a copy of each part
+function utf8ByteLength(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) bytes += 1;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code < 0xdc00 && i + 1 < text.length) {
+      // A surrogate pair is one 4-byte character
+      bytes += 4;
+      i++;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
+const jsonByteLength = (value: unknown) =>
+  utf8ByteLength(JSON.stringify(value) ?? "");
 
 function largestEntries(section: unknown) {
   if (!section || typeof section !== "object" || Array.isArray(section)) {
     return [];
   }
   return Object.entries(section)
-    .map(([id, value]) => ({ id, bytes: jsonLength(value) }))
+    .map(([id, value]) => ({ id, bytes: jsonByteLength(value) }))
     .sort((a, b) => b.bytes - a.bytes)
     .slice(0, LARGEST_ENTRIES);
 }
@@ -112,7 +127,10 @@ function measureBreakdown(
 ): SdkPayloadSizeBreakdown {
   return {
     sections: Object.fromEntries(
-      Object.entries(payload).map(([key, value]) => [key, jsonLength(value)]),
+      Object.entries(payload).map(([key, value]) => [
+        key,
+        jsonByteLength(value),
+      ]),
     ),
     largestFeatures: largestEntries(payload.features),
     largestSavedGroups: largestEntries(payload.savedGroups),

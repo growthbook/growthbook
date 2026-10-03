@@ -44,6 +44,14 @@ describe("nextNotifiedSdkPayloadSizeLevel", () => {
 });
 
 describe("measureSdkPayloadSize", () => {
+  it("sizes breakdown entries in UTF-8 bytes", () => {
+    const payload = { features: { f: "é😀" } };
+    const size = measureSdkPayloadSize(payload, 9 * MB, limitBytes);
+    expect(size.breakdown?.largestFeatures).toEqual([
+      { id: "f", bytes: new TextEncoder().encode('"é😀"').length },
+    ]);
+  });
+
   it("skips the breakdown below the warning level", () => {
     const payload = { features: { f: { defaultValue: 1 } } };
     expect(measureSdkPayloadSize(payload, MB, limitBytes).breakdown).toBeNull();
