@@ -249,6 +249,9 @@ export function requestReviewSubTab(tab: "overview" | "changes"): void {
 // re-render. No-ops quietly when the target never appears (stale line
 // reference or a surface without the diff) — the snapshot in the comment is
 // the fallback context.
+// A large section diff waits behind "Show diff"; a reference into it opens it
+export const DIFF_SECTION_EXPAND_EVENT = "gb:diff-section-expand";
+
 export function scrollToDiffRef(ref: DiffCommentRef): void {
   const refId = diffRefId(ref);
   const find = () =>
@@ -280,6 +283,10 @@ export function scrollToDiffRef(ref: DiffCommentRef): void {
       scrollTo(el);
       return;
     }
+    // Sent on every attempt: the section may only mount after the tab switch
+    window.dispatchEvent(
+      new CustomEvent(DIFF_SECTION_EXPAND_EVENT, { detail: ref.sectionKey }),
+    );
     if (attempt < 20) setTimeout(() => tryScroll(attempt + 1), 100);
   };
   tryScroll(0);

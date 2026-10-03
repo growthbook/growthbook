@@ -86,6 +86,7 @@ import {
   DiffCommentRef,
   DiffRefSnapshot,
   DIFF_FORMAT_EVENT,
+  DIFF_SECTION_EXPAND_EVENT,
   buildDiffSnapshotEntries,
   captureDiffRefSnapshot,
   diffRefId,
@@ -669,6 +670,20 @@ export function ExpandableDiff({
 
   const commentsEnabled = !!anchorKey && !!comments;
 
+  // A timeline reference to a line in this section opens it past the size gate
+  const [expandRequested, setExpandRequested] = useState(false);
+  useEffect(() => {
+    if (!anchorKey) return;
+    const onExpand = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== anchorKey) return;
+      setExpandRequested(true);
+      setOpen(true);
+    };
+    window.addEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
+    return () =>
+      window.removeEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
+  }, [anchorKey]);
+
   // Line diff of the section, computed once; per-line snapshots (the
   // before/after window embedded in a composed comment's diff-ref block) are
   // cheap slices of this.
@@ -765,10 +780,6 @@ export function ExpandableDiff({
     [commentsEnabled, anchorKey, comments],
   );
 
-  const hasLineComments =
-    commentsEnabled &&
-    [...comments.anchors.keys()].some((id) => id.startsWith(`${anchorKey}:`));
-
   if (a === b) return null;
 
   return (
@@ -801,8 +812,7 @@ export function ExpandableDiff({
           <LazyDiffViewer
             oldValue={a}
             newValue={b}
-            // Comment links in the timeline scroll to lines in this diff
-            alwaysShow={hasLineComments}
+            alwaysShow={expandRequested}
             styles={diffStyles}
             leftTitle={leftTitle}
             rightTitle={rightTitle}
