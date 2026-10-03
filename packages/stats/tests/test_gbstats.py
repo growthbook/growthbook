@@ -801,6 +801,60 @@ class TestAnalyzeMetricDfBayesian(TestCase):
             )
 
 
+class TestScaledImpactDuration(TestCase):
+    def test_uses_metric_duration_for_bayesian_and_frequentist_results(self):
+        rows = MULTI_DIMENSION_STATISTICS_DF
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        metric = dataclasses.replace(COUNT_METRIC, scaled_impact_days=7)
+
+        for stats_engine in ["bayesian", "frequentist"]:
+            analysis = dataclasses.replace(
+                DEFAULT_ANALYSIS,
+                stats_engine=stats_engine,
+                difference_type="scaled",
+                phase_length_days=30,
+            )
+            result = analyze_metric_df(
+                df,
+                num_variations=2,
+                metric=metric,
+                analysis=analysis,
+            )
+
+            variation = result[0].variations[1]
+            if not isinstance(
+                variation,
+                (
+                    BayesianVariationResponseIndividual,
+                    FrequentistVariationResponseIndividual,
+                ),
+            ):
+                raise TypeError(
+                    f"Unexpected variation response type: {type(variation)}"
+                )
+            self.assertAlmostEqual(variation.expected, -44 / 7)
+
+    def test_falls_back_to_phase_duration(self):
+        rows = MULTI_DIMENSION_STATISTICS_DF
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        analysis = dataclasses.replace(
+            DEFAULT_ANALYSIS,
+            difference_type="scaled",
+            phase_length_days=30,
+        )
+        result = analyze_metric_df(
+            df,
+            num_variations=2,
+            metric=COUNT_METRIC,
+            analysis=analysis,
+        )
+
+        variation = result[0].variations[1]
+        if not isinstance(variation, BayesianVariationResponseIndividual):
+            raise TypeError(f"Unexpected variation response type: {type(variation)}")
+        self.assertAlmostEqual(variation.expected, -44 / 30)
+
+
 class TestAnalyzeMetricDfFrequentist(TestCase):
     def test_get_metric_dfs_frequentist(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
