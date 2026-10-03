@@ -32,6 +32,7 @@ import { isDefined } from "shared/util";
 import clsx from "clsx";
 import { PiCaretDown, PiCopy, PiX } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
+import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import {
@@ -580,7 +581,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                                   >
                                     Select an option or create one
                                   </div>
-                                  <components.MenuList {...props} />
+                                  <VirtualizedMenuList {...props} />
                                 </>
                               );
                             },
@@ -588,6 +589,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                         : {
                             DropdownIndicator: CustomDropdownIndicator,
                             IndicatorSeparator: () => null,
+                            MenuList: VirtualizedMenuList,
                           }),
                   }}
                   {...(creatable && noMenu
