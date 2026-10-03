@@ -121,6 +121,30 @@ describe("removeRuleAtEnvIndex", () => {
     expect(next[0].allEnvironments).toBe(false);
   });
 
+  it("narrows a shared allEnvironments rule to remaining applicable envs instead of deleting globally (#6663)", () => {
+    const shared = allEnvRule("shared");
+    const prod1 = envRule("prod1", "prod");
+    const rules = [shared, prod1];
+
+    // Env-scoped delete from "dev": the shared rule must survive narrowed to
+    // every OTHER applicable env, not vanish from all environments at once.
+    const applicable = ["dev", "staging", "prod"];
+    const { rules: next } = removeRuleAtEnvIndex(rules, "dev", 0, applicable);
+    expect(next).toHaveLength(2);
+    expect(next[0].id).toBe("shared");
+    expect(next[0].allEnvironments).toBe(false);
+    expect(next[0].environments).toEqual(["staging", "prod"]);
+    expect(next[1].id).toBe("prod1");
+  });
+
+  it("deletes a shared rule globally when removing its last applicable env", () => {
+    const shared = allEnvRule("shared");
+    const rules = [shared];
+
+    const { rules: next } = removeRuleAtEnvIndex(rules, "dev", 0, ["dev"]);
+    expect(next).toEqual([]);
+  });
+
   it("throws on bad index", () => {
     const rules = [envRule("a", "dev")];
     expect(() => removeRuleAtEnvIndex(rules, "dev", 5)).toThrow(
