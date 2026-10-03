@@ -12,6 +12,8 @@ import {
 import {
   applyTimestampColumn,
   getCommonColumns,
+  getQueryTimeoutErrorMessage,
+  isQueryTimeoutError,
   getColumnTopValues,
   normalizeTimelessSqlConfig,
   resolveSqlPreviewTimestamp,
@@ -608,4 +610,23 @@ describe("resolveSqlPreviewTimestamp", () => {
       }),
     ).toBe(null);
   });
+});
+
+describe("query timeout errors", () => {
+  it.each([true, false])(
+    "recognizes timeout copy for isFunnel=%s",
+    (isFunnel) => {
+      const message = getQueryTimeoutErrorMessage(isFunnel);
+      expect(message).toContain("Try a shorter date range");
+      expect(message.includes("or fewer steps")).toBe(isFunnel);
+      expect(isQueryTimeoutError(message)).toBe(true);
+    },
+  );
+
+  it.each([null, "", "Invalid SQL", "Permission denied"])(
+    "does not offer a timeout retry for %s",
+    (error) => {
+      expect(isQueryTimeoutError(error)).toBe(false);
+    },
+  );
 });
