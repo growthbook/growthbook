@@ -124,8 +124,10 @@ function largestEntries(section: unknown) {
 
 function measureBreakdown(
   payload: Record<string, unknown>,
+  now: Date,
 ): SdkPayloadSizeBreakdown {
   return {
+    measuredAt: now,
     sections: Object.fromEntries(
       Object.entries(payload).map(([key, value]) => [
         key,
@@ -137,20 +139,60 @@ function measureBreakdown(
   };
 }
 
+// The breakdown serializes every Feature Flag and Saved Group again, and
+// payloads refresh on every publish, so it's reused until the level changes
+// or it's this old
+const BREAKDOWN_MAX_AGE_MS = 60 * 60 * 1000;
+
+// Smaller size changes aren't worth a write on every payload refresh
+const RECORDED_SIZE_CHANGE = 0.01;
+
+function reusableBreakdown(
+  previous: SdkPayloadSize | null,
+  level: SdkPayloadSizeLevel,
+  now: Date,
+): SdkPayloadSizeBreakdown | null {
+  if (!previous?.breakdown || getSdkPayloadSizeLevel(previous) !== level) {
+    return null;
+  }
+  const age = now.getTime() - new Date(previous.breakdown.measuredAt).getTime();
+  return age < BREAKDOWN_MAX_AGE_MS ? previous.breakdown : null;
+}
+
 export function measureSdkPayloadSize(
   payload: Record<string, unknown>,
   bytes: number,
   limitBytes: number,
+  previous: SdkPayloadSize | null,
+  now: Date = new Date(),
 ): SdkPayloadSize {
+  const level = getSdkPayloadSizeLevel({ bytes, limitBytes });
   return {
     bytes,
     limitBytes,
-    measuredAt: new Date(),
+    measuredAt: now,
     breakdown:
-      getSdkPayloadSizeLevel({ bytes, limitBytes }) === "ok"
+      level === "ok"
         ? null
-        : measureBreakdown(payload),
+        : (reusableBreakdown(previous, level, now) ??
+          measureBreakdown(payload, now)),
   };
+}
+
+// Whether a new measurement is worth writing over the stored one
+export function shouldRecordSdkPayloadSize(
+  previous: SdkPayloadSize | null,
+  next: SdkPayloadSize,
+): boolean {
+  if (!previous) return true;
+  if (getSdkPayloadSizeLevel(previous) !== getSdkPayloadSizeLevel(next)) {
+    return true;
+  }
+  if (next.breakdown !== previous.breakdown) return true;
+  return (
+    Math.abs(next.bytes - previous.bytes) >
+    previous.bytes * RECORDED_SIZE_CHANGE
+  );
 }
 
 export function getSdkPayloadSizeRecommendations(

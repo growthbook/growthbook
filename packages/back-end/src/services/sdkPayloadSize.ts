@@ -12,6 +12,7 @@ import {
   getSdkPayloadSizeLevel,
   nextNotifiedSdkPayloadSizeLevel,
   SDK_PAYLOAD_SIZE_WARNING_FRACTION,
+  shouldRecordSdkPayloadSize,
 } from "shared/health";
 import {
   claimSDKConnectionNotifiedPayloadSizeLevel,
@@ -61,7 +62,11 @@ export async function recordSdkPayloadSize(
   payloadSize: SdkPayloadSize,
 ) {
   try {
-    await setSDKConnectionPayloadSize(context, connection, payloadSize);
+    if (
+      shouldRecordSdkPayloadSize(connection.payloadSize ?? null, payloadSize)
+    ) {
+      await setSDKConnectionPayloadSize(context, connection, payloadSize);
+    }
 
     const notified = connection.notifiedPayloadSizeLevel ?? "ok";
     const { level, notify } = nextNotifiedSdkPayloadSizeLevel(

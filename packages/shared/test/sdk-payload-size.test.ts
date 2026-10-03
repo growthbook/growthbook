@@ -4,6 +4,7 @@ import {
   summarizeSdkPayloadSizeFixes,
   getSdkPayloadSizeRecommendations,
   measureSdkPayloadSize,
+  shouldRecordSdkPayloadSize,
 } from "../src/health/sdk-payload-size";
 
 const MB = 1024 * 1024;
@@ -46,7 +47,7 @@ describe("nextNotifiedSdkPayloadSizeLevel", () => {
 describe("measureSdkPayloadSize", () => {
   it("sizes breakdown entries in UTF-8 bytes", () => {
     const payload = { features: { f: "é😀" } };
-    const size = measureSdkPayloadSize(payload, 9 * MB, limitBytes);
+    const size = measureSdkPayloadSize(payload, 9 * MB, limitBytes, null);
     expect(size.breakdown?.largestFeatures).toEqual([
       { id: "f", bytes: new TextEncoder().encode('"é😀"').length },
     ]);
@@ -54,7 +55,9 @@ describe("measureSdkPayloadSize", () => {
 
   it("skips the breakdown below the warning level", () => {
     const payload = { features: { f: { defaultValue: 1 } } };
-    expect(measureSdkPayloadSize(payload, MB, limitBytes).breakdown).toBeNull();
+    expect(
+      measureSdkPayloadSize(payload, MB, limitBytes, null).breakdown,
+    ).toBeNull();
   });
 
   it("names the largest features and saved groups once large", () => {
@@ -64,7 +67,7 @@ describe("measureSdkPayloadSize", () => {
       savedGroups: { grp_a: ["1", "2"] },
       encryptedExperiments: "abc",
     };
-    const size = measureSdkPayloadSize(payload, 9 * MB, limitBytes);
+    const size = measureSdkPayloadSize(payload, 9 * MB, limitBytes, null);
     expect(size.breakdown?.largestFeatures.map((f) => f.id)).toEqual([
       "huge",
       "small",
@@ -80,12 +83,53 @@ describe("measureSdkPayloadSize", () => {
   });
 });
 
+describe("reusing measurements across payload refreshes", () => {
+  const payload = { features: { f: { defaultValue: 1 } } };
+  const hour = 60 * 60 * 1000;
+  const first = measureSdkPayloadSize(payload, 9 * MB, limitBytes, null);
+  const at = (ms: number) => new Date(first.measuredAt.getTime() + ms);
+
+  it("reuses a recent breakdown at the same level, and skips the write", () => {
+    const next = measureSdkPayloadSize(
+      payload,
+      9.01 * MB,
+      limitBytes,
+      first,
+      at(hour / 2),
+    );
+    expect(next.breakdown).toBe(first.breakdown);
+    expect(shouldRecordSdkPayloadSize(first, next)).toBe(false);
+  });
+
+  it("measures again once the breakdown is old or the level changes", () => {
+    for (const next of [
+      measureSdkPayloadSize(payload, 9 * MB, limitBytes, first, at(2 * hour)),
+      measureSdkPayloadSize(payload, 13 * MB, limitBytes, first, at(60)),
+    ]) {
+      expect(next.breakdown).not.toBe(first.breakdown);
+      expect(shouldRecordSdkPayloadSize(first, next)).toBe(true);
+    }
+  });
+
+  it("writes when the size moves more than 1%", () => {
+    const next = measureSdkPayloadSize(
+      payload,
+      9.2 * MB,
+      limitBytes,
+      first,
+      at(60),
+    );
+    expect(shouldRecordSdkPayloadSize(first, next)).toBe(true);
+  });
+});
+
 describe("getSdkPayloadSizeRecommendations", () => {
   const size = {
     bytes: 10 * MB,
     limitBytes,
     measuredAt: new Date(),
     breakdown: {
+      measuredAt: new Date(),
       sections: {},
       largestFeatures: [
         { id: "huge", bytes: 6 * MB },

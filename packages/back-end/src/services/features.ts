@@ -1295,6 +1295,7 @@ export async function refreshSDKPayloadCache({
               contents,
               estimateCacheDocumentBytes(json, auditContext),
               payloadSizeLimitBytes,
+              connection.payloadSize ?? null,
             ),
           );
         }

@@ -183,6 +183,7 @@ it("keeps only the Feature Flags and Saved Groups the viewer can read", async ()
       payloadSize: {
         ...size(10 * MB),
         breakdown: {
+          measuredAt: new Date(),
           sections: {},
           largestFeatures: [entry("readable_flag"), entry("secret_flag")],
           largestSavedGroups: [entry("grp_secret")],
