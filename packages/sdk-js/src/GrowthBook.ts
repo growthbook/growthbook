@@ -115,6 +115,7 @@ export class GrowthBook<
 
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
+  private _initTimeout?: number;
 
   constructor(options?: Options) {
     options = options || {};
@@ -289,6 +290,9 @@ export class GrowthBook<
     this._initialized = true;
     options = options || {};
 
+    // Remember the timeout so later refreshFeatures() calls can fall back to it
+    this._initTimeout = options.timeout;
+
     if (options.cacheSettings) {
       configureCache(options.cacheSettings);
     }
@@ -379,7 +383,7 @@ export class GrowthBook<
     // Trigger refresh in feature repository
     return refreshFeatures({
       instance: this,
-      timeout,
+      timeout: timeout ?? this._initTimeout,
       skipCache: skipCache || this._options.disableCache,
       allowStale,
       backgroundSync: streaming ?? this._options.backgroundSync ?? true,
