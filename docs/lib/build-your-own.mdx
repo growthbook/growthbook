@@ -513,17 +513,17 @@ Shrinks a payload for one user whose attributes are only partly known, for examp
 - `tags`: `metadata.tags` contains one of the values
 - `customFields`: for each field, `metadata.customFields[field]` is one of the values, or contains one if it is an array
 
-A feature's value is known when everyone who agrees with the known attributes gets the same one. That is the case when its reduced form has no rules left (its `defaultValue`, or `null`), when its first rule always applies (a `force` rule with no `condition`, `parentConditions`, `filters`, `range`, or `coverage`), and when it is missing from the payload or always blocked (`null`). A feature that is still being reduced, because of a prerequisite cycle, has no known value.
+A feature's value is known when everyone who agrees with the known attributes gets the same one. That is the case when its reduced form has no rules left (its `defaultValue`, or `null`), when its first rule always applies (a `force` rule with no `condition`, `parentConditions`, `filters`, `range`, `coverage`, or `tracks`), and when it is missing from the payload or always blocked (`null`). A feature with a forced value in the user context has no known value, since forced values can change on the client. Neither does one that is still being reduced because of a prerequisite cycle.
 
 To reduce a rule or auto experiment:
 
 1. Go through its `parentConditions` in order. If the parent's value is known, evaluate the condition against `{"value": <known value>}`:
    - It passes: remove the parent condition
-   - It fails: remove an auto experiment. For a rule, keep the parent condition if an undecided one comes before it, and drop the parent conditions after it. Otherwise the rule never runs: remove it, or if the parent condition has `gate: true`, the rule blocks its feature
+   - It fails: an auto experiment never matches (see step 3). For a rule, keep the parent condition if an undecided one comes before it, and drop the parent conditions after it. Otherwise the rule never runs: remove it, or if the parent condition has `gate: true`, the rule blocks its feature
 2. Remove a rule that has no `force`, `variations`, or `contextualVariations` once it has no parent conditions left
 3. Use `pruneCondition(attributes, condition, savedGroups)` on the `condition`:
    - `true`: remove the `condition` key
-   - `false`: remove the rule or experiment, unless a parent condition with `gate: true` is left, since gates run before the condition
+   - `false`: remove a `force` rule, unless a parent condition with `gate: true` is left, since gates run before the condition. Keep anything else, which includes every experiment, with the condition `{"$not": {}}`, which never passes. Sticky bucketing and forced variations skip an experiment's condition, so removing it would change what those users see. An auto experiment that never matches also loses its `parentConditions`, since they are only checked after the condition
    - a condition: use it as the new `condition`
 
 To reduce a feature, reduce its rules in order, and stop after a rule that always applies, since nothing after it runs. When a rule blocks its feature, stop there too: keep that rule unchanged if any rule comes before it, and otherwise remove the feature, because it always evaluates to `null`.
@@ -1193,7 +1193,7 @@ The cases.json file is an object. The keys are the function being tested, and th
   - definitions for Saved Groups referenced in the test case, if any (array of members, or a typed entry)
 - **reducePayload**: for SDKs that have `reducePayload`, which builds on `pruneCondition`. Skip the key if yours does not yet
   - name of the test case (string)
-  - input object with `payload`, plus `globalAttributes`, `attributes`, and `filters` when the case uses them
+  - input object with `payload`, plus `globalAttributes`, `attributes`, `forcedFeatures` (feature key -> forced value), and `filters` when the case uses them
   - expected reduced payload
 - **hash**
   - seed (string)

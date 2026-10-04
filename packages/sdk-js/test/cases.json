@@ -3899,6 +3899,18 @@
           "condition": { "$savedGroup": { "id": "grp_x" } }
         }
       }
+    ],
+    [
+      "an attribute named like a built-in object property is unknown until given",
+      { "toString": "x", "country": "US" },
+      { "country": "US" },
+      { "toString": "x" }
+    ],
+    [
+      "an attribute named like a built-in object property is unknown until given",
+      { "toString": "x", "country": "US" },
+      { "country": "US" },
+      { "toString": "x" }
     ]
   ],
   "reducePayload": [
@@ -3994,7 +4006,7 @@
       }
     ],
     [
-      "keeps a rule that never passes when it has a gate, since the gate runs first",
+      "keeps a rule that never passes when it has a gate, since the gate runs first, and shrinks its condition",
       {
         "payload": {
           "features": {
@@ -4028,7 +4040,7 @@
             "defaultValue": 0,
             "rules": [
               {
-                "condition": { "id": "456" },
+                "condition": { "$not": {} },
                 "parentConditions": [
                   {
                     "id": "parent",
@@ -4099,7 +4111,7 @@
       }
     ],
     [
-      "reduces auto experiments the same way",
+      "reduces auto experiments, keeping one that never matches with a condition that never passes",
       {
         "payload": {
           "features": {},
@@ -4126,6 +4138,7 @@
       {
         "features": {},
         "experiments": [
+          { "key": "e1", "variations": [{}, {}], "condition": { "$not": {} } },
           { "key": "e2", "variations": [{}, {}] },
           {
             "key": "e3",
@@ -4927,7 +4940,10 @@
       },
       {
         "features": { "A": { "defaultValue": true } },
-        "experiments": [{ "key": "e2", "variations": [{}, {}] }],
+        "experiments": [
+          { "key": "e1", "variations": [{}, {}], "condition": { "$not": {} } },
+          { "key": "e2", "variations": [{}, {}] }
+        ],
         "savedGroups": {}
       }
     ],
@@ -5016,6 +5032,213 @@
                   { "id": "A", "condition": { "value": true } }
                 ],
                 "force": true
+              }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps features whose keys are also built-in object property names",
+      {
+        "payload": {
+          "features": {
+            "toString": { "defaultValue": "ts" },
+            "constructor": {
+              "defaultValue": "ctor",
+              "rules": [{ "condition": { "id": "1" }, "force": "forced" }]
+            },
+            "__proto__": { "defaultValue": "proto" },
+            "child": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    {
+                      "id": "valueOf",
+                      "condition": { "value": { "$exists": false } }
+                    }
+                  ],
+                  "force": 1
+                }
+              ]
+            }
+          }
+        },
+        "attributes": { "id": "1" }
+      },
+      {
+        "features": {
+          "toString": { "defaultValue": "ts" },
+          "constructor": {
+            "defaultValue": "ctor",
+            "rules": [{ "force": "forced" }]
+          },
+          "__proto__": { "defaultValue": "proto" },
+          "child": { "defaultValue": 0, "rules": [{ "force": 1 }] }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps an experiment rule that never matches with a condition that never passes, since sticky buckets skip it",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "condition": { "id": "456" },
+                  "key": "exp",
+                  "variations": [1, 2]
+                },
+                { "force": 3 }
+              ]
+            }
+          }
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "condition": { "$not": {} },
+                "key": "exp",
+                "variations": [1, 2]
+              },
+              { "force": 3 }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps a prerequisite whose parent's rule has tracks, since they fire on the client",
+      {
+        "payload": {
+          "features": {
+            "parent": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "force": true,
+                  "tracks": [
+                    {
+                      "experiment": {
+                        "key": "exp",
+                        "variations": [false, true]
+                      },
+                      "result": {
+                        "value": true,
+                        "variationId": 1,
+                        "key": "1",
+                        "inExperiment": true,
+                        "hashUsed": true,
+                        "hashAttribute": "id",
+                        "hashValue": "u",
+                        "featureId": "parent"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "child": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "parent", "condition": { "value": true } }
+                  ],
+                  "force": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": {
+          "parent": {
+            "defaultValue": false,
+            "rules": [
+              {
+                "force": true,
+                "tracks": [
+                  {
+                    "experiment": { "key": "exp", "variations": [false, true] },
+                    "result": {
+                      "value": true,
+                      "variationId": 1,
+                      "key": "1",
+                      "inExperiment": true,
+                      "hashUsed": true,
+                      "hashAttribute": "id",
+                      "hashValue": "u",
+                      "featureId": "parent"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "child": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "parent", "condition": { "value": true } }
+                ],
+                "force": 1
+              }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps a prerequisite whose parent is forced, since forced values can change on the client",
+      {
+        "payload": {
+          "features": {
+            "parent": { "defaultValue": false },
+            "child": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "parent", "condition": { "value": true } }
+                  ],
+                  "force": 1
+                }
+              ]
+            }
+          }
+        },
+        "forcedFeatures": { "parent": true }
+      },
+      {
+        "features": {
+          "parent": { "defaultValue": false },
+          "child": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "parent", "condition": { "value": true } }
+                ],
+                "force": 1
               }
             ]
           }

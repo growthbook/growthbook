@@ -46,6 +46,7 @@ import {
   isIncluded,
   isURLTargeted,
   toString,
+  hasOwn,
 } from "./util";
 import { StickyBucketService } from "./sticky-bucket-service";
 
@@ -1376,10 +1377,12 @@ export function reducePayload(
   filters?: PayloadFilters,
 ): FeatureApiResponse {
   const attributes = getAttributes(ctx.user);
+  const forced = getForcedFeatureValues(ctx);
   const savedGroups = ctx.global.savedGroups || {};
   const allFeatures = ctx.global.features || {};
-  const features: FeatureDefinitions = {};
-  const groups: SavedGroupsPayload = {};
+  // Without a prototype, keys like `constructor` or `__proto__` are plain keys
+  const features: FeatureDefinitions = Object.create(null);
+  const groups: SavedGroupsPayload = Object.create(null);
 
   // `want` is one value or an array, and any one of them has to be in `actual`
   const has = (actual: unknown, want: unknown) =>
@@ -1400,19 +1403,24 @@ export function reducePayload(
 
   // undefined while a feature is being reduced, so a cycle stays undecided.
   // null for a feature that is absent or always blocked: both evaluate to null.
-  const reduced: Record<string, FeatureDefinition | null | undefined> = {};
+  const reduced: Record<string, FeatureDefinition | null | undefined> =
+    Object.create(null);
 
-  // Applies to everyone who reaches it, so no later rule ever runs
+  // Applies to everyone who reaches it, so no later rule ever runs. One with
+  // `tracks` still has to run on the client to fire them.
   const isFinal = (rule: FeatureRule) =>
     "force" in rule &&
     !rule.condition &&
     !rule.parentConditions &&
     !rule.filters &&
     !rule.range &&
-    rule.coverage === undefined;
+    rule.coverage === undefined &&
+    !rule.tracks;
 
   // A feature's value, if everyone who agrees with the known attributes gets it
   const known = (id: string): [unknown] | undefined => {
+    // A forced value can change on the client, so leave those to it
+    if (forced.has(id)) return;
     const feature = reduce(id);
     if (feature === undefined) return;
     if (!feature) return [null];
@@ -1435,14 +1443,19 @@ export function reducePayload(
     rule?: boolean,
   ): T | null | false => {
     const parents: ParentConditionInterface[] = [];
+    let never = false;
     for (const p of item.parentConditions || []) {
       const value = known(p.id);
       if (!value) parents.push(p);
       else if (
         !evalCondition({ value: value[0] }, p.condition || {}, savedGroups)
       ) {
-        // An experiment drops out. A rule still runs any undecided ones first.
-        if (!rule) return null;
+        // An auto experiment never matches. A rule still runs any undecided
+        // ones first.
+        if (!rule) {
+          never = true;
+          break;
+        }
         if (!parents.length) return p.gate ? false : null;
         parents.push(p);
         break;
@@ -1457,14 +1470,27 @@ export function reducePayload(
       !item.contextualVariations
     )
       return null;
-    const condition = item.condition
-      ? pruneCondition(attributes, item.condition, savedGroups)
-      : null;
-    // A rule's gates run before its condition and can still block the feature
-    if (condition === false && !parents.some((p) => p.gate)) return null;
+    const condition = never
+      ? false
+      : item.condition
+        ? pruneCondition(attributes, item.condition, savedGroups)
+        : null;
+    // A force rule that never applies goes, unless a gate it runs first could
+    // still block the feature. Experiments stay, since sticky buckets and
+    // forced variations skip the condition.
+    if (
+      condition === false &&
+      rule &&
+      "force" in item &&
+      !parents.some((p) => p.gate)
+    )
+      return null;
     item = { ...item, parentConditions: parents };
-    if (!parents.length) delete item.parentConditions;
+    // An auto experiment checks its prerequisites after its condition
+    if (!parents.length || (condition === false && !rule))
+      delete item.parentConditions;
     if (condition === true) delete item.condition;
+    else if (condition === false) item.condition = { $not: {} };
     else if (condition) item.condition = condition;
     return item;
   };
@@ -1472,7 +1498,7 @@ export function reducePayload(
   function reduce(id: string) {
     if (!(id in reduced)) {
       reduced[id] = undefined;
-      const feature = allFeatures[id];
+      const feature = hasOwn(allFeatures, id) && allFeatures[id];
       const rules: FeatureRule[] = [];
       let blocked = false;
       for (const rule of (feature && feature.rules) || []) {
@@ -1529,7 +1555,11 @@ export function reducePayload(
           : k === "$inGroup" || k === "$notInGroup"
             ? v
             : 0;
-      if (typeof id === "string" && id in savedGroups && !(id in groups)) {
+      if (
+        typeof id === "string" &&
+        hasOwn(savedGroups, id) &&
+        !(id in groups)
+      ) {
         const condition = evalSavedGroup(
           attributes,
           { id },
@@ -1548,7 +1578,17 @@ export function reducePayload(
   };
   walk([features, experiments, ctx.global.contextualBandits]);
 
-  return { features, experiments, savedGroups: groups };
+  // Back to plain objects. Object spread can compile to assignments, which
+  // would set the prototype instead of keeping a `__proto__` key.
+  const plain = <T>(o: Record<string, T>) =>
+    Object.fromEntries(Object.entries(o));
+  return {
+    features: plain(features),
+    experiments,
+    savedGroups: plain(groups),
+    // From the same context as the rest, like the saved groups
+    contextualBandits: ctx.global.contextualBandits,
+  };
 }
 
 export function getApiHosts(options: Options | ClientOptions): {

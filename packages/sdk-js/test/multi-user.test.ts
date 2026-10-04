@@ -478,6 +478,146 @@ describe("GrowthBookClient", () => {
       gb.destroy();
     });
   });
+
+  describe("reducePayload", () => {
+    // `key` for `user`, from the full payload and from one reduced with `known`
+    const compare = (
+      payload: FeatureApiResponse,
+      known: UserContext,
+      user: UserContext,
+      key = "child",
+    ) => {
+      const full = new GrowthBookClient().initSync({ payload });
+      const reduced = new GrowthBookClient().initSync({
+        payload: full.reducePayload({ userContext: known }),
+      });
+      const values = [full, reduced].map(
+        (gb) => gb.evalFeature(key, user).value,
+      );
+      full.destroy();
+      reduced.destroy();
+      return values;
+    };
+    const prerequisite = [{ id: "parent", condition: { value: true } }];
+
+    it("Keeps experiments that no longer match, for sticky buckets", () => {
+      const user: UserContext = {
+        attributes: { id: "u", country: "US" },
+        saveStickyBucketAssignmentDoc: async () => {},
+        stickyBucketAssignmentDocs: {
+          "id||u": {
+            attributeName: "id",
+            attributeValue: "u",
+            assignments: { exp__0: "b" },
+          },
+        },
+      };
+      const rule = {
+        key: "exp",
+        variations: ["A", "B"],
+        meta: [{ key: "a" }, { key: "b" }],
+        condition: { country: "CA" },
+      };
+      const [full, reduced] = compare(
+        { features: { child: { defaultValue: "default", rules: [rule] } } },
+        user,
+        user,
+      );
+      expect(full).toEqual("B");
+      expect(reduced).toEqual(full);
+    });
+
+    it("Keeps prerequisites on parents forced for the user", () => {
+      const user: UserContext = {
+        forcedFeatureValues: new Map([["parent", true]]),
+      };
+      const [full, reduced] = compare(
+        {
+          features: {
+            parent: { defaultValue: false },
+            child: {
+              defaultValue: false,
+              rules: [{ force: true, parentConditions: prerequisite }],
+            },
+          },
+        },
+        user,
+        user,
+      );
+      expect(full).toEqual(true);
+      expect(reduced).toEqual(full);
+    });
+
+    it("Keeps prerequisites on parents with tracks, so they still fire", () => {
+      const trackingCallback = jest.fn();
+      const tracks: FeatureRule["tracks"] = [
+        {
+          experiment: { key: "exp", variations: [false, true] },
+          result: {
+            value: true,
+            variationId: 1,
+            key: "1",
+            inExperiment: true,
+            hashUsed: true,
+            hashAttribute: "id",
+            hashValue: "u",
+            featureId: "parent",
+          },
+        },
+      ];
+      const full = new GrowthBookClient().initSync({
+        payload: {
+          features: {
+            parent: { rules: [{ force: true, tracks }] },
+            child: {
+              defaultValue: false,
+              rules: [{ force: true, parentConditions: prerequisite }],
+            },
+          },
+        },
+      });
+      const reduced = new GrowthBookClient({ trackingCallback }).initSync({
+        payload: full.reducePayload(),
+      });
+      reduced.evalFeature("child", { attributes: { id: "u" } });
+      expect(trackingCallback).toHaveBeenCalledTimes(1);
+      full.destroy();
+      reduced.destroy();
+    });
+
+    it("Reduces payloads with the saved groups and bandits it evaluates with", () => {
+      // Passed as options, not in the payload
+      const savedGroups = {
+        grp: { type: "list" as const, attributeKey: "id", values: ["123"] },
+      };
+      const contextualBandits = {
+        cb: { contexts: [{ leafId: 1, condition: {}, weights: [0, 1] }] },
+      };
+      const gb = new GrowthBookClient({
+        savedGroups,
+        contextualBandits,
+      }).initSync({
+        payload: {
+          features: {
+            feature: {
+              defaultValue: "off",
+              rules: [
+                { condition: { $savedGroup: { id: "grp" } }, force: "on" },
+              ],
+            },
+          },
+        },
+      });
+
+      const payload = gb.reducePayload({
+        userContext: { attributes: { id: "123" } },
+      });
+      expect(payload.features?.feature.rules).toEqual([{ force: "on" }]);
+      expect(payload.contextualBandits).toEqual(contextualBandits);
+
+      gb.destroy();
+    });
+  });
 });
 
 describe("UserScopedGrowthBook", () => {

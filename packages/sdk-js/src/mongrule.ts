@@ -10,7 +10,7 @@ import {
   OperatorConditionValue,
   VarType,
 } from "./types/mongrule";
-import { paddedVersionString } from "./util";
+import { hasOwn, paddedVersionString } from "./util";
 
 const _regexCache: { [key: string]: RegExp } = {};
 
@@ -132,7 +132,7 @@ function pruneList(
 
 // A top-level attribute that is present is known in full, nested paths too
 function isKnown(obj: TestedObj, path: string) {
-  return path.split(".")[0] in obj;
+  return hasOwn(obj, path.split(".")[0]);
 }
 
 /** Resolves a `$savedGroup` reference. Anything unrecognized matches nobody. */
