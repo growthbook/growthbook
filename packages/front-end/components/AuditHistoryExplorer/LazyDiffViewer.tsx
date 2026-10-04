@@ -1,10 +1,14 @@
-import { memo, useContext, useMemo, useState } from "react";
+import { memo, RefObject, useContext, useMemo, useState } from "react";
 import { diffLines } from "diff";
 import ReactDiffViewer, {
   DiffMethod,
   ReactDiffViewerProps,
 } from "react-diff-viewer-continued";
-import { RenderInFullContext } from "@/components/SyntaxHighlighting/VirtualizedCode";
+import {
+  isLongCode,
+  RenderInFullContext,
+} from "@/components/SyntaxHighlighting/VirtualizedCode";
+import VirtualizedDiff from "@/components/AuditHistoryExplorer/VirtualizedDiff";
 import Button from "@/ui/Button";
 
 // Each changed line is a table row, and a section that adds, replaces or
@@ -35,12 +39,16 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
   newValue,
   compareMethod = DiffMethod.LINES,
   alwaysShow = false,
+  scrollRef,
   ...props
 }: ReactDiffViewerProps & {
   oldValue: string;
   newValue: string;
   // Skips the size gate, e.g. for a section whose lines carry comments
   alwaysShow?: boolean;
+  // The bounded box the diff scrolls in. When given, long values render only
+  // the rows in view instead of every row of the diff.
+  scrollRef?: RefObject<HTMLElement | null>;
 }) {
   const renderInFull = useContext(RenderInFullContext);
   const changedLines = useMemo(
@@ -68,6 +76,15 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
           : `${changedLines.toLocaleString()} changed lines`}
         )
       </Button>
+    );
+  }
+  if (scrollRef && (isLongCode(oldValue) || isLongCode(newValue))) {
+    return (
+      <VirtualizedDiff
+        oldValue={oldValue}
+        newValue={newValue}
+        scrollRef={scrollRef}
+      />
     );
   }
   return (
