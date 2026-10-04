@@ -141,12 +141,15 @@ export function useFeaturePageData(
   const loadedRef = useRef<(v: number) => boolean>(() => false);
   loadedRef.current = (v) => !!cachedRevisions[v] || inBaseSet(v);
   // Bumped when the page moves to another flag. A response or cleanup from an
-  // earlier generation is ignored, even if the page has come back to that flag.
+  // earlier generation is ignored, even if the page has come back to that flag,
+  // and a load asked for by a callback from an earlier flag doesn't start.
   const generation = useRef(0);
+  const currentFid = useRef(fid);
+  currentFid.current = fid;
 
   const loadRevisions = useCallback(
     async (versions: number[], { force = false } = {}) => {
-      if (!fid) return;
+      if (!fid || fid !== currentFid.current) return;
       const toFetch = [...new Set(versions)].filter(
         (v) =>
           v > 0 && !inFlight.current.has(v) && (force || !loadedRef.current(v)),

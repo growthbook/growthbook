@@ -284,6 +284,35 @@ describe("useFeaturePageData", () => {
     );
   });
 
+  it("ignores a load asked for by a callback from a flag the page has left", async () => {
+    apiCall.mockImplementation((url: string) => {
+      if (url === "/feature/f1" || url === "/feature/f2") {
+        return Promise.resolve(basePayload([rev(1)]));
+      }
+      if (url.startsWith("/ramp-schedule")) {
+        return Promise.resolve({ status: 200, rampSchedules: [] });
+      }
+      throw new Error(`unexpected api call: ${url}`);
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+        {children}
+      </SWRConfig>
+    );
+    const { result, rerender } = renderHook(
+      ({ fid }) => useFeaturePageData(fid, undefined),
+      { wrapper, initialProps: { fid: "f1" } },
+    );
+    await waitFor(() => expect(result.current.revision?.version).toBe(1));
+    const staleLoad = result.current.loadRevisions;
+
+    rerender({ fid: "f2" });
+    await act(async () => {
+      await staleLoad([5]);
+    });
+    expect(revisionFetches()).toEqual([]);
+  });
+
   it("does not render live feature values under a ?v= URL while that revision is loading", async () => {
     let resolveBaseLocal!: (payload: unknown) => void;
     let resolveRev!: (payload: unknown) => void;
