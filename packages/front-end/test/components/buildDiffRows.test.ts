@@ -50,4 +50,11 @@ describe("buildDiffRows", () => {
     const rows = buildDiffRows("a\nb\nc\nd\ne\n", "A\nb\nc\nd\nE\n");
     expect(shape(rows)).toEqual(["~", "=", "=", "=", "~"]);
   });
+
+  it("gives up past the time limit, and compares anyway without one", () => {
+    const before = lines(3000, "a");
+    const after = lines(3000, "b");
+    expect(buildDiffRows(before, after, 1)).toBeNull();
+    expect(buildDiffRows(before, after, null)).not.toBeNull();
+  });
 });
