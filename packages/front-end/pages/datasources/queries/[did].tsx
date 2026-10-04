@@ -475,6 +475,7 @@ type RecentRow = Partial<Record<UsageField, number>> & {
   person: string;
   startedAt: number;
   status: QueryInterface["status"];
+  error?: string;
 };
 
 function RecentQueries({
@@ -538,6 +539,7 @@ function RecentQueries({
         person: q.userId ? getUserDisplay(q.userId) : "Automated",
         startedAt: new Date(q.startedAt).getTime(),
         status: q.status,
+        error: q.error,
       };
     }),
   ];
@@ -691,6 +693,7 @@ function RecentQueries({
                 <TableCell>
                   <QueryStatus
                     status={row.status}
+                    error={row.error}
                     onCancel={
                       row.status === "running" && canCancel
                         ? async () => {
@@ -725,15 +728,22 @@ function RecentQueries({
 
 function QueryStatus({
   status,
+  error,
   onCancel,
 }: {
   status: QueryInterface["status"];
+  error?: string;
   onCancel?: () => Promise<void>;
 }) {
   return (
     <span className="d-flex align-items-center">
       <Tooltip
-        body={<strong>{capitalize(status)}</strong>}
+        body={
+          <div>
+            <strong>{capitalize(status)}</strong>
+            {status === "failed" && error && <p className="mb-0">{error}</p>}
+          </div>
+        }
         tipMinWidth="50px"
         tipPosition="top"
       >
