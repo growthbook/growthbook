@@ -5,6 +5,7 @@ import type { ReqContext } from "back-end/types/request";
 import { createEvent } from "back-end/src/models/EventModel";
 import {
   claimSDKConnectionNotifiedPayloadSizeLevel,
+  findSDKConnectionsWithPayloadOver,
   setSDKConnectionPayloadSize,
 } from "back-end/src/models/SdkConnectionModel";
 import { getUsersByIds } from "back-end/src/models/UserModel";
@@ -13,6 +14,8 @@ import {
   sendSdkPayloadSizeEmail,
 } from "back-end/src/services/email";
 import {
+  getSdkPayloadSizeAlerts,
+  getSdkPayloadSizeLimitBytes,
   recordSdkPayloadSize,
   withReadablePayloadBreakdowns,
 } from "back-end/src/services/sdkPayloadSize";
@@ -21,6 +24,7 @@ import { getSlackMessageForNotificationEvent } from "back-end/src/events/handler
 
 jest.mock("back-end/src/models/EventModel", () => ({ createEvent: jest.fn() }));
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
+  findSDKConnectionsWithPayloadOver: jest.fn(),
   setSDKConnectionPayloadSize: jest.fn(),
   claimSDKConnectionNotifiedPayloadSizeLevel: jest.fn(),
 }));
@@ -196,4 +200,15 @@ it("keeps only the Feature Flags and Saved Groups the viewer can read", async ()
     largestFeatures: [entry("readable_flag")],
     largestSavedGroups: [],
   });
+});
+
+it("measures and shows nothing when payloads aren't cached", async () => {
+  process.env.SDK_PAYLOAD_CACHE = "none";
+  try {
+    expect(await getSdkPayloadSizeLimitBytes()).toBeNull();
+    expect(await getSdkPayloadSizeAlerts(context)).toEqual([]);
+    expect(findSDKConnectionsWithPayloadOver).not.toHaveBeenCalled();
+  } finally {
+    delete process.env.SDK_PAYLOAD_CACHE;
+  }
 });
