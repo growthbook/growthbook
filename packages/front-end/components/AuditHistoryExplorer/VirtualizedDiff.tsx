@@ -63,13 +63,18 @@ function foldUnchanged(rows: DiffRow[]): DiffRow[] {
 
 /**
  * Side-by-side rows for a line diff, with removed and added lines paired up
- * and long unchanged runs folded. Null when the diff takes too long.
+ * and long unchanged runs folded. Null when the diff takes longer than
+ * `timeoutMs`; a null limit never gives up.
  */
 export function buildDiffRows(
   oldValue: string,
   newValue: string,
+  timeoutMs: number | null = DIFF_TIMEOUT_MS,
 ): DiffRow[] | null {
-  const parts = diffLines(oldValue, newValue, { timeout: DIFF_TIMEOUT_MS });
+  const parts =
+    timeoutMs === null
+      ? diffLines(oldValue, newValue)
+      : diffLines(oldValue, newValue, { timeout: timeoutMs });
   if (!parts) return null;
   const rows: DiffRow[] = [];
   let left = 1;
@@ -285,9 +290,23 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
   revealLine?: DiffLineRef | null;
 }) {
   const renderInFull = useContext(RenderInFullContext);
+  // Past the time limit, comparing anyway is the viewer's call. Copy as always
+  // compares in full, since it was asked for explicitly.
+  const [unlimitedFor, setUnlimitedFor] = useState<[string, string] | null>(
+    null,
+  );
+  const unlimited =
+    renderInFull ||
+    (unlimitedFor?.[0] === oldValue && unlimitedFor?.[1] === newValue);
   const built = useMemo(
-    () => ({ rows: buildDiffRows(oldValue, newValue) }),
-    [oldValue, newValue],
+    () => ({
+      rows: buildDiffRows(
+        oldValue,
+        newValue,
+        unlimited ? null : DIFF_TIMEOUT_MS,
+      ),
+    }),
+    [oldValue, newValue, unlimited],
   );
   // Expanded folds belong to the diff they were expanded in
   const [expanded, setExpanded] = useState<{
@@ -337,7 +356,14 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
   }, [revealLine, rows, renderInFull, virtualizer, built, expandedIds]);
 
   if (!built.rows) {
-    return <em>This change is too large to compare line by line.</em>;
+    return (
+      <div>
+        <em>This change is too large to compare quickly.</em>{" "}
+        <Link onClick={() => setUnlimitedFor([oldValue, newValue])}>
+          Compare anyway
+        </Link>
+      </div>
+    );
   }
 
   const lastNumber = Math.max(
