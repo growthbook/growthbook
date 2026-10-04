@@ -350,7 +350,7 @@ export const startExperimentResultQueries = async (
             setExternalId,
             queryMetadata,
           ),
-        factTableIds: getFactTableIdsForMetrics(m),
+        metadata: { factTableIds: getFactTableIdsForMetrics(m) },
         queryType: "experimentMultiMetric",
       }),
     );
@@ -392,7 +392,7 @@ export const startExperimentResultQueries = async (
                 setExternalId,
                 queryMetadata,
               ),
-            factTableIds: getFactTableIdsForMetrics(m),
+            metadata: { factTableIds: getFactTableIdsForMetrics(m) },
             queryType: "experimentMultiMetric",
           }),
         );

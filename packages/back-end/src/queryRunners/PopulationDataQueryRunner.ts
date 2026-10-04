@@ -185,7 +185,7 @@ export const startPopulationDataQueries = async (
             setExternalId,
             queryMetadata,
           ),
-        factTableIds: getFactTableIdsForMetrics(m),
+        metadata: { factTableIds: getFactTableIdsForMetrics(m) },
         queryType: "populationMultiMetric",
       }),
     );

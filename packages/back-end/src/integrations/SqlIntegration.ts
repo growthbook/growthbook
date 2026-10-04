@@ -1698,7 +1698,7 @@ export default abstract class SqlIntegration
 
   public async runColumnsTopValuesQuery(
     sql: string,
-    factTableId?: string,
+    factTableId: string | null,
   ): Promise<ColumnTopValuesResponse> {
     const { rows, statistics } = await this.runQuery(sql, undefined, {
       queryType: "columnTopValues",

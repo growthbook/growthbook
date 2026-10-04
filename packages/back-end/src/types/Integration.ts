@@ -305,7 +305,7 @@ export interface SourceIntegrationInterface<
   ): Promise<PastExperimentQueryResponse>;
   runColumnsTopValuesQuery?(
     sql: string,
-    factTableId?: string,
+    factTableId: string | null,
   ): Promise<ColumnTopValuesResponse>;
   getColumnsTopValuesQuery?: (params: ColumnTopValuesParams) => string;
   getEventsTrackedByDatasource?: (

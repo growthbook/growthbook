@@ -361,12 +361,12 @@ export async function testQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   query: string,
+  queryType: TestQueryType,
   templateVariables?: TemplateVariables,
   limit?: number,
   timestampColumn?: string,
   // Return detected output columns along with sampled rows.
   detectColumns?: boolean,
-  queryType: TestQueryType = "testQuery",
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;

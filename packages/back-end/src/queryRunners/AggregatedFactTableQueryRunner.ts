@@ -313,7 +313,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
             setExternalId,
             queryMetadata,
           ),
-        factTableIds: [factTable.id],
+        metadata: { factTableIds: [factTable.id] },
         queryType: "aggregatedFactTableDrop",
       });
       queries.push(dropQuery);
@@ -329,7 +329,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
             setExternalId,
             queryMetadata,
           ),
-        factTableIds: [factTable.id],
+        metadata: { factTableIds: [factTable.id] },
         queryType: "aggregatedFactTableCreate",
       });
       queries.push(createQuery);
@@ -434,7 +434,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
               ),
             );
         },
-        factTableIds: [factTable.id],
+        metadata: { factTableIds: [factTable.id] },
         queryType: "aggregatedFactTableInsertData",
       });
       queries.push(insertQuery);
@@ -488,7 +488,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           );
         }
       },
-      factTableIds: [factTable.id],
+      metadata: { factTableIds: [factTable.id] },
       queryType: "aggregatedFactTableMaxTimestamp",
     });
     queries.push(maxTimestampQuery);

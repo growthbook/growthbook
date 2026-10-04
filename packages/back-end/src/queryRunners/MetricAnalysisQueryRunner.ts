@@ -99,7 +99,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
             setExternalId,
             queryMetadata,
           ),
-        factTableIds: getFactMetricFactTableIds(this.metric),
+        metadata: { factTableIds: getFactMetricFactTableIds(this.metric) },
         queryType: "metricAnalysis",
       }),
     ];

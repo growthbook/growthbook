@@ -1377,11 +1377,11 @@ export async function testLimitedQuery(
     context,
     datasource,
     query,
+    queryType,
     templateVariables,
     maxLimit,
     timestampColumn,
     detectColumns,
-    queryType,
   );
 
   res.status(200).json({

@@ -101,7 +101,8 @@ export async function runColumnsTopValuesQuery(
     FactTableInterface,
     "sql" | "eventName" | "timestampColumn"
   > & {
-    id?: string;
+    // null only when the SQL isn't a saved fact table
+    id: string | null;
   },
   columns: ColumnInterface[],
   options?: {
@@ -376,7 +377,12 @@ export async function refreshColumnTopValues(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "userIdTypes" | "userIdColumns" | "timestampColumn"
+    | "id"
+    | "sql"
+    | "eventName"
+    | "userIdTypes"
+    | "userIdColumns"
+    | "timestampColumn"
   >,
   columns: ColumnInterface[],
 ): Promise<ColumnInterface[]> {

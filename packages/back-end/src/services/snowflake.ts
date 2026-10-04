@@ -190,39 +190,17 @@ export function snowflakeMonitoringToStatistics(
   };
 }
 
-const QUERY_STATISTICS_TIMEOUT_MS = 3000;
-
-// Best effort: a missing or slow stats response must never fail the query.
-async function getSnowflakeQueryStatistics(
-  connection: Connection,
+function getSnowflakeQueryStatistics(
   queryId: string,
-): Promise<QueryStatistics | undefined> {
-  let timer: NodeJS.Timeout | undefined;
-  try {
-    const data = await Promise.race([
-      connection.getQueryMonitoringData(queryId),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error("timed out")),
-          QUERY_STATISTICS_TIMEOUT_MS,
-        );
-      }),
-    ]);
-    const statistics = snowflakeMonitoringToStatistics(data);
-    if (statistics?.executionDurationMs === undefined) {
-      logger.warn(
-        `Snowflake: unrecognized monitoring response for query ${queryId}; no execution statistics recorded`,
-      );
-    }
-    return statistics;
-  } catch (e) {
-    logger.debug(
-      `Snowflake: failed to fetch statistics for query ${queryId}: ${getErrorMessage(e)}`,
+  monitoringData: unknown,
+): QueryStatistics | undefined {
+  const statistics = snowflakeMonitoringToStatistics(monitoringData);
+  if (statistics?.executionDurationMs === undefined) {
+    logger.warn(
+      `Snowflake: unrecognized monitoring response for query ${queryId}; no execution statistics recorded`,
     );
-    return undefined;
-  } finally {
-    clearTimeout(timer);
   }
+  return statistics;
 }
 
 function destroySnowflakeConnection(connection: Connection): Promise<void> {
@@ -310,11 +288,12 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     const res = await new Promise<{
       rows: T[];
       columns: QueryResponseColumnData[];
+      monitoringData: unknown;
     }>((resolve, reject) => {
       connection
         .getResultsFromQueryId({
           queryId,
-          complete: (err, stmt, rows) => {
+          complete: (err, stmt, rows, monitoringData) => {
             if (err) {
               reject(err);
             } else {
@@ -326,7 +305,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
                     dataType: getColumnDataType(col),
                   }))
                 : [];
-              resolve({ rows: (rows as T[]) || [], columns });
+              resolve({ rows: (rows as T[]) || [], columns, monitoringData });
             }
           },
         })
@@ -341,7 +320,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
       ) as T;
     });
 
-    const statistics = await getSnowflakeQueryStatistics(connection, queryId);
+    const statistics = getSnowflakeQueryStatistics(queryId, res.monitoringData);
 
     return { rows: lowercase, columns: res.columns, statistics };
   } finally {

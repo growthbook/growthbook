@@ -156,7 +156,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
           );
           return { rows: res.rows as ExperimentMetricQueryResponseRows };
         },
-        factTableIds: getFactMetricFactTableIds(decisionMetric),
+        metadata: { factTableIds: getFactMetricFactTableIds(decisionMetric) },
         queryType: "experimentResults",
       }),
     ];
