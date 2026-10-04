@@ -3905,12 +3905,6 @@
       { "toString": "x", "country": "US" },
       { "country": "US" },
       { "toString": "x" }
-    ],
-    [
-      "an attribute named like a built-in object property is unknown until given",
-      { "toString": "x", "country": "US" },
-      { "country": "US" },
-      { "toString": "x" }
     ]
   ],
   "reducePayload": [
