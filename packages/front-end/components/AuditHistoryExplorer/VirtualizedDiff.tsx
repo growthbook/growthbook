@@ -24,6 +24,8 @@ export type DiffRow =
 const CONTEXT_LINES = 3;
 // Past this, building the diff gives up rather than freezing the page
 const DIFF_TIMEOUT_MS = 500;
+// Copy as waits longer, then copies both values whole instead
+const COPY_DIFF_TIMEOUT_MS = 2000;
 // 11px at line-height 1.6; wrapped lines are measured as they render
 const ESTIMATED_ROW_HEIGHT = 18;
 
@@ -290,23 +292,25 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
   revealLine?: DiffLineRef | null;
 }) {
   const renderInFull = useContext(RenderInFullContext);
-  // Past the time limit, comparing anyway is the viewer's call. Copy as always
-  // compares in full, since it was asked for explicitly.
+  // Past the time limit, comparing anyway is the viewer's call
   const [unlimitedFor, setUnlimitedFor] = useState<[string, string] | null>(
     null,
   );
   const unlimited =
-    renderInFull ||
-    (unlimitedFor?.[0] === oldValue && unlimitedFor?.[1] === newValue);
+    unlimitedFor?.[0] === oldValue && unlimitedFor?.[1] === newValue;
   const built = useMemo(
     () => ({
       rows: buildDiffRows(
         oldValue,
         newValue,
-        unlimited ? null : DIFF_TIMEOUT_MS,
+        unlimited
+          ? null
+          : renderInFull
+            ? COPY_DIFF_TIMEOUT_MS
+            : DIFF_TIMEOUT_MS,
       ),
     }),
-    [oldValue, newValue, unlimited],
+    [oldValue, newValue, unlimited, renderInFull],
   );
   // Expanded folds belong to the diff they were expanded in
   const [expanded, setExpanded] = useState<{
@@ -355,12 +359,22 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
     }
   }, [revealLine, rows, renderInFull, virtualizer, built, expandedIds]);
 
+  if (!built.rows && renderInFull) {
+    return (
+      <div>
+        <div>Before:</div>
+        <pre>{oldValue}</pre>
+        <div>After:</div>
+        <pre>{newValue}</pre>
+      </div>
+    );
+  }
   if (!built.rows) {
     return (
       <div>
         <em>This change is too large to compare quickly.</em>{" "}
         <Link onClick={() => setUnlimitedFor([oldValue, newValue])}>
-          Compare anyway
+          Compare anyway (may take a while)
         </Link>
       </div>
     );
