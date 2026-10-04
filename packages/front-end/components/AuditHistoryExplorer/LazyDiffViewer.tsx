@@ -1,4 +1,11 @@
-import { memo, RefObject, useContext, useMemo, useState } from "react";
+import {
+  memo,
+  ReactNode,
+  RefObject,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import { diffLines } from "diff";
 import ReactDiffViewer, {
   DiffMethod,
@@ -8,7 +15,9 @@ import {
   isLongCode,
   RenderInFullContext,
 } from "@/components/SyntaxHighlighting/VirtualizedCode";
-import VirtualizedDiff from "@/components/AuditHistoryExplorer/VirtualizedDiff";
+import VirtualizedDiff, {
+  DiffLineRef,
+} from "@/components/AuditHistoryExplorer/VirtualizedDiff";
 import Button from "@/ui/Button";
 
 // Each changed line is a table row, and a section that adds, replaces or
@@ -40,6 +49,9 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
   compareMethod = DiffMethod.LINES,
   alwaysShow = false,
   scrollRef,
+  renderLineCell,
+  revealLine,
+  onLineClick,
   ...props
 }: ReactDiffViewerProps & {
   oldValue: string;
@@ -49,6 +61,12 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
   // The bounded box the diff scrolls in. When given, long values render only
   // the rows in view instead of every row of the diff.
   scrollRef?: RefObject<HTMLElement | null>;
+  // Long values only: the per-line cell (ReactDiffViewer's renderGutter is a
+  // table cell), and a line to bring into view
+  renderLineCell?: (side: "L" | "R", line: number) => ReactNode;
+  revealLine?: DiffLineRef | null;
+  // A line number clicked, as "L-12" / "R-12"
+  onLineClick?: (lineId: string) => void;
 }) {
   const renderInFull = useContext(RenderInFullContext);
   const changedLines = useMemo(
@@ -84,6 +102,11 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
         oldValue={oldValue}
         newValue={newValue}
         scrollRef={scrollRef}
+        leftTitle={props.leftTitle}
+        rightTitle={props.rightTitle}
+        onLineNumberClick={onLineClick}
+        renderLineCell={renderLineCell}
+        revealLine={revealLine}
       />
     );
   }
@@ -92,6 +115,7 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
       oldValue={oldValue}
       newValue={newValue}
       compareMethod={compareMethod}
+      onLineNumberClick={onLineClick && ((lineId) => onLineClick(lineId))}
       {...props}
     />
   );

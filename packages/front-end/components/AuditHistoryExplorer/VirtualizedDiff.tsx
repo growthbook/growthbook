@@ -1,9 +1,12 @@
 import {
   CSSProperties,
   memo,
+  ReactNode,
   RefObject,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { diffLines, diffWordsWithSpace } from "diff";
@@ -103,13 +106,18 @@ export function buildDiffRows(
   return foldUnchanged(rows);
 }
 
-const rowStyle = (numberWidth: string): CSSProperties => ({
-  display: "grid",
-  gridTemplateColumns: `${numberWidth} minmax(0, 1fr) ${numberWidth} minmax(0, 1fr)`,
-  fontFamily: "var(--code-font-family, monospace)",
-  fontSize: "11px",
-  lineHeight: 1.6,
-});
+type Side = "L" | "R";
+
+// The diff's own side labels, shared with ReactDiffViewer's line ids ("L-12")
+export type DiffLineRef = { side: Side; line: number };
+
+type RowProps = {
+  numberWidth: string;
+  onExpand: (id: number) => void;
+  onLineNumberClick?: (lineId: string) => void;
+  // A per-line cell after each line number, e.g. diff comments
+  renderLineCell?: (side: Side, line: number) => ReactNode;
+};
 
 const cellStyle: CSSProperties = {
   padding: "1px 4px",
@@ -120,45 +128,63 @@ const cellStyle: CSSProperties = {
 
 function LineCells({
   line,
+  other,
   side,
   changed,
-  other,
+  onLineNumberClick,
+  renderLineCell,
 }: {
   line: Line | null;
-  side: "removed" | "added";
-  changed: boolean;
   other: Line | null;
-}) {
+  side: Side;
+  changed: boolean;
+} & Pick<RowProps, "onLineNumberClick" | "renderLineCell">) {
+  const kind = side === "L" ? "removed" : "added";
   // Word highlights only for rows on screen, and only where both sides exist
   const words = useMemo(
     () =>
       changed && line && other
-        ? side === "removed"
+        ? side === "L"
           ? diffWordsWithSpace(line.text, other.text).filter((w) => !w.added)
           : diffWordsWithSpace(other.text, line.text).filter((w) => !w.removed)
         : null,
     [changed, line, other, side],
   );
-  const background = !line
-    ? "var(--surface-background-color)"
-    : changed
-      ? `var(--diff-${side}-background)`
+  const background =
+    line && changed
+      ? `var(--diff-${kind}-background)`
       : "var(--surface-background-color)";
-  const highlight = `var(--diff-${side}-background-highlight)`;
+  const highlight = `var(--diff-${kind}-background-highlight)`;
+  const gutterBackground = line && changed ? highlight : background;
   return (
     <>
       <div
+        // "-gutter" lets the diff comment styles find the line-number cell
+        className="vdiff-gutter"
         style={{
           ...cellStyle,
           textAlign: "right",
           opacity: 0.7,
-          background: line && changed ? highlight : background,
+          background: gutterBackground,
         }}
+        onClick={
+          line && onLineNumberClick
+            ? () => onLineNumberClick(`${side}-${line.number}`)
+            : undefined
+        }
       >
         {line?.number}
       </div>
+      {renderLineCell && (
+        <div
+          className="gb-diff-comment-cell"
+          style={{ position: "relative", background: gutterBackground }}
+        >
+          {line ? renderLineCell(side, line.number) : null}
+        </div>
+      )}
       <div style={{ ...cellStyle, background }}>
-        {line && changed ? (side === "removed" ? "- " : "+ ") : "  "}
+        {line && changed ? (side === "L" ? "- " : "+ ") : "  "}
         {words
           ? words.map((w, i) =>
               w.added || w.removed ? (
@@ -175,26 +201,17 @@ function LineCells({
   );
 }
 
-function Row({
-  row,
-  numberWidth,
-  onExpand,
-}: {
-  row: DiffRow;
-  numberWidth: string;
-  onExpand: (id: number) => void;
-}) {
+function Row({ row, ...props }: RowProps & { row: DiffRow }) {
   if (row.type === "fold") {
     return (
       <div
         style={{
           ...cellStyle,
           background: "var(--surface-background-color)",
-          fontSize: "11px",
           textAlign: "center",
         }}
       >
-        <Link onClick={() => onExpand(row.id)}>
+        <Link onClick={() => props.onExpand(row.id)}>
           Expand {row.rows.length.toLocaleString()} unchanged lines
         </Link>
       </div>
@@ -202,22 +219,44 @@ function Row({
   }
   const changed = row.type === "changed";
   return (
-    <div style={rowStyle(numberWidth)}>
+    <div data-diff-row="" style={gridStyle(props)}>
       <LineCells
         line={row.left}
         other={row.right}
-        side="removed"
+        side="L"
         changed={changed}
+        onLineNumberClick={props.onLineNumberClick}
+        renderLineCell={props.renderLineCell}
       />
       <LineCells
         line={row.right}
         other={row.left}
-        side="added"
+        side="R"
         changed={changed}
+        onLineNumberClick={props.onLineNumberClick}
+        renderLineCell={props.renderLineCell}
       />
     </div>
   );
 }
+
+const gridStyle = ({
+  numberWidth,
+  renderLineCell,
+}: Pick<RowProps, "numberWidth" | "renderLineCell">): CSSProperties => {
+  const side = `${numberWidth}${renderLineCell ? " 20px" : ""} minmax(0, 1fr)`;
+  return {
+    display: "grid",
+    gridTemplateColumns: `${side} ${side}`,
+    fontFamily: "var(--code-font-family, monospace)",
+    fontSize: "11px",
+    lineHeight: 1.6,
+  };
+};
+
+const rowLine = (row: DiffRow, ref: DiffLineRef) =>
+  row.type !== "fold" &&
+  (ref.side === "L" ? row.left : row.right)?.number === ref.line;
 
 /**
  * A side-by-side diff that renders only the rows scrolled into view, for
@@ -229,10 +268,21 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
   oldValue,
   newValue,
   scrollRef,
+  leftTitle,
+  rightTitle,
+  onLineNumberClick,
+  renderLineCell,
+  revealLine,
 }: {
   oldValue: string;
   newValue: string;
   scrollRef: RefObject<HTMLElement | null>;
+  leftTitle?: ReactNode;
+  rightTitle?: ReactNode;
+  onLineNumberClick?: (lineId: string) => void;
+  renderLineCell?: (side: Side, line: number) => ReactNode;
+  // Scrolls this line into view (expanding its fold) when it changes
+  revealLine?: DiffLineRef | null;
 }) {
   const renderInFull = useContext(RenderInFullContext);
   const built = useMemo(
@@ -266,6 +316,26 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
     enabled: !renderInFull,
   });
 
+  // Bring a referenced line into view so it can be found and scrolled to,
+  // once per request
+  const revealed = useRef<DiffLineRef | null>(null);
+  useEffect(() => {
+    if (!revealLine || renderInFull || revealed.current === revealLine) return;
+    const index = rows.findIndex((row) => rowLine(row, revealLine));
+    if (index >= 0) {
+      revealed.current = revealLine;
+      virtualizer.scrollToIndex(index, { align: "center" });
+      return;
+    }
+    const fold = rows.find(
+      (row) =>
+        row.type === "fold" && row.rows.some((r) => rowLine(r, revealLine)),
+    );
+    if (fold?.type === "fold") {
+      setExpanded({ built, ids: new Set([...expandedIds, fold.id]) });
+    }
+  }, [revealLine, rows, renderInFull, virtualizer, built, expandedIds]);
+
   if (!built.rows) {
     return <em>This change is too large to compare line by line.</em>;
   }
@@ -274,18 +344,33 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
     splitLines(oldValue).length,
     splitLines(newValue).length,
   );
-  const numberWidth = `calc(${String(lastNumber).length}ch + 8px)`;
+  const rowProps: RowProps = {
+    numberWidth: `calc(${String(lastNumber).length}ch + 8px)`,
+    onExpand,
+    onLineNumberClick,
+    renderLineCell,
+  };
+  const titles =
+    leftTitle || rightTitle ? (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          fontSize: "11px",
+          fontWeight: 600,
+        }}
+      >
+        <div style={cellStyle}>{leftTitle}</div>
+        <div style={cellStyle}>{rightTitle}</div>
+      </div>
+    ) : null;
 
   if (renderInFull) {
     return (
       <div>
+        {titles}
         {rows.map((row, i) => (
-          <Row
-            key={i}
-            row={row}
-            numberWidth={numberWidth}
-            onExpand={onExpand}
-          />
+          <Row key={i} row={row} {...rowProps} />
         ))}
       </div>
     );
@@ -296,20 +381,19 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
   const paddingTop = items[0]?.start ?? 0;
   const paddingBottom = virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0);
   return (
-    <div style={{ paddingTop, paddingBottom }}>
-      {items.map((item) => (
-        <div
-          key={item.index}
-          data-index={item.index}
-          ref={virtualizer.measureElement}
-        >
-          <Row
-            row={rows[item.index]}
-            numberWidth={numberWidth}
-            onExpand={onExpand}
-          />
-        </div>
-      ))}
+    <div>
+      {titles}
+      <div style={{ paddingTop, paddingBottom }}>
+        {items.map((item) => (
+          <div
+            key={item.index}
+            data-index={item.index}
+            ref={virtualizer.measureElement}
+          >
+            <Row row={rows[item.index]} {...rowProps} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 });

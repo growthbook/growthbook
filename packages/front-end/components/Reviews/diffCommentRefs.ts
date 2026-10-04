@@ -258,7 +258,8 @@ export function scrollToDiffRef(ref: DiffCommentRef): void {
     document.querySelector(`[data-diff-ref="${CSS.escape(refId)}"]`);
   const scrollTo = (el: Element) => {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
-    const row = el.closest("tr");
+    // Long sections render rows as divs rather than table rows
+    const row = el.closest("tr, [data-diff-row]");
     if (row) {
       row.classList.add("gb-diff-ref-flash");
       setTimeout(() => row.classList.remove("gb-diff-ref-flash"), 1800);
@@ -285,7 +286,8 @@ export function scrollToDiffRef(ref: DiffCommentRef): void {
     }
     // Sent on every attempt: the section may only mount after the tab switch
     window.dispatchEvent(
-      new CustomEvent(DIFF_SECTION_EXPAND_EVENT, { detail: ref.sectionKey }),
+      // The whole ref, so a long section can bring the line into view
+      new CustomEvent(DIFF_SECTION_EXPAND_EVENT, { detail: ref }),
     );
     if (attempt < 20) setTimeout(() => tryScroll(attempt + 1), 100);
   };

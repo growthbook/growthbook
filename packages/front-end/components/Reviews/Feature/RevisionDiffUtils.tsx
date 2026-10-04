@@ -38,6 +38,7 @@ import {
   RevisionRampDetachAction,
 } from "shared/validators";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
+import { DiffLineRef } from "@/components/AuditHistoryExplorer/VirtualizedDiff";
 import { RenderInFullContext } from "@/components/SyntaxHighlighting/VirtualizedCode";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -680,14 +681,18 @@ export function ExpandableDiff({
 
   const commentsEnabled = !!anchorKey && !!comments;
 
-  // A timeline reference to a line in this section opens it past the size gate
+  // A timeline reference to a line in this section opens it past the size
+  // gate, and brings that line into view when only some rows are rendered
   const [expandedFor, setExpandedFor] = useState<[string, string] | null>(null);
+  const [revealLine, setRevealLine] = useState<DiffLineRef | null>(null);
   useEffect(() => {
     if (!anchorKey) return;
     const onExpand = (e: Event) => {
-      if ((e as CustomEvent<string>).detail !== anchorKey) return;
+      const ref = (e as CustomEvent<DiffCommentRef>).detail;
+      if (ref.sectionKey !== anchorKey) return;
       setExpandedFor([a, b]);
       setOpen(true);
+      setRevealLine({ side: ref.side, line: ref.line });
     };
     window.addEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
     return () =>
@@ -724,12 +729,10 @@ export function ExpandableDiff({
   // overlays the adjacent line-number gutter) so the table layout is
   // identical with or without comments enabled. The data-diff-ref attribute
   // is the scroll target for timeline diff-ref widgets (scrollToDiffRef).
-  const renderGutter = useMemo(
+  const commentCell = useMemo(
     () =>
       commentsEnabled
-        ? (data: { lineNumber: number; prefix: string }) => {
-            const line = data.lineNumber;
-            const side = data.prefix === "L" ? ("L" as const) : ("R" as const);
+        ? (side: "L" | "R", line: number) => {
             const refObj: DiffCommentRef = {
               sectionKey: anchorKey,
               side,
@@ -739,29 +742,64 @@ export function ExpandableDiff({
             const anchored = refId ? comments.anchors.get(refId) : undefined;
             const interactive =
               !!refId && (!!anchored || !!comments.onSubmitNew);
+            return {
+              refId,
+              content: interactive ? (
+                <DiffCommentCell
+                  refObj={refObj}
+                  getSnapshot={() =>
+                    captureDiffRefSnapshot(snapshotEntries, side, line)
+                  }
+                  anchored={anchored}
+                  comments={comments}
+                  open={openAnchorId === refId}
+                  onOpenChange={(o) => setOpenAnchorId(o ? refId : null)}
+                />
+              ) : null,
+            };
+          }
+        : undefined,
+    [commentsEnabled, anchorKey, comments, openAnchorId, snapshotEntries],
+  );
+  const renderGutter = useMemo(
+    () =>
+      commentCell
+        ? (data: { lineNumber: number; prefix: string }) => {
+            const { refId, content } = commentCell(
+              data.prefix === "L" ? "L" : "R",
+              data.lineNumber,
+            );
             return (
               <td
                 className="gb-diff-comment-cell"
                 data-diff-ref={refId ?? undefined}
               >
-                {interactive ? (
-                  <DiffCommentCell
-                    refObj={refObj}
-                    getSnapshot={() =>
-                      captureDiffRefSnapshot(snapshotEntries, side, line)
-                    }
-                    anchored={anchored}
-                    comments={comments}
-                    open={openAnchorId === refId}
-                    onOpenChange={(o) => setOpenAnchorId(o ? refId : null)}
-                  />
-                ) : null}
+                {content}
               </td>
             );
           }
         : undefined,
-    [commentsEnabled, anchorKey, comments, openAnchorId, snapshotEntries],
+    [commentCell],
   );
+  // The same cell for long sections, which render only the rows in view
+  const renderLineCell = useMemo(
+    () =>
+      commentCell
+        ? (side: "L" | "R", line: number) => {
+            const { refId, content } = commentCell(side, line);
+            return (
+              <div
+                data-diff-ref={refId ?? undefined}
+                style={{ position: "absolute", inset: 0 }}
+              >
+                {content}
+              </div>
+            );
+          }
+        : undefined,
+    [commentCell],
+  );
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Whole-gutter clicks: the library wires onLineNumberClick onto the entire
   // line-number <td>, so clicking anywhere in the gutter acts like clicking
@@ -818,7 +856,11 @@ export function ExpandableDiff({
         </Box>
       </Flex>
       {open && (
-        <Box p="3" className="">
+        <Box
+          ref={scrollRef}
+          p="3"
+          style={{ maxHeight: "70vh", overflowY: "auto" }}
+        >
           <LazyDiffViewer
             oldValue={a}
             newValue={b}
@@ -827,7 +869,10 @@ export function ExpandableDiff({
             leftTitle={leftTitle}
             rightTitle={rightTitle}
             renderGutter={renderGutter}
-            onLineNumberClick={onLineNumberClick}
+            onLineClick={onLineNumberClick}
+            scrollRef={scrollRef}
+            renderLineCell={renderLineCell}
+            revealLine={revealLine}
           />
         </Box>
       )}
