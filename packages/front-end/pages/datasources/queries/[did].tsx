@@ -16,7 +16,7 @@ import {
   QueryLogUsage,
   QueryLogUsageGroup,
 } from "shared/types/query";
-import { capitalize, startCase } from "lodash";
+import { capitalize } from "lodash";
 import { Flex, Grid, IconButton } from "@radix-ui/themes";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import { useSearch } from "@/services/search";
@@ -29,6 +29,7 @@ import { useUser } from "@/services/UserContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
+import { getQueryTypeLabel } from "@/components/Queries/queryTypeLabels";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
@@ -374,7 +375,7 @@ function UsageGroupTable({
         name: id ? getUserDisplay(id) : "Automated",
       };
     }
-    return { ...usage, id: id ?? "", name: startCase(id ?? "unknown") };
+    return { ...usage, id: id ?? "", name: getQueryTypeLabel(id ?? "unknown") };
   });
 
   const { items, SortableTableColumnHeader } = useSearch({
@@ -506,7 +507,7 @@ function RecentQueries({
     ...data.running.map((q) => ({
       id: q.id,
       queryId: q.id,
-      queryType: startCase(q.queryType || "unknown"),
+      queryType: getQueryTypeLabel(q.queryType || "unknown"),
       experiment: "",
       factTable: "",
       factTableIds: [],
@@ -525,7 +526,7 @@ function RecentQueries({
         ),
         id: q.id,
         queryId: q.queryId,
-        queryType: startCase(q.queryType),
+        queryType: getQueryTypeLabel(q.queryType),
         experimentId: q.experimentId,
         experiment: q.experimentId
           ? (data.experimentNames[q.experimentId] ?? q.experimentId)
@@ -652,7 +653,12 @@ function RecentQueries({
                         .map((id) => getFactTableById(id)?.name ?? id)
                         .join(", ")}
                     >
-                      {row.factTable}
+                      <Link
+                        href={`/fact-tables/${row.factTableIds[0]}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {row.factTable}
+                      </Link>
                       {row.factTableIds.length > 1 && (
                         <Text color="text-low">
                           {" "}
