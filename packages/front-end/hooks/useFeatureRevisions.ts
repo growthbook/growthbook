@@ -48,7 +48,7 @@ export function useFeatureRevisions(
     }
   }, [loadRevisions, missingKey]);
 
-  const { data, mutate } = useApi<{
+  const { data, error, mutate } = useApi<{
     status: 200;
     revisions: FeatureRevisionInterface[];
   }>(`/feature/${featureId}/revisions?versions=${missingKey}`, {
@@ -63,7 +63,9 @@ export function useFeatureRevisions(
 
     const isUnavailable = (v: number) =>
       !byVersion.has(v) &&
-      (onPage ? !!pageUnavailable?.has(v) : !!data && wanted.has(v));
+      (onPage
+        ? !!pageUnavailable?.has(v)
+        : (!!data || !!error) && wanted.has(v));
     const isLoading = (v: number) =>
       wanted.has(v) && !byVersion.has(v) && !isUnavailable(v);
 
@@ -83,6 +85,7 @@ export function useFeatureRevisions(
     pageUnavailable,
     loadRevisions,
     data,
+    error,
     mutate,
     wantedKey,
   ]);

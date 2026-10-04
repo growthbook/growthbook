@@ -241,6 +241,48 @@ describe("useFeaturePageData", () => {
     expect(revisionFetches()).toHaveLength(1);
   });
 
+  it("drops a revision response for a flag the page has since left", async () => {
+    let resolveF1Revisions!: (payload: unknown) => void;
+    apiCall.mockImplementation((url: string) => {
+      if (url === "/feature/f1" || url === "/feature/f2") {
+        return Promise.resolve(basePayload([rev(1)]));
+      }
+      if (url.startsWith("/ramp-schedule")) {
+        return Promise.resolve({ status: 200, rampSchedules: [] });
+      }
+      if (url === "/feature/f1/revisions?versions=5") {
+        return new Promise((res) => {
+          resolveF1Revisions = res;
+        });
+      }
+      throw new Error(`unexpected api call: ${url}`);
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+        {children}
+      </SWRConfig>
+    );
+    const { result, rerender } = renderHook(
+      ({ fid }) => useFeaturePageData(fid, undefined),
+      { wrapper, initialProps: { fid: "f1" } },
+    );
+    await waitFor(() => expect(result.current.revision?.version).toBe(1));
+
+    let pending!: Promise<void>;
+    act(() => {
+      pending = result.current.loadRevisions([5]);
+    });
+    rerender({ fid: "f2" });
+    await waitFor(() => expect(result.current.baseFeature).not.toBeNull());
+    await act(async () => {
+      resolveF1Revisions({ status: 200, revisions: [rev(5)] });
+      await pending;
+    });
+    expect(result.current.data?.revisions.map((r) => r.version)).not.toContain(
+      5,
+    );
+  });
+
   it("does not render live feature values under a ?v= URL while that revision is loading", async () => {
     let resolveBaseLocal!: (payload: unknown) => void;
     let resolveRev!: (payload: unknown) => void;

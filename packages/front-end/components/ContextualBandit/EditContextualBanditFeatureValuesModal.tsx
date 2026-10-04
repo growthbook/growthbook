@@ -213,11 +213,13 @@ export default function EditContextualBanditFeatureValuesModal({
   });
 
   const seededFromRevision = useRef(false);
+  // Seeded once the drafts it targets have loaded, not from live meanwhile
+  const ready = !!data && !revisions.loading && !!existingRule;
   useEffect(() => {
-    if (seededFromRevision.current || !data || !existingRule) return;
+    if (seededFromRevision.current || !ready) return;
     seededFromRevision.current = true;
     form.reset({ variations: initialVariations });
-  }, [data, existingRule, initialVariations, form]);
+  }, [ready, initialVariations, form]);
 
   const [showValueErrors, setShowValueErrors] = useState(false);
 
@@ -241,7 +243,7 @@ export default function EditContextualBanditFeatureValuesModal({
       }
       cta={willPublish ? "Save and publish" : "Save to draft"}
       // Nothing to submit until the revisions load and there's a rule to patch.
-      ctaEnabled={!!data && !!existingRule}
+      ctaEnabled={ready}
       close={close}
       open={true}
       size={"lg"}

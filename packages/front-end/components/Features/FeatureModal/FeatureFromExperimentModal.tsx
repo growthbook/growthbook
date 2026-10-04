@@ -429,6 +429,16 @@ export default function FeatureFromExperimentModal({
     ctaEnabled = false;
   }
 
+  // The rule's environments come from the selected draft, so wait for it
+  if (
+    existing &&
+    draftMode === "existing" &&
+    selectedDraft !== null &&
+    !selectedDraftRevision
+  ) {
+    ctaEnabled = false;
+  }
+
   function updateValuesOnTypeChange(val: FeatureValueType) {
     if (val === valueType) return;
 

@@ -58,4 +58,11 @@ describe("useFeatureRevisions", () => {
     expect(apiCall.mock.calls[0][0]).toBe("/feature/f1/revisions?versions=1,9");
     expect(result.current.isUnavailable(1)).toBe(true);
   });
+
+  it("elsewhere, reports a failed load as unavailable rather than loading", async () => {
+    apiCall.mockRejectedValue(new Error("network"));
+    const { result } = render(null);
+    await waitFor(() => expect(result.current.isUnavailable(9)).toBe(true));
+    expect(result.current.loading).toBe(false);
+  });
 });

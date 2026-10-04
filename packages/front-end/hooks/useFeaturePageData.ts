@@ -140,6 +140,10 @@ export function useFeaturePageData(
   );
   const loadedRef = useRef<(v: number) => boolean>(() => false);
   loadedRef.current = (v) => !!cachedRevisions[v] || inBaseSet(v);
+  // The cache is per flag, so a response for a flag the page has since left
+  // is dropped
+  const currentFid = useRef(fid);
+  currentFid.current = fid;
 
   const loadRevisions = useCallback(
     async (versions: number[], { force = false } = {}) => {
@@ -162,6 +166,7 @@ export function useFeaturePageData(
         const res = await apiCall<{ revisions: FeatureRevisionInterface[] }>(
           `/feature/${fid}/revisions?versions=${toFetch.join(",")}`,
         );
+        if (currentFid.current !== fid) return;
         const returned = (res.revisions ?? []).filter(
           (r) => r.featureId === fid,
         );
@@ -180,6 +185,7 @@ export function useFeaturePageData(
         );
         setLoadError(null);
       } catch (e) {
+        if (currentFid.current !== fid) return;
         setUnavailableVersions(update(toFetch, true));
         setLoadError(e instanceof Error ? e : new Error(String(e)));
       } finally {
@@ -209,6 +215,7 @@ export function useFeaturePageData(
     setPendingVersion(null);
     setCachedRevisions({});
     setUnavailableVersions(new Set());
+    inFlight.current = new Set();
   }, [fid]);
 
   // Also reloads what was loaded beyond the initial response and can still
