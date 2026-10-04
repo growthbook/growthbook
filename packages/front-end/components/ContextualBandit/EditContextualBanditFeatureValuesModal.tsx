@@ -6,7 +6,7 @@ import {
   ContextualBanditRefRule,
 } from "shared/types/feature";
 import { LinkedFeatureInfo } from "shared/types/experiment";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
   naiveFlattenV1Rules,
@@ -20,6 +20,7 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useRestApiCall } from "@/services/restApi";
 import { getDefaultValue, useEnvironments } from "@/services/features";
 import useApi from "@/hooks/useApi";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
@@ -46,7 +47,7 @@ export interface Props {
 }
 
 type FeatureRevisionResponse = {
-  revisions: FeatureRevisionInterface[];
+  revisionList: MinimalFeatureRevisionInterface[];
 };
 
 type FormValues = {
@@ -127,16 +128,27 @@ export default function EditContextualBanditFeatureValuesModal({
 
   // Target a draft already carrying staged changes to this rule, so repeated
   // edits accumulate there instead of spawning a new draft per save.
+  const openDraftVersions = useMemo(
+    () =>
+      (data?.revisionList ?? [])
+        .filter(
+          (r) =>
+            r.version !== feature.version &&
+            DRAFT_REVISION_STATUSES.includes(r.status),
+        )
+        .map((r) => r.version),
+    [data?.revisionList, feature.version],
+  );
+  const revisions = useFeatureRevisions(feature.id, [
+    feature.version,
+    ...openDraftVersions,
+  ]);
   const targetVersion = useMemo(() => {
     if (willPublish) return feature.version;
-    const openDraft = (data?.revisions ?? [])
-      .filter(
-        (r) =>
-          r.version !== feature.version &&
-          DRAFT_REVISION_STATUSES.includes(r.status) &&
-          !!cbRuleIn(r.rules),
-      )
-      .sort((a, b) => b.version - a.version)[0];
+    const openDraft = openDraftVersions
+      .map((v) => revisions.get(v))
+      .filter((r) => !!r && !!cbRuleIn(r.rules))
+      .sort((a, b) => (b?.version ?? 0) - (a?.version ?? 0))[0];
     return (
       openDraft?.version ??
       linkedFeatureInfo.draftRevisionVersion ??
@@ -145,7 +157,8 @@ export default function EditContextualBanditFeatureValuesModal({
     );
   }, [
     willPublish,
-    data?.revisions,
+    openDraftVersions,
+    revisions,
     feature.version,
     cbRuleIn,
     linkedFeatureInfo.draftRevisionVersion,
@@ -153,11 +166,10 @@ export default function EditContextualBanditFeatureValuesModal({
   ]);
 
   const existingRule = useMemo<ContextualBanditRefRule | undefined>(() => {
-    const revision = (data?.revisions ?? []).find(
-      (r) => r.version === targetVersion,
+    return (
+      cbRuleIn(revisions.get(targetVersion)?.rules) ?? cbRuleIn(feature.rules)
     );
-    return cbRuleIn(revision?.rules) ?? cbRuleIn(feature.rules);
-  }, [data?.revisions, feature.rules, targetVersion, cbRuleIn]);
+  }, [revisions, feature.rules, targetVersion, cbRuleIn]);
 
   const initialVariations = useMemo(
     () =>

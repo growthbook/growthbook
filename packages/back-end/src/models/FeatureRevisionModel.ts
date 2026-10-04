@@ -573,23 +573,43 @@ async function syncLinkagesAfterDraftWrite(
   }
 }
 
+const MINIMAL_REVISIONS_LIMIT = 200;
+
 export async function getMinimalRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
 ): Promise<MinimalFeatureRevisionInterface[]> {
-  const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
+  const fields =
+    "version baseVersion datePublished dateUpdated createdBy status comment title contributors autoPublishOnApproval scheduledPublishAt scheduledPublishLockEdits scheduledPublishLockOthers scheduledPublishBypassApproval";
+  const recent: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
     organization,
     featureId,
   })
-    .select(
-      "version datePublished dateUpdated createdBy status comment title contributors autoPublishOnApproval scheduledPublishAt scheduledPublishLockEdits scheduledPublishLockOthers scheduledPublishBypassApproval",
-    )
+    .select(fields)
     .sort({ version: -1 })
-    .limit(200);
+    .limit(MINIMAL_REVISIONS_LIMIT);
+  // Open drafts older than that window are listed too: the flag page counts
+  // and offers drafts from this list rather than loading them all in full.
+  const oldest = recent[recent.length - 1]?.version;
+  const olderOpenDrafts: FeatureRevisionDocument[] =
+    recent.length === MINIMAL_REVISIONS_LIMIT && oldest !== undefined
+      ? await FeatureRevisionModel.find({
+          organization,
+          featureId,
+          status: { $in: ACTIVE_DRAFT_STATUSES },
+          version: { $lt: oldest },
+        })
+          .select(fields)
+          .sort({ version: -1 })
+      : [];
+  const docs = [...recent, ...olderOpenDrafts];
 
   return docs.map((m) => ({
     version: m.version,
+    ...(typeof m.baseVersion === "number"
+      ? { baseVersion: m.baseVersion }
+      : {}),
     datePublished: m.datePublished,
     dateUpdated: m.dateUpdated,
     createdBy: m.createdBy,
@@ -621,65 +641,62 @@ export async function getMinimalRevisions(
   }));
 }
 
+/**
+ * Full revisions for the flag page: the given versions (live, the one the page
+ * opens on, a requested one) and the bases those need for a merge or diff.
+ * Everything else is only in getMinimalRevisions, and the page loads it when
+ * needed: shipping every open draft in full made this response grow with
+ * drafts × value size.
+ */
 export async function getFeaturePageRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
   feature: RevisionFeatureContext | undefined,
+  versions: number[],
 ): Promise<FeatureRevisionInterface[]> {
-  // Top-5 most recent: covers the revision history UI without fetching everything.
-  const recentDocs = await FeatureRevisionModel.find({
-    organization,
-    featureId,
-  })
-    .select("-log")
-    .sort({ version: -1 })
-    .limit(5);
-  // Active drafts outside that window: a draft created from an old revision
-  // may fall outside it. Drafts already in it are not read twice.
-  const olderActiveDraftDocs = await FeatureRevisionModel.find({
-    organization,
-    featureId,
-    status: { $in: ACTIVE_DRAFT_STATUSES },
-    version: { $nin: recentDocs.map((d) => d.version) },
-  }).select("-log");
-  const activeDraftDocs = [
-    ...recentDocs.filter((d) =>
-      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(d.status),
-    ),
-    ...olderActiveDraftDocs,
-  ];
+  const docs: FeatureRevisionDocument[] = [];
+  const findMissing = async (wanted: number[]) => {
+    const missing = [...new Set(wanted)].filter(
+      (v) => v > 0 && !docs.some((d) => d.version === v),
+    );
+    if (!missing.length) return;
+    docs.push(
+      ...(await FeatureRevisionModel.find({
+        organization,
+        featureId,
+        version: { $in: missing },
+      }).select("-log")),
+    );
+  };
 
-  const seen = new Set<number>();
-  const merged: FeatureRevisionDocument[] = [];
-  for (const doc of [...recentDocs, ...activeDraftDocs]) {
-    if (!seen.has(doc.version)) {
-      seen.add(doc.version);
-      merged.push(doc);
-    }
-  }
+  await findMissing(versions);
+  await findMissing(
+    docs
+      .map((d) => d.baseVersion)
+      .filter((v): v is number => typeof v === "number"),
+  );
 
-  // Base versions of active drafts: needed for autoMerge / conflict detection.
-  // If the base falls outside the top-5 window, mergeResult would be null and publish CTAs break.
-  const missingBaseVersions = activeDraftDocs
-    .map((d) => d.baseVersion)
-    .filter((v): v is number => typeof v === "number" && !seen.has(v));
+  return docs.map((m) => toInterface(m, context, feature));
+}
 
-  if (missingBaseVersions.length > 0) {
-    const baseDocs = await FeatureRevisionModel.find({
+// Just the rules of the feature's open drafts, minus the given versions, so the
+// flag page can link every draft's experiments without loading them in full.
+export async function getOpenDraftRules(
+  organization: string,
+  featureId: string,
+  excludeVersions: number[],
+): Promise<unknown[]> {
+  const docs = await FeatureRevisionModel.find(
+    {
       organization,
       featureId,
-      version: { $in: missingBaseVersions },
-    }).select("-log");
-    for (const doc of baseDocs) {
-      if (!seen.has(doc.version)) {
-        seen.add(doc.version);
-        merged.push(doc);
-      }
-    }
-  }
-
-  return merged.map((m) => toInterface(m, context, feature));
+      status: { $in: ACTIVE_DRAFT_STATUSES },
+      version: { $nin: excludeVersions },
+    },
+    { rules: 1, _id: 0 },
+  ).lean();
+  return docs.map((d) => d.rules);
 }
 
 export async function hasDraft(
