@@ -5,10 +5,26 @@ import {
   decodeSQLResults,
   encodeSQLResults,
   ensureLimit,
+  hasStartDateFilter,
   isMultiStatementSQL,
   isReadOnlySQL,
   usesBackslashStringEscapes,
 } from "../src/sql";
+
+describe("hasStartDateFilter", () => {
+  it.each([
+    ["SELECT * FROM t WHERE ts >= '{{ startDate }}'", true],
+    ["SELECT * FROM t WHERE ts >= '{{startDateISO}}'", true],
+    [
+      `SELECT * FROM events_* WHERE _TABLE_SUFFIX >= '{{date startDateISO "yyyyMMdd"}}'`,
+      true,
+    ],
+    ["SELECT * FROM t WHERE ts <= '{{endDate}}'", false],
+    ["SELECT * FROM t", false],
+  ])("%s", (sql, expected) => {
+    expect(hasStartDateFilter(sql)).toBe(expected);
+  });
+});
 
 describe("ensureLimit", () => {
   describe("already has LIMIT and OFFSET clauses", () => {

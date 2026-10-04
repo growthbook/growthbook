@@ -163,6 +163,12 @@ export function stripTrailingSemicolon(sql: string): string {
   return sql.replace(/;(\s|--[^\n]*|\/\*[\s\S]*?\*\/)*$/, "").trim();
 }
 
+// Any template variable built on startDate, e.g. {{startDate}} or
+// {{date startDateISO "yyyyMMdd"}}. Without one, every query scans the whole table.
+export function hasStartDateFilter(sql: string): boolean {
+  return /\{\{[^}]*startDate/.test(sql);
+}
+
 export function ensureLimit(sql: string, limit: number): string {
   if (limit <= 0) throw new Error("Limit must be a positive integer");
 

@@ -431,12 +431,16 @@ function UsageGroupTable({
                   </Text>
                 )}
                 {row.noDateFilter && (
-                  <Badge
-                    color="amber"
-                    variant="soft"
-                    label="No date filter"
-                    title="The fact table SQL doesn't filter on {{startDate}}"
-                  />
+                  <Tooltip
+                    body="The fact table SQL has no {{startDate}} filter, so queries may scan the whole table."
+                    tipPosition="top"
+                  >
+                    <Badge
+                      color="amber"
+                      variant="soft"
+                      label="No date filter"
+                    />
+                  </Tooltip>
                 )}
               </Flex>
             </TableCell>

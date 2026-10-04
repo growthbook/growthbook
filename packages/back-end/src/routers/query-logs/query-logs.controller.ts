@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { hasStartDateFilter } from "shared/sql";
 import type {
   DataSourceUsage,
   QueryInterface,
@@ -59,9 +60,8 @@ export const getDataSourceUsage = async (
     recent,
     running,
     experimentNames: Object.fromEntries(experiments.map((e) => [e.id, e.name])),
-    // Without a date filter, every query scans the whole table
     factTablesWithoutDateFilter: factTables
-      .filter((f) => !/\{\{[^}]*startDate/.test(f.sql))
+      .filter((f) => !hasStartDateFilter(f.sql))
       .map((f) => f.id),
   });
 };
