@@ -223,14 +223,14 @@ export function NumericQueryStatDisplay({
 }
 
 // From: https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
-function shortenBytes(n) {
+export function shortenBytes(n: number) {
   const k = n > 0 ? Math.floor(Math.log2(n) / 10) : 0;
   const rank = (k > 0 ? "KMGT"[k - 1] : "") + "b";
   const count = (n / Math.pow(1024, k)).toFixed(1);
   return count + rank;
 }
 
-function formatTime(timeMs) {
+export function formatTime(timeMs: number) {
   if (timeMs < 1000) return `${timeMs}ms`;
   if (timeMs < 60 * 1000) return `${(timeMs / 1000).toFixed(1)}s`;
 
