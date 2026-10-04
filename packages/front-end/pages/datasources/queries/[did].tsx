@@ -29,7 +29,6 @@ import { useUser } from "@/services/UserContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
-import { formatTime, shortenBytes } from "@/components/Queries/QueryStatsRow";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
@@ -37,7 +36,6 @@ import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
-import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Table, {
@@ -47,12 +45,16 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
+import { DocLink } from "@/components/DocLink";
 
 type UsageField = Exclude<keyof QueryLogUsage, "queries">;
 type UsageUnit = {
   field: UsageField;
   label: string;
-  format: (value: number) => string;
+  // Picks one scale for a column from its biggest value, so rows compare at a glance
+  scaleFor: (values: (number | undefined)[]) => (value: number) => string;
+  // Unrounded value for a title tooltip
+  exact: (value: number) => string;
 };
 
 type UsageResponse = {
@@ -66,19 +68,50 @@ type UsageResponse = {
   factTablesWithoutDateFilter: string[];
 };
 
+type Scale = { min: number; divisor: number; suffix: string };
+
+// Largest first; a column uses the first scale its biggest value exceeds
+const SIZE_SCALES: Scale[] = [
+  { min: 10 * 1024 ** 4, divisor: 1024 ** 4, suffix: "TB" },
+  { min: 10 * 1024 ** 3, divisor: 1024 ** 3, suffix: "GB" },
+  { min: -Infinity, divisor: 1024 ** 2, suffix: "MB" },
+];
+const TIME_SCALES: Scale[] = [
+  { min: 60 * 60 * 1000, divisor: 60 * 60 * 1000, suffix: "h" },
+  { min: -Infinity, divisor: 1000, suffix: "s" },
+];
+
+function scaled(scales: Scale[], digits: number) {
+  const numberFormat = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  return (values: (number | undefined)[]) => {
+    const max = Math.max(0, ...values.map((v) => v ?? 0));
+    const scale = scales.find((s) => max > s.min) ?? scales[scales.length - 1];
+    return (v: number) =>
+      `${numberFormat.format(v / scale.divisor)} ${scale.suffix}`;
+  };
+}
+
+const EXACT_FORMAT = new Intl.NumberFormat("en-US");
+
 const bytes = (field: UsageField, label: string): UsageUnit => ({
   field,
   label,
-  format: shortenBytes,
+  scaleFor: scaled(SIZE_SCALES, 2),
+  exact: (v) => `${EXACT_FORMAT.format(v)} bytes`,
 });
 const time = (field: UsageField, label: string): UsageUnit => ({
   field,
   label,
-  format: formatTime,
+  scaleFor: scaled(TIME_SCALES, 1),
+  exact: (v) => `${EXACT_FORMAT.format(v)} ms`,
 });
 
 // The units each warehouse bills on. BigQuery shows both because we can't
 // tell whether a project pays per byte (on demand) or per slot (reservation).
+// Snowflake bills on time, but bytes scanned helps spot inefficient queries.
 const USAGE_UNITS: Partial<
   Record<DataSourceInterfaceWithParams["type"], UsageUnit[]>
 > = {
@@ -86,10 +119,19 @@ const USAGE_UNITS: Partial<
     bytes("bytesBilled", "Bytes billed"),
     time("totalSlotMs", "Slot time"),
   ],
-  snowflake: [time("executionDurationMs", "Execution time")],
-  athena: [bytes("bytesProcessed", "Bytes scanned")],
+  snowflake: [
+    time("executionDurationMs", "Execution time"),
+    bytes("bytesProcessed", "Bytes scanned"),
+  ],
+  athena: [
+    bytes("bytesProcessed", "Bytes scanned"),
+    time("durationMs", "Duration"),
+  ],
 };
-const DEFAULT_USAGE_UNITS = [time("durationMs", "Duration")];
+const DURATION_UNIT = time("durationMs", "Duration");
+const DEFAULT_USAGE_UNITS = [DURATION_UNIT];
+
+const NUMERIC_CELL = { textAlign: "right", whiteSpace: "nowrap" } as const;
 
 function share(value: number, total: number) {
   return total > 0 ? `${Math.round((value / total) * 100)}%` : "";
@@ -170,8 +212,13 @@ const DataSourceUsagePage = (): React.ReactElement => {
             <Text color="text-mid" weight="medium">
               {u.label}
             </Text>
-            <Text as="div" size="xl" weight="semibold">
-              {u.format(total[u.field])}
+            <Text
+              as="div"
+              size="xl"
+              weight="semibold"
+              title={u.exact(total[u.field])}
+            >
+              {u.scaleFor([total[u.field]])(total[u.field])}
             </Text>
           </Frame>
         ))}
@@ -249,24 +296,25 @@ function IncrementalRefreshCallout({
   const shares = units
     .map((u) => {
       const used = experimentGroups.reduce((sum, g) => sum + g[u.field], 0);
-      const pct = share(used, usage.total[u.field]);
-      return pct && `${pct} of ${u.label.toLowerCase()}`;
+      if (!used) return null;
+      if (used / usage.total[u.field] < 0.5) return null;
+      return `${share(used, usage.total[u.field])} of ${u.label.toLowerCase()}`;
     })
     .filter(Boolean);
   if (!shares.length) return null;
 
   return (
     <Callout
-      status="warning"
+      status="info"
       mb="4"
       action={
-        <LinkButton href={`/datasources/${datasource.id}`} size="sm">
-          Turn on
-        </LinkButton>
+        <DocLink docSection="pipelineMode" useRadix={true}>
+          Learn more
+        </DocLink>
       }
     >
-      <strong>Incremental refresh is off.</strong> Experiment queries used{" "}
-      {shares.join(" and ")}.
+      Experiment queries used {shares.join(" and ")}.{" "}
+      <strong>Data Pipeline mode</strong> can help optimize this.
     </Callout>
   );
 }
@@ -338,6 +386,8 @@ function UsageGroupTable({
     disableUrlSearchTerm: true,
   });
 
+  const formats = units.map((u) => u.scaleFor(rows.map((r) => r[u.field])));
+
   if (!rows.length) {
     return (
       <Text as="p" color="text-mid" mt="3">
@@ -353,11 +403,15 @@ function UsageGroupTable({
           <SortableTableColumnHeader field="name">
             {tab.column}
           </SortableTableColumnHeader>
-          <SortableTableColumnHeader field="queries">
+          <SortableTableColumnHeader field="queries" style={NUMERIC_CELL}>
             Queries
           </SortableTableColumnHeader>
           {units.map((u) => (
-            <SortableTableColumnHeader key={u.field} field={u.field}>
+            <SortableTableColumnHeader
+              key={u.field}
+              field={u.field}
+              style={NUMERIC_CELL}
+            >
               {u.label}
             </SortableTableColumnHeader>
           ))}
@@ -385,13 +439,21 @@ function UsageGroupTable({
                 )}
               </Flex>
             </TableCell>
-            <TableCell>{row.queries.toLocaleString()}</TableCell>
-            {units.map((u) => (
-              <TableCell key={u.field}>
-                {u.format(row[u.field])}{" "}
-                <Text size="sm" color="text-low">
-                  {share(row[u.field], total[u.field])}
-                </Text>
+            <TableCell style={NUMERIC_CELL}>
+              {row.queries.toLocaleString()}
+            </TableCell>
+            {units.map((u, i) => (
+              <TableCell
+                key={u.field}
+                style={NUMERIC_CELL}
+                title={u.exact(row[u.field])}
+              >
+                {formats[i](row[u.field])}
+                <span style={{ display: "inline-block", width: 44 }}>
+                  <Text size="sm" color="text-low">
+                    {share(row[u.field], total[u.field])}
+                  </Text>
+                </span>
               </TableCell>
             ))}
           </TableRow>
@@ -433,8 +495,12 @@ function RecentQueries({
   const [actionError, setActionError] = useState<string | null>(null);
   const canCancel = permissions.check("runQueries", datasource.projects || []);
 
-  // Duration is its own column, so don't repeat it as a unit
-  const statUnits = units.filter((u) => u.field !== "durationMs");
+  // Add wall-clock duration unless a unit already measures how long queries ran
+  const statUnits = units.some(
+    (u) => u.field === "durationMs" || u.field === "executionDurationMs",
+  )
+    ? units
+    : [DURATION_UNIT, ...units];
 
   const rows: RecentRow[] = [
     ...data.running.map((q) => ({
@@ -452,7 +518,7 @@ function RecentQueries({
       const factTableIds = q.factTableIds ?? [];
       return {
         ...Object.fromEntries(
-          units.map((u) => [
+          statUnits.map((u) => [
             u.field,
             u.field === "durationMs" ? q.durationMs : q.statistics?.[u.field],
           ]),
@@ -470,7 +536,6 @@ function RecentQueries({
           : "",
         person: q.userId ? getUserDisplay(q.userId) : "Automated",
         startedAt: new Date(q.startedAt).getTime(),
-        durationMs: q.durationMs,
         status: q.status,
       };
     }),
@@ -485,6 +550,10 @@ function RecentQueries({
     undefinedLast: true,
     disableUrlSearchTerm: true,
   });
+
+  const statFormats = statUnits.map((u) =>
+    u.scaleFor(rows.map((r) => r[u.field])),
+  );
 
   if (!rows.length) {
     return (
@@ -542,11 +611,12 @@ function RecentQueries({
             <SortableTableColumnHeader field="startedAt">
               Started
             </SortableTableColumnHeader>
-            <SortableTableColumnHeader field="durationMs">
-              Duration
-            </SortableTableColumnHeader>
             {statUnits.map((u) => (
-              <SortableTableColumnHeader key={u.field} field={u.field}>
+              <SortableTableColumnHeader
+                key={u.field}
+                field={u.field}
+                style={NUMERIC_CELL}
+              >
                 {u.label}
               </SortableTableColumnHeader>
             ))}
@@ -600,16 +670,15 @@ function RecentQueries({
                     {ago(new Date(row.startedAt))}
                   </span>
                 </TableCell>
-                <TableCell>
-                  {row.durationMs !== undefined
-                    ? formatTime(row.durationMs)
-                    : "—"}
-                </TableCell>
-                {statUnits.map((u) => {
+                {statUnits.map((u, i) => {
                   const value = row[u.field];
                   return (
-                    <TableCell key={u.field}>
-                      {value !== undefined ? u.format(value) : "—"}
+                    <TableCell
+                      key={u.field}
+                      style={NUMERIC_CELL}
+                      title={value !== undefined ? u.exact(value) : undefined}
+                    >
+                      {value !== undefined ? statFormats[i](value) : "—"}
                     </TableCell>
                   );
                 })}
