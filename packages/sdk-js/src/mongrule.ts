@@ -58,13 +58,92 @@ export function evalCondition(
   return true;
 }
 
+// Partially evaluate a condition when only some attributes are known, e.g. on
+// a server. Attributes missing from `obj` are unknown. Returns a boolean once
+// the result can't depend on them, otherwise the condition minus every branch
+// that is already decided.
+export function pruneCondition(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  savedGroups?: SavedGroupsPayload,
+  visited?: Set<string>,
+): ConditionInterface | boolean {
+  savedGroups = savedGroups || {};
+  visited = visited || new Set();
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(condition)) {
+    let r: any;
+    switch (k) {
+      case "$or":
+      case "$nor":
+      case "$and":
+        r = pruneList(
+          obj,
+          v as ConditionInterface[],
+          savedGroups,
+          visited,
+          k !== "$and",
+        );
+        break;
+      case "$not":
+        r = pruneCondition(obj, v as ConditionInterface, savedGroups, visited);
+        break;
+      case "$savedGroup":
+        r = evalSavedGroup(obj, v, savedGroups, visited, true);
+        // Keep an undecided reference as is rather than inlining the group
+        if (typeof r !== "boolean") r = null;
+        break;
+      default:
+        r = isKnown(obj, k)
+          ? evalConditionValue(v, getPath(obj, k), savedGroups, false, visited)
+          : null;
+    }
+    // null is an undecided leaf, which stays as written
+    if (typeof r !== "boolean") out[k] = r === null ? v : r;
+    // $not and $nor fail when what they hold passes
+    else if (r === (k === "$not" || k === "$nor")) return false;
+  }
+  const keys = Object.keys(out);
+  if (!keys.length) return true;
+  // A lone $and/$or with one condition left is just that condition
+  const list = keys.length === 1 && (out.$and || out.$or);
+  return list && list.length === 1 ? list[0] : out;
+}
+
+// Prune an $or (or an $and) list. Returns the conditions still undecided, or
+// the list's result once there are none.
+function pruneList(
+  obj: TestedObj,
+  conditions: ConditionInterface[],
+  savedGroups: SavedGroupsPayload,
+  visited: Set<string>,
+  or: boolean,
+): ConditionInterface[] | boolean {
+  const out: ConditionInterface[] = [];
+  for (let i = 0; i < conditions.length; i++) {
+    const r = pruneCondition(obj, conditions[i], savedGroups, visited);
+    // One passing condition decides an $or, one failing condition an $and
+    if (r === or) return or;
+    if (r !== !or) out.push(r as ConditionInterface);
+  }
+  // Like evalOr, an empty $or passes
+  return out.length ? out : !or || !conditions.length;
+}
+
+// A top-level attribute that is present is known in full, nested paths too
+function isKnown(obj: TestedObj, path: string) {
+  return path.split(".")[0] in obj;
+}
+
 /** Resolves a `$savedGroup` reference. Anything unrecognized matches nobody. */
-function evalSavedGroup(
+export function evalSavedGroup(
   obj: TestedObj,
   reference: unknown,
   savedGroups: SavedGroupsPayload,
   visited: Set<string>,
-): boolean {
+  // Returns null or a condition while unknown attributes decide the result
+  prune?: boolean,
+): boolean | ConditionInterface | null {
   if (!reference || typeof reference !== "object" || Array.isArray(reference))
     return false;
 
@@ -85,13 +164,19 @@ function evalSavedGroup(
     const key = attributeKey ?? entry.attributeKey;
     if (typeof key !== "string") return false;
     if (!Array.isArray(entry.values)) return false;
+    if (prune && !isKnown(obj, key)) return null;
     return isIn(getPath(obj, key), entry.values);
   }
 
   if (entry.type === "condition") {
     // A condition group has no single attribute, so any override is ignored
     if (!entry.condition || typeof entry.condition !== "object") return false;
-    return evalCondition(obj, entry.condition, savedGroups, next);
+    return (prune ? pruneCondition : evalCondition)(
+      obj,
+      entry.condition,
+      savedGroups,
+      next,
+    );
   }
 
   // A group type added after this SDK was built
@@ -211,7 +296,7 @@ function elemMatch(
   return false;
 }
 
-function isIn(
+export function isIn(
   actual: any,
   expected: Array<any>,
   insensitive: boolean = false,

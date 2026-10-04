@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.9.0",
+  "specVersion": "0.10.0",
   "evalCondition": [
     [
       "$not - pass",
@@ -3542,6 +3542,1487 @@
       { "id": "3" },
       false,
       { "group_id": [1, "2", 3] }
+    ]
+  ],
+  "pruneCondition": [
+    [
+      "a known attribute that passes is removed",
+      { "id": { "$ne": "789" }, "country": "US" },
+      { "id": "123" },
+      { "country": "US" }
+    ],
+    [
+      "a known attribute that fails decides the condition",
+      { "id": { "$in": ["456", "789"] }, "country": "US" },
+      { "id": "123" },
+      false
+    ],
+    [
+      "passes when every attribute is known and passes",
+      { "id": "123", "country": { "$in": ["US", "CA"] } },
+      { "id": "123", "country": "CA" },
+      true
+    ],
+    [
+      "nothing known leaves the condition as is",
+      { "id": "123", "country": { "$in": ["US", "CA"] } },
+      {},
+      { "id": "123", "country": { "$in": ["US", "CA"] } }
+    ],
+    ["an empty condition passes", {}, { "id": "123" }, true],
+    [
+      "an unknown attribute with a boolean value is kept",
+      { "id": "123", "beta": false },
+      { "id": "123" },
+      { "beta": false }
+    ],
+    [
+      "a known null attribute is evaluated, not unknown",
+      { "id": { "$exists": false }, "country": "US" },
+      { "id": null },
+      { "country": "US" }
+    ],
+    [
+      "a nested path is known when its top-level attribute is",
+      { "father.age": { "$gt": 65 }, "country": "US" },
+      { "father": { "age": 70 } },
+      { "country": "US" }
+    ],
+    [
+      "a nested path missing from a known attribute is null",
+      { "father.age": { "$exists": true }, "country": "US" },
+      { "father": { "name": "Joe" } },
+      false
+    ],
+    [
+      "a nested path under an unknown attribute is kept",
+      { "father.age": { "$gt": 65 } },
+      { "id": "123" },
+      { "father.age": { "$gt": 65 } }
+    ],
+    [
+      "$or passes once a known condition passes",
+      { "$or": [{ "id": "123" }, { "country": "US" }] },
+      { "id": "123" },
+      true
+    ],
+    [
+      "$or drops conditions that fail",
+      {
+        "$or": [{ "id": "456" }, { "country": "US" }, { "browser": "chrome" }]
+      },
+      { "id": "123" },
+      { "$or": [{ "country": "US" }, { "browser": "chrome" }] }
+    ],
+    [
+      "$or with one condition left becomes that condition",
+      { "$or": [{ "id": "456" }, { "country": "US" }] },
+      { "id": "123" },
+      { "country": "US" }
+    ],
+    [
+      "$or fails when every condition fails",
+      { "$or": [{ "id": "456" }, { "id": "789" }], "country": "US" },
+      { "id": "123" },
+      false
+    ],
+    [
+      "an empty $or passes, as in evalCondition",
+      { "$or": [], "country": "US" },
+      { "id": "123" },
+      { "country": "US" }
+    ],
+    [
+      "$nor fails once a known condition passes",
+      { "$nor": [{ "id": "123" }, { "country": "US" }] },
+      { "id": "123" },
+      false
+    ],
+    [
+      "$nor drops conditions that fail",
+      { "$nor": [{ "id": "456" }, { "country": "US" }] },
+      { "id": "123" },
+      { "$nor": [{ "country": "US" }] }
+    ],
+    [
+      "$nor passes when every condition fails",
+      { "$nor": [{ "id": "456" }, { "id": "789" }], "country": "US" },
+      { "id": "123" },
+      { "country": "US" }
+    ],
+    [
+      "an empty $nor fails, as in evalCondition",
+      { "$nor": [], "country": "US" },
+      { "id": "123" },
+      false
+    ],
+    [
+      "$and drops conditions that pass",
+      { "$and": [{ "$not": { "id": "456" } }, { "country": "US" }] },
+      { "id": "123" },
+      { "country": "US" }
+    ],
+    [
+      "$and fails once a known condition fails",
+      { "$and": [{ "id": "456" }, { "country": "US" }] },
+      { "id": "123" },
+      false
+    ],
+    [
+      "$and passes when every condition passes",
+      { "$and": [{ "id": "123" }, { "id": { "$exists": true } }] },
+      { "id": "123" },
+      true
+    ],
+    [
+      "$and keeps conditions that are undecided",
+      {
+        "$and": [{ "id": "123" }, { "country": "US" }, { "browser": "chrome" }]
+      },
+      { "id": "123" },
+      { "$and": [{ "country": "US" }, { "browser": "chrome" }] }
+    ],
+    [
+      "one condition left in $and is not unwrapped beside other keys",
+      { "$and": [{ "id": "123" }, { "country": "US" }], "browser": "chrome" },
+      { "id": "123" },
+      { "$and": [{ "country": "US" }], "browser": "chrome" }
+    ],
+    [
+      "$not fails when its condition passes",
+      { "$not": { "id": "123" }, "country": "US" },
+      { "id": "123" },
+      false
+    ],
+    [
+      "$not passes when its condition fails",
+      { "$not": { "id": "456" }, "country": "US" },
+      { "id": "123" },
+      { "country": "US" }
+    ],
+    [
+      "$not keeps its pruned condition",
+      { "$not": { "$and": [{ "id": "123" }, { "country": "US" }] } },
+      { "id": "123" },
+      { "$not": { "country": "US" } }
+    ],
+    [
+      "prunes nested conditions",
+      {
+        "$or": [
+          { "$and": [{ "id": "123" }, { "country": "US" }] },
+          { "$and": [{ "id": "456" }, { "browser": "chrome" }] }
+        ]
+      },
+      { "id": "123" },
+      { "country": "US" }
+    ],
+    [
+      "$inGroup on a known attribute is decided",
+      { "id": { "$inGroup": "group_id" }, "country": "US" },
+      { "id": "123" },
+      { "country": "US" },
+      { "group_id": ["123", "456"] }
+    ],
+    [
+      "$notInGroup on a known attribute is decided",
+      { "id": { "$notInGroup": "group_id" }, "country": "US" },
+      { "id": "123" },
+      false,
+      { "group_id": ["123", "456"] }
+    ],
+    [
+      "$inGroup on an unknown attribute is kept",
+      { "id": { "$inGroup": "group_id" }, "country": "US" },
+      { "country": "US" },
+      { "id": { "$inGroup": "group_id" } },
+      { "group_id": ["123", "456"] }
+    ],
+    [
+      "$savedGroup list entry on a known attribute that matches is removed",
+      { "$savedGroup": { "id": "grp_list" }, "country": "US" },
+      { "id": "u_1" },
+      { "country": "US" },
+      {
+        "grp_list": {
+          "type": "list",
+          "attributeKey": "id",
+          "values": ["u_1", "u_2"]
+        },
+        "grp_cond": { "type": "condition", "condition": { "plan": "pro" } },
+        "grp_or": {
+          "type": "condition",
+          "condition": { "$or": [{ "id": "u_1" }, { "plan": "pro" }] }
+        }
+      }
+    ],
+    [
+      "$savedGroup list entry on a known attribute that misses fails",
+      { "$savedGroup": { "id": "grp_list" }, "country": "US" },
+      { "id": "u_9" },
+      false,
+      {
+        "grp_list": {
+          "type": "list",
+          "attributeKey": "id",
+          "values": ["u_1", "u_2"]
+        },
+        "grp_cond": { "type": "condition", "condition": { "plan": "pro" } },
+        "grp_or": {
+          "type": "condition",
+          "condition": { "$or": [{ "id": "u_1" }, { "plan": "pro" }] }
+        }
+      }
+    ],
+    [
+      "$savedGroup list entry on an unknown attribute is kept",
+      {
+        "$and": [{ "$savedGroup": { "id": "grp_list" } }, { "country": "US" }]
+      },
+      { "country": "US" },
+      { "$savedGroup": { "id": "grp_list" } },
+      {
+        "grp_list": {
+          "type": "list",
+          "attributeKey": "id",
+          "values": ["u_1", "u_2"]
+        },
+        "grp_cond": { "type": "condition", "condition": { "plan": "pro" } },
+        "grp_or": {
+          "type": "condition",
+          "condition": { "$or": [{ "id": "u_1" }, { "plan": "pro" }] }
+        }
+      }
+    ],
+    [
+      "$savedGroup attributeKey override is the attribute that must be known",
+      { "$savedGroup": { "id": "grp_list", "attributeKey": "deviceId" } },
+      { "id": "u_1" },
+      { "$savedGroup": { "id": "grp_list", "attributeKey": "deviceId" } },
+      {
+        "grp_list": {
+          "type": "list",
+          "attributeKey": "id",
+          "values": ["u_1", "u_2"]
+        },
+        "grp_cond": { "type": "condition", "condition": { "plan": "pro" } },
+        "grp_or": {
+          "type": "condition",
+          "condition": { "$or": [{ "id": "u_1" }, { "plan": "pro" }] }
+        }
+      }
+    ],
+    [
+      "$savedGroup condition entry that passes is removed",
+      { "$savedGroup": { "id": "grp_cond" }, "country": "US" },
+      { "plan": "pro" },
+      { "country": "US" },
+      {
+        "grp_list": {
+          "type": "list",
+          "attributeKey": "id",
+          "values": ["u_1", "u_2"]
+        },
+        "grp_cond": { "type": "condition", "condition": { "plan": "pro" } },
+        "grp_or": {
+          "type": "condition",
+          "condition": { "$or": [{ "id": "u_1" }, { "plan": "pro" }] }
+        }
+      }
+    ],
+    [
+      "$savedGroup condition entry decided by part of its condition is removed",
+      { "$savedGroup": { "id": "grp_or" }, "country": "US" },
+      { "id": "u_1" },
+      { "country": "US" },
+      {
+        "grp_list": {
+          "type": "list",
+          "attributeKey": "id",
+          "values": ["u_1", "u_2"]
+        },
+        "grp_cond": { "type": "condition", "condition": { "plan": "pro" } },
+        "grp_or": {
+          "type": "condition",
+          "condition": { "$or": [{ "id": "u_1" }, { "plan": "pro" }] }
+        }
+      }
+    ],
+    [
+      "$savedGroup undecided condition entry stays a reference rather than being inlined",
+      { "$savedGroup": { "id": "grp_or" } },
+      { "id": "u_9" },
+      { "$savedGroup": { "id": "grp_or" } },
+      {
+        "grp_list": {
+          "type": "list",
+          "attributeKey": "id",
+          "values": ["u_1", "u_2"]
+        },
+        "grp_cond": { "type": "condition", "condition": { "plan": "pro" } },
+        "grp_or": {
+          "type": "condition",
+          "condition": { "$or": [{ "id": "u_1" }, { "plan": "pro" }] }
+        }
+      }
+    ],
+    [
+      "$savedGroup id that is not in the payload fails with nothing known",
+      { "$savedGroup": { "id": "grp_missing" }, "country": "US" },
+      {},
+      false,
+      {
+        "grp_list": {
+          "type": "list",
+          "attributeKey": "id",
+          "values": ["u_1", "u_2"]
+        },
+        "grp_cond": { "type": "condition", "condition": { "plan": "pro" } },
+        "grp_or": {
+          "type": "condition",
+          "condition": { "$or": [{ "id": "u_1" }, { "plan": "pro" }] }
+        }
+      }
+    ],
+    [
+      "$savedGroup cycle resolves to false",
+      { "$savedGroup": { "id": "grp_x" } },
+      {},
+      false,
+      {
+        "grp_x": {
+          "type": "condition",
+          "condition": { "$savedGroup": { "id": "grp_y" } }
+        },
+        "grp_y": {
+          "type": "condition",
+          "condition": { "$savedGroup": { "id": "grp_x" } }
+        }
+      }
+    ]
+  ],
+  "reducePayload": [
+    [
+      "removes the condition of a rule that always passes and the rules that never pass",
+      {
+        "payload": {
+          "dateUpdated": "2026-10-04T00:00:00Z",
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                { "id": "r1", "condition": { "id": "456" }, "force": 1 },
+                { "id": "r2", "condition": { "country": "US" }, "force": 2 },
+                { "id": "r3", "condition": { "id": "123" }, "force": 3 }
+              ]
+            }
+          }
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "dateUpdated": "2026-10-04T00:00:00Z",
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              { "id": "r2", "condition": { "country": "US" }, "force": 2 },
+              { "id": "r3", "force": 3 }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "drops the rules after one that always applies",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                { "condition": { "id": "123" }, "force": 1 },
+                { "condition": { "country": "US" }, "force": 2 }
+              ]
+            }
+          }
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "features": { "f": { "defaultValue": 0, "rules": [{ "force": 1 }] } },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps the undecided part of a rule's condition",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "condition": { "id": "123", "country": "US" },
+                  "variations": [0, 1],
+                  "key": "exp"
+                }
+              ]
+            }
+          }
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "condition": { "country": "US" },
+                "variations": [0, 1],
+                "key": "exp"
+              }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps a rule that never passes when it has a gate, since the gate runs first",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "condition": { "id": "456" },
+                  "parentConditions": [
+                    {
+                      "id": "parent",
+                      "condition": { "value": true },
+                      "gate": true
+                    }
+                  ],
+                  "force": 1
+                }
+              ]
+            },
+            "parent": {
+              "defaultValue": true,
+              "rules": [{ "condition": { "country": "US" }, "force": false }]
+            }
+          }
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "condition": { "id": "456" },
+                "parentConditions": [
+                  {
+                    "id": "parent",
+                    "condition": { "value": true },
+                    "gate": true
+                  }
+                ],
+                "force": 1
+              }
+            ]
+          },
+          "parent": {
+            "defaultValue": true,
+            "rules": [{ "condition": { "country": "US" }, "force": false }]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "global attributes are known too",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                { "condition": { "env": "prod", "country": "US" }, "force": 1 }
+              ]
+            }
+          }
+        },
+        "globalAttributes": { "env": "prod" }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [{ "condition": { "country": "US" }, "force": 1 }]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "user attributes take precedence over global attributes",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                { "condition": { "env": "dev" }, "force": 1 },
+                { "condition": { "env": "prod" }, "force": 2 }
+              ]
+            }
+          }
+        },
+        "globalAttributes": { "env": "dev" },
+        "attributes": { "env": "prod" }
+      },
+      {
+        "features": { "f": { "defaultValue": 0, "rules": [{ "force": 2 }] } },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "reduces auto experiments the same way",
+      {
+        "payload": {
+          "features": {},
+          "experiments": [
+            {
+              "key": "e1",
+              "variations": [{}, {}],
+              "condition": { "id": "456" }
+            },
+            {
+              "key": "e2",
+              "variations": [{}, {}],
+              "condition": { "id": "123" }
+            },
+            {
+              "key": "e3",
+              "variations": [{}, {}],
+              "condition": { "id": "123", "country": "US" }
+            }
+          ]
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "features": {},
+        "experiments": [
+          { "key": "e2", "variations": [{}, {}] },
+          {
+            "key": "e3",
+            "variations": [{}, {}],
+            "condition": { "country": "US" }
+          }
+        ],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "filters by project, keeping features with no project metadata",
+      {
+        "payload": {
+          "features": {
+            "f1": {
+              "defaultValue": 1,
+              "metadata": { "projects": ["p1", "p2"] }
+            },
+            "f2": { "defaultValue": 2, "metadata": { "projects": ["p3"] } },
+            "f3": { "defaultValue": 3 }
+          }
+        },
+        "filters": { "projects": "p1" }
+      },
+      {
+        "features": {
+          "f1": { "defaultValue": 1, "metadata": { "projects": ["p1", "p2"] } },
+          "f3": { "defaultValue": 3 }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "filters by tags, where any one of them is enough",
+      {
+        "payload": {
+          "features": {
+            "f1": { "defaultValue": 1, "metadata": { "tags": ["a"] } },
+            "f2": { "defaultValue": 2, "metadata": { "tags": ["c"] } },
+            "f3": { "defaultValue": 3 }
+          }
+        },
+        "filters": { "tags": ["a", "b"] }
+      },
+      {
+        "features": {
+          "f1": { "defaultValue": 1, "metadata": { "tags": ["a"] } }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "filters by custom fields, including fields with several values",
+      {
+        "payload": {
+          "features": {
+            "f1": {
+              "defaultValue": 1,
+              "metadata": { "customFields": { "app": "web" } }
+            },
+            "f2": {
+              "defaultValue": 2,
+              "metadata": { "customFields": { "app": "mobile" } }
+            },
+            "f3": {
+              "defaultValue": 3,
+              "metadata": { "customFields": { "app": ["web", "mobile"] } }
+            },
+            "f4": { "defaultValue": 4 }
+          }
+        },
+        "filters": { "customFields": { "app": "web" } }
+      },
+      {
+        "features": {
+          "f1": {
+            "defaultValue": 1,
+            "metadata": { "customFields": { "app": "web" } }
+          },
+          "f3": {
+            "defaultValue": 3,
+            "metadata": { "customFields": { "app": ["web", "mobile"] } }
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "every filter has to match",
+      {
+        "payload": {
+          "features": {
+            "f1": {
+              "defaultValue": 1,
+              "metadata": { "projects": ["p1"], "tags": ["a"] }
+            },
+            "f2": {
+              "defaultValue": 2,
+              "metadata": { "projects": ["p1"], "tags": ["b"] }
+            },
+            "f3": {
+              "defaultValue": 3,
+              "metadata": { "projects": ["p2"], "tags": ["a"] }
+            }
+          }
+        },
+        "filters": { "projects": ["p1"], "tags": "a" }
+      },
+      {
+        "features": {
+          "f1": {
+            "defaultValue": 1,
+            "metadata": { "projects": ["p1"], "tags": ["a"] }
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "filters auto experiments too",
+      {
+        "payload": {
+          "features": {},
+          "experiments": [
+            {
+              "key": "e1",
+              "variations": [{}, {}],
+              "metadata": { "projects": ["p1"] }
+            },
+            {
+              "key": "e2",
+              "variations": [{}, {}],
+              "metadata": { "projects": ["p2"] }
+            }
+          ]
+        },
+        "filters": { "projects": "p1" }
+      },
+      {
+        "features": {},
+        "experiments": [
+          {
+            "key": "e1",
+            "variations": [{}, {}],
+            "metadata": { "projects": ["p1"] }
+          }
+        ],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "carries the prerequisites of kept features and experiments, even when the filters drop them",
+      {
+        "payload": {
+          "features": {
+            "f1": {
+              "defaultValue": 1,
+              "metadata": { "projects": ["p1"] },
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "f2", "condition": { "value": true } }
+                  ],
+                  "force": 2
+                }
+              ]
+            },
+            "f2": {
+              "defaultValue": true,
+              "metadata": { "projects": ["p2"] },
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "f3", "condition": { "value": true }, "gate": true }
+                  ]
+                },
+                { "condition": { "country": "US" }, "force": false }
+              ]
+            },
+            "f3": {
+              "defaultValue": true,
+              "metadata": { "projects": ["p2"] },
+              "rules": [{ "condition": { "country": "CA" }, "force": false }]
+            },
+            "f4": {
+              "defaultValue": true,
+              "metadata": { "projects": ["p2"] },
+              "rules": [{ "condition": { "plan": "pro" }, "force": false }]
+            },
+            "f5": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
+          },
+          "experiments": [
+            {
+              "key": "e1",
+              "variations": [{}, {}],
+              "metadata": { "projects": ["p1"] },
+              "parentConditions": [
+                { "id": "f4", "condition": { "value": true } }
+              ]
+            }
+          ]
+        },
+        "filters": { "projects": "p1" }
+      },
+      {
+        "features": {
+          "f1": {
+            "defaultValue": 1,
+            "metadata": { "projects": ["p1"] },
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "f2", "condition": { "value": true } }
+                ],
+                "force": 2
+              }
+            ]
+          },
+          "f2": {
+            "defaultValue": true,
+            "metadata": { "projects": ["p2"] },
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "f3", "condition": { "value": true }, "gate": true }
+                ]
+              },
+              { "condition": { "country": "US" }, "force": false }
+            ]
+          },
+          "f3": {
+            "defaultValue": true,
+            "metadata": { "projects": ["p2"] },
+            "rules": [{ "condition": { "country": "CA" }, "force": false }]
+          },
+          "f4": {
+            "defaultValue": true,
+            "metadata": { "projects": ["p2"] },
+            "rules": [{ "condition": { "plan": "pro" }, "force": false }]
+          }
+        },
+        "experiments": [
+          {
+            "key": "e1",
+            "variations": [{}, {}],
+            "metadata": { "projects": ["p1"] },
+            "parentConditions": [{ "id": "f4", "condition": { "value": true } }]
+          }
+        ],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "does not carry the prerequisites of a removed rule",
+      {
+        "payload": {
+          "features": {
+            "f1": {
+              "defaultValue": 1,
+              "metadata": { "projects": ["p1"] },
+              "rules": [
+                {
+                  "condition": { "id": "456" },
+                  "parentConditions": [
+                    { "id": "f2", "condition": { "value": true } }
+                  ],
+                  "force": 2
+                }
+              ]
+            },
+            "f2": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
+          }
+        },
+        "attributes": { "id": "123" },
+        "filters": { "projects": "p1" }
+      },
+      {
+        "features": {
+          "f1": {
+            "defaultValue": 1,
+            "metadata": { "projects": ["p1"] },
+            "rules": []
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "drops saved groups that nothing references any more",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "condition": { "deviceId": { "$inGroup": "grp_v1" } },
+                  "force": 2
+                },
+                {
+                  "condition": { "$savedGroup": { "id": "grp_unknown_attr" } },
+                  "force": 3
+                },
+                {
+                  "condition": { "$savedGroup": { "id": "grp_decided" } },
+                  "force": 1
+                }
+              ]
+            }
+          },
+          "savedGroups": {
+            "grp_decided": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["123"]
+            },
+            "grp_v1": ["d1", "d2"],
+            "grp_unknown_attr": {
+              "type": "list",
+              "attributeKey": "deviceId",
+              "values": ["d1"]
+            },
+            "grp_unused": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["1"]
+            }
+          }
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "condition": { "deviceId": { "$inGroup": "grp_v1" } },
+                "force": 2
+              },
+              {
+                "condition": { "$savedGroup": { "id": "grp_unknown_attr" } },
+                "force": 3
+              },
+              { "force": 1 }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {
+          "grp_v1": ["d1", "d2"],
+          "grp_unknown_attr": {
+            "type": "list",
+            "attributeKey": "deviceId",
+            "values": ["d1"]
+          }
+        }
+      }
+    ],
+    [
+      "reduces the condition groups that are left, dropping the groups they no longer need",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "condition": { "$savedGroup": { "id": "grp_cond" } },
+                  "force": 1
+                }
+              ]
+            }
+          },
+          "savedGroups": {
+            "grp_cond": {
+              "type": "condition",
+              "condition": {
+                "$or": [
+                  { "$savedGroup": { "id": "grp_list" } },
+                  {
+                    "$and": [
+                      { "plan": "pro" },
+                      { "$savedGroup": { "id": "grp_device" } }
+                    ]
+                  }
+                ]
+              }
+            },
+            "grp_list": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["456"]
+            },
+            "grp_device": {
+              "type": "list",
+              "attributeKey": "deviceId",
+              "values": ["d1"]
+            }
+          }
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "condition": { "$savedGroup": { "id": "grp_cond" } },
+                "force": 1
+              }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "$and": [
+                { "plan": "pro" },
+                { "$savedGroup": { "id": "grp_device" } }
+              ]
+            }
+          },
+          "grp_device": {
+            "type": "list",
+            "attributeKey": "deviceId",
+            "values": ["d1"]
+          }
+        }
+      }
+    ],
+    [
+      "removes a prerequisite that always passes once the parent's value is known",
+      {
+        "payload": {
+          "features": {
+            "A": {
+              "defaultValue": false,
+              "rules": [{ "condition": { "id": "123" }, "force": true }]
+            },
+            "B": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "A", "condition": { "value": true } }
+                  ],
+                  "force": 1
+                }
+              ]
+            }
+          }
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "features": {
+          "A": { "defaultValue": false, "rules": [{ "force": true }] },
+          "B": { "defaultValue": 0, "rules": [{ "force": 1 }] }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "removes a rule whose prerequisite never passes",
+      {
+        "payload": {
+          "features": {
+            "A": { "defaultValue": false },
+            "B": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "A", "condition": { "value": true } }
+                  ],
+                  "force": 1
+                },
+                { "condition": { "country": "US" }, "force": 2 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": {
+          "A": { "defaultValue": false },
+          "B": {
+            "defaultValue": 0,
+            "rules": [{ "condition": { "country": "US" }, "force": 2 }]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "removes a feature whose gate never passes",
+      {
+        "payload": {
+          "features": {
+            "A": { "defaultValue": false },
+            "B": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "A", "condition": { "value": true }, "gate": true }
+                  ]
+                },
+                { "force": 1 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": { "A": { "defaultValue": false } },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "removes a gate rule whose gate always passes",
+      {
+        "payload": {
+          "features": {
+            "A": { "defaultValue": false },
+            "B": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "A", "condition": { "value": false }, "gate": true }
+                  ]
+                },
+                { "condition": { "country": "US" }, "force": 1 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": {
+          "A": { "defaultValue": false },
+          "B": {
+            "defaultValue": 0,
+            "rules": [{ "condition": { "country": "US" }, "force": 1 }]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps a prerequisite whose parent's value is unknown",
+      {
+        "payload": {
+          "features": {
+            "A": {
+              "defaultValue": false,
+              "rules": [{ "condition": { "country": "US" }, "force": true }]
+            },
+            "B": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "A", "condition": { "value": true } }
+                  ],
+                  "force": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": {
+          "A": {
+            "defaultValue": false,
+            "rules": [{ "condition": { "country": "US" }, "force": true }]
+          },
+          "B": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "A", "condition": { "value": true } }
+                ],
+                "force": 1
+              }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "a parent missing from the payload has a null value",
+      {
+        "payload": {
+          "features": {
+            "B": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    {
+                      "id": "missing",
+                      "condition": { "value": { "$exists": false } }
+                    }
+                  ],
+                  "force": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": { "B": { "defaultValue": 0, "rules": [{ "force": 1 }] } },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "a gate that never passes after an undecided rule stays, and the rules after it go",
+      {
+        "payload": {
+          "features": {
+            "A": { "defaultValue": false },
+            "B": {
+              "defaultValue": 0,
+              "rules": [
+                { "condition": { "country": "US" }, "force": 1 },
+                {
+                  "parentConditions": [
+                    { "id": "A", "condition": { "value": true }, "gate": true }
+                  ]
+                },
+                { "force": 2 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": {
+          "A": { "defaultValue": false },
+          "B": {
+            "defaultValue": 0,
+            "rules": [
+              { "condition": { "country": "US" }, "force": 1 },
+              {
+                "parentConditions": [
+                  { "id": "A", "condition": { "value": true }, "gate": true }
+                ]
+              }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "a prerequisite that never passes after an undecided one stays, and the ones after it go",
+      {
+        "payload": {
+          "features": {
+            "U": {
+              "defaultValue": false,
+              "rules": [{ "condition": { "country": "US" }, "force": true }]
+            },
+            "A": { "defaultValue": false },
+            "C": {
+              "defaultValue": true,
+              "rules": [{ "condition": { "plan": "pro" }, "force": false }]
+            },
+            "B": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "U", "condition": { "value": true } },
+                    { "id": "A", "condition": { "value": true } },
+                    { "id": "C", "condition": { "value": true } }
+                  ],
+                  "force": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": {
+          "U": {
+            "defaultValue": false,
+            "rules": [{ "condition": { "country": "US" }, "force": true }]
+          },
+          "A": { "defaultValue": false },
+          "C": {
+            "defaultValue": true,
+            "rules": [{ "condition": { "plan": "pro" }, "force": false }]
+          },
+          "B": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "U", "condition": { "value": true } },
+                  { "id": "A", "condition": { "value": true } }
+                ],
+                "force": 1
+              }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "resolves a chain of prerequisites",
+      {
+        "payload": {
+          "features": {
+            "A": { "defaultValue": true },
+            "B": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "A", "condition": { "value": true } }
+                  ],
+                  "force": true
+                }
+              ]
+            },
+            "C": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "B", "condition": { "value": true } }
+                  ],
+                  "force": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": {
+          "A": { "defaultValue": true },
+          "B": { "defaultValue": false, "rules": [{ "force": true }] },
+          "C": { "defaultValue": 0, "rules": [{ "force": 1 }] }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "resolves the prerequisites of auto experiments",
+      {
+        "payload": {
+          "features": { "A": { "defaultValue": true } },
+          "experiments": [
+            {
+              "key": "e1",
+              "variations": [{}, {}],
+              "parentConditions": [
+                { "id": "A", "condition": { "value": false } }
+              ]
+            },
+            {
+              "key": "e2",
+              "variations": [{}, {}],
+              "parentConditions": [
+                { "id": "A", "condition": { "value": true } }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "features": { "A": { "defaultValue": true } },
+        "experiments": [{ "key": "e2", "variations": [{}, {}] }],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "does not carry a parent that only a resolved prerequisite needed",
+      {
+        "payload": {
+          "features": {
+            "B": {
+              "defaultValue": 0,
+              "metadata": { "projects": ["p1"] },
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "A", "condition": { "value": true } }
+                  ],
+                  "force": 1
+                }
+              ]
+            },
+            "A": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
+          }
+        },
+        "filters": { "projects": "p1" }
+      },
+      {
+        "features": {
+          "B": {
+            "defaultValue": 0,
+            "metadata": { "projects": ["p1"] },
+            "rules": [{ "force": 1 }]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "leaves a prerequisite cycle as it is",
+      {
+        "payload": {
+          "features": {
+            "A": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "B", "condition": { "value": true } }
+                  ],
+                  "force": true
+                }
+              ]
+            },
+            "B": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "A", "condition": { "value": true } }
+                  ],
+                  "force": true
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": {
+          "A": {
+            "defaultValue": false,
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "B", "condition": { "value": true } }
+                ],
+                "force": true
+              }
+            ]
+          },
+          "B": {
+            "defaultValue": false,
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "A", "condition": { "value": true } }
+                ],
+                "force": true
+              }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
     ]
   ],
   "hash": [

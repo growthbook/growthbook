@@ -4,12 +4,15 @@ import {
   clearCache,
   Context,
   Experiment,
+  FeatureApiResponse,
   FeatureResult,
   GrowthBook,
+  GrowthBookClient,
   LocalStorageStickyBucketService,
+  PayloadFilters,
   Result,
 } from "../src";
-import { evalCondition } from "../src/mongrule";
+import { evalCondition, pruneCondition } from "../src/mongrule";
 import {
   SavedGroupsValues,
   SavedGroupsPayload,
@@ -40,6 +43,19 @@ type Cases = {
   contextualBandit: [string, Context, string, FeatureResult][];
   // name, condition, attribute, result
   evalCondition: [string, any, any, boolean, SavedGroupsValues][];
+  // name, condition, known attributes, result (boolean or pruned condition)
+  pruneCondition: [string, any, any, any, SavedGroupsPayload][];
+  // name, input, reduced payload
+  reducePayload: [
+    string,
+    {
+      payload: FeatureApiResponse;
+      globalAttributes?: Record<string, any>;
+      attributes?: Record<string, any>;
+      filters?: PayloadFilters;
+    },
+    FeatureApiResponse,
+  ][];
   // Gated behind the savedGroupReferencesV2 capability. An SDK that has not
   // implemented $savedGroup skips this whole key, the same way it would skip
   // stickyBucket or contextualBandit.
@@ -123,6 +139,28 @@ describe("json test suite", () => {
         .mockImplementation();
       expect(evalCondition(value, condition, savedGroups)).toEqual(expected);
       consoleErrorMock.mockRestore();
+    },
+  );
+
+  it.each((cases as Cases).pruneCondition)(
+    "pruneCondition[%#] %s",
+    (name, condition, attributes, expected, savedGroups = {}) => {
+      expect(pruneCondition(attributes, condition, savedGroups)).toEqual(
+        expected,
+      );
+    },
+  );
+
+  it.each((cases as Cases).reducePayload)(
+    "reducePayload[%#] %s",
+    (name, { payload, globalAttributes, attributes, filters }, expected) => {
+      const gb = new GrowthBookClient({ globalAttributes }).initSync({
+        payload,
+      });
+      expect(
+        gb.reducePayload({ userContext: { attributes }, filters }),
+      ).toEqual(expected);
+      gb.destroy();
     },
   );
 

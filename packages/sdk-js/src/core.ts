@@ -18,9 +18,21 @@ import {
   ClientOptions,
   TrackingUserContext,
   UserContext,
+  FeatureDefinitions,
+  SavedGroupsPayload,
+  PayloadFilters,
+  PayloadMetadata,
+  FeatureRule,
+  AutoExperiment,
+  SavedGroupPayloadEntry,
 } from "./types/growthbook";
-import { evalCondition } from "./mongrule";
-import { ConditionInterface } from "./types/mongrule";
+import {
+  evalCondition,
+  evalSavedGroup,
+  isIn,
+  pruneCondition,
+} from "./mongrule";
+import { ConditionInterface, ParentConditionInterface } from "./types/mongrule";
 import {
   chooseVariation,
   decrypt,
@@ -1354,6 +1366,189 @@ export async function decryptPayload(
     delete data.encryptedContextualBandits;
   }
   return data;
+}
+
+// Shrinks a payload for a user whose attributes are only partly known, e.g. on
+// a server bootstrapping a browser. It evaluates the same as the full payload
+// for anyone who agrees with the known attributes.
+export function reducePayload(
+  ctx: EvalContext,
+  filters?: PayloadFilters,
+): FeatureApiResponse {
+  const attributes = getAttributes(ctx.user);
+  const savedGroups = ctx.global.savedGroups || {};
+  const allFeatures = ctx.global.features || {};
+  const features: FeatureDefinitions = {};
+  const groups: SavedGroupsPayload = {};
+
+  // `want` is one value or an array, and any one of them has to be in `actual`
+  const has = (actual: unknown, want: unknown) =>
+    isIn(actual, Array.isArray(want) ? want : [want]);
+
+  // An absent `projects` means all projects, unlike absent tags or custom fields
+  const matches = (meta?: PayloadMetadata) => {
+    const { projects, tags, customFields = {} } = filters || {};
+    const m = meta || {};
+    return (
+      (!projects || !m.projects || has(m.projects, projects)) &&
+      (!tags || has(m.tags, tags)) &&
+      Object.keys(customFields).every((k) =>
+        has((m.customFields || {})[k], customFields[k]),
+      )
+    );
+  };
+
+  // undefined while a feature is being reduced, so a cycle stays undecided.
+  // null for a feature that is absent or always blocked: both evaluate to null.
+  const reduced: Record<string, FeatureDefinition | null | undefined> = {};
+
+  // Applies to everyone who reaches it, so no later rule ever runs
+  const isFinal = (rule: FeatureRule) =>
+    "force" in rule &&
+    !rule.condition &&
+    !rule.parentConditions &&
+    !rule.filters &&
+    !rule.range &&
+    rule.coverage === undefined;
+
+  // A feature's value, if everyone who agrees with the known attributes gets it
+  const known = (id: string): [unknown] | undefined => {
+    const feature = reduce(id);
+    if (feature === undefined) return;
+    if (!feature) return [null];
+    const rule = (feature.rules || [])[0];
+    if (!rule) return [feature.defaultValue ?? null];
+    if (isFinal(rule)) return [rule.force];
+  };
+
+  // null when the item never applies, false when a rule blocks its feature
+  // whenever it is reached, otherwise the item minus its decided parts
+  const prune = <
+    T extends {
+      condition?: ConditionInterface;
+      parentConditions?: ParentConditionInterface[];
+      variations?: unknown[];
+      contextualVariations?: unknown[];
+    },
+  >(
+    item: T,
+    rule?: boolean,
+  ): T | null | false => {
+    const parents: ParentConditionInterface[] = [];
+    for (const p of item.parentConditions || []) {
+      const value = known(p.id);
+      if (!value) parents.push(p);
+      else if (
+        !evalCondition({ value: value[0] }, p.condition || {}, savedGroups)
+      ) {
+        // An experiment drops out. A rule still runs any undecided ones first.
+        if (!rule) return null;
+        if (!parents.length) return p.gate ? false : null;
+        parents.push(p);
+        break;
+      }
+    }
+    // Without a value to return, only its prerequisites could matter
+    if (
+      rule &&
+      !parents.length &&
+      !("force" in item) &&
+      !item.variations &&
+      !item.contextualVariations
+    )
+      return null;
+    const condition = item.condition
+      ? pruneCondition(attributes, item.condition, savedGroups)
+      : null;
+    // A rule's gates run before its condition and can still block the feature
+    if (condition === false && !parents.some((p) => p.gate)) return null;
+    item = { ...item, parentConditions: parents };
+    if (!parents.length) delete item.parentConditions;
+    if (condition === true) delete item.condition;
+    else if (condition) item.condition = condition;
+    return item;
+  };
+
+  function reduce(id: string) {
+    if (!(id in reduced)) {
+      reduced[id] = undefined;
+      const feature = allFeatures[id];
+      const rules: FeatureRule[] = [];
+      let blocked = false;
+      for (const rule of (feature && feature.rules) || []) {
+        const r = prune(rule, true);
+        if (r === false) {
+          // No later rule runs, and with none before it the value is null
+          if (rules.length) rules.push(rule);
+          else blocked = true;
+          break;
+        }
+        if (r) {
+          rules.push(r);
+          if (isFinal(r)) break;
+        }
+      }
+      reduced[id] =
+        !feature || blocked
+          ? null
+          : feature.rules
+            ? { ...feature, rules }
+            : feature;
+    }
+    return reduced[id];
+  }
+
+  // Prerequisites still in use travel with what needs them, as on the server
+  const addParents = (item: {
+    parentConditions?: ParentConditionInterface[];
+  }) => (item.parentConditions || []).forEach((p) => add(p.id));
+  function add(id: string) {
+    const feature = reduce(id);
+    if (feature && !features[id]) {
+      features[id] = feature;
+      (feature.rules || []).forEach(addParents);
+    }
+  }
+
+  for (const id in allFeatures) {
+    if (matches(allFeatures[id]?.metadata)) add(id);
+  }
+  const experiments = (ctx.global.experiments || [])
+    .filter((e) => matches(e.metadata))
+    .map((e) => prune(e))
+    .filter(Boolean) as AutoExperiment[];
+  experiments.forEach(addParents);
+
+  // Keep only the saved groups still referenced, with condition groups reduced
+  const walk = (x: unknown) => {
+    if (!x || typeof x !== "object") return;
+    for (const [k, v] of Object.entries(x)) {
+      const id =
+        k === "$savedGroup"
+          ? v && v.id
+          : k === "$inGroup" || k === "$notInGroup"
+            ? v
+            : 0;
+      if (typeof id === "string" && id in savedGroups && !(id in groups)) {
+        const condition = evalSavedGroup(
+          attributes,
+          { id },
+          savedGroups,
+          new Set(),
+          true,
+        );
+        groups[id] =
+          condition && typeof condition === "object"
+            ? ({ ...savedGroups[id], condition } as SavedGroupPayloadEntry)
+            : savedGroups[id];
+        walk((groups[id] as { condition?: unknown }).condition);
+      }
+      walk(v);
+    }
+  };
+  walk([features, experiments, ctx.global.contextualBandits]);
+
+  return { features, experiments, savedGroups: groups };
 }
 
 export function getApiHosts(options: Options | ClientOptions): {
