@@ -241,7 +241,7 @@ describe("useFeaturePageData", () => {
     expect(revisionFetches()).toHaveLength(1);
   });
 
-  it("drops a revision response for a flag the page has since left", async () => {
+  it("drops a revision response from before the page left the flag, even after coming back", async () => {
     let resolveF1Revisions!: (payload: unknown) => void;
     apiCall.mockImplementation((url: string) => {
       if (url === "/feature/f1" || url === "/feature/f2") {
@@ -273,7 +273,8 @@ describe("useFeaturePageData", () => {
       pending = result.current.loadRevisions([5]);
     });
     rerender({ fid: "f2" });
-    await waitFor(() => expect(result.current.baseFeature).not.toBeNull());
+    rerender({ fid: "f1" });
+    await waitFor(() => expect(result.current.revision?.version).toBe(1));
     await act(async () => {
       resolveF1Revisions({ status: 200, revisions: [rev(5)] });
       await pending;

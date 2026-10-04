@@ -140,10 +140,9 @@ export function useFeaturePageData(
   );
   const loadedRef = useRef<(v: number) => boolean>(() => false);
   loadedRef.current = (v) => !!cachedRevisions[v] || inBaseSet(v);
-  // The cache is per flag, so a response for a flag the page has since left
-  // is dropped
-  const currentFid = useRef(fid);
-  currentFid.current = fid;
+  // Bumped when the page moves to another flag. A response or cleanup from an
+  // earlier generation is ignored, even if the page has come back to that flag.
+  const generation = useRef(0);
 
   const loadRevisions = useCallback(
     async (versions: number[], { force = false } = {}) => {
@@ -159,6 +158,7 @@ export function useFeaturePageData(
           changed.forEach((v) => (add ? next.add(v) : next.delete(v)));
           return next;
         };
+      const gen = generation.current;
       toFetch.forEach((v) => inFlight.current.add(v));
       setLoadingVersions(update(toFetch, true));
       setUnavailableVersions(update(toFetch, false));
@@ -166,7 +166,7 @@ export function useFeaturePageData(
         const res = await apiCall<{ revisions: FeatureRevisionInterface[] }>(
           `/feature/${fid}/revisions?versions=${toFetch.join(",")}`,
         );
-        if (currentFid.current !== fid) return;
+        if (gen !== generation.current) return;
         const returned = (res.revisions ?? []).filter(
           (r) => r.featureId === fid,
         );
@@ -185,16 +185,29 @@ export function useFeaturePageData(
         );
         setLoadError(null);
       } catch (e) {
-        if (currentFid.current !== fid) return;
+        if (gen !== generation.current) return;
         setUnavailableVersions(update(toFetch, true));
         setLoadError(e instanceof Error ? e : new Error(String(e)));
       } finally {
-        toFetch.forEach((v) => inFlight.current.delete(v));
-        setLoadingVersions(update(toFetch, false));
+        if (gen === generation.current) {
+          toFetch.forEach((v) => inFlight.current.delete(v));
+          setLoadingVersions(update(toFetch, false));
+        }
       }
     },
     [apiCall, fid],
   );
+
+  // Clean up everything if fid changes (before anything loads for the new one)
+  useEffect(() => {
+    setVersionState(null);
+    setPendingVersion(null);
+    setCachedRevisions({});
+    setUnavailableVersions(new Set());
+    setLoadingVersions(new Set());
+    inFlight.current = new Set();
+    generation.current += 1;
+  }, [fid]);
 
   // The version on screen (or about to be) and its base
   const targetVersion = pendingVersion ?? selectedVersion;
@@ -208,15 +221,6 @@ export function useFeaturePageData(
         : [targetVersion],
     );
   }, [baseData, targetVersion, targetBaseVersion, loadRevisions]);
-
-  // Clean up everything if fid changes
-  useEffect(() => {
-    setVersionState(null);
-    setPendingVersion(null);
-    setCachedRevisions({});
-    setUnavailableVersions(new Set());
-    inFlight.current = new Set();
-  }, [fid]);
 
   // Also reloads what was loaded beyond the initial response and can still
   // change: the version on screen and any open drafts, so edits show up
