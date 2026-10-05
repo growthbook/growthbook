@@ -150,17 +150,11 @@ const DataSourcePage: FC = () => {
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
 
-  // Fact tables and filters take the Data Source's projects; the metrics are
-  // created without any, the same as in the new Data Source wizard.
   const canAddEventTracker =
     !!d &&
     getAddableEventTrackers(d).length > 0 &&
     canUpdateDataSourceSettings &&
-    permissionsUtil.canCreateFactTable({ projects: d.projects || [] }) &&
-    permissionsUtil.canCreateAndUpdateFactFilter({
-      projects: d.projects || [],
-    }) &&
-    permissionsUtil.canCreateFactMetric({ projects: [] });
+    permissionsUtil.canCreateFactTable({ projects: d.projects || [] });
 
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
   const eventsForwarderFlag = useFeatureValue(

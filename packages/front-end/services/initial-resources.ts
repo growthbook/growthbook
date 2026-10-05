@@ -1156,8 +1156,8 @@ export function getInitialDatasourceResources({
   };
 }
 
-// An event tracker's identifier types, plus (optionally) its assignment
-// queries and identity join, merged into an existing Data Source's settings.
+// An event tracker's identifier types, assignment queries, and identity
+// joins, merged into an existing Data Source's settings.
 // The wizard can save getInitialSettings as-is; here that would wipe what is
 // already there, and the tracker's query ids (e.g. "user_id") would collide,
 // so ids are prefixed with the tracker.
@@ -1165,12 +1165,10 @@ export function getDatasourceTemplateSettings({
   datasource,
   template,
   schemaOptions,
-  includeAssignmentQueries,
 }: {
   datasource: DataSourceInterfaceWithParams;
   template: SchemaFormat;
   schemaOptions: Record<string, string>;
-  includeAssignmentQueries: boolean;
 }): DataSourceSettings {
   const initial = getInitialSettings(
     template,
@@ -1186,25 +1184,21 @@ export function getDatasourceTemplateSettings({
   const label =
     eventSchemas.find((s) => s.value === template)?.label ?? template;
 
-  const exposure = includeAssignmentQueries
-    ? initial.queries.exposure
-        .map((q) => ({
-          ...q,
-          id: `${template}_${q.id}`,
-          name: `${label}: ${q.name}`,
-        }))
-        .filter((q) => !existingExposure.some((e) => e.id === q.id))
-    : [];
-  const identityJoins = includeAssignmentQueries
-    ? initial.queries.identityJoins.filter(
-        (join) =>
-          !existingJoins.some(
-            (e) =>
-              e.ids.length === join.ids.length &&
-              join.ids.every((id) => e.ids.includes(id)),
-          ),
-      )
-    : [];
+  const exposure = initial.queries.exposure
+    .map((q) => ({
+      ...q,
+      id: `${template}_${q.id}`,
+      name: `${label}: ${q.name}`,
+    }))
+    .filter((q) => !existingExposure.some((e) => e.id === q.id));
+  const identityJoins = initial.queries.identityJoins.filter(
+    (join) =>
+      !existingJoins.some(
+        (e) =>
+          e.ids.length === join.ids.length &&
+          join.ids.every((id) => e.ids.includes(id)),
+      ),
+  );
 
   return {
     ...settings,

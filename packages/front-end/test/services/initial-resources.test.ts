@@ -234,7 +234,6 @@ describe("Snowplow on an existing Data Source", () => {
       datasource: ds,
       template: "snowplow",
       schemaOptions: {},
-      includeAssignmentQueries: true,
     });
     const exposure = settings.queries?.exposure || [];
     expect(exposure.length).toBeGreaterThan(0);
@@ -263,7 +262,6 @@ describe("Segment template on an existing Data Source", () => {
       datasource: ds,
       template: "segment",
       schemaOptions: {},
-      includeAssignmentQueries: false,
     });
     expect(settings.userIdTypes?.map((t) => t.userIdType).sort()).toEqual([
       "anonymous_id",
@@ -288,7 +286,6 @@ describe("getDatasourceTemplateSettings", () => {
       datasource: businessClickhouse(),
       template: "langfuse",
       schemaOptions: {},
-      includeAssignmentQueries: false,
     });
     expect(settings.schemaFormat).toBe("custom");
     expect(settings.userIdTypes?.map((t) => t.userIdType)).toEqual([
@@ -297,8 +294,8 @@ describe("getDatasourceTemplateSettings", () => {
       "session_id",
       "trace_id",
     ]);
-    expect(settings.queries?.exposure?.map((q) => q.id)).toEqual(["user_id"]);
-    expect(settings.queries?.identityJoins).toEqual([]);
+    // The Data Source's own assignment query is kept, first.
+    expect(settings.queries?.exposure?.[0].id).toBe("user_id");
   });
 
   it("adds prefixed assignment queries scoped to the project", () => {
@@ -306,7 +303,6 @@ describe("getDatasourceTemplateSettings", () => {
       datasource: businessClickhouse(),
       template: "langfuse",
       schemaOptions: { projectId: "proj_1" },
-      includeAssignmentQueries: true,
     });
     const exposure = settings.queries?.exposure || [];
     expect(exposure.map((q) => q.id)).toEqual([
@@ -329,13 +325,11 @@ describe("getDatasourceTemplateSettings", () => {
       datasource: ds,
       template: "langfuse",
       schemaOptions: {},
-      includeAssignmentQueries: true,
     });
     const twice = getDatasourceTemplateSettings({
       datasource: { ...ds, settings: once },
       template: "langfuse",
       schemaOptions: {},
-      includeAssignmentQueries: true,
     });
     expect(twice).toEqual(once);
   });

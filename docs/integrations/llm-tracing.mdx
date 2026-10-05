@@ -296,9 +296,9 @@ An experiment reads all of its metrics from one data source. If your business me
 1. Open the data source and choose **Add Event Tracker** from the **⋯** menu.
 2. Under **Event tracker**, pick your tracing platform: **Langfuse** (ClickHouse data sources) or **Arize Phoenix** (Postgres data sources). The list also includes the other event trackers that support the connection type, such as Segment or RudderStack.
 3. Enter the same project option you would use in the wizard, if any.
-4. Leave **Add assignment queries** on (the default for Langfuse and Phoenix) to read exposures from the `gb.exp:` trace tags. Turn it off if experiment exposures are already logged to this data source from your `trackingCallback`, and the user id on your traces matches the one in those exposures.
+4. Click **Add to Data Source**.
 
-GrowthBook adds the `user_id`, `session_id`, and `trace_id` identifier types if they are missing, then creates the fact tables, filters, and starter metrics listed below. The assignment queries are prefixed with the tool name (for example, `Langfuse: Logged-in Users`) so they sit alongside your existing ones. Fact tables that already exist on the data source are skipped.
+GrowthBook adds the `user_id`, `session_id`, and `trace_id` identifier types if they are missing, the tracker's assignment queries and identifier join, and the fact tables, filters, and starter metrics listed below. The assignment queries are prefixed with the tool name (for example, `Langfuse: Logged-in Users`) so they sit alongside your existing ones. If you already log experiment exposures to this data source from your `trackingCallback`, you can keep using that assignment query for your experiments and delete the new ones. Fact tables that already exist on the data source are skipped.
 
 If your traces are exported into a different warehouse (for example, Langfuse Cloud's blob storage export into Snowflake or BigQuery), this option does not apply, because the generated SQL is written for Langfuse's ClickHouse schema and Phoenix's Postgres schema. Create the fact tables by hand, using the column lists below as a guide.
 
