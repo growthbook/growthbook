@@ -7,6 +7,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
@@ -34,6 +35,7 @@ import {
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import {
+  createReportSnapshot,
   getReportSnapshotSettings,
   getSnapshotSettingsFromReportArgs,
 } from "back-end/src/services/reports";
@@ -629,6 +631,62 @@ describe("snapshot planning", () => {
     ).rejects.toThrow(BadRequestError);
 
     expect(getMetricMapMock).toHaveBeenCalled();
+    expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a report snapshot whose query no longer declares its identifier without persisting a record", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {
+            exposure: [
+              {
+                id: "exposure_legacy",
+                name: "Legacy",
+                userIdType: "anonymous_id",
+                userIdTypes: ["user_id"],
+                query: "",
+                dimensions: [],
+              },
+            ],
+          },
+        },
+      }),
+    );
+
+    await expect(
+      createReportSnapshot({
+        report: {
+          id: "rep_123",
+          experimentAnalysisSettings: {
+            datasource: "ds_123",
+            exposureQueryId: "exposure_legacy",
+            trackingKey: "exp_123",
+            goalMetrics: [],
+            secondaryMetrics: [],
+            guardrailMetrics: [],
+            metricOverrides: [],
+          },
+          experimentMetadata: {
+            phases: [{ variationWeights: [0.5, 0.5] }],
+            variations: [
+              { key: "0", name: "Control" },
+              { key: "1", name: "Treatment" },
+            ],
+          },
+        } as unknown as ExperimentSnapshotReportInterface,
+        previousSnapshot: {
+          phase: 0,
+          settings: { datasourceId: "ds_123" },
+        } as unknown as ExperimentSnapshotInterface,
+        context: makeContext(),
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      }),
+    ).rejects.toThrow(
+      'Assignment query "Legacy" no longer declares the "anonymous_id" identifier type',
+    );
+
     expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
   });
 

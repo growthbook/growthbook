@@ -904,6 +904,11 @@ interface Props {
   // Whether the parent rule is a sparse patch. The ramp's value edits inherit
   // this — sparse interpretation belongs to the rule, not the schedule.
   sparse?: boolean;
+  /**
+   * Whether monitoring is already saved, for records without a ruleRampSchedule
+   * to infer it from (e.g. an edited template).
+   */
+  hasSavedMonitoring?: boolean;
 }
 
 export default function RampScheduleSection({
@@ -932,6 +937,7 @@ export default function RampScheduleSection({
   ruleId,
   featureId,
   sparse = false,
+  hasSavedMonitoring: hasSavedMonitoringProp = false,
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
   const [seedOpen, setSeedOpen] = useState(
@@ -984,8 +990,10 @@ export default function RampScheduleSection({
     [getDatasourceById, state.monitoring.datasourceId],
   );
 
-  // The assignment selection can fire two updates in one event (identifier,
-  // then query), so merge onto the latest monitoring state, not this render's.
+  /**
+   * The assignment selection can fire two updates in one event (identifier,
+   * then query), so merge onto the latest monitoring state, not this render's.
+   */
   const latestMonitoringRef = useRef(state.monitoring);
   latestMonitoringRef.current = state.monitoring;
   const patchMonitoringRef = useRef(patchMonitoring);
@@ -1015,13 +1023,14 @@ export default function RampScheduleSection({
     selectedDatasource?.settings?.queries?.exposure?.find(
       (q) => q.id === state.monitoring.exposureQueryId,
     );
-  // Saved monitoring must not be rewritten on load; legacy configs without a
-  // stored identifier analyze on the query's legacy identifier.
-  const hasSavedMonitoring = !!ruleRampSchedule?.monitoringConfig;
+  /** Saved monitoring must not be rewritten on load. */
+  const hasSavedMonitoring =
+    hasSavedMonitoringProp || !!ruleRampSchedule?.monitoringConfig;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource: selectedDatasource,
     hashAttribute,
     exposureQueryId: state.monitoring.exposureQueryId,
+    /** Legacy configs store none; they analyze on the query's legacy one. */
     identifierType: resolveAnalysisIdentifierType(
       selectedMonitoringExposureQuery,
       state.monitoring.exposureQueryIdentifierType,

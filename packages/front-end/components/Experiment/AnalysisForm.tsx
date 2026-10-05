@@ -14,6 +14,7 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import {
+  getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
@@ -153,8 +154,10 @@ const AnalysisForm: FC<{
     experiment.exposureQueryId,
     experiment.userIdType,
   );
-  // Show what the experiment analyzes on, even a drifted identifier, so the
-  // form can flag it; with no query yet, pre-fill from the hash attribute.
+  /**
+   * Show what the experiment analyzes on, even a drifted identifier, so the
+   * form can flag it; with no query yet, pre-fill from the hash attribute.
+   */
   const initialIdentifierType = initialExposureQuery
     ? resolveAnalysisIdentifierType(
         initialExposureQuery,
@@ -1235,7 +1238,9 @@ const AnalysisForm: FC<{
                               {["timestamp", "variation_id"]
                                 .concat(
                                   exposureQuery
-                                    ? [exposureQuery.userIdType]
+                                    ? getExposureQueryIdentifierTypes(
+                                        exposureQuery,
+                                      )
                                     : [],
                                 )
                                 .concat(exposureQuery?.dimensions || [])

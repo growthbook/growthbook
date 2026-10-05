@@ -37,6 +37,7 @@ import {
   detachedRampTargets,
   rampTargetRuleIds,
   stemRuleId,
+  toMonitoringSelection,
   stringifyFeatureValue,
   unanchoredRampTargets,
   validateFeatureValue,
@@ -1367,6 +1368,7 @@ export const featureEntityHandler: EntityHandler = {
       context: ctx,
       feature,
       user,
+      baseVersion: feature.version,
       environments: ctx.environments,
       changes: { rules: updatedRules },
       publish: false,
@@ -1542,21 +1544,10 @@ function sameStringArray(
   return left.length === right.length && left.every((v, i) => v === right[i]);
 }
 
-export function toMonitoringSelection(
-  mc: Pick<
-    RampMonitoringConfig,
-    "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
-  >,
-) {
-  return {
-    datasource: mc.datasourceId,
-    exposureQueryId: mc.exposureQueryId,
-    identifierType: mc.exposureQueryIdentifierType,
-  };
-}
-
-// Every monitoring writer (REST, internal, revision publish) saves through the
-// ramp models, whose customValidation calls this.
+/**
+ * Every monitoring writer (REST, internal, revision publish) saves through the
+ * ramp models, whose customValidation calls this.
+ */
 export async function assertValidMonitoringConfigChange(
   ctx: ReqContext | ApiReqContext,
   previous: RampMonitoringConfig | null | undefined,
@@ -1570,7 +1561,7 @@ export async function assertValidMonitoringConfigChange(
   );
 }
 
-// The monitoring data source is nested, so BaseModel wouldn't cache it.
+/** The monitoring data source is nested, so BaseModel wouldn't cache it. */
 export function withMonitoringDatasourceKey<K extends { datasource?: string }>(
   keys: K,
   mc: Pick<RampMonitoringConfig, "datasourceId"> | null | undefined,
@@ -1862,7 +1853,9 @@ export async function ensureSafeRolloutForMonitoredRamp(
 
   const trackingKey = `ramp_${schedule.id}`;
 
-  // Stored explicitly, so a legacy monitoring config doesn't make it implicit.
+  /**
+   * Stored explicitly, so a legacy monitoring config doesn't make it implicit.
+   */
   const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
     (await getExposureQueriesForDatasource(ctx, mc.datasourceId)).find(
       (q) => q.id === mc.exposureQueryId,

@@ -1,6 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { useCallback } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { CustomField } from "shared/types/custom-fields";
 import {
   FeatureInterface,
   FeaturePrerequisite,
@@ -58,6 +59,7 @@ import RuleProjectScopeField, {
   type ProjectScopeProps,
 } from "@/components/Features/RuleModal/ProjectScopeField";
 import Callout from "@/ui/Callout";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 
 export default function BanditRefNewFields({
   step,
@@ -87,6 +89,9 @@ export default function BanditRefNewFields({
   setVariations,
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
+  customFields,
+  customFieldValues,
+  setCustomFields,
   envScope,
   projectScope,
   onRuleCyclicChange,
@@ -118,11 +123,16 @@ export default function BanditRefNewFields({
   setVariations: (v: SortableVariation[]) => void;
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
+  customFields?: CustomField[];
+  customFieldValues?: Record<string, string>;
+  setCustomFields?: (customFields: Record<string, string>) => void;
   envScope?: EnvScopeProps;
   projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
-  // When duplicating or creating from a template: keeps its identifier and
-  // explains a change.
+  /**
+   * When duplicating or creating from a template: keeps its identifier and
+   * explains a change.
+   */
   assignmentQueryCopySource?: AssignmentQueryCopySource | null;
 }) {
   const form = useFormContext();
@@ -141,14 +151,15 @@ export default function BanditRefNewFields({
 
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
+  const { setValue } = form;
   const setExposureQueryId = useCallback(
-    (value: string) => form.setValue("exposureQueryId", value),
-    [form],
+    (value: string) => setValue("exposureQueryId", value),
+    [setValue],
   );
   const setExposureQueryIdentifierType = useCallback(
     (value: string | undefined) =>
-      form.setValue("exposureQueryIdentifierType", value),
-    [form],
+      setValue("exposureQueryIdentifierType", value),
+    [setValue],
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
@@ -158,7 +169,7 @@ export default function BanditRefNewFields({
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
     copiedIdentifierType: getCopySourceIdentifierType(
-      datasource ?? null,
+      datasource,
       assignmentQueryCopySource ?? null,
     ),
     autoRepair: !!datasource?.properties?.exposureQueries,
@@ -216,6 +227,14 @@ export default function BanditRefNewFields({
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
           {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
+
+          {!!customFields?.length && (
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues ?? {}}
+              onChange={setCustomFields ? setCustomFields : () => {}}
+            />
+          )}
         </>
       ) : null}
 
@@ -357,7 +376,7 @@ export default function BanditRefNewFields({
                 selection={assignmentQuerySelection}
                 size="legacy"
                 notice={getCopiedAssignmentQueryNotice(
-                  datasource ?? null,
+                  datasource,
                   assignmentQueryCopySource ?? null,
                   {
                     exposureQueryId,

@@ -1,5 +1,8 @@
 import isEqual from "lodash/isEqual";
-import { ConditionInterface } from "@growthbook/growthbook";
+import {
+  ConditionInterface,
+  ParentConditionInterface,
+} from "@growthbook/growthbook";
 import {
   ExperimentDependencyIndex,
   NamespaceValue,
@@ -903,6 +906,23 @@ export function applyNamespaceToPayload(
   rule.namespace = [namespace.name, start, end];
 }
 
+// Prerequisites become parentConditions, saved groups resolved the way the
+// rule's own condition is; one that no longer parses is dropped.
+function prerequisiteParentConditions(
+  prerequisites: { id: string; condition: string }[],
+  savedGroupStrategy: SavedGroupPayloadStrategy,
+): ParentConditionInterface[] {
+  return prerequisites
+    .map((p) => {
+      const condition = mergeConditionAndSavedGroups({
+        savedGroupStrategy,
+        condition: p.condition,
+      });
+      return condition ? { id: p.id, condition } : null;
+    })
+    .filter(isDefined);
+}
+
 export function getFeatureDefinition({
   feature,
   environment,
@@ -1134,6 +1154,9 @@ export function getFeatureDefinition({
         const phase = exp?.phases?.slice(-1)?.[0];
         return !!phase?.prerequisites?.length;
       }
+      if (r.type === "contextual-bandit-ref") {
+        return !!cbMap?.get(r.contextualBanditId)?.prerequisites?.length;
+      }
       return !!(r as { prerequisites?: unknown[] }).prerequisites?.length;
     });
     if (hasTopLevelPrereqs || hasRuleLevelGates) {
@@ -1241,16 +1264,10 @@ export function getFeatureDefinition({
           }
 
           if (phase?.prerequisites?.length) {
-            rule.parentConditions = phase.prerequisites
-              .map((prerequisite) => {
-                const condition = mergeConditionAndSavedGroups({
-                  savedGroupStrategy,
-                  condition: prerequisite.condition,
-                });
-                if (!condition) return null;
-                return { id: prerequisite.id, condition };
-              })
-              .filter(isDefined);
+            rule.parentConditions = prerequisiteParentConditions(
+              phase.prerequisites,
+              savedGroupStrategy,
+            );
           }
 
           rule.coverage = phase.coverage;
@@ -1366,12 +1383,21 @@ export function getFeatureDefinition({
 
           if (cb.status === "draft") return null;
 
-          const phaseCondition = mergeConditionAndSavedGroups({
+          if (!hasPrerequisites && cb.prerequisites?.length) return null;
+
+          const cbCondition = mergeConditionAndSavedGroups({
             savedGroupStrategy,
             condition: cb.condition,
+            savedGroups: cb.savedGroups,
           });
-          if (phaseCondition) {
-            rule.condition = phaseCondition;
+          if (cbCondition) {
+            rule.condition = cbCondition;
+          }
+          if (cb.prerequisites?.length) {
+            rule.parentConditions = prerequisiteParentConditions(
+              cb.prerequisites,
+              savedGroupStrategy,
+            );
           }
 
           rule.coverage = cb.coverage;
@@ -1435,6 +1461,8 @@ export function getFeatureDefinition({
 
           if (rule.condition)
             savedGroupStrategy.finalizeCondition(rule.condition);
+          if (rule.parentConditions)
+            savedGroupStrategy.finalizeCondition(rule.parentConditions);
           if (metadataOptions) {
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
@@ -1476,19 +1504,10 @@ export function getFeatureDefinition({
           rule.condition = condition;
         }
 
-        const prerequisites = (r?.prerequisites ?? [])
-          ?.map((p) => {
-            const condition = mergeConditionAndSavedGroups({
-              savedGroupStrategy,
-              condition: p.condition,
-            });
-            if (!condition) return null;
-            return {
-              id: p.id,
-              condition,
-            };
-          })
-          .filter(isDefined);
+        const prerequisites = prerequisiteParentConditions(
+          r?.prerequisites ?? [],
+          savedGroupStrategy,
+        );
         if (!hasPrerequisites && prerequisites?.length) return null;
         if (prerequisites?.length) {
           rule.parentConditions = prerequisites;

@@ -989,15 +989,20 @@ export function getExposureQuery(
     // analyze on it.
     return (
       queries.find((q) => q.userIdType === identifierType) ??
-      queries.find((q) => q.userIdTypes?.includes(identifierType)) ??
+      queries.find((q) =>
+        getExposureQueryIdentifierTypes(q).includes(identifierType),
+      ) ??
       null
     );
   }
   return queries.find((q) => q.id === exposureQueryId) ?? null;
 }
 
-// For defaulting a new selection: `preferredIdentifierType` when the query
-// declares it, else the query's first. Saved records use resolveAnalysisIdentifierType.
+/**
+ * For defaulting a new selection: `preferredIdentifierType` when the query
+ * declares it, else the query's first. Saved records use
+ * resolveAnalysisIdentifierType.
+ */
 export function getDefaultIdentifierTypeForQuery(
   exposureQuery: ExposureQuery,
   preferredIdentifierType?: string,
@@ -1020,8 +1025,10 @@ export function isIdentifierUndeclared(
   );
 }
 
-// The record a new one copies its assignment selection from: a duplicated
-// experiment or holdout, or a template.
+/**
+ * The record a new one copies its assignment selection from: a duplicated
+ * experiment or holdout, or a template.
+ */
 export type AssignmentQueryCopySource = {
   kind: "copy" | "template";
   datasource?: string;
@@ -1045,8 +1052,10 @@ function getCopySourceQuery(
   );
 }
 
-// What a copy's source analyzes on, which the copy keeps rather than taking a
-// default. Undefined when there's no source query to resolve it against.
+/**
+ * What a copy's source analyzes on, which the copy keeps rather than taking a
+ * default. Undefined when there's no source query to resolve it against.
+ */
 export function getCopySourceIdentifierType(
   datasource: Pick<DataSourceInterfaceWithParams, "id" | "settings"> | null,
   source: AssignmentQueryCopySource | null,

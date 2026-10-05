@@ -217,10 +217,11 @@ export default function ExperimentHeader({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
+  const exposureQuery = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId,
+  );
   const userIdType = resolveAnalysisIdentifierType(
-    datasourceSettings?.queries?.exposure?.find(
-      (e) => e.id === experiment.exposureQueryId,
-    ),
+    exposureQuery,
     experiment.exposureQueryIdentifierType,
   );
 
@@ -750,12 +751,7 @@ export default function ExperimentHeader({
       {showTemplateForm && (
         <TemplateForm
           onClose={() => setShowTemplateForm(false)}
-          initialValue={convertExperimentToTemplate(
-            experiment,
-            datasourceSettings?.queries?.exposure?.find(
-              (e) => e.id === experiment.exposureQueryId,
-            ),
-          )}
+          initialValue={convertExperimentToTemplate(experiment, exposureQuery)}
           isNewTemplate
           source="experiment"
         />
@@ -902,7 +898,7 @@ export default function ExperimentHeader({
                         linkedFeatures,
                       )
                     }
-                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
+                    body="Add at least one live Linked Feature, AI Visual Editor change, or URL Redirect before starting."
                   >
                     <Button
                       variant={checklistReady ? "solid" : "soft"}

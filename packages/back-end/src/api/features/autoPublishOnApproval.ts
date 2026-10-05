@@ -27,7 +27,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
+import { getContextForArmedPublisherInOrg } from "back-end/src/services/organizations";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {
   recordScheduledPublishFailure,
@@ -257,7 +257,7 @@ async function revisionRequiresPreLaunchChecklist(
 // the draft's author — but only when that author is a dashboard user. API-key
 // and system event users can carry an `id` that is NOT a resolvable user, so
 // they return null (the publish can't run with their authority).
-export function resolveArmedPublishUserId(
+export function resolveArmedPublisherId(
   revision: Pick<
     FeatureRevisionInterface,
     "autoPublishEnabledBy" | "createdBy"
@@ -277,12 +277,10 @@ async function getArmedPublishContext(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
 ): Promise<ReqContext | ApiReqContext | null> {
-  const enablerId = resolveArmedPublishUserId(revision, null);
+  const enablerId = resolveArmedPublisherId(revision, null);
   if (!enablerId) return null;
   try {
-    return await getContextForUserIdInOrg(context.org, enablerId, {
-      applyProjectRestrictions: false,
-    });
+    return await getContextForArmedPublisherInOrg(context.org, enablerId);
   } catch {
     return null;
   }

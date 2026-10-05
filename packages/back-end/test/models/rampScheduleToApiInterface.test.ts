@@ -7,11 +7,9 @@ jest.mock("back-end/src/services/rampSchedule", () => ({
 }));
 
 import { RampScheduleInterface } from "shared/validators";
+import { apiMonitoringConfigToInternal } from "shared/util";
 import { ReqContext } from "back-end/types/request";
-import {
-  apiMonitoringConfigToInternal,
-  rampScheduleToApiInterface,
-} from "back-end/src/models/RampScheduleModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 
 const context = {
   foreignRefs: { datasource: new Map() },

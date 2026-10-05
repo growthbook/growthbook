@@ -288,9 +288,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         flattenExposureQueryInput(validatableFields),
         req.context,
         null,
-        validatableFields.exposureQuery
-          ? "requireUnambiguous"
-          : "defaultToFirst",
+        "requireUnambiguous",
       );
 
       const defaultRampSteps = [
@@ -320,7 +318,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, feature)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          rule.id,
+          feature,
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       // A startDate implies the rule should be disabled until the ramp fires.

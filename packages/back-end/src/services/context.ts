@@ -52,7 +52,7 @@ import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {
   dangerouslyGetDataSourceByIdBypassPermission,
-  getDataSourcesByOrganization,
+  getDataSourcesByIds,
 } from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
@@ -722,9 +722,7 @@ export class ReqContextClass {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids),
     );
-    if (datasource?.some((id) => !this.foreignRefs.datasource.has(id))) {
-      await this.loadAllDataSourceRefs();
-    }
+    await this.loadDataSourceRefs(datasource);
     await this.addMissingForeignRefs("metric", metric, (ids) =>
       getExperimentMetricsByIds(this, ids),
     );
@@ -732,34 +730,44 @@ export class ReqContextClass {
       getFeaturesByIds(this, ids),
     );
   }
-  // An org doesn't have that many data sources, so we fetch them all, once per
-  // request: concurrent lookups share the load, and an id still missing after
-  // it isn't in the org or isn't readable, so it isn't refetched.
-  private allDataSourceRefs: Promise<void> | null = null;
-  private loadAllDataSourceRefs(): Promise<void> {
-    if (!this.allDataSourceRefs) {
-      const load: Promise<void> = getDataSourcesByOrganization(this).then(
+
+  /**
+   * Fetches only the requested data sources, once per request. Concurrent
+   * lookups share a load, and an id still missing afterwards isn't in the org
+   * or isn't readable, so it isn't refetched.
+   */
+  private dataSourceLoads = new Map<string, Promise<void>>();
+  private async loadDataSourceRefs(ids: string[] | undefined): Promise<void> {
+    if (!ids?.length) return;
+    const loads = this.dataSourceLoads;
+    const missing = [...new Set(ids)].filter(
+      (id) => !this.foreignRefs.datasource.has(id) && !loads.has(id),
+    );
+    if (missing.length) {
+      const load: Promise<void> = getDataSourcesByIds(this, missing).then(
         (datasources) => {
           // A forget during the load means these may already be stale.
-          if (this.allDataSourceRefs !== load) return;
+          if (this.dataSourceLoads !== loads) return;
           datasources.forEach((ds) =>
             this.foreignRefs.datasource.set(ds.id, ds),
           );
         },
         (error) => {
-          if (this.allDataSourceRefs === load) this.allDataSourceRefs = null;
+          missing.forEach((id) => {
+            if (loads.get(id) === load) loads.delete(id);
+          });
           throw error;
         },
       );
-      this.allDataSourceRefs = load;
+      missing.forEach((id) => loads.set(id, load));
     }
-    return this.allDataSourceRefs;
+    await Promise.all(ids.map((id) => loads.get(id)));
   }
 
-  // Called after a data source write, so later reads in the request see it.
+  /** Called after a data source write, so later reads in the request see it. */
   public forgetDataSourceRefs(): void {
     this.foreignRefs.datasource.clear();
-    this.allDataSourceRefs = null;
+    this.dataSourceLoads = new Map();
   }
 
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(
@@ -778,8 +786,11 @@ export class ReqContextClass {
     }
   }
 
-  // Defined on the context so validation helpers needn't import DataSourceModel.
-  // Uncached, and never written to foreignRefs: serializers read those.
+  /**
+   * Defined on the context so validation helpers needn't import
+   * DataSourceModel. Uncached, and never written to foreignRefs because
+   * serializers read those.
+   */
   public async dangerouslyGetDataSourceByIdBypassPermission(
     id: string,
   ): Promise<DataSourceInterface | null> {

@@ -649,8 +649,10 @@ export default function RuleModal({
     if (rule.type === "safe-rollout") {
       return {
         ...rule,
-        // Rollouts saved before identifiers were stored analyze on their
-        // query's original one; fill it in so the required field isn't blank.
+        /**
+         * Rollouts saved before identifiers were stored analyze on their
+         * query's original one; fill it in so the required field isn't blank.
+         */
         safeRolloutFields: safeRollout && {
           ...safeRollout,
           exposureQueryIdentifierType: resolveAnalysisIdentifierType(
@@ -2790,6 +2792,11 @@ export default function RuleModal({
                   disableBanditConversionWindow={disableBanditConversionWindow}
                   setDisableBanditConversionWindow={
                     setDisableBanditConversionWindow
+                  }
+                  customFields={customFields}
+                  customFieldValues={customFieldValues}
+                  setCustomFields={(value) =>
+                    form.setValue("customFields", value)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
                   projectScope={i === 0 ? projectScopeProps : undefined}

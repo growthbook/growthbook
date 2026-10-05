@@ -32,10 +32,8 @@ import {
   rampPatchEntriesForTargets,
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
-import {
-  resolveApiMonitoringConfig,
-  rampScheduleToApiInterface,
-} from "back-end/src/models/RampScheduleModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 

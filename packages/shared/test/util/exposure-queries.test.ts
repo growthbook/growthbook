@@ -9,6 +9,7 @@ import {
   isSameAssignmentQuerySelection,
   flattenExposureQueryInput,
   getIdentifierTypeForSettingsHash,
+  getPreferredIdentifierType,
   withKeptIdentifierType,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
@@ -115,7 +116,7 @@ describe("parseAssignmentQueryInput", () => {
     ).toEqual({ id: "exq_1", identifierType: undefined });
   });
 
-  it("rejects both fields together, naming them", () => {
+  it("rejects both fields when they name different queries", () => {
     expect(() =>
       parseAssignmentQueryInput(
         { id: "exq_1", identifierType: "user_id" },
@@ -123,7 +124,7 @@ describe("parseAssignmentQueryInput", () => {
         "exposureQuery",
       ),
     ).toThrow(
-      "Cannot set exposureQuery together with the deprecated exposureQueryId",
+      "exposureQuery.id and the deprecated exposureQueryId name different assignment queries",
     );
   });
 });
@@ -306,12 +307,79 @@ describe("parseAssignmentQuerySelection", () => {
     });
   });
 
-  it("defaults an omitted identifier to the query's first, not its legacy one", () => {
-    const parsed = parseAssignmentQuerySelection(queries, {
-      exposureQueryId: "eq_multi",
-      onOmitted: "defaultToFirst",
+  it("leaves an omitted identifier implicit while the query declares its legacy one", () => {
+    expect(
+      parseAssignmentQuerySelection(queries, {
+        exposureQueryId: "eq_multi",
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ ok: true, identifierType: undefined, query: multi });
+  });
+
+  it("rejects an omitted identifier once the query drops its legacy one", () => {
+    const dropped = query({
+      id: "eq_dropped",
+      name: "Dropped",
+      userIdType: "user_id",
+      userIdTypes: ["anonymous_id", "company_id"],
     });
-    expect(parsed.ok && parsed.identifierType).toBe("user_id");
+    expect(
+      parseAssignmentQuerySelection([dropped], {
+        exposureQueryId: "eq_dropped",
+        onOmitted: "defaultToFirst",
+        field: "assignmentQuery",
+      }),
+    ).toEqual({
+      ok: false,
+      error:
+        'Assignment query "Dropped" no longer declares its default identifier type "user_id". Set assignmentQuery.identifierType to choose one.',
+    });
+  });
+
+  it("names the choices over the dropped legacy identifier when omission is ambiguous", () => {
+    const dropped = query({
+      id: "eq_dropped",
+      name: "Dropped",
+      userIdType: "user_id",
+      userIdTypes: ["anonymous_id", "company_id"],
+    });
+    const droppedSingle = query({
+      id: "eq_dropped_single",
+      name: "Dropped single",
+      userIdType: "user_id",
+      userIdTypes: ["anonymous_id"],
+    });
+    const parse = (exposureQueryId: string) =>
+      parseAssignmentQuerySelection([dropped, droppedSingle], {
+        exposureQueryId,
+        onOmitted: "requireUnambiguous",
+      });
+    expect(parse("eq_dropped")).toMatchObject({
+      ok: false,
+      error: expect.stringContaining(
+        "declares several identifier types (anonymous_id, company_id)",
+      ),
+    });
+    expect(parse("eq_dropped_single")).toMatchObject({
+      ok: false,
+      error: expect.stringContaining(
+        'no longer declares its default identifier type "user_id"',
+      ),
+    });
+  });
+
+  it("leaves a query with no legacy identifier implicit, as analysis falls back to its first", () => {
+    const unfrozen = query({
+      id: "eq_unfrozen",
+      userIdType: "",
+      userIdTypes: ["anonymous_id", "user_id"],
+    });
+    expect(
+      parseAssignmentQuerySelection([unfrozen], {
+        exposureQueryId: "eq_unfrozen",
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ ok: true, identifierType: undefined, query: unfrozen });
   });
 
   it("requires an identifier when the query declares several", () => {
@@ -329,11 +397,12 @@ describe("parseAssignmentQuerySelection", () => {
   });
 
   it("allows omitting the identifier when the query declares one", () => {
-    const parsed = parseAssignmentQuerySelection(queries, {
-      exposureQueryId: "eq_single",
-      onOmitted: "requireUnambiguous",
-    });
-    expect(parsed.ok && parsed.identifierType).toBe("user_id");
+    expect(
+      parseAssignmentQuerySelection(queries, {
+        exposureQueryId: "eq_single",
+        onOmitted: "requireUnambiguous",
+      }),
+    ).toEqual({ ok: true, identifierType: undefined, query: single });
   });
 
   it("rejects a query that declares no identifiers", () => {
@@ -348,7 +417,7 @@ describe("parseAssignmentQuerySelection", () => {
 });
 
 describe("isSameAssignmentQuerySelection", () => {
-  // Reordered after records were saved: the legacy identifier is no longer first.
+  /** Reordered after records were saved: the legacy one is no longer first. */
   const reordered = query({
     id: "eq_1",
     userIdType: "anonymous_id",
@@ -472,24 +541,75 @@ describe("resolveAssignmentQuerySelectionChange", () => {
     ).toEqual({ ok: true, identifierType: "company_id", changed: false });
   });
 
-  it("treats echoing a legacy record's resolved identifier as unchanged", () => {
+  it("keeps a legacy record implicit when an update echoes its resolved identifier", () => {
     expect(
       resolveAssignmentQuerySelectionChange([multi], {
         previous: legacy,
         next: { ...legacy, identifierType: "anonymous_id" },
         onOmitted: "defaultToFirst",
       }),
-    ).toEqual({ ok: true, identifierType: "anonymous_id", changed: false });
+    ).toEqual({ ok: true, identifierType: undefined, changed: false });
   });
 
-  it("parses a new selection", () => {
+  it("keeps an explicit identifier the update echoes or omits", () => {
+    const pinned = { ...legacy, identifierType: "anonymous_id" };
+    for (const next of [pinned, legacy]) {
+      expect(
+        resolveAssignmentQuerySelectionChange([multi], {
+          previous: pinned,
+          next,
+          onOmitted: "requireUnambiguous",
+        }),
+      ).toEqual({ ok: true, identifierType: "anonymous_id", changed: false });
+    }
+  });
+
+  it("leaves a new selection implicit when the query declares its legacy identifier", () => {
     expect(
       resolveAssignmentQuerySelectionChange([multi], {
         previous: null,
         next: legacy,
         onOmitted: "defaultToFirst",
       }),
-    ).toEqual({ ok: true, identifierType: "user_id", changed: true });
+    ).toEqual({ ok: true, identifierType: undefined, changed: true });
+  });
+
+  it("drops the old query's identifier when switching to an implicit one", () => {
+    const other = query({
+      id: "eq_2",
+      userIdType: "user_id",
+      userIdTypes: ["user_id"],
+    });
+    expect(
+      resolveAssignmentQuerySelectionChange([multi, other], {
+        previous: { ...legacy, identifierType: "anonymous_id" },
+        next: { datasource: "ds_1", exposureQueryId: "eq_2" },
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ ok: true, identifierType: undefined, changed: true });
+  });
+
+  it("rejects moving to a query that dropped its legacy identifier, but not staying on one", () => {
+    const dropped = query({
+      id: "eq_2",
+      userIdType: "user_id",
+      userIdTypes: ["anonymous_id"],
+    });
+    const onDropped = { datasource: "ds_1", exposureQueryId: "eq_2" };
+    expect(
+      resolveAssignmentQuerySelectionChange([multi, dropped], {
+        previous: legacy,
+        next: onDropped,
+        onOmitted: "defaultToFirst",
+      }),
+    ).toMatchObject({ ok: false });
+    expect(
+      resolveAssignmentQuerySelectionChange([multi, dropped], {
+        previous: onDropped,
+        next: onDropped,
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({ ok: true, identifierType: undefined, changed: false });
   });
 
   it("parses a changed identifier and rejects an undeclared one", () => {
@@ -536,5 +656,25 @@ describe("getIdentifierTypeForSettingsHash", () => {
     expect(
       getIdentifierTypeForSettingsHash("eq_gone", "anonymous_id", []),
     ).toBe("anonymous_id");
+  });
+});
+
+describe("getPreferredIdentifierType", () => {
+  it("keeps the legacy identifier while the query declares it", () => {
+    expect(
+      getPreferredIdentifierType({
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+      }),
+    ).toBe("anonymous_id");
+  });
+
+  it("uses a declared identifier once the legacy one was removed", () => {
+    expect(
+      getPreferredIdentifierType({
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id"],
+      }),
+    ).toBe("user_id");
   });
 });

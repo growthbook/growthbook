@@ -96,10 +96,11 @@ const VisualChangesetModal: FC<{
 
   const editorUrlLabel = !showAdvanced
     ? "Target URL"
-    : "URL to edit with Visual Editor";
+    : "URL to edit with AI Visual Editor";
   const editorUrlHelpText = !showAdvanced ? undefined : (
     <>
-      Clicking the <strong>Open Visual Editor</strong> button will open this URL
+      Clicking the <strong>Open AI Visual Editor</strong> button will open this
+      URL
     </>
   );
 

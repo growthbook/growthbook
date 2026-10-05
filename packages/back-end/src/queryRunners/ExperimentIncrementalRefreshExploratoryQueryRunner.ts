@@ -94,6 +94,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   if (!exposureQuery) {
     throw new Error("Exposure query not found");
   }
+
   const resolvedExposureQuery = resolveExposureQueryForAnalysis(
     exposureQuery,
     snapshotSettings.exposureQueryIdentifierType,
@@ -415,11 +416,20 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       );
   }
 
+  prepareAnalysisData(
+    params: Pick<
+      ExperimentIncrementalRefreshExploratoryQueryParams,
+      "metricMap" | "variationNames"
+    >,
+  ): void {
+    this.metricMap = params.metricMap;
+    this.variationNames = params.variationNames;
+  }
+
   async startQueries(
     params: ExperimentIncrementalRefreshExploratoryQueryParams,
   ): Promise<Queries> {
-    this.metricMap = params.metricMap;
-    this.variationNames = params.variationNames;
+    this.prepareAnalysisData(params);
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
@@ -522,6 +532,8 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       this.model.id,
       { queries: this.model.queries, error },
       "unknown",
+      { concludedBy: this.concludedBy },
+      this.experimentUpdateExecutionLogger,
     );
     if (wrote) {
       await this.context.models.incrementalRefresh
@@ -567,6 +579,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       id: this.model.id,
       updates,
       failureCause,
+      conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

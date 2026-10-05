@@ -45,10 +45,8 @@ import {
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import {
-  resolveApiMonitoringConfig,
-  rampScheduleToApiInterface,
-} from "back-end/src/models/RampScheduleModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import {
   assertRampPlanChangeAllowed,
   assertRampScheduleReplanAllowed,

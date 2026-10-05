@@ -24,7 +24,7 @@ type Selection = {
   identifierTypes: string[];
   groupedIdentifierTypes: (GroupedValue | SingleValue)[];
   exposureQueryOptions: SingleValue[];
-  // A kept selection whose query no longer declares its identifier.
+  /** A kept selection whose query no longer declares its identifier. */
   identifierUndeclared: boolean;
   setExposureQueryId: (exposureQueryId: string) => void;
   changeIdentifierType: (identifierType: string) => void;
@@ -40,6 +40,7 @@ export function useAssignmentQuerySelection({
   autoRepair = true,
   keepCurrentSelection = false,
   copiedIdentifierType,
+  useHashAttribute = true,
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
   hashAttribute: string | undefined;
@@ -47,14 +48,23 @@ export function useAssignmentQuerySelection({
   identifierType: string | undefined;
   setExposureQueryId: (exposureQueryId: string) => void;
   setIdentifierType: (identifierType: string | undefined) => void;
-  // New records repair an invalid selection as inputs change; existing records
-  // must not have saved settings rewritten on load.
+  /**
+   * New records repair an invalid selection as inputs change; existing records
+   * must not have saved settings rewritten on load.
+   */
   autoRepair?: boolean;
-  // Keep a drifted selection listed so existing records show what they use.
+  /** Keep a drifted selection listed so existing records show what they use. */
   keepCurrentSelection?: boolean;
-  // A copy's source identifier. Repair keeps it when some query declares it,
-  // else leaves the identifier for the user to choose instead of defaulting,
-  // since a different identifier measures different units.
+  /**
+   * Group and follow the hash attribute. Off when that control isn't shown,
+   * so the list isn't split into "Matches hash attribute".
+   */
+  useHashAttribute?: boolean;
+  /**
+   * A copy's source identifier. Repair keeps it when some query declares it,
+   * else leaves the identifier for the user to choose instead of defaulting,
+   * since a different identifier measures different units.
+   */
   copiedIdentifierType?: string;
 }): Selection {
   const keptQueryId = keepCurrentSelection ? exposureQueryId : undefined;
@@ -70,8 +80,11 @@ export function useAssignmentQuerySelection({
     identifierType,
   );
   const hashAttributeIdentifierTypeMap = useMemo(
-    () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
-    [datasource?.settings?.userIdTypes],
+    () =>
+      useHashAttribute
+        ? getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes)
+        : new Map<string, string[]>(),
+    [useHashAttribute, datasource?.settings?.userIdTypes],
   );
   const identifierTypes = useMemo(() => {
     const selectable = getSelectableIdentifierTypes(exposureQueries);
@@ -128,8 +141,11 @@ export function useAssignmentQuerySelection({
     ],
   );
 
-  // The shown identifier may be resolved, not stored, for a record saved before
-  // identifiers were; commit it with a new query so the save keeps it.
+  /**
+   * For a record saved before identifiers were stored, the shown identifier is
+   * resolved rather than stored; commit it along with a new query so the save
+   * keeps it.
+   */
   const selectExposureQueryId = useCallback(
     (value: string) => {
       if (value !== exposureQueryId && identifierType) {
@@ -164,6 +180,8 @@ export function useAssignmentQuerySelection({
   ]);
 
   // Repair the identifier before the query; selectable queries depend on it.
+  // Only write a value that differs: the setters re-render the form, which
+  // can re-run this effect, so writing an unchanged value loops forever.
   useEffect(() => {
     if (!autoRepair) return;
     if (!identifierType || !identifierTypes.includes(identifierType)) {
@@ -174,19 +192,23 @@ export function useAssignmentQuerySelection({
         if (kept !== identifierType) setIdentifierType(kept);
         return;
       }
-      setIdentifierType(
-        getDefaultIdentifierType({
-          identifierTypes,
-          hashAttributeIdentifierTypeMap,
-          hashAttribute,
-        }),
-      );
+      const defaultIdentifierType = getDefaultIdentifierType({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap,
+        hashAttribute,
+      });
+      if (defaultIdentifierType !== identifierType) {
+        setIdentifierType(defaultIdentifierType);
+      }
       return;
     }
     if (
       !exposureQueryOptions.some((option) => option.value === exposureQueryId)
     ) {
-      setExposureQueryId(exposureQueryOptions[0]?.value ?? "");
+      const defaultExposureQueryId = exposureQueryOptions[0]?.value ?? "";
+      if (defaultExposureQueryId !== exposureQueryId) {
+        setExposureQueryId(defaultExposureQueryId);
+      }
     }
   }, [
     autoRepair,

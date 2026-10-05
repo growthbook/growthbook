@@ -115,8 +115,10 @@ export function getNewExperimentDatasourceDefaults(
   return {
     datasource: initialDatasource.id,
     exposureQueryId: exposureQuery?.id || "",
-    // Copy what the source analyzes on; left unset, a legacy source's copy
-    // would default differently.
+    /**
+     * Copy what the source analyzes on; left unset, a legacy source's copy
+     * would default differently.
+     */
     exposureQueryIdentifierType:
       exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
         ? resolveAnalysisIdentifierType(
@@ -352,14 +354,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       form.setValue("exposureQueryIdentifierType", value),
     [form],
   );
-  // A duplicate, or a holdout started from an experiment.
+  /** A duplicate, or a holdout started from an experiment. */
   const assignmentQueryCopySource: AssignmentQueryCopySource | null =
     initialExperiment?.exposureQueryId
       ? { kind: "copy", ...initialExperiment }
       : null;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     copiedIdentifierType: getCopySourceIdentifierType(
-      datasource ?? null,
+      datasource,
       assignmentQueryCopySource,
     ),
     datasource,
@@ -657,7 +659,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   selection={assignmentQuerySelection}
                   size="legacy"
                   notice={getCopiedAssignmentQueryNotice(
-                    datasource ?? null,
+                    datasource,
                     assignmentQueryCopySource,
                     {
                       exposureQueryId,

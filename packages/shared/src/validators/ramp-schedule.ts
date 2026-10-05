@@ -107,8 +107,10 @@ export const rampMonitoringConfig = z.object({
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
-// API shape: `exposureQuery` supersedes the deprecated exposureQueryId. The
-// internal rampMonitoringConfig stays flat.
+/**
+ * API shape: `exposureQuery` supersedes the deprecated `exposureQueryId`. The
+ * internal rampMonitoringConfig stays flat.
+ */
 export const apiRampMonitoringConfig = rampMonitoringConfig
   .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
   .extend(apiAssignmentQueryResponseFields("exposureQuery"));

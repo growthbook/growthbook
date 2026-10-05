@@ -263,22 +263,13 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         );
       }
 
-      const { rampUpSchedule, ...validatableFields } = (
-        ruleInput as typeof ruleInput & {
-          type: "safe-rollout";
-          safeRolloutFields: Record<string, unknown> & {
-            exposureQuery?: { id: string; identifierType: string };
-            exposureQueryId?: string;
-          };
-        }
-      ).safeRolloutFields;
+      const { rampUpSchedule, ...validatableFields } =
+        ruleInput.safeRolloutFields;
       const validatedFields = await validateCreateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),
         req.context,
         null,
-        validatableFields.exposureQuery
-          ? "requireUnambiguous"
-          : "defaultToFirst",
+        "requireUnambiguous",
       );
 
       const defaultRampSteps = [
@@ -316,7 +307,12 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     }
 
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, feature)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          rule.id,
+          feature,
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       if (usesLegacyScheduling) {

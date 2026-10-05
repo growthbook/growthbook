@@ -15,12 +15,14 @@ import { ReqContext } from "back-end/types/request";
 export async function validateCreateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
   context: ReqContext | ApiReqContext,
-  // The stored rollout on update: an unchanged selection isn't re-validated.
+  /**
+   * The stored rollout on update: an unchanged selection isn't re-validated.
+   */
   previous?: Pick<
     SafeRolloutInterface,
     "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
   > | null,
-  // REST's grouped exposureQuery must name an identifier when it's ambiguous.
+  /** REST's grouped exposureQuery must name an identifier when ambiguous. */
   onOmitted: "defaultToFirst" | "requireUnambiguous" = "defaultToFirst",
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
@@ -76,7 +78,6 @@ export async function validateCreateSafeRolloutFields(
     },
   );
   if (!resolved.ok) throw new BadRequestError(resolved.error);
-  const exposureQueryIdentifierType = resolved.identifierType;
 
   if (
     safeRolloutFields.guardrailMetricIds === undefined ||
@@ -121,7 +122,10 @@ export async function validateCreateSafeRolloutFields(
     }
   }
 
-  return createSafeRolloutValidator
-    .strip()
-    .parse({ ...safeRolloutFields, exposureQueryIdentifierType });
+  // Always keyed: on update, undefined clears an identifier the new selection
+  // doesn't use.
+  return createSafeRolloutValidator.strip().parse({
+    ...safeRolloutFields,
+    exposureQueryIdentifierType: resolved.identifierType,
+  });
 }

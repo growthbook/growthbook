@@ -135,13 +135,17 @@ export async function getDataSourcesByOrganization(
   );
 }
 
-// Unfiltered by project permissions - the org's event ingestor region isn't
-// sensitive on its own, and gating it on datasource read permissions means
-// users without access to the Managed Warehouse/Event Forwarder datasource
-// would get an incorrect region for the SDK setup snippets.
-export async function getEventIngestorRegionForOrganization(
+// Unfiltered by project permissions - none of this is sensitive on its own, and
+// gating it on datasource read permissions means users without access to the
+// Managed Warehouse/Event Forwarder datasource would get an incorrect region for
+// the SDK setup snippets and be offered to set up a second one.
+export async function getEventPipelineStatusForOrganization(
   context: ReqContext | ApiReqContext,
-): Promise<DataRegion | undefined> {
+): Promise<{
+  eventIngestorRegion: DataRegion | undefined;
+  hasManagedWarehouse: boolean;
+  hasEventForwarder: boolean;
+}> {
   const datasources = usingFileConfig()
     ? getConfigDatasources(context.org.id)
     : (await DataSourceModel.find({ organization: context.org.id })).map(
@@ -152,13 +156,16 @@ export async function getEventIngestorRegionForOrganization(
     (d): d is GrowthbookClickhouseDataSource =>
       d.type === "growthbook_clickhouse",
   );
-  if (managedWarehouse) {
-    return managedWarehouse.settings?.region;
-  }
-
   const forwarderConfigs =
     await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
-  return forwarderConfigs.find((c) => c.region)?.region;
+
+  return {
+    eventIngestorRegion: managedWarehouse
+      ? managedWarehouse.settings?.region
+      : forwarderConfigs.find((c) => c.region)?.region,
+    hasManagedWarehouse: !!managedWarehouse,
+    hasEventForwarder: forwarderConfigs.length > 0,
+  };
 }
 
 // WARNING: This does not restrict by organization
@@ -200,10 +207,12 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
   return doc ? toInterface(doc) : null;
 }
 
-// WARNING: bypasses project-read permission. Validation-only: a caller who may
-// edit a selection can still lack read access to its data source (reading
-// needs one of its projects), and the selection must be checked anyway. Never
-// return the result to the user.
+/**
+ * WARNING: bypasses project-read permission. Validation-only: a caller who may
+ * edit a selection can still lack read access to its data source (reading
+ * needs one of its projects), and the selection must be checked anyway. Never
+ * return the result to the user.
+ */
 export async function dangerouslyGetDataSourceByIdBypassPermission(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -731,7 +740,6 @@ export async function updateDataSource(
     }
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
-
   if (!hasActualChanges(datasource, updates)) {
     return;
   }
@@ -786,21 +794,18 @@ export function toDataSourceApiInterface(
       id: identifier.userIdType,
       description: identifier.description || "",
     })),
-    assignmentQueries: (settings?.queries?.exposure || []).map((q) => {
-      const identifierTypes = getExposureQueryIdentifierTypes(q);
-      return {
-        id: q.id,
-        name: q.name,
-        description: q.description || "",
-        identifierTypes,
-        // What records without a stored identifier analyze on, as before.
-        identifierType: resolveAnalysisIdentifierType(q, undefined),
-        sql: q.query,
-        includesNameColumns: !!q.hasNameCol,
-        dimensionColumns: q.dimensions,
-        error: q.error,
-      };
-    }),
+    assignmentQueries: (settings?.queries?.exposure || []).map((q) => ({
+      id: q.id,
+      name: q.name,
+      description: q.description || "",
+      identifierTypes: getExposureQueryIdentifierTypes(q),
+      /** What records without a stored identifier analyze on. */
+      identifierType: resolveAnalysisIdentifierType(q, undefined),
+      sql: q.query,
+      includesNameColumns: !!q.hasNameCol,
+      dimensionColumns: q.dimensions,
+      error: q.error,
+    })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({
         identifierTypes: q.ids,

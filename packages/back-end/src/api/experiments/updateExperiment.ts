@@ -1,3 +1,4 @@
+import { omit } from "lodash";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   parseAssignmentQueryInput,
@@ -71,12 +72,13 @@ export const updateExperiment = createApiRequestHandler(
     req.body.assignmentQueryId,
     "assignmentQuery",
   );
-  // The grouped field folded into the flat ones, read in place of req.body.
-  const { assignmentQuery, ...body } = req.body;
+  /**
+   * req.body without the grouped assignmentQuery, which assignmentQueryInput
+   * already folded into the flat fields. Read these, not req.body.
+   */
   const payload: UpdateExperimentApiPayload = {
-    ...body,
+    ...omit(req.body, "assignmentQuery"),
     assignmentQueryId: assignmentQueryInput.id,
-    assignmentQueryIdentifierType: assignmentQueryInput.identifierType,
   };
 
   // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
@@ -115,9 +117,11 @@ export const updateExperiment = createApiRequestHandler(
     }
   }
 
+  /** Stored after this write; undefined leaves the experiment implicit. */
+  let exposureQueryIdentifierType = experiment.exposureQueryIdentifierType;
   if (
     payload.assignmentQueryId !== undefined ||
-    payload.assignmentQueryIdentifierType !== undefined
+    assignmentQueryInput.identifierType !== undefined
   ) {
     if (!datasource) {
       throw new Error("Datasource not found.");
@@ -134,15 +138,17 @@ export const updateExperiment = createApiRequestHandler(
           datasource: datasource.id,
           exposureQueryId:
             payload.assignmentQueryId ?? experiment.exposureQueryId,
-          identifierType: payload.assignmentQueryIdentifierType,
+          identifierType: assignmentQueryInput.identifierType,
         },
-        onOmitted: assignmentQuery ? "requireUnambiguous" : "defaultToFirst",
+        onOmitted: "requireUnambiguous",
         field: "assignmentQuery",
       },
     );
     if (!resolved.ok) throw new Error(resolved.error);
-    payload.assignmentQueryIdentifierType = resolved.identifierType;
+    exposureQueryIdentifierType = resolved.identifierType;
   }
+  const identifierTypeChanged =
+    exposureQueryIdentifierType !== experiment.exposureQueryIdentifierType;
 
   const effectiveIsClusterExperiment =
     payload.isClusterExperiment ?? experiment.isClusterExperiment;
@@ -156,8 +162,7 @@ export const updateExperiment = createApiRequestHandler(
       datasource.settings.queries?.exposure?.find(
         (q) => q.id === effectiveExposureQueryId,
       ),
-      payload.assignmentQueryIdentifierType ??
-        experiment.exposureQueryIdentifierType,
+      exposureQueryIdentifierType,
       payload.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
     );
     if (!clusterValidation.ok) throw new Error(clusterValidation.error);
@@ -323,9 +328,7 @@ export const updateExperiment = createApiRequestHandler(
       payload.datasourceId !== experiment.datasource) ||
     (payload.assignmentQueryId !== undefined &&
       payload.assignmentQueryId !== experiment.exposureQueryId) ||
-    (payload.assignmentQueryIdentifierType !== undefined &&
-      payload.assignmentQueryIdentifierType !==
-        experiment.exposureQueryIdentifierType);
+    identifierTypeChanged;
   if (shouldValidatePrecomputedUnitDimensionIds) {
     const effectivePrecomputedUnitDimensionIds =
       payload.precomputedUnitDimensionIds ??
@@ -337,9 +340,7 @@ export const updateExperiment = createApiRequestHandler(
         datasource,
         exposureQueryId:
           payload.assignmentQueryId ?? experiment.exposureQueryId,
-        exposureQueryIdentifierType:
-          payload.assignmentQueryIdentifierType ??
-          experiment.exposureQueryIdentifierType,
+        exposureQueryIdentifierType,
         dimensionIds: effectivePrecomputedUnitDimensionIds,
       });
     }
@@ -419,21 +420,21 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   const resolvedOwner = await resolveOwnerToUserId(payload.owner, req.context);
-  const changes = updateExperimentApiPayloadToInterface(
-    {
-      ...payload,
-      ...(payload.owner !== undefined && { owner: resolvedOwner ?? "" }),
-    },
-    experiment,
-    map,
-    req.organization,
-  );
+  const changes = {
+    ...updateExperimentApiPayloadToInterface(
+      {
+        ...payload,
+        ...(payload.owner !== undefined && { owner: resolvedOwner ?? "" }),
+      },
+      experiment,
+      map,
+      req.organization,
+    ),
+    // Undefined when the new selection is implicit, which clears the old one.
+    ...(identifierTypeChanged ? { exposureQueryIdentifierType } : {}),
+  };
 
-  normalizeStatusUpdateScheduleChanges(
-    experiment,
-    changes,
-    req.context.userId || undefined,
-  );
+  normalizeStatusUpdateScheduleChanges(experiment, changes, req.context);
 
   // canUpdateExperiment (above) is the analysis-level check. Fields that reach
   // SDK payloads additionally need run-experiments permission in the

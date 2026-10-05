@@ -1,12 +1,9 @@
 import escapeRegExp from "lodash/escapeRegExp";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
-import { ExposureQuery } from "shared/types/datasource";
 import {
   ANCHORED_RAMP_SCHEDULE_STATUSES,
-  ApiRampMonitoringConfig,
   ApiRampScheduleInterface,
-  RampMonitoringConfig,
   RampScheduleInterface,
   RampStartAction,
   RampStepAction,
@@ -22,8 +19,7 @@ import {
   stemRuleId,
   isRampScheduleServing,
   unanchoredRampTargets,
-  flattenExposureQueryInput,
-  toApiAssignmentQueryRef,
+  monitoringConfigToApi,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
@@ -49,7 +45,6 @@ import {
   runLockedRampScheduleAction,
   syncLinkedSafeRolloutForRampState,
   assertValidMonitoringConfigChange,
-  toMonitoringSelection,
   withMonitoringDatasourceKey,
 } from "back-end/src/services/rampSchedule";
 import { applyPagination } from "back-end/src/util/handler";
@@ -60,7 +55,7 @@ import {
 } from "back-end/src/util/errors";
 import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -247,82 +242,10 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
   return doc;
 }
 
-// The API's grouped exposureQuery supersedes the deprecated exposureQueryId; the
-// model stays flat.
-export function apiMonitoringConfigToInternal<
-  T extends {
-    datasourceId: string;
-    exposureQuery?: { id: string; identifierType?: string };
-    exposureQueryId?: string;
-  },
->(
-  mc: T,
-  previous?: Pick<
-    RampMonitoringConfig,
-    "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
-  > | null,
-) {
-  const { exposureQueryId, ...flat } = flattenExposureQueryInput(mc);
-  if (!exposureQueryId) {
-    throw new Error("monitoringConfig.exposureQuery is required");
-  }
-  // The config is replaced whole, so re-sending the same query without an
-  // identifier would otherwise drop the stored one for the legacy default.
-  const keepsIdentifier =
-    !flat.exposureQueryIdentifierType &&
-    !!previous?.exposureQueryIdentifierType &&
-    previous.datasourceId === mc.datasourceId &&
-    previous.exposureQueryId === exposureQueryId;
-  return {
-    ...flat,
-    exposureQueryId,
-    ...(keepsIdentifier
-      ? { exposureQueryIdentifierType: previous.exposureQueryIdentifierType }
-      : {}),
-  };
-}
-
-export async function resolveApiMonitoringConfig<
-  T extends {
-    datasourceId: string;
-    exposureQuery?: { id: string; identifierType?: string };
-    exposureQueryId?: string;
-  },
->(
-  context: ReqContext | ApiReqContext,
-  mc: T,
-  previous: RampMonitoringConfig | null | undefined,
-) {
-  const internal = apiMonitoringConfigToInternal(mc, previous);
-  const { identifierType: exposureQueryIdentifierType } =
-    await resolveAssignmentQueryIdentifier(context, {
-      previous: previous ? toMonitoringSelection(previous) : null,
-      next: toMonitoringSelection(internal),
-      onOmitted: mc.exposureQuery ? "requireUnambiguous" : "defaultToFirst",
-      field: "exposureQuery",
-    });
-  return exposureQueryIdentifierType === undefined
-    ? internal
-    : { ...internal, exposureQueryIdentifierType };
-}
-
-export function monitoringConfigToApi(
-  mc: RampMonitoringConfig,
-  exposureQueries: ExposureQuery[],
-): ApiRampMonitoringConfig {
-  const { exposureQueryIdentifierType, ...rest } = mc;
-  return {
-    ...rest,
-    exposureQuery: toApiAssignmentQueryRef(
-      rest.exposureQueryId,
-      exposureQueryIdentifierType,
-      exposureQueries,
-    ),
-  };
-}
-
-// `context` must have the monitoring data source cached; the model's
-// getForeignKeys does that on every read and write.
+/**
+ * `context` must have the monitoring data source cached; the model's
+ * getForeignKeys does that on every read and write.
+ */
 export function rampScheduleToApiInterface(
   context: ReqContext | ApiReqContext,
   doc: RampScheduleInterface,
@@ -514,7 +437,7 @@ export class RampScheduleModel extends BaseClass {
       doc.monitoringConfig,
     );
   }
-  protected async beforeCreate(doc: RampScheduleInterface) {
+  protected override async beforeCreate(doc: RampScheduleInterface) {
     assertTargetsAnchored(doc, []);
   }
   protected override async customValidation(
@@ -527,7 +450,7 @@ export class RampScheduleModel extends BaseClass {
       doc.monitoringConfig,
     );
   }
-  protected async beforeUpdate(
+  protected override async beforeUpdate(
     existing: RampScheduleInterface,
     updates: UpdateProps<RampScheduleInterface>,
   ) {
@@ -593,7 +516,7 @@ export class RampScheduleModel extends BaseClass {
     );
   }
 
-  protected migrate(legacyDoc: unknown): RampScheduleInterface {
+  protected override migrate(legacyDoc: unknown): RampScheduleInterface {
     const doc = legacyDoc as RampScheduleInterface;
     const endCondMigrated = migrateRampScheduleEndCondition(doc);
     const statusMigrated = migrateRampScheduleStatus(endCondMigrated);
@@ -687,7 +610,7 @@ export class RampScheduleModel extends BaseClass {
     return result;
   }
 
-  protected toApiInterface(
+  protected override toApiInterface(
     doc: RampScheduleInterface,
   ): ApiRampScheduleInterface {
     return rampScheduleToApiInterface(this.context, doc);

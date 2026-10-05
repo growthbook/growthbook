@@ -35,6 +35,7 @@ import {
   analyzeClusterMetricAsRatio,
   getClusterExperimentMetricEligibility,
   ExperimentMetricInterface,
+  withScheduledBy,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -3171,5 +3172,16 @@ describe("getClusterExperimentMetricEligibility", () => {
         } as never,
       }),
     ).toEqual({ allowed: true });
+  });
+});
+
+describe("withScheduledBy", () => {
+  const staged = { type: "start" as const, date: new Date(0) };
+  it.each([
+    ["a user", { userId: "u_1", apiKey: "key_1" }, { scheduledBy: "u_1" }],
+    ["a key", { apiKey: "key_1" }, { scheduledByApiKey: "key_1" }],
+    ["nobody", undefined, staged],
+  ])("stamps %s", (_who, by, expected) => {
+    expect(withScheduledBy(staged, by)).toEqual({ ...staged, ...expected });
   });
 });

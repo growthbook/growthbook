@@ -411,20 +411,29 @@ describe("assertCanUpdateLinkedSafeRolloutMonitoringConfig identifier type", () 
     jest.mocked(getExposureQueriesForDatasource).mockResolvedValue([
       {
         id: "exposure_1",
+        name: "Assignments",
         userIdType: "anonymous_id",
         userIdTypes: ["anonymous_id", "user_id"],
+        query: "",
+        dimensions: [],
       },
-    ] as Awaited<ReturnType<typeof getExposureQueriesForDatasource>>);
+    ]);
   });
 
   it("blocks an identifier change once the SafeRollout has started", async () => {
     const { ctx } = makeContext(startedSafeRollout);
     const schedule = makeSchedule();
     await expect(
-      assertCanUpdateLinkedSafeRolloutMonitoringConfig(ctx as never, schedule, {
-        ...schedule.monitoringConfig!,
-        exposureQueryIdentifierType: "user_id",
-      }),
+      assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+        ctx as Parameters<
+          typeof assertCanUpdateLinkedSafeRolloutMonitoringConfig
+        >[0],
+        schedule,
+        {
+          ...schedule.monitoringConfig!,
+          exposureQueryIdentifierType: "user_id",
+        },
+      ),
     ).rejects.toThrow("identifier type");
   });
 
@@ -432,10 +441,16 @@ describe("assertCanUpdateLinkedSafeRolloutMonitoringConfig identifier type", () 
     const { ctx } = makeContext(startedSafeRollout);
     const schedule = makeSchedule();
     await expect(
-      assertCanUpdateLinkedSafeRolloutMonitoringConfig(ctx as never, schedule, {
-        ...schedule.monitoringConfig!,
-        exposureQueryIdentifierType: "anonymous_id",
-      }),
+      assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+        ctx as Parameters<
+          typeof assertCanUpdateLinkedSafeRolloutMonitoringConfig
+        >[0],
+        schedule,
+        {
+          ...schedule.monitoringConfig!,
+          exposureQueryIdentifierType: "anonymous_id",
+        },
+      ),
     ).resolves.toBeUndefined();
   });
 });

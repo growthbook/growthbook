@@ -3288,9 +3288,12 @@ export function scheduleStagesStatusChange(
 // Stamps who staged a status update so the job can run it on their authority.
 export function withScheduledBy<T extends object>(
   staged: T | null,
-  userId: string | undefined,
-): (T & { scheduledBy?: string }) | null {
-  return staged && userId ? { ...staged, scheduledBy: userId } : staged;
+  by?: { userId?: string; apiKey?: string },
+): (T & { scheduledBy?: string; scheduledByApiKey?: string }) | null {
+  if (!staged) return null;
+  if (by?.userId) return { ...staged, scheduledBy: by.userId };
+  if (by?.apiKey) return { ...staged, scheduledByApiKey: by.apiKey };
+  return staged;
 }
 
 // True when the incoming schedule stages a status change, or a staged one is
