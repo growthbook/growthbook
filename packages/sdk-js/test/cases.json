@@ -3976,6 +3976,46 @@
       }
     ],
     [
+      "a rule with a rollout or filters doesn't end the feature, since it can skip some users",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                { "force": 1, "coverage": 0.5, "hashAttribute": "id" },
+                { "force": 2, "range": [0, 0.5], "hashAttribute": "id" },
+                {
+                  "force": 3,
+                  "filters": [{ "seed": "s", "ranges": [[0, 0.5]] }]
+                },
+                { "force": 4 },
+                { "force": 5 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              { "force": 1, "coverage": 0.5, "hashAttribute": "id" },
+              { "force": 2, "range": [0, 0.5], "hashAttribute": "id" },
+              {
+                "force": 3,
+                "filters": [{ "seed": "s", "ranges": [[0, 0.5]] }]
+              },
+              { "force": 4 }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
       "keeps the undecided part of a rule's condition",
       {
         "payload": {
@@ -4115,7 +4155,7 @@
       }
     ],
     [
-      "reduces auto experiments, keeping one that never matches with a condition that never passes",
+      "reduces auto experiments: one that never matches keeps a condition that never passes, and drops its prerequisites",
       {
         "payload": {
           "features": {},
@@ -4123,7 +4163,10 @@
             {
               "key": "e1",
               "variations": [{}, {}],
-              "condition": { "id": "456" }
+              "condition": { "id": "456" },
+              "parentConditions": [
+                { "id": "parent", "condition": { "value": true } }
+              ]
             },
             {
               "key": "e2",
