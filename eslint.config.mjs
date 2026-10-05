@@ -652,7 +652,14 @@ export default defineConfig([
 
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        // MarkdownLinks.tsx sits next to markdownLinks.ts; on a
+        // case-insensitive FS the project service collapses them and
+        // hard-errors. allowDefaultProject keeps linting the component.
+        projectService: {
+          allowDefaultProject: [
+            "packages/front-end/components/Markdown/MarkdownLinks.tsx",
+          ],
+        },
         tsconfigRootDir: __dirname,
       },
     },

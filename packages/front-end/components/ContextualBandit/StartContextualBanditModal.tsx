@@ -59,13 +59,18 @@ function computeBlockers(
     </Link>
   );
 
-  if (linkedFeatures.length === 0) {
+  if (
+    linkedFeatures.length === 0 &&
+    !cb.hasVisualChangesets &&
+    !cb.hasURLRedirects
+  ) {
     hardBlockerItems.push({
-      key: "no-linked-feature",
+      key: "no-linked-change",
       hardBlock: true,
       display: (
         <>
-          Link at least one Feature Flag before this Contextual Bandit can start
+          Link at least one Feature Flag or Visual Editor change before this
+          Contextual Bandit can start
         </>
       ),
     });

@@ -136,3 +136,17 @@ export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
     mutate,
   };
 }
+
+export function useContextualBanditVisualChangesets(cbId: string | undefined) {
+  const { data, error, mutate } = useRestApi(
+    contextualBanditEndpoints.listContextualBanditVisualChangesets,
+    cbId ? { params: { id: cbId } } : null,
+  );
+
+  return {
+    loading: !!cbId && !error && !data,
+    visualChangesets: data?.visualChangesets ?? [],
+    error,
+    mutate,
+  };
+}

@@ -999,7 +999,9 @@
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBanditVariations",
-                  "api/ContextualBandits/operation/cancelContextualBandit"
+                  "api/ContextualBandits/operation/cancelContextualBandit",
+                  "api/ContextualBandits/operation/listContextualBanditVisualChangesets",
+                  "api/ContextualBandits/operation/postContextualBanditVisualChangesets"
                 ]
               },
               {
@@ -1238,7 +1240,8 @@
               "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
-              "api/VisualChangeset_model"
+              "api/VisualChangeset_model",
+              "api/VisualEditorCbExperimentStub_model"
             ]
           }
         ]
