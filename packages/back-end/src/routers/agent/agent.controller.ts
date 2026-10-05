@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { escapeRegExp } from "lodash";
 import {
   getMessageText,
   type AIChatAssistantMessage,
@@ -47,6 +48,7 @@ Reply with ONLY the complete message: the draft exactly as written, character fo
 Keep the continuation to one short sentence (under 15 words) that completes the thought and ends with a period or question mark. Prefer requests the assistant's skills below can carry out, and use the recent conversation to guess what they want next.
 The user's current page in the GrowthBook app is given as a path: /features/<key> is that feature flag, /experiment/<id> that experiment, /metric/<id> or /fact-metrics/<id> that metric. When the draft says "this experiment", "this flag" or similar, it means the entity on that page.
 Ground the continuation in what this organization actually has, listed below. Refer to those data sources, feature flags, experiments and metrics by their real names. Never invent a metric, flag, experiment or table that isn't listed; if nothing listed fits, keep the continuation generic.
+If the draft ends in the beginning of a name, finish that name from the lists before anything else; entries matching the typed text come first in each list.
 Reply with the draft unchanged if there is no good continuation.`;
 
 const ORG_CONTEXT_LIMIT = 15;
@@ -58,45 +60,105 @@ const ALL_CONTEXT: ContextKind[] = [
   "experiments",
   "metrics",
 ];
-// Which entity lists a page makes relevant. First match wins.
-const PAGE_CONTEXT: ReadonlyArray<[RegExp, ContextKind[]]> = [
-  [
-    /^\/(features|configs|constants|saved-groups|attributes|environments|namespaces|archetypes|sdks)(\/|$)/,
-    ["features"],
-  ],
-  [
-    /^\/(experiments?|bandits?|contextual-bandits?|holdouts?|reports?|learnings|ideas?|power-calculator|presentations?|present)(\/|$)/,
-    ["experiments", "metrics"],
-  ],
-  [
-    /^\/(metrics?|fact-metrics|fact-tables|metric-groups|segments|dimensions|metric-effects|correlations)(\/|$)/,
-    ["metrics", "datasources"],
-  ],
-  [
-    /^\/(product-analytics|datasources|sql-explorer|session-replay)(\/|$)/,
-    ["datasources", "metrics"],
-  ],
+/**
+ * What points at each entity list. `pages` are first path segments and
+ * `words` are things people type or the assistant said; both accept a plural
+ * "s", and a word may be a small regex fragment where plurals are irregular.
+ * To cover a new page or term, add it to the matching group.
+ */
+const CONTEXT_SIGNALS: ReadonlyArray<{
+  kinds: ContextKind[];
+  pages: string[];
+  words: string[];
+}> = [
+  {
+    kinds: ["features"],
+    pages: [
+      "feature",
+      "config",
+      "constant",
+      "saved-group",
+      "attribute",
+      "environment",
+      "namespace",
+      "archetype",
+      "sdk",
+    ],
+    words: [
+      "flag",
+      "feature",
+      "rollout",
+      "targeting",
+      "attribute",
+      "environment",
+    ],
+  },
+  {
+    kinds: ["experiments", "metrics"],
+    pages: [
+      "experiment",
+      "bandit",
+      "contextual-bandit",
+      "holdout",
+      "report",
+      "learning",
+      "idea",
+      "power-calculator",
+      "presentation",
+      "present",
+    ],
+    words: [
+      "experiment",
+      "variation",
+      "bandit",
+      "holdout",
+      "hypothes[ie]s",
+      "result",
+    ],
+  },
+  {
+    kinds: ["metrics", "datasources"],
+    pages: [
+      "metric",
+      "fact-metric",
+      "fact-table",
+      "metric-group",
+      "segment",
+      "dimension",
+      "metric-effect",
+      "correlation",
+    ],
+    words: ["metric", "conversion", "revenue", "funnel", "retention", "kpi"],
+  },
+  {
+    kinds: ["datasources", "metrics"],
+    pages: [
+      "product-analytics",
+      "datasource",
+      "sql-explorer",
+      "session-replay",
+    ],
+    words: [
+      "data ?source",
+      "warehouse",
+      "table",
+      "sql",
+      "quer(?:y|ies)",
+      "dashboard",
+      "chart",
+      "analytic",
+    ],
+  },
 ];
+const SIGNALS = CONTEXT_SIGNALS.map(({ kinds, pages, words }) => ({
+  kinds,
+  page: new RegExp(`^(?:${pages.join("|")})s?$`),
+  words: new RegExp(`\\b(?:${words.join("|")})s?\\b`, "i"),
+}));
 
-// What the draft itself is about, when the page says nothing.
-const DRAFT_CONTEXT: ReadonlyArray<[RegExp, ContextKind[]]> = [
-  [
-    /\b(flags?|features?|rollouts?|targeting|saved groups?|attributes?|environments?)\b/i,
-    ["features"],
-  ],
-  [
-    /\b(experiments?|a\/b|ab tests?|variations?|bandits?|holdouts?|hypothes[ie]s|results)\b/i,
-    ["experiments", "metrics"],
-  ],
-  [
-    /\b(metrics?|conversions?|revenue|funnels?|retention|kpis?)\b/i,
-    ["metrics", "datasources"],
-  ],
-  [
-    /\b(data ?sources?|warehouses?|tables?|sql|quer(y|ies)|dashboards?|charts?|analytics)\b/i,
-    ["datasources", "metrics"],
-  ],
-];
+// Words that introduce a name: "my metric My First Funnel".
+const NAME_LEAD_IN =
+  /\b(?:metric|flag|feature|experiment|data ?source|table)s?\b\s+(.{1,60})$/i;
 
 // Skill domains each entity list belongs to; docs are always worth having.
 const DOMAIN_FOR_KIND: Record<ContextKind, string> = {
@@ -121,16 +183,42 @@ export function contextKindsFor({
   text: string;
   historyText?: string;
 }): ContextKind[] | null {
-  const path = (currentPage ?? "").split("?")[0];
-  const kinds = new Set<ContextKind>(
-    PAGE_CONTEXT.find(([re]) => re.test(path))?.[1] ?? [],
-  );
-  for (const source of [text, historyText]) {
-    DRAFT_CONTEXT.filter(([re]) => re.test(source)).forEach(([, ks]) =>
-      ks.forEach((k) => kinds.add(k)),
-    );
+  const segment = (currentPage ?? "").split("?")[0].split("/")[1] ?? "";
+  const said = `${text} ${historyText}`;
+  const kinds = new Set<ContextKind>();
+  for (const { kinds: ks, page, words } of SIGNALS) {
+    if (page.test(segment) || words.test(said)) ks.forEach((k) => kinds.add(k));
   }
   return kinds.size ? ALL_CONTEXT.filter((k) => kinds.has(k)) : null;
+}
+
+/**
+ * What the user seems to be naming: the words after the last "metric",
+ * "flag", etc., else the last two words. An escaped, case-insensitive prefix
+ * match, which is how Mongo filters on a name.
+ */
+export function nameHintFromDraft(text: string): RegExp | undefined {
+  const lead = text.match(NAME_LEAD_IN)?.[1];
+  const words = (lead ?? text.trim().split(/\s+/).slice(-2).join(" "))
+    .split(/\s+/)
+    .filter((w) => w.length >= 2)
+    .map(escapeRegExp);
+  return words.length
+    ? new RegExp(`\\b(?:${words.join("|")})`, "i")
+    : undefined;
+}
+
+/** Name matches first, then the recent list, de-duplicated and capped. */
+async function namesFirst(
+  fetch: (name?: RegExp) => Promise<string[]>,
+  name: RegExp | undefined,
+  limit: number,
+): Promise<string[]> {
+  const [matches, recent] = await Promise.all([
+    name ? fetch(name) : Promise.resolve([]),
+    fetch(),
+  ]);
+  return [...new Set([...matches, ...recent])].slice(0, limit);
 }
 
 /** Descriptions run to a paragraph; the first sentence is enough to route by. */
@@ -164,9 +252,11 @@ async function orgContextForAutocomplete(
   {
     datasourceId,
     kinds: kindList,
-  }: { datasourceId?: string; kinds: ContextKind[] },
+    nameHint,
+  }: { datasourceId?: string; kinds: ContextKind[]; nameHint?: RegExp },
 ): Promise<string> {
   const kinds = new Set(kindList);
+  const limit = ORG_CONTEXT_LIMIT;
   // Lets the feature and metric lookups filter by read access in Mongo, so
   // their limits stay bounded on large catalogs. null means every project.
   const readableProjects =
@@ -183,30 +273,52 @@ async function orgContextForAutocomplete(
     await Promise.all([
       want("datasources", () => getDataSourcesByOrganization(context)),
       want("features", () =>
-        getRecentFeatureIds(context, {
-          limit: ORG_CONTEXT_LIMIT,
-          readableProjects,
-        }),
+        namesFirst(
+          (name) =>
+            getRecentFeatureIds(context, { limit, readableProjects, name }),
+          nameHint,
+          limit,
+        ),
       ),
       want("experiments", () =>
-        getAllExperiments(context, {
-          limit: ORG_CONTEXT_LIMIT,
-          sortBy: { dateUpdated: -1 },
-        }),
+        namesFirst(
+          async (name) =>
+            (
+              await getAllExperiments(context, {
+                limit,
+                sortBy: { dateUpdated: -1 },
+                name,
+              })
+            ).map((e) => e.name),
+          nameHint,
+          limit,
+        ),
       ),
       want("metrics", () =>
-        context.models.factMetrics.getRecentNamesForPrompt({
-          limit: ORG_CONTEXT_LIMIT,
-          datasourceId,
-          readableProjects,
-        }),
+        namesFirst(
+          (name) =>
+            context.models.factMetrics.getRecentNamesForPrompt({
+              limit,
+              datasourceId,
+              readableProjects,
+              name,
+            }),
+          nameHint,
+          limit,
+        ),
       ),
       want("metrics", () =>
-        getRecentMetricNames(context, {
-          limit: ORG_CONTEXT_LIMIT,
-          datasourceId,
-          readableProjects,
-        }),
+        namesFirst(
+          (name) =>
+            getRecentMetricNames(context, {
+              limit,
+              datasourceId,
+              readableProjects,
+              name,
+            }),
+          nameHint,
+          limit,
+        ),
       ),
     ]);
   const line = (label: string, names: string[] | null) =>
@@ -216,7 +328,7 @@ async function orgContextForAutocomplete(
   return [
     line("Data sources", datasources && datasources.map((d) => d.name)),
     line("Feature flags", features),
-    line("Experiments", experiments && experiments.map((e) => e.name)),
+    line("Experiments", experiments),
     line("Fact metrics", factMetrics),
     line("Legacy metrics", legacyMetrics),
   ]
@@ -230,7 +342,7 @@ async function orgContextForAutocomplete(
  */
 export function cleanCompletion(raw: string, draft: string): string {
   const full = raw
-    .replace(/\s+$/, "")
+    .trimEnd()
     .replace(/^\s*["'“”`]+|["'“”`]+$/g, "")
     .trimStart();
   const d = draft.trimStart();
@@ -247,12 +359,12 @@ export function cleanCompletion(raw: string, draft: string): string {
   // No echo: the model sent just a continuation, so assume it starts a new word.
   const out = echoed
     ? full.slice(d.length)
-    : /\S$/.test(d) && /^\S/.test(full)
+    : d && d === d.trimEnd() && full
       ? ` ${full}`
       : full;
-  const one = out.split("\n")[0].slice(0, 200).replace(/\s+$/, "");
+  const one = out.split("\n")[0].slice(0, 200).trimEnd();
   // Always a finished sentence, so what Tab inserts is ready to send.
-  return one && !/[.?!]$/.test(one) ? `${one}.` : one;
+  return one && !".?!".includes(one.slice(-1)) ? `${one}.` : one;
 }
 
 export const postAutocomplete = async (
@@ -307,6 +419,7 @@ export const postAutocomplete = async (
   const orgContext = await orgContextForAutocomplete(context, {
     datasourceId,
     kinds,
+    nameHint: nameHintFromDraft(text),
   });
   // Only enabled skills in the domains the context points at.
   const skills = skillsForPrompt(context.org, kinds);

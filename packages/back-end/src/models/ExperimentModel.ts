@@ -526,6 +526,7 @@ export async function getAllExperiments(
     status,
     sortBy,
     limit,
+    name,
   }: {
     project?: string;
     includeArchived?: boolean;
@@ -541,10 +542,13 @@ export async function getAllExperiments(
     // it, large orgs materialize the full result set (each row carries
     // a potentially large analysis blob).
     limit?: number;
+    /** Only names matching this, e.g. what the user has typed so far. */
+    name?: RegExp;
   } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
+    ...(name ? { name } : {}),
   };
 
   if (project) {

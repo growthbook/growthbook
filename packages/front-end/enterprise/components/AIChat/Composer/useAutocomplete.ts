@@ -129,7 +129,12 @@ export function useAutocomplete({
   // The same hints the chat request sends: the page, so "this experiment"
   // resolves to the one on screen, and the active PA datasource to scope metrics.
   const currentPage = useRouter().asPath.slice(0, 2048);
-  const datasourceId = useDefaultDataSourceId();
+  // The explorer's data source is a real selection only on PA pages; elsewhere
+  // it falls back to the org's first data source and would hide other metrics.
+  const explorerDatasourceId = useDefaultDataSourceId();
+  const datasourceId = currentPage.startsWith("/product-analytics")
+    ? explorerDatasourceId
+    : undefined;
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const pausedUntil = useRef(0);
   const stopped = useRef(false);

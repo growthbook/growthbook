@@ -715,19 +715,25 @@ export async function getRecentFeatureIds(
   {
     limit,
     readableProjects,
+    name,
   }: {
     limit: number;
     /** From `getProjectsWithPermission`; null means every project. */
     readableProjects: string[] | null;
+    /** Only keys matching this, e.g. what the user has typed so far. */
+    name?: RegExp;
   },
 ): Promise<string[]> {
   if (readableProjects?.length === 0) return [];
   // The allowlist pre-filters in Mongo so the limit stays bounded; the
   // permission check below is still the authority.
   const docs = await FeatureModel.find(
-    featureListQuery(context.org.id, {
-      projectIds: readableProjects ?? undefined,
-    }),
+    {
+      ...featureListQuery(context.org.id, {
+        projectIds: readableProjects ?? undefined,
+      }),
+      ...(name ? { id: name } : {}),
+    },
     {
       _id: 0,
       id: 1,

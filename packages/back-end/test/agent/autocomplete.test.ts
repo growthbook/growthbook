@@ -2,6 +2,7 @@ import {
   cleanCompletion,
   contextKindsFor,
   firstSentence,
+  nameHintFromDraft,
 } from "back-end/src/routers/agent/agent.controller";
 
 describe("cleanCompletion", () => {
@@ -106,5 +107,21 @@ describe("firstSentence", () => {
       firstSentence("Chart product data. Build dashboards. Use for X."),
     ).toBe("Chart product data.");
     expect(firstSentence("x".repeat(200))).toHaveLength(160);
+  });
+});
+
+describe("nameHintFromDraft", () => {
+  it("takes what follows the entity word and matches names starting with it", () => {
+    const hint = nameHintFromDraft("For my metric My");
+    expect(hint?.test("My First Funnel")).toBe(true);
+    expect(hint?.test("Session Duration")).toBe(false);
+  });
+  it("falls back to the last two words and escapes regex characters", () => {
+    const hint = nameHintFromDraft("show me checkout (v2");
+    expect(hint?.source).toContain("\\(v2");
+    expect(hint?.test("checkout (v2) rollout")).toBe(true);
+  });
+  it("returns nothing for a draft with no usable word", () => {
+    expect(nameHintFromDraft("a")).toBeUndefined();
   });
 });
