@@ -143,17 +143,18 @@ async function notifySdkPayloadSize(
 
   if (!eventId) return false;
   if (!isEmailEnabled()) return true;
-  try {
-    await sendSdkPayloadSizeEmail({
-      emails: await getAdminEmails(context),
-      connectionId: connection.id,
-      connectionName: connection.name,
-      message,
-      recommendations: recommendations.map((r) => r.message),
-    });
-  } catch (e) {
-    logger.error(e, "Failed to send SDK payload size email");
-  }
+  // Not awaited, so a slow mail server doesn't hold up the cache write
+  void getAdminEmails(context)
+    .then((emails) =>
+      sendSdkPayloadSizeEmail({
+        emails,
+        connectionId: connection.id,
+        connectionName: connection.name,
+        message,
+        recommendations: recommendations.map((r) => r.message),
+      }),
+    )
+    .catch((e) => logger.error(e, "Failed to send SDK payload size email"));
   return true;
 }
 
