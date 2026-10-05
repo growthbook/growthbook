@@ -11,6 +11,7 @@ import {
   DragOverlay,
   closestCenter,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   useSensor,
   useSensors,
@@ -460,6 +461,8 @@ export default function RuleList(props: RuleListProps) {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        // Rules off screen render as they scroll in, changing height mid-drag
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragEnd={async ({ active, over }) => {
           if (!canEdit) {
             setActiveId(null);

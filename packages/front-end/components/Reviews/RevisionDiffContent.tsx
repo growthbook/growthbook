@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import {
@@ -78,10 +77,6 @@ export function RevisionDiffContent({
     customRender: d.customRender ?? null,
   }));
 
-  // Always-mounted, offscreen copy of the formatted render so "Copy as →
-  // Formatted changes" reads its innerText regardless of the active view.
-  const formattedRef = useRef<HTMLDivElement>(null);
-
   if (diffsWithChanges.length === 0) {
     return (
       <Box p="4">
@@ -108,30 +103,11 @@ export function RevisionDiffContent({
                 entityNoun={entityNoun}
                 diffs={copyDiffs}
                 raw={raw}
-                formattedRef={formattedRef}
+                formattedChanges={<FormattedChanges diffs={formattedItems} />}
               />
             </Box>
           )}
         </Flex>
-      )}
-
-      {/* Offscreen render used purely as the source for "Copy as → Formatted
-          changes" innerText; kept mounted in every view (mirrors the feature
-          DiffContent). */}
-      {showCopyAs && (
-        <Box
-          ref={formattedRef}
-          aria-hidden
-          style={{
-            position: "absolute",
-            left: -99999,
-            top: 0,
-            width: 800,
-            pointerEvents: "none",
-          }}
-        >
-          <FormattedChanges diffs={formattedItems} />
-        </Box>
       )}
 
       {effective === "raw" && raw ? (
