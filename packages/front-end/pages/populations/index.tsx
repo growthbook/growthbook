@@ -2,21 +2,13 @@ import { useCallback, useState } from "react";
 import { ago, datetime } from "shared/dates";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
-import { populationEndpoints } from "shared/api-endpoints";
-import { ApiPopulation } from "shared/validators";
 import { getPopulationStepsLabel } from "shared/populations";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiDotsThreeVertical } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
 import Table, {
   TableBody,
   TableCell,
@@ -32,9 +24,8 @@ import Owner from "@/components/Avatar/Owner";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import { useRestApiCall } from "@/services/restApi";
 import { usePopulations } from "@/hooks/usePopulations";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import Custom404 from "@/pages/404";
 
 const ALL_DATASOURCES = "__all__";
@@ -175,7 +166,9 @@ export default function PopulationsPage() {
                 <TableRow key={p.id}>
                   <TableCell>
                     <Flex direction="column">
-                      <Text weight="medium">{p.name}</Text>
+                      <Link href={`/populations/${p.id}`} weight="medium">
+                        {p.name}
+                      </Link>
                       {p.description && (
                         <Text size="sm" color="text-low">
                           {p.description}
@@ -191,7 +184,11 @@ export default function PopulationsPage() {
                     <Owner ownerId={p.owner} />
                   </TableCell>
                   <TableCell style={{ width: 40 }}>
-                    <PopulationRowMenu population={p} onChange={mutate} />
+                    <PopulationMoreMenu
+                      population={p}
+                      onDuplicated={() => mutate()}
+                      onDeleted={() => mutate()}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -207,87 +204,5 @@ export default function PopulationsPage() {
         </>
       )}
     </Box>
-  );
-}
-
-function PopulationRowMenu({
-  population,
-  onChange,
-}: {
-  population: ApiPopulation;
-  onChange: () => Promise<unknown>;
-}) {
-  const [open, setOpen] = useState(false);
-  const restApiCall = useRestApiCall();
-  const permissionsUtil = usePermissionsUtil();
-
-  const canDuplicate = permissionsUtil.canCreateSegment({
-    projects: population.projects,
-  });
-  const canDelete = permissionsUtil.canDeleteSegment(population);
-  if (!canDuplicate && !canDelete) return null;
-
-  return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={setOpen}
-      trigger={
-        <IconButton
-          variant="ghost"
-          color="gray"
-          radius="full"
-          size="2"
-          highContrast
-          aria-label="Population actions"
-        >
-          <PiDotsThreeVertical size={18} />
-        </IconButton>
-      }
-      menuPlacement="end"
-      variant="soft"
-    >
-      {canDuplicate && (
-        <DropdownMenuItem
-          onClick={async () => {
-            await restApiCall(populationEndpoints.createPopulation, {
-              body: {
-                name: `${population.name} (copy)`,
-                description: population.description,
-                projects: population.projects,
-                datasource: population.datasource,
-                userIdTypes: population.userIdTypes,
-                steps: population.steps,
-              },
-            });
-            await onChange();
-            setOpen(false);
-          }}
-        >
-          Duplicate
-        </DropdownMenuItem>
-      )}
-      {canDuplicate && canDelete && <DropdownMenuSeparator />}
-      {canDelete && (
-        <DropdownMenuItem
-          color="red"
-          confirmation={{
-            confirmationTitle: "Delete Population",
-            cta: "Delete",
-            ctaColor: "red",
-            getConfirmationContent: async () =>
-              `Are you sure you want to delete "${population.name}"? This can't be undone.`,
-            submit: async () => {
-              await restApiCall(populationEndpoints.deletePopulation, {
-                params: { id: population.id },
-              });
-              await onChange();
-            },
-            closeDropdown: () => setOpen(false),
-          }}
-        >
-          Delete
-        </DropdownMenuItem>
-      )}
-    </DropdownMenu>
   );
 }
