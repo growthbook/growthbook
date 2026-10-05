@@ -56,6 +56,8 @@ export const contextualBicTrajectoryEntryValidator = z.object({
   logLikelihoodRatio: z.number(),
   penalty: z.number(),
   deltaBic: z.number(),
+  numCandidates: z.number().int().nonnegative().optional(),
+  multiplicityPenalty: z.number().optional(),
 });
 export type ContextualBicTrajectoryEntryInterface = z.infer<
   typeof contextualBicTrajectoryEntryValidator

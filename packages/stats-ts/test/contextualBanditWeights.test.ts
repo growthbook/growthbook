@@ -572,9 +572,52 @@ describe("computeContextualBanditWeights", () => {
     const bic = result.bic_trajectory![0];
     // The split reduces SSE, so the likelihood ratio is positive.
     expect(bic.logLikelihoodRatio).toBeGreaterThan(0);
-    // K = 2 variations, N = 800 total users => penalty = 2 * ln(800).
-    expect(bic.penalty).toBeCloseTo(2 * Math.log(800), 6);
+    // Base BIC penalty: K = 2 variations, N = 800 total users => 2 * ln(800).
+    // Default gamma = 0, so there is no multiplicity penalty, but M is still
+    // recorded: M = numItems = 2 categories (US, CA) on the `country` attribute.
+    const basePenalty = 2 * Math.log(800);
+    expect(bic.numCandidates).toBe(2);
+    expect(bic.multiplicityPenalty).toBeCloseTo(0, 6);
+    expect(bic.penalty).toBeCloseTo(basePenalty, 6);
     expect(bic.deltaBic).toBeCloseTo(bic.penalty - bic.logLikelihoodRatio, 6);
+  });
+
+  it("adds the EBIC multiplicity penalty when gamma > 0", () => {
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("CA", 0, 200, 2),
+      countryObs("CA", 1, 200, 1),
+    ];
+
+    const gamma0 = computeContextualBanditWeights(input(data));
+    const gamma1 = computeContextualBanditWeights({
+      ...input(data),
+      ebicGamma: 1,
+    });
+
+    const bic0 = gamma0.bic_trajectory![0];
+    const bic1 = gamma1.bic_trajectory![0];
+
+    // M (candidates searched) is independent of gamma: 2 categories (US, CA)
+    // on the single `country` attribute of the root leaf.
+    expect(bic0.numCandidates).toBe(2);
+    expect(bic1.numCandidates).toBe(2);
+
+    // gamma = 0 => no multiplicity penalty; gamma = 1 => 2 * ln(M).
+    const expectedMultiplicity = 2 * Math.log(2);
+    expect(bic0.multiplicityPenalty).toBeCloseTo(0, 6);
+    expect(bic1.multiplicityPenalty).toBeCloseTo(expectedMultiplicity, 6);
+
+    // The likelihood ratio depends only on the data, so it is unchanged across
+    // gamma; only the penalty (and thus deltaBic) grows by the multiplicity term.
+    expect(bic1.logLikelihoodRatio).toBeCloseTo(bic0.logLikelihoodRatio, 6);
+    expect(bic1.penalty).toBeCloseTo(bic0.penalty + expectedMultiplicity, 6);
+    expect(bic1.deltaBic).toBeCloseTo(bic0.deltaBic + expectedMultiplicity, 6);
+    expect(bic1.deltaBic).toBeCloseTo(
+      bic1.penalty - bic1.logLikelihoodRatio,
+      6,
+    );
   });
 
   it("produces no BIC entries when the tree does not split", () => {
