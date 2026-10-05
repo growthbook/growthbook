@@ -20,6 +20,7 @@ import {
   withReadablePayloadBreakdowns,
 } from "back-end/src/services/sdkPayloadSize";
 import { getFeatureMetaInfoByIds } from "back-end/src/models/FeatureModel";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 
 jest.mock("back-end/src/models/EventModel", () => ({ createEvent: jest.fn() }));
@@ -27,6 +28,9 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   findSDKConnectionsWithPayloadOver: jest.fn(),
   setSDKConnectionPayloadSize: jest.fn(),
   claimSDKConnectionNotifiedPayloadSizeLevel: jest.fn(),
+}));
+jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
+  getSDKPayloadCacheLocation: jest.fn(),
 }));
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeatureMetaInfoByIds: jest.fn(),
@@ -71,6 +75,7 @@ beforeEach(() => {
   jest
     .mocked(claimSDKConnectionNotifiedPayloadSizeLevel)
     .mockResolvedValue(true);
+  jest.mocked(getSDKPayloadCacheLocation).mockReturnValue("mongo");
   jest.mocked(isEmailEnabled).mockReturnValue(true);
   jest.mocked(createEvent).mockResolvedValue("event-1");
   jest
@@ -204,12 +209,8 @@ it("keeps only the Feature Flags and Saved Groups the viewer can read", async ()
 });
 
 it("measures and shows nothing when payloads aren't cached", async () => {
-  process.env.SDK_PAYLOAD_CACHE = "none";
-  try {
-    expect(await getSdkPayloadSizeLimitBytes()).toBeNull();
-    expect(await getSdkPayloadSizeAlerts(context)).toEqual([]);
-    expect(findSDKConnectionsWithPayloadOver).not.toHaveBeenCalled();
-  } finally {
-    delete process.env.SDK_PAYLOAD_CACHE;
-  }
+  jest.mocked(getSDKPayloadCacheLocation).mockReturnValue("none");
+  expect(await getSdkPayloadSizeLimitBytes()).toBeNull();
+  expect(await getSdkPayloadSizeAlerts(context)).toEqual([]);
+  expect(findSDKConnectionsWithPayloadOver).not.toHaveBeenCalled();
 });
