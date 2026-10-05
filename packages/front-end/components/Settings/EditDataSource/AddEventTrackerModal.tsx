@@ -161,6 +161,14 @@ export default function AddEventTrackerModal({
           />
         </Box>
 
+        {options.length > 0 && (
+          <Text as="p">
+            Below are the typical defaults for {label}.{" "}
+            {options.length === 1 ? "The value is" : "These values are"} used to
+            generate the queries, which you can adjust as needed at any time.
+          </Text>
+        )}
+
         {options.map((option) => (
           <TextField
             key={option.name}
