@@ -103,11 +103,7 @@ export function pruneCondition(
     // $not and $nor fail when what they hold passes
     else if (r === (k === "$not" || k === "$nor")) return false;
   }
-  const keys = Object.keys(out);
-  if (!keys.length) return true;
-  // A lone $and/$or with one condition left is just that condition
-  const list = keys.length === 1 && (out.$and || out.$or);
-  return list && list.length === 1 ? list[0] : out;
+  return Object.keys(out).length ? out : true;
 }
 
 // Prune an $or (or an $and) list. Returns the conditions still undecided, or

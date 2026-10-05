@@ -1377,23 +1377,25 @@ export function reducePayload(
   filters?: PayloadFilters,
 ): FeatureApiResponse {
   const attributes = getAttributes(ctx.user);
-  const forced = getForcedFeatureValues(ctx);
   const savedGroups = ctx.global.savedGroups || {};
   const allFeatures = ctx.global.features || {};
   // Without a prototype, keys like `constructor` or `__proto__` are plain keys
   const features: FeatureDefinitions = Object.create(null);
   const groups: SavedGroupsPayload = Object.create(null);
 
-  // `want` is one value or an array, and any one of them has to be in `actual`
+  const { projects, tags, customFields = {} } = filters || {};
+
+  // Only an array counts, as with `$in`, and any one of its values is enough
   const has = (actual: unknown, want: unknown) =>
-    isIn(actual, Array.isArray(want) ? want : [want]);
+    Array.isArray(want) && isIn(actual, want);
 
   // An absent `projects` means all projects, unlike absent tags or custom fields
+  const inProjects = (meta?: PayloadMetadata) =>
+    !projects || !meta || !meta.projects || has(meta.projects, projects);
   const matches = (meta?: PayloadMetadata) => {
-    const { projects, tags, customFields = {} } = filters || {};
     const m = meta || {};
     return (
-      (!projects || !m.projects || has(m.projects, projects)) &&
+      inProjects(m) &&
       (!tags || has(m.tags, tags)) &&
       Object.keys(customFields).every((k) =>
         has((m.customFields || {})[k], customFields[k]),
@@ -1401,36 +1403,8 @@ export function reducePayload(
     );
   };
 
-  // undefined while a feature is being reduced, so a cycle stays undecided.
-  // null for a feature that is absent or always blocked: both evaluate to null.
-  const reduced: Record<string, FeatureDefinition | null | undefined> =
-    Object.create(null);
-
-  // Applies to everyone who reaches it, so no later rule ever runs. One with
-  // `tracks` still has to run on the client to fire them.
-  const isFinal = (rule: FeatureRule) =>
-    "force" in rule &&
-    !rule.condition &&
-    !rule.parentConditions &&
-    !rule.filters &&
-    !rule.range &&
-    rule.coverage === undefined &&
-    !rule.tracks;
-
-  // A feature's value, if everyone who agrees with the known attributes gets it
-  const known = (id: string): [unknown] | undefined => {
-    // A forced value can change on the client, so leave those to it
-    if (forced.has(id)) return;
-    const feature = reduce(id);
-    if (feature === undefined) return;
-    if (!feature) return [null];
-    const rule = (feature.rules || [])[0];
-    if (!rule) return [feature.defaultValue ?? null];
-    if (isFinal(rule)) return [rule.force];
-  };
-
-  // null when the item never applies, false when a rule blocks its feature
-  // whenever it is reached, otherwise the item minus its decided parts
+  // Reduces a rule, or an auto experiment when `rule` is false. Returns null
+  // when nothing of it runs.
   const prune = <
     T extends {
       condition?: ConditionInterface;
@@ -1441,98 +1415,65 @@ export function reducePayload(
   >(
     item: T,
     rule?: boolean,
-  ): T | null | false => {
-    const parents: ParentConditionInterface[] = [];
-    let never = false;
-    for (const p of item.parentConditions || []) {
-      const value = known(p.id);
-      if (!value) parents.push(p);
-      else if (
-        !evalCondition({ value: value[0] }, p.condition || {}, savedGroups)
-      ) {
-        // An auto experiment never matches. A rule still runs any undecided
-        // ones first.
-        if (!rule) {
-          never = true;
-          break;
-        }
-        if (!parents.length) return p.gate ? false : null;
-        parents.push(p);
-        break;
-      }
-    }
-    // Without a value to return, only its prerequisites could matter
+  ): T | null => {
+    const condition = item.condition
+      ? pruneCondition(attributes, item.condition, savedGroups)
+      : null;
+    // A rule that never applies keeps only its prerequisite checks, so the
+    // parents' usage is still tracked. An experiment rule stays, since sticky
+    // buckets skip its condition.
     if (
       rule &&
-      !parents.length &&
-      !("force" in item) &&
-      !item.variations &&
-      !item.contextualVariations
+      (!("force" in item || item.variations || item.contextualVariations) ||
+        (condition === false && "force" in item))
     )
-      return null;
-    const condition = never
-      ? false
-      : item.condition
-        ? pruneCondition(attributes, item.condition, savedGroups)
+      return item.parentConditions && item.parentConditions.length
+        ? ({ parentConditions: item.parentConditions } as T)
         : null;
-    // A force rule that never applies goes, unless a gate it runs first could
-    // still block the feature. Experiments stay, since sticky buckets and
-    // forced variations skip the condition.
-    if (
-      condition === false &&
-      rule &&
-      "force" in item &&
-      !parents.some((p) => p.gate)
-    )
-      return null;
-    item = { ...item, parentConditions: parents };
+    item = { ...item };
     // An auto experiment checks its prerequisites after its condition
-    if (!parents.length || (condition === false && !rule))
-      delete item.parentConditions;
+    if (condition === false && !rule) delete item.parentConditions;
     if (condition === true) delete item.condition;
     else if (condition === false) item.condition = { $not: {} };
     else if (condition) item.condition = condition;
     return item;
   };
 
-  function reduce(id: string) {
-    if (!(id in reduced)) {
-      reduced[id] = undefined;
-      const feature = hasOwn(allFeatures, id) && allFeatures[id];
-      const rules: FeatureRule[] = [];
-      let blocked = false;
-      for (const rule of (feature && feature.rules) || []) {
-        const r = prune(rule, true);
-        if (r === false) {
-          // No later rule runs, and with none before it the value is null
-          if (rules.length) rules.push(rule);
-          else blocked = true;
-          break;
-        }
-        if (r) {
-          rules.push(r);
-          if (isFinal(r)) break;
-        }
-      }
-      reduced[id] =
-        !feature || blocked
-          ? null
-          : feature.rules
-            ? { ...feature, rules }
-            : feature;
+  function reduce(feature: FeatureDefinition): FeatureDefinition {
+    if (!feature.rules) return feature;
+    // Rules scoped to other projects aren't served. A prerequisite carried
+    // from another project keeps its own, as on the server.
+    const scoped = inProjects(feature.metadata);
+    const rules: FeatureRule[] = [];
+    for (const rule of feature.rules) {
+      if (scoped && !inProjects(rule.metadata)) continue;
+      const r = prune(rule, true);
+      if (!r) continue;
+      rules.push(r);
+      // Nothing after a rule that applies to everyone runs
+      if (
+        "force" in r &&
+        !r.condition &&
+        !r.parentConditions &&
+        !r.filters &&
+        !r.range &&
+        r.coverage === undefined
+      )
+        break;
     }
-    return reduced[id];
+    return { ...feature, rules };
   }
 
-  // Prerequisites still in use travel with what needs them, as on the server
+  // Prerequisites travel with what needs them, as on the server
   const addParents = (item: {
     parentConditions?: ParentConditionInterface[];
   }) => (item.parentConditions || []).forEach((p) => add(p.id));
   function add(id: string) {
-    const feature = reduce(id);
+    const feature = hasOwn(allFeatures, id) && allFeatures[id];
     if (feature && !features[id]) {
-      features[id] = feature;
-      (feature.rules || []).forEach(addParents);
+      // Added before its parents, so a prerequisite cycle ends
+      features[id] = reduce(feature);
+      (features[id].rules || []).forEach(addParents);
     }
   }
 
@@ -1541,8 +1482,7 @@ export function reducePayload(
   }
   const experiments = (ctx.global.experiments || [])
     .filter((e) => matches(e.metadata))
-    .map((e) => prune(e))
-    .filter(Boolean) as AutoExperiment[];
+    .map((e) => prune(e)) as AutoExperiment[];
   experiments.forEach(addParents);
 
   // Keep only the saved groups still referenced, with condition groups reduced

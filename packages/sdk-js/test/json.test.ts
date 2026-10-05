@@ -52,7 +52,6 @@ type Cases = {
       payload: FeatureApiResponse;
       globalAttributes?: Record<string, any>;
       attributes?: Record<string, any>;
-      forcedFeatures?: Record<string, any>;
       filters?: PayloadFilters;
     },
     FeatureApiResponse,
@@ -154,20 +153,12 @@ describe("json test suite", () => {
 
   it.each((cases as Cases).reducePayload)(
     "reducePayload[%#] %s",
-    (
-      name,
-      { payload, globalAttributes, attributes, forcedFeatures, filters },
-      expected,
-    ) => {
+    (name, { payload, globalAttributes, attributes, filters }, expected) => {
       const gb = new GrowthBookClient({ globalAttributes }).initSync({
         payload,
       });
-      const forcedFeatureValues = new Map(Object.entries(forcedFeatures || {}));
       expect(
-        gb.reducePayload({
-          userContext: { attributes, forcedFeatureValues },
-          filters,
-        }),
+        gb.reducePayload({ userContext: { attributes }, filters }),
       ).toEqual(expected);
       gb.destroy();
     },

@@ -498,8 +498,6 @@ describe("GrowthBookClient", () => {
       reduced.destroy();
       return values;
     };
-    const prerequisite = [{ id: "parent", condition: { value: true } }];
-
     it("Keeps experiments that no longer match, for sticky buckets", () => {
       const user: UserContext = {
         attributes: { id: "u", country: "US" },
@@ -525,64 +523,6 @@ describe("GrowthBookClient", () => {
       );
       expect(full).toEqual("B");
       expect(reduced).toEqual(full);
-    });
-
-    it("Keeps prerequisites on parents forced for the user", () => {
-      const user: UserContext = {
-        forcedFeatureValues: new Map([["parent", true]]),
-      };
-      const [full, reduced] = compare(
-        {
-          features: {
-            parent: { defaultValue: false },
-            child: {
-              defaultValue: false,
-              rules: [{ force: true, parentConditions: prerequisite }],
-            },
-          },
-        },
-        user,
-        user,
-      );
-      expect(full).toEqual(true);
-      expect(reduced).toEqual(full);
-    });
-
-    it("Keeps prerequisites on parents with tracks, so they still fire", () => {
-      const trackingCallback = jest.fn();
-      const tracks: FeatureRule["tracks"] = [
-        {
-          experiment: { key: "exp", variations: [false, true] },
-          result: {
-            value: true,
-            variationId: 1,
-            key: "1",
-            inExperiment: true,
-            hashUsed: true,
-            hashAttribute: "id",
-            hashValue: "u",
-            featureId: "parent",
-          },
-        },
-      ];
-      const full = new GrowthBookClient().initSync({
-        payload: {
-          features: {
-            parent: { rules: [{ force: true, tracks }] },
-            child: {
-              defaultValue: false,
-              rules: [{ force: true, parentConditions: prerequisite }],
-            },
-          },
-        },
-      });
-      const reduced = new GrowthBookClient({ trackingCallback }).initSync({
-        payload: full.reducePayload(),
-      });
-      reduced.evalFeature("child", { attributes: { id: "u" } });
-      expect(trackingCallback).toHaveBeenCalledTimes(1);
-      full.destroy();
-      reduced.destroy();
     });
 
     it("Reduces payloads with the saved groups and bandits it evaluates with", () => {

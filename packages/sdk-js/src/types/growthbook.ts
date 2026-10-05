@@ -50,6 +50,7 @@ export type FeatureRule<T = any> = {
   }>;
   contextualBanditRef?: string;
   contextualVariations?: T[];
+  metadata?: PayloadMetadata;
 };
 
 export type ContextualBanditDefinition = {
@@ -514,11 +515,11 @@ export type FeatureApiResponse = {
 // Alias
 export type GrowthBookPayload = FeatureApiResponse;
 
-/** Each value is one value or an array, where any one of them is enough */
+/** Each filter is an array, and any one of its values is enough */
 export type PayloadFilters = {
-  projects?: string | string[];
-  tags?: string | string[];
-  customFields?: Record<string, unknown>;
+  projects?: string[];
+  tags?: string[];
+  customFields?: Record<string, unknown[]>;
 };
 
 export type ReducePayloadOptions = {

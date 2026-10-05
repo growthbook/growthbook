@@ -3615,10 +3615,10 @@
       { "$or": [{ "country": "US" }, { "browser": "chrome" }] }
     ],
     [
-      "$or with one condition left becomes that condition",
+      "$or with one condition left stays an $or",
       { "$or": [{ "id": "456" }, { "country": "US" }] },
       { "id": "123" },
-      { "country": "US" }
+      { "$or": [{ "country": "US" }] }
     ],
     [
       "$or fails when every condition fails",
@@ -3660,7 +3660,7 @@
       "$and drops conditions that pass",
       { "$and": [{ "$not": { "id": "456" } }, { "country": "US" }] },
       { "id": "123" },
-      { "country": "US" }
+      { "$and": [{ "country": "US" }] }
     ],
     [
       "$and fails once a known condition fails",
@@ -3704,7 +3704,7 @@
       "$not keeps its pruned condition",
       { "$not": { "$and": [{ "id": "123" }, { "country": "US" }] } },
       { "id": "123" },
-      { "$not": { "country": "US" } }
+      { "$not": { "$and": [{ "country": "US" }] } }
     ],
     [
       "prunes nested conditions",
@@ -3715,7 +3715,7 @@
         ]
       },
       { "id": "123" },
-      { "country": "US" }
+      { "$or": [{ "$and": [{ "country": "US" }] }] }
     ],
     [
       "$inGroup on a known attribute is decided",
@@ -3780,7 +3780,7 @@
         "$and": [{ "$savedGroup": { "id": "grp_list" } }, { "country": "US" }]
       },
       { "country": "US" },
-      { "$savedGroup": { "id": "grp_list" } },
+      { "$and": [{ "$savedGroup": { "id": "grp_list" } }] },
       {
         "grp_list": {
           "type": "list",
@@ -4000,7 +4000,7 @@
       }
     ],
     [
-      "keeps a rule that never passes when it has a gate, since the gate runs first, and shrinks its condition",
+      "a rule that never applies keeps only its prerequisite checks, since a gate could still block",
       {
         "payload": {
           "features": {
@@ -4034,15 +4034,13 @@
             "defaultValue": 0,
             "rules": [
               {
-                "condition": { "$not": {} },
                 "parentConditions": [
                   {
                     "id": "parent",
                     "condition": { "value": true },
                     "gate": true
                   }
-                ],
-                "force": 1
+                ]
               }
             ]
           },
@@ -4156,7 +4154,7 @@
             "f3": { "defaultValue": 3 }
           }
         },
-        "filters": { "projects": "p1" }
+        "filters": { "projects": ["p1"] }
       },
       {
         "features": {
@@ -4207,7 +4205,7 @@
             "f4": { "defaultValue": 4 }
           }
         },
-        "filters": { "customFields": { "app": "web" } }
+        "filters": { "customFields": { "app": ["web"] } }
       },
       {
         "features": {
@@ -4243,7 +4241,7 @@
             }
           }
         },
-        "filters": { "projects": ["p1"], "tags": "a" }
+        "filters": { "projects": ["p1"], "tags": ["a"] }
       },
       {
         "features": {
@@ -4274,7 +4272,7 @@
             }
           ]
         },
-        "filters": { "projects": "p1" }
+        "filters": { "projects": ["p1"] }
       },
       {
         "features": {},
@@ -4340,7 +4338,7 @@
             }
           ]
         },
-        "filters": { "projects": "p1" }
+        "filters": { "projects": ["p1"] }
       },
       {
         "features": {
@@ -4391,7 +4389,7 @@
       }
     ],
     [
-      "does not carry the prerequisites of a removed rule",
+      "a rule whose condition never passes keeps its prerequisite checks, and their parents travel with it",
       {
         "payload": {
           "features": {
@@ -4412,15 +4410,22 @@
           }
         },
         "attributes": { "id": "123" },
-        "filters": { "projects": "p1" }
+        "filters": { "projects": ["p1"] }
       },
       {
         "features": {
           "f1": {
             "defaultValue": 1,
             "metadata": { "projects": ["p1"] },
-            "rules": []
-          }
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "f2", "condition": { "value": true } }
+                ]
+              }
+            ]
+          },
+          "f2": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
         },
         "experiments": [],
         "savedGroups": {}
@@ -4559,9 +4564,13 @@
           "grp_cond": {
             "type": "condition",
             "condition": {
-              "$and": [
-                { "plan": "pro" },
-                { "$savedGroup": { "id": "grp_device" } }
+              "$or": [
+                {
+                  "$and": [
+                    { "plan": "pro" },
+                    { "$savedGroup": { "id": "grp_device" } }
+                  ]
+                }
               ]
             }
           },
@@ -4574,7 +4583,7 @@
       }
     ],
     [
-      "removes a prerequisite that always passes once the parent's value is known",
+      "keeps a prerequisite that always passes, and the rules after it, since the client still checks it",
       {
         "payload": {
           "features": {
@@ -4590,7 +4599,8 @@
                     { "id": "A", "condition": { "value": true } }
                   ],
                   "force": 1
-                }
+                },
+                { "force": 2 }
               ]
             }
           }
@@ -4600,39 +4610,17 @@
       {
         "features": {
           "A": { "defaultValue": false, "rules": [{ "force": true }] },
-          "B": { "defaultValue": 0, "rules": [{ "force": 1 }] }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "removes a rule whose prerequisite never passes",
-      {
-        "payload": {
-          "features": {
-            "A": { "defaultValue": false },
-            "B": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "parentConditions": [
-                    { "id": "A", "condition": { "value": true } }
-                  ],
-                  "force": 1
-                },
-                { "condition": { "country": "US" }, "force": 2 }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "features": {
-          "A": { "defaultValue": false },
           "B": {
             "defaultValue": 0,
-            "rules": [{ "condition": { "country": "US" }, "force": 2 }]
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "A", "condition": { "value": true } }
+                ],
+                "force": 1
+              },
+              { "force": 2 }
+            ]
           }
         },
         "experiments": [],
@@ -4640,33 +4628,7 @@
       }
     ],
     [
-      "removes a feature whose gate never passes",
-      {
-        "payload": {
-          "features": {
-            "A": { "defaultValue": false },
-            "B": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "parentConditions": [
-                    { "id": "A", "condition": { "value": true }, "gate": true }
-                  ]
-                },
-                { "force": 1 }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "features": { "A": { "defaultValue": false } },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "removes a gate rule whose gate always passes",
+      "keeps a gate that always passes",
       {
         "payload": {
           "features": {
@@ -4690,119 +4652,13 @@
           "A": { "defaultValue": false },
           "B": {
             "defaultValue": 0,
-            "rules": [{ "condition": { "country": "US" }, "force": 1 }]
-          }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "keeps a prerequisite whose parent's value is unknown",
-      {
-        "payload": {
-          "features": {
-            "A": {
-              "defaultValue": false,
-              "rules": [{ "condition": { "country": "US" }, "force": true }]
-            },
-            "B": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "parentConditions": [
-                    { "id": "A", "condition": { "value": true } }
-                  ],
-                  "force": 1
-                }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "features": {
-          "A": {
-            "defaultValue": false,
-            "rules": [{ "condition": { "country": "US" }, "force": true }]
-          },
-          "B": {
-            "defaultValue": 0,
             "rules": [
               {
                 "parentConditions": [
-                  { "id": "A", "condition": { "value": true } }
-                ],
-                "force": 1
-              }
-            ]
-          }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "a parent missing from the payload has a null value",
-      {
-        "payload": {
-          "features": {
-            "B": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "parentConditions": [
-                    {
-                      "id": "missing",
-                      "condition": { "value": { "$exists": false } }
-                    }
-                  ],
-                  "force": 1
-                }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "features": { "B": { "defaultValue": 0, "rules": [{ "force": 1 }] } },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "a gate that never passes after an undecided rule stays, and the rules after it go",
-      {
-        "payload": {
-          "features": {
-            "A": { "defaultValue": false },
-            "B": {
-              "defaultValue": 0,
-              "rules": [
-                { "condition": { "country": "US" }, "force": 1 },
-                {
-                  "parentConditions": [
-                    { "id": "A", "condition": { "value": true }, "gate": true }
-                  ]
-                },
-                { "force": 2 }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "features": {
-          "A": { "defaultValue": false },
-          "B": {
-            "defaultValue": 0,
-            "rules": [
-              { "condition": { "country": "US" }, "force": 1 },
-              {
-                "parentConditions": [
-                  { "id": "A", "condition": { "value": true }, "gate": true }
+                  { "id": "A", "condition": { "value": false }, "gate": true }
                 ]
-              }
+              },
+              { "condition": { "country": "US" }, "force": 1 }
             ]
           }
         },
@@ -4811,106 +4667,7 @@
       }
     ],
     [
-      "a prerequisite that never passes after an undecided one stays, and the ones after it go",
-      {
-        "payload": {
-          "features": {
-            "U": {
-              "defaultValue": false,
-              "rules": [{ "condition": { "country": "US" }, "force": true }]
-            },
-            "A": { "defaultValue": false },
-            "C": {
-              "defaultValue": true,
-              "rules": [{ "condition": { "plan": "pro" }, "force": false }]
-            },
-            "B": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "parentConditions": [
-                    { "id": "U", "condition": { "value": true } },
-                    { "id": "A", "condition": { "value": true } },
-                    { "id": "C", "condition": { "value": true } }
-                  ],
-                  "force": 1
-                }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "features": {
-          "U": {
-            "defaultValue": false,
-            "rules": [{ "condition": { "country": "US" }, "force": true }]
-          },
-          "A": { "defaultValue": false },
-          "C": {
-            "defaultValue": true,
-            "rules": [{ "condition": { "plan": "pro" }, "force": false }]
-          },
-          "B": {
-            "defaultValue": 0,
-            "rules": [
-              {
-                "parentConditions": [
-                  { "id": "U", "condition": { "value": true } },
-                  { "id": "A", "condition": { "value": true } }
-                ],
-                "force": 1
-              }
-            ]
-          }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "resolves a chain of prerequisites",
-      {
-        "payload": {
-          "features": {
-            "A": { "defaultValue": true },
-            "B": {
-              "defaultValue": false,
-              "rules": [
-                {
-                  "parentConditions": [
-                    { "id": "A", "condition": { "value": true } }
-                  ],
-                  "force": true
-                }
-              ]
-            },
-            "C": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "parentConditions": [
-                    { "id": "B", "condition": { "value": true } }
-                  ],
-                  "force": 1
-                }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "features": {
-          "A": { "defaultValue": true },
-          "B": { "defaultValue": false, "rules": [{ "force": true }] },
-          "C": { "defaultValue": 0, "rules": [{ "force": 1 }] }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "resolves the prerequisites of auto experiments",
+      "keeps the prerequisite checks of auto experiments",
       {
         "payload": {
           "features": { "A": { "defaultValue": true } },
@@ -4919,7 +4676,8 @@
               "key": "e1",
               "variations": [{}, {}],
               "parentConditions": [
-                { "id": "A", "condition": { "value": false } }
+                { "id": "A", "condition": { "value": false } },
+                { "id": "A", "condition": { "value": true } }
               ]
             },
             {
@@ -4935,14 +4693,25 @@
       {
         "features": { "A": { "defaultValue": true } },
         "experiments": [
-          { "key": "e1", "variations": [{}, {}], "condition": { "$not": {} } },
-          { "key": "e2", "variations": [{}, {}] }
+          {
+            "key": "e1",
+            "variations": [{}, {}],
+            "parentConditions": [
+              { "id": "A", "condition": { "value": false } },
+              { "id": "A", "condition": { "value": true } }
+            ]
+          },
+          {
+            "key": "e2",
+            "variations": [{}, {}],
+            "parentConditions": [{ "id": "A", "condition": { "value": true } }]
+          }
         ],
         "savedGroups": {}
       }
     ],
     [
-      "does not carry a parent that only a resolved prerequisite needed",
+      "carries a parent even when its prerequisite always passes",
       {
         "payload": {
           "features": {
@@ -4961,15 +4730,23 @@
             "A": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
           }
         },
-        "filters": { "projects": "p1" }
+        "filters": { "projects": ["p1"] }
       },
       {
         "features": {
           "B": {
             "defaultValue": 0,
             "metadata": { "projects": ["p1"] },
-            "rules": [{ "force": 1 }]
-          }
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "A", "condition": { "value": true } }
+                ],
+                "force": 1
+              }
+            ]
+          },
+          "A": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
         },
         "experiments": [],
         "savedGroups": {}
@@ -5071,7 +4848,20 @@
             "rules": [{ "force": "forced" }]
           },
           "__proto__": { "defaultValue": "proto" },
-          "child": { "defaultValue": 0, "rules": [{ "force": 1 }] }
+          "child": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "valueOf",
+                    "condition": { "value": { "$exists": false } }
+                  }
+                ],
+                "force": 1
+              }
+            ]
+          }
         },
         "experiments": [],
         "savedGroups": {}
@@ -5116,84 +4906,43 @@
       }
     ],
     [
-      "keeps a prerequisite whose parent's rule has tracks, since they fire on the client",
+      "filters by project drop rules scoped to other projects",
       {
         "payload": {
           "features": {
-            "parent": {
-              "defaultValue": false,
-              "rules": [
-                {
-                  "force": true,
-                  "tracks": [
-                    {
-                      "experiment": {
-                        "key": "exp",
-                        "variations": [false, true]
-                      },
-                      "result": {
-                        "value": true,
-                        "variationId": 1,
-                        "key": "1",
-                        "inExperiment": true,
-                        "hashUsed": true,
-                        "hashAttribute": "id",
-                        "hashValue": "u",
-                        "featureId": "parent"
-                      }
-                    }
-                  ]
-                }
-              ]
-            },
-            "child": {
+            "f": {
               "defaultValue": 0,
+              "metadata": { "projects": ["p1", "p2"] },
               "rules": [
                 {
-                  "parentConditions": [
-                    { "id": "parent", "condition": { "value": true } }
-                  ],
+                  "metadata": { "projects": ["p2"] },
+                  "condition": { "country": "US" },
                   "force": 1
-                }
+                },
+                {
+                  "metadata": { "projects": ["p1"] },
+                  "condition": { "country": "US" },
+                  "force": 2
+                },
+                { "condition": { "country": "CA" }, "force": 3 }
               ]
             }
           }
-        }
+        },
+        "filters": { "projects": ["p1"] }
       },
       {
         "features": {
-          "parent": {
-            "defaultValue": false,
-            "rules": [
-              {
-                "force": true,
-                "tracks": [
-                  {
-                    "experiment": { "key": "exp", "variations": [false, true] },
-                    "result": {
-                      "value": true,
-                      "variationId": 1,
-                      "key": "1",
-                      "inExperiment": true,
-                      "hashUsed": true,
-                      "hashAttribute": "id",
-                      "hashValue": "u",
-                      "featureId": "parent"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "child": {
+          "f": {
             "defaultValue": 0,
+            "metadata": { "projects": ["p1", "p2"] },
             "rules": [
               {
-                "parentConditions": [
-                  { "id": "parent", "condition": { "value": true } }
-                ],
-                "force": 1
-              }
+                "metadata": { "projects": ["p1"] },
+                "condition": { "country": "US" },
+                "force": 2
+              },
+              { "condition": { "country": "CA" }, "force": 3 }
             ]
           }
         },
@@ -5202,13 +4951,13 @@
       }
     ],
     [
-      "keeps a prerequisite whose parent is forced, since forced values can change on the client",
+      "a prerequisite carried from another project keeps the rules scoped to its own projects",
       {
         "payload": {
           "features": {
-            "parent": { "defaultValue": false },
             "child": {
               "defaultValue": 0,
+              "metadata": { "projects": ["p1"] },
               "rules": [
                 {
                   "parentConditions": [
@@ -5217,22 +4966,44 @@
                   "force": 1
                 }
               ]
+            },
+            "parent": {
+              "defaultValue": false,
+              "metadata": { "projects": ["p2"] },
+              "rules": [
+                {
+                  "metadata": { "projects": ["p2"] },
+                  "condition": { "country": "US" },
+                  "force": true
+                }
+              ]
             }
           }
         },
-        "forcedFeatures": { "parent": true }
+        "filters": { "projects": ["p1"] }
       },
       {
         "features": {
-          "parent": { "defaultValue": false },
           "child": {
             "defaultValue": 0,
+            "metadata": { "projects": ["p1"] },
             "rules": [
               {
                 "parentConditions": [
                   { "id": "parent", "condition": { "value": true } }
                 ],
                 "force": 1
+              }
+            ]
+          },
+          "parent": {
+            "defaultValue": false,
+            "metadata": { "projects": ["p2"] },
+            "rules": [
+              {
+                "metadata": { "projects": ["p2"] },
+                "condition": { "country": "US" },
+                "force": true
               }
             ]
           }
@@ -7073,6 +6844,61 @@
         "on": true,
         "off": false,
         "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "Rule with only a prerequisite that passes is skipped",
+      {
+        "attributes": { "id": "123" },
+        "features": {
+          "parentFlag": { "defaultValue": true },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "parentFlag", "condition": { "value": true } }
+                ]
+              },
+              { "force": "next" }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "next",
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "Rule with only a prerequisite that fails is skipped",
+      {
+        "attributes": { "id": "123" },
+        "features": {
+          "parentFlag": { "defaultValue": false },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "parentFlag", "condition": { "value": true } }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
         "ruleId": ""
       }
     ],
