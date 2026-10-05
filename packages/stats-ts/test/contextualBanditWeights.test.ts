@@ -573,12 +573,13 @@ describe("computeContextualBanditWeights", () => {
     // The split reduces SSE, so the likelihood ratio is positive.
     expect(bic.logLikelihoodRatio).toBeGreaterThan(0);
     // Base BIC penalty: K = 2 variations, N = 800 total users => 2 * ln(800).
-    // Default gamma = 0, so there is no multiplicity penalty, but M is still
-    // recorded: M = numItems = 2 categories (US, CA) on the `country` attribute.
+    // Default gamma = 1 adds the EBIC multiplicity penalty 2 * ln(M), with
+    // M = numItems = 2 categories (US, CA) on the `country` attribute.
     const basePenalty = 2 * Math.log(800);
+    const expectedMultiplicity = 2 * Math.log(2);
     expect(bic.numCandidates).toBe(2);
-    expect(bic.multiplicityPenalty).toBeCloseTo(0, 6);
-    expect(bic.penalty).toBeCloseTo(basePenalty, 6);
+    expect(bic.multiplicityPenalty).toBeCloseTo(expectedMultiplicity, 6);
+    expect(bic.penalty).toBeCloseTo(basePenalty + expectedMultiplicity, 6);
     expect(bic.deltaBic).toBeCloseTo(bic.penalty - bic.logLikelihoodRatio, 6);
   });
 
@@ -590,7 +591,10 @@ describe("computeContextualBanditWeights", () => {
       countryObs("CA", 1, 200, 1),
     ];
 
-    const gamma0 = computeContextualBanditWeights(input(data));
+    const gamma0 = computeContextualBanditWeights({
+      ...input(data),
+      ebicGamma: 0,
+    });
     const gamma1 = computeContextualBanditWeights({
       ...input(data),
       ebicGamma: 1,

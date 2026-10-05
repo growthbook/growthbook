@@ -90,8 +90,7 @@ export type ContextualBanditWeightsInput = {
    * EBIC multiplicity penalty weight (gamma in [0, 1]). The split gate uses
    * `penalty = K*ln(N) + 2*gamma*ln(M)`, where `M` is the number of candidate
    * splits searched. `gamma = 0` recovers plain BIC; `gamma = 1` is a
-   * Bonferroni-style correction across the searched candidates. Defaults to 0
-   * (plain BIC).
+   * Bonferroni-style correction across the searched candidates. Defaults to 1.
    */
   ebicGamma?: number;
   metricSettings: MetricSettingsForStatsEngine;
@@ -1137,8 +1136,9 @@ export function computeContextualBanditWeights(
     ebicGamma: ebicGammaInput,
   } = input;
 
-  // EBIC multiplicity penalty weight; defaults to 0 (plain BIC).
-  const ebicGamma = ebicGammaInput ?? 0;
+  // EBIC multiplicity penalty weight; defaults to a Bonferroni-style gamma = 1.
+  // Set to 0 to recover plain BIC.
+  const ebicGamma = ebicGammaInput ?? 1;
 
   // Only the first MAX_ATTRIBUTES attributes are included in the analysis.
   const attributes = attributesInput.slice(0, MAX_ATTRIBUTES);
