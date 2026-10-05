@@ -5,6 +5,10 @@ import {
   populationValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
+import {
+  getPopulationFactTableIds,
+  getPopulationRuleViolations,
+} from "shared/populations";
 import { populationApiSpec } from "back-end/src/api/specs/population.spec";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
@@ -51,42 +55,22 @@ export class PopulationModel extends BaseClass {
     const datasource = await getDataSourceById(this.context, doc.datasource);
     if (!datasource) {
       this.context.throwBadRequestError(
-        `Data Source ${doc.datasource} not found`,
+        `Data Source ${doc.datasource} not found.`,
       );
     }
 
-    if (doc.steps[0]?.windowSettings.type === "conversion") {
-      this.context.throwBadRequestError(
-        "The first step cannot use a conversion window",
-      );
-    }
-
-    const factTableIds = [
-      ...new Set(doc.steps.map((step) => step.source.factTableId)),
-    ];
-    const factTables = await getFactTablesByIds(this.context, factTableIds);
-    const factTableMap = new Map(factTables.map((f) => [f.id, f]));
-
-    for (const factTableId of factTableIds) {
-      const factTable = factTableMap.get(factTableId);
-      if (!factTable) {
-        this.context.throwBadRequestError(
-          `Fact table ${factTableId} not found`,
-        );
-      }
-      if (factTable.datasource !== doc.datasource) {
-        this.context.throwBadRequestError(
-          `Fact table ${factTableId} is not in Data Source ${doc.datasource}`,
-        );
-      }
-      const missing = doc.userIdTypes.filter(
-        (t) => !factTable.userIdTypes.includes(t),
-      );
-      if (missing.length) {
-        this.context.throwBadRequestError(
-          `Fact table ${factTableId} does not support identifier types: ${missing.join(", ")}`,
-        );
-      }
+    const factTables = await getFactTablesByIds(
+      this.context,
+      getPopulationFactTableIds(doc.steps),
+    );
+    const violations = getPopulationRuleViolations({
+      datasource: doc.datasource,
+      userIdTypes: doc.userIdTypes,
+      steps: doc.steps,
+      factTables,
+    });
+    if (violations.length) {
+      this.context.throwBadRequestError(violations.join(" "));
     }
   }
 
