@@ -31,6 +31,7 @@ import AdvancedSettings from "@/components/FactTables/MetricEditor/AdvancedSetti
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
 import FunnelStepsDisplay from "@/components/FactTables/MetricEditor/FunnelStepsDisplay";
+import DatasourcePicker from "@/components/FactTables/MetricEditor/DatasourcePicker";
 import PreviewPanel from "@/components/FactTables/MetricEditor/PreviewPanel";
 import MetricDescription from "@/components/FactTables/MetricEditor/MetricDescription";
 import {
@@ -83,8 +84,13 @@ export default function MetricEditor({
   // from the same form fields.
   onRepresentableChange?: (representable: boolean) => void;
 }) {
-  const { getFactTableById, getDatasourceById, factTables, project } =
-    useDefinitions();
+  const {
+    getFactTableById,
+    getDatasourceById,
+    factTables,
+    datasources,
+    project,
+  } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const [showDescription, setShowDescription] = useState(false);
   const [showTags, setShowTags] = useState(false);
@@ -134,23 +140,21 @@ export default function MetricEditor({
   // rendered below needs the full fact table, or JSON sub-field columns are
   // simply missing and an existing filter referencing one reads as invalid.
   const { factTable } = useFullFactTable(primaryFactTableId || null);
-  // The primary Fact Table select is what DERIVES datasource (spec, see
-  // changeFactTable below) - filtering its own options by a datasource that
-  // hasn't actually been chosen yet would make some or all fact tables
-  // permanently unreachable (e.g. a fresh create's guessed default
-  // datasource has no fact tables of its own: the selector would be empty
-  // with no way out). Ratio's denominator override is different: it has to
-  // stay on the SAME datasource as the already-chosen numerator, since one
-  // metric's query runs against one datasource.
-  const overriddenDenominatorTable = denominatorTableOverridden.current
-    ? getFactTableById(denominator?.factTableId ?? "")
-    : null;
-  const availableFactTables =
-    metricType === "ratio" && overriddenDenominatorTable
-      ? factTables.filter(
-          (ft) => ft.datasource === overriddenDenominatorTable.datasource,
-        )
-      : factTables;
+  // A new metric picks its datasource up front (page-level picker); every
+  // fact table select below only offers that datasource's tables. Existing
+  // metrics can't change datasource (the update payload omits it).
+  const isNew = canEdit && !existingMetric;
+  const datasourceOptions = datasources.filter((d) =>
+    factTables.some((ft) => ft.datasource === d.id),
+  );
+  // The guessed default (org default / first datasource) may have no fact
+  // tables, which would leave every select empty - fall back to one that does.
+  useEffect(() => {
+    if (!isNew || !datasourceOptions.length) return;
+    if (!datasourceOptions.some((d) => d.id === datasourceId)) {
+      form.setValue("datasource", datasourceOptions[0].id);
+    }
+  }, [isNew, datasourceOptions, datasourceId, form]);
   const sameDatasourceFactTables = factTables.filter(
     (ft) => !datasourceId || ft.datasource === datasourceId,
   );
@@ -271,8 +275,6 @@ export default function MetricEditor({
         hasCountDistinctHLL: () => hasCountDistinctHLL,
       }),
     );
-    // Datasource is derived from the fact table, not selected directly (spec).
-    if (newFactTable) form.setValue("datasource", newFactTable.datasource);
     if (metricType === "ratio" && !denominatorTableOverridden.current) {
       form.setValue(
         "denominator",
@@ -285,6 +287,33 @@ export default function MetricEditor({
     }
   }
 
+  function changeDatasource(newDatasourceId: string) {
+    const dialect = { hasCountDistinctHLL: () => hasCountDistinctHLL };
+    denominatorTableOverridden.current = false;
+    form.setValue("datasource", newDatasourceId);
+    form.setValue("numerator", onFactTableChange(numerator, null, dialect));
+    if (denominator) {
+      form.setValue(
+        "denominator",
+        onFactTableChange(denominator, null, dialect),
+      );
+    }
+    if (funnelSettings) {
+      form.setValue("funnelSettings", {
+        ...funnelSettings,
+        steps: funnelSettings.steps.map((step) => ({
+          ...step,
+          factTableId: "",
+          rowFilters: [],
+        })),
+      });
+    }
+  }
+  const hasChosenFactTable =
+    !!numerator.factTableId ||
+    !!denominator?.factTableId ||
+    !!funnelSettings?.steps.some((step) => step.factTableId);
+
   const isFunnel = formType === "funnel";
   const isRatioOrFunnel = formType === "ratio" || isFunnel;
   const primaryFactTableSelect = (
@@ -294,9 +323,9 @@ export default function MetricEditor({
       value={primaryFactTableId}
       setValue={changeFactTable}
     >
-      {availableFactTables.map((ft) => (
+      {sameDatasourceFactTables.map((ft) => (
         <SelectItem key={ft.id} value={ft.id}>
-          {ft.name} ({getDatasourceById(ft.datasource)?.name || ft.datasource})
+          {ft.name}
         </SelectItem>
       ))}
     </Select>
@@ -309,7 +338,7 @@ export default function MetricEditor({
     form.setValue("numerator", { ...numerator, ...v });
   const valueShape = shapeForValueType(formType);
 
-  return (
+  const grid = (
     <Grid columns={{ initial: "1", md: "minmax(0, 1fr) 380px" }} gap="4">
       <Flex direction="column" gap="4" minWidth="0">
         <Frame px="4" py="4" mb="0">
@@ -556,22 +585,8 @@ export default function MetricEditor({
             {isFunnel &&
               (canEdit ? (
                 <FunnelStepsInput
-                  allowChangingDatasource
                   value={funnelSettings ?? { steps: [] }}
-                  setValue={(v) => {
-                    form.setValue("funnelSettings", v);
-                    // Datasource is derived from the fact table, not selected
-                    // directly (spec) - same as changeFactTable does for every
-                    // other type, just off step 1's fact table instead of the
-                    // numerator's, since that's what primaryFactTableId
-                    // already treats as the authoritative one for funnel.
-                    const stepFactTable = getFactTableById(
-                      v.steps[0]?.factTableId ?? "",
-                    );
-                    if (stepFactTable) {
-                      form.setValue("datasource", stepFactTable.datasource);
-                    }
-                  }}
+                  setValue={(v) => form.setValue("funnelSettings", v)}
                   datasource={datasourceId}
                   project={project}
                 />
@@ -618,5 +633,20 @@ export default function MetricEditor({
         />
       </Flex>
     </Grid>
+  );
+
+  if (!isNew) return grid;
+  return (
+    <Flex direction="column" gap="3">
+      <Flex mt="-2">
+        <DatasourcePicker
+          value={datasourceId}
+          options={datasourceOptions}
+          onChange={changeDatasource}
+          confirmChange={hasChosenFactTable}
+        />
+      </Flex>
+      {grid}
+    </Flex>
   );
 }
