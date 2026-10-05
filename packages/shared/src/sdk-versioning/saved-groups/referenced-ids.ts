@@ -37,6 +37,30 @@ export function forEachSavedGroupIdInCondition(
 }
 
 /**
+ * The group ids a rule's targeting names directly: its saved group list and
+ * its condition. A malformed condition names none.
+ */
+export function savedGroupIdsInTargeting(targeting: {
+  condition?: string;
+  savedGroups?: { ids: string[] }[];
+}): string[] {
+  const ids = new Set<string>();
+  for (const entry of targeting.savedGroups ?? []) {
+    entry.ids.forEach((id) => ids.add(id));
+  }
+  if (targeting.condition) {
+    try {
+      forEachSavedGroupIdInCondition(JSON.parse(targeting.condition), (id) =>
+        ids.add(id),
+      );
+    } catch {
+      // Bad JSON means no ids
+    }
+  }
+  return [...ids];
+}
+
+/**
  * Returns the given group ids plus every group they reference, at any depth.
  * A condition group's condition can name more groups, so following one id can
  * turn up several. Ids already found are never followed twice, so loops stop.

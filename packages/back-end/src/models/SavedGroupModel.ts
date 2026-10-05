@@ -275,6 +275,23 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     return loadSavedGroupsWithNested(ids, (wanted) => this.getMetadata(wanted));
   }
 
+  /**
+   * Which of `ids` don't exist in the organization at all. Unlike reads, this
+   * ignores the viewer's project access: a group they can't read still exists,
+   * and they already have its id.
+   */
+  public async getMissingIds(ids: string[]): Promise<string[]> {
+    if (!ids.length) return [];
+    const found = await this._dangerousGetCollection()
+      .find(
+        { organization: this.context.org.id, id: { $in: ids } },
+        { projection: { id: 1 } },
+      )
+      .toArray();
+    const existing = new Set(found.map((doc) => doc.id));
+    return ids.filter((id) => !existing.has(id));
+  }
+
   /** Everything but the ID lists, which can be enormous. All groups, or `ids`. */
   public async getAllWithoutValues(
     ids?: string[],
