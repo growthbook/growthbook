@@ -317,6 +317,12 @@ export const notificationEventMetadata = {
     description:
       "Triggered when feature flags or experiments are linked to a holdout.",
   },
+  "sdkConnection.payloadSize.warning": {
+    label: "Payload size warning",
+    description:
+      "Triggered when an SDK Connection's payload grows past half, 80%, or all of the 16 MB its cache can store. The `level` field is `warning`, `danger`, or `over-limit`, and `recommendations` lists ways to shrink it. Fires once per level reached, not on every publish.",
+    subtitle: "Payload nearing or over the 16 MB cache limit.",
+  },
   "savedGroup.created": {
     label: "Created",
     description: "Triggered when a saved group is created",
@@ -636,6 +642,7 @@ export const notificationCategories = {
   feature: "Feature Flags",
   experiment: "Experiments",
   holdout: "Holdouts",
+  sdkConnection: "SDK Connections",
   savedGroup: "Saved Groups",
   constant: "Constants",
   config: "Configs",
@@ -701,6 +708,12 @@ export const notificationCategoryGroups: Record<
     {
       label: "Schedules",
       options: ["experiment.info.scheduled-status-update"],
+    },
+  ],
+  sdkConnection: [
+    {
+      label: "Health & warnings",
+      options: ["sdkConnection.payloadSize.warning"],
     },
   ],
   holdout: [
@@ -938,6 +951,10 @@ export const notificationCategoryPresets: Record<
       "experiment.warning",
     ],
     all: eventsInCategory("experiment"),
+  },
+  sdkConnection: {
+    default: ["sdkConnection.payloadSize.warning"],
+    all: eventsInCategory("sdkConnection"),
   },
   holdout: {
     default: ["holdout.status.changed", "holdout.config.newLinkage"],

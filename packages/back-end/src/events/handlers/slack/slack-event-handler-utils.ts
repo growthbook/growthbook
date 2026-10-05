@@ -52,6 +52,7 @@ import {
   buildExperimentAlertMessage,
 } from "./experimentAlertMessage";
 import { buildHoldoutAlertMessage } from "./holdoutAlerts";
+import { buildSdkConnectionAlertMessage } from "./sdkConnectionAlerts";
 import { buildExperimentAlertMessageForEvent } from "./experimentAlerts";
 
 // region Filtering
@@ -132,6 +133,9 @@ export const getSlackMessageForNotificationEvent = async (
     case "holdout.status.changed":
     case "holdout.config.newLinkage":
       return buildHoldoutAlertMessage(event);
+
+    case "sdkConnection.payloadSize.warning":
+      return buildSdkConnectionAlertMessage(event);
 
     case "experiment.warning":
       return buildSlackMessageForExperimentWarningEvent(event.data.object);

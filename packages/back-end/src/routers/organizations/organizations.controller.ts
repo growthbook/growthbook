@@ -121,6 +121,7 @@ import {
   postSignupAttributionToLicenseServer,
 } from "back-end/src/util/signup-attribution";
 import { usingOpenId } from "back-end/src/services/auth";
+import { getSdkPayloadSizeAlerts } from "back-end/src/services/sdkPayloadSize";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import {
@@ -973,14 +974,21 @@ export async function getOrganization(
     };
 
   // These lookups don't depend on each other, so run them in parallel
-  const [license, installationName, expandedMembers, agreements, watch] =
-    await Promise.all([
-      resolveLicense(),
-      getInstallationName(org),
-      expandOrgMembers(members, userId),
-      context.models.agreements.getAll(),
-      context.models.watch.getWatchedByUser(userId),
-    ]);
+  const [
+    license,
+    installationName,
+    expandedMembers,
+    agreements,
+    watch,
+    sdkPayloadSizeAlerts,
+  ] = await Promise.all([
+    resolveLicense(),
+    getInstallationName(org),
+    expandOrgMembers(members, userId),
+    context.models.agreements.getAll(),
+    context.models.watch.getWatchedByUser(userId),
+    getSdkPayloadSizeAlerts(context),
+  ]);
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
     context.permissions.canReadMultiProjectResource(attribute.projects),
@@ -1088,6 +1096,7 @@ export async function getOrganization(
     },
     seatsInUse,
     usage: getUsageFromCache(org),
+    sdkPayloadSizeAlerts,
   });
 }
 

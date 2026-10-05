@@ -30,6 +30,7 @@ import {
   memberRoleWithProjects,
   pendingMember,
   projectMemberRole,
+  SdkPayloadSizeAlert,
 } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { TeamInterface } from "shared/types/team";
@@ -561,6 +562,8 @@ export type GetOrganizationResponse = {
     features: string[];
   };
   usage: OrganizationUsage;
+  // SDK Connections the viewer manages whose payload is large enough to warn about
+  sdkPayloadSizeAlerts: SdkPayloadSizeAlert[];
   // Providers with a usable key, stored or inherited from the environment.
   // Non-secret, and rides along here so AI gating needs no separate request.
   aiKeyProviders: AIProvider[];
