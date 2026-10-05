@@ -11,7 +11,10 @@ import {
 } from "react";
 import { diffLines, diffWordsWithSpace } from "diff";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { RenderInFullContext } from "@/components/SyntaxHighlighting/VirtualizedCode";
+import {
+  RenderInFullContext,
+  useRenderAfterParentRefs,
+} from "@/components/SyntaxHighlighting/VirtualizedCode";
 import Link from "@/ui/Link";
 
 type Line = { number: number; text: string };
@@ -292,6 +295,7 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
   revealLine?: DiffLineRef | null;
 }) {
   const renderInFull = useContext(RenderInFullContext);
+  useRenderAfterParentRefs();
   // Past the time limit, comparing anyway is the viewer's call
   const [unlimitedFor, setUnlimitedFor] = useState<[string, string] | null>(
     null,

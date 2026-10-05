@@ -176,7 +176,14 @@ export default function StringArrayField({
   const usesLegacyHeight = legacyHeight ?? size === undefined;
   const styleSize = usesLegacyHeight ? "legacy" : resolvedSize;
   const [inputValue, setInputValue] = useState("");
-  const tooManyForTokens = value.length > RAW_TEXT_AFTER_VALUES;
+  // Text mode separates values the way the field does: with commas where a
+  // comma ends a value, otherwise one value per line, so values that may hold
+  // a comma (row filters, ID lists) stay whole
+  const textSeparator =
+    !delimiters.includes(",") && delimiters.includes("Enter") ? "\n" : ",";
+  const tooManyForTokens =
+    value.length > RAW_TEXT_AFTER_VALUES &&
+    !value.some((v) => v.includes(textSeparator));
   const [rawTextMode, setRawTextMode] = useState(tooManyForTokens);
   const [focusRawText, setFocusRawText] = useState(false);
 
@@ -225,7 +232,7 @@ export default function StringArrayField({
     setRawTextDraft(raw);
     onChange(
       raw
-        .split(",")
+        .split(textSeparator === "," ? "," : /\r?\n/)
         .map((s) => s.trim())
         .filter(Boolean),
     );
@@ -240,10 +247,10 @@ export default function StringArrayField({
     );
   };
 
-  const rawTextValue = rawTextDraft ?? value.join(",");
-  // Pasted lines and tabs become commas when Enter and Tab end a token, as a
-  // paste in token mode splits them; typed text splits on commas only, so
-  // stored values that contain one stay whole
+  const rawTextValue = rawTextDraft ?? value.join(textSeparator);
+  // Pasted lines and tabs become separators when Enter and Tab end a token, as
+  // a paste in token mode splits them; typed text splits on the separator only,
+  // so stored values that contain anything else stay whole
   const handleRawTextPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const separators = `${delimiters.includes("Enter") ? "\n" : ""}${
       delimiters.includes("Tab") ? "\t" : ""
@@ -254,14 +261,16 @@ export default function StringArrayField({
     // Empty entries from leading or doubled separators are dropped on parse
     insertRawText(
       e.currentTarget,
-      pasted.replace(new RegExp(`\r?[${separators}]+`, "g"), ","),
+      pasted.replace(new RegExp(`\r?[${separators}]+`, "g"), textSeparator),
     );
   };
-  // Enter ends a value here too when it does in token mode
+  // Enter ends a value here too when it does in token mode; one value per
+  // line already gets that from the textarea
   const handleRawTextKeyDown = (
     e: React.KeyboardEvent<HTMLTextAreaElement>,
   ) => {
     if (e.key !== "Enter" || !delimiters.includes("Enter")) return;
+    if (textSeparator !== ",") return;
     e.preventDefault();
     insertRawText(e.currentTarget, ",");
   };
@@ -349,7 +358,12 @@ export default function StringArrayField({
     <Field
       {...fieldProps}
       helpText={
-        rawTextMode ? (helpText ?? "Separate values by comma") : helpText
+        rawTextMode
+          ? (helpText ??
+            (textSeparator === ","
+              ? "Separate values by comma"
+              : "One value per line"))
+          : helpText
       }
       helpTextClassName="mt-0"
       render={(id, ref) => {
@@ -374,7 +388,12 @@ export default function StringArrayField({
                     onPaste={handleRawTextPaste}
                     onKeyDown={handleRawTextKeyDown}
                     onBlur={() => setRawTextDraft(null)}
-                    placeholder={placeholder ?? "value 1, value 2..."}
+                    placeholder={
+                      placeholder ??
+                      (textSeparator === ","
+                        ? "value 1, value 2..."
+                        : "value 1\nvalue 2...")
+                    }
                     minRows={1}
                     maxRows={10}
                     disabled={disabled}
