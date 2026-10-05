@@ -1356,17 +1356,23 @@ export async function refreshSDKPayloadCache({
             : undefined;
 
         const json = JSON.stringify(contents);
+        // Recorded before the write, which fails once over the limit, and
+        // never in the way of it
         if (payloadSizeLimitBytes !== null) {
-          await recordSdkPayloadSize(
-            context,
-            connection,
-            measureSdkPayloadSize(
-              contents,
-              estimateCacheDocumentBytes(json, auditContext),
-              payloadSizeLimitBytes,
-              connection.payloadSize ?? null,
-            ),
-          );
+          try {
+            await recordSdkPayloadSize(
+              context,
+              connection,
+              measureSdkPayloadSize(
+                contents,
+                estimateCacheDocumentBytes(json, auditContext),
+                payloadSizeLimitBytes,
+                connection.payloadSize ?? null,
+              ),
+            );
+          } catch (e) {
+            logger.error(e, "Error recording SDK payload size");
+          }
         }
         await context.models.sdkConnectionCache.upsert(
           connection.key,
