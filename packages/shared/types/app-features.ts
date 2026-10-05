@@ -144,4 +144,5 @@ export type AppFeatures = {
   "definitions-etag-304": boolean;
   "pricing-phase-1-limits": Record<string, unknown>;
   "eu-data-region": boolean;
+  "new-data-source-onboarding": boolean;
 };

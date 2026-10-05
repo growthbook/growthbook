@@ -688,15 +688,25 @@ export async function editCustomRole(
 }
 
 function usingRole(member: MemberRoleWithProjects, role: string): boolean {
+  // Stored data can predate validation, so treat a non-array list as empty.
+  const asArray = <T>(v: T[] | undefined): T[] => (Array.isArray(v) ? v : []);
   return (
     member.role === role ||
-    (member.projectRoles || []).some((pr) => pr.role === role)
+    asArray(member.additionalRoles).some((r) => r.role === role) ||
+    asArray(member.projectRoles).some(
+      (pr) =>
+        pr.role === role ||
+        asArray(pr.additionalRoles).some((r) => r.role === role),
+    )
   );
 }
 
 export async function removeCustomRole(context: ReqContext, id: string) {
   // Make sure the id isn't the org's default
-  if (context.org.settings?.defaultRole?.role === id) {
+  if (
+    context.org.settings?.defaultRole &&
+    usingRole(context.org.settings.defaultRole, id)
+  ) {
     throw new Error(
       "Cannot delete role. This role is set as the organization's default role.",
     );

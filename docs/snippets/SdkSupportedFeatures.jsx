@@ -574,7 +574,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.10.10",
+      version: "0.11.0",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
@@ -1372,7 +1372,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
       ),
     },
     visualEditor: {
-      label: "Visual Editor",
+      label: "AI Visual Editor",
       icon: () => (
         <svg
           fill="currentColor"
@@ -1396,7 +1396,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
       ),
     },
     visualEditorJS: {
-      label: "Visual Editor (JS)",
+      label: "AI Visual Editor (JS)",
       icon: () => (
         <svg
           fill="currentColor"
@@ -1420,7 +1420,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
       ),
     },
     visualEditorDragDrop: {
-      label: "Visual Editor Drag & Drop",
+      label: "AI Visual Editor Drag & Drop",
       icon: () => (
         <svg
           fill="currentColor"

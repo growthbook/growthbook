@@ -44,7 +44,7 @@ There are some cases where a single database column isn't enough to uniquely ide
 
 ### Experiment Assignment Queries
 
-An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single identifier type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example, one from your email system and one from your back-end.
+An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query declares one or more identifier types (defined above), and each experiment picks the one it's analyzed on. You can also have multiple assignment queries if you store that data in different tables, for example, one from your email system and one from your back-end.
 
 <Note>
 **Queries used to generate experiment results**

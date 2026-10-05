@@ -201,10 +201,10 @@ export function getChecklistItems({
           ((isBandit && !hasLiveLinkedChanges) ||
             (!isBandit && hasLinkedChanges)) ? (
             <Link onClick={openSetupTab}>
-              Linked Feature or Visual Editor change
+              Linked Feature or AI Visual Editor change
             </Link>
           ) : (
-            "Linked Feature, Visual Editor change, or URL Redirect"
+            "Linked Feature, AI Visual Editor change, or URL Redirect"
           )}
         </>
       ),
@@ -418,9 +418,9 @@ export function getChecklistItems({
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <Link onClick={openSetupTab}>Visual Editor</Link>
+              <Link onClick={openSetupTab}>AI Visual Editor</Link>
             ) : (
-              "Visual Editor"
+              "AI Visual Editor"
             )}
           </>
         ),
