@@ -18,6 +18,7 @@ export const FEATURE_HEALTH_SEVERITIES: Record<
   FeatureHealthSeverity,
   { label: string; color: HealthDotColor }
 > = {
+  critical: { label: "Critical", color: "red" },
   high: { label: "High", color: "red" },
   medium: { label: "Medium", color: "amber" },
   low: { label: "Low", color: "lime" },
@@ -56,6 +57,11 @@ const FEATURE_HEALTH_COPY: Record<
   FeatureHealthState,
   { label: string; description: string }
 > = {
+  "broken-saved-group": {
+    label: "Broken saved group",
+    description:
+      "A rule targets a saved group that is missing or cannot be resolved, so it is served as if the group were empty.",
+  },
   "safe-rollout-rollback-now": {
     label: "Safe rollout: roll back",
     description: "A running safe rollout's guardrails are failing.",
@@ -180,7 +186,7 @@ export function entryMatchesHealthFilter(
 }
 
 export const FEATURE_HEALTH_SEVERITY_FILTER_OPTIONS = (
-  ["high", "medium", "low"] as FeatureHealthSeverity[]
+  ["critical", "high", "medium", "low"] as FeatureHealthSeverity[]
 ).map((value) => ({ value, label: FEATURE_HEALTH_SEVERITIES[value].label }));
 
 export const FEATURE_HEALTH_FILTER_OPTIONS = FEATURE_HEALTH_SIGNALS.map(
@@ -190,7 +196,10 @@ export const FEATURE_HEALTH_FILTER_OPTIONS = FEATURE_HEALTH_SIGNALS.map(
 export function isPartiallyStale(staleData: FeatureStaleSummary): boolean {
   return (
     !staleData.stale &&
-    Object.values(staleData.envResults ?? {}).some((e) => e.stale)
+    // A disabled environment is off, not stale; the overall verdict skips it too.
+    Object.values(staleData.envResults ?? {}).some(
+      (e) => e.stale && e.reason !== "toggled-off",
+    )
   );
 }
 

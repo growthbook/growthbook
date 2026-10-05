@@ -1,5 +1,6 @@
 import { Box, Flex, Text } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import { RadixStatusIcon } from "./HelperText";
 
 export default function ErrorDisplay({
@@ -36,7 +37,7 @@ export default function ErrorDisplay({
           }}
         >
           <Text size="2" color="red">
-            {error}
+            <MarkdownLinks text={error} />
           </Text>
         </Box>
       </Flex>

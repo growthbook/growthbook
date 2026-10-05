@@ -91,8 +91,8 @@ importers:
         specifier: ^3.1.2
         version: 3.1.2
       '@datadog/pprof':
-        specifier: ^5.13.2
-        version: 5.13.2
+        specifier: ^5.15.1
+        version: 5.15.1
       dd-trace:
         specifier: ^5.100.0
         version: 5.115.0
@@ -176,8 +176,8 @@ importers:
         specifier: ^3.0.0
         version: 3.0.2(zod@4.1.12)
       '@ai-sdk/xai':
-        specifier: ^3.0.0
-        version: 3.0.29(zod@4.1.12)
+        specifier: ^3.0.138
+        version: 3.0.138(zod@4.1.12)
       '@aws-sdk/client-athena':
         specifier: ^3.1031.0
         version: 3.1031.0
@@ -253,6 +253,9 @@ importers:
       '@opentelemetry/winston-transport':
         specifier: ~0.28.0
         version: 0.28.0
+      '@pydantic/genai-prices':
+        specifier: 0.1.9
+        version: 0.1.9
       '@resvg/resvg-wasm':
         specifier: ^2.6.2
         version: 2.6.2
@@ -1410,8 +1413,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai-compatible@2.0.16':
-    resolution: {integrity: sha512-Vn+zlFSeo3DiBvYZv575+9WxqYqFyu0xNx3eAWwFDHkQpMwh9MC5eVTfdpT/YRW9lK0jWvJ//aG7QnX+FE16/w==}
+  '@ai-sdk/openai-compatible@2.0.80':
+    resolution: {integrity: sha512-v/X0WZYuQ3qrWkHAI3pbnkx1NMS1T7XGAQvpZxlbela7QwYJ/vAK9Og6mio82DbTbrSLIpspdPxx0itWrWRaYw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1436,12 +1439,12 @@ packages:
     resolution: {integrity: sha512-9Av6kg0t/IN/dcYAAmEJ4B9OPhcEJqwSR+GfHEA8olRkindXpUHadc3p3cyvgFUQFTVm1G5thtsmgZ9yVb2w3A==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/provider@3.0.4':
-    resolution: {integrity: sha512-5KXyBOSEX+l67elrEa+wqo/LSsSTtrPj9Uoh3zMbe/ceQX4ucHI3b9nUEfNkGF3Ry1svv90widAt+aiKdIJasQ==}
+  '@ai-sdk/provider@3.0.18':
+    resolution: {integrity: sha512-IpefF5ssZVOZCD4Wu7zxt6PwZoGT2HLVjxpJ10Bjx6EAmRfLYJPjyrfxb0RYDlwvXnDb9nkQ7Do/oJVDuRFzew==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/xai@3.0.29':
-    resolution: {integrity: sha512-H/0WKEC/trg+eiDoYPSGLTwFzKLdteWwyBY68syaZt74kO32mWtjTQVgjNDnDWlatwOH5ekiM4/P//diYVplJA==}
+  '@ai-sdk/xai@3.0.138':
+    resolution: {integrity: sha512-0uLgqq06G/CbDqe4PcGPWprfhQB63sf0h+aZy+9sLypqQKyO05F213F2k2ibPM/8akeO9PD2ztgE7CuWUaDMGA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -2690,10 +2693,6 @@ packages:
     engines: {node: '>=18.0.0'}
     peerDependencies:
       '@openfeature/server-sdk': '>=1.15.1'
-
-  '@datadog/pprof@5.13.2':
-    resolution: {integrity: sha512-Th8u7pvoguTfbUx/mlZLHD9TxFCHO+wRAvlEaYFAYAmMvbPLww4YowvTy1UMvpi8LbUbwil3Fo8rKCrilvXHhQ==}
-    engines: {node: '>=16'}
 
   '@datadog/pprof@5.15.1':
     resolution: {integrity: sha512-4mI750tX6okNROS4YKvGQjyAQ+VqfzDqzysCytOJhL2E2ktK/q4M0PtC7j70tiirGb/fO9fjma3IMNSRLYX+xQ==}
@@ -4673,6 +4672,11 @@ packages:
 
   '@protobufjs/utf8@1.1.1':
     resolution: {integrity: sha512-oOAWABowe8EAbMyWKM0tYDKi8Yaox52D+HWZhAIJqQXbqe0xI/GV7FhLWqlEKreMkfDjshR5FKgi3mnle0h6Eg==}
+
+  '@pydantic/genai-prices@0.1.9':
+    resolution: {integrity: sha512-M93O77DCs533HASyjenihMo9b2OTW6c8v49w6yS/W50osugJ1rkUX8baaDNCnw+ZPiMD6jIxUsa1Bz1MrpX3Uw==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@radix-ui/colors@3.0.0':
     resolution: {integrity: sha512-FUOsGBkHrYJwCSEtWRCIfQbZG7q1e6DgxCIOe1SUQzDe/7rXXeA47s8yCn6fuTNQAj1Zq4oTFi9Yjp3wzElcxg==}
@@ -8388,10 +8392,6 @@ packages:
     resolution: {integrity: sha512-ywHHCd282pjWh0XVmxMQIXfALHMvmRlVHIY3aipUK1G1I16uFUnc/Lo4itJGMGBt77fgyxlFWjenLcMyP+ZtgA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     hasBin: true
-
-  delay@5.0.0:
-    resolution: {integrity: sha512-ReEBKkIfe4ya47wlPYf/gu5ib6yUG0/Aez0JQZQz94kiWtRQvZIQbTiehsnwHvLSWJnQdhVeqYue7Id1dKr0qw==}
-    engines: {node: '>=10'}
 
   delayed-stream@1.0.0:
     resolution: {integrity: sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==}
@@ -13996,9 +13996,9 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.51(zod@4.1.12)
       zod: 4.1.12
 
-  '@ai-sdk/openai-compatible@2.0.16(zod@4.1.12)':
+  '@ai-sdk/openai-compatible@2.0.80(zod@4.1.12)':
     dependencies:
-      '@ai-sdk/provider': 3.0.4
+      '@ai-sdk/provider': 3.0.18
       '@ai-sdk/provider-utils': 4.0.51(zod@4.1.12)
       zod: 4.1.12
 
@@ -14024,14 +14024,14 @@ snapshots:
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/provider@3.0.4':
+  '@ai-sdk/provider@3.0.18':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/xai@3.0.29(zod@4.1.12)':
+  '@ai-sdk/xai@3.0.138(zod@4.1.12)':
     dependencies:
-      '@ai-sdk/openai-compatible': 2.0.16(zod@4.1.12)
-      '@ai-sdk/provider': 3.0.4
+      '@ai-sdk/openai-compatible': 2.0.80(zod@4.1.12)
+      '@ai-sdk/provider': 3.0.18
       '@ai-sdk/provider-utils': 4.0.51(zod@4.1.12)
       zod: 4.1.12
 
@@ -16122,20 +16122,11 @@ snapshots:
       '@datadog/flagging-core': 1.2.1
     optional: true
 
-  '@datadog/pprof@5.13.2':
-    dependencies:
-      delay: 5.0.0
-      node-gyp-build: 3.9.0
-      p-limit: 3.1.0
-      pprof-format: 2.2.1
-      source-map: 0.7.4
-
   '@datadog/pprof@5.15.1':
     dependencies:
       node-gyp-build: 4.8.4
       pprof-format: 2.2.1
       source-map: 0.7.4
-    optional: true
 
   '@datadog/wasm-js-rewriter@5.0.1':
     dependencies:
@@ -18427,6 +18418,8 @@ snapshots:
   '@protobufjs/pool@1.1.0': {}
 
   '@protobufjs/utf8@1.1.1': {}
+
+  '@pydantic/genai-prices@0.1.9': {}
 
   '@radix-ui/colors@3.0.0': {}
 
@@ -22833,8 +22826,6 @@ snapshots:
     dependencies:
       meow: 10.1.3
 
-  delay@5.0.0: {}
-
   delayed-stream@1.0.0: {}
 
   denque@2.1.0: {}
@@ -26767,8 +26758,7 @@ snapshots:
 
   node-gyp-build@3.9.0: {}
 
-  node-gyp-build@4.8.4:
-    optional: true
+  node-gyp-build@4.8.4: {}
 
   node-gyp@12.2.0:
     dependencies:

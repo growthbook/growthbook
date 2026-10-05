@@ -29,7 +29,7 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   getApiFeatureObj,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
@@ -86,12 +86,8 @@ export async function toggleFeatureCore(
     }
   }
 
-  const groupMap = await getSavedGroupMap(context);
-  const experimentMap = await getExperimentMapForFeature(context, feature.id);
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-
   if (Object.keys(changedToggles).length === 0) {
+    const experimentMap = await getExperimentMapForFeature(context, feature.id);
     const revision = await getRevision({
       context,
       organization: feature.organization,
@@ -102,10 +98,12 @@ export async function toggleFeatureCore(
     return {
       feature,
       organization,
-      groupMap,
       experimentMap,
       revision,
-      safeRolloutMap,
+      ...(await getFeatureDefinitionLookups(context, {
+        features: [feature],
+        experiments: experimentMap.values(),
+      })),
       bypassedGates: [],
     };
   }
@@ -252,10 +250,12 @@ export async function toggleFeatureCore(
   return {
     feature: updatedFeature,
     organization,
-    groupMap,
     experimentMap: updatedExperimentMap,
     revision: latestRevision,
-    safeRolloutMap,
+    ...(await getFeatureDefinitionLookups(context, {
+      features: [updatedFeature],
+      experiments: updatedExperimentMap.values(),
+    })),
     bypassedGates,
   };
 }

@@ -187,12 +187,6 @@ export function getIntegrationSqlDialect(
     : null;
 }
 
-// Wraps a SQL identifier (column, alias) in the dialect's quote character,
-// escaping any embedded quotes by doubling them (ANSI SQL convention).
-export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
-  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
-}
-
 export async function testDataSourceConnection(
   context: ReqContext,
   datasource: DataSourceInterface,
@@ -470,7 +464,7 @@ export async function testQueryValidity(
     "experiment_id",
     "variation_id",
     "timestamp",
-    query.userIdType,
+    ...query.userIdTypes,
     ...query.dimensions,
     ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
   ]);

@@ -13,18 +13,20 @@ import { Dimension } from "shared/types/integrations";
 import { SqlDialect } from "shared/types/sql";
 import { getRowFilterSQL } from "shared/experiments";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
-import BigQuery from "back-end/src/integrations/BigQuery";
+import {
+  bigQueryDialect,
+  mysqlDialect,
+  clickHouseDialect,
+  snowflakeDialect,
+  redshiftDialect,
+  databricksDialect,
+  mssqlDialect,
+  postgresDialect,
+  verticaDialect,
+  adobeExperiencePlatformQueryServiceDialect,
+} from "shared/dialects";
 import Snowflake from "back-end/src/integrations/Snowflake";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
-import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
-import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
-import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
-import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
-import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
-import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
-import { adobeExperiencePlatformQueryServiceDialect } from "back-end/src/integrations/dialects/adobeExperiencePlatformQueryService";
+import BigQuery from "back-end/src/integrations/BigQuery";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
@@ -1098,6 +1100,7 @@ describe("full fact metric experiment query - bigquery", () => {
   beforeEach(() => {
     // @ts-expect-error -- context not needed for test
     bqIntegration = new BigQuery("", {
+      type: "bigquery",
       settings: {
         queries: {
           exposure: [testExposureQuery],
@@ -1636,7 +1639,7 @@ describe("full fact metric experiment query - bigquery", () => {
           unitsSource: "exposureQuery",
           unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
             query: testExposureQuery.query,
-            userIdType: testExposureQuery.userIdType,
+            identifierType: testExposureQuery.userIdType,
           }),
           activationMetric: null,
           dimensions: [],
@@ -1685,6 +1688,7 @@ describe("quantile grid array packing is BigQuery-only", () => {
   // ONLY difference between the two SQL strings is the dialect.
   // @ts-expect-error -- context not needed for test
   const datasourceIntegration = new BigQuery("", {
+    type: "bigquery",
     settings: { queries: { exposure: [testExposureQuery] } },
   });
 
@@ -1737,7 +1741,7 @@ describe("quantile grid array packing is BigQuery-only", () => {
         unitsSource: "exposureQuery",
         unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
           query: testExposureQuery.query,
-          userIdType: testExposureQuery.userIdType,
+          identifierType: testExposureQuery.userIdType,
         }),
         activationMetric: null,
         dimensions: [],
@@ -1780,10 +1784,12 @@ describe("quantile grid array packing is BigQuery-only", () => {
     it("only BigQuery's source properties enable the efficient (array) grid", () => {
       // @ts-expect-error -- context not needed for test
       const bq = new BigQuery("", {
+        type: "bigquery",
         settings: { queries: { exposure: [testExposureQuery] } },
       });
       // @ts-expect-error -- context not needed for test
       const sf = new Snowflake("", {
+        type: "snowflake",
         settings: { queries: { exposure: [testExposureQuery] } },
       });
 
@@ -1889,6 +1895,7 @@ describe("getFeatureEvalDiagnosticsQuery", () => {
 
   it("replaces template variables in the feature usage query", () => {
     const datasource = {
+      type: "bigquery",
       settings: {
         queries: {
           featureUsage: [
@@ -1940,6 +1947,7 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
 
   // @ts-expect-error -- context not needed for test
   const datasourceIntegration = new BigQuery("", {
+    type: "bigquery",
     settings: { queries: { exposure: [testExposureQuery] } },
   });
 
@@ -1991,7 +1999,7 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
           { ...settings, dimensions },
           {
             query: testExposureQuery.query,
-            userIdType: testExposureQuery.userIdType,
+            identifierType: testExposureQuery.userIdType,
           },
         ),
         activationMetric: null,

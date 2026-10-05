@@ -2,7 +2,6 @@
 title: Custom Hooks
 description: Run custom validation when a feature is published. Available on self-hosted GrowthBook only.
 sidebarTitle: Custom Hooks
-slug: /features/custom-hooks
 ---
 
 With self-hosted GrowthBook Enterprise, you can extend GrowthBook's validation logic with Custom Hooks.
@@ -85,6 +84,22 @@ if (feature.tags.length === 0) {
 ```
 
 Because execution continues after `addWarning`, you can raise warnings and still `throw` later in the same hook.
+
+A warning or thrown error can include links in Markdown syntax, such as a link
+to your internal guidelines. In the app, `http://` and `https://` links and
+paths that start with `/` are shown as links, and they open in a new tab. A
+path such as `/experiment/${experiment.id}` opens that page on your own
+GrowthBook instance. A REST API client receives the raw text. Links are also
+rendered in any user-entered text your hook adds to the message, such as an
+experiment name.
+
+```js
+if (!feature.description) {
+  addWarning(
+    "Consider adding a description. See [our flag guidelines](https://wiki.example.com/flags)."
+  );
+}
+```
 
 ### Incremental Changes
 

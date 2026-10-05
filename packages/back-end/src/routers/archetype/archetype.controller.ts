@@ -26,7 +26,7 @@ import {
 } from "back-end/src/services/audit";
 import {
   evaluateFeature,
-  getSavedGroupMap,
+  getSavedGroupMapForFeatureRevision,
 } from "back-end/src/services/features";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -117,8 +117,13 @@ export const getArchetypeAndEval = async (
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
-    const groupMap = await getSavedGroupMap(context);
     const experimentMap = await getAllPayloadExperiments(context);
+    const groupMap = await getSavedGroupMapForFeatureRevision(
+      context,
+      feature,
+      revision,
+      experimentMap,
+    );
     const allEnvironments = getEnvironments(org);
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const safeRolloutMap =
