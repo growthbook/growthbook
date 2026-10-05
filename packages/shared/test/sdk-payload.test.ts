@@ -7,6 +7,7 @@ import {
   getPayloadAllowedKeys,
   buildV2SavedGroupsPayload,
   findAllReferencedSavedGroupIds,
+  savedGroupIdsInTargeting,
   resolveSavedGroupFormat,
   savedGroupFormatFromConnection,
   withLegacySavedGroupFlag,
@@ -657,6 +658,23 @@ describe("referencesV2 finalizeCondition", () => {
       groupMap,
     }).finalizeCondition(condition);
     expect(condition).toEqual({ country: { $inGroup: "list_country" } });
+  });
+});
+
+describe("savedGroupIdsInTargeting", () => {
+  it("collects ids from the saved group list and the condition, once each", () => {
+    expect(
+      savedGroupIdsInTargeting({
+        savedGroups: [{ ids: ["grp_a", "grp_b"] }],
+        condition: JSON.stringify({
+          $or: [{ id: { $inGroup: "grp_c" } }, { $savedGroups: ["grp_a"] }],
+        }),
+      }),
+    ).toEqual(["grp_a", "grp_b", "grp_c"]);
+  });
+
+  it("names nothing for a malformed condition", () => {
+    expect(savedGroupIdsInTargeting({ condition: "{not json" })).toEqual([]);
   });
 });
 

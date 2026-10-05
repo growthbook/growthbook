@@ -1251,13 +1251,20 @@ export const getSavedGroupDraftStates = async (
 
 export const getSavedGroupsMetadata = async (
   req: AuthRequest<null, Record<string, never>, { ids: string }>,
-  res: Response<{ status: 200; savedGroups: SavedGroupMetadata[] }>,
+  res: Response<{
+    status: 200;
+    savedGroups: SavedGroupMetadata[];
+    // Requested groups that no longer exist, so rules can say they're broken
+    missingIds: string[];
+  }>,
 ) => {
   const context = getContextFromReq(req);
   const ids = [...new Set(req.query.ids.split(",").filter(Boolean))];
-  const savedGroups =
-    await context.models.savedGroups.getMetadataWithNested(ids);
-  return res.status(200).json({ status: 200, savedGroups });
+  const [savedGroups, missingIds] = await Promise.all([
+    context.models.savedGroups.getMetadataWithNested(ids),
+    context.models.savedGroups.getMissingIds(ids),
+  ]);
+  return res.status(200).json({ status: 200, savedGroups, missingIds });
 };
 
 // endregion GET /saved-groups/metadata
