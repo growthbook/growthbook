@@ -662,15 +662,18 @@ describe("referencesV2 finalizeCondition", () => {
 });
 
 describe("savedGroupIdsInTargeting", () => {
-  it("collects ids from the saved group list and the condition, once each", () => {
+  it("collects ids from the saved group list and every condition, once each", () => {
     expect(
       savedGroupIdsInTargeting({
         savedGroups: [{ ids: ["grp_a", "grp_b"] }],
         condition: JSON.stringify({
           $or: [{ id: { $inGroup: "grp_c" } }, { $savedGroups: ["grp_a"] }],
         }),
+        prerequisites: [
+          { condition: JSON.stringify({ value: { $inGroup: "grp_d" } }) },
+        ],
       }),
-    ).toEqual(["grp_a", "grp_b", "grp_c"]);
+    ).toEqual(["grp_a", "grp_b", "grp_c", "grp_d"]);
   });
 
   it("names nothing for a malformed condition", () => {
