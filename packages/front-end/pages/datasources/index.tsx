@@ -24,6 +24,9 @@ import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
+import DataSourceOptionsTable from "@/components/DataSourceSetup/DataSourceOptionsTable";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 
 function ManagedWarehouseDriver() {
   const [open, setOpen] = useState(false);
@@ -140,6 +143,7 @@ const DataSourcesPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
   const { effectiveAccountPlan, license } = useUser();
+  const newDataSourceOnboarding = useNewDataSourceOnboarding();
 
   // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan, or is on a trial
   const showManagedWarehouse =
@@ -149,6 +153,21 @@ const DataSourcesPage: FC = () => {
     (effectiveAccountPlan === "starter" ||
       license?.isTrial ||
       !!license?.orbSubscription);
+
+  if (filteredDatasources.length === 0) {
+    // Wait for the flag so the old empty state doesn't flash first.
+    if (!newDataSourceOnboarding.ready) {
+      return <LoadingOverlay />;
+    }
+    if (newDataSourceOnboarding.enabled) {
+      return (
+        <div className="container-fluid pagecontents">
+          <h1 className="mb-3">Data Sources</h1>
+          <DataSourceOptionsTable />
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="container-fluid pagecontents">
@@ -213,7 +232,11 @@ const DataSourcesPage: FC = () => {
               disabled={
                 !permissionsUtil.canViewCreateDataSourceModal(project, projects)
               }
-              onClick={() => setNewModalData({})}
+              onClick={() =>
+                newDataSourceOnboarding.enabled
+                  ? router.push("/datasources/new")
+                  : setNewModalData({})
+              }
               ml="2"
             >
               Add Data Source

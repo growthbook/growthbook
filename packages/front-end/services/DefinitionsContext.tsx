@@ -58,6 +58,9 @@ type Definitions = {
   decisionCriteria: DecisionCriteriaInterface[];
   webhookSecrets: WebhookSecretFrontEndInterface[];
   eventIngestorRegion?: DataRegion;
+  // Org-wide, including ones the viewer cannot read.
+  hasManagedWarehouse: boolean;
+  hasEventForwarder: boolean;
 };
 
 type DefinitionContextValue = Definitions & {
@@ -118,6 +121,8 @@ const defaultValue: DefinitionContextValue = {
   _factMetricsIncludingArchived: [],
   decisionCriteria: [],
   webhookSecrets: [],
+  hasManagedWarehouse: false,
+  hasEventForwarder: false,
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -408,6 +413,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       decisionCriteria: decisionCriteria,
       webhookSecrets: data.webhookSecrets,
       eventIngestorRegion: data.eventIngestorRegion,
+      hasManagedWarehouse: data.hasManagedWarehouse ?? false,
+      hasEventForwarder: data.hasEventForwarder ?? false,
       setProject,
       getMetricById,
       getDatasourceById,
