@@ -161,6 +161,8 @@ export const docSections = {
     "/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm",
   rudderstack: "/guide/rudderstack",
   matomo: "/guide/matomo",
+  langfuse: "/event-trackers/langfuse",
+  phoenix: "/event-trackers/phoenix",
   apiPostEnvironment: "/api/environments/operation/postEnvironment",
   apiIntroduction: "/api/introduction",
   apiPostCodeRefs: "/api/code-references/operation/postCodeRefs",

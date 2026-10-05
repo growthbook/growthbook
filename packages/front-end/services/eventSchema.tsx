@@ -332,7 +332,7 @@ export const eventSchemas: eventSchema[] = [
     logo: "/images/3rd-party-logos/langfuse.png",
     popular: false,
     beta: true,
-    helpLink: "https://docs.growthbook.io/event-trackers/langfuse",
+    helpLink: docUrl("langfuse"),
     options: [
       {
         name: "projectId",
@@ -351,7 +351,7 @@ export const eventSchemas: eventSchema[] = [
     logo: "/images/3rd-party-logos/phoenix.png",
     popular: false,
     beta: true,
-    helpLink: "https://docs.growthbook.io/event-trackers/phoenix",
+    helpLink: docUrl("phoenix"),
     options: [
       {
         name: "projectName",
