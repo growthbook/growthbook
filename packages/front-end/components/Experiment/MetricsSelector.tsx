@@ -103,6 +103,8 @@ const MetricsSelector: FC<{
   project?: string;
   exposureQueryId?: string;
   exposureQueryIdentifierType?: string;
+  isClusterExperiment?: boolean;
+  clusterSubUnitIdentifier?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
@@ -130,6 +132,8 @@ const MetricsSelector: FC<{
   project,
   exposureQueryId,
   exposureQueryIdentifierType,
+  isClusterExperiment = false,
+  clusterSubUnitIdentifier,
   selected,
   onChange,
   autoFocus,
@@ -172,7 +176,12 @@ const MetricsSelector: FC<{
     (e) => e.id === exposureQueryId,
   );
   const userIdType = exposureQuery
-    ? resolveAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
+    ? isClusterExperiment && clusterSubUnitIdentifier
+      ? clusterSubUnitIdentifier
+      : resolveAnalysisIdentifierType(
+          exposureQuery,
+          exposureQueryIdentifierType,
+        )
     : undefined;
 
   const filteredOptions = useMemo(() => {

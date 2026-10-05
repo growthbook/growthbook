@@ -661,6 +661,11 @@ export function getSnapshotSettings({
     experiment.exposureQueryIdentifierType,
   );
 
+  const metricJoinIdentifierType =
+    experiment.isClusterExperiment && experiment.clusterSubUnitIdentifier
+      ? experiment.clusterSubUnitIdentifier
+      : exposureQueryIdentifierType;
+
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
 
@@ -711,7 +716,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: metricJoinIdentifierType,
       datasource,
     }),
   );
@@ -723,7 +728,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: metricJoinIdentifierType,
       datasource,
     }),
   );
@@ -735,7 +740,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: metricJoinIdentifierType,
       datasource,
     }),
   );

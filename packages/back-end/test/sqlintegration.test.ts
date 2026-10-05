@@ -2059,3 +2059,252 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
     expect(sql).toContain("'__NULL_DIMENSION'");
   });
 });
+
+// Cluster experiment (Option A): randomize on the cluster (region_id) but run the
+// metric pipeline at the nested sub-unit grain (user_id) so GrowthBook's per-unit
+// percentile capping is applied per sub-unit, then roll up to one row per
+// cluster for cluster-robust ratio inference (n = #clusters).
+describe("cluster experiment ratio analysis - bigquery", () => {
+  // The assignment query declares both the cluster (region_id) and the sub-unit
+  // (user_id) identifier types.
+  const clusterExposureQuery: ExposureQuery = {
+    id: "cluster_exposure",
+    name: "Cluster Exposure",
+    description: "Cluster Exposure",
+    query: "*",
+    userIdType: "region_id",
+    userIdTypes: ["region_id", "user_id"],
+    dimensions: [],
+  };
+
+  const ordersFactTable = factTableFactory.build({
+    id: "orders",
+    name: "Orders Fact Table",
+    sql: "*",
+    userIdTypes: ["user_id", "region_id"],
+  });
+  const factTableMap = new Map([[ordersFactTable.id, ordersFactTable]]);
+
+  // @ts-expect-error -- context not needed for test
+  const datasourceIntegration = new BigQuery("", {
+    type: "bigquery",
+    settings: { queries: { exposure: [clusterExposureQuery] } },
+  });
+
+  const baseSettings = {
+    manual: false,
+    dimensions: [],
+    metricSettings: [],
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    activationMetric: null,
+    defaultMetricPriorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: 0,
+    },
+    regressionAdjustmentEnabled: true,
+    attributionModel: "firstExposure" as const,
+    experimentId: "exp_cluster",
+    queryFilter: "",
+    segment: "",
+    skipPartialData: false,
+    datasourceId: "",
+    exposureQueryId: "cluster_exposure",
+    exposureQueryIdentifierType: "region_id",
+    startDate: new Date("2023-01-01"),
+    endDate: new Date("2023-01-31"),
+    variations: [],
+    isClusterExperiment: true,
+    clusterSubUnitIdentifier: "user_id",
+  };
+
+  const buildClusterSql = (metric: FactMetricInterface): string =>
+    getExperimentFactMetricsQuery(
+      bigQueryDialect,
+      datasourceIntegration.datasource,
+      {
+        settings: baseSettings,
+        unitsSource: "exposureQuery",
+        unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+          query: clusterExposureQuery.query,
+          identifierType: "region_id",
+        }),
+        activationMetric: null,
+        dimensions: [],
+        segment: null,
+        metrics: [metric],
+        factTableMap,
+      },
+    );
+
+  it("runs a percentile-capped mean metric at the sub-unit grain and caps before the cluster rollup", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_cluster_mean",
+      metricType: "mean",
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+      cappingSettings: { type: "percentile", value: 0.99, ignoreZeros: false },
+    });
+
+    const sql = buildClusterSql(metric);
+    const normalized = sql.replace(/\s+/g, " ").trim();
+
+    // baseIdType is the sub-unit (user_id), not the cluster (region_id): the
+    // per-sub-unit aggregate and the fact join key are user_id.
+    expect(normalized).toMatch(/__userMetricJoin.*m\.user_id = d\.user_id/);
+
+    // The cluster id is carried through for the rollup grouping.
+    expect(normalized).toContain("region_id");
+
+    // The percentile cap is computed over per-sub-unit values (__capValue reads
+    // the per-sub-unit aggregate).
+    expect(normalized).toContain("__capValue");
+
+    // Capping happens BEFORE the cluster aggregation: the rollup sums the capped
+    // per-sub-unit value (LEAST(..., cap)) grouped by cluster.
+    expect(normalized).toContain("__clusterRollup");
+    // SUM(LEAST(per-sub-unit value, cap)) — cap applied per sub-unit, inside the
+    // per-cluster SUM.
+    expect(normalized).toMatch(/SUM\(\s*LEAST\(/);
+    expect(normalized).toContain("cap.m0_value_cap");
+    expect(normalized).toMatch(/GROUP BY m\.variation\s*,\s*m\.region_id/);
+
+    // Converted metric denominator = count of exposed sub-units per cluster.
+    expect(normalized).toContain("COUNT(DISTINCT m.user_id) AS m0_denominator");
+
+    // The statistics CTE reads the already-capped per-cluster rollup and emits
+    // ratio columns; n = #clusters.
+    expect(normalized).toContain("FROM __clusterRollup m");
+    expect(normalized).toContain("COUNT(*) AS users");
+    expect(normalized).toContain("AS m0_main_sum");
+    expect(normalized).toContain("AS m0_denominator_sum");
+    expect(normalized).toContain("m0_main_denominator_sum_product");
+
+    // The old cluster-grain approach (Step 3) is gone.
+    expect(normalized).not.toContain("cluster_size");
+    // The percentile cap threshold is carried through the rollup and surfaced
+    // by the statistics CTE (so the applied cap is still reported downstream),
+    // even though the clamp itself happened per sub-unit before the rollup.
+    expect(normalized).toMatch(/MAX\(cap\.m0_value_cap\) AS m0_value_cap/);
+    expect(normalized).toContain("m0_main_cap_value");
+
+    // Metric Drilldowns: the uncapped per-cluster value is carried through the
+    // rollup (SUM of the uncapped per-sub-unit value) and the statistics CTE
+    // emits the uncapped sum/sum-of-squares over clusters.
+    expect(normalized).toMatch(
+      /SUM\(CAST\(COALESCE\(m\.m0_value, 0\) AS FLOAT64\)\) AS m0_value_uncapped/,
+    );
+    expect(normalized).toContain("m0_main_sum_uncapped");
+
+    // No regression adjustment unless configured on the metric.
+    expect(normalized).not.toContain("m0_covariate_sum");
+
+    expect(format(normalized, "bigquery")).toMatchSnapshot();
+  });
+
+  it("rolls a native ratio metric up to the cluster by summing capped per-sub-unit numerator and denominator", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_cluster_ratio",
+      metricType: "ratio",
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+      denominator: {
+        factTableId: "orders",
+        column: "qty",
+        aggregation: "sum",
+      },
+    });
+
+    const normalized = buildClusterSql(metric).replace(/\s+/g, " ").trim();
+
+    // Native ratio: the rollup denominator is the SUM of the per-sub-unit
+    // denominator, NOT a sub-unit count.
+    expect(normalized).toContain("__clusterRollup");
+    expect(normalized).toContain("AS m0_value");
+    expect(normalized).toContain("AS m0_denominator");
+    expect(normalized).not.toContain(
+      "COUNT(DISTINCT m.user_id) AS m0_denominator",
+    );
+
+    // Cluster-robust ratio statistics on the rollup.
+    expect(normalized).toContain("FROM __clusterRollup m");
+    expect(normalized).toContain("m0_main_denominator_sum_product");
+  });
+
+  it("applies CUPED by aggregating the pre-exposure covariate to the cluster grain (ratio_ra)", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_cluster_mean_ra",
+      metricType: "mean",
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+      cappingSettings: { type: "percentile", value: 0.99, ignoreZeros: false },
+      regressionAdjustmentOverride: true,
+      regressionAdjustmentEnabled: true,
+      regressionAdjustmentDays: 14,
+    });
+
+    const normalized = buildClusterSql(metric).replace(/\s+/g, " ").trim();
+
+    // The per-sub-unit pipeline computes the pre-exposure covariate window.
+    expect(normalized).toContain("m0_preexposure_start");
+    expect(normalized).toContain("m0_covariate_value");
+
+    // The rollup carries the cluster-aggregated covariate. The covariate is
+    // capped per sub-unit (same cap as the value), then summed to the cluster.
+    expect(normalized).toContain("__clusterRollup");
+    expect(normalized).toContain("AS m0_covariate_value");
+    // Converted mean: covariate denominator mirrors the denominator = count of
+    // exposed sub-units (D_pre = D_post = cluster size).
+    expect(normalized).toMatch(
+      /COUNT\(DISTINCT m\.user_id\) AS m0_covariate_denominator/,
+    );
+
+    // The statistics CTE reads the per-cluster covariate columns and emits the
+    // full ratio_ra set of sum-of-products over clusters.
+    expect(normalized).toContain("FROM __clusterRollup m");
+    expect(normalized).toContain("AS m0_covariate_sum");
+    expect(normalized).toContain("AS m0_denominator_pre_sum");
+    expect(normalized).toContain("m0_main_covariate_sum_product");
+    expect(normalized).toContain("m0_main_post_denominator_pre_sum_product");
+    expect(normalized).toContain("m0_main_pre_denominator_post_sum_product");
+    expect(normalized).toContain("m0_main_pre_denominator_pre_sum_product");
+    expect(normalized).toContain(
+      "m0_denominator_post_denominator_pre_sum_product",
+    );
+
+    // Metric Drilldowns: the uncapped per-cluster aggregates are carried through
+    // the rollup (parallel to the capped ones), so the statistics CTE emits the
+    // full uncapped ratio_ra sum-of-products set over clusters.
+    expect(normalized).toContain("m0_value_uncapped");
+    expect(normalized).toContain("m0_covariate_value_uncapped");
+    expect(normalized).toContain("m0_main_sum_uncapped");
+    expect(normalized).toContain("m0_covariate_sum_uncapped");
+    expect(normalized).toContain("m0_denominator_pre_sum_uncapped");
+    expect(normalized).toContain("m0_main_covariate_sum_product_uncapped");
+    expect(normalized).toContain(
+      "m0_main_post_denominator_pre_sum_product_uncapped",
+    );
+    expect(normalized).toContain(
+      "m0_denominator_post_denominator_pre_sum_product_uncapped",
+    );
+
+    // The percentile cap threshold is carried through the rollup and surfaced
+    // downstream even though the clamp happened per sub-unit before the rollup.
+    expect(normalized).toMatch(/MAX\(cap\.m0_value_cap\) AS m0_value_cap/);
+    expect(normalized).toContain("m0_main_cap_value");
+
+    expect(format(normalized, "bigquery")).toMatchSnapshot();
+  });
+});
