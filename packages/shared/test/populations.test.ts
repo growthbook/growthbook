@@ -2,6 +2,7 @@ import type { PopulationStep } from "shared/validators";
 import {
   getPopulationFactTableIds,
   getPopulationRuleViolations,
+  getPopulationStepsLabel,
   type PopulationRuleFactTable,
 } from "shared/populations";
 
@@ -47,6 +48,29 @@ describe("getPopulationFactTableIds", () => {
         step("ftb_orders"),
       ]),
     ).toEqual(["ftb_orders", "ftb_events"]);
+  });
+});
+
+describe("getPopulationStepsLabel", () => {
+  const names: Record<string, string> = {
+    ftb_events: "Events",
+    ftb_orders: "Orders",
+  };
+  const getName = (id: string) => names[id];
+
+  it("joins step fact table names in order", () => {
+    expect(
+      getPopulationStepsLabel(
+        [step("ftb_events"), step("ftb_orders"), step("ftb_events")],
+        getName,
+      ),
+    ).toBe("Events → Orders → Events");
+  });
+
+  it("falls back to the fact table id when the name is unknown", () => {
+    expect(
+      getPopulationStepsLabel([step("ftb_events"), step("ftb_gone")], getName),
+    ).toBe("Events → ftb_gone");
   });
 });
 
