@@ -101,6 +101,7 @@ it("announces a rise once, by event, Slack, and email to admins", async () => {
     recommendations: [
       { type: "saved-group-references" },
       { type: "limit-projects" },
+      { type: "archive-stale-features" },
     ],
   });
   const message = await getSlackMessageForNotificationEvent(
