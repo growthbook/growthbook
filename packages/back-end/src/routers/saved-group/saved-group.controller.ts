@@ -22,6 +22,7 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { DraftConflict } from "shared/types/draft-conflict";
+import { findAllReferencedSavedGroupIds } from "shared/sdk-versioning";
 import {
   canStageArchiveDraft,
   canWriteArchiveIntoDraft,
@@ -1254,15 +1255,20 @@ export const getSavedGroupsMetadata = async (
   res: Response<{
     status: 200;
     savedGroups: SavedGroupMetadata[];
-    // Requested groups that no longer exist, so rules can say they're broken
+    // Groups the requested ones reach that no longer exist, so rules can say
+    // they're broken
     missingIds: string[];
   }>,
 ) => {
   const context = getContextFromReq(req);
   const ids = [...new Set(req.query.ids.split(",").filter(Boolean))];
-  const [savedGroups, missingIds] = await Promise.all([
-    context.models.savedGroups.getMetadataWithNested(ids),
-    context.models.savedGroups.getMissingIds(ids),
+  const savedGroups =
+    await context.models.savedGroups.getMetadataWithNested(ids);
+  const missingIds = await context.models.savedGroups.getMissingIds([
+    ...findAllReferencedSavedGroupIds(
+      ids,
+      new Map(savedGroups.map((group) => [group.id, group])),
+    ),
   ]);
   return res.status(200).json({ status: 200, savedGroups, missingIds });
 };
