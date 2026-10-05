@@ -198,6 +198,7 @@ describe("getSdkPayloadSizeRecommendations", () => {
         type: "large-saved-groups",
         entries: [{ id: "grp_big", bytes: 3 * MB }],
       },
+      { type: "archive-stale-features" },
       {
         type: "optional-payload-settings",
         settings: ["includeDraftExperiments"],
@@ -214,7 +215,11 @@ describe("getSdkPayloadSizeRecommendations", () => {
     };
     expect(
       getSdkPayloadSizeRecommendations(connection, size).map((r) => r.type),
-    ).toEqual(["large-features", "large-saved-groups"]);
+    ).toEqual([
+      "large-features",
+      "large-saved-groups",
+      "archive-stale-features",
+    ]);
     expect(
       getSdkPayloadSizeRecommendations(connection, { ...size, bytes: MB }),
     ).toEqual([]);

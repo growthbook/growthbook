@@ -51,6 +51,14 @@ export function PayloadSizeIcon({
   );
 }
 
+function StaleFeaturesLink() {
+  return (
+    <Link href="/features?q=is%3Astale" underline="always">
+      Archive stale Feature Flags
+    </Link>
+  );
+}
+
 function EntryLinks({
   entries,
   kind,
@@ -105,6 +113,12 @@ function Recommendation({
         <>
           Shrink the largest Saved Groups:{" "}
           <EntryLinks entries={recommendation.entries} kind="saved-group" />.
+        </>
+      );
+    case "archive-stale-features":
+      return (
+        <>
+          <StaleFeaturesLink />, which stay in the payload until archived.
         </>
       );
     case "saved-group-references":
@@ -168,6 +182,8 @@ function alertsExplanation(alerts: SdkPayloadSizeAlert[]) {
 
 function Fix({ fix }: { fix: SdkPayloadSizeFix }) {
   switch (fix.type) {
+    case "archive-stale-features":
+      return <StaleFeaturesLink />;
     case "saved-group-references":
       return (
         <>

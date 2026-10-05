@@ -246,6 +246,9 @@ export function getSdkPayloadSizeRecommendations(
     });
   }
 
+  // Archived flags leave the payload
+  recommendations.push({ type: "archive-stale-features" });
+
   const settings = SDK_OPTIONAL_PAYLOAD_SETTINGS.filter((s) => connection[s]);
   if (settings.length) {
     recommendations.push({ type: "optional-payload-settings", settings });
@@ -298,6 +301,8 @@ export function describeSdkPayloadSizeRecommendation(
       return "Send Saved Groups as references, so each group is sent once instead of inside every rule that uses it.";
     case "limit-projects":
       return "Limit this SDK Connection to the Projects its app uses.";
+    case "archive-stale-features":
+      return "Archive stale Feature Flags, which stay in the payload until archived.";
     case "large-features":
       return withNames
         ? `Shrink the largest Feature Flags: ${listEntries(recommendation.entries)}. Large JSON values and long lists in conditions are the usual cause.`
@@ -320,6 +325,7 @@ export type SdkPayloadSizeFix =
       type:
         | "saved-group-references"
         | "limit-projects"
+        | "archive-stale-features"
         | "optional-payload-settings";
       connections: number;
     }
@@ -329,6 +335,7 @@ const FIX_ORDER: SdkPayloadSizeRecommendation["type"][] = [
   "saved-group-references",
   "large-features",
   "large-saved-groups",
+  "archive-stale-features",
   "limit-projects",
   "optional-payload-settings",
 ];

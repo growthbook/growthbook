@@ -38,6 +38,7 @@ export const sdkPayloadSizeRecommendationValidator = z.discriminatedUnion(
   [
     z.object({ type: z.literal("saved-group-references") }),
     z.object({ type: z.literal("limit-projects") }),
+    z.object({ type: z.literal("archive-stale-features") }),
     z.object({
       type: z.literal("large-features"),
       entries: z.array(sdkPayloadSizeEntryValidator),
