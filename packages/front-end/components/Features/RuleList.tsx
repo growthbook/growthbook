@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { SavedGroupMetadata } from "shared/types/saved-group";
-import { savedGroupIdsInTargeting } from "shared/sdk-versioning";
+import {
+  findAllReferencedSavedGroupIds,
+  savedGroupIdsInTargeting,
+} from "shared/sdk-versioning";
 import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
@@ -146,11 +149,6 @@ export default function RuleList(props: RuleListProps) {
     savedGroups: SavedGroupMetadata[];
     missingIds: string[];
   }>(metadataPath, { shouldRun: () => !!metadataPath });
-  // Deleted groups, which rules still name but serve as empty
-  const missingSavedGroupIds = useMemo(
-    () => new Set(referencedMetadata?.missingIds ?? []),
-    [referencedMetadata],
-  );
   const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
     const map = new Map<string, SavedGroupForConflicts>();
     for (const g of referencedMetadata?.savedGroups ?? []) {
@@ -162,6 +160,24 @@ export default function RuleList(props: RuleListProps) {
     }
     return map;
   }, [referencedMetadata]);
+  // Deleted groups a rule names or reaches through condition groups, which
+  // serve as empty
+  const missingSavedGroupIds = useMemo(
+    () => new Set(referencedMetadata?.missingIds ?? []),
+    [referencedMetadata],
+  );
+  const getMissingSavedGroupIds = useCallback(
+    (rule: FeatureRule) =>
+      missingSavedGroupIds.size
+        ? [
+            ...findAllReferencedSavedGroupIds(
+              savedGroupIdsInTargeting(rule),
+              savedGroupDefs,
+            ),
+          ].filter((id) => missingSavedGroupIds.has(id))
+        : [],
+    [missingSavedGroupIds, savedGroupDefs],
+  );
 
   // Lists over the conflict-analysis cap stay opaque, so their values are
   // never fetched; empty lists have nothing to fetch.
@@ -534,7 +550,7 @@ export default function RuleList(props: RuleListProps) {
                 setRuleModal={setRuleModal}
                 unreachable={isUnreachable(rule.id)}
                 conflictBanners={ruleConflictBanners(rule.id)}
-                missingSavedGroupIds={missingSavedGroupIds}
+                getMissingSavedGroupIds={getMissingSavedGroupIds}
                 version={version}
                 setVersion={setVersion}
                 locked={locked}

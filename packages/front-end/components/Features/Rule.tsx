@@ -1,5 +1,4 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { savedGroupIdsInTargeting } from "shared/sdk-versioning";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
@@ -235,8 +234,8 @@ interface SortableProps {
   // view each names the environments it covers (hard = "will not reach", soft =
   // "may not reach", unreachable = the rule(s) consuming it).
   conflictBanners?: ConflictBanner[];
-  // Saved groups that no longer exist; a rule naming one gets a warning
-  missingSavedGroupIds?: Set<string>;
+  // Deleted saved groups a rule reaches; a rule with any gets a warning
+  getMissingSavedGroupIds?: (rule: FeatureRule) => string[];
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
@@ -335,7 +334,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       handle,
       unreachable,
       conflictBanners,
-      missingSavedGroupIds,
+      getMissingSavedGroupIds,
       version,
       setVersion,
       locked,
@@ -557,11 +556,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       conflictBanners,
       rampSchedule,
       rampPendingDetach: !!hasPendingDetach,
-      missingSavedGroupIds: missingSavedGroupIds
-        ? savedGroupIdsInTargeting(rule).filter((id) =>
-            missingSavedGroupIds.has(id),
-          )
-        : [],
+      missingSavedGroupIds: getMissingSavedGroupIds?.(rule) ?? [],
     });
 
     if (hideInactive && isInactive) {
