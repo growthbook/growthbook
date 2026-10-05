@@ -1,4 +1,5 @@
 import {
+  describeSdkPayloadSize,
   getSdkPayloadSizeLevel,
   nextNotifiedSdkPayloadSizeLevel,
   summarizeSdkPayloadSizeFixes,
@@ -24,6 +25,20 @@ describe("getSdkPayloadSizeLevel", () => {
     expect(
       getSdkPayloadSizeLevel({ bytes: 1.7 * MB, limitBytes: 2 * MB }),
     ).toBe("danger");
+  });
+});
+
+describe("describeSdkPayloadSize", () => {
+  it("states the share of the limit, rounded down", () => {
+    expect(describeSdkPayloadSize({ bytes: 8.5 * MB, limitBytes })).toBe(
+      "The SDK payload is 8.5 MB, 53% of the 16 MB cache limit.",
+    );
+    expect(
+      describeSdkPayloadSize({ bytes: limitBytes - 1, limitBytes }),
+    ).toContain("99% of the 16 MB cache limit. Past it");
+    expect(describeSdkPayloadSize({ bytes: 17.4 * MB, limitBytes })).toBe(
+      "The SDK payload is 17.4 MB, 108% of the 16 MB cache limit. SDKs get no updates until it's smaller.",
+    );
   });
 });
 

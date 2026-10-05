@@ -263,14 +263,16 @@ export function formatSdkPayloadBytes(bytes: number): string {
 
 export function describeSdkPayloadSize(size: SizeAgainstLimit): string {
   const current = formatSdkPayloadBytes(size.bytes);
-  const limit = formatSdkPayloadBytes(size.limitBytes);
+  // Rounded down, so a payload under the limit never reads as 100%
+  const share = `${Math.floor((size.bytes / size.limitBytes) * 100)}%`;
+  const ofLimit = `${share} of the ${formatSdkPayloadBytes(size.limitBytes)} cache limit`;
   switch (getSdkPayloadSizeLevel(size)) {
     case "over-limit":
-      return `The SDK payload is ${current}, over the ${limit} cache limit. SDKs get no updates until it's smaller.`;
+      return `The SDK payload is ${current}, ${ofLimit}. SDKs get no updates until it's smaller.`;
     case "danger":
-      return `The SDK payload is ${current}, over 80% of the ${limit} cache limit. Past it, SDKs get no updates.`;
+      return `The SDK payload is ${current}, ${ofLimit}. Past it, SDKs get no updates.`;
     case "warning":
-      return `The SDK payload is ${current}, over half of the ${limit} cache limit.`;
+      return `The SDK payload is ${current}, ${ofLimit}.`;
     case "ok":
       return `The SDK payload is ${current}.`;
   }
