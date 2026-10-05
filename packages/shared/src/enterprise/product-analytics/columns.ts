@@ -234,16 +234,12 @@ export function getAvailableDimensionColumns(
     case "data_source":
     case "sql": {
       if (!dataset.values.length) return [];
-      return excludeUserIdTypes(
-        Object.entries(dataset.columnTypes)
-          .filter(([, datatype]) =>
-            dataset.type === "sql"
-              ? datatype !== "other"
-              : datatype === "string",
-          )
-          .map(([name, datatype]) => ({ column: name, name, datatype })),
-        new Set(),
-      );
+      return Object.entries(dataset.columnTypes)
+        .filter(([, datatype]) =>
+          dataset.type === "sql" ? datatype !== "other" : datatype === "string",
+        )
+        .map(([name, datatype]) => ({ column: name, name, datatype }))
+        .sort((a, b) => a.name.localeCompare(b.name));
     }
     case "journey": {
       const ft = getFactTableById(dataset.factTableId || "");
