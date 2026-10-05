@@ -1,7 +1,5 @@
 import type { Response } from "express";
-import { escapeRegExp } from "lodash";
 import {
-  completePrefix,
   getMessageText,
   type AIChatAssistantMessage,
   type AIChatUserMessage,
@@ -45,11 +43,10 @@ export const listSkills = async (
 };
 
 const AUTOCOMPLETE_INSTRUCTIONS = `You autocomplete a draft message a user is typing to GrowthBook's AI assistant.
-Reply with ONLY the complete message: the draft exactly as written, character for character, continued to the end of the user's thought. No quotes, no explanation.
-Keep the continuation to one short sentence (under 15 words) that completes the thought and ends with a period or question mark. Prefer requests the assistant's skills below can carry out, and use the recent conversation to guess what they want next.
+Reply with ONLY the complete message: the draft exactly as written, character for character, plus the next few words. No quotes, no explanation.
+Add only the next phrase, at most 8 words; do not finish the whole sentence unless the thought is nearly complete. If the draft ends in the beginning of a name, finish that name from the lists below and stop.
 The user's current page in the GrowthBook app is given as a path: /features/<key> is that feature flag, /experiment/<id> that experiment, /metric/<id> or /fact-metrics/<id> that metric. When the draft says "this experiment", "this flag" or similar, it means the entity on that page.
 Ground the continuation in what this organization actually has, listed below. Refer to those data sources, feature flags, experiments and metrics by their real names. Never invent a metric, flag, experiment or table that isn't listed; if nothing listed fits, keep the continuation generic.
-If the draft ends in the beginning of a name, finish that name from the lists before anything else.
 Reply with the draft unchanged if there is no good continuation.`;
 
 const ORG_CONTEXT_LIMIT = 15;
@@ -151,10 +148,6 @@ const SIGNALS = CONTEXT_SIGNALS.map(({ kinds, pages, words }) => ({
   words: new RegExp(`\\b(?:${words.join("|")})s?\\b`, "i"),
 }));
 
-// Words that introduce a name: "my metric My First Funnel".
-const NAME_LEAD_IN =
-  /\b(?:metric|flag|feature|experiment|data ?source|table)s?\b\s+(.{1,60})$/i;
-
 // Skill domains each entity list belongs to; docs are always worth having.
 const DOMAIN_FOR_KIND: Record<ContextKind, string> = {
   features: "feature-flags",
@@ -187,24 +180,6 @@ export function contextKindsFor({
   return kinds.size ? [...kinds] : null;
 }
 
-/**
- * What the user seems to be naming: the words after the last "metric",
- * "flag", etc. — plus an escaped, case-insensitive prefix match, which is
- * how Mongo filters on a name.
- */
-export function nameHintFromDraft(
-  text: string,
-): { typed: string; pattern: RegExp } | undefined {
-  const typed = text.match(NAME_LEAD_IN)?.[1]?.trim();
-  const words = typed?.split(/\s+/).filter((w) => w.length >= 2) ?? [];
-  if (!typed || !words.length) return undefined;
-  const pattern = new RegExp(
-    `\\b(?:${words.map(escapeRegExp).join("|")})`,
-    "i",
-  );
-  return { typed, pattern };
-}
-
 /** Descriptions run to a paragraph; the first sentence is enough to route by. */
 export function firstSentence(text: string): string {
   return text.trim().split(/(?<=[.!?])\s/)[0] ?? "";
@@ -224,18 +199,14 @@ function skillsForPrompt(org: ReqContext["org"], kinds: ContextKind[]): string {
     .join("\n");
 }
 
-/**
- * Labelled name lists for the entity kinds the context points at. With
- * `name`, only entities matching it (the typed fragment).
- */
+/** Labelled name lists for the entity kinds the context points at. */
 // ponytail: up to five queries per call; cache per org for a minute if this shows up in latency.
 async function entityNames(
   context: ReqContext,
   {
     datasourceId,
     kinds: kindList,
-    name,
-  }: { datasourceId?: string; kinds: ContextKind[]; name?: RegExp },
+  }: { datasourceId?: string; kinds: ContextKind[] },
 ): Promise<(readonly [string, string[]])[]> {
   const kinds = new Set(kindList);
   const limit = ORG_CONTEXT_LIMIT;
@@ -258,7 +229,7 @@ async function entityNames(
     [
       "Feature flags",
       "features",
-      () => getRecentFeatureIds(context, { limit, readableProjects, name }),
+      () => getRecentFeatureIds(context, { limit, readableProjects }),
     ],
     [
       "Experiments",
@@ -268,7 +239,6 @@ async function entityNames(
           await getAllExperiments(context, {
             limit,
             sortBy: { dateUpdated: -1 },
-            name,
           })
         ).map((e) => e.name),
     ],
@@ -280,7 +250,6 @@ async function entityNames(
           limit,
           datasourceId,
           readableProjects,
-          name,
         }),
     ],
     [
@@ -291,7 +260,6 @@ async function entityNames(
           limit,
           datasourceId,
           readableProjects,
-          name,
         }),
     ],
   ];
@@ -328,9 +296,7 @@ export function cleanCompletion(raw: string, draft: string): string {
     : d && d === d.trimEnd() && full
       ? ` ${full}`
       : full;
-  const one = out.split("\n")[0].slice(0, 200).trimEnd();
-  // Always a finished sentence, so what Tab inserts is ready to send.
-  return one && !".?!".includes(one.slice(-1)) ? `${one}.` : one;
+  return out.split("\n")[0].slice(0, 120).trimEnd();
 }
 
 export const postAutocomplete = async (
@@ -382,23 +348,6 @@ export const postAutocomplete = async (
   // conversation. Guessing here is what produced invented metrics.
   if (!kinds) return res.status(200).json({ status: 200, completion: "" });
 
-  // Mid-name: hand back the rest of the name and stop. Where the user is
-  // going with it is for the next pause to find out.
-  const hint = nameHintFromDraft(text);
-  if (hint) {
-    const matched = await entityNames(context, {
-      datasourceId,
-      kinds,
-      name: hint.pattern,
-    });
-    const rest = completePrefix(
-      hint.typed,
-      matched.flatMap(([, names]) => names),
-    );
-    if (rest) return res.status(200).json({ status: 200, completion: rest });
-  }
-  // ponytail: a second round of lookups when the hint wasn't a prefix; merge
-  // the two if that shows up in latency.
   const orgContext = (await entityNames(context, { datasourceId, kinds }))
     .map(([label, names]) => `${label}: ${names.join(", ") || "(none)"}`)
     .join("\n");
@@ -410,9 +359,9 @@ export const postAutocomplete = async (
     type: "chat-autocomplete",
     isDefaultPrompt: true,
     temperature: 0.2,
-    // Room to echo the draft (~3 chars per token, generous) plus one short
-    // sentence; anything longer is the model rambling.
-    maxOutputTokens: Math.ceil(text.length / 3) + 80,
+    // Room to echo the draft (~3 chars per token, generous) plus a short
+    // phrase; anything longer is the model rambling.
+    maxOutputTokens: Math.ceil(text.length / 3) + 24,
     instructions: AUTOCOMPLETE_INSTRUCTIONS,
     prompt: `Assistant skills:\n${skills}\n\nThis organization has:\n${orgContext}\n\nCurrent page: ${currentPage?.trim() || "(unknown)"}\n\nRecent conversation:\n${history || "(none)"}\n\nDraft:\n${text}`,
   });

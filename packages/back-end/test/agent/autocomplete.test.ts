@@ -2,7 +2,6 @@ import {
   cleanCompletion,
   contextKindsFor,
   firstSentence,
-  nameHintFromDraft,
 } from "back-end/src/routers/agent/agent.controller";
 
 describe("cleanCompletion", () => {
@@ -32,13 +31,10 @@ describe("cleanCompletion", () => {
       "for the page.",
     );
   });
-  it("ends every suggestion as a full sentence", () => {
-    expect(cleanCompletion("create a flag for checkout", "create a flag")).toBe(
-      " for checkout.",
-    );
+  it("keeps only the first line", () => {
     expect(
       cleanCompletion("create a flag now\nSecond thought", "create a flag"),
-    ).toBe(" now.");
+    ).toBe(" now");
   });
   it("returns nothing for an unchanged draft", () => {
     expect(cleanCompletion("create a flag", "create a flag")).toBe("");
@@ -106,22 +102,5 @@ describe("firstSentence", () => {
     expect(
       firstSentence("Chart product data. Build dashboards. Use for X."),
     ).toBe("Chart product data.");
-  });
-});
-
-describe("nameHintFromDraft", () => {
-  it("takes what follows the entity word and matches names starting with it", () => {
-    const hint = nameHintFromDraft("For my metric My");
-    expect(hint?.typed).toBe("My");
-    expect(hint?.pattern.test("My First Funnel")).toBe(true);
-    expect(hint?.pattern.test("Session Duration")).toBe(false);
-  });
-  it("escapes regex characters in the fragment", () => {
-    const hint = nameHintFromDraft("turn on the flag checkout (v2");
-    expect(hint?.pattern.source).toContain("\\(v2");
-    expect(hint?.pattern.test("checkout (v2) rollout")).toBe(true);
-  });
-  it("returns nothing without an entity word before the fragment", () => {
-    expect(nameHintFromDraft("show me checkout")).toBeUndefined();
   });
 });

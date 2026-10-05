@@ -715,13 +715,10 @@ export async function getRecentFeatureIds(
   {
     limit,
     readableProjects,
-    name,
   }: {
     limit: number;
     /** From `getProjectsWithPermission`; null means every project. */
     readableProjects: string[] | null;
-    /** Only keys matching this, e.g. what the user has typed so far. */
-    name?: RegExp;
   },
 ): Promise<string[]> {
   if (readableProjects?.length === 0) return [];
@@ -732,7 +729,6 @@ export async function getRecentFeatureIds(
       ...featureListQuery(context.org.id, {
         projectIds: readableProjects ?? undefined,
       }),
-      ...(name ? { id: name } : {}),
     },
     {
       _id: 0,

@@ -413,14 +413,11 @@ export async function getRecentMetricNames(
     limit,
     datasourceId,
     readableProjects,
-    name,
   }: {
     limit: number;
     datasourceId?: string;
     /** From `getProjectsWithPermission`; null means every project. */
     readableProjects: string[] | null;
-    /** Only names matching this, e.g. what the user has typed so far. */
-    name?: RegExp;
   },
 ): Promise<string[]> {
   if (readableProjects?.length === 0) return [];
@@ -430,7 +427,6 @@ export async function getRecentMetricNames(
         organization: context.org.id,
         status: { $ne: "archived" },
         ...(datasourceId ? { datasource: datasourceId } : {}),
-        ...(name ? { name } : {}),
         // Pre-filter in Mongo so the limit runs on the cursor.
         ...readableProjectsClause(readableProjects),
       },
