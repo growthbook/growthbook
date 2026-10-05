@@ -15,6 +15,7 @@ import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryMetadata } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { getErrorMessage } from "back-end/src/util/errors";
@@ -57,7 +58,7 @@ function getProxySettings(): ProxyOptions {
 
 const SNOWFLAKE_QUERY_TAG_MAX_LENGTH = 2000;
 
-function buildSnowflakeConnection(
+export function buildSnowflakeConnection(
   conn: SnowflakeConnectionParams,
   queryMetadata?: QueryMetadata,
 ): Connection {
@@ -85,6 +86,27 @@ function buildSnowflakeConnection(
     } catch (e) {
       throw new Error("Invalid private key or private key password");
     }
+  } else if (conn.authMethod === "workload-identity") {
+    // On Cloud the ambient identity would be GrowthBook's infrastructure, not the customer's.
+    if (IS_CLOUD) {
+      throw new Error(
+        "Workload Identity authentication is only supported on self-hosted GrowthBook installations",
+      );
+    }
+    // Fail before connecting; the SDK would also accept OIDC, which needs a token we don't plumb.
+    if (
+      conn.workloadIdentityProvider !== "AWS" &&
+      conn.workloadIdentityProvider !== "AZURE" &&
+      conn.workloadIdentityProvider !== "GCP"
+    ) {
+      throw new Error(
+        "Workload Identity authentication requires a cloud provider (AWS, AZURE, or GCP)",
+      );
+    }
+    authenticationDetails = {
+      authenticator: "WORKLOAD_IDENTITY",
+      workloadIdentityProvider: conn.workloadIdentityProvider,
+    };
   } else {
     authenticationDetails = {
       password: conn.password,

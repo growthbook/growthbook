@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiOptionalAssignmentQueryResponseFields } from "./assignment-query-field";
 import { namedSchema } from "./openapi-helpers";
 import {
   apiExperimentResultsValidator,
@@ -65,10 +66,7 @@ const reportAnalysisSettingsSchema = z
       .string()
       .describe("Tracking key used to identify experiment exposures")
       .optional(),
-    exposureQueryId: z
-      .string()
-      .describe("Datasource exposure query ID (Assignment Table)")
-      .optional(),
+    ...apiOptionalAssignmentQueryResponseFields("exposureQuery"),
     segment: z.string().describe("Segment ID to filter users by").optional(),
     queryFilter: z
       .string()

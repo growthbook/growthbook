@@ -36,6 +36,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
     .map((m) => ({
       ...m,
       cappingSettings: { type: "" as const, value: 0 },
+      lowerCappingSettings: null,
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
   const paramsMetricsSorted: {
@@ -74,12 +75,12 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
     datasource.settings,
     {
       objects: [
-        [exposureQuery.userIdType],
+        [exposureQuery.identifierType],
         source.factTable?.userIdTypes || [],
       ],
       from: params.settings.startDate,
       to: params.settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
+      forcedBaseIdType: exposureQuery.identifierType,
       experimentId: params.settings.experimentId,
     },
   );
