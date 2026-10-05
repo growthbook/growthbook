@@ -642,15 +642,15 @@ export class HoldoutModel extends BaseClass {
     >
   > {
     const holdouts = await this._find({});
-    const holdoutsWithExperiments = await Promise.all(
-      holdouts.map(async (h) => {
-        const holdoutExperiment = await getExperimentById(
-          this.context,
-          h.experimentId,
-        );
-        return { holdout: h, holdoutExperiment };
-      }),
+    const experiments = await getExperimentsByIds(
+      this.context,
+      holdouts.map((h) => h.experimentId),
     );
+    const experimentsById = new Map(experiments.map((e) => [e.id, e]));
+    const holdoutsWithExperiments = holdouts.map((h) => ({
+      holdout: h,
+      holdoutExperiment: experimentsById.get(h.experimentId),
+    }));
 
     const filteredHoldouts = holdoutsWithExperiments.filter(
       (

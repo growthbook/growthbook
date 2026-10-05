@@ -234,6 +234,8 @@ interface SortableProps {
   // view each names the environments it covers (hard = "will not reach", soft =
   // "may not reach", unreachable = the rule(s) consuming it).
   conflictBanners?: ConflictBanner[];
+  // Deleted saved groups a rule reaches; a rule with any gets a warning
+  getMissingSavedGroupIds?: (rule: FeatureRule) => string[];
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
@@ -332,6 +334,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       handle,
       unreachable,
       conflictBanners,
+      getMissingSavedGroupIds,
       version,
       setVersion,
       locked,
@@ -553,6 +556,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       conflictBanners,
       rampSchedule,
       rampPendingDetach: !!hasPendingDetach,
+      missingSavedGroupIds: getMissingSavedGroupIds?.(rule) ?? [],
     });
 
     if (hideInactive && isInactive) {
@@ -2025,6 +2029,7 @@ export function getRuleMetaInfo({
   conflictBanners,
   rampSchedule,
   rampPendingDetach,
+  missingSavedGroupIds = [],
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
@@ -2034,6 +2039,8 @@ export function getRuleMetaInfo({
   conflictBanners?: ConflictBanner[];
   rampSchedule?: RampScheduleInterface;
   rampPendingDetach?: boolean;
+  // Saved groups this rule names that no longer exist
+  missingSavedGroupIds?: string[];
 }): RuleMetaInfo {
   const linkedExperiment =
     rule.type === "experiment-ref"
@@ -2216,6 +2223,18 @@ export function getRuleMetaInfo({
       allProjects={banner.allProjects}
     />
   ));
+  if (missingSavedGroupIds.length) {
+    callouts.unshift(
+      <Callout key="missing-saved-groups" status="error">
+        {missingSavedGroupIds.length === 1
+          ? "This rule targets a Saved Group that no longer exists"
+          : "This rule targets Saved Groups that no longer exist"}{" "}
+        ({missingSavedGroupIds.join(", ")}). It&apos;s served as if{" "}
+        {missingSavedGroupIds.length === 1 ? "that group were" : "they were"}{" "}
+        empty.
+      </Callout>,
+    );
+  }
 
   // The status badge is derived from the same banners as the callouts, so its
   // colour + icon always mirror the callout: orange/octagon for unreachable,

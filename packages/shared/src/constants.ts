@@ -339,3 +339,7 @@ export const entityEvents = {
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
 
 export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;
+
+// ID lists longer than this are treated as opaque by the flag page's rule
+// conflict analysis, so their values are never fetched.
+export const SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES = 1000;
