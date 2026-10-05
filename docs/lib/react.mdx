@@ -193,7 +193,7 @@ This plugin requires a browser environment and does not work in Server Component
 import { autoAttributesPlugin } from "@growthbook/growthbook/plugins";
 
 // Optional settings for the plugin (documented below)
-const pluginOptions: {}
+const pluginOptions = {}
 
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
@@ -228,7 +228,7 @@ By default the plugin generates a random UUID for the user and stores it in a co
 
 - `uuidKey` - The attribute key to use for the uuid (default is `id`)
 - `uuid` - Pass in your own user id instead of having the plugin generate a random one.
-- `uuidCookieName` - The name of the cookie to use for the generated uuid (default is `gb_uuid`)
+- `uuidCookieName` - The name of the cookie to use for the generated uuid (default is `gbuuid`)
 - `uuidCookieDomain` - Scope the uuid cookie to a parent domain (e.g. `".example.com"`) so the same anonymous id is shared across subdomains. Recommended if you run experiments that redirect users between subdomains, otherwise the visitor gets a new id (and can be re-bucketed) on the destination subdomain.
 - `uuidAutoPersist` - If `false`, the generated id will NOT be stored in a cookie automatically. Default depends on the `uuid` option. If `uuid` is set, the default is `false`. Otherwise, the default is `true`.
 
@@ -280,9 +280,24 @@ console.log(res);
 
 The return value has 3 properties:
 
-- **status** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
+- **success** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
-- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+- **error** - If success is `false`, this will contain an `Error` object with more details about the error
+
+#### Fallback Payload
+
+To use a bundled payload only when features can't be downloaded, pass it to `setPayload` when `init` doesn't succeed:
+
+```ts
+const res = await gb.init({ timeout: 2000 });
+if (!res.success) {
+  await gb.setPayload(fallbackPayload);
+}
+```
+
+Don't pass the fallback to `init({ payload })` because that skips the network request entirely. A cached payload counts as a success, so the fallback is only used when there's nothing usable in the cache.
+
+The fallback stays in place until a later request succeeds. If `init` timed out and `streaming` or `pollingInterval` is enabled, the SDK applies the original request when it finishes. After a network error, only `pollingInterval` retries.
 
 ### Custom Integration
 
@@ -406,7 +421,7 @@ const gb = new GrowthBook({
   // Enable remote evaluation
   remoteEval: true,
 
-  // Optional: only trigger a new evaluation call when the `id` and `email` attribute changes
+  // Optional: only trigger a new evaluation call when the `id` and `email` attributes change
   cacheKeyAttributes: ["id", "email"],
 });
 ```
@@ -463,7 +478,7 @@ import { setPolyfills } from "@growthbook/growthbook";
 setPolyfills({
   localStorage: {
     getItem: async (key) => {
-      const value = AsyncStorage.getItem(key);
+      const value = await AsyncStorage.getItem(key);
       return value != null ? JSON.parse(value) : null;
     },
     setItem: async (key, value) => {
@@ -554,7 +569,7 @@ const gb = new GrowthBook({
 });
 ```
 
-For SPA's you will also need to let the GrowthBook instance know when the URL changes so the active experiments can update accordingly.
+For SPAs you will also need to let the GrowthBook instance know when the URL changes so the active experiments can update accordingly.
 
 ```js
 // Call this every time a navigation event happens in your SPA
@@ -565,7 +580,7 @@ function onRouteChange() {
 
 ### Sticky Bucketing
 
-Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:
+Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment support sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:
 
 - `LocalStorageStickyBucketService` —
   For simple bucket persistence using the browser's LocalStorage (can be polyfilled for other environments).
@@ -592,7 +607,7 @@ const gb = new GrowthBook({
 
 ## Next.js
 
-If you are using Next.js, checkout our example apps for [Next with App Router](https://github.com/growthbook/examples/tree/main/next-js) and [Next with Pages Router](https://github.com/growthbook/examples/tree/main/next-js-pages).
+If you are using Next.js, check out our example apps for [Next with App Router](https://github.com/growthbook/examples/tree/main/next-js) and [Next with Pages Router](https://github.com/growthbook/examples/tree/main/next-js-pages).
 
 The examples above show how to use GrowthBook with a number of different rendering strategies and app setups and the App Router example has been updated to support the latest features in Next 14.
 
@@ -774,7 +789,7 @@ export default async function MyServerPage() {
     <div>
       <p>Server feature: {serverFeature ? "ON" : "OFF"}</p>
       <GrowthBookWrapper payload={payload}>
-        <OtherComponent>
+        <OtherComponent />
       </GrowthBookWrapper>
       <GrowthBookTracking data={trackingData} />
     </div>
@@ -800,7 +815,7 @@ export const getServerSideProps = async (context) => {
 
   // Set targeting attributes for the user
   await gb.setAttributes({
-    id: context?.cookies?.my_uuid || "",
+    id: context?.req?.cookies?.my_uuid || "",
   });
 
   // Evaluate any feature flags
@@ -901,7 +916,7 @@ export default function MyPage({ payload }) {
     [payload]
   );
 
-  return <GrowthBookProvider growthbook={gb}><MyComponent></GrowthBookProvider>;
+  return <GrowthBookProvider growthbook={gb}><MyComponent /></GrowthBookProvider>;
 }
 ```
 
@@ -1000,7 +1015,7 @@ const userTags = await Promise.all(
 
 ### Feature Usage Callback
 
-GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like New Relic or Datadog.
 
 ```ts
 new GrowthBook({
@@ -1084,7 +1099,7 @@ A type-safe version of the `useGrowthBook()` hook is available. Everywhere you u
 const growthbook = useGrowthBook<AppFeatures>()
 ```
 
-In that case, the hook will return `GrowthBook<AppFeatures> | undefined`.
+In that case, the hook will return `GrowthBook<AppFeatures>`.
 
 You can reduce this boilerplate by creating your own hook, e.g.:
 
@@ -1092,7 +1107,7 @@ You can reduce this boilerplate by creating your own hook, e.g.:
 // ./src/utils/growthbook.ts
 import { useGrowthBook as _useGrowthBook } from "@growthbook/growthbook-react";
 
-export const useGrowthBook = (): GrowthBook<AppFeatures> | undefined =>
+export const useGrowthBook = (): GrowthBook<AppFeatures> =>
   _useGrowthBook<AppFeatures>();
 ```
 
