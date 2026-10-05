@@ -14,7 +14,10 @@ import {
   ChecklistStatus,
   ExperimentStartChecklistStatus,
 } from "shared/validators";
-import { experimentHasLiveLinkedChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getExperimentSdkConnections,
+} from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -229,7 +232,11 @@ export async function getExperimentStartChecklistStatus(
     experiment,
     arming ? { publisher: context } : {},
   );
-  const sdkConnections = await findSDKConnectionsByOrganization(context);
+  const sdkConnections = getExperimentSdkConnections(
+    await findSDKConnectionsByOrganization(context),
+    experiment.project,
+    linkedFeatures,
+  );
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const items: StartChecklistItemStatus[] = [];
