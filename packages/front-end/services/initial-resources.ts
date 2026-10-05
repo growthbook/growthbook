@@ -1157,7 +1157,8 @@ export function getInitialDatasourceResources({
 }
 
 // Merges a tracker's settings into an existing Data Source's instead of
-// replacing them. Query ids are prefixed so they don't collide.
+// replacing them. Query ids are prefixed so they don't collide, and queries
+// already there (e.g. Firebase's on a GA4 Data Source) are skipped.
 export function getDatasourceTemplateSettings({
   datasource,
   template,
@@ -1187,7 +1188,10 @@ export function getDatasourceTemplateSettings({
       id: `${template}_${q.id}`,
       name: `${label}: ${q.name}`,
     }))
-    .filter((q) => !existingExposure.some((e) => e.id === q.id));
+    .filter(
+      (q) =>
+        !existingExposure.some((e) => e.id === q.id || e.query === q.query),
+    );
   const identityJoins = initial.queries.identityJoins.filter(
     (join) =>
       !existingJoins.some(

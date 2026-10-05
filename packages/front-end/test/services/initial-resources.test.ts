@@ -221,6 +221,28 @@ function businessClickhouse(): DataSourceInterfaceWithParams {
   } as unknown as DataSourceInterfaceWithParams;
 }
 
+describe("Firebase on a GA4 Data Source", () => {
+  it("skips assignment queries with the same SQL", () => {
+    const ds = {
+      id: "ds_ga4",
+      type: "bigquery",
+      params: { defaultProject: "proj", defaultDataset: "analytics_123" },
+      settings: { schemaFormat: "ga4" },
+    } as unknown as DataSourceInterfaceWithParams;
+    const ga4 = getDatasourceTemplateSettings({
+      datasource: ds,
+      template: "ga4",
+      schemaOptions: {},
+    });
+    const withFirebase = getDatasourceTemplateSettings({
+      datasource: { ...ds, settings: ga4 },
+      template: "firebase",
+      schemaOptions: {},
+    });
+    expect(withFirebase.queries?.exposure).toEqual(ga4.queries?.exposure);
+  });
+});
+
 describe("Snowplow on an existing Data Source", () => {
   it("adds prefixed assignment queries and no fact tables", () => {
     const ds = {
