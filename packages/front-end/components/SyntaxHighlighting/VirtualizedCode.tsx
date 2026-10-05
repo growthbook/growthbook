@@ -1,4 +1,10 @@
-import { createContext, RefObject, useMemo } from "react";
+import {
+  createContext,
+  RefObject,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import InlineCode, { Props as InlineCodeProps } from "./InlineCode";
 
@@ -8,6 +14,14 @@ const ESTIMATED_LINE_HEIGHT = 20;
 // Inside it, long code and large diffs render in full: for offscreen renders
 // that are read back as text, such as Copy as → Formatted changes
 export const RenderInFullContext = createContext(false);
+
+// A parent's ref is attached after its children's layout effects, so a
+// virtualizer mounted together with its scroll box first sees no scroll
+// element. One render after mount lets it pick the box up.
+export function useRenderAfterParentRefs() {
+  const [, setMounted] = useState(false);
+  useLayoutEffect(() => setMounted(true), []);
+}
 
 // Code longer than this is worth virtualizing inside a scrolling box
 export function isLongCode(code: string): boolean {
@@ -25,6 +39,7 @@ export default function VirtualizedCode({
   scrollRef: RefObject<HTMLElement | null>;
 }) {
   const lines = useMemo(() => code.split("\n"), [code]);
+  useRenderAfterParentRefs();
   const virtualizer = useVirtualizer({
     count: lines.length,
     getScrollElement: () => scrollRef.current,
