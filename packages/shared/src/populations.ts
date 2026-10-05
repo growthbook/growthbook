@@ -20,6 +20,20 @@ export function getPopulationFactTableIds(steps: PopulationStep[]): string[] {
   return [...new Set(steps.map((step) => step.source.factTableId))];
 }
 
+// Falls back to the fact table id when the name is unknown, e.g. the fact
+// table was deleted or isn't visible in the current project.
+export function getPopulationStepsLabel(
+  steps: PopulationStep[],
+  getFactTableName: (factTableId: string) => string | undefined,
+): string {
+  return steps
+    .map(
+      (step) =>
+        getFactTableName(step.source.factTableId) || step.source.factTableId,
+    )
+    .join(" → ");
+}
+
 // Returns every violation so an editor can show them all at once.
 export function getPopulationRuleViolations({
   datasource,
