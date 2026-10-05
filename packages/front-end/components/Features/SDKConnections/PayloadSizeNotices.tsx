@@ -1,6 +1,5 @@
 import { Fragment } from "react";
 import { Box } from "@radix-ui/themes";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { PiWarningFill } from "react-icons/pi";
 import {
   describeSdkPayloadSize,
@@ -22,8 +21,10 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import { RadixStatusIcon } from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import styles from "@/components/Layout/AccountPlanNotices.module.scss";
 
 const isSevere = (level: SdkPayloadSizeLevel) =>
@@ -43,7 +44,7 @@ export function PayloadSizeIcon({
   if (level === "ok") return null;
   return (
     <Tooltip body={describeSdkPayloadSize(size)}>
-      <FaExclamationTriangle
+      <PiWarningFill
         color={isSevere(level) ? "var(--red-11)" : "var(--amber-11)"}
       />
     </Tooltip>
@@ -52,26 +53,32 @@ export function PayloadSizeIcon({
 
 function EntryLinks({
   entries,
-  href,
-  level,
+  kind,
 }: {
   entries: { id: string; bytes: number }[];
-  href: (id: string) => string;
-  // Omitted inside the tooltip, where links use the neutral text color
-  level?: SdkPayloadSizeLevel;
+  kind: "feature" | "saved-group";
 }) {
+  const { getSavedGroupById } = useDefinitions();
   return (
     <>
       {entries.map((entry, i) => (
         <Fragment key={entry.id}>
           {i > 0 && ", "}
-          <Link
-            href={href(entry.id)}
-            color={level ? levelColor(level) : "dark"}
-            underline="hover"
-          >
-            {entry.id}
-          </Link>{" "}
+          {kind === "feature" ? (
+            <Link
+              href={`/features/${encodeURIComponent(entry.id)}`}
+              underline="always"
+            >
+              {entry.id}
+            </Link>
+          ) : (
+            <Link
+              href={`/saved-groups/${encodeURIComponent(entry.id)}`}
+              underline="always"
+            >
+              {getSavedGroupById(entry.id)?.groupName ?? entry.id}
+            </Link>
+          )}{" "}
           ({formatSdkPayloadBytes(entry.bytes)})
         </Fragment>
       ))}
@@ -81,34 +88,23 @@ function EntryLinks({
 
 function Recommendation({
   recommendation,
-  level,
 }: {
   recommendation: SdkPayloadSizeRecommendation;
-  level: SdkPayloadSizeLevel;
 }) {
   switch (recommendation.type) {
     case "large-features":
       return (
         <>
           Shrink the largest Feature Flags:{" "}
-          <EntryLinks
-            entries={recommendation.entries}
-            href={(id) => `/features/${encodeURIComponent(id)}`}
-            level={level}
-          />
-          . Large JSON values and long lists in conditions are the usual cause.
+          <EntryLinks entries={recommendation.entries} kind="feature" />. Large
+          JSON values and long lists in conditions are the usual cause.
         </>
       );
     case "large-saved-groups":
       return (
         <>
           Shrink the largest Saved Groups:{" "}
-          <EntryLinks
-            entries={recommendation.entries}
-            href={(id) => `/saved-groups/${encodeURIComponent(id)}`}
-            level={level}
-          />
-          .
+          <EntryLinks entries={recommendation.entries} kind="saved-group" />.
         </>
       );
     case "saved-group-references":
@@ -135,7 +131,11 @@ export function PayloadSizeCallout({
   if (level === "ok") return null;
   const recommendations = getSdkPayloadSizeRecommendations(connection, size);
   return (
-    <Callout status={isSevere(level) ? "error" : "warning"} mb="3">
+    <Callout
+      status={isSevere(level) ? "error" : "warning"}
+      icon={<RadixStatusIcon status="warning" size="md" />}
+      mb="3"
+    >
       <Text weight="semibold">{describeSdkPayloadSize(size)}</Text>
       {recommendations.length > 0 && (
         <Box mt="2">
@@ -144,7 +144,7 @@ export function PayloadSizeCallout({
             <ul>
               {recommendations.map((r) => (
                 <li key={r.type}>
-                  <Recommendation recommendation={r} level={level} />
+                  <Recommendation recommendation={r} />
                 </li>
               ))}
             </ul>
@@ -193,20 +193,14 @@ function Fix({ fix }: { fix: SdkPayloadSizeFix }) {
       return (
         <>
           Shrink these Feature Flags&apos; values:{" "}
-          <EntryLinks
-            entries={fix.entries}
-            href={(id) => `/features/${encodeURIComponent(id)}`}
-          />
+          <EntryLinks entries={fix.entries} kind="feature" />
         </>
       );
     case "large-saved-groups":
       return (
         <>
           Shrink these Saved Groups:{" "}
-          <EntryLinks
-            entries={fix.entries}
-            href={(id) => `/saved-groups/${encodeURIComponent(id)}`}
-          />
+          <EntryLinks entries={fix.entries} kind="saved-group" />
         </>
       );
   }
