@@ -13,6 +13,8 @@ import {
 import { hasOwn, paddedVersionString } from "./util";
 
 const _regexCache: { [key: string]: RegExp } = {};
+// Set when evalOperatorCondition meets an operator it doesn't support
+let unknownOperator = false;
 
 // The top-level condition evaluation function
 export function evalCondition(
@@ -94,9 +96,13 @@ export function pruneCondition(
         if (typeof r !== "boolean") r = null;
         break;
       default:
+        unknownOperator = false;
         r = isKnown(obj, k)
           ? evalConditionValue(v, getPath(obj, k), savedGroups, false, visited)
           : null;
+        // An operator this SDK doesn't support is left to the client, whose
+        // SDK may be newer
+        if (unknownOperator) r = null;
     }
     // null is an undecided leaf, which stays as written
     if (typeof r !== "boolean") out[k] = r === null ? v : r;
@@ -457,6 +463,7 @@ function evalOperatorCondition(
     case "$type":
       return getType(actual) === expected;
     default:
+      unknownOperator = true;
       console.error("Unknown operator: " + operator);
       return false;
   }

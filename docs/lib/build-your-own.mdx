@@ -483,7 +483,7 @@ Loop through the condition key/value pairs and get a result for each entry, whic
 1. If key is `$or` or `$nor`, use `pruneList(attributes, value, true)`. If key is `$and`, use `pruneList(attributes, value, false)`. An array result is undecided, and the array is the remaining value
 2. If key is `$not`, use `pruneCondition(attributes, value)`. A condition result is undecided, and the condition is the remaining value
 3. If key is `$savedGroup`, resolve the reference the same way `evalCondition` does, except that a `list` entry is undecided while its attribute is unknown, and a `condition` entry is undecided unless `pruneCondition` on its condition returns a boolean. An undecided reference stays exactly as written. Never inline the group
-4. Otherwise, if the attribute for the key is known, use `evalConditionValue(value, getPath(attributes, key))`. If it is unknown, the entry is undecided and stays exactly as written
+4. Otherwise, if the attribute for the key is known, use `evalConditionValue(value, getPath(attributes, key))`. If it is unknown, or evaluating it runs into an operator this SDK doesn't support, the entry is undecided and stays exactly as written. The client's SDK may be newer and support that operator
 5. For `$not` and `$nor`, flip a true/false result
 6. If the result is false, break out of the loop and return false. If it is true, drop the entry. If it is undecided, keep the key with its remaining value
 

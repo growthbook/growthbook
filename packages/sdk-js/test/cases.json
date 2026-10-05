@@ -3901,6 +3901,18 @@
       }
     ],
     [
+      "an unknown operator on a known attribute stays, since the client SDK may support it",
+      { "id": { "$notAnOperator": "x" } },
+      { "id": "123" },
+      { "id": { "$notAnOperator": "x" } }
+    ],
+    [
+      "an unknown operator nested in a known attribute condition stays",
+      { "tags": { "$elemMatch": { "$notAnOperator": "x" } } },
+      { "tags": ["a"] },
+      { "tags": { "$elemMatch": { "$notAnOperator": "x" } } }
+    ],
+    [
       "an attribute named like a built-in object property is unknown until given",
       { "toString": "x", "country": "US" },
       { "country": "US" },

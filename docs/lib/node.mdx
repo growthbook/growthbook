@@ -371,6 +371,78 @@ configureCache({
 
 The cache layers apply to both the `init` and `refreshFeatures` methods. Both of these accept a `skipCache: true` option to bypass the cache layers if desired.
 
+## Reducing Payloads
+
+If you render pages on the server, you can pass the GrowthBook payload to your front-end SDK so it doesn't need to download it again. The full payload includes every feature and targeting rule though, and most of those won't apply to the current user.
+
+The `reducePayload` method removes everything that can't affect the current user, based on the attributes you know on the server. For that user, the front-end SDK will evaluate the smaller payload exactly the same as the full one.
+
+```js
+const userContext = {
+  attributes: {
+    id: req.user.id,
+  }
+};
+
+const payload = gbClient.reducePayload({ userContext });
+```
+
+You don't need to know every attribute. Rules that depend on attributes you didn't pass stay in the payload, and the front-end SDK evaluates them as usual. Global attributes are used too.
+
+It helps the most when your rules target long lists of ids, since those rules can usually be removed entirely.
+
+A scoped instance already has a user context, so you can call it without one:
+
+```js
+const payload = req.growthbook.reducePayload();
+```
+
+Then, serialize the payload in your response and pass it into your front-end GrowthBook instance:
+
+```js
+// On the front-end
+const gb = new GrowthBook({
+  attributes: {
+    id: "123",
+  },
+}).initSync({ payload });
+```
+
+Experiment tracking and feature usage callbacks fire the same as they would with the full payload.
+
+There are a few things to keep in mind:
+
+- The front-end must use the same attribute values you passed on the server, with the same types. For example, `123` and `"123"` don't match each other in a list of ids.
+- If your SDK Connection encrypts the payload, the reduced payload is not encrypted. Anyone who can see the page can read it.
+- Treat the returned payload as read-only. It shares objects with the GrowthBookClient's own copy of the payload.
+
+### Filters
+
+You can also remove features and experiments based on their project, tags, or custom fields. This is useful when your front-end only uses some of your features, and it works with or without a user context.
+
+```js
+const payload = gbClient.reducePayload({
+  userContext,
+  filters: {
+    // The project's public ID, or its internal ID if it doesn't have one
+    projects: ["prj_abc123"],
+    tags: ["web"],
+    // Custom field id -> values
+    customFields: {
+      platform: ["web", "all"],
+    },
+  },
+});
+```
+
+Each filter is an array, and a feature only needs to match one of its values. If you pass more than one filter, a feature has to match all of them.
+
+The `projects` filter also removes rules that only apply to other projects. Features without a project apply to all projects, so they always pass it.
+
+If a feature you keep has a prerequisite that doesn't match the filters, the prerequisite is kept too.
+
+Filters rely on metadata in the payload, so turn on the matching **Payload Metadata** options in your SDK Connection: **Include Project IDs**, **Include tags**, and **Include Custom Fields**. A `tags` or `customFields` filter removes every feature without that metadata.
+
 ## Experimentation (A/B Testing)
 
 In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
