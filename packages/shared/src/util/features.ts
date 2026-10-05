@@ -1803,6 +1803,7 @@ export {
   isRevisionEditLockedBySchedule,
   findPublishLockingScheduledRevision,
 } from "../revisions/scheduledPublish";
+export { getFeaturePageDefaultVersion } from "../revisions/featurePageVersion";
 
 // True if publishing the draft would change anything outside the target
 // ref rule(s) matched by `isTargetRef`. Compares effective post-publish state

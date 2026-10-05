@@ -81,7 +81,7 @@ import Revisionlog, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
-import { useFeatureRevisionByVersion } from "@/hooks/useFeatureRevisionByVersion";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
@@ -457,14 +457,16 @@ export default function ReviewAndPublish({
     current: readonlyBeforeInput,
     draft: readonlyAfterInput,
   });
-  // The previously-published revision to roll back to when viewing the live one.
-  const previousPublishedRevision = useMemo(() => {
-    const live = revisions.find((r) => r.version === feature.version);
+  // The previously-published revision to roll back to when viewing the live
+  // one, and the one this draft reverts to. Found in the full list, then
+  // loaded, since neither is necessarily among the revisions the page has.
+  const previousPublishedVersion = useMemo(() => {
+    const live = revisionList.find((r) => r.version === feature.version);
     const livePublishedAt = live?.datePublished
       ? new Date(live.datePublished).getTime()
       : Infinity;
     return (
-      revisions
+      revisionList
         .filter(
           (r) =>
             r.status === "published" &&
@@ -476,9 +478,15 @@ export default function ReviewAndPublish({
           const bt = b.datePublished ? new Date(b.datePublished).getTime() : 0;
           const at = a.datePublished ? new Date(a.datePublished).getTime() : 0;
           return bt - at;
-        })[0] ?? null
+        })[0]?.version ?? null
     );
-  }, [revisions, feature.version]);
+  }, [revisionList, feature.version]);
+  const pastRevisions = useFeatureRevisions(feature.id, [
+    previousPublishedVersion,
+    revision?.revertedFromVersion,
+  ]);
+  const previousPublishedRevision =
+    pastRevisions.get(previousPublishedVersion) ?? null;
 
   const [strategies, setStrategies] = useState<Record<string, MergeStrategy>>(
     {},
@@ -779,11 +787,9 @@ export default function ReviewAndPublish({
     revision.status !== "discarded"
       ? revision.revertedFrom
       : undefined;
-  const revertDraftTarget = useFeatureRevisionByVersion(
-    feature.id,
+  const revertDraftTarget = useFeatureRevisions(feature.id, [
     revertDraftTargetVersion,
-    revisions,
-  );
+  ]).get(revertDraftTargetVersion);
   const revertDraftDetaches = useMemo(
     () =>
       revertDraftTarget
@@ -854,7 +860,7 @@ export default function ReviewAndPublish({
   // scheduled publish that locks publishing of other drafts. Blocks publishing
   // THIS revision (the scheduled sibling is excluded so it can still publish).
   const lockingScheduledSibling = findPublishLockingScheduledRevision(
-    revisions,
+    revisionList,
     revision?.version,
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
@@ -902,14 +908,9 @@ export default function ReviewAndPublish({
     (!!userId && (revision?.contributors ?? []).includes(userId));
   // The same predicates the server enforces, so the client can't offer an
   // action the server then refuses.
+  const revertedFrom = pastRevisions.get(revision?.revertedFromVersion);
   const revertTargetRevision =
-    revision?.revertedFromVersion !== undefined
-      ? revisions.find(
-          (r) =>
-            r.version === revision.revertedFromVersion &&
-            r.status === "published",
-        )
-      : undefined;
+    revertedFrom?.status === "published" ? revertedFrom : undefined;
   const draftStagesRevert =
     !!revision &&
     !!revertTargetRevision &&
@@ -1123,13 +1124,13 @@ export default function ReviewAndPublish({
   const revisionsSinceApproval = useMemo<number | null>(() => {
     const approvedBase = revision?.approvedBaseVersion ?? null;
     if (approvedBase === null) return null;
-    return revisions.filter(
+    return revisionList.filter(
       (r) =>
         r.status === "published" &&
         r.version > approvedBase &&
         r.version <= feature.version,
     ).length;
-  }, [revisions, revision, feature.version]);
+  }, [revisionList, revision, feature.version]);
 
   const experimentsMap = useMemo<
     Map<string, ExperimentInterfaceStringDates>
@@ -1725,7 +1726,6 @@ export default function ReviewAndPublish({
             feature={feature}
             revision={revertTarget}
             revisionList={revisionList}
-            allRevisions={revisions}
             rampSchedules={rampSchedules ?? []}
             close={() => setRevertOpen(false)}
             mutate={mutate}

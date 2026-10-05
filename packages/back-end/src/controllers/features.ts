@@ -52,6 +52,8 @@ import {
   computeFeatureHealth,
   FeatureHealthStateEntry,
   rebasedRevisionChanges,
+  getFeaturePageDefaultVersion,
+  naiveFlattenV1Rules,
 } from "shared/util";
 import {
   statusFromStandingVerdicts,
@@ -239,6 +241,7 @@ import {
   getRevision,
   getRevisionsByVersions,
   getFeaturePageRevisions,
+  getOpenDraftRules,
   getRevisionsByStatus,
   markRevisionAsReviewRequested,
   normalizeRulesInputToV2,
@@ -6505,35 +6508,31 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const [minimalRevisions, pageRevisions, rampScheduleDocs, holdout] =
-    await Promise.all([
-      getMinimalRevisions(context, org.id, id),
-      getFeaturePageRevisions(context, org.id, id, feature),
-      context.models.rampSchedules.getAllByFeatureId(feature.id),
-      feature.holdout
-        ? context.models.holdout.getById(feature.holdout.id)
-        : null,
-    ]);
-  let fullRevisions = pageRevisions;
+  const [minimalRevisions, rampScheduleDocs, holdout] = await Promise.all([
+    getMinimalRevisions(context, org.id, id),
+    context.models.rampSchedules.getAllByFeatureId(feature.id),
+    feature.holdout ? context.models.holdout.getById(feature.holdout.id) : null,
+  ]);
 
-  // The above only fetches the most recent revisions. The requested version
-  // and the live version must always be present, so fetch any that fall
-  // outside that window.
-  const requestedVersion = req.query.v ? parseInt(req.query.v) : null;
-  const missingVersions = [...new Set([requestedVersion, feature.version])]
-    .filter((v): v is number => v !== null && !Number.isNaN(v))
-    .filter((v) => !fullRevisions.some((r) => r.version === v));
-  if (missingVersions.length) {
-    fullRevisions.push(
-      ...(await getRevisionsByVersions({
-        context,
-        organization: org.id,
-        featureId: id,
-        feature,
-        versions: missingVersions,
-      })),
-    );
-  }
+  // Full revisions only for what the page shows first: live, a requested
+  // version, and the version it opens on, decided the way the page decides it.
+  const parsedVersion = req.query.v ? parseInt(req.query.v) : NaN;
+  const requestedVersion = Number.isNaN(parsedVersion) ? null : parsedVersion;
+  const openingVersion = getFeaturePageDefaultVersion({
+    revisionList: minimalRevisions,
+    liveVersion: feature.version,
+    requestedVersion,
+    userId: context.userId || null,
+  });
+  let fullRevisions = await getFeaturePageRevisions(
+    context,
+    org.id,
+    id,
+    feature,
+    [feature.version, openingVersion, requestedVersion].filter(
+      (v): v is number => v !== null,
+    ),
+  );
 
   // Historically, we haven't properly cleared revision history when deleting a feature
   // So if you create a feature with the same name as a previously deleted one, it would inherit the revision history
@@ -6572,12 +6571,21 @@ export async function getFeatureById(
     }
   }
 
-  // Get all linked experiments and  saferollouts
+  // Get all linked experiments and safe rollouts, including those only in
+  // drafts the page didn't load in full
+  const openDraftRules = await getOpenDraftRules(
+    org.id,
+    id,
+    fullRevisions.map((r) => r.version),
+  );
   const experimentIds = new Set<string>();
   const trackingKeys = new Set<string>();
   let hasSafeRollout = false;
-  fullRevisions.forEach((revision) => {
-    (revision.rules ?? []).forEach((rule) => {
+  [
+    ...fullRevisions.map((r) => r.rules ?? []),
+    ...openDraftRules.map(naiveFlattenV1Rules),
+  ].forEach((rules) => {
+    rules.forEach((rule) => {
       if (rule?.type === "experiment-ref") {
         experimentIds.add(rule.experimentId);
       }
