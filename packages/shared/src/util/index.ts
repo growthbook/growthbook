@@ -18,10 +18,6 @@ import { Environment } from "shared/types/organization";
 import { VisualChange } from "shared/types/visual-changeset";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
-  BuiltInChecklistItemKey,
-  ExperimentLaunchChecklistInterface,
-} from "shared/types/experimentLaunchChecklist";
-import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
@@ -248,26 +244,6 @@ export function experimentHasLiveLinkedChanges(
     return false;
   }
   return true;
-}
-
-export function getHiddenBuiltInChecklistItems(
-  checklist:
-    | Pick<ExperimentLaunchChecklistInterface, "hiddenBuiltInItems">
-    | null
-    | undefined,
-  exp: Pick<
-    ExperimentInterface,
-    "type" | "hasVisualChangesets" | "hasURLRedirects"
-  >,
-): Set<BuiltInChecklistItemKey> {
-  // Bandits can't run without their built-ins (a live linked change and a goal metric)
-  if (exp.type === "multi-armed-bandit") return new Set();
-  const hidden = new Set(checklist?.hiddenBuiltInItems ?? []);
-  // Visual Editor changes and URL Redirects only reach users through an SDK Connection
-  if (exp.hasVisualChangesets || exp.hasURLRedirects) {
-    hidden.delete("sdkConnection");
-  }
-  return hidden;
 }
 
 export function includeExperimentInPayload(

@@ -11,14 +11,12 @@ import {
   ExperimentResultsType,
 } from "shared/types/experiment";
 import {
+  BuiltInChecklistItemKey,
   ChecklistStatus,
   ExperimentStartChecklistStatus,
-} from "shared/validators";
-import { BuiltInChecklistItemKey } from "shared/types/experimentLaunchChecklist";
-import {
-  experimentHasLiveLinkedChanges,
   getHiddenBuiltInChecklistItems,
-} from "shared/util";
+} from "shared/validators";
+import { experimentHasLiveLinkedChanges } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,

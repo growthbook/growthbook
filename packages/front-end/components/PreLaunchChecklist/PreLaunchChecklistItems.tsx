@@ -5,18 +5,15 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import {
-  BuiltInChecklistItemKey,
-  ExperimentLaunchChecklistInterface,
-} from "shared/types/experimentLaunchChecklist";
+import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
+import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import {
-  experimentHasLiveLinkedChanges,
+  BuiltInChecklistItemKey,
   getHiddenBuiltInChecklistItems,
-  hasVisualChanges,
-} from "shared/util";
+} from "shared/validators";
 import track from "@/services/track";
 import Link from "@/ui/Link";
 

@@ -3,8 +3,10 @@ import {
   ChecklistTask,
   ExperimentLaunchChecklistInterface,
 } from "shared/types/experimentLaunchChecklist";
-import { BUILT_IN_CHECKLIST_ITEM_LABELS } from "shared/constants";
-import { builtInChecklistItemKeyValidator } from "shared/validators";
+import {
+  BUILT_IN_CHECKLIST_ITEM_LABELS,
+  builtInChecklistItemKeyValidator,
+} from "shared/validators";
 import { useEffect, useState } from "react";
 import { FaPlusCircle } from "react-icons/fa";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
