@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   booleanQueryField,
   paginationQueryFields,
@@ -25,6 +26,13 @@ import {
 } from "./revisions";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  REVIEW_COMMENT_DESCRIPTION,
+  REVISION_COMMENT_DESCRIPTION,
+  REVISION_TITLE_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // ---- Shared param schemas ----
 
@@ -47,8 +55,8 @@ const revisionParamsStrict = configKeyParams.extend({
 
 // Applied only when an endpoint auto-creates a draft via `version: "new"`.
 const newDraftMetadataFields = {
-  revisionTitle: z.string().optional(),
-  revisionComment: z.string().optional(),
+  revisionTitle: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+  revisionComment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
 };
 
 // ---- Shared response schemas ----
@@ -343,8 +351,8 @@ export const postConfigRevisionRevertValidator = {
         .describe(
           "Whether to stage the revert as a draft or publish it immediately. Defaults to `draft`, or to `publish` when the org enables 'reverts bypass approval'.",
         ),
-      title: z.string().optional(),
-      comment: z.string().optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
       ...publishOverrideBodyFields,
     })
     .strict(),
@@ -413,7 +421,7 @@ export const postConfigRevisionSubmitReviewValidator = {
   bodySchema: z
     .object({
       decision: z.enum(reviewDecision),
-      comment: z.string().optional(),
+      comment: z.string().describe(REVIEW_COMMENT_DESCRIPTION).optional(),
       skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
@@ -492,9 +500,13 @@ export const putConfigRevisionMetadataValidator = {
   bodySchema: z
     .object({
       ...newDraftMetadataFields,
-      name: z.string().optional(),
+      name: z.string().describe(GENERIC_NAME_DESCRIPTION).optional(),
       owner: ownerInputField.optional(),
-      description: z.string().optional(),
+      description: z
+        .string()
+        .max(MAX_DESCRIPTION_LENGTH)
+        .describe(MARKDOWN_DESCRIPTION)
+        .optional(),
       project: z.string().optional(),
       parent: z
         .string()

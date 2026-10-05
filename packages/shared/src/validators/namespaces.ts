@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { namedSchema } from "./openapi-helpers";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import { PLAIN_DESCRIPTION } from "./api-field-descriptions";
 
 export const apiNamespaceValidator = namedSchema(
   "Namespace",
@@ -107,7 +108,7 @@ const postNamespaceBody = z
       .describe(
         "Human-readable display name. Must be unique within the organization.",
       ),
-    description: z.string().optional(),
+    description: z.string().describe(PLAIN_DESCRIPTION).optional(),
     status: z.enum(["active", "inactive"]).optional(),
     format: z
       .enum(["legacy", "multiRange"])

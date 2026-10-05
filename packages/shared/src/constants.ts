@@ -93,6 +93,10 @@ export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
 
 // Max length for entity description fields (features, experiments, metrics, etc.)
 export const MAX_DESCRIPTION_LENGTH = 10000;
+export const MAX_SAVED_GROUP_DESCRIPTION_LENGTH = 100;
+export const FEATURE_KEY_PATTERN = "^[a-zA-Z0-9_.:|-]+$";
+export const FEATURE_KEY_PATTERN_ERROR =
+  "Feature keys can only include letters, numbers, hyphens, and underscores.";
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";

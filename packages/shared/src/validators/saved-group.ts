@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  MAX_DESCRIPTION_LENGTH,
+  MAX_SAVED_GROUP_DESCRIPTION_LENGTH,
+} from "shared/constants";
 import {
   ownerEmailField,
   ownerField,
@@ -14,6 +17,10 @@ import {
 } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  SAVED_GROUP_DESCRIPTION,
+  SAVED_GROUP_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const savedGroupTypeValidator = z.enum(["condition", "list"]);
 
@@ -131,7 +138,12 @@ export type ApiSavedGroup = z.infer<typeof apiSavedGroupValidator>;
 // Post body from postSavedGroup.yaml requestBody
 const postSavedGroupBody = z
   .object({
-    name: z.string().describe("The display name of the Saved Group"),
+    name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION),
+    description: z
+      .string()
+      .max(MAX_SAVED_GROUP_DESCRIPTION_LENGTH)
+      .describe(SAVED_GROUP_DESCRIPTION)
+      .optional(),
     type: z
       .enum(["condition", "list"])
       .describe(
@@ -170,7 +182,8 @@ const postSavedGroupBody = z
 // Update body from updateSavedGroup.yaml requestBody
 const updateSavedGroupBody = z
   .object({
-    name: z.string().describe("The display name of the Saved Group").optional(),
+    name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION).optional(),
+    description: z.string().describe(SAVED_GROUP_DESCRIPTION).optional(),
     condition: z
       .string()
       .describe(
