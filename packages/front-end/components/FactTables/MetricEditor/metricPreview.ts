@@ -250,3 +250,22 @@ export function getMetricPreviewSummary(
             : "Average per unit-day",
   };
 }
+
+// The preview headline is 3rem in a ~330px panel. Compact notation keeps any
+// realistic value to about 8 characters ("-999.99T"), so it never runs past
+// the panel; tiny values keep their significant digits instead of rounding
+// to 0.
+export function formatPreviewHeadline(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 100_000) {
+    return value.toLocaleString(undefined, {
+      notation: "compact",
+      maximumFractionDigits: 2,
+    });
+  }
+  if (abs > 0 && abs < 0.001) return value.toExponential(2);
+  if (abs > 0 && abs < 1) {
+    return value.toLocaleString(undefined, { maximumSignificantDigits: 3 });
+  }
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
