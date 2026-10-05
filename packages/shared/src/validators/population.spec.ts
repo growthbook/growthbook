@@ -1,10 +1,11 @@
+import { OpenApiModelSpec } from "../api-model";
 import {
   apiCreatePopulationBody,
   apiPopulationValidator,
   apiUpdatePopulationBody,
-} from "shared/validators";
-import { OpenApiModelSpec } from "shared/api-model";
+} from "./population";
 
+/** REST API surface for Populations under `/api/v1/populations/*`. */
 export const populationApiSpec = {
   modelSingular: "population",
   modelPlural: "populations",
@@ -15,9 +16,9 @@ export const populationApiSpec = {
     updateBody: apiUpdatePopulationBody,
   },
   includeDefaultCrud: false,
-  crudActions: ["create"],
+  crudActions: ["list", "get", "create", "update", "delete"],
   navDisplayName: "Populations",
   navDescription:
     "Populations define a set of units by the steps they must complete, such as appearing in a fact table.",
-} satisfies OpenApiModelSpec;
+} as const satisfies OpenApiModelSpec;
 export default populationApiSpec;

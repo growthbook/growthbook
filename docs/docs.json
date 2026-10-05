@@ -1128,7 +1128,13 @@
               },
               {
                 "group": "Populations",
-                "pages": ["api/Populations/operation/createPopulation"]
+                "pages": [
+                  "api/Populations/operation/listPopulations",
+                  "api/Populations/operation/createPopulation",
+                  "api/Populations/operation/getPopulation",
+                  "api/Populations/operation/updatePopulation",
+                  "api/Populations/operation/deletePopulation"
+                ]
               }
             ]
           },

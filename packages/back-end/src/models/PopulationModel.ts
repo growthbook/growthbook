@@ -1,7 +1,11 @@
+import { z } from "zod";
 import {
   ApiPopulation,
   apiCreatePopulationBody,
+  apiUpdatePopulationBody,
   PopulationInterface,
+  PopulationStep,
+  populationApiSpec,
   populationValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
@@ -9,11 +13,26 @@ import {
   getPopulationFactTableIds,
   getPopulationRuleViolations,
 } from "shared/populations";
-import { populationApiSpec } from "back-end/src/api/specs/population.spec";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
 import { resolveOwnerForCreate } from "back-end/src/services/owner";
 import { MakeModelClass } from "./BaseModel";
+
+function withStepDefaults(
+  steps: NonNullable<z.infer<typeof apiUpdatePopulationBody>["steps"]>,
+): PopulationStep[] {
+  return steps.map((step) => ({
+    ...step,
+    rowFilters: step.rowFilters ?? [],
+    windowSettings: step.windowSettings ?? {
+      type: "",
+      delayValue: 0,
+      delayUnit: "days",
+      windowValue: 0,
+      windowUnit: "days",
+    },
+  }));
+}
 
 const BaseClass = MakeModelClass({
   schema: populationValidator,
@@ -85,17 +104,17 @@ export class PopulationModel extends BaseClass {
         strict: true,
       }),
       projects: body.projects ?? [],
-      steps: body.steps.map((step) => ({
-        ...step,
-        rowFilters: step.rowFilters ?? [],
-        windowSettings: step.windowSettings ?? {
-          type: "",
-          delayValue: 0,
-          delayUnit: "days",
-          windowValue: 0,
-          windowUnit: "days",
-        },
-      })),
+      steps: withStepDefaults(body.steps),
+    };
+  }
+
+  protected async processApiUpdateBody(
+    rawBody: unknown,
+  ): Promise<UpdateProps<PopulationInterface>> {
+    const { steps, ...body } = apiUpdatePopulationBody.parse(rawBody);
+    return {
+      ...body,
+      ...(steps && { steps: withStepDefaults(steps) }),
     };
   }
 
