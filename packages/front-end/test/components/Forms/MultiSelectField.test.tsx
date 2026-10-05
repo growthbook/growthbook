@@ -516,6 +516,18 @@ describe("StringArrayField text mode", () => {
     ]);
   });
 
+  it("stays in tokens when text would change a value", () => {
+    const { container } = renderWithProviders(
+      <StringArrayField
+        value={[" padded", ...manyValues]}
+        delimiters={["Enter", "Tab"]}
+        onChange={vi.fn()}
+        label="Test"
+      />,
+    );
+    expect(container.querySelector("textarea")).toBeNull();
+  });
+
   it("separates values by comma when a comma ends a value", () => {
     expect(
       editText(["Enter", "Tab", ","], [...manyValues, "v200"], ",v201"),

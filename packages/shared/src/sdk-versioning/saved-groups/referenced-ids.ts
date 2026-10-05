@@ -37,20 +37,27 @@ export function forEachSavedGroupIdInCondition(
 }
 
 /**
- * The group ids a rule's targeting names directly: its saved group list and
- * its condition. A malformed condition names none.
+ * The group ids a rule's targeting names directly: its saved group list, its
+ * condition and its prerequisites' conditions. A malformed condition names
+ * none.
  */
 export function savedGroupIdsInTargeting(targeting: {
   condition?: string;
   savedGroups?: { ids: string[] }[];
+  prerequisites?: { condition: string }[];
 }): string[] {
   const ids = new Set<string>();
   for (const entry of targeting.savedGroups ?? []) {
     entry.ids.forEach((id) => ids.add(id));
   }
-  if (targeting.condition) {
+  const conditions = [
+    targeting.condition,
+    ...(targeting.prerequisites ?? []).map((p) => p.condition),
+  ];
+  for (const condition of conditions) {
+    if (!condition) continue;
     try {
-      forEachSavedGroupIdInCondition(JSON.parse(targeting.condition), (id) =>
+      forEachSavedGroupIdInCondition(JSON.parse(condition), (id) =>
         ids.add(id),
       );
     } catch {

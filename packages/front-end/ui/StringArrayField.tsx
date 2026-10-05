@@ -181,9 +181,11 @@ export default function StringArrayField({
   // a comma (row filters, ID lists) stay whole
   const textSeparator =
     !delimiters.includes(",") && delimiters.includes("Enter") ? "\n" : ",";
+  // Text mode trims values and drops empty ones, so a list it would change
+  // stays in tokens
   const tooManyForTokens =
     value.length > RAW_TEXT_AFTER_VALUES &&
-    !value.some((v) => v.includes(textSeparator));
+    value.every((v) => v && v === v.trim() && !v.includes(textSeparator));
   const [rawTextMode, setRawTextMode] = useState(tooManyForTokens);
   const [focusRawText, setFocusRawText] = useState(false);
 
