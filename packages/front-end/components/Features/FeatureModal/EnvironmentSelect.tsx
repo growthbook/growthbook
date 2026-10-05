@@ -39,11 +39,14 @@ const EnvironmentSelect: FC<{
   // holdout users who hold no feature permissions. Defaults to permitted, so a
   // form that has no per-environment restriction needn't state one.
   canEnableEnvironment?: (environmentId: string) => boolean;
+  // Why an environment can't be switched on, when it isn't a permission gap.
+  disabledReason?: (environmentId: string) => string | undefined;
   isEditing?: boolean;
 }> = ({
   environmentSettings,
   environments,
   canEnableEnvironment,
+  disabledReason,
   setValue,
   project = "",
   isEditing = false,
@@ -171,7 +174,10 @@ const EnvironmentSelect: FC<{
             {relevantEnvironments.map((env) => (
               <Checkbox
                 disabled={!mayEnable(env.id)}
-                disabledMessage="You don't have permission to enable this environment."
+                disabledMessage={
+                  disabledReason?.(env.id) ??
+                  "You don't have permission to enable this environment."
+                }
                 value={environmentSettings[env.id]?.enabled ?? false}
                 setValue={(enabled) => setValue(env, enabled === true)}
                 label={env.id}

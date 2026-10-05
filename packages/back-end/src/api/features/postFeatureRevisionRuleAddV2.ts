@@ -63,6 +63,7 @@ import {
   composeConfigBacking,
   resolveScopeFromInput,
   assertCanUseRuleScheduling,
+  checkRuleScope,
 } from "./v2Shared";
 
 export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
@@ -114,6 +115,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   // v1 validates its single `environment`; do the same for the v2 list
   // before a draft is created.
   assertValidRuleEnvironments(req.context, [ruleInput]);
+  checkRuleScope(req, ruleInput, "rule");
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,

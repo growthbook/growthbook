@@ -472,13 +472,16 @@ export async function linkFeatureToContextualBandit({
 /**
  * Replace every `contextual-bandit-ref` rule for this bandit on the feature,
  * preserving each rule's id and position. The whole rule is replaced, so the
- * caller has to send a complete definition rather than a patch.
+ * caller has to send a complete definition rather than a patch — except the
+ * environment scope, which `keepEnvironmentScope` carries over from the stored
+ * rule.
  */
 export async function updateContextualBanditFeatureRule({
   context,
   contextualBandit,
   feature,
   rule,
+  keepEnvironmentScope = false,
   eventAudit,
   audit,
   autoPublish,
@@ -486,6 +489,7 @@ export async function updateContextualBanditFeatureRule({
 }: ContextualBanditFeatureLinkOptions & {
   feature: FeatureInterface;
   rule: ContextualBanditRefRule;
+  keepEnvironmentScope?: boolean;
 }): Promise<{
   version: number;
   published: boolean;
@@ -544,7 +548,15 @@ export async function updateContextualBanditFeatureRule({
   }
 
   let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
+  if (keepEnvironmentScope) {
+    scopedRule = {
+      ...omit(rule, ["allEnvironments", "environments"]),
+      allEnvironments: baselineRule.allEnvironments,
+      ...(baselineRule.environments !== undefined && {
+        environments: baselineRule.environments,
+      }),
+    } as FeatureRule;
+  } else if (rule.allEnvironments === true) {
     scopedRule = {
       ...omit(rule, ["environments"]),
       allEnvironments: true,

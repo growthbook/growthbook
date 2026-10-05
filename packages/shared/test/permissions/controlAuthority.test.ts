@@ -398,6 +398,29 @@ describe("canEnableEnvironmentOnCreate", () => {
     expect(canEnableEnvironmentOnCreate(u, "p", "dev")).toBe(true);
     expect(canEnableEnvironmentOnCreate(u, "p", "prod")).toBe(false);
   });
+
+  describe("in an environment that needs review on create", () => {
+    const withBypass = (bypass: boolean) =>
+      ({
+        ...util(["dev", "prod"], ["dev", "prod"]),
+        canBypassFlagApprovalChecks: () => bypass,
+      }) as unknown as Parameters<typeof canEnableEnvironmentOnCreate>[0];
+
+    it("refuses a caller who can't bypass approval", () => {
+      expect(
+        canEnableEnvironmentOnCreate(withBypass(false), "p", "prod", ["prod"]),
+      ).toBe(false);
+      expect(
+        canEnableEnvironmentOnCreate(withBypass(false), "p", "dev", ["prod"]),
+      ).toBe(true);
+    });
+
+    it("allows a caller who can bypass approval", () => {
+      expect(
+        canEnableEnvironmentOnCreate(withBypass(true), "p", "prod", ["prod"]),
+      ).toBe(true);
+    });
+  });
 });
 
 describe("canReviewRevisionEntity", () => {

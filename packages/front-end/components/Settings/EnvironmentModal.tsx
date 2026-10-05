@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
+import { STRICT_ENVIRONMENT_CHECKS_LABEL } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
@@ -258,6 +259,7 @@ export default function EnvironmentModal({
       <Switch
         id={"defaultToggle"}
         label="Default state for new features"
+        description={`REST API creates don't use this while "${STRICT_ENVIRONMENT_CHECKS_LABEL}" is on. They must say whether each environment is on or off.`}
         value={!!form.watch("defaultState")}
         onChange={(value) => {
           form.setValue("defaultState", value);

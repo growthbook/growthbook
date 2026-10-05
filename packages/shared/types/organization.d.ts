@@ -345,6 +345,10 @@ export interface OrganizationSettings {
   // 0 or absent = no cap.
   maxConcurrentDrafts?: number;
   restApiBypassesReviews?: boolean;
+  // REST writes must state environments instead of having them defaulted, and
+  // a new Feature Flag that turns on a review-gated environment needs review.
+  // New orgs start with it on; absent means off.
+  strictEnvironmentChecks?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;
   disablePrecomputedDimensions?: boolean;

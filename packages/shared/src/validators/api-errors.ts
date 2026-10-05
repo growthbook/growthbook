@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiSafetyChecks } from "./api-safety-checks";
 
 // Deliberately a standalone definition rather than a reference to
 // startChecklistItemStatusValidator: keeping the error contract decoupled from
@@ -77,6 +78,7 @@ export const apiErrorRegistry = {
       example: z.string(),
     }),
   },
+  ...apiSafetyChecks,
 } satisfies Record<
   string,
   { status: number; description: string; detailsSchema: z.ZodTypeAny }

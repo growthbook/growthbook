@@ -23,6 +23,10 @@ import { apiFeatureRevisionV2Validator } from "./features-v2";
 import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import {
+  STRICT_ENVIRONMENT_CHECKS_LABEL,
+  withNotices,
+} from "./api-safety-checks";
 
 // ---- Shared param schemas ----
 
@@ -151,7 +155,7 @@ const ruleScopeInput = {
     .boolean()
     .optional()
     .describe(
-      "When true the rule applies to all environments. Omit both scope fields to apply to all environments.",
+      `When true the rule applies to every environment, production included. Set this or \`environments\`. A rule with neither applies to every environment, and is rejected once the organization turns on "${STRICT_ENVIRONMENT_CHECKS_LABEL}".`,
     ),
   environments: z
     .array(z.string())
@@ -1065,7 +1069,8 @@ export const postFeatureRevisionRuleAddV2Validator = {
   operationId: "postFeatureRevisionRuleAddV2",
   summary: "Add a rule to a draft revision",
   description:
-    'Appends a new rule to the revision\'s rule list. Supply `allEnvironments: true` on the rule to target all environments, or `environments: [...]` to scope to specific ones.\n\n**Scheduling:** For `force` and `rollout` rules, attach a schedule via `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window) — these create standalone ramp actions and set `pendingRamp: "create"` on the rule. For `experiment-ref` and `safe-rollout` rules, only `schedule` is supported and is stored as legacy schedule fields on the rule itself (`rampSchedule` is not available for these rule types).',
+    `Appends a new rule to the revision's rule list. Supply \`allEnvironments: true\` on the rule to target all environments, or \`environments: [...]\` to scope to specific ones. A rule with neither targets all environments, and is rejected once the organization turns on "${STRICT_ENVIRONMENT_CHECKS_LABEL}".\n\n` +
+    '**Scheduling:** For `force` and `rollout` rules, attach a schedule via `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window) — these create standalone ramp actions and set `pendingRamp: "create"` on the rule. For `experiment-ref` and `safe-rollout` rules, only `schedule` is supported and is stored as legacy schedule fields on the rule itself (`rampSchedule` is not available for these rule types).',
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -1086,8 +1091,9 @@ export const postFeatureRevisionRuleAddV2Validator = {
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
-  responseSchema: revisionResponse,
+  responseSchema: withNotices(revisionResponse),
   version: "v2" as const,
+  possibleErrors: ["rule_scope_required"] as const,
 };
 
 export const postFeatureRevisionRulesReorderV2Validator = {

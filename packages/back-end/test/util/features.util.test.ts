@@ -1,4 +1,9 @@
-import { applyEnvironmentInheritance } from "../../src/util/features";
+import type { Environment } from "shared/types/organization";
+import {
+  applyEnvironmentInheritance,
+  getApiCreateEnabledEnvironments,
+  resolveApiCreateEnvironmentStates,
+} from "../../src/util/features";
 
 describe("feature utils", () => {
   describe("applyEnvironmentInheritance", () => {
@@ -276,6 +281,64 @@ describe("feature utils", () => {
         );
         expect(result.staging).toEqual({ enabled: true });
       });
+    });
+  });
+
+  describe("resolveApiCreateEnvironmentStates", () => {
+    const envs: Environment[] = [
+      { id: "dev", description: "", defaultState: false },
+      { id: "production", description: "", defaultState: true },
+    ];
+
+    it("fills an omitted environment from its defaultState while the setting is off", () => {
+      expect(
+        resolveApiCreateEnvironmentStates(envs, undefined, {
+          requireExplicit: false,
+        }),
+      ).toEqual({ dev: false, production: true });
+      expect(
+        getApiCreateEnabledEnvironments(
+          envs,
+          { dev: { enabled: true } },
+          { requireExplicit: false },
+        ),
+      ).toEqual(["dev", "production"]);
+    });
+
+    it("never reads defaultState while the setting is on", () => {
+      const unreadable: Environment[] = envs.map((env) => {
+        const copy = { id: env.id, description: env.description };
+        Object.defineProperty(copy, "defaultState", {
+          get() {
+            throw new Error("defaultState was read");
+          },
+        });
+        return copy;
+      });
+      expect(
+        resolveApiCreateEnvironmentStates(
+          unreadable,
+          { dev: { enabled: true } },
+          { requireExplicit: true },
+        ),
+      ).toEqual({ dev: true, production: false });
+      expect(
+        getApiCreateEnabledEnvironments(unreadable, undefined, {
+          requireExplicit: true,
+        }),
+      ).toEqual([]);
+    });
+
+    it("keeps an explicit value either way", () => {
+      for (const requireExplicit of [false, true]) {
+        expect(
+          resolveApiCreateEnvironmentStates(
+            envs,
+            { dev: { enabled: true }, production: { enabled: false } },
+            { requireExplicit },
+          ),
+        ).toEqual({ dev: true, production: false });
+      }
     });
   });
 });

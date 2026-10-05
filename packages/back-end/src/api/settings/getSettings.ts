@@ -1,6 +1,7 @@
 import { getScopedSettings } from "shared/settings";
 import { getSettingsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { strictEnvironmentChecksOn } from "back-end/src/util/apiSafetyChecks";
 import {
   toApiRequireReviews,
   toApiSavedGroupApprovals,
@@ -36,6 +37,7 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
     preferredEnvironment:
       req.context.org.settings?.preferredEnvironment ?? null,
+    strictEnvironmentChecks: strictEnvironmentChecksOn(req.context.org),
   };
 
   return {

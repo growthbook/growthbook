@@ -289,3 +289,71 @@ describe("permission matrix — Feature Flags", () => {
     });
   });
 });
+
+// Production needs approval, and this organization requires it on create.
+const strictOrg: OrganizationInterface = buildOrg(
+  "org_perm_matrix_features_strict",
+);
+strictOrg.settings = {
+  ...strictOrg.settings,
+  strictEnvironmentChecks: true,
+  requireReviews: [
+    {
+      requireReviewOn: true,
+      projects: [],
+      environments: ["production"],
+      resetReviewOnChange: false,
+    },
+  ],
+};
+
+function asInStrictOrg(persona: Persona, envLimited = false) {
+  const role = envLimited ? `${persona}_dev` : persona;
+  setReqContext(makePersonaContext(strictOrg, role, `u_${role}`));
+}
+
+const APPROVAL_ON_CREATE_CASES: Pick<
+  Case,
+  "name" | "allowed" | "allowedDevOnly" | "run"
+>[] = [
+  {
+    // The flag starts off in production, so publish authority isn't needed
+    // there — but the draft that turns production on takes draft authority.
+    name: "create a flag that requests review for a gated environment",
+    allowed: ["full"],
+    // Create authority is still asked of the requested state, production
+    // included.
+    allowedDevOnly: [],
+    run: () =>
+      api.post("/api/v2/features", {
+        id: `feat_review_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
+        valueType: "boolean",
+        defaultValue: "false",
+        owner: "u_admin",
+        environments: {
+          dev: { enabled: false },
+          production: { enabled: true },
+        },
+        requestReview: true,
+      }),
+  },
+];
+
+describe("permission matrix — Feature Flags, approval on create", () => {
+  describe.each(APPROVAL_ON_CREATE_CASES)(
+    "$name",
+    ({ allowed, allowedDevOnly, run }) => {
+      it.each(PERSONA_IDS)("%s", async (persona) => {
+        asInStrictOrg(persona);
+        const res = (await run(0)) as { status: number; body?: unknown };
+        expectVerdict(res, allowed.includes(persona));
+      });
+
+      it.each(PERSONA_IDS)("%s, limited to dev", async (persona) => {
+        asInStrictOrg(persona, true);
+        const res = (await run(0)) as { status: number; body?: unknown };
+        expectVerdict(res, (allowedDevOnly ?? allowed).includes(persona));
+      });
+    },
+  );
+});

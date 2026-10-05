@@ -75,6 +75,7 @@ import {
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
   assertNoRawConfigExtends,
+  checkRuleScopes,
   composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
@@ -280,6 +281,7 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {
+    checkRuleScopes(req, req.body.rules);
     // Opt-in registered-attribute check on each replacement rule before any
     // DB writes. `mapV2ApiRuleToFeatureRule` doesn't validate, so we cover
     // flat v2 rules explicitly here (env-rules go through `fromApiEnvSettings…`).

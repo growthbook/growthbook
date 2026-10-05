@@ -136,6 +136,12 @@ export const apiSettingsValidator = namedSchema(
       approvalFlows: apiApprovalFlows,
       targetingReviewMode: z.array(apiTargetingReviewRule).optional(),
       restApiBypassesReviews: z.boolean().optional(),
+      strictEnvironmentChecks: z
+        .boolean()
+        .optional()
+        .describe(
+          "When true, write requests must state environments instead of having them filled in, and a new Feature Flag that turns on an environment that needs approval needs review first.",
+        ),
       requireRebaseBeforePublish: z.boolean().optional(),
       revertsBypassApproval: z.boolean().optional(),
       maxConcurrentDrafts: z.coerce.number().optional(),

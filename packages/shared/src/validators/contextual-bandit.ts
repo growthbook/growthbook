@@ -5,6 +5,7 @@ import { namedSchema } from "./openapi-helpers";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import { STRICT_ENVIRONMENT_CHECKS_LABEL } from "./api-safety-checks";
 
 export const MAX_CONTEXTUAL_BANDIT_LEAVES = 12;
 
@@ -486,7 +487,9 @@ export const contextualBanditLinkedFeatureRuleFields = {
   allEnvironments: z
     .boolean()
     .optional()
-    .describe("Apply the rule in every environment. Defaults to true."),
+    .describe(
+      `Apply the rule in every environment, production included. When linking, set this or \`environments\`: a link with neither applies the rule everywhere, and is rejected once the organization turns on "${STRICT_ENVIRONMENT_CHECKS_LABEL}". When updating, omit both to keep the rule's current environments.`,
+    ),
   environments: z
     .array(z.string())
     .optional()

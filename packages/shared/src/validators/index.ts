@@ -101,6 +101,7 @@ export * from "./contextual-bandit-query.spec";
 export * from "./contextual-bandit-snapshot";
 export * from "./contextual-bandit-event";
 export * from "./api-errors";
+export * from "./api-safety-checks";
 export * from "./experiment-alerts";
 export * from "./holdout-notifications";
 export * from "./slack-user-link";
