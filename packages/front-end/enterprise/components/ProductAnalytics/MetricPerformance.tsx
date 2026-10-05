@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiChartBar } from "react-icons/pi";
+import { PiArrowClockwise, PiChartBar } from "react-icons/pi";
+import { ago, datetime } from "shared/dates";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ExplorationConfig } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
@@ -13,6 +14,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { Select, SelectItem } from "@/ui/Select";
+import Tooltip from "@/ui/Tooltip";
 import {
   getMetricPreviewConfig,
   getMetricPreviewDateRange,
@@ -120,13 +122,31 @@ function PerformanceChart({
       {/* ExplorerChart renders nothing for an error, so show it here. */}
       {error && !loading && <Callout status="error">{error}</Callout>}
       <Box className={styles.footer}>
-        <Button
-          style={{ width: "100%" }}
-          disabled={!config || loading || !isSubmittable}
-          onClick={() => handleSubmit()}
-        >
-          Run query
-        </Button>
+        {exploration && !outdated ? (
+          // Once results are current, re-running is a quiet refresh.
+          <Flex justify="center">
+            <Tooltip content={datetime(exploration.dateUpdated)}>
+              <Button
+                variant="ghost"
+                icon={<PiArrowClockwise />}
+                disabled={loading || !isSubmittable}
+                onClick={() => handleSubmit({ force: true })}
+              >
+                {loading
+                  ? "Refreshing…"
+                  : `Refreshed ${ago(exploration.dateUpdated)}`}
+              </Button>
+            </Tooltip>
+          </Flex>
+        ) : (
+          <Button
+            style={{ width: "100%" }}
+            disabled={!config || loading || !isSubmittable}
+            onClick={() => handleSubmit()}
+          >
+            Run query
+          </Button>
+        )}
       </Box>
     </Flex>
   );

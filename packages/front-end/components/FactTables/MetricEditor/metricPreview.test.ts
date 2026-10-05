@@ -12,6 +12,7 @@ import {
 } from "@/services/metrics";
 import { getDraftMetricPreview } from "./draftMetricPreview";
 import {
+  formatPreviewHeadline,
   getMetricPreviewConfig,
   getMetricPreviewDateRange,
   getMetricPreviewSummary,
@@ -329,4 +330,18 @@ it("uses the per-unit scale for mean metric charts", () => {
       dateRange: getMetricPreviewDateRange(),
     }).showAs,
   ).toBe("per_unit");
+});
+
+describe("formatPreviewHeadline", () => {
+  it("keeps every magnitude short enough for the headline", () => {
+    expect(formatPreviewHeadline(4.114)).toBe("4.11");
+    expect(formatPreviewHeadline(27206)).toBe("27,206");
+    expect(formatPreviewHeadline(99999.999)).toBe("100,000");
+    expect(formatPreviewHeadline(1234567)).toBe("1.23M");
+    expect(formatPreviewHeadline(-987654321098)).toBe("-987.65B");
+    expect(formatPreviewHeadline(999.99e12)).toBe("999.99T");
+    expect(formatPreviewHeadline(0.004216)).toBe("0.00422");
+    expect(formatPreviewHeadline(0.0000123)).toBe("1.23e-5");
+    expect(formatPreviewHeadline(0)).toBe("0");
+  });
 });

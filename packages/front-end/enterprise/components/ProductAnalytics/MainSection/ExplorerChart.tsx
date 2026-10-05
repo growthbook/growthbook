@@ -63,6 +63,7 @@ import {
   cssColorToHex,
 } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import {
+  formatPreviewHeadline,
   getMetricPreviewPartLabels,
   getMetricPreviewSummary,
 } from "@/components/FactTables/MetricEditor/metricPreview";
@@ -1195,14 +1196,34 @@ export default function ExplorerChart({
           style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%" }}
         >
           {compact && (
-            <Box pb="2">
-              <Flex align="center" gap="2">
+            <Box pb="2" minWidth="0">
+              <Text as="div" color="text-mid">
+                {previewSummary?.label}
+                {previewSummary?.date && (
+                  <>
+                    {" · "}
+                    <Tooltip content={datetime(previewSummary.date)}>
+                      <span>{ago(previewSummary.date)}</span>
+                    </Tooltip>
+                  </>
+                )}
+              </Text>
+              <Flex align="start" gap="1" minWidth="0">
                 <div
-                  style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}
+                  title={previewSummary?.value?.toLocaleString()}
+                  style={{
+                    fontSize: "3rem",
+                    lineHeight: 1.2,
+                    fontWeight: 600,
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
                 >
                   {previewSummary?.value === null || !previewSummary
                     ? "—"
-                    : formatNumber(previewSummary.value)}
+                    : formatPreviewHeadline(previewSummary.value)}
                 </div>
                 <Tooltip
                   content={
@@ -1210,6 +1231,12 @@ export default function ExplorerChart({
                       <Text as="div" size="sm">
                         {previewSummary?.label}
                       </Text>
+                      {previewParts && (
+                        <Text as="div" size="sm">
+                          {previewParts.numerator} /{" "}
+                          {previewParts.denominatorTotal}
+                        </Text>
+                      )}
                       {previewMetric?.metricType === "proportion" && (
                         <Text as="div" size="sm">
                           Units matching the metric’s conditions each day, not
@@ -1230,25 +1257,18 @@ export default function ExplorerChart({
                   </Button>
                 </Tooltip>
               </Flex>
-              <Text as="div" size="sm" color="text-mid">
-                {previewSummary?.label}
-                {previewSummary?.date && (
-                  <>
-                    {" · "}
-                    <Tooltip content={datetime(previewSummary.date)}>
-                      <span>{ago(previewSummary.date)}</span>
-                    </Tooltip>
-                  </>
-                )}
-              </Text>
               {previewParts &&
                 previewSummary &&
                 previewSummary.denominator !== null && (
-                  <Text as="div" size="sm" color="text-mid">
-                    {previewParts.numerator}:{" "}
-                    {formatNumber(previewSummary.numerator)} ·{" "}
-                    {previewParts.denominatorTotal}:{" "}
-                    {formatNumber(previewSummary.denominator)}
+                  <Text as="div" color="text-mid">
+                    ={" "}
+                    {previewSummary.numerator.toLocaleString(undefined, {
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    /{" "}
+                    {previewSummary.denominator.toLocaleString(undefined, {
+                      maximumFractionDigits: 2,
+                    })}
                   </Text>
                 )}
             </Box>
