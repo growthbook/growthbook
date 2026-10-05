@@ -1,5 +1,5 @@
+import { completePrefix } from "shared/ai-chat";
 import {
-  completeFromList,
   remainingCompletion,
   suggestedReplyFromOptions,
 } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
@@ -36,13 +36,10 @@ describe("suggestedReplyFromOptions", () => {
     "Once you let me know, I can guide you through the steps.",
   ].join("\n");
 
-  it("picks the option about GrowthBook itself, word for word, minus the question mark", () => {
-    expect(
-      suggestedReplyFromOptions(
-        reply,
-        "Tell me how to turn off AI related feat",
-      ),
-    ).toBe("An AI feature in GrowthBook itself (like this AI assistant)");
+  it("takes the first option word for word, minus the question mark", () => {
+    expect(suggestedReplyFromOptions(reply)).toBe(
+      "A specific feature flag related to AI",
+    );
   });
   it("prefers the option the agent marked as recommended, tag removed", () => {
     expect(
@@ -70,21 +67,20 @@ describe("suggestedReplyFromOptions", () => {
   });
 });
 
-describe("completeFromList", () => {
+describe("completePrefix", () => {
   const prompts = [
     "Help me create a Feature Flag",
     "Help me create an experiment",
   ];
 
   it("finishes the first prompt the draft is a prefix of, case-insensitively", () => {
-    expect(completeFromList("help me create", prompts)).toBe(" a Feature Flag");
-    expect(completeFromList("Help me create an", prompts)).toBe(" experiment");
+    expect(completePrefix("help me create", prompts)).toBe(" a Feature Flag");
+    expect(completePrefix("Help me create an", prompts)).toBe(" experiment");
   });
-  it("needs a couple of characters and a real prefix", () => {
-    expect(completeFromList("h", prompts)).toBeUndefined();
-    expect(completeFromList("show me", prompts)).toBeUndefined();
+  it("needs a real prefix", () => {
+    expect(completePrefix("show me", prompts)).toBeUndefined();
     expect(
-      completeFromList("Help me create a Feature Flag", prompts),
+      completePrefix("Help me create a Feature Flag", prompts),
     ).toBeUndefined();
   });
 });

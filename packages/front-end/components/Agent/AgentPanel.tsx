@@ -426,11 +426,7 @@ export default function AgentPanel({
     }
     const last = messages[messages.length - 1];
     if (last?.role !== "assistant" || last.isError) return undefined;
-    const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    const text = suggestedReplyFromOptions(
-      getMessageText(last),
-      lastUser ? getMessageText(lastUser) : "",
-    );
+    const text = suggestedReplyFromOptions(getMessageText(last));
     return text ? { key: last.id, text } : undefined;
   }, [askPrompt, messages, loading]);
 

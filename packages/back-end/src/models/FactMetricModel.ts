@@ -34,7 +34,10 @@ import {
   getNetNewSqlExprRowFilters,
   validateFactMetricRowFilterSql,
 } from "back-end/src/services/factMetricRowFilterValidation";
-import { projectFilterQuery } from "back-end/src/util/mongo.util";
+import {
+  projectFilterQuery,
+  readableProjectsClause,
+} from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { healPriorSettings } from "back-end/src/util/priors";
 import { CasConflictError, Context, MakeModelClass } from "./BaseModel";
@@ -287,17 +290,8 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
         archived: { $ne: true },
         ...(datasourceId ? { datasource: datasourceId } : {}),
         ...(name ? { name } : {}),
-        // Pre-filter in Mongo so the limit runs on the cursor. No-project
-        // metrics are org-wide and stay readable whenever any project is.
-        ...(readableProjects
-          ? {
-              $or: [
-                { projects: { $in: readableProjects } },
-                { projects: { $size: 0 } },
-                { projects: { $exists: false } },
-              ],
-            }
-          : {}),
+        // Pre-filter in Mongo so the limit runs on the cursor.
+        ...readableProjectsClause(readableProjects),
       },
       {
         // managedBy is "" when not official, so descending puts "admin"/"api" first.

@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { escapeRegExp } from "lodash";
 import {
+  completePrefix,
   getMessageText,
   type AIChatAssistantMessage,
   type AIChatUserMessage,
@@ -48,18 +49,12 @@ Reply with ONLY the complete message: the draft exactly as written, character fo
 Keep the continuation to one short sentence (under 15 words) that completes the thought and ends with a period or question mark. Prefer requests the assistant's skills below can carry out, and use the recent conversation to guess what they want next.
 The user's current page in the GrowthBook app is given as a path: /features/<key> is that feature flag, /experiment/<id> that experiment, /metric/<id> or /fact-metrics/<id> that metric. When the draft says "this experiment", "this flag" or similar, it means the entity on that page.
 Ground the continuation in what this organization actually has, listed below. Refer to those data sources, feature flags, experiments and metrics by their real names. Never invent a metric, flag, experiment or table that isn't listed; if nothing listed fits, keep the continuation generic.
-If the draft ends in the beginning of a name, finish that name from the lists before anything else; entries matching the typed text come first in each list.
+If the draft ends in the beginning of a name, finish that name from the lists before anything else.
 Reply with the draft unchanged if there is no good continuation.`;
 
 const ORG_CONTEXT_LIMIT = 15;
 
 type ContextKind = "datasources" | "features" | "experiments" | "metrics";
-const ALL_CONTEXT: ContextKind[] = [
-  "datasources",
-  "features",
-  "experiments",
-  "metrics",
-];
 /**
  * What points at each entity list. `pages` are first path segments and
  * `words` are things people type or the assistant said; both accept a plural
@@ -189,42 +184,30 @@ export function contextKindsFor({
   for (const { kinds: ks, page, words } of SIGNALS) {
     if (page.test(segment) || words.test(said)) ks.forEach((k) => kinds.add(k));
   }
-  return kinds.size ? ALL_CONTEXT.filter((k) => kinds.has(k)) : null;
+  return kinds.size ? [...kinds] : null;
 }
 
 /**
  * What the user seems to be naming: the words after the last "metric",
- * "flag", etc., else the last two words. An escaped, case-insensitive prefix
- * match, which is how Mongo filters on a name.
+ * "flag", etc. — plus an escaped, case-insensitive prefix match, which is
+ * how Mongo filters on a name.
  */
-export function nameHintFromDraft(text: string): RegExp | undefined {
-  const lead = text.match(NAME_LEAD_IN)?.[1];
-  const words = (lead ?? text.trim().split(/\s+/).slice(-2).join(" "))
-    .split(/\s+/)
-    .filter((w) => w.length >= 2)
-    .map(escapeRegExp);
-  return words.length
-    ? new RegExp(`\\b(?:${words.join("|")})`, "i")
-    : undefined;
-}
-
-/** Name matches first, then the recent list, de-duplicated and capped. */
-async function namesFirst(
-  fetch: (name?: RegExp) => Promise<string[]>,
-  name: RegExp | undefined,
-  limit: number,
-): Promise<string[]> {
-  const [matches, recent] = await Promise.all([
-    name ? fetch(name) : Promise.resolve([]),
-    fetch(),
-  ]);
-  return [...new Set([...matches, ...recent])].slice(0, limit);
+export function nameHintFromDraft(
+  text: string,
+): { typed: string; pattern: RegExp } | undefined {
+  const typed = text.match(NAME_LEAD_IN)?.[1]?.trim();
+  const words = typed?.split(/\s+/).filter((w) => w.length >= 2) ?? [];
+  if (!typed || !words.length) return undefined;
+  const pattern = new RegExp(
+    `\\b(?:${words.map(escapeRegExp).join("|")})`,
+    "i",
+  );
+  return { typed, pattern };
 }
 
 /** Descriptions run to a paragraph; the first sentence is enough to route by. */
-export function firstSentence(text: string, max = 160): string {
-  const first = text.trim().split(/(?<=[.!?])\s/)[0] ?? "";
-  return first.length > max ? `${first.slice(0, max - 1).trimEnd()}…` : first;
+export function firstSentence(text: string): string {
+  return text.trim().split(/(?<=[.!?])\s/)[0] ?? "";
 }
 
 /** Enabled leaf skills in the domains the context points at, one line each. */
@@ -242,19 +225,18 @@ function skillsForPrompt(org: ReqContext["org"], kinds: ContextKind[]): string {
 }
 
 /**
- * Names of the org's entities the context points at, so suggestions point at
- * real things without spending tokens on irrelevant lists. Metrics are scoped
- * to the active PA datasource when known.
+ * Labelled name lists for the entity kinds the context points at. With
+ * `name`, only entities matching it (the typed fragment).
  */
 // ponytail: up to five queries per call; cache per org for a minute if this shows up in latency.
-async function orgContextForAutocomplete(
+async function entityNames(
   context: ReqContext,
   {
     datasourceId,
     kinds: kindList,
-    nameHint,
-  }: { datasourceId?: string; kinds: ContextKind[]; nameHint?: RegExp },
-): Promise<string> {
+    name,
+  }: { datasourceId?: string; kinds: ContextKind[]; name?: RegExp },
+): Promise<(readonly [string, string[]])[]> {
   const kinds = new Set(kindList);
   const limit = ORG_CONTEXT_LIMIT;
   // Lets the feature and metric lookups filter by read access in Mongo, so
@@ -266,74 +248,58 @@ async function orgContextForAutocomplete(
           await context.models.projects.getAllIdsForOrg(),
         )
       : null;
-  const want = <T>(kind: ContextKind, fetch: () => Promise<T[]>) =>
-    kinds.has(kind) ? fetch() : Promise.resolve(null);
-
-  const [datasources, features, experiments, factMetrics, legacyMetrics] =
-    await Promise.all([
-      want("datasources", () => getDataSourcesByOrganization(context)),
-      want("features", () =>
-        namesFirst(
-          (name) =>
-            getRecentFeatureIds(context, { limit, readableProjects, name }),
-          nameHint,
+  const sources: [string, ContextKind, () => Promise<string[]>][] = [
+    [
+      "Data sources",
+      "datasources",
+      async () =>
+        (await getDataSourcesByOrganization(context)).map((d) => d.name),
+    ],
+    [
+      "Feature flags",
+      "features",
+      () => getRecentFeatureIds(context, { limit, readableProjects, name }),
+    ],
+    [
+      "Experiments",
+      "experiments",
+      async () =>
+        (
+          await getAllExperiments(context, {
+            limit,
+            sortBy: { dateUpdated: -1 },
+            name,
+          })
+        ).map((e) => e.name),
+    ],
+    [
+      "Fact metrics",
+      "metrics",
+      () =>
+        context.models.factMetrics.getRecentNamesForPrompt({
           limit,
-        ),
-      ),
-      want("experiments", () =>
-        namesFirst(
-          async (name) =>
-            (
-              await getAllExperiments(context, {
-                limit,
-                sortBy: { dateUpdated: -1 },
-                name,
-              })
-            ).map((e) => e.name),
-          nameHint,
+          datasourceId,
+          readableProjects,
+          name,
+        }),
+    ],
+    [
+      "Legacy metrics",
+      "metrics",
+      () =>
+        getRecentMetricNames(context, {
           limit,
-        ),
-      ),
-      want("metrics", () =>
-        namesFirst(
-          (name) =>
-            context.models.factMetrics.getRecentNamesForPrompt({
-              limit,
-              datasourceId,
-              readableProjects,
-              name,
-            }),
-          nameHint,
-          limit,
-        ),
-      ),
-      want("metrics", () =>
-        namesFirst(
-          (name) =>
-            getRecentMetricNames(context, {
-              limit,
-              datasourceId,
-              readableProjects,
-              name,
-            }),
-          nameHint,
-          limit,
-        ),
-      ),
-    ]);
-  const line = (label: string, names: string[] | null) =>
-    names === null
-      ? null
-      : `${label}: ${names.length ? names.slice(0, ORG_CONTEXT_LIMIT).join(", ") : "(none)"}`;
-  return [
-    line("Data sources", datasources && datasources.map((d) => d.name)),
-    line("Feature flags", features),
-    line("Experiments", experiments),
-    line("Fact metrics", factMetrics),
-    line("Legacy metrics", legacyMetrics),
-  ]
-    .filter((l): l is string => l !== null)
-    .join("\n");
+          datasourceId,
+          readableProjects,
+          name,
+        }),
+    ],
+  ];
+  return Promise.all(
+    sources
+      .filter(([, kind]) => kinds.has(kind))
+      .map(async ([label, , fetch]) => [label, await fetch()] as const),
+  );
 }
 
 /**
@@ -416,11 +382,26 @@ export const postAutocomplete = async (
   // conversation. Guessing here is what produced invented metrics.
   if (!kinds) return res.status(200).json({ status: 200, completion: "" });
 
-  const orgContext = await orgContextForAutocomplete(context, {
-    datasourceId,
-    kinds,
-    nameHint: nameHintFromDraft(text),
-  });
+  // Mid-name: hand back the rest of the name and stop. Where the user is
+  // going with it is for the next pause to find out.
+  const hint = nameHintFromDraft(text);
+  if (hint) {
+    const matched = await entityNames(context, {
+      datasourceId,
+      kinds,
+      name: hint.pattern,
+    });
+    const rest = completePrefix(
+      hint.typed,
+      matched.flatMap(([, names]) => names),
+    );
+    if (rest) return res.status(200).json({ status: 200, completion: rest });
+  }
+  // ponytail: a second round of lookups when the hint wasn't a prefix; merge
+  // the two if that shows up in latency.
+  const orgContext = (await entityNames(context, { datasourceId, kinds }))
+    .map(([label, names]) => `${label}: ${names.join(", ") || "(none)"}`)
+    .join("\n");
   // Only enabled skills in the domains the context points at.
   const skills = skillsForPrompt(context.org, kinds);
 

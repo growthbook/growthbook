@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { completePrefix } from "shared/ai-chat";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -37,13 +38,10 @@ const LIST_ITEM = /^\s*(?:[-*•]|\d+[.)])\s+(.+?)\s*$/;
  * is one of the items, word for word — no model call needed. A list only
  * counts as choices when the agent tagged one "(recommended)" or the line
  * introducing it asks a question; bulleted results and summaries don't.
- * The tag wins; otherwise prefer options about GrowthBook itself or "this …"
- * (the entity on screen), then those sharing words with what the user last
- * said; ties go to the first.
+ * The tag wins; otherwise the first option, since the agent orders by likelihood.
  */
 export function suggestedReplyFromOptions(
   assistantText: string,
-  lastUserText = "",
 ): string | undefined {
   const lines = assistantText.split("\n");
   const firstItem = lines.findIndex((l) => LIST_ITEM.test(l));
@@ -64,36 +62,8 @@ export function suggestedReplyFromOptions(
     .reverse()
     .find((l) => l.trim());
   if (!intro?.includes("?")) return undefined;
-  const userWords = new Set(
-    lastUserText
-      .toLowerCase()
-      .split(/\W+/)
-      .filter((w) => w.length > 3),
-  );
-  const score = (o: string) =>
-    (/growthbook/i.test(o) ? 2 : 0) +
-    (/\bthis\b/i.test(o) ? 1 : 0) +
-    o
-      .toLowerCase()
-      .split(/\W+/)
-      .filter((w) => userWords.has(w)).length;
-  const best = options.reduce((a, b) => (score(b) > score(a) ? b : a));
   // A reply answers the question, so it doesn't end in one.
-  return best.replace(/\?+$/, "").trim();
-}
-
-/** The rest of the first canned prompt the draft is a prefix of, if any. */
-export function completeFromList(
-  text: string,
-  prompts: readonly string[],
-): string | undefined {
-  const typed = text.trimStart();
-  if (typed.length < 2) return undefined;
-  const lower = typed.toLowerCase();
-  const hit = prompts.find(
-    (p) => p.length > typed.length && p.toLowerCase().startsWith(lower),
-  );
-  return hit?.slice(typed.length);
+  return options[0].replace(/\?+$/, "").trim();
 }
 
 /** What's left to show once the user has typed part of the suggestion themselves. */
@@ -151,37 +121,35 @@ export function useAutocomplete({
     if (!enabled || stopped.current || ghost || text === current?.base) {
       return;
     }
+    const suggest = (s: Omit<Suggestion, "scope">) => {
+      setSuggestion({ ...s, scope });
+      if (s.completion) {
+        track("AI Autocomplete Suggested", {
+          source: s.source,
+          draftLength: s.base.length,
+          completionLength: s.completion.length,
+        });
+      }
+    };
     if (!text.trim()) {
       // Nothing typed: offer the assistant's likeliest option, no model call.
       if (suggestedReply?.text) {
-        setSuggestion({
+        suggest({
           base: "",
           completion: suggestedReply.text,
           source: "assistant-options",
-          scope,
-        });
-        track("AI Autocomplete Suggested", {
-          source: "assistant-options",
-          draftLength: 0,
-          completionLength: suggestedReply.text.length,
         });
       }
       return;
     }
     // A fresh chat: finish one of the starter prompts for free before asking the model.
-    const quick = quickSuggestions && completeFromList(text, quickSuggestions);
+    const typed = text.trimStart();
+    const quick =
+      typed.length >= 2 && quickSuggestions
+        ? completePrefix(typed, quickSuggestions)
+        : undefined;
     if (quick) {
-      setSuggestion({
-        base: text,
-        completion: quick,
-        source: "starter-prompts",
-        scope,
-      });
-      track("AI Autocomplete Suggested", {
-        source: "starter-prompts",
-        draftLength: text.length,
-        completionLength: quick.length,
-      });
+      suggest({ base: text, completion: quick, source: "starter-prompts" });
       return;
     }
     if (text.trim().split(/\s+/).length < MIN_WORDS) return;
@@ -218,15 +186,11 @@ export function useAutocomplete({
           },
         );
         if (ctrl.signal.aborted) return;
-        const completion = res?.completion ?? "";
-        setSuggestion({ base: text, completion, source: "model", scope });
-        if (completion) {
-          track("AI Autocomplete Suggested", {
-            source: "model",
-            draftLength: text.length,
-            completionLength: completion.length,
-          });
-        }
+        suggest({
+          base: text,
+          completion: res?.completion ?? "",
+          source: "model",
+        });
       } catch {
         // Network failure: the handler never ran.
         if (!handled && !ctrl.signal.aborted) {

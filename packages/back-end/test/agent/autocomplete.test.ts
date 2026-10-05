@@ -50,7 +50,7 @@ describe("cleanCompletion", () => {
 
 describe("contextKindsFor", () => {
   const typed = (text: string, currentPage = "/") =>
-    contextKindsFor({ currentPage, text });
+    contextKindsFor({ currentPage, text })?.sort() ?? null;
 
   it("narrows to what the page is about", () => {
     expect(typed("anything", "/features/checkout-v2")).toEqual(["features"]);
@@ -92,7 +92,7 @@ describe("contextKindsFor", () => {
         currentPage: "/",
         text: "and the revenue metric",
         historyText: "user: which flag controls checkout?",
-      }),
+      })?.sort(),
     ).toEqual(["datasources", "features", "metrics"]);
   });
   it("returns null when nothing gives context yet", () => {
@@ -102,26 +102,26 @@ describe("contextKindsFor", () => {
 });
 
 describe("firstSentence", () => {
-  it("keeps the first sentence and caps its length", () => {
+  it("keeps the first sentence", () => {
     expect(
       firstSentence("Chart product data. Build dashboards. Use for X."),
     ).toBe("Chart product data.");
-    expect(firstSentence("x".repeat(200))).toHaveLength(160);
   });
 });
 
 describe("nameHintFromDraft", () => {
   it("takes what follows the entity word and matches names starting with it", () => {
     const hint = nameHintFromDraft("For my metric My");
-    expect(hint?.test("My First Funnel")).toBe(true);
-    expect(hint?.test("Session Duration")).toBe(false);
+    expect(hint?.typed).toBe("My");
+    expect(hint?.pattern.test("My First Funnel")).toBe(true);
+    expect(hint?.pattern.test("Session Duration")).toBe(false);
   });
-  it("falls back to the last two words and escapes regex characters", () => {
-    const hint = nameHintFromDraft("show me checkout (v2");
-    expect(hint?.source).toContain("\\(v2");
-    expect(hint?.test("checkout (v2) rollout")).toBe(true);
+  it("escapes regex characters in the fragment", () => {
+    const hint = nameHintFromDraft("turn on the flag checkout (v2");
+    expect(hint?.pattern.source).toContain("\\(v2");
+    expect(hint?.pattern.test("checkout (v2) rollout")).toBe(true);
   });
-  it("returns nothing for a draft with no usable word", () => {
-    expect(nameHintFromDraft("a")).toBeUndefined();
+  it("returns nothing without an entity word before the fragment", () => {
+    expect(nameHintFromDraft("show me checkout")).toBeUndefined();
   });
 });

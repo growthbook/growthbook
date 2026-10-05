@@ -20,6 +20,7 @@ import {
   getCollection,
   projectFilterQuery,
   removeMongooseFields,
+  readableProjectsClause,
 } from "back-end/src/util/mongo.util";
 import { generateEmbeddings } from "back-end/src/enterprise/services/ai";
 import { createModelAuditLogger } from "back-end/src/services/audit";
@@ -430,17 +431,8 @@ export async function getRecentMetricNames(
         status: { $ne: "archived" },
         ...(datasourceId ? { datasource: datasourceId } : {}),
         ...(name ? { name } : {}),
-        // Pre-filter in Mongo so the limit stays bounded. No-project metrics
-        // are org-wide and stay readable whenever any project is.
-        ...(readableProjects
-          ? {
-              $or: [
-                { projects: { $in: readableProjects } },
-                { projects: { $size: 0 } },
-                { projects: { $exists: false } },
-              ],
-            }
-          : {}),
+        // Pre-filter in Mongo so the limit runs on the cursor.
+        ...readableProjectsClause(readableProjects),
       },
       {
         projection: { _id: 0, name: 1, projects: 1 },

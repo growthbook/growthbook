@@ -375,10 +375,7 @@ function ChatComposer(
         if (
           ghost &&
           (event.key === "Tab" || event.key === "ArrowRight") &&
-          !event.shiftKey &&
-          !event.ctrlKey &&
-          !event.altKey &&
-          !event.metaKey
+          !(event.shiftKey || event.ctrlKey || event.altKey || event.metaKey)
         ) {
           const { selection, doc } = view.state;
           const end = docEnd(doc);
