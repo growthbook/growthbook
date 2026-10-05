@@ -192,8 +192,7 @@ describe("getInitialDatasourceResources", () => {
   );
 });
 
-// An existing business Data Source on the ClickHouse instance Langfuse writes
-// to, with its own identifier types and assignment query.
+// A Data Source with its own identifier types and assignment query.
 function businessClickhouse(): DataSourceInterfaceWithParams {
   return {
     id: "ds_business",
@@ -294,7 +293,6 @@ describe("getDatasourceTemplateSettings", () => {
       "session_id",
       "trace_id",
     ]);
-    // The Data Source's own assignment query is kept, first.
     expect(settings.queries?.exposure?.[0].id).toBe("user_id");
   });
 

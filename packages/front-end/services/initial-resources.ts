@@ -1156,11 +1156,8 @@ export function getInitialDatasourceResources({
   };
 }
 
-// An event tracker's identifier types, assignment queries, and identity
-// joins, merged into an existing Data Source's settings.
-// The wizard can save getInitialSettings as-is; here that would wipe what is
-// already there, and the tracker's query ids (e.g. "user_id") would collide,
-// so ids are prefixed with the tracker.
+// Merges a tracker's settings into an existing Data Source's instead of
+// replacing them. Query ids are prefixed so they don't collide.
 export function getDatasourceTemplateSettings({
   datasource,
   template,
@@ -1214,9 +1211,7 @@ export function getDatasourceTemplateSettings({
   };
 }
 
-// An event tracker's fact tables, filters, and metrics for an existing Data
-// Source, minus any fact table it already has by name, so applying the
-// tracker twice adds no duplicates.
+// Skips fact tables the Data Source already has, so re-running adds nothing.
 export function getDatasourceTemplateResources({
   datasource,
   template,

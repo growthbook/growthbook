@@ -892,8 +892,7 @@ function getSchemaObject(type?: SchemaFormat) {
   return CustomSchema;
 }
 
-// Whether a tracker has SQL of its own, rather than falling back to the
-// generic custom query (e.g. mParticle, or Mixpanel, which is not SQL).
+// False for trackers that fall back to the generic custom query.
 export function hasEventTrackerSql(type: SchemaFormat): boolean {
   return getSchemaObject(type) !== CustomSchema;
 }

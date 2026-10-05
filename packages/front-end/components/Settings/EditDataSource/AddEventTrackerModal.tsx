@@ -23,8 +23,6 @@ import { TextField } from "@/ui/TextField";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 
-// The wizard's event trackers for this connection type, minus the one that
-// created the Data Source and those with no SQL of their own.
 export function getAddableEventTrackers(
   datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings">,
 ) {
@@ -36,8 +34,7 @@ export function getAddableEventTrackers(
   );
 }
 
-// The new Data Source wizard starts every option at its default, and some
-// trackers' SQL relies on that (Matomo's table and action prefixes).
+// Like the wizard; Matomo's SQL relies on these defaults.
 function getDefaultOptions(tracker: { options?: SchemaOption[] }) {
   return Object.fromEntries(
     (tracker.options ?? []).map((o) => [o.name, String(o.defaultValue ?? "")]),
@@ -65,8 +62,7 @@ export default function AddEventTrackerModal({
   );
   const [progress, setProgress] = useState<number | null>(null);
 
-  // Some trackers read the Data Source's identifier types (GA4), so build
-  // the resources from the settings as they will be after saving.
+  // GA4 reads identifier types, so build resources from the updated settings.
   const { updatedSettings, resources } = useMemo(() => {
     const updatedSettings = getDatasourceTemplateSettings({
       datasource,
@@ -96,8 +92,7 @@ export default function AddEventTrackerModal({
       cta="Add to Data Source"
       ctaEnabled={!alreadyAdded}
       submit={async () => {
-        // Fact tables are validated against the Data Source's identifier
-        // types, so those have to be saved first.
+        // Fact tables are validated against the saved identifier types.
         await apiCall(`/datasource/${datasource.id}`, {
           method: "PUT",
           body: JSON.stringify({ settings: updatedSettings }),
