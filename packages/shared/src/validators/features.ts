@@ -454,6 +454,9 @@ const minimalFeatureRevisionInterface = z
     scheduledPublishLockEdits: z.boolean().optional(),
     scheduledPublishLockOthers: z.boolean().optional(),
     scheduledPublishBypassApproval: z.boolean().optional(),
+    // Lets the flag page load a draft together with its base, without first
+    // loading the draft to find out which base that is.
+    baseVersion: z.number().optional(),
   })
   .strict();
 

@@ -135,13 +135,17 @@ export async function getDataSourcesByOrganization(
   );
 }
 
-// Unfiltered by project permissions - the org's event ingestor region isn't
-// sensitive on its own, and gating it on datasource read permissions means
-// users without access to the Managed Warehouse/Event Forwarder datasource
-// would get an incorrect region for the SDK setup snippets.
-export async function getEventIngestorRegionForOrganization(
+// Unfiltered by project permissions - none of this is sensitive on its own, and
+// gating it on datasource read permissions means users without access to the
+// Managed Warehouse/Event Forwarder datasource would get an incorrect region for
+// the SDK setup snippets and be offered to set up a second one.
+export async function getEventPipelineStatusForOrganization(
   context: ReqContext | ApiReqContext,
-): Promise<DataRegion | undefined> {
+): Promise<{
+  eventIngestorRegion: DataRegion | undefined;
+  hasManagedWarehouse: boolean;
+  hasEventForwarder: boolean;
+}> {
   const datasources = usingFileConfig()
     ? getConfigDatasources(context.org.id)
     : (await DataSourceModel.find({ organization: context.org.id })).map(
@@ -152,13 +156,16 @@ export async function getEventIngestorRegionForOrganization(
     (d): d is GrowthbookClickhouseDataSource =>
       d.type === "growthbook_clickhouse",
   );
-  if (managedWarehouse) {
-    return managedWarehouse.settings?.region;
-  }
-
   const forwarderConfigs =
     await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
-  return forwarderConfigs.find((c) => c.region)?.region;
+
+  return {
+    eventIngestorRegion: managedWarehouse
+      ? managedWarehouse.settings?.region
+      : forwarderConfigs.find((c) => c.region)?.region,
+    hasManagedWarehouse: !!managedWarehouse,
+    hasEventForwarder: forwarderConfigs.length > 0,
+  };
 }
 
 // WARNING: This does not restrict by organization

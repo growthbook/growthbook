@@ -669,6 +669,43 @@ export function generateAutoExperimentsPayload({
   return sdkExperiments.filter(isValidSDKExperiment);
 }
 
+// The saved groups these definitions can read, with values, plus any group
+// those reach through condition groups.
+export async function loadSavedGroupsForDefinitions(
+  context: ReqContext | ApiReqContext,
+  sources: FeatureDefinitionSources,
+): Promise<SavedGroupInterface[]> {
+  return loadSavedGroupsWithNested(
+    getSavedGroupIdsForFeatureDefinitions(sources),
+    (ids) => context.models.savedGroups.getByIdsWithValues(ids),
+  );
+}
+
+// Groups for evaluating one feature revision: what its rules and the
+// experiments they reference can read.
+export async function getSavedGroupMapForFeatureRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  experimentMap: Map<string, ExperimentInterface>,
+): Promise<GroupMap> {
+  const experiments = [...(feature.rules ?? []), ...(revision.rules ?? [])]
+    .map((rule) =>
+      rule?.type === "experiment-ref"
+        ? experimentMap.get(rule.experimentId)
+        : undefined,
+    )
+    .filter((e): e is ExperimentInterface => !!e);
+  return getSavedGroupMap(
+    context,
+    await loadSavedGroupsForDefinitions(context, {
+      features: [feature],
+      revisions: [revision],
+      experiments,
+    }),
+  );
+}
+
 export async function getSavedGroupMap(
   context: ReqContext | ApiReqContext,
   savedGroups?: SavedGroupInterface[],
@@ -999,6 +1036,32 @@ export async function assertFeatureDeletable(
   );
 }
 
+// Bandits behind the features' contextual-bandit-ref rules. Their targeting
+// is compiled into the payload, so the saved groups it names must load too.
+async function getPayloadContextualBandits(
+  context: ReqContext | ApiReqContext,
+  features: FeatureInterface[],
+): Promise<Map<string, ContextualBanditInterface>> {
+  const ids = getReferenceIdsInFeatures(features, "contextual-bandit-ref");
+  if (!ids.length) return new Map();
+  const bandits = await context.models.contextualBandits.getByIds(ids);
+  return new Map(bandits.map((cb) => [cb.id, cb]));
+}
+
+// Holdout targeting lives on the holdout's experiment, which the payload
+// experiments never include.
+function getPayloadHoldoutExperiments(
+  holdoutsMaps: Iterable<SDKPayloadRawData["holdoutsMap"]>,
+): ExperimentInterface[] {
+  const experiments: ExperimentInterface[] = [];
+  for (const holdoutsMap of holdoutsMaps) {
+    for (const { holdoutExperiment } of holdoutsMap.values()) {
+      if (holdoutExperiment) experiments.push(holdoutExperiment);
+    }
+  }
+  return experiments;
+}
+
 export async function refreshSDKPayloadCache({
   context: baseContext,
   payloadKeys,
@@ -1164,7 +1227,25 @@ export async function refreshSDKPayloadCache({
 
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
-  const savedGroups = await context.models.savedGroups.getAll();
+  const allEnvironmentsToUpdate = Array.from(
+    new Set(connectionsUpdated.map((c) => c.environment)),
+  );
+  const holdoutsMapByEnv: Record<string, SDKPayloadRawData["holdoutsMap"]> = {};
+  for (const environment of allEnvironmentsToUpdate) {
+    holdoutsMapByEnv[environment] =
+      await context.models.holdout.getAllPayloadHoldouts(environment);
+  }
+  const cbMap = await getPayloadContextualBandits(context, allFeatures);
+  // Holdouts and contextual bandits carry targeting the features and
+  // experiments do not.
+  const savedGroups = await loadSavedGroupsForDefinitions(context, {
+    features: allFeatures,
+    experiments: [
+      ...experimentMap.values(),
+      ...getPayloadHoldoutExperiments(Object.values(holdoutsMapByEnv)),
+    ],
+    bandits: cbMap.values(),
+  });
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const constants = await getResolvableValues(context);
   const rampMonitoredRuleMap =
@@ -1187,26 +1268,14 @@ export async function refreshSDKPayloadCache({
     urlRedirectExperiments: allURLRedirectExperiments,
     rampMonitoredRuleMap,
     constants,
+    cbMap,
   };
 
-  const allEnvironmentsToUpdate = Array.from(
-    new Set(connectionsUpdated.map((c) => c.environment)),
-  );
-
-  const holdoutsMapByEnv: Record<
-    string,
-    Map<
-      string,
-      { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
-    >
-  > = {};
   // Build the constant value map once per environment (parsing each JSON
   // constant once), shared across every connection in that env — rather than
   // rebuilding it inside generateFeaturesPayload per connection.
   const constantMapByEnv: Record<string, ConstantValueMap | null> = {};
   for (const environment of allEnvironmentsToUpdate) {
-    holdoutsMapByEnv[environment] =
-      await context.models.holdout.getAllPayloadHoldouts(environment);
     constantMapByEnv[environment] = constants.length
       ? buildConstantValueMap(constants, environment)
       : null;
@@ -1539,6 +1608,9 @@ export type SDKPayloadRawData = {
   urlRedirectExperiments?: URLRedirectExperiment[];
   projectsMap?: Map<string, ProjectInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  // Bandits behind the features' contextual-bandit-ref rules, loaded once for
+  // every connection a refresh builds.
+  cbMap?: Map<string, ContextualBanditInterface>;
   constants?: ConstantInterface[];
   // Pre-built per-environment constant value map. Hoisted out of
   // generateFeaturesPayload so the bulk refresh builds it once per env (next to
@@ -1696,21 +1768,9 @@ export async function buildSDKPayloadForConnection(
     projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
-  let cbMap: Map<string, ContextualBanditInterface> | undefined;
-  const cbIds = getReferenceIdsInFeatures(
-    filteredFeatures,
-    "contextual-bandit-ref",
-  );
-  if (cbIds.length > 0) {
-    const cbDocs = await Promise.all(
-      cbIds.map((id) => context.models.contextualBandits.getById(id)),
-    );
-    cbMap = new Map(
-      cbDocs
-        .filter((cb): cb is ContextualBanditInterface => cb !== null)
-        .map((cb) => [cb.id, cb]),
-    );
-  }
+  const cbMap =
+    data.cbMap ??
+    (await getPayloadContextualBandits(context, filteredFeatures));
 
   // One strategy for the whole payload, so every part uses the same format.
   const savedGroupStrategy = getSavedGroupPayloadStrategy({
@@ -1882,14 +1942,12 @@ export async function getFeatureDefinitions(
 ): Promise<FeatureDefinitionSDKPayload> {
   const { context, environment = "production", projects } = args;
   const projectFilter = projects && projects.length > 0 ? projects : undefined;
-  const allSavedGroups = await context.models.savedGroups.getAll();
   let allFeatures = await getAllFeatures(context, {
     projects: projectFilter,
   });
   if (projectFilter && args.includeReferencedPrerequisites) {
     allFeatures = await loadMissingPrerequisites(context, allFeatures);
   }
-  const groupMap = await getSavedGroupMap(context, allSavedGroups);
   let experimentMap = await getAllPayloadExperiments(
     context,
     projectFilter,
@@ -1923,7 +1981,17 @@ export async function getFeatureDefinitions(
     await context.models.holdout.getAllPayloadHoldouts(environment);
   const rampMonitoredRuleMap =
     await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
+  const cbMap = await getPayloadContextualBandits(context, allFeatures);
 
+  const allSavedGroups = await loadSavedGroupsForDefinitions(context, {
+    features: allFeatures,
+    experiments: [
+      ...experimentMap.values(),
+      ...getPayloadHoldoutExperiments([holdoutsMap]),
+    ],
+    bandits: cbMap.values(),
+  });
+  const groupMap = await getSavedGroupMap(context, allSavedGroups);
   return buildSDKPayloadForConnection({
     context,
     connection: {
@@ -1957,6 +2025,7 @@ export async function getFeatureDefinitions(
       holdoutsMap,
       rampMonitoredRuleMap,
       constants: await getResolvableValues(context),
+      cbMap,
     },
   });
 }
