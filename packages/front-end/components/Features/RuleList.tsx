@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { SavedGroupMetadata } from "shared/types/saved-group";
-import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
+import { savedGroupIdsInTargeting } from "shared/sdk-versioning";
 import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
@@ -131,21 +131,10 @@ export default function RuleList(props: RuleListProps) {
 
   // Saved group ids this feature's rules name (any env), in targeting entries
   // and inside conditions.
-  const referencedGroupIds = useMemo<string[]>(() => {
-    const ids = new Set<string>();
-    for (const r of feature.rules ?? []) {
-      for (const sg of r.savedGroups ?? []) sg.ids.forEach((id) => ids.add(id));
-      if (!r.condition) continue;
-      try {
-        forEachSavedGroupIdInCondition(JSON.parse(r.condition), (id) =>
-          ids.add(id),
-        );
-      } catch {
-        // A malformed condition is opaque to the conflict analysis anyway.
-      }
-    }
-    return [...ids];
-  }, [feature.rules]);
+  const referencedGroupIds = useMemo<string[]>(
+    () => [...new Set((feature.rules ?? []).flatMap(savedGroupIdsInTargeting))],
+    [feature.rules],
+  );
 
   // Those groups plus the ones they reach through condition groups, without
   // values. Missing entries keep conflict detection conservative.
@@ -156,7 +145,13 @@ export default function RuleList(props: RuleListProps) {
     : "";
   const { data: referencedMetadata } = useApi<{
     savedGroups: SavedGroupMetadata[];
+    missingIds: string[];
   }>(metadataPath, { shouldRun: () => !!metadataPath });
+  // Deleted groups, which rules still name but serve as empty
+  const missingSavedGroupIds = useMemo(
+    () => new Set(referencedMetadata?.missingIds ?? []),
+    [referencedMetadata],
+  );
   const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
     const map = new Map<string, SavedGroupForConflicts>();
     for (const g of referencedMetadata?.savedGroups ?? []) {
@@ -542,6 +537,7 @@ export default function RuleList(props: RuleListProps) {
                 setRuleModal={setRuleModal}
                 unreachable={isUnreachable(rule.id)}
                 conflictBanners={ruleConflictBanners(rule.id)}
+                missingSavedGroupIds={missingSavedGroupIds}
                 version={version}
                 setVersion={setVersion}
                 locked={locked}
