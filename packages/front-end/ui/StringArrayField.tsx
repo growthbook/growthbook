@@ -36,6 +36,29 @@ const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
 // switches to text; going back below it never switches back mid-edit.
 const RAW_TEXT_AFTER_VALUES = 200;
 
+// Text mode separates values the way the field does: with commas where a comma
+// ends a value, otherwise one value per line, so values that may hold a comma
+// (row filters, ID lists) stay whole
+export function rawTextSeparator(delimiters: string[]): string {
+  return !delimiters.includes(",") && delimiters.includes("Enter") ? "\n" : ",";
+}
+
+export function parseRawText(raw: string, separator: string): string[] {
+  return raw
+    .split(separator === "," ? "," : /\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// Only a list its own text parses back into opens as text
+export function opensAsRawText(value: string[], separator: string): boolean {
+  if (value.length <= RAW_TEXT_AFTER_VALUES) return false;
+  const parsed = parseRawText(value.join(separator), separator);
+  return (
+    parsed.length === value.length && parsed.every((v, i) => v === value[i])
+  );
+}
+
 const baseComponents = {
   DropdownIndicator: null,
 };
@@ -176,16 +199,11 @@ export default function StringArrayField({
   const usesLegacyHeight = legacyHeight ?? size === undefined;
   const styleSize = usesLegacyHeight ? "legacy" : resolvedSize;
   const [inputValue, setInputValue] = useState("");
-  // Text mode separates values the way the field does: with commas where a
-  // comma ends a value, otherwise one value per line, so values that may hold
-  // a comma (row filters, ID lists) stay whole
-  const textSeparator =
-    !delimiters.includes(",") && delimiters.includes("Enter") ? "\n" : ",";
-  // Text mode trims values and drops empty ones, so a list it would change
-  // stays in tokens
-  const tooManyForTokens =
-    value.length > RAW_TEXT_AFTER_VALUES &&
-    value.every((v) => v && v === v.trim() && !v.includes(textSeparator));
+  const textSeparator = rawTextSeparator(delimiters);
+  const tooManyForTokens = useMemo(
+    () => opensAsRawText(value, textSeparator),
+    [value, textSeparator],
+  );
   const [rawTextMode, setRawTextMode] = useState(tooManyForTokens);
   const [focusRawText, setFocusRawText] = useState(false);
 
@@ -232,12 +250,7 @@ export default function StringArrayField({
   const [rawTextDraft, setRawTextDraft] = useState<string | null>(null);
   const setRawText = (raw: string) => {
     setRawTextDraft(raw);
-    onChange(
-      raw
-        .split(textSeparator === "," ? "," : /\r?\n/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
+    onChange(parseRawText(raw, textSeparator));
   };
   // Inserts at the caret like typing, so the caret and undo history hold
   const insertRawText = (target: HTMLTextAreaElement, text: string): void => {
