@@ -1,4 +1,4 @@
-import { GroupMap } from "shared/types/saved-group";
+import { SavedGroupForPayload } from "shared/types/saved-group";
 import { recursiveWalk } from "../../util";
 
 /**
@@ -76,7 +76,7 @@ export function savedGroupIdsInTargeting(targeting: {
  */
 export function findAllReferencedSavedGroupIds(
   seedIds: Iterable<string>,
-  savedGroups: GroupMap,
+  savedGroups: Map<string, Pick<SavedGroupForPayload, "type" | "condition">>,
 ): Set<string> {
   const resolved = new Set<string>();
   const queue = Array.from(seedIds);
