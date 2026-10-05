@@ -10,8 +10,9 @@ import {
   PiWarningBold,
   PiX,
 } from "react-icons/pi";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { datetime } from "shared/dates";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import EventUser from "@/components/Avatar/EventUser";
 import { auditUserInfoToEventUser } from "@/components/Avatar/auditUserToEventUser";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -191,7 +192,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
           </Text>
           <div className="diff-wrapper">
             <div className="list-group-item list-group-item-light">
-              <ReactDiffViewer
+              <LazyDiffViewer
                 oldValue={pre}
                 newValue={post}
                 compareMethod={DiffMethod.LINES}

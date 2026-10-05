@@ -1,7 +1,7 @@
 import {
   isAllowedHref,
   splitMarkdownLinks,
-} from "@/components/Markdown/markdownLinks";
+} from "@/components/Markdown/markdownLinkUtils";
 
 describe("isAllowedHref", () => {
   it.each([

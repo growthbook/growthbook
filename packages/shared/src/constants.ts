@@ -350,3 +350,7 @@ export const SDK_OPTIONAL_PAYLOAD_SETTINGS = [
   "includeTagsInMetadata",
   "includeExperimentScheduleInMetadata",
 ] as const;
+
+// ID lists longer than this are treated as opaque by the flag page's rule
+// conflict analysis, so their values are never fetched.
+export const SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES = 1000;

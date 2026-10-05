@@ -651,12 +651,34 @@ export const recursiveWalk = (object: any, onNode: NodeHandler) => {
   if (object === null || typeof object !== "object") {
     return;
   }
-  // If currently walking over an object or array, iterate the entries and call onNode before recurring
-  Object.entries(object).forEach((node) => {
-    onNode(node, object);
-    // Recompute the reference for the recursive call as the key may have changed
-    recursiveWalk(object[node[0]], onNode);
-  });
+  // Array indices are never operators, so only items that hold keys are
+  // walked; an inlined ID list costs no handler calls.
+  if (Array.isArray(object)) {
+    for (const item of object) {
+      if (item !== null && typeof item === "object") {
+        recursiveWalk(item, onNode);
+      }
+    }
+    return;
+  }
+  // The value each key held when it was walked. A handler may re-home values
+  // under a key this pass has not seen, or replace one it has, e.g. rewriting
+  // `$savedGroups` moves its siblings into a new `$and`; both get walked.
+  const walked = new Map<string, unknown>();
+  let pending = Object.keys(object);
+  while (pending.length) {
+    for (const key of pending) {
+      // An earlier handler in this pass may have moved it
+      if (!(key in object)) continue;
+      onNode([key, object[key]], object);
+      walked.set(key, object[key]);
+      // Recompute the reference for the recursive call as the key may have changed
+      recursiveWalk(object[key], onNode);
+    }
+    pending = Object.keys(object).filter(
+      (key) => !walked.has(key) || !Object.is(walked.get(key), object[key]),
+    );
+  }
 };
 
 export function truncateString(s: string, numChars: number) {

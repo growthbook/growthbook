@@ -70,10 +70,8 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
     const { data } = useApi<{
       holdout: HoldoutInterface;
       experiment: ExperimentInterfaceStringDates;
-      linkedFeatures: FeatureInterface[];
-      linkedExperiments: ExperimentInterfaceStringDates[];
       envs: string[];
-    }>(`/holdout/${feature.holdout?.id}`, {
+    }>(`/holdout/${feature.holdout?.id}?summary=1`, {
       shouldRun: () => !!feature.holdout?.id,
     });
 
