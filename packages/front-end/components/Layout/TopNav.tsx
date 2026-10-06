@@ -42,6 +42,7 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
+import { PayloadSizeTopNavNotice } from "@/components/Features/SDKConnections/PayloadSizeNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
@@ -480,6 +481,9 @@ const TopNav: FC<{
             <>
               <div className="nav-link">
                 <AccountPlanNotices />
+              </div>
+              <div className="nav-link">
+                <PayloadSizeTopNavNotice />
               </div>
               <div className="nav-link">
                 <AccountPlanBadge />

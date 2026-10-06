@@ -2,10 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  FeatureRevisionInterface,
-  MinimalFeatureRevisionInterface,
-} from "shared/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import {
@@ -23,7 +20,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
 import track from "@/services/track";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import useApi from "@/hooks/useApi";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
@@ -321,15 +318,10 @@ export default function KillSwitchModal({
     );
   };
 
-  const draftVersionForFetch = !ctx ? selectedDraft : null;
-  const { data: fetchedRevisionsData } = useApi<{
-    status: 200;
-    revisions: FeatureRevisionInterface[];
-  }>(
-    `/feature/${feature.id}/revisions?versions=${feature.version},${draftVersionForFetch ?? 0}`,
-    { shouldRun: () => draftVersionForFetch !== null },
-  );
-  const revisions = ctx?.revisions ?? fetchedRevisionsData?.revisions;
+  const targetRevisions = useFeatureRevisions(feature.id, [
+    feature.version,
+    mode === "existing" ? selectedDraft : null,
+  ]);
 
   const visibleEnvs = useMemo(
     () => filterEnvironmentsByFeature(allOrgEnvironments, liveDoc),
@@ -338,13 +330,11 @@ export default function KillSwitchModal({
 
   // Base enabled state per env: live (filled) for new/publish, effective draft for existing.
   const baseEnvEnabled = useMemo<Record<string, boolean>>(() => {
-    const liveRevision = revisions?.find((r) => r.version === feature.version);
+    const liveRevision = targetRevisions.get(feature.version);
     if (liveRevision) {
       const filledLive = liveRevisionFromFeature(liveRevision, liveDoc);
       if (mode === "existing" && selectedDraft !== null) {
-        const draftRevision = revisions?.find(
-          (r) => r.version === selectedDraft,
-        );
+        const draftRevision = targetRevisions.get(selectedDraft);
         if (draftRevision) {
           return (
             buildEffectiveDraft(draftRevision, filledLive)
@@ -361,7 +351,7 @@ export default function KillSwitchModal({
         !!val.enabled,
       ]),
     );
-  }, [revisions, liveDoc, feature.version, mode, selectedDraft]);
+  }, [targetRevisions, liveDoc, feature.version, mode, selectedDraft]);
 
   const getEffectiveState = (envId: string): boolean => {
     if (envId in envOverrides) return envOverrides[envId];
@@ -532,7 +522,11 @@ export default function KillSwitchModal({
         // The switches are open to anyone with either route, so the CTA is where
         // the chosen route is enforced: publishing environments this user can't
         // publish is refused here rather than by the server.
-        ctaEnabled={!cannotLandSelectedRoute && conflict.resolved}
+        ctaEnabled={
+          !cannotLandSelectedRoute &&
+          conflict.resolved &&
+          !targetRevisions.loading
+        }
       >
         <div style={{ minHeight: 300 }}>
           {cannotLandSelectedRoute ? (

@@ -3,7 +3,10 @@ import { getRulesForEnvironment } from "shared/util";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { ReqContext } from "back-end/types/request";
-import { updateFeature } from "back-end/src/models/FeatureModel";
+import {
+  scrubDeadProjectScopes,
+  updateFeature,
+} from "back-end/src/models/FeatureModel";
 import { getFeatureValuesForDriftRepair } from "back-end/src/util/featureValues";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { CasConflictError } from "back-end/src/models/BaseModel";
@@ -28,7 +31,11 @@ export async function repairFeatureDriftIfNeeded(
   if (!live) return;
 
   const repairValues = getFeatureValuesForDriftRepair(feature, live);
-  const liveRulesFlat: FeatureRule[] = repairValues.rules ?? [];
+  // The live record keeps a deleted project's id; don't count it as drift.
+  const scrubbedLive = await scrubDeadProjectScopes(context, {
+    rules: repairValues.rules ?? [],
+  });
+  const liveRulesFlat: FeatureRule[] = scrubbedLive.rules ?? [];
   const featureRulesFlat: FeatureRule[] = feature.rules ?? [];
   const defaultValueDrift = repairValues.defaultValue !== feature.defaultValue;
   const driftedEnvs = environmentIds.filter(

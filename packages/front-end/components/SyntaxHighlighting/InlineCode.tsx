@@ -98,6 +98,9 @@ export interface Props {
   linkify?: LinkifyConfig;
   // Override the rendered code font size (defaults to 0.85rem).
   fontSize?: string;
+  // Line number of the first line of `code`, so `boldLines` still matches when
+  // `code` is one slice of a longer value (see VirtualizedCode).
+  firstLineNumber?: number;
 }
 
 export default function InlineCode({
@@ -108,6 +111,7 @@ export default function InlineCode({
   boldLines,
   linkify,
   fontSize = "0.85rem",
+  firstLineNumber = 1,
 }: Props) {
   const { theme } = useAppearanceUITheme();
 
@@ -127,7 +131,7 @@ export default function InlineCode({
   // `showLineNumbers` is on; otherwise it passes `false`. Since `lineProps` is
   // invoked once per rendered line in top-to-bottom order, we track the line
   // index ourselves. Reset each render.
-  let renderedLine = 0;
+  let renderedLine = firstLineNumber - 1;
 
   return (
     <Suspense

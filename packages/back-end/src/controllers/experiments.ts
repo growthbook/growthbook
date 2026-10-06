@@ -3011,7 +3011,7 @@ export async function postExperimentTargeting(
   );
 
   await validateChangedPhaseReferences(
-    [{ condition, savedGroups }],
+    [{ condition, savedGroups, prerequisites }],
     experiment.phases.slice(-1),
     context,
   );
