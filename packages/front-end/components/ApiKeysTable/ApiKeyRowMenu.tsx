@@ -45,7 +45,7 @@ export default function ApiKeyRowMenu({
         {/* Only org secret keys (not PATs) can be edited in place */}
         {onEdit && apiKey.secret && !apiKey.userId && (
           <DropdownMenuItem onClick={() => onEdit(apiKey)}>
-            Edit permissions & description
+            Permissions & settings
           </DropdownMenuItem>
         )}
         {onToggleClick && (

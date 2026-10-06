@@ -577,7 +577,7 @@ curl https://api.growthbook.io/api/v1/features \\
 
 ### Naming who asked
 
-Requests made with an organization API key may add an \`X-Requested-By\` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks then show that member next to the key. The key's own role still decides what is allowed, unless the key limits each request to the requester's permissions. Each key's settings make the header off, optional or required, and can restrict which members it may name. An unknown member is rejected with a 400, and a header the key doesn't allow with a 403. Approvals still need a personal access token. Personal access tokens already act as their owner and reject the header.
+Requests made with an organization API key may add an \`X-Requested-By\` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks then show that member next to the key. The key's own role still decides what is allowed, unless the key caps each request at the requester's permissions. The cap never adds permissions, and it relies on the service holding the key to name the right member. Each key's settings make the header off, optional or required. An unknown member is rejected with a 400, and a header the key doesn't allow with a 403. Approvals still need a personal access token. Personal access tokens already act as their owner and reject the header.
 
 \`\`\`bash
 curl https://api.growthbook.io/api/v1/features \\

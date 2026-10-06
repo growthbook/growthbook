@@ -165,10 +165,7 @@ describe("api key utils", () => {
 });
 
 const org = {
-  members: [
-    { id: "u_alice", teams: ["t_growth"] },
-    { id: "u_bob", teams: [] },
-  ],
+  members: [{ id: "u_alice" }, { id: "u_bob" }],
 } as unknown as OrganizationInterface;
 
 describe("resolveRequestedBy", () => {
@@ -218,17 +215,12 @@ describe("resolveRequestedBy", () => {
 
 describe("assertRequestedByAllowed", () => {
   const alice = { id: "u_alice", name: "Alice", email: "alice@example.com" };
-  const bob = { id: "u_bob", name: "", email: "bob@example.com" };
-  const policy = (overrides: Partial<RequestedByPolicy> = {}) => ({
-    mode: "optional" as const,
-    limitToRequester: false,
-    memberIds: [],
-    teamIds: [],
-    ...overrides,
-  });
-  const check = (p: RequestedByPolicy, member: typeof alice | null) => {
+  const check = (
+    mode: RequestedByPolicy["mode"],
+    member: typeof alice | null,
+  ) => {
     try {
-      assertRequestedByAllowed(p, member, org);
+      assertRequestedByAllowed({ mode, limitToRequester: false }, member);
       return "ok";
     } catch (e) {
       return e.status;
@@ -236,16 +228,14 @@ describe("assertRequestedByAllowed", () => {
   };
 
   it.each([
-    ["optional, no header", policy(), null, "ok"],
-    ["required, no header", policy({ mode: "required" }), null, 400],
-    ["off, header sent", policy({ mode: "off" }), alice, 403],
-    ["off, no header", policy({ mode: "off" }), null, "ok"],
-    ["any member allowed", policy(), bob, "ok"],
-    ["member listed", policy({ memberIds: ["u_bob"] }), bob, "ok"],
-    ["member in a listed team", policy({ teamIds: ["t_growth"] }), alice, "ok"],
-    ["member outside the lists", policy({ teamIds: ["t_growth"] }), bob, 403],
-  ] as const)("%s", (_, p, member, expected) => {
-    expect(check(p, member)).toBe(expected);
+    ["optional, no header", "optional", null, "ok"],
+    ["optional, header sent", "optional", alice, "ok"],
+    ["required, no header", "required", null, 400],
+    ["required, header sent", "required", alice, "ok"],
+    ["off, header sent", "off", alice, 403],
+    ["off, no header", "off", null, "ok"],
+  ] as const)("%s", (_, mode, member, expected) => {
+    expect(check(mode, member)).toBe(expected);
   });
 });
 

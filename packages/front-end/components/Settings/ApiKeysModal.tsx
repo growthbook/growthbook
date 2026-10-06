@@ -14,7 +14,8 @@ import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
-import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import RequestedByPolicyFields from "@/components/Settings/RequestedByPolicyFields";
 
 const ApiKeysModal: FC<{
@@ -31,7 +32,7 @@ const ApiKeysModal: FC<{
   existingKey,
 }) => {
   const { apiCall } = useAuth();
-  const { organization, settings } = useUser();
+  const { organization } = useUser();
 
   // When an existing key is passed in, the modal edits that key in place
   // instead of creating a new one. Only org secret keys can be edited.
@@ -70,10 +71,7 @@ const ApiKeysModal: FC<{
     projectRoles: existingKey?.projectRoles,
   });
   const [requestedByPolicy, setRequestedByPolicy] = useState<RequestedByPolicy>(
-    existingKey?.requestedByPolicy ??
-      (existingKey || !settings?.apiKeysRequireRequestedBy
-        ? DEFAULT_REQUESTED_BY_POLICY
-        : { ...DEFAULT_REQUESTED_BY_POLICY, mode: "required" }),
+    existingKey?.requestedByPolicy ?? DEFAULT_REQUESTED_BY_POLICY,
   );
 
   const onSubmit = form.handleSubmit(async (value) => {
@@ -133,21 +131,15 @@ const ApiKeysModal: FC<{
       />
       {!personalAccessToken && (
         <>
-          {editMode && (
-            <Callout status="info" mb="3">
-              <Box mb="2">
-                Editing permissions keeps the same key value, so existing
-                integrations keep working.
-              </Box>
-              <Box>
-                We recommend rotating instead (delete and recreate) when
-                it&apos;s not too disruptive &mdash; the key&apos;s scope is
-                baked into its name, so the name may be misleading after an
-                edit.
-              </Box>
-            </Callout>
-          )}
-          <RoleRulesTable value={roleState} setValue={setRoleState} />
+          <Box mt="6">
+            <Heading as="h4" size="sm" mb="1">
+              Permissions
+            </Heading>
+            <Text as="p" color="text-mid" mb="3">
+              What requests made with this key can do.
+            </Text>
+            <RoleRulesTable value={roleState} setValue={setRoleState} />
+          </Box>
           <RequestedByPolicyFields
             value={requestedByPolicy}
             setValue={setRequestedByPolicy}

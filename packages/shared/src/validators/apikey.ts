@@ -2,14 +2,11 @@ import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 import { projectMemberRole, roleRule } from "./organization";
 
-// How an organization API key handles `X-Requested-By`. With no member or team
-// listed, any member may be named.
+// How an organization API key handles `X-Requested-By`.
 export const requestedByPolicy = z
   .object({
     mode: z.enum(["off", "optional", "required"]),
     limitToRequester: z.boolean(),
-    memberIds: z.array(z.string()),
-    teamIds: z.array(z.string()),
   })
   .strict();
 
@@ -18,8 +15,6 @@ export type RequestedByPolicy = z.infer<typeof requestedByPolicy>;
 export const DEFAULT_REQUESTED_BY_POLICY: RequestedByPolicy = {
   mode: "optional",
   limitToRequester: false,
-  memberIds: [],
-  teamIds: [],
 };
 
 export const apiKeySchema = createBaseSchemaWithPrimaryKey({
@@ -74,7 +69,7 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   requestedByPolicy: requestedByPolicy
     .optional()
     .describe(
-      "Org API keys only. Whether requests may or must name the member who asked with `X-Requested-By`, which members, and whether each request is limited to that member's permissions. Absent means optional for any member, unlimited.",
+      "Org API keys only. Whether requests may or must name the member who asked with `X-Requested-By`, and whether each request is capped at that member's permissions. Absent means optional and uncapped.",
     ),
   disabled: z
     .boolean()

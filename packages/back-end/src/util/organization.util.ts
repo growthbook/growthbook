@@ -3,7 +3,11 @@ import {
   UserPermissions,
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
-import { getRolePermissions } from "shared/permissions";
+import { ApiKeyWithRole } from "shared/types/apikey";
+import {
+  getRolePermissions,
+  intersectUserPermissions,
+} from "shared/permissions";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
@@ -59,5 +63,20 @@ export function getUserPermissions(
     teams,
     // Super admins bypass access-restricted projects
     user.superAdmin ? undefined : restrictedProjects,
+  );
+}
+
+// What an org key may do for a request it says a member asked for: never more
+// than the key, and never more than that member.
+export function getRequesterCappedPermissions(
+  apiKey: ApiKeyWithRole,
+  requesterId: string,
+  org: OrganizationInterface,
+  teams: TeamInterface[],
+  restrictedProjects: string[],
+): UserPermissions {
+  return intersectUserPermissions(
+    getRolePermissions(apiKey, org, teams, restrictedProjects),
+    getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
   );
 }

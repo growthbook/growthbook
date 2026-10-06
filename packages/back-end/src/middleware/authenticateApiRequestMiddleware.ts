@@ -1,10 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
-import {
-  getRolePermissions,
-  hasPermission,
-  intersectUserPermissions,
-} from "shared/permissions";
+import { getRolePermissions, hasPermission } from "shared/permissions";
 import { DEFAULT_REQUESTED_BY_POLICY } from "shared/validators";
 import {
   EventUserApiKey,
@@ -33,7 +29,10 @@ import {
   assertRequestedByAllowed,
   resolveRequestedBy,
 } from "back-end/src/util/api-key.util";
-import { getUserPermissions } from "back-end/src/util/organization.util";
+import {
+  getRequesterCappedPermissions,
+  getUserPermissions,
+} from "back-end/src/util/organization.util";
 import { getUserById, getUserByEmail } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
@@ -312,7 +311,7 @@ function authenticateWithApiKey(
       }
 
       // `X-Requested-By` names the member who asked an org key to act. The
-      // key's own settings decide whether it may or must, and for whom.
+      // key's own settings decide whether it may or must.
       const policy = apiKeyDoc.requestedByPolicy ?? DEFAULT_REQUESTED_BY_POLICY;
       let requestedBy: RequestedByMember | null = null;
       try {
@@ -324,7 +323,7 @@ function authenticateWithApiKey(
             org,
             { byId: getUserById, byEmail: getUserByEmail },
           );
-          assertRequestedByAllowed(policy, requestedBy, org);
+          assertRequestedByAllowed(policy, requestedBy);
         }
       } catch (e) {
         return res.status(e.status ?? 400).json({ message: e.message });
@@ -335,22 +334,14 @@ function authenticateWithApiKey(
         ProjectModel.dangerousGetRestrictedProjectIds(org.id),
       ]);
 
-      // A limited key may only do what both it and the requester may do.
       const limitedPermissions: UserPermissions | undefined =
         requestedBy && policy.limitToRequester
-          ? intersectUserPermissions(
-              getRolePermissions(
-                apiKeyDoc as ApiKeyWithRole,
-                org,
-                teams,
-                restrictedProjects,
-              ),
-              getUserPermissions(
-                { id: requestedBy.id },
-                org,
-                teams,
-                restrictedProjects,
-              ),
+          ? getRequesterCappedPermissions(
+              apiKeyDoc as ApiKeyWithRole,
+              requestedBy.id,
+              org,
+              teams,
+              restrictedProjects,
             )
           : undefined;
 

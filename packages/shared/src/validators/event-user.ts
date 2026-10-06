@@ -39,7 +39,7 @@ export const apiEventUser = z
       .boolean()
       .optional()
       .describe(
-        "True when the request was limited to the requester's permissions",
+        "True when the request was capped at the requester's permissions",
       ),
   })
   .strict();

@@ -177,24 +177,10 @@ export async function resolveRequestedBy(
   return { id: user.id, name: user.name || "", email: user.email };
 }
 
-export function isMemberAllowedByPolicy(
-  policy: RequestedByPolicy,
-  memberId: string,
-  organization: Pick<OrganizationInterface, "members">,
-): boolean {
-  if (!policy.memberIds.length && !policy.teamIds.length) return true;
-  if (policy.memberIds.includes(memberId)) return true;
-  const teams =
-    (organization.members ?? []).find((m) => m.id === memberId)?.teams ?? [];
-  return teams.some((team) => policy.teamIds.includes(team));
-}
-
-// The key's own settings decide whether a request may, or must, name a member,
-// and which members.
+// The key's own settings decide whether a request may, or must, name a member.
 export function assertRequestedByAllowed(
   policy: RequestedByPolicy,
   member: RequestedByMember | null,
-  organization: Pick<OrganizationInterface, "members">,
 ): void {
   if (!member) {
     if (policy.mode === "required") {
@@ -209,12 +195,6 @@ export function assertRequestedByAllowed(
     throw new RequestedByError(
       403,
       "This API key does not accept X-Requested-By",
-    );
-  }
-  if (!isMemberAllowedByPolicy(policy, member.id, organization)) {
-    throw new RequestedByError(
-      403,
-      `This API key is not allowed to act for ${member.email}`,
     );
   }
 }

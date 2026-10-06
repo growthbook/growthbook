@@ -148,7 +148,7 @@ export default function EventUser({
       ml="1"
       title={
         user.type === "api_key" && user.limitedToRequester
-          ? "Requested through this API key, limited to this member's permissions"
+          ? "Requested through this API key, capped at this member's permissions"
           : "Requested through this API key, using the key's own permissions"
       }
     />

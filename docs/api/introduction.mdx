@@ -48,8 +48,7 @@ Requests made with a Secret Key may add an `X-Requested-By` header naming the or
 Each key's settings under `Settings -> API Keys` control the header:
 
 - **Off, optional or required.** A required header rejects requests without it with a 400. An off header rejects requests that send it with a 403.
-- **Allowed members.** A key can be limited to specific members or teams. Naming anyone else is rejected with a 403.
-- **Limit each request to the requester's permissions.** The request can then only do what both the key and the named member are allowed to do. This needs the header on every request.
+- **Cap at the requester's permissions.** Each request can then only do what both the key and the named member are allowed to do, and is rejected with a 403 otherwise. The cap never adds permissions. It relies on the service holding the key to name the right member, so it guards a shared integration against misuse by the people it acts for, not against whoever holds the key. It needs the header on every request.
 
 A value that does not match a member of the organization is rejected with a 400. Approvals still need a Personal Access Token, since a key can't approve on someone's behalf. Personal Access Tokens already act as their owner and reject the header.
 

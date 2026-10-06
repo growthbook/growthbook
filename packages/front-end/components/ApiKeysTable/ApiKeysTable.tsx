@@ -74,8 +74,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   <Badge
                     ml="2"
                     variant="soft"
-                    label="Limited to requester"
-                    title="Every request names the member who asked and is limited to their permissions"
+                    label="Capped at requester"
+                    title="Each request names the member who asked and can only do what they may do"
                   />
                 ) : key.requestedByPolicy?.mode === "required" ? (
                   <Badge

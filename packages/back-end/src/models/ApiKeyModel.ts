@@ -1,9 +1,5 @@
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import {
-  apiKeySchema,
-  DEFAULT_REQUESTED_BY_POLICY,
-  RequestedByPolicy,
-} from "shared/validators";
+import { apiKeySchema, RequestedByPolicy } from "shared/validators";
 import { getRoleById } from "shared/permissions";
 import {
   generateEncryptionKey,
@@ -205,46 +201,17 @@ export class ApiKeyModel extends BaseClass {
         }
       }
       if (doc.requestedByPolicy) {
-        await this.validateRequestedByPolicy(
-          doc.requestedByPolicy,
-          previousDoc?.requestedByPolicy,
-        );
+        this.validateRequestedByPolicy(doc.requestedByPolicy);
       }
     }
   }
 
-  private async validateRequestedByPolicy(
-    policy: RequestedByPolicy,
-    previous: RequestedByPolicy | undefined,
-  ) {
-    // An optional header would let a caller opt out of the limit.
+  private validateRequestedByPolicy(policy: RequestedByPolicy) {
+    // An optional header would let a caller opt out of the cap.
     if (policy.limitToRequester && policy.mode !== "required") {
       this.context.throwBadRequestError(
-        "Limiting a key to the requester's permissions requires X-Requested-By on every request.",
+        "Capping a key at the requester's permissions requires X-Requested-By on every request.",
       );
-    }
-    // Only ids this write adds are checked, so a key that names a since-removed
-    // member or team stays editable.
-    const memberIds = new Set(this.context.org.members.map((m) => m.id));
-    for (const id of policy.memberIds) {
-      if (!previous?.memberIds.includes(id) && !memberIds.has(id)) {
-        this.context.throwBadRequestError(
-          `Not a member of this organization: ${id}`,
-        );
-      }
-    }
-    const addedTeams = policy.teamIds.filter(
-      (id) => !previous?.teamIds.includes(id),
-    );
-    if (addedTeams.length) {
-      const teamIds = new Set(
-        (await this.context.models.teams.getAll()).map((t) => t.id),
-      );
-      for (const id of addedTeams) {
-        if (!teamIds.has(id)) {
-          this.context.throwBadRequestError(`Team not found: ${id}`);
-        }
-      }
     }
   }
 
@@ -296,12 +263,7 @@ export class ApiKeyModel extends BaseClass {
       environments,
       additionalRoles,
       projectRoles,
-      // The org setting is only the default a new key starts with
-      requestedByPolicy:
-        requestedByPolicy ??
-        (this.context.org.settings?.apiKeysRequireRequestedBy
-          ? { ...DEFAULT_REQUESTED_BY_POLICY, mode: "required" }
-          : undefined),
+      requestedByPolicy,
     });
   }
 
