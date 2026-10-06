@@ -329,7 +329,10 @@ export type TestQueryParams = {
 };
 
 export type ColumnTopValuesParams = {
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">;
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "timestampColumn" | "columns"
+  >;
   columns: ColumnInterface[];
   limit?: number;
   lookbackDays: number;

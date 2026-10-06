@@ -99,7 +99,7 @@ export async function runColumnsTopValuesQuery(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "timestampColumn"
+    "sql" | "eventName" | "timestampColumn" | "columns"
   > & {
     // null only when the SQL isn't a saved fact table
     id: string | null;
@@ -404,7 +404,7 @@ export async function refreshColumnTopValues(
         const topValuesByColumn = await runColumnsTopValuesQuery(
           context,
           datasource,
-          factTable,
+          { ...factTable, columns },
           columnChunk,
         );
 
