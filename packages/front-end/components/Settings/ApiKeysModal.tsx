@@ -22,12 +22,15 @@ const ApiKeysModal: FC<{
   personalAccessToken: boolean;
   defaultDescription?: string;
   existingKey?: ApiKeyInterface;
+  /** Seeds a new key with this one's settings; it still gets its own value and expiry. */
+  copyFrom?: ApiKeyInterface;
 }> = ({
   close,
   personalAccessToken,
   onCreate,
   defaultDescription = "",
   existingKey,
+  copyFrom,
 }) => {
   const { apiCall } = useAuth();
   const { organization, settings } = useUser();
@@ -43,6 +46,7 @@ const ApiKeysModal: FC<{
   // When an existing key is passed in, the modal edits that key in place
   // instead of creating a new one.
   const editMode = !!existingKey;
+  const source = existingKey ?? copyFrom;
 
   const defaultRole = useMemo(() => {
     const deactivated = new Set(organization.deactivatedRoles ?? []);
@@ -57,12 +61,12 @@ const ApiKeysModal: FC<{
     description: string;
   }>({
     defaultValues: {
-      description: existingKey?.description ?? defaultDescription,
+      description: source?.description ?? defaultDescription,
     },
   });
 
   const [roleState, setRoleState] = useState<MemberRoleWithProjects>({
-    // In edit mode, seed the role from the existing key rather than the generic
+    // When editing or copying, seed the role from that key rather than the generic
     // defaultRole. Legacy secret keys created before per-key roles have no
     // stored role and resolve to "admin" at auth time (see roleForApiKey); the
     // API already serializes that effective role onto the key, so existingKey.role
@@ -71,19 +75,19 @@ const ApiKeysModal: FC<{
     // edit of a legacy key can't silently downgrade its permissions. defaultRole
     // is only used when creating a brand-new key or scoping an unscoped PAT.
     role:
-      existingKey && (!personalAccessToken || existingKey.scoped)
-        ? existingKey.role || "admin"
+      source && (!personalAccessToken || source.scoped)
+        ? source.role || "admin"
         : defaultRole,
-    limitAccessByEnvironment: existingKey?.limitAccessByEnvironment ?? false,
-    environments: existingKey?.environments ?? [],
-    additionalRoles: existingKey?.additionalRoles,
-    projectRoles: existingKey?.projectRoles,
+    limitAccessByEnvironment: source?.limitAccessByEnvironment ?? false,
+    environments: source?.environments ?? [],
+    additionalRoles: source?.additionalRoles,
+    projectRoles: source?.projectRoles,
   });
-  const [scoped, setScoped] = useState(!!existingKey?.scoped);
+  const [scoped, setScoped] = useState(!!source?.scoped);
   // Gated like org-key roles; with only the admin role there is nothing to narrow to.
   // An already-scoped token stays visible after a downgrade so the scope isn't silently dropped.
   const canScopeToken =
-    personalAccessToken && (orgSupportsRoles() || !!existingKey?.scoped);
+    personalAccessToken && (orgSupportsRoles() || !!source?.scoped);
 
   const onSubmit = form.handleSubmit(async (value) => {
     const { role, ...roleStateData } = roleState;

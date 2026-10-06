@@ -16,6 +16,7 @@ interface ApiKeyRowMenuProps {
   /** Keeps Enable/Disable visible but inert, with this as the explanation. */
   toggleLockedReason?: string;
   onShowAuditLog?: (key: ApiKeyInterface) => void;
+  onCopy?: (key: ApiKeyInterface) => void;
 }
 
 export default function ApiKeyRowMenu({
@@ -26,6 +27,7 @@ export default function ApiKeyRowMenu({
   onToggleClick,
   toggleLockedReason,
   onShowAuditLog,
+  onCopy,
 }: ApiKeyRowMenuProps) {
   return (
     <DropdownMenu
@@ -53,6 +55,11 @@ export default function ApiKeyRowMenu({
               Edit permissions & description
             </DropdownMenuItem>
           )}
+        {onCopy && (
+          <DropdownMenuItem onClick={() => onCopy(apiKey)}>
+            Copy to new key
+          </DropdownMenuItem>
+        )}
         {onToggleClick && (
           <DropdownMenuItem
             disabled={!!toggleLockedReason}

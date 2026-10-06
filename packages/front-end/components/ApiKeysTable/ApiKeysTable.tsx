@@ -35,6 +35,7 @@ type ApiKeysTableProps = {
   ) => () => Promise<void>;
   onEdit?: (key: ApiKeyInterface) => void;
   onShowAuditLog?: (key: ApiKeyInterface) => void;
+  onCopy?: (key: ApiKeyInterface) => void;
 };
 
 export const ApiKeysTable: FC<ApiKeysTableProps> = ({
@@ -46,6 +47,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onToggleDisabled,
   onEdit,
   onShowAuditLog,
+  onCopy,
 }) => {
   const { organization, userId, users } = useUser();
   const canManageTokens = usePermissionsUtil().canDeleteApiKey();
@@ -212,6 +214,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                       isAdminLocked(key) ? ADMIN_LOCKED_REASON : undefined
                     }
                     onShowAuditLog={onShowAuditLog}
+                    onCopy={onCopy}
                   />
                 </td>
               )}
