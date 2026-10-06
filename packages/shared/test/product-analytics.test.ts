@@ -1596,31 +1596,90 @@ describe("productAnalytics", () => {
     // column — a bare `revenue_vc` does not exist in the warehouse.
     expect(sql).toContain("(amount * qty)");
     expect(sql).not.toContain("revenue_vc");
+  });
 
-    // Row count as the threshold basis counts rows, not a column named $$count.
-    const numerator = aggregateFilterMetricMap.get("big_spenders")!.numerator;
-    numerator.aggregateFilterColumn = "$$count";
-    const { sql: countSql } = generateProductAnalyticsSQL(
+  // Unique users with a ">= 100" threshold on the given basis column.
+  function thresholdMetricSQL(
+    aggregateFilterColumn: string,
+    unit: string | null,
+  ) {
+    const thresholdMetricMap = new Map<string, FactMetricInterface>([
+      [
+        "threshold",
+        {
+          id: "threshold",
+          name: "Threshold",
+          metricType: "proportion",
+          numerator: {
+            factTableId: "orders",
+            column: "$$distinctUsers",
+            aggregation: "sum",
+            aggregateFilter: ">= 100",
+            aggregateFilterColumn,
+          },
+          denominator: null,
+          cappingSettings: { type: "", value: 0 },
+          windowSettings: {
+            type: "",
+            delayValue: 0,
+            delayUnit: "days",
+            windowValue: 0,
+            windowUnit: "days",
+          },
+          quantileSettings: null,
+        } as FactMetricInterface,
+      ],
+    ]);
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            name: "Threshold",
+            type: "metric",
+            metricId: "threshold",
+            rowFilters: [],
+            unit,
+            denominatorUnit: null,
+          },
+        ],
+      },
+    };
+    return generateProductAnalyticsSQL(
       config,
-      virtualFactTableMap,
-      aggregateFilterMetricMap,
+      factTableMap,
+      thresholdMetricMap,
       helpers,
       datasource,
-    );
-    expect(countSql).not.toContain("$$count");
-    expect(countSql).toContain("1 AS m0");
+    ).sql;
+  }
 
-    // Per-unit path: the threshold CASE is aliased once by the caller.
-    config.dataset.values[0].unit = "user_id";
-    const { sql: unitSql } = generateProductAnalyticsSQL(
-      config,
-      virtualFactTableMap,
-      aggregateFilterMetricMap,
-      helpers,
-      datasource,
-    );
-    expect(unitSql).toMatch(/THEN 1\s+ELSE NULL\s+END AS m0/);
-    expect(unitSql).not.toMatch(/as m0 AS m0/i);
+  it("counts rows when row count is the threshold basis", () => {
+    expect(thresholdMetricSQL("$$count", null)).not.toContain("$$count");
+
+    const unitSql = thresholdMetricSQL("$$count", "user_id");
+    expect(unitSql).not.toContain("$$count");
+    expect(unitSql).toMatch(/CASE\s+WHEN \(SUM\(m0\) >= 100\)/);
+  });
+
+  it("aliases the per-unit threshold CASE once", () => {
+    const sql = thresholdMetricSQL("revenue", "user_id");
+    expect(sql).toMatch(/THEN 1\s+ELSE NULL\s+END AS m0/);
+    expect(sql).not.toMatch(/as m0 AS m0/i);
   });
 
   it("throws when a data_source dataset has no timestamp column", () => {
