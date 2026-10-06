@@ -1,3 +1,4 @@
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import {
   getExposureQueryIdentifierTypes,
@@ -145,6 +146,12 @@ export default function ConfigureReport({
     experiment: ExperimentInterfaceStringDates;
   }>(`/experiment/${report.experimentId}`);
   const experiment = experimentData?.experiment;
+  const isHoldout = experiment?.type === "holdout";
+  const { data: holdoutData } = useApi<{
+    holdout: HoldoutInterfaceStringDates;
+  }>(`/holdout/${experiment?.holdoutId}`, {
+    shouldRun: () => isHoldout && !!experiment?.holdoutId,
+  });
 
   const latestPhaseIndex = (experiment?.phases?.length ?? 1) - 1;
 
@@ -179,6 +186,7 @@ export default function ConfigureReport({
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
     project: experiment?.project,
+    projects: isHoldout ? holdoutData?.holdout.projects : undefined,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
     identifierType: resolveAnalysisIdentifierType(
