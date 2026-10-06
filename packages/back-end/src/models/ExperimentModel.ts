@@ -1103,6 +1103,20 @@ export async function getExperimentsToUpdate(
   }));
 }
 
+// Pushes still-due experiments out of the queue window so ones that fail
+// without rescheduling cannot hold the head of every batch. Experiments already
+// rescheduled into the future are left alone.
+export async function deferDueSnapshotAttempts(
+  ids: string[],
+  until: Date,
+): Promise<void> {
+  if (!ids.length) return;
+  await getCollection(COLLECTION).updateMany(
+    { id: { $in: ids }, nextSnapshotAttempt: { $lte: new Date() } },
+    { $set: { nextSnapshotAttempt: until } },
+  );
+}
+
 export async function getExperimentsToUpdateLegacy(
   latestDate: Date,
 ): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {

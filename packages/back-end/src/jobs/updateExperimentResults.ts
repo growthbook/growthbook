@@ -2,6 +2,7 @@ import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
 import { isAutoSnapshotScheduled } from "shared/experiments";
 import {
+  deferDueSnapshotAttempts,
   getExperimentById,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
@@ -29,6 +30,9 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
 
+// Earliest retry for an experiment whose update failed without scheduling its next run
+const FAILED_UPDATE_RETRY_DELAY = 60 * 60 * 1000;
+
 const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
@@ -45,6 +49,10 @@ export default async function (agenda: Agenda) {
 
     // New way, based on dynamic schedules
     const experiments = await getExperimentsToUpdate(ids);
+    await deferDueSnapshotAttempts(
+      experiments.map((e) => e.id),
+      new Date(Date.now() + FAILED_UPDATE_RETRY_DELAY),
+    );
 
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
@@ -145,7 +153,9 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       experiment.datasource || "",
     );
     if (!datasource) {
-      throw new Error("Error refreshing experiment, could not find datasource");
+      throw new UnrecoverableSnapshotError(
+        "Error refreshing experiment, could not find datasource",
+      );
     }
 
     const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
@@ -235,6 +245,10 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       experiment.type === "multi-armed-bandit" &&
       !(e instanceof UnrecoverableSnapshotError)
     ) {
+      await deferDueSnapshotAttempts(
+        [experiment.id],
+        new Date(Date.now() + FAILED_UPDATE_RETRY_DELAY),
+      );
       return;
     }
     try {

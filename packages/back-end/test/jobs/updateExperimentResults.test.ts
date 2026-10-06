@@ -1,12 +1,16 @@
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
+import type Agenda from "agenda";
 import type { Job } from "agenda";
 import {
+  deferDueSnapshotAttempts,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { updateSingleExperiment } from "back-end/src/jobs/updateExperimentResults";
+import registerExperimentUpdateJobs, {
+  updateSingleExperiment,
+} from "back-end/src/jobs/updateExperimentResults";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   ...jest.requireActual("back-end/src/models/DataSourceModel"),
@@ -127,5 +131,105 @@ describe("scheduled experiment updates", () => {
 
     await updateSingleExperiment(jobFor("exp_disabled"));
     expect(getDataSourceById).not.toHaveBeenCalled();
+  });
+});
+
+describe("failing scheduled updates", () => {
+  const bandit = {
+    ...running,
+    type: "multi-armed-bandit",
+    banditStage: "exploit",
+  };
+
+  it("turns off auto-updates for a bandit whose datasource is gone", async () => {
+    await experiments().insertOne({
+      ...bandit,
+      id: "exp_orphan",
+      nextSnapshotAttempt: new Date(Date.now() - 1000),
+    });
+
+    await updateSingleExperiment(jobFor("exp_orphan"));
+
+    const doc = await experiments().findOne({ id: "exp_orphan" });
+    expect(doc?.autoSnapshots).toBe(false);
+  });
+
+  it("backs off a bandit after a recoverable failure", async () => {
+    jest
+      .mocked(getDataSourceById)
+      .mockRejectedValueOnce(new Error("warehouse unavailable"));
+    await experiments().insertOne({
+      ...bandit,
+      id: "exp_flaky",
+      nextSnapshotAttempt: new Date(Date.now() - 1000),
+    });
+
+    await updateSingleExperiment(jobFor("exp_flaky"));
+
+    const doc = await experiments().findOne({ id: "exp_flaky" });
+    expect(doc?.autoSnapshots).toBe(true);
+    expect(doc?.nextSnapshotAttempt.getTime()).toBeGreaterThan(
+      Date.now() + HOUR / 2,
+    );
+  });
+
+  it("does not let experiments that never reschedule starve the queue", async () => {
+    const handlers = new Map<string, () => Promise<void>>();
+    const queued: string[] = [];
+    const agenda = {
+      define: (name: string, fn: () => Promise<void>) => {
+        handlers.set(name, fn);
+      },
+      create: (_name: string, data: { experimentId?: string }) => ({
+        unique: jest.fn(),
+        repeatEvery: jest.fn(),
+        schedule: jest.fn(),
+        save: jest.fn(async () => {
+          if (data.experimentId) queued.push(data.experimentId);
+        }),
+      }),
+    } as unknown as Agenda;
+    await registerExperimentUpdateJobs(agenda);
+    const queueTick = handlers.get("queueExperimentUpdates");
+    if (!queueTick) throw new Error("queue job not defined");
+
+    const stuck = new Date(Date.now() - 96 * HOUR);
+    await experiments().insertMany([
+      ...Array.from({ length: 100 }, (_, i) => ({
+        ...bandit,
+        id: `exp_stuck_${i}`,
+        nextSnapshotAttempt: stuck,
+      })),
+      {
+        ...running,
+        id: "exp_waiting",
+        nextSnapshotAttempt: new Date(Date.now() - HOUR),
+      },
+    ]);
+
+    await queueTick();
+    expect(queued).toHaveLength(100);
+    expect(queued).not.toContain("exp_waiting");
+
+    queued.length = 0;
+    await queueTick();
+    expect(queued).toEqual(["exp_waiting"]);
+  });
+
+  it("keeps a next run that was already rescheduled", async () => {
+    const scheduled = new Date(Date.now() + 6 * HOUR);
+    await experiments().insertOne({
+      ...running,
+      id: "exp_rescheduled",
+      nextSnapshotAttempt: scheduled,
+    });
+
+    await deferDueSnapshotAttempts(
+      ["exp_rescheduled"],
+      new Date(Date.now() + HOUR),
+    );
+
+    const doc = await experiments().findOne({ id: "exp_rescheduled" });
+    expect(doc?.nextSnapshotAttempt).toEqual(scheduled);
   });
 });
