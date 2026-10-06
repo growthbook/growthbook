@@ -1952,6 +1952,7 @@ export async function postApiKey(
   req: AuthRequest<{
     description?: string;
     type: string;
+    scopedRole?: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
@@ -1964,6 +1965,7 @@ export async function postApiKey(
   const {
     description = "",
     type,
+    scopedRole,
     limitAccessByEnvironment,
     environments,
     additionalRoles,
@@ -1981,6 +1983,11 @@ export async function postApiKey(
     key = await context.models.apiKeys.createUserPersonalAccessApiKey({
       description,
       userId: userId,
+      scopedRole,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
     });
   }
   // Handle organization secret tokens

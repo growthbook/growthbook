@@ -11,6 +11,7 @@ import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -64,6 +65,7 @@ const ApiKeysModal: FC<{
     additionalRoles: existingKey?.additionalRoles,
     projectRoles: existingKey?.projectRoles,
   });
+  const [scoped, setScoped] = useState(false);
 
   const onSubmit = form.handleSubmit(async (value) => {
     const { role, ...roleStateData } = roleState;
@@ -86,6 +88,7 @@ const ApiKeysModal: FC<{
       ? {
           description: value.description,
           type: "user",
+          ...(scoped ? { scopedRole: role, ...roleStateData } : {}),
         }
       : {
           description: value.description,
@@ -98,6 +101,7 @@ const ApiKeysModal: FC<{
     });
     track("Create API Key", {
       isSecret: !personalAccessToken,
+      ...(personalAccessToken ? { scoped } : {}),
     });
     onCreate();
   });
@@ -118,6 +122,20 @@ const ApiKeysModal: FC<{
         required={true}
         {...form.register("description")}
       />
+      {personalAccessToken && (
+        <>
+          <Checkbox
+            label="Limit this token's permissions"
+            description="The token can never do more than you can: it gets only what both your own role and these settings allow."
+            value={scoped}
+            setValue={setScoped}
+            mb="3"
+          />
+          {scoped && (
+            <RoleRulesTable value={roleState} setValue={setRoleState} />
+          )}
+        </>
+      )}
       {!personalAccessToken && (
         <>
           {editMode && (

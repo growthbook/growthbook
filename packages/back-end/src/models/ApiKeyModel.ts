@@ -102,6 +102,7 @@ export class ApiKeyModel extends BaseClass {
       id: doc.id,
       description: doc.description,
       role: doc.role,
+      scoped: doc.scoped,
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
       environments: doc.environments,
       projectRoles: doc.projectRoles,
@@ -124,25 +125,28 @@ export class ApiKeyModel extends BaseClass {
           "Personal access tokens are disabled for this organization.",
         );
       }
-      // PATs inherit permissions from their user — scoping fields must not be set
-      if (doc.limitAccessByEnvironment) {
-        this.context.throwBadRequestError(
-          "PATs do not support environment restrictions.",
-        );
+      if (doc.scoped) {
+        // Scoping only narrows the user's access, so it isn't plan-gated.
+        if (!doc.role) {
+          this.context.throwBadRequestError(
+            "Scoped personal access tokens require a role.",
+          );
+        }
+        await this.validateScope(doc, previousDoc);
+        return;
       }
-      if (doc.projectRoles?.length) {
+      // Unscoped PATs inherit permissions from their user — scoping fields must not be set
+      if (
+        doc.limitAccessByEnvironment ||
+        doc.projectRoles?.length ||
+        doc.additionalRoles?.length
+      ) {
         this.context.throwBadRequestError(
-          "PATs do not support project-scoped roles.",
-        );
-      }
-      if (doc.additionalRoles?.length) {
-        this.context.throwBadRequestError(
-          "PATs do not support additional roles.",
+          "Restricting a personal access token requires a scoped role.",
         );
       }
     } else {
-      // Org API keys — validate role, environments, project roles, and commercial features
-      this.validateRole(doc.role);
+      // Org API keys — commercial features, then the shared scope validation
       // Only gate a role change so existing keys keep working
       if (
         doc.role &&
@@ -162,38 +166,49 @@ export class ApiKeyModel extends BaseClass {
           "Your plan does not support restricting API key permissions by environment.",
         );
       }
-      this.validateEnvironments(doc.environments);
-      for (const rule of doc.additionalRoles ?? []) {
+      if (
+        doc.projectRoles?.length &&
+        !this.context.hasPremiumFeature("advanced-permissions")
+      ) {
+        this.context.throwPlanDoesNotAllowError(
+          "Your plan does not support project-level permissions on API keys.",
+        );
+      }
+      await this.validateScope(doc, previousDoc);
+    }
+  }
+
+  // Role, environments and project rules, for org keys and scoped PATs alike
+  private async validateScope(
+    doc: ApiKeyInterface,
+    previousDoc?: ApiKeyInterface,
+  ) {
+    this.validateRole(doc.role);
+    this.validateEnvironments(doc.environments);
+    for (const rule of doc.additionalRoles ?? []) {
+      this.validateRole(rule.role);
+      this.validateEnvironments(rule.environments);
+    }
+    if (!doc.projectRoles?.length) return;
+    for (const pr of doc.projectRoles) {
+      this.validateRole(pr.role);
+      this.validateEnvironments(pr.environments);
+      for (const rule of pr.additionalRoles ?? []) {
         this.validateRole(rule.role);
         this.validateEnvironments(rule.environments);
       }
-      if (doc.projectRoles?.length) {
-        if (!this.context.hasPremiumFeature("advanced-permissions")) {
-          this.context.throwPlanDoesNotAllowError(
-            "Your plan does not support project-level permissions on API keys.",
-          );
-        }
-        for (const pr of doc.projectRoles) {
-          this.validateRole(pr.role);
-          this.validateEnvironments(pr.environments);
-          for (const rule of pr.additionalRoles ?? []) {
-            this.validateRole(rule.role);
-            this.validateEnvironments(rule.environments);
-          }
-        }
-        // Only rules this write adds or changes are checked (same as members and
-        // teams), so a key still pointing at a since-deleted project stays
-        // editable and can be disabled.
-        try {
-          await assertProjectRulesReferenceProjects(
-            this.context,
-            previousDoc?.projectRoles,
-            doc.projectRoles,
-          );
-        } catch (e) {
-          this.context.throwBadRequestError(e.message);
-        }
-      }
+    }
+    // Only rules this write adds or changes are checked (same as members and
+    // teams), so a key still pointing at a since-deleted project stays
+    // editable and can be disabled.
+    try {
+      await assertProjectRulesReferenceProjects(
+        this.context,
+        previousDoc?.projectRoles,
+        doc.projectRoles,
+      );
+    } catch (e) {
+      this.context.throwBadRequestError(e.message);
     }
   }
 
@@ -246,12 +261,23 @@ export class ApiKeyModel extends BaseClass {
     });
   }
 
+  // Scoping fields without a scopedRole are passed through so validation rejects them.
   public async createUserPersonalAccessApiKey({
     userId,
     description,
+    scopedRole,
+    limitAccessByEnvironment,
+    environments,
+    additionalRoles,
+    projectRoles,
   }: {
     userId: string;
     description: string;
+    scopedRole?: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    additionalRoles?: ApiKeyInterface["additionalRoles"];
+    projectRoles?: ApiKeyInterface["projectRoles"];
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       userId,
@@ -260,7 +286,12 @@ export class ApiKeyModel extends BaseClass {
       project: "",
       encryptSDK: false,
       description,
-      role: "user",
+      role: scopedRole ?? "user",
+      scoped: !!scopedRole,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
     });
   }
 
@@ -511,6 +542,7 @@ export class ApiKeyModel extends BaseClass {
     encryptSDK,
     userId,
     role,
+    scoped,
     limitAccessByEnvironment,
     environments,
     additionalRoles,
@@ -523,6 +555,7 @@ export class ApiKeyModel extends BaseClass {
     encryptSDK: boolean;
     userId?: string;
     role?: string;
+    scoped?: boolean;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
@@ -550,6 +583,7 @@ export class ApiKeyModel extends BaseClass {
       encryptSDK,
       userId,
       role,
+      ...(scoped ? { scoped } : {}),
       encryptionKey: encryptSDK ? await generateEncryptionKey() : undefined,
       limitAccessByEnvironment: limitAccessByEnvironment ?? false,
       environments: environments ?? [],

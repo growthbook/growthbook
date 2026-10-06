@@ -40,6 +40,8 @@ export const putMemberProjectRoleValidator = z
 
 export const postApiKeyValidator = z.strictObject({
   type: z.string(),
+  // PATs only (type "user"): cap the token at this role and the scoping fields.
+  scopedRole: z.string().optional(),
   description: z.string().optional(),
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
