@@ -50,7 +50,7 @@ export default async function (agenda: Agenda) {
     // New way, based on dynamic schedules
     const experiments = await getExperimentsToUpdate(ids);
     await deferDueSnapshotAttempts(
-      experiments.map((e) => e.id),
+      experiments,
       new Date(Date.now() + FAILED_UPDATE_RETRY_DELAY),
     );
 
@@ -246,7 +246,7 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       !(e instanceof UnrecoverableSnapshotError)
     ) {
       await deferDueSnapshotAttempts(
-        [experiment.id],
+        [experiment],
         new Date(Date.now() + FAILED_UPDATE_RETRY_DELAY),
       );
       return;

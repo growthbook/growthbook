@@ -225,11 +225,45 @@ describe("failing scheduled updates", () => {
     });
 
     await deferDueSnapshotAttempts(
-      ["exp_rescheduled"],
+      [{ id: "exp_rescheduled", organization: ORG_ID }],
       new Date(Date.now() + HOUR),
     );
 
     const doc = await experiments().findOne({ id: "exp_rescheduled" });
     expect(doc?.nextSnapshotAttempt).toEqual(scheduled);
+  });
+
+  it("only defers experiments in the organizations it is given", async () => {
+    const due = new Date(Date.now() - HOUR);
+    await experiments().insertMany([
+      { ...running, id: "exp_shared", nextSnapshotAttempt: due },
+      {
+        ...running,
+        organization: "org_2",
+        id: "exp_shared",
+        nextSnapshotAttempt: due,
+      },
+      {
+        ...running,
+        organization: "org_3",
+        id: "exp_other",
+        nextSnapshotAttempt: due,
+      },
+    ]);
+
+    const until = new Date(Date.now() + HOUR);
+    await deferDueSnapshotAttempts(
+      [
+        { id: "exp_shared", organization: ORG_ID },
+        { id: "exp_other", organization: "org_3" },
+      ],
+      until,
+    );
+
+    const next = async (organization: string, id: string) =>
+      (await experiments().findOne({ organization, id }))?.nextSnapshotAttempt;
+    expect(await next(ORG_ID, "exp_shared")).toEqual(until);
+    expect(await next("org_3", "exp_other")).toEqual(until);
+    expect(await next("org_2", "exp_shared")).toEqual(due);
   });
 });

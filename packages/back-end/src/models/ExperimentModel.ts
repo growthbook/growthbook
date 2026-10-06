@@ -1,4 +1,4 @@
-import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
+import { each, groupBy, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
@@ -1107,12 +1107,22 @@ export async function getExperimentsToUpdate(
 // without rescheduling cannot hold the head of every batch. Experiments already
 // rescheduled into the future are left alone.
 export async function deferDueSnapshotAttempts(
-  ids: string[],
+  experiments: Pick<ExperimentInterface, "id" | "organization">[],
   until: Date,
 ): Promise<void> {
-  if (!ids.length) return;
+  if (!experiments.length) return;
+
+  // There is no index on id alone, so each clause needs the organization prefix.
   await getCollection(COLLECTION).updateMany(
-    { id: { $in: ids }, nextSnapshotAttempt: { $lte: new Date() } },
+    {
+      $or: Object.entries(groupBy(experiments, "organization")).map(
+        ([organization, exps]) => ({
+          organization,
+          id: { $in: exps.map((e) => e.id) },
+        }),
+      ),
+      nextSnapshotAttempt: { $lte: new Date() },
+    },
     { $set: { nextSnapshotAttempt: until } },
   );
 }
