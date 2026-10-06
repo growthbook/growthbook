@@ -343,130 +343,150 @@ export default function ConnectDataSourceLayout({
         alignItems: "stretch",
       }}
     >
-      <Box
-        py="5"
-        px="6"
+      <Flex
+        direction="column"
         style={{
           width: "100%",
           minWidth: 0,
           minHeight: 0,
           height: "100%",
-          overflowY: "auto",
-          scrollbarGutter: "stable",
         }}
       >
-        <Flex align="center" gap="3" wrap="wrap" mb="2">
-          <Avatar size="lg" variant="soft" radius="small" color="violet">
-            {DATA_SOURCE_TYPE_ABBR[type]}
-          </Avatar>
-          <Heading as="h1" size="xl" mb="0">
-            {existing
-              ? `Edit ${typeInfo.display}`
-              : `Connect ${typeInfo.display}`}
-          </Heading>
-          <Badge
-            label={setup === "event_forwarder" ? "Event Forwarder" : "Custom"}
-            color="violet"
-            variant="soft"
-          />
-        </Flex>
-        <Text as="p" color="text-mid" mb="4">
-          {setup === "event_forwarder"
-            ? "GrowthBook reads your data to run analysis, and writes forwarded events to the destination you configure."
-            : "GrowthBook reads your data to run analysis. It only needs read access."}
-        </Text>
+        <Box
+          py="5"
+          px="6"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            scrollbarGutter: "stable",
+          }}
+        >
+          <Flex align="center" gap="3" wrap="wrap" mb="2">
+            <Avatar size="lg" variant="soft" radius="small" color="violet">
+              {DATA_SOURCE_TYPE_ABBR[type]}
+            </Avatar>
+            <Heading as="h1" size="xl" mb="0">
+              {existing
+                ? `Edit ${typeInfo.display}`
+                : `Connect ${typeInfo.display}`}
+            </Heading>
+            <Badge
+              label={setup === "event_forwarder" ? "Event Forwarder" : "Custom"}
+              color="violet"
+              variant="soft"
+            />
+          </Flex>
+          <Text as="p" color="text-mid" mb="4">
+            {setup === "event_forwarder"
+              ? "GrowthBook reads your data to run analysis, and writes forwarded events to the destination you configure."
+              : "GrowthBook reads your data to run analysis. It only needs read access."}
+          </Text>
 
-        {isSampleData && (
-          <Callout status="warning" mb="4">
-            You cannot edit the sample Data Source connection.
-          </Callout>
-        )}
+          {isSampleData && (
+            <Callout status="warning" mb="4">
+              You cannot edit the sample Data Source connection.
+            </Callout>
+          )}
 
-        {saveError && (
-          <Callout status="error" mb="4">
-            {saveError}
-          </Callout>
-        )}
+          {saveError && (
+            <Callout status="error" mb="4">
+              {saveError}
+            </Callout>
+          )}
 
-        <Frame mb="4">
-          <Heading as="h3" size="md" mb="4">
-            Connection
-          </Heading>
-          <Field
-            label="Data Source name"
-            name="name"
-            required
-            value={datasource.name || ""}
-            onChange={onChange}
-            disabled={isSampleData}
-            containerClassName="mb-3"
-            autoFocus={!existing}
-          />
-          <ConnectionSettings
-            datasource={datasource}
-            existing={existing}
-            hasError={hasError}
-            setDatasource={updateDatasource}
-            setDirty={(next) => {
-              setDirty(next);
-              if (next) {
-                setParamsDirty(true);
-                setTestStatus("idle");
-                setTestMessage(null);
-              }
-            }}
-          />
-        </Frame>
-
-        {canTest && (
-          <Frame
-            mb="4"
-            style={{
-              borderColor: testBorderColor,
-              borderWidth: 1,
-              borderStyle: "solid",
-            }}
-          >
-            <Flex align="center" justify="between" gap="3" mb="2">
-              <Heading as="h3" size="md" mb="0">
-                Connection Test
-              </Heading>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={testStatus === "running" || isSampleData}
-                loading={testStatus === "running"}
-                icon={<PiArrowClockwise />}
-                onClick={async () => {
-                  await runTest();
-                }}
-              >
-                {testStatus === "idle"
-                  ? "Test connection"
-                  : testStatus === "running"
-                    ? "Testing"
-                    : "Retry test"}
-              </Button>
-            </Flex>
-            {testStatus === "idle" && (
-              <Text as="p" size="sm" color="text-mid" mb="0">
-                {setup === "event_forwarder"
-                  ? "Checks that GrowthBook can connect and read your data. Write access for the Event Forwarder is validated when you finish setup."
-                  : "Checks that GrowthBook can connect and read your data."}
-              </Text>
-            )}
-            {testMessage && (
-              <Callout
-                status={testStatus === "passed" ? "success" : "error"}
-                mt="3"
-              >
-                {testMessage}
-              </Callout>
-            )}
+          <Frame mb="4">
+            <Heading as="h3" size="md" mb="4">
+              Connection
+            </Heading>
+            <Field
+              label="Data Source name"
+              name="name"
+              required
+              value={datasource.name || ""}
+              onChange={onChange}
+              disabled={isSampleData}
+              containerClassName="mb-3"
+              autoFocus={!existing}
+            />
+            <ConnectionSettings
+              datasource={datasource}
+              existing={existing}
+              hasError={hasError}
+              setDatasource={updateDatasource}
+              setDirty={(next) => {
+                setDirty(next);
+                if (next) {
+                  setParamsDirty(true);
+                  setTestStatus("idle");
+                  setTestMessage(null);
+                }
+              }}
+            />
           </Frame>
-        )}
 
-        <Flex align="center" justify="between" gap="3" wrap="wrap">
+          {canTest && (
+            <Frame
+              mb="4"
+              style={{
+                borderColor: testBorderColor,
+                borderWidth: 1,
+                borderStyle: "solid",
+              }}
+            >
+              <Flex align="center" justify="between" gap="3" mb="2">
+                <Heading as="h3" size="md" mb="0">
+                  Connection Test
+                </Heading>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={testStatus === "running" || isSampleData}
+                  loading={testStatus === "running"}
+                  icon={<PiArrowClockwise />}
+                  onClick={async () => {
+                    await runTest();
+                  }}
+                >
+                  {testStatus === "idle"
+                    ? "Test connection"
+                    : testStatus === "running"
+                      ? "Testing"
+                      : "Retry test"}
+                </Button>
+              </Flex>
+              {testStatus === "idle" && (
+                <Text as="p" size="sm" color="text-mid" mb="0">
+                  {setup === "event_forwarder"
+                    ? "Checks that GrowthBook can connect and read your data. Write access for the Event Forwarder is validated when you finish setup."
+                    : "Checks that GrowthBook can connect and read your data."}
+                </Text>
+              )}
+              {testMessage && (
+                <Callout
+                  status={testStatus === "passed" ? "success" : "error"}
+                  mt="3"
+                >
+                  {testMessage}
+                </Callout>
+              )}
+            </Frame>
+          )}
+        </Box>
+
+        <Flex
+          align="center"
+          justify="between"
+          gap="3"
+          wrap="wrap"
+          px="6"
+          py="4"
+          flexShrink="0"
+          style={{
+            background: "var(--background-color)",
+            borderTop: "1px solid var(--gray-a5)",
+          }}
+        >
           <Button
             variant="ghost"
             color="gray"
@@ -492,7 +512,7 @@ export default function ConnectDataSourceLayout({
             </Button>
           </Flex>
         </Flex>
-      </Box>
+      </Flex>
 
       <DataSourceConnectInstructions
         type={type}
