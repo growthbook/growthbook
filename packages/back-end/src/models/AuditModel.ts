@@ -70,6 +70,26 @@ const toInterface: ToInterface<AuditInterface> = (doc) => {
   return audit;
 };
 
+export type AuditHistoryFilters = {
+  auditId?: string;
+  event?: string;
+  before?: Date;
+  // Matched against the entity or parent id, per query.
+  excludeIds?: string[];
+};
+
+function toHistoryFilter(
+  { auditId, event, before, excludeIds }: AuditHistoryFilters = {},
+  side: "entity" | "parent",
+): FilterQuery<AuditDocument> {
+  return {
+    ...(auditId ? { id: auditId } : {}),
+    ...(event ? { event } : {}),
+    ...(before ? { dateCreated: { $lt: before } } : {}),
+    ...(excludeIds?.length ? { [`${side}.id`]: { $nin: excludeIds } } : {}),
+  };
+}
+
 export async function insertAudit(
   data: Omit<AuditInterface, "id">,
 ): Promise<AuditInterface> {
@@ -118,14 +138,14 @@ export async function findAuditByEntity(
   type: EntityType,
   id: string,
   options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
+  filters?: AuditHistoryFilters,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
       "entity.object": type,
       "entity.id": id,
-      ...customFilter,
+      ...toHistoryFilter(filters, "entity"),
     },
     null,
     options,
@@ -160,14 +180,14 @@ export async function findAuditByEntityParent(
   type: EntityType,
   id: string,
   options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
+  filters?: AuditHistoryFilters,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
       "parent.object": type,
       "parent.id": id,
-      ...customFilter,
+      ...toHistoryFilter(filters, "parent"),
     },
     null,
     options,
@@ -179,13 +199,13 @@ export async function findAllAuditsByEntityType(
   organization: string,
   type: EntityType,
   options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
+  filters?: AuditHistoryFilters,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
       "entity.object": type,
-      ...customFilter,
+      ...toHistoryFilter(filters, "entity"),
     },
     null,
     options,
@@ -197,13 +217,13 @@ export async function findAllAuditsByEntityTypeParent(
   organization: string,
   type: EntityType,
   options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
+  filters?: AuditHistoryFilters,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
       "parent.object": type,
-      ...customFilter,
+      ...toHistoryFilter(filters, "parent"),
     },
     null,
     options,
@@ -215,13 +235,13 @@ export async function countAuditByEntity(
   organization: string,
   type: EntityType,
   id: string,
-  customFilter?: FilterQuery<AuditDocument>,
+  filters?: AuditHistoryFilters,
 ): Promise<number> {
   return await AuditModel.countDocuments({
     organization,
     "entity.object": type,
     "entity.id": id,
-    ...customFilter,
+    ...toHistoryFilter(filters, "entity"),
   });
 }
 
@@ -229,36 +249,36 @@ export async function countAuditByEntityParent(
   organization: string,
   type: EntityType,
   id: string,
-  customFilter?: FilterQuery<AuditDocument>,
+  filters?: AuditHistoryFilters,
 ): Promise<number> {
   return await AuditModel.countDocuments({
     organization,
     "parent.object": type,
     "parent.id": id,
-    ...customFilter,
+    ...toHistoryFilter(filters, "parent"),
   });
 }
 
 export async function countAllAuditsByEntityType(
   organization: string,
   type: EntityType,
-  customFilter?: FilterQuery<AuditDocument>,
+  filters?: AuditHistoryFilters,
 ): Promise<number> {
   return await AuditModel.countDocuments({
     organization,
     "entity.object": type,
-    ...customFilter,
+    ...toHistoryFilter(filters, "entity"),
   });
 }
 
 export async function countAllAuditsByEntityTypeParent(
   organization: string,
   type: EntityType,
-  customFilter?: FilterQuery<AuditDocument>,
+  filters?: AuditHistoryFilters,
 ): Promise<number> {
   return await AuditModel.countDocuments({
     organization,
     "parent.object": type,
-    ...customFilter,
+    ...toHistoryFilter(filters, "parent"),
   });
 }

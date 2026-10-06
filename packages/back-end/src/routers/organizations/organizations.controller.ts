@@ -258,8 +258,8 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 }
 
 // Only a plain string, so a crafted query object can't reach Mongo.
-function auditEventFilter(event: unknown) {
-  return typeof event === "string" && event ? { event } : {};
+function parseEventParam(event: unknown) {
+  return typeof event === "string" && event ? event : undefined;
 }
 
 export async function getAllHistory(
@@ -274,8 +274,8 @@ export async function getAllHistory(
   const { org } = context;
   const { type } = req.params;
   const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
-  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
-  const eventFilter = auditEventFilter(req.query.event);
+  const before = req.query.cursor ? new Date(req.query.cursor) : undefined;
+  const event = parseEventParam(req.query.event);
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -298,21 +298,15 @@ export async function getAllHistory(
           (p) => !context.permissions.canReadSingleProjectResource(p),
         )
       : [];
-  const entityFilter = hiddenProjects.length
-    ? { ...eventFilter, "entity.id": { $nin: hiddenProjects } }
-    : eventFilter;
-  const parentFilter = hiddenProjects.length
-    ? { ...eventFilter, "parent.id": { $nin: hiddenProjects } }
-    : eventFilter;
+  const filters = { event, excludeIds: hiddenProjects };
 
   // Get total count for display
   const [entityCount, parentCount] = await Promise.all([
-    countAllAuditsByEntityType(org.id, type, entityFilter),
-    countAllAuditsByEntityTypeParent(org.id, type, parentFilter),
+    countAllAuditsByEntityType(org.id, type, filters),
+    countAllAuditsByEntityTypeParent(org.id, type, filters),
   ]);
   const total = entityCount + parentCount;
 
-  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
   const fetchLimit = limit;
 
   const events = await Promise.all([
@@ -323,7 +317,7 @@ export async function getAllHistory(
         limit: fetchLimit,
         sort: { dateCreated: -1 },
       },
-      { ...cursorFilter, ...entityFilter },
+      { ...filters, before },
     ),
     findAllAuditsByEntityTypeParent(
       org.id,
@@ -332,7 +326,7 @@ export async function getAllHistory(
         limit: fetchLimit,
         sort: { dateCreated: -1 },
       },
-      { ...cursorFilter, ...parentFilter },
+      { ...filters, before },
     ),
   ]);
 
@@ -380,8 +374,8 @@ export async function getHistory(
   const { org } = context;
   const { type, id } = req.params;
   const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
-  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
-  const eventFilter = auditEventFilter(req.query.event);
+  const before = req.query.cursor ? new Date(req.query.cursor) : undefined;
+  const event = parseEventParam(req.query.event);
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -405,12 +399,10 @@ export async function getHistory(
 
   // Get total count for display
   const [entityCount, parentCount] = await Promise.all([
-    countAuditByEntity(org.id, type, id, eventFilter),
-    countAuditByEntityParent(org.id, type, id, eventFilter),
+    countAuditByEntity(org.id, type, id, { event }),
+    countAuditByEntityParent(org.id, type, id, { event }),
   ]);
   const total = entityCount + parentCount;
-
-  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
 
   const fetchLimit = limit;
 
@@ -423,7 +415,7 @@ export async function getHistory(
         limit: fetchLimit,
         sort: { dateCreated: -1 },
       },
-      { ...cursorFilter, ...eventFilter },
+      { event, before },
     ),
     findAuditByEntityParent(
       org.id,
@@ -433,7 +425,7 @@ export async function getHistory(
         limit: fetchLimit,
         sort: { dateCreated: -1 },
       },
-      { ...cursorFilter, ...eventFilter },
+      { event, before },
     ),
   ]);
 
