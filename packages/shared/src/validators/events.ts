@@ -11,6 +11,7 @@ import {
   holdoutStatusChangedNotificationPayload,
   holdoutNewLinkageNotificationPayload,
 } from "./holdout-notifications";
+import { sdkConnectionPayloadSizeNotificationPayload } from "./sdk-connection-notifications";
 import { apiExperimentValidator } from "./experiments";
 import { featureWebhookPayload } from "./feature-webhook-schemas";
 import {
@@ -315,6 +316,11 @@ export const notificationEvents = {
     },
     "config.newLinkage": {
       schema: holdoutNewLinkageNotificationPayload,
+    },
+  },
+  sdkConnection: {
+    "payloadSize.warning": {
+      schema: sdkConnectionPayloadSizeNotificationPayload,
     },
   },
   savedGroup: {

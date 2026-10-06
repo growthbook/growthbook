@@ -1,3 +1,4 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { Fragment, ReactNode, useMemo, useState } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -13,8 +14,8 @@ import {
   LinkedFeatureInfo,
   Variation,
 } from "shared/types/experiment";
+import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
 import {
   jsonToConds,
@@ -124,7 +125,7 @@ export default function ContextualBanditDetailPage({
 }) {
   const { getDatasourceById, getExperimentMetricById, projects } =
     useDefinitions();
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const { contextualBanditQueriesMap } = useContextualBanditQueries(
     cb.datasource,
   );
@@ -132,8 +133,6 @@ export default function ContextualBanditDetailPage({
   const [showStart, setShowStart] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
-
-  const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
 
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const datasourceName = datasource?.name ?? cb.datasource;
@@ -274,11 +273,15 @@ export default function ContextualBanditDetailPage({
   );
 
   const start = async () => {
-    await apiCall(`${updateEndpoint}/start`, { method: "POST" });
+    await restApiCall(contextualBanditEndpoints.startContextualBandit, {
+      params: { id: cb.id },
+    });
     mutate();
   };
   const stop = async () => {
-    await apiCall(`${updateEndpoint}/stop`, { method: "POST" });
+    await restApiCall(contextualBanditEndpoints.stopContextualBandit, {
+      params: { id: cb.id },
+    });
     mutate();
   };
 

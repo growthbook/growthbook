@@ -13,7 +13,7 @@ import { MdPending } from "react-icons/md";
 import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "shared/types/organization";
 import { getRulesForEnvironment } from "shared/util";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -41,6 +41,8 @@ import {
 } from "@/services/importing/launchdarkly/launchdarkly-importing";
 import track from "@/services/track";
 import Callout from "@/ui/Callout";
+
+const WRAPPED_DIFF_STYLES = { contentText: { wordBreak: "break-all" } };
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -127,16 +129,7 @@ function FeatureDiff({
   const b = JSON.stringify(featureComp[1], null, 2);
 
   return (
-    <ReactDiffViewer
-      oldValue={a}
-      newValue={b}
-      compareMethod={DiffMethod.LINES}
-      styles={{
-        contentText: {
-          wordBreak: "break-all",
-        },
-      }}
-    />
+    <LazyDiffViewer oldValue={a} newValue={b} styles={WRAPPED_DIFF_STYLES} />
   );
 }
 

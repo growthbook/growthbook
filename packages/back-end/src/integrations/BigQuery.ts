@@ -9,7 +9,6 @@ import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { SqlDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import {
   ExternalIdCallback,
@@ -34,7 +33,6 @@ import {
 } from "back-end/src/services/bigquery";
 import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import SqlIntegration from "./SqlIntegration";
-import { bigQueryDialect } from "./dialects/bigquery";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
@@ -45,9 +43,6 @@ export default class BigQuery extends SqlIntegration {
   }
   isWritingTablesSupported(): boolean {
     return true;
-  }
-  getSqlDialect(): SqlDialect {
-    return bigQueryDialect;
   }
 
   private getClient() {

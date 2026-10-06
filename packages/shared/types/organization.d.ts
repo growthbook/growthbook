@@ -30,6 +30,7 @@ import {
   memberRoleWithProjects,
   pendingMember,
   projectMemberRole,
+  SdkPayloadSizeAlert,
 } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { TeamInterface } from "shared/types/team";
@@ -283,6 +284,8 @@ export interface OrganizationSettings {
   srmThreshold?: number;
   aiEnabled?: boolean;
   aiAskDataEnabled?: boolean;
+  // AI Assistant skill names turned off for this org, so new skills start enabled.
+  disabledAgentSkills?: string[];
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
   // Voice dictation. Unset resolves in getAISettingsForOrg.
@@ -559,6 +562,8 @@ export type GetOrganizationResponse = {
     features: string[];
   };
   usage: OrganizationUsage;
+  // SDK Connections the viewer manages whose payload is large enough to warn about
+  sdkPayloadSizeAlerts: SdkPayloadSizeAlert[];
   // Providers with a usable key, stored or inherited from the environment.
   // Non-secret, and rides along here so AI gating needs no separate request.
   aiKeyProviders: AIProvider[];
