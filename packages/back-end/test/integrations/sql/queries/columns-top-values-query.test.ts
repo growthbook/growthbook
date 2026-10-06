@@ -33,7 +33,8 @@ const factTable = {
 };
 
 const jsonFactTable = {
-  ...factTable,
+  sql: "SELECT props, timestamp FROM events WHERE timestamp >= {{startDate}}",
+  eventName: "",
   columns: [
     {
       ...makeColumn("props"),
@@ -89,12 +90,18 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
   });
 
   it("extracts dotted JSON paths instead of querying them as columns", () => {
-    const columns = [makeColumn("props.plan")];
-    const jsonSql = buildSql(dialect, { factTable: jsonFactTable, columns });
-    // Without a JSON parent column, the same name is queried as-is.
-    const rawSql = buildSql(dialect, { columns });
-    expect(jsonSql).toContain("'props.plan'");
-    expect(jsonSql).not.toEqual(rawSql);
+    const sql = buildSql(dialect, {
+      factTable: jsonFactTable,
+      columns: [makeColumn("props.plan")],
+    });
+    // The formatter re-spaces the SQL, so compare without whitespace.
+    const stripWhitespace = (s: string) => s.replace(/\s+/g, "");
+    expect(stripWhitespace(sql)).toContain(
+      stripWhitespace(
+        dialect.castToString(dialect.jsonExtract("props", "plan", false)),
+      ),
+    );
+    expect(sql).toContain("'props.plan'");
   });
 
   it("filters matching values before ranking them", () => {
