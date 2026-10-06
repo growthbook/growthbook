@@ -2,10 +2,12 @@ import type { DeliveryMethod } from "@/components/Experiment/TabbedPage/ManagedV
 import type { EndUnit } from "./setupDraft";
 
 // PROTOTYPE ONLY: the "Set up with AI" path in Create Experiment, when the
-// model can't be used (see aiSetupPlan.ts). Nothing is generated: the new
-// draft gets this same fixture every time, so a demo can't misbehave. It is
-// promo-banner-spec.md, exactly (set in review): the spec a demo attaches,
-// so the fallback lands on what the spec says.
+// model can't be used (see aiSetupPlan.ts), in dev builds only; production
+// builds show the failure instead. Nothing is generated: the new draft gets
+// this same fixture every time, so a demo can't misbehave. It is
+// packages/front-end/prototype-fixtures/promo-banner-spec.md, exactly (set
+// in review): the spec a demo attaches, so the fallback lands on what the
+// spec says.
 //
 // Two parts depend on the org, and are resolved when the experiment is
 // created (planFromFixture): the metrics are named here and matched to the

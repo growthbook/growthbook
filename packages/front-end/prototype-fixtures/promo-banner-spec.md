@@ -1,3 +1,7 @@
+<!-- PROTOTYPE ONLY: a demo spec for "Set up with AI" in Create Experiment.
+Attach it in a demo; the dev-only fixture (components/Experiment/TabbedPage/
+SetupPage/aiSetupFixture.ts) matches it exactly. Not used by the app. -->
+
 # Promo banner placement — experiment spec
 
 Owner: Growth · Drafted for Q4 checkout work

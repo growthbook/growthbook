@@ -89,7 +89,8 @@ type SetupMode = "blank" | "ai";
 // "Set up with AI" waits about a second before creating, with the button in
 // its loading state, so it reads as work happening.
 const AI_SETUP_DELAY_MS = 1000;
-// The model gets this long, then the fixture is used instead.
+// The model gets this long, then the fixture is used instead (dev builds;
+// production shows a timeout error).
 const AI_SETUP_TIMEOUT_MS = 6000;
 
 // DEV ONLY: logs one console.debug line per Create & Set Up, in development
@@ -101,6 +102,20 @@ const DEBUG_AI_SETUP = true;
 // What asking the model came to. reason says why it fell back to the fixture
 // (null when the model's plan was used); issues lists the fields it was
 // missing or that were rejected; ms is the model call's round trip.
+// Production builds: why Set up with AI failed, by ModelPlanOutcome.reason,
+// in place of the dev-only fixture. Not the raw message: a provider's can
+// quote part of a key.
+const AI_SETUP_FAILURE_MESSAGES: Record<string, string> = {
+  "AI disabled": "AI is not enabled for your organization.",
+  "no key": "AI is not configured: no API key is set.",
+  timeout: "The AI took too long to respond. Please try again.",
+  "network error": "Couldn't reach the AI service. Please try again.",
+  "malformed JSON":
+    "The AI's response couldn't be read. Please try again, or start blank.",
+  "missing core (hypothesis)":
+    "The AI couldn't produce a plan from this description. Add more detail, or start blank.",
+};
+
 type ModelPlanOutcome = {
   plan: SetupPlan | null;
   reason: string | null;
@@ -591,7 +606,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   // Asks the model to read the description and files (POST
   // /ai/experiment-setup). Resolves to its plan, or null on ANY failure (AI
   // off, no key, network, a 6-second timeout, a malformed or too-thin
-  // answer), silently: the caller then uses the fixture. When the org's AI
+  // answer), silently: the caller then uses the fixture (dev builds) or
+  // shows why (production). When the org's AI
   // is off it doesn't call at all, so the browser doesn't log a failed
   // request.
   const requestModelPlan = async (
@@ -785,7 +801,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             });
 
     // Set up with AI's plan: the model's reading of the description and
-    // files, or, on any failure, the fixed fixture, never a mix (see
+    // files, or, on any failure, the fixed fixture in dev builds (an error
+    // in production), never a mix (see
     // aiSetupPlan.ts). Its goal metric must be one the org has, on the
     // experiment's data source when it has one (the API requires that), in
     // the project. Takes at least AI_SETUP_DELAY_MS, so it reads as work.
@@ -800,12 +817,22 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         requestModelPlan(project, candidates),
         new Promise((resolve) => setTimeout(resolve, AI_SETUP_DELAY_MS)),
       ]);
-      aiPlan =
-        outcome.plan ??
-        planFromFixture({
+      if (outcome.plan) {
+        aiPlan = outcome.plan;
+      } else if (isDevelopmentEnvironment()) {
+        // PROTOTYPE ONLY: dev builds fall back to the demo fixture (see
+        // aiSetupFixture.ts) so a demo can't misbehave. Production builds
+        // never use it: they show the real failure below.
+        aiPlan = planFromFixture({
           attributes: attributeSchema.map((a) => a.property),
           metrics: candidates,
         });
+      } else {
+        throw new Error(
+          AI_SETUP_FAILURE_MESSAGES[outcome.reason ?? ""] ??
+            "Set up with AI failed. Please try again, or start blank.",
+        );
+      }
       // Dev-only diagnostic: which source filled the draft and why. Delete
       // this block and DEBUG_AI_SETUP to remove it.
       if (DEBUG_AI_SETUP && isDevelopmentEnvironment()) {
