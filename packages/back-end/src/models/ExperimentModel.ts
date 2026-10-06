@@ -1,4 +1,4 @@
-import { each, groupBy, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
+import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
@@ -1101,30 +1101,6 @@ export async function getExperimentsToUpdate(
     id: exp.id,
     organization: exp.organization,
   }));
-}
-
-// Pushes still-due experiments out of the queue window so ones that fail
-// without rescheduling cannot hold the head of every batch. Experiments already
-// rescheduled into the future are left alone.
-export async function deferDueSnapshotAttempts(
-  experiments: Pick<ExperimentInterface, "id" | "organization">[],
-  until: Date,
-): Promise<void> {
-  if (!experiments.length) return;
-
-  // There is no index on id alone, so each clause needs the organization prefix.
-  await getCollection(COLLECTION).updateMany(
-    {
-      $or: Object.entries(groupBy(experiments, "organization")).map(
-        ([organization, exps]) => ({
-          organization,
-          id: { $in: exps.map((e) => e.id) },
-        }),
-      ),
-      nextSnapshotAttempt: { $lte: new Date() },
-    },
-    { $set: { nextSnapshotAttempt: until } },
-  );
 }
 
 export async function getExperimentsToUpdateLegacy(

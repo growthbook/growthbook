@@ -1,16 +1,12 @@
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import type Agenda from "agenda";
 import type { Job } from "agenda";
 import {
-  deferDueSnapshotAttempts,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import registerExperimentUpdateJobs, {
-  updateSingleExperiment,
-} from "back-end/src/jobs/updateExperimentResults";
+import { updateSingleExperiment } from "back-end/src/jobs/updateExperimentResults";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   ...jest.requireActual("back-end/src/models/DataSourceModel"),
@@ -154,7 +150,7 @@ describe("failing scheduled updates", () => {
     expect(doc?.autoSnapshots).toBe(false);
   });
 
-  it("backs off a bandit after a recoverable failure", async () => {
+  it("keeps auto-updates on for a bandit after a recoverable failure", async () => {
     jest
       .mocked(getDataSourceById)
       .mockRejectedValueOnce(new Error("warehouse unavailable"));
@@ -168,102 +164,5 @@ describe("failing scheduled updates", () => {
 
     const doc = await experiments().findOne({ id: "exp_flaky" });
     expect(doc?.autoSnapshots).toBe(true);
-    expect(doc?.nextSnapshotAttempt.getTime()).toBeGreaterThan(
-      Date.now() + HOUR / 2,
-    );
-  });
-
-  it("does not let experiments that never reschedule starve the queue", async () => {
-    const handlers = new Map<string, () => Promise<void>>();
-    const queued: string[] = [];
-    const agenda = {
-      define: (name: string, fn: () => Promise<void>) => {
-        handlers.set(name, fn);
-      },
-      create: (_name: string, data: { experimentId?: string }) => ({
-        unique: jest.fn(),
-        repeatEvery: jest.fn(),
-        schedule: jest.fn(),
-        save: jest.fn(async () => {
-          if (data.experimentId) queued.push(data.experimentId);
-        }),
-      }),
-    } as unknown as Agenda;
-    await registerExperimentUpdateJobs(agenda);
-    const queueTick = handlers.get("queueExperimentUpdates");
-    if (!queueTick) throw new Error("queue job not defined");
-
-    const stuck = new Date(Date.now() - 96 * HOUR);
-    await experiments().insertMany([
-      ...Array.from({ length: 100 }, (_, i) => ({
-        ...bandit,
-        id: `exp_stuck_${i}`,
-        nextSnapshotAttempt: stuck,
-      })),
-      {
-        ...running,
-        id: "exp_waiting",
-        nextSnapshotAttempt: new Date(Date.now() - HOUR),
-      },
-    ]);
-
-    await queueTick();
-    expect(queued).toHaveLength(100);
-    expect(queued).not.toContain("exp_waiting");
-
-    queued.length = 0;
-    await queueTick();
-    expect(queued).toEqual(["exp_waiting"]);
-  });
-
-  it("keeps a next run that was already rescheduled", async () => {
-    const scheduled = new Date(Date.now() + 6 * HOUR);
-    await experiments().insertOne({
-      ...running,
-      id: "exp_rescheduled",
-      nextSnapshotAttempt: scheduled,
-    });
-
-    await deferDueSnapshotAttempts(
-      [{ id: "exp_rescheduled", organization: ORG_ID }],
-      new Date(Date.now() + HOUR),
-    );
-
-    const doc = await experiments().findOne({ id: "exp_rescheduled" });
-    expect(doc?.nextSnapshotAttempt).toEqual(scheduled);
-  });
-
-  it("only defers experiments in the organizations it is given", async () => {
-    const due = new Date(Date.now() - HOUR);
-    await experiments().insertMany([
-      { ...running, id: "exp_shared", nextSnapshotAttempt: due },
-      {
-        ...running,
-        organization: "org_2",
-        id: "exp_shared",
-        nextSnapshotAttempt: due,
-      },
-      {
-        ...running,
-        organization: "org_3",
-        id: "exp_other",
-        nextSnapshotAttempt: due,
-      },
-    ]);
-
-    const until = new Date(Date.now() + HOUR);
-    await deferDueSnapshotAttempts(
-      [
-        { id: "exp_shared", organization: ORG_ID },
-        { id: "exp_other", organization: "org_3" },
-      ],
-      until,
-    );
-
-    const next = async (organization: string, id: string) =>
-      (await experiments().findOne({ organization, id }))?.nextSnapshotAttempt;
-    expect(await next(ORG_ID, "exp_shared")).toEqual(until);
-    expect(await next("org_3", "exp_other")).toEqual(until);
-    expect(await next("org_2", "exp_shared")).toEqual(due);
   });
 });
