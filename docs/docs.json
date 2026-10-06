@@ -1133,7 +1133,16 @@
                   "api/Populations/operation/createPopulation",
                   "api/Populations/operation/getPopulation",
                   "api/Populations/operation/updatePopulation",
-                  "api/Populations/operation/deletePopulation"
+                  "api/Populations/operation/deletePopulation",
+                  "api/Populations/operation/refreshPopulation",
+                  "api/Populations/operation/cancelPopulationRefresh"
+                ]
+              },
+              {
+                "group": "Population Snapshots",
+                "pages": [
+                  "api/PopulationSnapshots/operation/listPopulationSnapshots",
+                  "api/PopulationSnapshots/operation/getPopulationSnapshot"
                 ]
               }
             ]
@@ -1223,6 +1232,7 @@
               "api/Organization_model",
               "api/PaginationFields_model",
               "api/Population_model",
+              "api/PopulationSnapshot_model",
               "api/Project_model",
               "api/Query_model",
               "api/RampSchedule_model",

@@ -421,6 +421,9 @@ tags:
     description: >-
       Populations define a set of units by the steps they must complete, such as
       appearing in a fact table.
+  - name: PopulationSnapshots
+    x-displayName: Population Snapshots
+    description: A Population Snapshot records a population's size at a point in time.
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -701,6 +704,9 @@ tags:
   - name: Population_model
     x-displayName: Population
     description: <SchemaDefinition schemaRef="#/components/schemas/Population" />
+  - name: PopulationSnapshot_model
+    x-displayName: Population Snapshot
+    description: <SchemaDefinition schemaRef="#/components/schemas/PopulationSnapshot" />
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
@@ -62360,6 +62366,157 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/populations/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/populations/{id}/refresh:
+    post:
+      operationId: refreshPopulation
+      summary: Refresh a population's size
+      description: >-
+        Starts a warehouse query that counts the population's members now and 30
+        days ago. Returns the running snapshot, or the one already running. Poll
+        `GET /population-snapshots/{id}` until its status is `success` or
+        `error`.
+      tags:
+        - Populations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The population id
+          schema:
+            description: The population id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  populationSnapshot:
+                    $ref: '#/components/schemas/PopulationSnapshot'
+                required:
+                  - populationSnapshot
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/populations/{id}/refresh' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/populations/{id}/cancel:
+    post:
+      operationId: cancelPopulationRefresh
+      summary: Cancel a running population refresh
+      tags:
+        - Populations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The population id
+          schema:
+            description: The population id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  canceled:
+                    description: False when the population had no running refresh
+                    type: boolean
+                required:
+                  - canceled
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/populations/{id}/cancel' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/population-snapshots:
+    get:
+      operationId: listPopulationSnapshots
+      summary: Get all populationSnapshots
+      description: >-
+        With a date range, returns the last successful snapshot of each day,
+        oldest first.
+      tags:
+        - PopulationSnapshots
+      parameters:
+        - $ref: '#/components/parameters/populationId'
+        - $ref: '#/components/parameters/latest'
+        - name: startDate
+          in: query
+          description: Only successful snapshots as of this date or later
+          schema:
+            description: Only successful snapshots as of this date or later
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: Only successful snapshots as of this date or earlier
+          schema:
+            description: Only successful snapshots as of this date or earlier
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  populationSnapshots:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PopulationSnapshot'
+                required:
+                  - populationSnapshots
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET 'https://api.growthbook.io/api/v1/population-snapshots'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/population-snapshots/{id}:
+    get:
+      operationId: getPopulationSnapshot
+      summary: Get a single populationSnapshot
+      tags:
+        - PopulationSnapshots
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  populationSnapshot:
+                    $ref: '#/components/schemas/PopulationSnapshot'
+                required:
+                  - populationSnapshot
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/population-snapshots/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -63166,6 +63323,33 @@ components:
           - running
           - analysis-period
           - stopped
+    populationId:
+      name: populationId
+      in: query
+      description: Only this population
+      schema:
+        description: Only this population
+        type: string
+    latest:
+      name: latest
+      in: query
+      description: >-
+        Return only the most recent snapshot of each population, whatever its
+        status
+      schema:
+        description: >-
+          Return only the most recent snapshot of each population, whatever its
+          status
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
   schemas:
     FeatureV1:
       type: object
@@ -81785,6 +81969,69 @@ components:
         - userIdTypes
         - steps
       additionalProperties: false
+    PopulationSnapshot:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        population:
+          type: string
+        userIdType:
+          type: string
+        asOf:
+          type: string
+          format: date-time
+        comparisonDays:
+          type: number
+        status:
+          type: string
+          enum:
+            - running
+            - success
+            - error
+        error:
+          type: string
+        result:
+          description: >-
+            Members as of `asOf`, members `comparisonDays` earlier, and the
+            units that joined or left in between. Null until the refresh
+            succeeds.
+          anyOf:
+            - type: object
+              properties:
+                membersNow:
+                  type: number
+                membersPrior:
+                  type: number
+                joined:
+                  type: number
+                left:
+                  type: number
+              required:
+                - membersNow
+                - membersPrior
+                - joined
+                - left
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - population
+        - userIdType
+        - asOf
+        - comparisonDays
+        - status
+        - error
+        - result
+      additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -85096,6 +85343,7 @@ x-tagGroups:
       - Holdouts
       - AutoRuns
       - Populations
+      - PopulationSnapshots
   - name: Models
     tags:
       - AggregatedFactTable_model
@@ -85180,6 +85428,7 @@ x-tagGroups:
       - Organization_model
       - PaginationFields_model
       - Population_model
+      - PopulationSnapshot_model
       - Project_model
       - Query_model
       - RampSchedule_model

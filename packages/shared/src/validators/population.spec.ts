@@ -4,6 +4,10 @@ import {
   apiPopulationValidator,
   apiUpdatePopulationBody,
 } from "./population";
+import {
+  cancelPopulationRefreshEndpoint,
+  refreshPopulationEndpoint,
+} from "./population-snapshot";
 
 /** REST API surface for Populations under `/api/v1/populations/*`. */
 export const populationApiSpec = {
@@ -17,6 +21,7 @@ export const populationApiSpec = {
   },
   includeDefaultCrud: false,
   crudActions: ["list", "get", "create", "update", "delete"],
+  customEndpoints: [refreshPopulationEndpoint, cancelPopulationRefreshEndpoint],
   navDisplayName: "Populations",
   navDescription:
     "Populations define a set of units by the steps they must complete, such as appearing in a fact table.",

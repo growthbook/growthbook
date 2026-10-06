@@ -94,6 +94,8 @@ export type QueryType =
   | "impactEstimate"
   // Query used by the product analytics tool
   | "productAnalyticsExploration"
+  // Population membership counts
+  | "population"
 
   // ---
   // Non-persisted / utility queries (for cost attribution tracking)

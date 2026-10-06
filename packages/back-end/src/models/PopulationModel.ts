@@ -3,10 +3,12 @@ import {
   ApiPopulation,
   apiCreatePopulationBody,
   apiUpdatePopulationBody,
+  cancelPopulationRefreshEndpoint,
   PopulationInterface,
   PopulationStep,
   populationApiSpec,
   populationValidator,
+  refreshPopulationEndpoint,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
@@ -16,6 +18,12 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
 import { resolveOwnerForCreate } from "back-end/src/services/owner";
+import {
+  cancelPopulationRefresh,
+  refreshPopulation,
+} from "back-end/src/services/populations";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { toApiPopulationSnapshot } from "./PopulationSnapshotModel";
 import { MakeModelClass } from "./BaseModel";
 
 function withStepDefaults(
@@ -49,6 +57,45 @@ const BaseClass = MakeModelClass({
   apiConfig: {
     modelKey: "populations",
     openApiSpec: populationApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...refreshPopulationEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<
+          z.infer<typeof refreshPopulationEndpoint.zodReturnObject>
+        > => {
+          const population: PopulationInterface | null =
+            await req.context.models.populations.getById(req.params.id);
+          if (!population) {
+            return req.context.throwNotFoundError(
+              `Population ${req.params.id} not found`,
+            );
+          }
+          const snapshot = await refreshPopulation(req.context, population);
+          return { populationSnapshot: toApiPopulationSnapshot(snapshot) };
+        },
+      }),
+      defineCustomApiHandler({
+        ...cancelPopulationRefreshEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<
+          z.infer<typeof cancelPopulationRefreshEndpoint.zodReturnObject>
+        > => {
+          const population: PopulationInterface | null =
+            await req.context.models.populations.getById(req.params.id);
+          if (!population) {
+            return req.context.throwNotFoundError(
+              `Population ${req.params.id} not found`,
+            );
+          }
+          return {
+            canceled: await cancelPopulationRefresh(req.context, population),
+          };
+        },
+      }),
+    ],
   },
 });
 
@@ -68,6 +115,10 @@ export class PopulationModel extends BaseClass {
   }
   protected canDelete(doc: PopulationInterface): boolean {
     return this.context.permissions.canDeleteSegment(doc);
+  }
+
+  protected async afterDelete(doc: PopulationInterface): Promise<void> {
+    await this.context.models.populationSnapshots.deleteForPopulation(doc.id);
   }
 
   protected async customValidation(doc: PopulationInterface): Promise<void> {

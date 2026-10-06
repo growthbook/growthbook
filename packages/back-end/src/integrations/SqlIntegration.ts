@@ -116,7 +116,8 @@ import {
   FactMetricInterface,
   MetricQuantileSettings,
 } from "shared/types/fact-table";
-import { ExplorationConfig } from "shared/validators";
+import { ExplorationConfig, PopulationStep } from "shared/validators";
+import { buildPopulationSql } from "shared/populations";
 import {
   AdditionalQueryMetadata,
   QueryType,
@@ -3399,6 +3400,57 @@ export default abstract class SqlIntegration
   }
 
   async runProductAnalyticsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ) {
+    return this.runQuery(query, setExternalId, queryMetadata);
+  }
+
+  getPopulationQuery({
+    steps,
+    userIdType,
+    factTableMap,
+    asOf,
+    comparisonDays,
+  }: {
+    steps: PopulationStep[];
+    userIdType: string;
+    factTableMap: FactTableMap;
+    asOf: Date;
+    comparisonDays: number;
+  }): string {
+    const dialect = this.getSqlDialect();
+    // Membership can depend on any row up to `asOf`, so templates get the
+    // full history rather than a recent window.
+    const compiledFactTableMap: FactTableMap = new Map(
+      Array.from(factTableMap.entries()).map(([id, ft]) => [
+        id,
+        {
+          ...ft,
+          sql: compileSqlTemplate(
+            ft.sql,
+            {
+              startDate: new Date(0),
+              endDate: asOf,
+              templateVariables: getFactTableTemplateVariables(ft),
+            },
+            dialect,
+          ),
+        },
+      ]),
+    );
+    return buildPopulationSql({
+      steps,
+      userIdType,
+      factTableMap: compiledFactTableMap,
+      dialect,
+      asOf,
+      comparisonDays,
+    });
+  }
+
+  async runPopulationQuery(
     query: string,
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
