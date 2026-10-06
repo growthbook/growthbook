@@ -4,3 +4,4 @@ Dockerfile
 pnpm-workspace.yaml
 ecosystem.config.js
 scripts/run-apps.js
+bin/yarn

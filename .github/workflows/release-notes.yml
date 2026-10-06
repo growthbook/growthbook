@@ -30,8 +30,11 @@ jobs:
           fi
 
           prev=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^")
-          mapfile -t paths < .github/build-change-paths.txt
-          prs=$(git log "$prev..$TAG" --format=%s -- "${paths[@]}" | grep -oE '\(#[0-9]+\)$' | tr -d '(#)')
+          prs=""
+          for sha in $(git rev-list --no-merges "$prev..$TAG"); do
+            [ -n "$(.github/scripts/build-changes.sh "$sha^" "$sha")" ] || continue
+            prs+=" $(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/pulls" --jq '.[0].number // empty')"
+          done
 
           notes=""
           for pr in $prs; do

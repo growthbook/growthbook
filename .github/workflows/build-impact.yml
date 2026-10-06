@@ -11,17 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
-          sparse-checkout: .github
+          # The merge commit and its first parent, the base branch
+          fetch-depth: 2
 
       - name: Require a self-hosted build impact note
         env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
           BODY: ${{ github.event.pull_request.body }}
           NO_IMPACT: ${{ contains(github.event.pull_request.labels.*.name, 'no-build-impact') }}
         run: |
@@ -29,8 +27,7 @@ jobs:
             echo "Labeled no-build-impact."
             exit 0
           fi
-          touched=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename' \
-            | grep -Fx -f .github/build-change-paths.txt || true)
+          touched=$(.github/scripts/build-changes.sh HEAD^1 HEAD)
           if [ -z "$touched" ]; then
             echo "No build files changed."
             exit 0
