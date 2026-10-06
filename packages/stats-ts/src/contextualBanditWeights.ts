@@ -929,8 +929,8 @@ function buildTree(
 
   const sseTrajectory: number[][] = [totalSsePerVariation()];
   const splits: ContextualTreeSplit[] = [];
-  // BIC statistic per accepted split, accumulated as the tree grows (the root
-  // has no split, so this stays one shorter than `sseTrajectory`).
+  // BIC statistic for the best candidate split evaluated at each stage,
+  // recorded whether or not the split is accepted.
   const bicTrajectory: ContextualBicTrajectoryEntry[] = [];
 
   // Base BIC complexity penalty K*ln(N), where K is the number of eligible
@@ -999,6 +999,16 @@ function buildTree(
       eligibleTotalSampleSizes,
       penalty,
     );
+
+    bicTrajectory.push({
+      numSplits: sseTrajectory.length,
+      logLikelihoodRatio,
+      penalty,
+      deltaBic,
+      numCandidates: numCandidatesSearched,
+      multiplicityPenalty,
+    });
+
     if (deltaBic >= 0) {
       break;
     }
@@ -1054,16 +1064,6 @@ function buildTree(
       }
     }
     sseTrajectory.push(afterPerVariation);
-    // Record the BIC for the split we just applied. `numSplits` is the resulting
-    // stage index (the newly pushed `sseTrajectory` entry).
-    bicTrajectory.push({
-      numSplits: sseTrajectory.length - 1,
-      logLikelihoodRatio,
-      penalty,
-      deltaBic,
-      numCandidates: numCandidatesSearched,
-      multiplicityPenalty,
-    });
 
     // Only the split leaf and its new child changed; re-evaluate just those two
     // next iteration and reuse every other leaf's cached best split.

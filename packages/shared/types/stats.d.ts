@@ -256,7 +256,9 @@ export type ContextualSseTrajectoryEntry = {
  * from the per-(split, variation) SSE trajectory.
  */
 export type ContextualBicTrajectoryEntry = {
-  /** Number of splits after applying this split (>= 1). */
+  /**
+   * Resulting number of splits this candidate would produce if applied (>= 1).
+   */
   numSplits: number;
   logLikelihoodRatio: number;
   /** Full gate penalty: base BIC `K*ln(N)` plus the EBIC multiplicity term. */
