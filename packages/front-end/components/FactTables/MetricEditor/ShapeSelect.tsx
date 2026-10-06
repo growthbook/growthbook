@@ -3,9 +3,9 @@ import { Select, SelectItem } from "@/ui/Select";
 import { availableShapes, RatioShape } from "./metricFormTranslation";
 
 export const SHAPE_LABELS: Record<RatioShape, string> = {
-  count: "Row count",
-  sum: "Column sum",
-  max: "Column max",
+  count: "Count",
+  sum: "Sum",
+  max: "Max",
   distinct: "Count distinct",
   days: "Active days",
   users: "Unique users",
