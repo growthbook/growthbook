@@ -769,11 +769,12 @@ button.thumb,
 // cards and Values row scroll sideways together (set in review). A little
 // padding so focus rings and the outline buttons at the edges aren't
 // clipped by the scroll box, offset so nothing moves; room below for the
-// scrollbar.
+// scrollbar, offset too, so the section doesn't grow when the row starts
+// scrolling (fixed in review): the scrollbar sits in the space below.
 .variationScroller {
   overflow-x: auto;
   overflow-y: hidden;
-  margin: -4px;
+  margin: -4px -4px calc(-1 * var(--space-2));
   padding: 4px 4px var(--space-2);
   overscroll-behavior-x: contain;
 }

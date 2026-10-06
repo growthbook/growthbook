@@ -265,7 +265,7 @@ function JsonValueField({
           }`}
           title={value.trim() ? preview : undefined}
         >
-          {value.trim() ? preview : "Click to edit JSON"}
+          {value.trim() ? preview : "Click to edit parameters"}
         </span>
         <span className={styles.jsonEdit}>
           <EditButton

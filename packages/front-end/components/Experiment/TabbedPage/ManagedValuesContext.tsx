@@ -25,7 +25,7 @@ export const DATA_TYPE_LABELS: Record<ManagedValueDataType, string> = {
   string: "String",
   number: "Number",
   boolean: "Boolean",
-  json: "JSON",
+  json: "Parameters",
 };
 
 export interface ManagedValuesConfig {

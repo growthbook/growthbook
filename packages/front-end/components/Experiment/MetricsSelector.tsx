@@ -610,6 +610,9 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
+      // The Setup page's chips show no tooltip or title on hover (set in
+      // review).
+      valueTitles={tagSelect !== "menu"}
       disabled={selectorDisabled}
       indicatorsStart={tagMenu}
       customClassName={tagSelect === "menu" ? styles.typeaheadField : undefined}

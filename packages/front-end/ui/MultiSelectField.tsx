@@ -80,7 +80,8 @@ const SortableMultiValueLabel = (
   const { title: showTitle, ...style } = useContext(
     MultiValueLabelStyleContext,
   );
-  const tooltip = props.data?.tooltip;
+  // valueTitles={false} turns off both the chip's tooltip and its title.
+  const tooltip = showTitle ? props.data?.tooltip : undefined;
   const innerProps =
     showTitle && !tooltip
       ? { ...props.innerProps, title: props.data?.label || "" }

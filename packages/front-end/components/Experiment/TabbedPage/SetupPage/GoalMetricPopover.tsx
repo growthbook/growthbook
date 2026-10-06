@@ -179,6 +179,7 @@ export default function GoalMetricPopover({
   asBadge?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
   const { getExperimentMetricById } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
   const metric = getExperimentMetricById(metricId);
@@ -239,19 +240,31 @@ export default function GoalMetricPopover({
           // The symbols spelled out (set in review).
           aria-label={`${name}, ${inverse ? "decrease" : "increase"}, minimum detectable effect ${mde}`}
         >
-          {asBadge ? (
-            // The MDE inside the read-only chip, as in the editable one
-            // (fixed in review; it had been drawn beside the badge).
-            <Badge
-              color="gray"
-              variant="soft"
-              className={styles.badgeChip}
-              style={{ maxWidth: "100%" }}
-              label={chipContent}
-            />
-          ) : (
-            chipContent
-          )}
+          {/* "Click to view details" after a short hover (set in review),
+            hidden while the popover is open. On the label, not the button:
+            the button is already the popover's trigger. */}
+          <Tooltip
+            content="Click to view details"
+            delayDuration={600}
+            open={tooltipOpen && !open}
+            onOpenChange={setTooltipOpen}
+          >
+            <span className={styles.tooltipAnchor}>
+              {asBadge ? (
+                // The MDE inside the read-only chip, as in the editable one
+                // (fixed in review; it had been drawn beside the badge).
+                <Badge
+                  color="gray"
+                  variant="soft"
+                  className={styles.badgeChip}
+                  style={{ maxWidth: "100%" }}
+                  label={chipContent}
+                />
+              ) : (
+                chipContent
+              )}
+            </span>
+          </Tooltip>
         </button>
       }
     />

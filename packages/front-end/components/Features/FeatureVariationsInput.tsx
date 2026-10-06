@@ -201,16 +201,10 @@ export default function FeatureVariationsInput({
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
                 {coverageLabel}{" "}
-                <Tooltip content={coverageTooltip} side="top">
-                  <Box
-                    as="span"
-                    display="inline-block"
-                    tabIndex={0}
-                    aria-label={`More information about ${coverageLabel}`}
-                  >
-                    <GBInfo />
-                  </Box>
-                </Tooltip>
+                <CoverageInfoTooltip
+                  content={coverageTooltip}
+                  label={coverageLabel}
+                />
               </label>
               <div className="row align-items-center pb-3 mx-1">
                 <div className="col pl-0">
@@ -292,16 +286,10 @@ export default function FeatureVariationsInput({
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
                 {coverageLabel}{" "}
-                <Tooltip content={coverageTooltip} side="top">
-                  <Box
-                    as="span"
-                    display="inline-block"
-                    tabIndex={0}
-                    aria-label={`More information about ${coverageLabel}`}
-                  >
-                    <GBInfo />
-                  </Box>
-                </Tooltip>
+                <CoverageInfoTooltip
+                  content={coverageTooltip}
+                  label={coverageLabel}
+                />
               </label>
               <div className="row align-items-center pb-3 mx-1">
                 <div className="col pl-0">
@@ -552,5 +540,48 @@ export default function FeatureVariationsInput({
         </>
       )}
     </div>
+  );
+}
+
+// The info icon beside the coverage label. Its tooltip opens on hover and on
+// keyboard focus, but not when a modal auto-focuses the icon on open (it's
+// often the first focusable element there).
+function CoverageInfoTooltip({
+  content,
+  label,
+}: {
+  content: string;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ignoreFocusOpen = useRef(false);
+  return (
+    <Tooltip
+      content={content}
+      side="top"
+      open={open}
+      onOpenChange={(next) => {
+        if (next && ignoreFocusOpen.current) return;
+        setOpen(next);
+      }}
+    >
+      <Box
+        as="span"
+        display="inline-block"
+        tabIndex={0}
+        aria-label={`More information about ${label}`}
+        onFocus={(e) => {
+          ignoreFocusOpen.current = !e.currentTarget.matches(":focus-visible");
+        }}
+        onBlur={() => {
+          ignoreFocusOpen.current = false;
+        }}
+        onPointerMove={() => {
+          ignoreFocusOpen.current = false;
+        }}
+      >
+        <GBInfo />
+      </Box>
+    </Tooltip>
   );
 }

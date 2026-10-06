@@ -24,6 +24,15 @@
 
 // The metric's name, then its Target MDE (set in review). The name
 // truncates so the MDE always shows.
+// The chip's label inside the trigger, the tooltip's anchor. Laid out as
+// the trigger is, so the name still truncates.
+.tooltipAnchor {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .triggerName {
   display: block;
   min-width: 0;
