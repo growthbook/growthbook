@@ -1,4 +1,5 @@
 import { createPrivateKey } from "crypto";
+import { z } from "zod";
 import {
   Column,
   Connection,
@@ -13,7 +14,7 @@ import {
 } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { FactTableColumnType } from "shared/types/fact-table";
-import { QueryMetadata } from "shared/types/query";
+import { QueryMetadata, QueryStatistics } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
@@ -151,6 +152,57 @@ function connectSnowflake(
   });
 }
 
+// Per-query stats from the undocumented endpoint behind getQueryStatus; needs no warehouse
+const snowflakeQueryMonitoringValidator = z.object({
+  data: z.object({
+    queries: z.array(
+      z.object({
+        // -1 when no warehouse ran the query (result cache or metadata only)
+        clusterNumber: z.number().nullish(),
+        stats: z.record(z.string(), z.unknown()).nullish(),
+      }),
+    ),
+  }),
+});
+
+export function snowflakeMonitoringToStatistics(
+  data: unknown,
+): QueryStatistics | undefined {
+  const parsed = snowflakeQueryMonitoringValidator.safeParse(data);
+  const query = parsed.success ? parsed.data.data.queries[0] : undefined;
+  if (!query) return undefined;
+
+  const stats = query.stats ?? {};
+  const read = (key: string) => {
+    const value = stats[key];
+    return typeof value === "number" ? value : undefined;
+  };
+  // Zero counters are omitted; only treat missing as 0 when the format is the one we verified
+  const recognized =
+    query.clusterNumber === -1 || read("xpExecTime") !== undefined;
+  const count = (key: string) => (recognized ? (read(key) ?? 0) : undefined);
+
+  return {
+    executionDurationMs: count("xpExecTime"),
+    bytesProcessed: count("scanBytes"),
+    partitionsScanned: count("scanFiles"),
+    partitionsTotal: count("scanOriginalFiles"),
+  };
+}
+
+function getSnowflakeQueryStatistics(
+  queryId: string,
+  monitoringData: unknown,
+): QueryStatistics | undefined {
+  const statistics = snowflakeMonitoringToStatistics(monitoringData);
+  if (statistics?.executionDurationMs === undefined) {
+    logger.warn(
+      `Snowflake: unrecognized monitoring response for query ${queryId}; no execution statistics recorded`,
+    );
+  }
+  return statistics;
+}
+
 function destroySnowflakeConnection(connection: Connection): Promise<void> {
   return new Promise((resolve) => {
     if (!connection.isUp()) {
@@ -236,11 +288,12 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     const res = await new Promise<{
       rows: T[];
       columns: QueryResponseColumnData[];
+      monitoringData: unknown;
     }>((resolve, reject) => {
       connection
         .getResultsFromQueryId({
           queryId,
-          complete: (err, stmt, rows) => {
+          complete: (err, stmt, rows, monitoringData) => {
             if (err) {
               reject(err);
             } else {
@@ -252,7 +305,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
                     dataType: getColumnDataType(col),
                   }))
                 : [];
-              resolve({ rows: (rows as T[]) || [], columns });
+              resolve({ rows: (rows as T[]) || [], columns, monitoringData });
             }
           },
         })
@@ -267,7 +320,9 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
       ) as T;
     });
 
-    return { rows: lowercase, columns: res.columns };
+    const statistics = getSnowflakeQueryStatistics(queryId, res.monitoringData);
+
+    return { rows: lowercase, columns: res.columns, statistics };
   } finally {
     await destroySnowflakeConnection(connection);
   }

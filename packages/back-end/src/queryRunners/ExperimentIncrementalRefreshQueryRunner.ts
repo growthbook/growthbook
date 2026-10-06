@@ -704,6 +704,7 @@ const startExperimentIncrementalRefreshQueries = async (
             queryMetadata,
           ),
         ),
+        metadata: { factTableIds: [group.factTableId] },
         queryType: "experimentIncrementalRefreshCreateMetricsSourceTable",
       });
       queries.push(createMetricsSourceQuery);
@@ -737,6 +738,7 @@ const startExperimentIncrementalRefreshQueries = async (
           setExternalId,
           queryMetadata,
         ),
+      metadata: { factTableIds: [group.factTableId] },
       queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
     });
     queries.push(insertMetricsSourceDataQuery);
@@ -787,6 +789,7 @@ const startExperimentIncrementalRefreshQueries = async (
           run: fenced((query, setExternalId, queryMetadata) =>
             integration.runDropTableQuery(query, setExternalId, queryMetadata),
           ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshDropMetricsCovariateTable",
         });
         queries.push(dropMetricCovariateTableQuery);
@@ -809,6 +812,7 @@ const startExperimentIncrementalRefreshQueries = async (
               queryMetadata,
             ),
           ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshCreateMetricsCovariateTable",
         });
         queries.push(createMetricCovariateTableQuery);
@@ -930,6 +934,7 @@ const startExperimentIncrementalRefreshQueries = async (
                 idType: covariatePath.idType,
               },
             ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType:
             "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated",
         });
@@ -944,6 +949,7 @@ const startExperimentIncrementalRefreshQueries = async (
               factTable?.aggregatedFactTableSettings?.idTypes ?? []
             ).includes(exposureUserIdType),
           }),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
         });
       }
@@ -1029,6 +1035,7 @@ const startExperimentIncrementalRefreshQueries = async (
           );
         }
       },
+      metadata: { factTableIds: [group.factTableId] },
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
     });
     queries.push(maxTimestampMetricsSourceQuery);
@@ -1103,6 +1110,7 @@ const startExperimentIncrementalRefreshQueries = async (
               setExternalId,
               queryMetadata,
             ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshStatistics",
         });
         queries.push(statisticsQuery);
@@ -1183,6 +1191,9 @@ const startExperimentIncrementalRefreshQueries = async (
           setExternalId,
           queryMetadata,
         ),
+      metadata: {
+        factTableIds: subGroup.pipelines.map((p) => p.group.factTableId),
+      },
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(multiSourceStatsQuery);

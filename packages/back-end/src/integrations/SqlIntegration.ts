@@ -123,7 +123,12 @@ import {
   RunQueryMetadata,
 } from "shared/types/query";
 import { conversionWindowToSeconds } from "shared/funnels";
-import { MissingDatasourceParamsError } from "back-end/src/util/errors";
+import {
+  getErrorMessage,
+  MissingDatasourceParamsError,
+} from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
+import { getWarehouseErrorCode } from "back-end/src/util/integration";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -281,6 +286,8 @@ function getFunnelPassthroughColumns({
   return cols;
 }
 
+const MAX_LOG_ERROR_LENGTH = 100;
+
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface, PipelineIntegration
 {
@@ -339,8 +346,69 @@ export default abstract class SqlIntegration
         userName: this.context.userName,
         ...this.additionalMetadata,
       };
-      return originalRunQuery.call(this, sql, setExternalId, metadata);
+      const startedAt = new Date();
+      let externalId: string | undefined;
+      try {
+        const response = await originalRunQuery.call(
+          this,
+          sql,
+          async (id, idMetadata) => {
+            externalId = id;
+            await setExternalId?.(id, idMetadata);
+          },
+          metadata,
+        );
+        void this.recordQueryLog(metadata, startedAt, externalId, {
+          response,
+        });
+        return response;
+      } catch (e) {
+        void this.recordQueryLog(metadata, startedAt, externalId, {
+          error: getErrorMessage(e),
+          errorCode: getWarehouseErrorCode(e),
+        });
+        throw e;
+      }
     };
+  }
+
+  // One row per warehouse query; not awaited, so it never delays or fails the query
+  private async recordQueryLog(
+    metadata: RunQueryMetadata,
+    startedAt: Date,
+    externalId: string | undefined,
+    outcome:
+      | { response: QueryResponse }
+      | { error: string; errorCode?: string },
+  ) {
+    const response = "response" in outcome ? outcome.response : undefined;
+    try {
+      await this.context.models.queryLogs.create({
+        datasource: this.datasource.id,
+        datasourceType: this.datasource.type,
+        queryType: metadata.queryType,
+        status: response ? "succeeded" : "failed",
+        startedAt,
+        durationMs: Date.now() - startedAt.getTime(),
+        externalId,
+        queryId: metadata.queryId,
+        experimentId: metadata.experimentId,
+        factTableIds: metadata.factTableIds,
+        snapshotTriggeredBy: metadata.snapshotTriggeredBy,
+        snapshotType: metadata.snapshotType,
+        userId: metadata.userId || undefined,
+        rowsReturned: response?.rows.length,
+        statistics: response?.statistics,
+        // Just enough for a short preview in the UI
+        error:
+          "error" in outcome
+            ? outcome.error.slice(0, MAX_LOG_ERROR_LENGTH)
+            : undefined,
+        errorCode: "error" in outcome ? outcome.errorCode : undefined,
+      });
+    } catch (e) {
+      logger.warn(e, `Failed to record query log for ${this.datasource.id}`);
+    }
   }
 
   setAdditionalQueryMetadata(additionalQueryMetadata: AdditionalQueryMetadata) {
@@ -1630,9 +1698,11 @@ export default abstract class SqlIntegration
 
   public async runColumnsTopValuesQuery(
     sql: string,
+    factTableId: string | null,
   ): Promise<ColumnTopValuesResponse> {
     const { rows, statistics } = await this.runQuery(sql, undefined, {
       queryType: "columnTopValues",
+      ...(factTableId && { factTableIds: [factTableId] }),
     });
 
     return {

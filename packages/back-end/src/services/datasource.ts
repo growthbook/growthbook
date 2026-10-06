@@ -24,7 +24,7 @@ import {
   FactTableColumnType,
 } from "shared/types/fact-table";
 import { FeatureInterface } from "shared/types/feature";
-import { QueryStatistics, QueryType } from "shared/types/query";
+import { QueryStatistics, QueryType, TestQueryType } from "shared/types/query";
 import {
   formatQueryExecutionErrorForApi,
   DataSourceParamsForType,
@@ -361,6 +361,7 @@ export async function testQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   query: string,
+  queryType: TestQueryType,
   templateVariables?: TemplateVariables,
   limit?: number,
   timestampColumn?: string,
@@ -397,7 +398,7 @@ export async function testQuery(
     const result = await integration.runTestQuery(
       sql,
       timestampCols,
-      "testQuery",
+      queryType,
     );
 
     return {
@@ -476,7 +477,11 @@ export async function testQueryValidity(
     "timestamp",
   );
   try {
-    const results = await integration.runTestQuery(sql, undefined, "testQuery");
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "exposureQueryValidation",
+    );
     return findMissingRequiredColumns(
       results,
       requiredColumns,
@@ -505,7 +510,11 @@ export async function testFeatureUsageQueryValidity(
     "timestamp",
   );
   try {
-    const results = await integration.runTestQuery(sql, undefined, "testQuery");
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "featureUsageQueryValidation",
+    );
     return findMissingRequiredColumns(
       results,
       requiredColumns,

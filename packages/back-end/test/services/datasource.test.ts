@@ -64,7 +64,7 @@ describe("testQueryValidity", () => {
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
-        "testQuery",
+        "exposureQueryValidation",
       );
     });
 
@@ -103,7 +103,7 @@ describe("testQueryValidity", () => {
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
-        "testQuery",
+        "exposureQueryValidation",
       );
     });
 
@@ -144,7 +144,7 @@ describe("testQueryValidity", () => {
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
-        "testQuery",
+        "exposureQueryValidation",
       );
     });
   });
@@ -356,7 +356,7 @@ describe("testQueryValidity", () => {
     expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
       "SELECT * FROM experiments",
       undefined,
-      "testQuery",
+      "exposureQueryValidation",
     );
   });
 });

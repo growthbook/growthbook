@@ -314,6 +314,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
             queryMetadata,
           ),
         ),
+        metadata: { factTableIds: [group.factTableId] },
         queryType: "experimentIncrementalRefreshStatistics",
       });
       queries.push(statisticsQuery);
@@ -383,6 +384,9 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
           queryMetadata,
         ),
       ),
+      metadata: {
+        factTableIds: subGroup.pipelines.map((p) => p.group.factTableId),
+      },
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(multiSourceStatsQuery);

@@ -1,8 +1,30 @@
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 010d4793fc069048ad384e4ed839f1331cb67d98..502bd551c0728d9f51f39655349bbef45dcb280f 100644
+index 010d4793fc069048ad384e4ed839f1331cb67d98..1ccc01d05d4393dd2e0d3a2c9283bb36110d5f83 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
-@@ -299,13 +299,18 @@ declare module 'snowflake-sdk' {
+@@ -287,9 +287,20 @@ declare module 'snowflake-sdk' {
+ 
+     /**
+      *  Gets the results from a previously ran query based on queryId.
++     *
++     * GrowthBook patch: `complete` also receives the final raw
++     * `/monitoring/queries/{queryId}` response body (undocumented shape).
+      */
+     getResultsFromQueryId(
+-      options: { queryId: string } & Partial<StatementOption>,
++      options: {
++        queryId: string;
++        complete?: (
++          err: SnowflakeError | undefined,
++          stmt: RowStatement | FileAndStageBindStatement,
++          rows: Array<any> | undefined,
++          monitoringData: unknown,
++        ) => void;
++      } & Partial<Omit<StatementOption, 'complete'>>,
+     ): Promise<RowStatement | FileAndStageBindStatement>;
+ 
+     /**
+@@ -299,13 +310,18 @@ declare module 'snowflake-sdk' {
  
      /**
       * Checks whether the given status is currently running.
@@ -23,3 +45,50 @@ index 010d4793fc069048ad384e4ed839f1331cb67d98..502bd551c0728d9f51f39655349bbef4
  
      /**
       * Returns a JSON-serialized string of the connection state (master/session
+diff --git a/dist/lib/connection/connection.js b/dist/lib/connection/connection.js
+index 47d43aa44241e28d89f874ad74d55fcffbca7622..aa61a113e317c58d94ba1a51300b75e88341c371 100644
+--- a/dist/lib/connection/connection.js
++++ b/dist/lib/connection/connection.js
+@@ -433,9 +433,10 @@ function Connection(context) {
+      *
+      * @returns {String} the query status.
+      */
+-    this.getQueryStatusThrowIfError = async function (queryId) {
++    this.getQueryStatusThrowIfError = async function (queryId, onResponse) {
+         Logger.getInstance().trace('Connection[id: %s] - getQueryStatusThrowIfError called for Query[id: %s]', this.getId(), queryId);
+         const response = await getQueryResponse(queryId); // returns response['data']
++        onResponse?.(response); // GrowthBook patch
+         const status = extractQueryStatus(response);
+         let sqlState = null;
+         if (this.isAnError(status)) {
+@@ -463,14 +464,14 @@ function Connection(context) {
+     this.getResultsFromQueryId = async function (options) {
+         const queryId = options.queryId;
+         Logger.getInstance().trace('Connection[id: %s] - getResultsFromQueryId called for Query[id: %s].', this.getId(), queryId);
+-        let status, noDataCounter = 0, retryPatternPos = 0;
++        let status, monitoringData, noDataCounter = 0, retryPatternPos = 0;
+         // Wait until query has finished executing
+         let queryStillExecuting = true;
+         while (queryStillExecuting) {
+             Logger.getInstance().trace('Connection[id: %s] - checking if Query[id: %s] is still executing. Retries with no data count: %d', this.getId(), queryId, noDataCounter);
+             // Check if query is still running.
+             // Trigger exception if it failed or there is no query data in the server.
+-            status = await this.getQueryStatusThrowIfError(queryId);
++            status = await this.getQueryStatusThrowIfError(queryId, (response) => (monitoringData = response));
+             queryStillExecuting = this.isStillRunning(status);
+             if (!queryStillExecuting || status === QueryStatus.code.NO_QUERY_DATA) {
+                 Logger.getInstance().trace('Connection[id: %s] - end of waiting for Query[id: %s] to finish executing. ' +
+@@ -506,7 +507,12 @@ function Connection(context) {
+             throw Errors.createClientError(ErrorCodes.ERR_GET_RESULTS_QUERY_ID_NOT_SUCCESS_STATUS, true, queryId, status);
+         }
+         Logger.getInstance().debug('Connection[id: %s] - Query[id: %s] succeeded. Fetching the result.', this.getId(), queryId);
+-        return this.fetchResult(options);
++        // GrowthBook patch: pass the final monitoring response (query stats) to `complete`
++        const complete = options.complete;
++        return this.fetchResult(!complete ? options : {
++            ...options,
++            complete: (err, stmt, rows) => complete(err, stmt, rows, monitoringData),
++        });
+     };
+     /**
+      * Checks whether the given status is currently running.

@@ -176,7 +176,7 @@ export async function refreshColumns(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
+    "id" | "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
   >,
   forceColumnRefresh?: boolean,
 ): Promise<RefreshColumnsResult> {

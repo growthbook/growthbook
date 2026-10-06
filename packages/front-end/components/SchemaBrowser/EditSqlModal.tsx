@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { TestQueryRow } from "shared/types/integrations";
 import { TemplateVariables } from "shared/types/sql";
+import type { TestQueryType } from "shared/types/query";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiPlayFill, PiWarningFill } from "react-icons/pi";
@@ -72,6 +73,21 @@ export interface Props {
     objectName?: string;
   };
 }
+
+// Each editor's test runs get their own query type in the query log
+const TEST_QUERY_TYPES: Record<
+  Props["sqlObjectInfo"]["objectType"],
+  TestQueryType
+> = {
+  Dimension: "dimensionTest",
+  "Fact Table": "factTableTest",
+  "Identity Join": "identityJoinTest",
+  "Experiment Assignment Query": "exposureQueryTest",
+  "Contextual Bandit Assignment Query": "contextualBanditQueryTest",
+  Metric: "metricTest",
+  Segment: "segmentTest",
+  "Feature Usage Query": "featureUsageQueryTest",
+};
 
 export default function EditSqlModal({
   value,
@@ -145,6 +161,7 @@ export default function EditSqlModal({
           timestampColumn:
             timestampColumn ??
             (requiredColumns.has("timestamp") ? "timestamp" : undefined),
+          queryType: TEST_QUERY_TYPES[modalInfo.objectType],
         }),
       });
 
@@ -166,6 +183,7 @@ export default function EditSqlModal({
       validateResponseOverride,
       apply5RowLimit,
       timestampColumn,
+      modalInfo.objectType,
       // eslint-disable-next-line
       JSON.stringify(templateVariables),
     ],
