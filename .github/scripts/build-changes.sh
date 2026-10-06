@@ -8,7 +8,7 @@ mapfile -t paths < "$(dirname "$0")/../build-change-paths.txt"
 # --no-renames so renaming a build file away still lists the old path
 git diff --no-renames --name-only "$base" "$head" -- "${paths[@]}"
 
-fields='{packageManager, engines, scripts: (.scripts // {} | with_entries(select(.key | test("^(build|start)"))))}'
+fields='{packageManager, engines, scripts: (.scripts // {} | with_entries(select(.key | test("^(build|start|(pre|post)?install|prepare)"))))}'
 if [ "$(git show "$base:package.json" | jq -cS "$fields")" != "$(git show "$head:package.json" | jq -cS "$fields")" ]; then
-  echo "package.json (packageManager, engines, or build/start scripts)"
+  echo "package.json (packageManager, engines, or build/start/install scripts)"
 fi
