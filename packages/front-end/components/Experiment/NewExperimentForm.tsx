@@ -12,6 +12,7 @@ import { OrganizationSettings } from "shared/types/organization";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
   getExposureQueryIdentifierTypes,
+  getExposureQueryProjects,
   getPreferredIdentifierType,
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
@@ -36,6 +37,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   AssignmentQueryCopySource,
   getExposureQuery,
+  getExposureQueriesForProject,
   getDefaultIdentifierTypeForQuery,
 } from "@/services/datasources";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
@@ -186,14 +188,32 @@ export function getNewExperimentDatasourceDefaults({
     initialValue?.exposureQueryId,
     initialUserIdType,
   );
+  let outOfScopeIdentifierType: string | undefined;
   if (
     exposureQuery &&
-    !isProjectListValidForProject(exposureQuery.projects, project)
+    !isProjectListValidForProject(
+      getExposureQueryProjects(exposureQuery, initialDatasource.projects),
+      project,
+    )
   ) {
+    // Prefer an in-scope query that keeps the source's identifier.
+    outOfScopeIdentifierType = resolveAnalysisIdentifierType(
+      exposureQuery,
+      initialValue?.exposureQueryIdentifierType,
+    );
+    const inScope = getExposureQueriesForProject(
+      initialDatasource.settings?.queries?.exposure ?? [],
+      project,
+      initialDatasource.projects,
+    );
     exposureQuery =
-      initialDatasource.settings?.queries?.exposure?.find((q) =>
-        isProjectListValidForProject(q.projects, project),
-      ) ?? null;
+      inScope.find((q) =>
+        getExposureQueryIdentifierTypes(q).includes(
+          outOfScopeIdentifierType ?? "",
+        ),
+      ) ??
+      inScope[0] ??
+      null;
   }
 
   const importedQuery =
@@ -232,7 +252,9 @@ export function getNewExperimentDatasourceDefaults({
         ? (sourceIdentifierType ??
           getDefaultIdentifierTypeForQuery(
             exposureQuery,
-            initialValue?.exposureQueryIdentifierType ?? initialUserIdType,
+            outOfScopeIdentifierType ??
+              initialValue?.exposureQueryIdentifierType ??
+              initialUserIdType,
           ))
         : undefined,
   };
