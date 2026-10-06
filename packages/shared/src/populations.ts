@@ -1,4 +1,6 @@
 import type { PopulationStep } from "shared/validators";
+
+export * from "./population-sql";
 import type { FactTableInterface } from "shared/types/fact-table";
 
 export type PopulationRuleFactTable = Pick<
