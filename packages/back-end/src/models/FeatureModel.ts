@@ -21,6 +21,8 @@ import {
   publishRampDetaches,
   rampTargetsDetachedBy,
   toRampAttachments,
+  toMonitoringSelection,
+  withKeptIdentifierType,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -34,6 +36,7 @@ import {
   RampStartAction,
   RampStepAction,
   resolveStartApproval,
+  RampMonitoringConfig,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -196,6 +199,7 @@ import {
   hasPublishLockingScheduledSibling,
   markRevisionAsPublished,
   computeRevisionPublishChanges,
+  liveRevisionBeforePublish,
   restoreFeatureRevisionAfterFailedBulkPublish,
   updateRevision,
   createRevision,
@@ -252,6 +256,19 @@ featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
+
+export function withKeptMonitoringIdentifier(
+  previous: RampMonitoringConfig | null | undefined,
+  next: RampMonitoringConfig,
+): RampMonitoringConfig {
+  const { identifierType } = withKeptIdentifierType(
+    previous ? toMonitoringSelection(previous) : null,
+    toMonitoringSelection(next),
+  );
+  return identifierType
+    ? { ...next, exposureQueryIdentifierType: identifierType }
+    : next;
+}
 
 export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   "Feature",
@@ -574,6 +591,48 @@ export async function getAllFeatures(
   );
 }
 
+// Only the ids of the features the caller can read, selected the same way as
+// `getAllFeatures`. Loads the permission-bearing fields and nothing else.
+export async function getAllFeatureIds(
+  context: ReqContext | ApiReqContext,
+  {
+    projects,
+    projectsAreReadAllowlist = false,
+    includeArchived = false,
+  }: {
+    projects?: string[];
+    projectsAreReadAllowlist?: boolean;
+    includeArchived?: boolean;
+  } = {},
+): Promise<string[]> {
+  const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
+  if (projects && projects.length) {
+    Object.assign(
+      q,
+      projectsAreReadAllowlist
+        ? readAllowlistClause(projects)
+        : targetingScopedProjectClause(projects),
+    );
+  }
+  if (!includeArchived) {
+    q.archived = { $ne: true };
+  }
+  const docs = await FeatureModel.find(q, {
+    id: 1,
+    project: 1,
+    targetingProjects: 1,
+    targetingAllProjects: 1,
+  }).lean<
+    Pick<
+      FeatureInterface,
+      "id" | "project" | "targetingProjects" | "targetingAllProjects"
+    >[]
+  >();
+  return docs
+    .filter((doc) => context.permissions.canReadTargetingScopedResource(doc))
+    .map((doc) => doc.id);
+}
+
 // Lightweight sibling of {@link getAllFeatures} for whole-collection scans that
 // read a feature's behavior (rules, environment settings, values, links) but
 // never its editor/authoring fields: the stale-detection/dependents graph and
@@ -589,23 +648,91 @@ export async function getAllFeatures(
 // need a complete feature.
 export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
+  options: { includeArchived?: boolean; ids?: string[] } = {},
+): Promise<FeatureInterface[]> {
+  return getAllFeaturesProjected(context, options, EDITOR_FIELDS_PROJECTION);
+}
+
+// Features for graph walks (dependents, health, staleness, saved-group and
+// move references): everything in `getAllFeaturesWithoutEditorFields` plus the
+// default value and every rule and variation value projected out, since those
+// are the bulk of a feature document and no graph computation reads them.
+export async function getAllFeaturesForGraph(
+  context: ReqContext | ApiReqContext,
+  options: { includeArchived?: boolean; ids?: string[] } = {},
+): Promise<FeatureInterface[]> {
+  return getAllFeaturesProjected(context, options, GRAPH_PROJECTION);
+}
+
+// `ids` plus every feature whose prerequisites name one of them, shaped like
+// getAllFeaturesForGraph: what a one-hop dependents question needs. Legacy
+// documents keep their rules per environment, so those are matched per org
+// environment; documents with no environment settings at all always come
+// back. The caller's own check decides.
+export async function getFeaturesWithPrerequisitesOn(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<FeatureInterface[]> {
+  if (!ids.length) return [];
+  const named = { $in: ids };
+  return getAllFeaturesProjected(
+    context,
+    {
+      includeArchived,
+      filter: {
+        $or: [
+          { id: named },
+          { "prerequisites.id": named },
+          { "rules.prerequisites.id": named },
+          ...getEnvironmentIdsFromOrg(context.org).map((env) => ({
+            [`environmentSettings.${env}.rules.prerequisites.id`]: named,
+          })),
+          { environmentSettings: { $exists: false } },
+        ],
+      },
+    },
+    GRAPH_PROJECTION,
+  );
+}
+
+const EDITOR_FIELDS_PROJECTION = {
+  description: 0,
+  jsonSchema: 0,
+  customFields: 0,
+  draft: 0,
+} as const;
+
+const GRAPH_PROJECTION = {
+  ...EDITOR_FIELDS_PROJECTION,
+  defaultValue: 0,
+  "rules.value": 0,
+  "rules.variations.value": 0,
+} as const;
+
+async function getAllFeaturesProjected(
+  context: ReqContext | ApiReqContext,
   {
     includeArchived = false,
     ids,
-  }: { includeArchived?: boolean; ids?: string[] } = {},
+    filter,
+  }: {
+    includeArchived?: boolean;
+    ids?: string[];
+    filter?: FilterQuery<FeatureDocument>;
+  },
+  projection: Record<string, 0>,
 ): Promise<FeatureInterface[]> {
   if (ids && !ids.length) return [];
   const q: FilterQuery<FeatureDocument> = {
     ...featureListQuery(context.org.id, { includeArchived }),
     ...(ids ? { id: { $in: ids } } : {}),
+    ...(filter ? { $and: [filter] } : {}),
   };
 
-  const docs = await FeatureModel.find(q, {
-    description: 0,
-    jsonSchema: 0,
-    customFields: 0,
-    draft: 0,
-  }).lean<LegacyFeatureInterface[]>();
+  const docs = await FeatureModel.find(q, projection).lean<
+    LegacyFeatureInterface[]
+  >();
 
   const features = docs.map((raw) =>
     migrateRawFeatureToV2(
@@ -1495,6 +1622,18 @@ export async function updateFeature(
     allUpdates.environmentSettings = { ...feature.environmentSettings };
   }
 
+  // The reverse case: an env-settings write without `rules` would drop rules
+  // kept per environment or inherited, so persist the read's (scrubbed) rules.
+  if (
+    allUpdates.environmentSettings !== undefined &&
+    allUpdates.rules === undefined &&
+    Array.isArray(feature.rules)
+  ) {
+    allUpdates.rules = (
+      await scrubDeadProjectScopes(context, { rules: feature.rules })
+    ).rules;
+  }
+
   const normalizedUpdates = buildFeatureUpdate(allUpdates);
 
   if (Array.isArray(normalizedUpdates.rules)) {
@@ -1825,17 +1964,23 @@ export async function removeProjectFromFeatures(
           ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
           : rule,
       );
+      // Advance the stamp so a landing that read the dead scope loses its guard.
+      const stamp = advancedGuardStamp(feature.dateUpdated);
       const written = await FeatureModel.updateOne(
         {
           organization: context.org.id,
           id: feature.id,
           dateUpdated: feature.dateUpdated,
         },
-        { $set: { rules: updatedRules } },
+        { $set: { rules: updatedRules, dateUpdated: stamp } },
       );
       if (written.matchedCount > 0) {
         scrubbed = true;
-        const updatedFeature = { ...feature, rules: updatedRules };
+        const updatedFeature = {
+          ...feature,
+          rules: updatedRules,
+          dateUpdated: stamp,
+        };
         onFeatureUpdate(context, feature, updatedFeature, project).catch(
           (e) => {
             logger.error(e, "Error refreshing SDK Payload on feature update");
@@ -2096,6 +2241,42 @@ export function computeRevisionMergeChanges(
   return { changes, hasChanges, removeHoldout };
 }
 
+// removeProjectFromFeatures only scrubs live features, so a revision staged
+// before a project deletion can still carry the dead id. Dropped from the merge
+// before anything consumes it, so the document and the record agree. Rules
+// that lose nothing are returned as is, so a repeat scrub is an identity.
+export async function scrubDeadProjectScopes(
+  context: ReqContext | ApiReqContext,
+  result: MergeResultChanges,
+): Promise<MergeResultChanges> {
+  const scopedRules = (result.rules ?? []).some((r) =>
+    Array.isArray((r as { projects?: string[] }).projects),
+  );
+  const targeting = result.metadata?.targetingProjects;
+  if (!scopedRules && !targeting) return result;
+  const valid = new Set(await context.getAllProjectIds());
+  const keep = (ids: string[]) => {
+    const kept = ids.filter((p) => valid.has(p));
+    return kept.length === ids.length ? ids : kept;
+  };
+  return {
+    ...result,
+    ...(scopedRules
+      ? {
+          rules: result.rules?.map((r) => {
+            const projects = (r as { projects?: string[] }).projects;
+            if (!Array.isArray(projects)) return r;
+            const kept = keep(projects);
+            return kept === projects ? r : { ...r, projects: kept };
+          }),
+        }
+      : {}),
+    ...(targeting
+      ? { metadata: { ...result.metadata, targetingProjects: keep(targeting) } }
+      : {}),
+  };
+}
+
 // Apply a revision merge result to the feature document.
 export async function applyRevisionChanges(
   context: ReqContext | ApiReqContext,
@@ -2115,31 +2296,8 @@ export async function applyRevisionChanges(
     context,
     feature,
     revision,
-    result,
+    await scrubDeadProjectScopes(context, result),
   );
-
-  // removeProjectFromFeatures only scrubs live features, so a revision staged
-  // before a project deletion can still carry the dead id — drop it on publish
-  // rather than restoring it into the live feature.
-  const rulesHaveProjectScope = (changes.rules ?? []).some((r) =>
-    Array.isArray((r as { projects?: string[] }).projects),
-  );
-  if (changes.targetingProjects || rulesHaveProjectScope) {
-    const validProjectIds = new Set(await context.getAllProjectIds());
-    if (changes.targetingProjects) {
-      changes.targetingProjects = changes.targetingProjects.filter((p) =>
-        validProjectIds.has(p),
-      );
-    }
-    if (rulesHaveProjectScope) {
-      changes.rules = changes.rules?.map((r) => {
-        const projects = (r as { projects?: string[] }).projects;
-        return Array.isArray(projects)
-          ? { ...r, projects: projects.filter((p) => validProjectIds.has(p)) }
-          : r;
-      });
-    }
-  }
 
   // Every branch below is a landing, so its FIRST write is guarded on the
   // pre-image `feature` — same rule as the generic entities' guarded landings:
@@ -3259,9 +3417,19 @@ async function createRampSchedulesForRevision(
           ? new Date(updateAction.cutoffDate)
           : null
         : (existingSchedule?.cutoffDate ?? null);
+    /**
+     * The action's config replaces the stored one whole. Re-sending the ramp's
+     * query without an identifier keeps the stored one, as the REST path does,
+     * so a draft saved without an identifier doesn't move the ramp to the
+     * legacy default.
+     */
     const nextMonitoringConfig =
       updateAction.monitoringConfig !== undefined
-        ? updateAction.monitoringConfig
+        ? updateAction.monitoringConfig &&
+          withKeptMonitoringIdentifier(
+            existingSchedule?.monitoringConfig,
+            updateAction.monitoringConfig,
+          )
         : existingSchedule?.monitoringConfig;
     // Resolve the post-edit approval strategy (tri-state; see resolveStartApproval).
     // When still on and unapproved, the ramp must NOT start now.
@@ -3789,9 +3957,16 @@ export async function prevalidatePublishRevision({
         revision,
         context.auditUser,
         comment,
+        {
+          result,
+          environmentIds: getApplicableEnvIds(
+            getEnvironments(context.org),
+            feature,
+          ),
+        },
       ),
     },
-    original: revision,
+    original: liveRevisionBeforePublish(revision, feature),
   });
 }
 
@@ -4054,7 +4229,7 @@ async function publishRevisionInner({
   context,
   feature,
   revision,
-  result,
+  result: proposed,
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
@@ -4063,6 +4238,11 @@ async function publishRevisionInner({
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
+  const result = await scrubDeadProjectScopes(context, proposed);
+  const environmentIds = getApplicableEnvIds(
+    getEnvironments(context.org),
+    feature,
+  );
 
   // Resolved before the landing gate and any mutation: the ramps a revert
   // detaches reach environments its rule diff may not, and a failed read must
@@ -4101,10 +4281,7 @@ async function publishRevisionInner({
         // The live feature's own rules are the baseline the merge lands on.
         filledLiveRules: feature.rules ?? [],
         result,
-        environmentIds: getApplicableEnvIds(
-          getEnvironments(context.org),
-          feature,
-        ),
+        environmentIds,
         // The draft's ramp actions reach environments no rule diff mentions.
         rampActions: [
           ...(revision.rampActions ?? []),
@@ -4402,6 +4579,7 @@ async function publishRevisionInner({
       feature,
       revision,
       context.auditUser,
+      { result, environmentIds },
       comment,
     );
     revisionStatusRewind = {

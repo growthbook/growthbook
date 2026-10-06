@@ -112,7 +112,7 @@ function TargetingForm({
     .map(toAttributeOption);
 
   // If the current hashAttribute isn't in the list, add it for backwards compatibility
-  // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was creaetd
+  // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was created
   if (
     form.watch("hashAttribute") &&
     !hashAttributeOptions.find((o) => o.value === form.watch("hashAttribute"))

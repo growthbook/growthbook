@@ -86,6 +86,16 @@ const AceEditor = dynamic(
     aceTyped.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl);
     aceTyped.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl);
 
+    // Ace leaves the rest of a line unstyled after 2,000 tokens, and a stored
+    // condition or JSON value is often one minified line of far more
+    (
+      aceTyped.require("ace/tokenizer") as {
+        Tokenizer: {
+          prototype: { $setMaxTokenCount: (count: number) => void };
+        };
+      }
+    ).Tokenizer.prototype.$setMaxTokenCount(100_000);
+
     const langTools = aceTyped.require("ace/ext/language_tools") as LangTools;
 
     // Return a wrapper component that handles completions
@@ -216,6 +226,7 @@ export type Props = CodeTextAreaFieldProps & {
   slimGutter?: boolean;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
+  onFormatShortcut?: () => void;
   wrapperClassName?: string;
   completions?: AceCompletion[];
   resizable?: boolean;
@@ -246,6 +257,7 @@ export default function CodeTextArea({
   setCursorData,
   fullHeight,
   onCtrlEnter,
+  onFormatShortcut,
   wrapperClassName,
   completions,
   resizable = false,
@@ -290,6 +302,17 @@ export default function CodeTextArea({
       },
     );
   }, [editor, onCtrlEnter]);
+
+  useEffect(() => {
+    if (!editor || !onFormatShortcut) return;
+
+    editor.commands.addCommand({
+      name: "format-shortcut",
+      bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
+      exec: onFormatShortcut,
+    });
+    return () => editor.commands.removeCommand("format-shortcut");
+  }, [editor, onFormatShortcut]);
 
   useEffect(() => {
     editor?.renderer.setScrollMargin(paddingTop, 0, 0, 0);

@@ -2,7 +2,6 @@ import { z } from "zod";
 import { Client, ClientOptions, QueryOptions } from "presto-client";
 import { format } from "shared/sql";
 import { parseIntWithDefault } from "shared/util";
-import { SqlDialect } from "shared/types/sql";
 import { prestoCreateTablePartitions } from "shared/enterprise";
 import {
   QueryResponse,
@@ -20,7 +19,6 @@ import { getQueryTagString } from "back-end/src/util/integration";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableTypeFromTrinoType } from "back-end/src/util/warehouseColumnTypes";
 import SqlIntegration from "./SqlIntegration";
-import { prestoDialect } from "./dialects/presto";
 
 // eslint-disable-next-line
 type Row = any;
@@ -59,9 +57,6 @@ export default class Presto extends SqlIntegration {
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<PrestoConnectionParams>(encryptedParams);
-  }
-  getSqlDialect(): SqlDialect {
-    return prestoDialect;
   }
   isWritingTablesSupported(): boolean {
     return true;
@@ -247,7 +242,7 @@ export default class Presto extends SqlIntegration {
   }
 
   // FIXME(incremental-refresh): Consider using 2 separate queries to create table and insert data instead of ignored cteSql
-  // NB: CREATE AS CTE does not work when inserting databecause of a bug with timestamp columns with Hive
+  // NB: CREATE AS CTE does not work when inserting data because of a bug with timestamp columns with Hive
   getExperimentUnitsTableQueryFromCte(
     unitsTableFullName: string,
     _cteSql: string,

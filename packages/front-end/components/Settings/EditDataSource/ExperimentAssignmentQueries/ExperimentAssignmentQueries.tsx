@@ -7,7 +7,10 @@ import cloneDeep from "lodash/cloneDeep";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
-import { isEventForwarderManaged } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  isEventForwarderManaged,
+} from "shared/util";
 import {
   EVENT_FORWARDER_MANAGED_TOOLTIP,
   EventForwarderManagedBadge,
@@ -28,14 +31,13 @@ type UIMode = "view" | "edit" | "add" | "dimension";
 export const ExperimentAssignmentQueries: FC<
   ExperimentAssignmentQueriesProps
 > = ({ dataSource, onSave, onCancel, canEdit = true }) => {
-  const intitialOpenIndexes: boolean[] = Array.from(
+  const initialOpenIndexes: boolean[] = Array.from(
     Array(dataSource.settings?.queries?.exposure?.length || 0),
   ).fill(true);
 
   const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [openIndexes, setOpenIndexes] =
-    useState<boolean[]>(intitialOpenIndexes);
+  const [openIndexes, setOpenIndexes] = useState<boolean[]>(initialOpenIndexes);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
@@ -176,9 +178,16 @@ export const ExperimentAssignmentQueries: FC<
                 <Flex gap="4">
                   <Box>
                     <strong className="font-weight-semibold">
-                      Identifier:{" "}
+                      Identifiers:{" "}
                     </strong>
-                    <code>{query.userIdType}</code>
+                    {getExposureQueryIdentifierTypes(query).map(
+                      (identifierType, index) => (
+                        <Fragment key={identifierType}>
+                          {index ? ", " : ""}
+                          <code>{identifierType}</code>
+                        </Fragment>
+                      ),
+                    )}
                   </Box>
                   <Box>
                     <strong className="font-weight-semibold">

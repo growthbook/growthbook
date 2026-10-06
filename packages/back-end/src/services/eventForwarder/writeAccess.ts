@@ -4,6 +4,7 @@ import {
 } from "shared/enterprise";
 import {
   BigQueryEventForwarderStoredConfig,
+  DatabricksEventForwarderStoredConfig,
   EventForwarderConfigDraft,
   EventForwarderSinkType,
   SnowflakeEventForwarderStoredConfig,
@@ -18,8 +19,11 @@ import {
   DataSourcePipelineSettings,
 } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
+  DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
+  databricksParamsSupportEventForwarder,
   EventForwarderDatasourceParams,
   getEventForwarderDatasourceParams,
 } from "shared/util";
@@ -49,6 +53,12 @@ type EventForwarderWriteAccessInput =
       datasource: DataSourceInterface;
       params: SnowflakeConnectionParams;
       config: SnowflakeEventForwarderStoredConfig;
+    }
+  | {
+      sinkType: "databricks";
+      datasource: DataSourceInterface;
+      params: DatabricksConnectionParams;
+      config: DatabricksEventForwarderStoredConfig;
     };
 
 export function getEventForwarderWriteAccessFailedResponse(
@@ -134,6 +144,13 @@ function getProbeTablePath({
         input.config.database.trim(),
         true,
       );
+    case "databricks":
+      return integration.generateTablePath(
+        tableName,
+        input.config.schema.trim(),
+        input.config.catalog.trim(),
+        true,
+      );
     default:
       throw new Error(
         "Unsupported event forwarder sink type for write access test",
@@ -151,6 +168,12 @@ function getProbeParams(
         input.config.serviceAccountKey,
       );
     case "snowflake":
+      return input.params;
+    case "databricks":
+      // Zerobus only accepts Databricks-issued OAuth credentials; fail before probing.
+      if (!databricksParamsSupportEventForwarder(input.params)) {
+        throw new Error(DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE);
+      }
       return input.params;
     default:
       throw new Error(
@@ -275,7 +298,8 @@ async function testEventForwarderWriteAccessForSink(
     datasourceParams: EventForwarderDatasourceParams;
     normalized:
       | BigQueryEventForwarderStoredConfig
-      | SnowflakeEventForwarderStoredConfig;
+      | SnowflakeEventForwarderStoredConfig
+      | DatabricksEventForwarderStoredConfig;
   },
 ): Promise<EventForwarderAccessTestResponse> {
   switch (args.sinkType) {
@@ -294,6 +318,12 @@ async function testEventForwarderWriteAccessForSink(
         config: args.normalized as SnowflakeEventForwarderStoredConfig,
       });
     case "databricks":
+      return testEventForwarderWriteAccess(context, {
+        sinkType: "databricks",
+        datasource: args.datasource,
+        params: args.datasourceParams as DatabricksConnectionParams,
+        config: args.normalized as DatabricksEventForwarderStoredConfig,
+      });
     default:
       throw new Error(
         `Unsupported event forwarder sink type for access test: ${String(args.sinkType)}`,

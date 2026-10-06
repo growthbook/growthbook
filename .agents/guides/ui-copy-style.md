@@ -33,7 +33,7 @@ The glossary:
 | Term                          | Plural               | Notes                                                                                                                                  |
 | ----------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | GrowthBook                    | —                    | The product. Never "Growthbook" or "growthbook".                                                                                       |
-| Visual Editor                 | —                    | The product feature.                                                                                                                   |
+| AI Visual Editor              | —                    | The product feature.                                                                                                                   |
 | North Star                    | North Stars          | The metric concept.                                                                                                                    |
 | Bandit                        | Bandits              |                                                                                                                                        |
 | Data Source                   | Data Sources         |                                                                                                                                        |
