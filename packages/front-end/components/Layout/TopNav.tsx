@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaBars } from "react-icons/fa";
 import {
@@ -14,7 +14,7 @@ import {
 } from "react-icons/pi";
 import Head from "next/head";
 import { Flex, Text } from "@radix-ui/themes";
-import router from "next/router";
+import router, { useRouter } from "next/router";
 import Breadcrumbs from "@/ui/Breadcrumbs";
 import {
   DropdownMenu,
@@ -55,6 +55,20 @@ const TopNav: FC<{
   showNotices?: boolean;
   showLogo?: boolean;
 }> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
+  // PROTOTYPE: on the experiment page, the bar's shadow only shows once the
+  // page has scrolled, when content passes under the bar; at the top there's
+  // no line between the bar and the page header (set in review).
+  const { pathname } = useRouter();
+  const shadowOnScrollOnly = pathname === "/experiment/[eid]";
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    if (!shadowOnScrollOnly) return;
+    const update = () => setScrolled(window.scrollY > 0);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, [shadowOnScrollOnly]);
+
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [enableCelebrations, setEnableCelebrations] =
@@ -447,7 +461,12 @@ const TopNav: FC<{
         <ChangePasswordModal close={() => setChangePasswordOpen(false)} />
       )}
       <div
-        className={`navbar ${styles.topbar} mb-2 position-fixed`}
+        className={`navbar ${styles.topbar} mb-2 position-fixed${
+          shadowOnScrollOnly && !scrolled ? ` ${styles.noShadow}` : ""
+        }`}
+        // Stable hook for page-scoped overrides (the CSS module class name is
+        // hashed). Used by the redesigned experiment Setup tab.
+        data-topbar=""
         style={{
           left: toggleLeftMenu ? undefined : 0,
         }}

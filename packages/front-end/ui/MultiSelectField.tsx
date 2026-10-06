@@ -12,6 +12,7 @@ import ReactSelect, {
   GroupBase,
   MultiValueGenericProps,
   MultiValueProps,
+  MultiValueRemoveProps,
   InputProps,
   Props,
   StylesConfig,
@@ -204,21 +205,33 @@ function IndicatorsContainerWithCopyButton(
   const selectProps = props.selectProps as unknown as {
     showCopyButton?: boolean;
     value?: Array<{ value: string; label: string }>;
+    indicatorsStart?: ReactNode;
   };
 
-  const showCopy = selectProps?.showCopyButton === true;
   const options = selectProps?.value;
+  const showCopy =
+    selectProps?.showCopyButton === true && !!options && options.length > 0;
+  const start = selectProps?.indicatorsStart;
 
-  if (!showCopy || !options || options.length === 0) {
+  if (!showCopy && !start) {
     return <components.IndicatorsContainer {...props} />;
   }
 
-  // Extract just the value strings from the option objects
-  const values = options.map((opt) => opt.value);
-
   return (
     <components.IndicatorsContainer {...props}>
-      <CopyButton value={values} />
+      {start ? (
+        // Its own controls: a press here mustn't also open the select's menu.
+        <span
+          style={{ display: "inline-flex", alignItems: "center" }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+        >
+          {start}
+        </span>
+      ) : null}
+      {showCopy ? (
+        <CopyButton value={(options ?? []).map((opt) => opt.value)} />
+      ) : null}
       {props.children}
     </components.IndicatorsContainer>
   );
@@ -233,7 +246,7 @@ function CustomClearIndicator(props: ClearIndicatorProps<ColorOption, true>) {
 }
 
 function CustomMultiValueRemove(
-  props: React.ComponentProps<typeof components.MultiValueRemove>,
+  props: MultiValueRemoveProps<SingleValue, true, GroupBase<SingleValue>>,
 ) {
   return (
     <span style={{ display: "flex", alignSelf: "stretch" }}>
@@ -241,6 +254,10 @@ function CustomMultiValueRemove(
         {...props}
         innerProps={{
           ...props.innerProps,
+          // react-select names it from the chip's rendered label, which is
+          // "[object Object]" when formatOptionLabel returns an element.
+          // The option's own label is the name.
+          "aria-label": `Remove ${props.data?.label || "option"}`,
           style: {
             alignSelf: "stretch",
             display: "flex",
@@ -257,9 +274,12 @@ function CustomMultiValueRemove(
 function CustomDropdownIndicator(
   props: DropdownIndicatorProps<SingleValue, true, GroupBase<SingleValue>>,
 ) {
+  const { dropdownIcon } = props.selectProps as unknown as {
+    dropdownIcon?: ReactNode;
+  };
   return (
     <components.DropdownIndicator {...props}>
-      <PiCaretDown size={16} />
+      {dropdownIcon ?? <PiCaretDown size={16} />}
     </components.DropdownIndicator>
   );
 }
@@ -299,6 +319,11 @@ export type MultiSelectFieldProps = Omit<
   /** Preserve the pre-design-system 36px control height. */
   legacyHeight?: boolean;
   valueTitles?: boolean;
+  // Extra controls at the start of the field's right-hand indicators (e.g. a
+  // menu button). Optional and additive.
+  indicatorsStart?: ReactNode;
+  // Replaces the dropdown chevron's icon. Optional and additive.
+  dropdownIcon?: ReactNode;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
   errorLevel?: "error" | "warning";
@@ -329,6 +354,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   size,
   legacyHeight,
   valueTitles = true,
+  indicatorsStart,
+  dropdownIcon,
   labelSize,
   labelWeight = "semibold",
   errorLevel = "error",
@@ -506,6 +533,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                   })}
                   onPaste={handlePaste}
                   showCopyButton={showCopyButton}
+                  indicatorsStart={indicatorsStart}
+                  dropdownIcon={dropdownIcon}
                   classNamePrefix="gb-multi-select"
                   helperClass={`multi-select-container gb-multi-select--${styleSize}`}
                   axis="xy"
@@ -550,7 +579,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     Input,
                     ClearIndicator: CustomClearIndicator,
                     GroupHeading,
-                    ...(showCopyButton
+                    ...(showCopyButton || indicatorsStart
                       ? {
                           IndicatorsContainer:
                             IndicatorsContainerWithCopyButton,

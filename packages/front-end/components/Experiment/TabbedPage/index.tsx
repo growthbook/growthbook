@@ -48,6 +48,7 @@ import CompareExperimentEventsModal from "@/components/Experiment/CompareExperim
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
+import SetupPage from "./SetupPage/SetupPage";
 import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
@@ -117,12 +118,34 @@ export default function TabbedPage({
   visualChangesetEnvStates,
   urlRedirectEnvStates,
 }: Props) {
-  const [tab, setTab] = useLocalStorage<ExperimentTab>(
-    `tabbedPageTab__${experiment.id}`,
-    "overview",
-  );
+  // The tab a fresh load lands on, from the experiment's status alone (set
+  // in review): Setup ("overview") for a draft, scheduled or not; Results
+  // once it's running or stopped. Never the last tab viewed: nothing is
+  // remembered, so the same link lands everyone in the same place. A tab in
+  // the URL always wins (the hash handler below applies it).
+  const defaultTab: ExperimentTab =
+    experiment.status === "running" || experiment.status === "stopped"
+      ? "results"
+      : "overview";
+  const [tab, setTab] = useState<ExperimentTab>(defaultTab);
+  // Moving to another experiment (client-side, without a remount): back to
+  // that one's default, unless its URL names a tab.
+  const loadedExperimentId = useRef(experiment.id);
+  useEffect(() => {
+    if (loadedExperimentId.current === experiment.id) return;
+    loadedExperimentId.current = experiment.id;
+    if (!window.location.hash.replace(/^#/, "")) setTab(defaultTab);
+    // Only on a change of experiment; defaultTab follows it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [experiment.id]);
   const tabRef = useRef(tab);
   tabRef.current = tab;
+  // The redesigned Setup tab's right rail, collapsed or not. Remembered in
+  // this browser, across experiments, so the choice sticks.
+  const [setupRailCollapsed, setSetupRailCollapsed] = useLocalStorage<boolean>(
+    "setupRailCollapsed",
+    false,
+  );
   const [tabPath, setTabPath] = useState(
     window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
   );
@@ -426,6 +449,36 @@ export default function TabbedPage({
   };
 
   const isHoldout = experiment.type === "holdout";
+  // The redesigned Setup tab covers standard experiments. Bandits and
+  // holdouts keep the previous layout: the design doesn't cover them.
+  const useRedesignedSetup =
+    !isHoldout && experiment.type !== "multi-armed-bandit";
+  const showRedesignedSetup =
+    useRedesignedSetup && tab === "overview" && !showDashboardView;
+  // The redesigned page's look (white background, header, tabs, page edges)
+  // holds on every tab, not just Setup (set in review).
+  const showRedesignedChrome = useRedesignedSetup && !showDashboardView;
+  // The Results, Dashboards and Health tabs' wrappers. On a redesigned
+  // experiment they take Setup's page spacing (set in review): 24px above
+  // the content, as Setup's main column has, 32px on both sides, 32px at the
+  // bottom, and no max width, so they line up with the header and tabs.
+  // Elsewhere, unchanged (pt-0 is Bootstrap's !important, so it's left off
+  // the redesigned version for the inline padding to apply).
+  const tabWrapper = (active: boolean) =>
+    !active
+      ? { className: "d-none d-print-block" }
+      : showRedesignedChrome
+        ? {
+            // redesigned-tab-cards: see the card outline rule in the style
+            // block below.
+            className:
+              "container-fluid pagecontents d-block redesigned-tab-cards",
+            style: {
+              padding: "var(--space-5) var(--space-6) var(--space-6)",
+              maxWidth: "none",
+            },
+          }
+        : { className: "container-fluid pagecontents d-block pt-0" };
 
   const showStoppedBanner =
     experiment.status === "stopped" && tab !== "dashboards";
@@ -441,6 +494,76 @@ export default function TabbedPage({
       editTargeting={editTargeting}
       envs={envs}
     >
+      {/* Page-wide overrides for the redesigned Setup tab, set in review.
+        White page background:
+        Repoints the app's page-background token rather than painting one
+        element, so everything that matches the page (the tab bar, the sticky
+        Save footer) turns white with it. --color-panel-solid is white in light
+        mode and the dark panel colour in dark mode. The tripled class beats
+        radix-config.css's `.light-theme .radix-themes` regardless of load
+        order. Mounted on every tab of a redesigned experiment, so the page
+        looks the same whichever tab is open (set in review). */}
+      {showRedesignedChrome ? (
+        <style jsx global>{`
+          .radix-themes.radix-themes.radix-themes {
+            --color-background: var(--color-panel-solid);
+          }
+          /* The tab bar's pinned top follows the sticky title row's height
+            (--experiment-tabs-top); here it eases over the same 120ms as the
+            title row rather than the bar's general 150ms, so the two move
+            together. Instant for reduced motion. */
+          /* !important: global.scss's "transition: 150ms all" on the tab
+            bar is more specific, and at 150ms the bar lagged the 120ms
+            title row, opening a gap between them (fixed in review). */
+          .experiment-tabs.experiment-tabs {
+            transition: top 120ms ease !important;
+          }
+          /* No shadow under the top nav on this tab, even once scrolled: the
+            sticky title row sits right under it, so the shadow only showed
+            as a line above the row (set in review). */
+          [data-topbar][data-topbar] {
+            box-shadow: none !important;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .experiment-tabs.experiment-tabs {
+              transition: none !important;
+            }
+          }
+          /* Select menus (@/ui/Select) and the metric pickers' and other
+            react-select menus take @/ui/Toast's softer shadow on this tab,
+            in place of Radix's --shadow-5 and react-select's own (set in
+            review). They open outside the page, so this is here, where it
+            applies only while the Setup tab shows. */
+          .rt-SelectContent.rt-SelectContent,
+          .gb-multi-select__menu.gb-multi-select__menu,
+          .gb-select__menu.gb-select__menu {
+            box-shadow:
+              0 1px 2px var(--black-a2),
+              0 4px 8px -2px var(--black-a3) !important;
+          }
+          /* The Results, Dashboards and Health tabs' cards (.appbox, and
+            .box, its older twin that e.g. the Traffic card uses; nested ones
+            too) take the Setup page's card outline, --gray-a5, instead
+            of .appbox's --slate-a3 (set in review). Scoped to those tabs'
+            wrappers on a redesigned experiment; .appbox itself is
+            unchanged everywhere else. Doubled class to outrank .appbox's
+            nested rule. A dashboard block being edited or focused keeps
+            its violet outline (.border-violet). */
+          .redesigned-tab-cards.redesigned-tab-cards
+            .appbox:not(.border-violet),
+          .redesigned-tab-cards.redesigned-tab-cards .box {
+            border-color: var(--gray-a5);
+          }
+          /* Breadcrumb lines up with the page's 32px left edge. Above 520px
+            only: below that the top bar drops to 8px for small screens, and
+            that's left alone. */
+          @media (min-width: 521px) {
+            [data-topbar][data-topbar] {
+              padding-left: var(--space-6);
+            }
+          }
+        `}</style>
+      ) : null}
       {compareModal && (
         <CompareExperimentEventsModal
           experiment={experiment}
@@ -513,6 +636,8 @@ export default function TabbedPage({
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
 
       <ExperimentHeader
+        setupRailCollapsed={setupRailCollapsed}
+        setSetupRailCollapsed={setSetupRailCollapsed}
         experiment={experiment}
         holdout={holdout}
         envs={envs}
@@ -544,6 +669,43 @@ export default function TabbedPage({
           "container-fluid pagecontents",
           showDashboardView && "pt-0",
         )}
+        // The redesigned Setup tab uses the design's page padding instead of
+        // the shared 15px from `.main > .container-fluid` in global.scss:
+        // 32px left, on the Radix scale. No top padding, so the rail meets the
+        // tab divider (the main column supplies its own 24px top gap). No right
+        // padding and no max width, so the rail sits flush with the page's
+        // right edge; the main column keeps its own 32px before the rail. The
+        // header matches (see setupLayout in ExperimentHeader.tsx). Other tabs
+        // are unchanged.
+        //
+        // The other tabs of a redesigned experiment take the same 32px left
+        // edge, and 32px on the right too (they have no rail), with no max
+        // width, so their content lines up with the header and tabs above
+        // (set in review).
+        style={
+          showRedesignedSetup
+            ? {
+                paddingTop: 0,
+                paddingLeft: "var(--space-6)",
+                paddingRight: 0,
+                // No bottom padding either, so the rail runs to the bottom
+                // of the page.
+                paddingBottom: 0,
+                maxWidth: "none",
+              }
+            : showRedesignedChrome
+              ? {
+                  // Only banners on these tabs, and usually none: no
+                  // vertical padding, so it adds no space of its own. The
+                  // tab's own wrapper below supplies the 24px top gap.
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                  paddingLeft: "var(--space-6)",
+                  paddingRight: "var(--space-6)",
+                  maxWidth: "none",
+                }
+              : undefined
+        }
       >
         {experiment.type !== "holdout" &&
           tab !== "dashboards" &&
@@ -590,42 +752,69 @@ export default function TabbedPage({
         )}
         <div
           className={clsx(
-            "pt-3",
+            // The page padding already supplies the top gap on the
+            // redesigned tab.
+            !useRedesignedSetup && "pt-3",
             tab === "overview" && !showDashboardView
               ? "d-block"
               : "d-none d-print-block",
           )}
         >
-          <SetupTabOverview
-            experiment={experiment}
-            holdout={holdout}
-            holdoutExperiments={holdoutExperiments}
-            mutate={mutate}
-            disableEditing={viewingOldPhase}
-            editSchedule={editSchedule}
-          />
-          <Implementation
-            experiment={experiment}
-            holdout={holdout}
-            holdoutFeatures={holdoutFeatures}
-            holdoutExperiments={holdoutExperiments}
-            mutate={mutate}
-            editVariations={editVariations}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            editTargeting={editTargeting}
-            editTraffic={editTraffic}
-            addVariation={addVariation}
-            editNamespace={editNamespace}
-            linkedFeatures={linkedFeatures}
-            envs={envs}
-            visualChangesetEnvStates={visualChangesetEnvStates}
-            urlRedirectEnvStates={urlRedirectEnvStates}
-          />
-          {experiment.status !== "draft" && (
+          {useRedesignedSetup ? (
+            <SetupPage
+              railCollapsed={setupRailCollapsed}
+              experiment={experiment}
+              mutate={mutate}
+              disableEditing={viewingOldPhase}
+              visualChangesets={visualChangesets}
+              urlRedirects={urlRedirects}
+              linkedFeatures={linkedFeatures}
+              envs={envs}
+              visualChangesetEnvStates={visualChangesetEnvStates}
+              urlRedirectEnvStates={urlRedirectEnvStates}
+              editTargeting={editTargeting}
+              editTraffic={editTraffic}
+              addVariation={addVariation}
+              editNamespace={editNamespace}
+              editVariations={editVariations}
+              setFeatureModal={setFeatureModal}
+              setVisualEditorModal={setVisualEditorModal}
+              setUrlRedirectModal={setUrlRedirectModal}
+            />
+          ) : (
+            <>
+              <SetupTabOverview
+                experiment={experiment}
+                holdout={holdout}
+                holdoutExperiments={holdoutExperiments}
+                mutate={mutate}
+                disableEditing={viewingOldPhase}
+                editSchedule={editSchedule}
+              />
+              <Implementation
+                experiment={experiment}
+                holdout={holdout}
+                holdoutFeatures={holdoutFeatures}
+                holdoutExperiments={holdoutExperiments}
+                mutate={mutate}
+                editVariations={editVariations}
+                setFeatureModal={setFeatureModal}
+                setVisualEditorModal={setVisualEditorModal}
+                setUrlRedirectModal={setUrlRedirectModal}
+                visualChangesets={visualChangesets}
+                urlRedirects={urlRedirects}
+                editTargeting={editTargeting}
+                editTraffic={editTraffic}
+                addVariation={addVariation}
+                editNamespace={editNamespace}
+                linkedFeatures={linkedFeatures}
+                envs={envs}
+                visualChangesetEnvStates={visualChangesetEnvStates}
+                urlRedirectEnvStates={urlRedirectEnvStates}
+              />
+            </>
+          )}
+          {experiment.status !== "draft" && !useRedesignedSetup && (
             <div className="mt-3 mb-2 text-center d-print-none">
               <Button
                 onClick={() => setTabAndScroll("results")}
@@ -655,14 +844,12 @@ export default function TabbedPage({
         ) : null}
       </div>
       <div
-        className={
-          // todo: standardize explore & results tabs across experiment types
+        // todo: standardize explore & results tabs across experiment types
+        {...tabWrapper(
           ((!isBandit && tab === "results") ||
             (isBandit && tab === "explore")) &&
-          !showDashboardView
-            ? "container-fluid pagecontents d-block pt-0"
-            : "d-none d-print-block"
-        }
+            !showDashboardView,
+        )}
       >
         {showMetricGroupPromo() ? (
           <PremiumCallout
@@ -706,13 +893,7 @@ export default function TabbedPage({
           setSortDirection={setSortDirection}
         />
       </div>
-      <div
-        className={
-          tab === "dashboards" && !showDashboardView
-            ? "container-fluid pagecontents d-block pt-0"
-            : "d-none d-print-block"
-        }
-      >
+      <div {...tabWrapper(tab === "dashboards" && !showDashboardView)}>
         <DashboardsTab
           experiment={experiment}
           initialDashboardId={tabPath}
@@ -721,13 +902,7 @@ export default function TabbedPage({
           updateTabPath={persistTabPath}
         />
       </div>
-      <div
-        className={
-          tab === "health" && !showDashboardView
-            ? "container-fluid pagecontents d-block pt-0"
-            : "d-none d-print-block"
-        }
-      >
+      <div {...tabWrapper(tab === "health" && !showDashboardView)}>
         <HealthTab
           experiment={experiment}
           onHealthNotify={handleIncrementHealthNotifications}
@@ -743,19 +918,27 @@ export default function TabbedPage({
         />
       </div>
 
-      {tab !== "dashboards" && !showDashboardView && (
-        <div className="mt-4 px-4 border-top pb-3">
-          <div className="pt-2 pt-4 pb-5 container pagecontents">
-            <div className="h3 mb-4">Comments</div>
-            <DiscussionThread
-              type="experiment"
-              id={experiment.id}
-              allowNewComments={!experiment.archived}
-              projects={experiment.project ? [experiment.project] : []}
-            />
+      {/* Not on the redesigned page's Setup, Results or Health tabs (the
+        last two set in review): comments live in the Setup tab's right
+        rail. */}
+      {tab !== "dashboards" &&
+        !showDashboardView &&
+        !(
+          useRedesignedSetup &&
+          (tab === "overview" || tab === "results" || tab === "health")
+        ) && (
+          <div className="mt-4 px-4 border-top pb-3">
+            <div className="pt-2 pt-4 pb-5 container pagecontents">
+              <div className="h3 mb-4">Comments</div>
+              <DiscussionThread
+                type="experiment"
+                id={experiment.id}
+                allowNewComments={!experiment.archived}
+                projects={experiment.project ? [experiment.project] : []}
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </PreLaunchChecklistProvider>
   );
 }

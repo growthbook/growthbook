@@ -26,6 +26,11 @@ $sidebarwidth: 240px;
     }
   }
 }
+// No shadow while the page is at the top (see TopNav.tsx).
+.topbar.noShadow {
+  box-shadow: none;
+}
+
 .topbarlite {
   display: flex;
   justify-content: space-between;

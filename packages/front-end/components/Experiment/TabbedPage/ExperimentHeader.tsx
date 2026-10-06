@@ -12,12 +12,20 @@ import {
   experimentHasLiveLinkedChanges,
   getHoldoutStage,
 } from "shared/util";
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCheck, PiEye, PiLink, PiPencilSimpleFill } from "react-icons/pi";
+import {
+  PiCalendarDotsFill,
+  PiClockFill,
+  PiCaretDown,
+  PiCheck,
+  PiEye,
+  PiLink,
+  PiPencilSimpleFill,
+} from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
@@ -53,6 +61,8 @@ import { convertExperimentToTemplate } from "@/services/experiments";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import { Popover } from "@/ui/Popover";
+import UiTooltip from "@/ui/Tooltip";
 import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -76,8 +86,16 @@ import EditExperimentInfoModal, {
   FocusSelector,
 } from "./EditExperimentInfoModal";
 import ExperimentActionButtons from "./ExperimentActionButtons";
+import EditNameModal from "./SetupPage/EditNameModal";
+import { getSetupToDos, ToDoGroup } from "./SetupPage/ToDoPanel";
+import {
+  useExperimentTypeOptional,
+  useManagedValuesConfigOptional,
+} from "./ManagedValuesContext";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import EditHoldoutInfoModal from "./EditHoldoutInfoModal";
+import headerStyles from "./ExperimentHeader.module.scss";
+import setupFunnelStyles from "./SetupPage/SetupFunnel.module.scss";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -104,6 +122,10 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
+  // The redesigned Setup tab's right rail. The toggle only shows on that
+  // tab.
+  setupRailCollapsed?: boolean;
+  setSetupRailCollapsed?: (collapsed: boolean) => void;
   editSchedule?: (() => void) | null;
 }
 
@@ -135,8 +157,62 @@ const DisabledHealthTabTooltip = ({
   );
 };
 
-// NB: Keep in sync with .experiment-tabs top property in global.scss
+// The right-rail toggle's icon, from the design: a panel outline with a
+// divider near its right edge. While the rail is open, the right-hand section
+// is filled (the panel is showing); collapsed, it's just the outline (set in
+// review). A local SVG: Phosphor has no right-side panel icon.
+function RailToggleIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="1.6" y="2.4" width="12.8" height="11.2" rx="1.6" />
+      <path d="M10.2 2.4v11.2" />
+      {collapsed ? null : (
+        <path
+          d="M10.2 2.4h2.6a1.6 1.6 0 0 1 1.6 1.6v8a1.6 1.6 0 0 1-1.6 1.6h-2.6z"
+          fill="currentColor"
+          stroke="none"
+        />
+      )}
+    </svg>
+  );
+}
+
+// NB: Keep in sync with .experiment-tabs top property in global.scss (its
+// fallback when --experiment-tabs-top isn't set)
 const TABS_HEADER_HEIGHT_PX = 55;
+
+// The redesigned page's title row is sticky (set in review), at one fixed
+// height: 24px under the top nav and the 40px row, with no space below it.
+// The tab bar tucks 2px up under it, so the tab labels sit about 12px below
+// the header's buttons. A compact state was tried in review and dropped:
+// nothing in it ended up different. The row sets --experiment-tabs-top (the
+// top nav's 56px plus this height, less the tuck), which the tab bar's
+// sticky top, the page's scroll-padding-top and the Setup rail read.
+const TITLE_HEIGHT_PX = 64;
+// Where the title row pins: right under the 56px top nav, which is exactly
+// where it sits before any scroll (the page starts 56px down), so sticking
+// doesn't move it. (The tab bar elsewhere pins at 55px, 1px under the nav,
+// which made the row jump up 1px as scrolling began; fixed in review.)
+const TOP_NAV_PX = 56;
+// The tab bar tucks this far up under the title row (which is layered above
+// it, and covers only the bar's empty top edge).
+const TABS_TUCK_PX = 2;
+
+const SETUP_LAYOUT_STYLE = {
+  paddingLeft: "var(--space-6)",
+  paddingRight: "var(--space-6)",
+  maxWidth: "none",
+} as const;
 
 type ShareLevel = "public" | "organization";
 const SAVE_SETTING_TIMEOUT_MS = 3000;
@@ -165,6 +241,8 @@ export default function ExperimentHeader({
   urlRedirects,
   holdout,
   showDashboardView,
+  setupRailCollapsed = false,
+  setSetupRailCollapsed,
   editSchedule,
 }: Props) {
   const { apiCall } = useAuth();
@@ -277,6 +355,116 @@ export default function ExperimentHeader({
   const holdoutStage = holdout
     ? getHoldoutStage(holdout, experiment)
     : undefined;
+  // The redesigned page's layout: 32px sides and no max width, so the header
+  // lines up with the page content below it, plus the sticky title row and
+  // the restyled tabs. On EVERY tab of a redesigned experiment, not just
+  // Setup, so the page doesn't change around you as you switch tabs (set in
+  // review). See the matching container style in index.tsx. Only the parts
+  // about the Setup tab's right rail check onSetupTab.
+  const setupLayout = !isBandit && !isHoldout && !showDashboardView;
+  const onSetupTab = setupLayout && tab === "overview";
+
+  // --- Sticky title row (redesigned page) ---------------------------------
+  //
+  // Where the tab bar pins: under the top nav, plus the sticky title row
+  // when there is one.
+  const tabsTop = setupLayout
+    ? TOP_NAV_PX + TITLE_HEIGHT_PX - TABS_TUCK_PX
+    : TABS_HEADER_HEIGHT_PX;
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!setupLayout) return;
+    root.style.setProperty("--experiment-tabs-top", `${tabsTop}px`);
+    // Scrolling to something (a To Do jump, a hash) stops below the title
+    // row and the 40px tab bar rather than under them.
+    root.style.scrollPaddingTop = "calc(var(--experiment-tabs-top) + 40px)";
+    return () => {
+      root.style.removeProperty("--experiment-tabs-top");
+      root.style.scrollPaddingTop = "";
+    };
+  }, [setupLayout, tabsTop]);
+
+  // --- Start gate for the redesigned page (prototype) ----------------------
+  //
+  // For standard experiments, the ONLY thing that blocks Start is having no
+  // saved delivery for the experiment's type: no saved variation values for
+  // Values, or no linked changes of the current type for the other three.
+  // The pre-launch checklist still sets the button's styling (soft until
+  // complete) but doesn't disable it (set in review).
+  //
+  // Optional hooks: this header also renders on bandit and holdout pages,
+  // which mount no delivery-type provider.
+  const deliveryType = useExperimentTypeOptional();
+  const managedValues = useManagedValuesConfigOptional();
+  const useDeliveryStartGate =
+    !isBandit && !isHoldout && deliveryType !== undefined;
+  // The rail's To Do list, built by the same function the rail uses so the
+  // two can't disagree. Its open count sets the Start button's styling on
+  // the redesigned page.
+  const setupToDos =
+    useDeliveryStartGate && deliveryType !== undefined
+      ? getSetupToDos({
+          experiment,
+          deliveryType,
+          hasSavedValues: Object.values(
+            managedValues?.valuesByVariationId ?? {},
+          ).some((v) => v !== ""),
+          linkedFeatures,
+          visualChangesetCount: visualChangesets.length,
+          urlRedirectCount: urlRedirects.length,
+          hasDataSource: !!dataSource?.settings?.queries?.exposure?.some(
+            (e) => e.id === experiment.exposureQueryId,
+          ),
+        })
+      : null;
+  const setupToDosDone = !!setupToDos && setupToDos.openCount === 0;
+
+  // What's missing, in the design's popover shape: a title for the item and
+  // where on the page it's fixed.
+  const hasSavedValues = Object.values(
+    managedValues?.valuesByVariationId ?? {},
+  ).some((v) => v !== "");
+  const linkedCountForType =
+    deliveryType === "feature-flag"
+      ? linkedFeatures.length
+      : deliveryType === "visual-editor"
+        ? visualChangesets.length
+        : urlRedirects.length;
+  const deliveryStartBlocker: { title: string; location: string } | null =
+    !useDeliveryStartGate
+      ? null
+      : deliveryType === "values"
+        ? hasSavedValues
+          ? null
+          : {
+              title: "Set Variation Values",
+              location: "Implementation · Values",
+            }
+        : linkedCountForType > 0
+          ? null
+          : deliveryType === "feature-flag"
+            ? {
+                title: "Link a Feature Flag",
+                location: "Implementation · Feature Flags",
+              }
+            : deliveryType === "visual-editor"
+              ? {
+                  title: "Add Visual Editor Changes",
+                  location: "Implementation · Visual Editor Changes",
+                }
+              : {
+                  title: "Add a URL Redirect",
+                  location: "Implementation · URL Redirects",
+                };
+  // Unselected tabs at regular weight (400) on the Setup tab, set in review.
+  // The app's override makes every tab medium; the selected tab's label sets
+  // its own medium weight, so only unselected ones change.
+  const tabWeight = (value: ExperimentTab): CSSProperties | undefined =>
+    setupLayout && tab !== value
+      ? // "normal" is 400, the same as --font-weight-regular; React's style
+        // type doesn't accept a var() for fontWeight.
+        { fontWeight: "normal" }
+      : undefined;
 
   const hasResults = !!analysis?.results?.[0];
 
@@ -288,9 +476,15 @@ export default function ExperimentHeader({
   );
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
+  // An unstarted draft has nothing to show outside Setup.
+  const lockedToSetup =
+    experiment.status === "draft" && !hasResults && phases.length === 1;
+  // The redesigned page keeps the tab row for such a draft, with every tab
+  // but Setup disabled, so the page's structure is visible before launch.
+  // Bandits and holdouts keep the previous behaviour of hiding the row.
+  const disableNonSetupTabs = lockedToSetup && !isBandit && !isHoldout;
   const shouldHideTabs =
-    (experiment.status === "draft" && !hasResults && phases.length === 1) ||
-    showDashboardView;
+    (lockedToSetup && !disableNonSetupTabs) || showDashboardView;
 
   useEffect(() => {
     if (shouldHideTabs) return;
@@ -303,22 +497,22 @@ export default function ExperimentHeader({
       },
       {
         root: null,
-        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
+        rootMargin: `-${tabsTop}px 0px 0px 0px`,
         threshold: 0,
       },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [shouldHideTabs]);
+  }, [shouldHideTabs, tabsTop]);
 
   // When the tab strip is hidden (e.g. an unstarted draft), the only
   // reachable view is the overview, so force the active tab there. Once `tab`
   // is already "overview" this is a no-op, so Back exits cleanly.
   useEffect(() => {
-    if (shouldHideTabs && tab !== "overview") {
+    if ((shouldHideTabs || disableNonSetupTabs) && tab !== "overview") {
       setTab("overview");
     }
-  }, [shouldHideTabs, tab, setTab]);
+  }, [shouldHideTabs, disableNonSetupTabs, tab, setTab]);
 
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
@@ -379,7 +573,9 @@ export default function ExperimentHeader({
       hasDatasource: !!dataSource,
       hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
     });
-    setTab("results");
+    // No jump to Results after starting (set in review): the page stays on
+    // the tab it's on and re-renders into its running state. The status
+    // based default (Results once running) only applies on a fresh load.
   }
 
   async function approveScheduledExperimentStart() {
@@ -486,15 +682,6 @@ export default function ExperimentHeader({
       : null;
   const checklistReady = checklistItemsRemaining === 0;
 
-  const runningExperimentDecisionBanner =
-    experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
-      <RunningExperimentDecisionBanner
-        experiment={experiment}
-        runningExperimentStatus={runningExperimentStatus}
-        decisionCriteria={decisionCriteria}
-      />
-    ) : null;
-
   const scheduledEndPassedBanner =
     experiment.status === "running" && !isHoldout && !isBandit ? (
       <ScheduledEndPassedBanner
@@ -506,9 +693,76 @@ export default function ExperimentHeader({
       />
     ) : null;
 
+  const runningExperimentDecisionBanner =
+    experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
+      <RunningExperimentDecisionBanner
+        experiment={experiment}
+        runningExperimentStatus={runningExperimentStatus}
+        decisionCriteria={decisionCriteria}
+      />
+    ) : null;
+
+  const startExperimentButton = (
+    <Button
+      // Soft until everything's done, then primary. On the redesigned page
+      // "done" is the rail's To Do list (setupToDosDone); elsewhere it's the
+      // pre-launch checklist. Styling only: on the redesigned page only
+      // deliveryStartBlocker disables the button.
+      variant={
+        (useDeliveryStartGate ? setupToDosDone : checklistReady)
+          ? "solid"
+          : "soft"
+      }
+      onClick={() => {
+        setShowStartExperiment(true);
+      }}
+      disabled={
+        !canRunExperiment ||
+        !!deliveryStartBlocker ||
+        (isBandit &&
+          !experimentHasLiveLinkedChanges(experiment, linkedFeatures))
+      }
+      // On the redesigned page, a scheduled start reads "Schedule Start"
+      // with a filled clock on the left (being tried in review), as the page's Start and Actions
+      // buttons carry an icon (both set in review). Elsewhere unchanged.
+      icon={
+        hasExperimentSchedule ? (
+          setupLayout ? (
+            <PiClockFill />
+          ) : undefined
+        ) : (
+          <MdRocketLaunch />
+        )
+      }
+    >
+      {hasExperimentSchedule
+        ? setupLayout
+          ? "Schedule Start"
+          : "Approve for Scheduled Start"
+        : `Start ${isHoldout ? "Holdout" : "Experiment"}`}
+    </Button>
+  );
+
   return (
     <>
-      {showEditInfoModal && !isHoldout ? (
+      {/* The redesigned page edits just the name here (set in review); the
+        rest of Edit Info lives in the Setup page's rail. Bandits keep the
+        full Edit Info modal. */}
+      {showEditInfoModal &&
+      !isHoldout &&
+      !isBandit &&
+      editInfoFocusSelector === "name" ? (
+        <EditNameModal
+          experiment={experiment}
+          close={() => setShowEditInfoModal(false)}
+          mutate={mutate}
+        />
+      ) : null}
+      {/* Bandits, and the other tabs' metadata row "+Add" links (project,
+        tags), still get the full Edit Info modal. */}
+      {showEditInfoModal &&
+      !isHoldout &&
+      (isBandit || editInfoFocusSelector !== "name") ? (
         <EditExperimentInfoModal
           experiment={experiment}
           setShowEditInfoModal={setShowEditInfoModal}
@@ -746,6 +1000,9 @@ export default function ExperimentHeader({
           close={() => setShowScheduleModal(false)}
           mutate={mutate}
           envs={envs}
+          // On the redesigned page: say when it's scheduled, and keep an
+          // approved schedule approved after a time change (set in review).
+          redesigned={setupLayout}
         />
       ) : null}
       {showTemplateForm && (
@@ -828,23 +1085,65 @@ export default function ExperimentHeader({
       ) : null}
 
       <div
-        className={
-          "container-fluid pagecontents position-relative px-3 pt-3 pb-0"
+        className={clsx(
+          "container-fluid pagecontents",
+          // Not on the redesigned page: Bootstrap's position-relative is
+          // !important, and would override the row's position: sticky.
+          !setupLayout && "position-relative px-3 pt-3 pb-0",
+        )}
+        // Sticky on the redesigned page, at a fixed height (see
+        // TITLE_HEIGHT_PX).
+        style={
+          setupLayout
+            ? {
+                ...SETUP_LAYOUT_STYLE,
+                position: "sticky",
+                top: TOP_NAV_PX,
+                // Above the pinned tab bar (930) and the rail (931).
+                zIndex: 933,
+                backgroundColor: "var(--color-background)",
+                boxSizing: "border-box",
+                height: TITLE_HEIGHT_PX,
+                overflow: "hidden",
+                // 24px above the title, instead of pt-3 (14px).
+                paddingTop: "var(--space-5)",
+                // None below the row: it sits on the tab bar (set in review).
+                paddingBottom: 0,
+              }
+            : undefined
         }
       >
         <Flex direction="row" align="start" justify="between" gap="5">
-          <Flex align="center" gap="2">
+          <Flex
+            align="center"
+            gap="2"
+            minWidth="0"
+            // One line on the redesigned page, so the sticky row's fixed
+            // height holds; a long name ends in "…" (see .titleLine).
+            className={setupLayout ? headerStyles.titleLine : undefined}
+          >
+            {/* One step smaller on the Setup tab, set in review; the same in
+              the compact sticky row. */}
             <Heading
               as="h1"
-              size="2xl"
-              color="text-high"
+              size={setupLayout ? "xl" : "2xl"}
+              // On the Setup tab, no colour: it inherits the page's
+              // --gray-12, the same as the section headings and the
+              // Implementation cards' titles (set in review).
+              color={setupLayout ? undefined : "text-high"}
               overflowWrap="anywhere"
               weight="medium"
+              title={setupLayout ? experiment.name : undefined}
             >
               {experiment.name}
             </Heading>
             <Box style={{ userSelect: "none" }}>
-              <ExperimentStatusIndicator experimentData={experiment} />
+              {/* Neutral grey Draft badge for the redesigned page, set in
+                review. Bandits and holdouts keep their status colour. */}
+              <ExperimentStatusIndicator
+                experimentData={experiment}
+                neutralDraft={!isBandit && !isHoldout}
+              />
             </Box>
           </Flex>
 
@@ -873,7 +1172,74 @@ export default function ExperimentHeader({
                     isBandit={isBandit}
                     runningExperimentStatus={runningExperimentStatus}
                     holdoutStage={holdoutStage}
+                    // One "Actions" menu on the redesigned page (set in
+                    // review).
+                    asMenu={setupLayout}
+                    newPhase={canRunExperiment ? newPhase : undefined}
                   />
+                ) : experiment.status === "draft" &&
+                  nextScheduledStartDate &&
+                  setupLayout ? (
+                  // An approved scheduled start, on the redesigned page: a
+                  // primary dropdown button with the time, and a filled
+                  // calendar-dots icon (being tried in review).
+                  // @/ui/Button + @/ui/DropdownMenu, the caret as the menu's
+                  // own text trigger draws it (as Actions). Edit Schedule
+                  // opens the schedule modal; Cancel Scheduled Start confirms
+                  // first, with the menu item's built-in dialog. No "Start
+                  // now" (removed in review).
+                  <DropdownMenu
+                    menuPlacement="end"
+                    // As wide as the button, with the Values Type menu's soft
+                    // shadow (both set in review).
+                    menuWidth="full"
+                    // Soft, as the Values Type menu: the hovered option takes
+                    // the pale --accent-a4 fill and keeps its text colour
+                    // (set in review).
+                    variant="soft"
+                    contentClassName={setupFunnelStyles.softMenuShadow}
+                    trigger={
+                      <Button
+                        icon={<PiCalendarDotsFill />}
+                        disabled={!canRunExperiment}
+                      >
+                        <Flex as="span" align="center" gap="2">
+                          Scheduled{" "}
+                          {format(nextScheduledStartDate, "MMM d, h:mm a")}
+                          <PiCaretDown />
+                        </Flex>
+                      </Button>
+                    }
+                  >
+                    {/* Change the time, in the schedule modal; it saves on
+                      its own (set in review). */}
+                    {editSchedule ? (
+                      <DropdownMenuItem
+                        onClick={() => setShowScheduleModal(true)}
+                      >
+                        Edit Schedule
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem
+                      confirmation={{
+                        confirmationTitle: "Cancel scheduled start?",
+                        getConfirmationContent: async () =>
+                          "The experiment won't start at its scheduled time. It stays a draft, and you can schedule or start it again.",
+                        cta: "Cancel Scheduled Start",
+                        ctaColor: "red",
+                        // The schedule modal's own Unschedule Experiment.
+                        submit: async () => {
+                          await apiCall(
+                            `/experiment/${experiment.id}/unschedule-start`,
+                            { method: "POST" },
+                          );
+                          await mutate();
+                        },
+                      }}
+                    >
+                      Cancel Scheduled Start
+                    </DropdownMenuItem>
+                  </DropdownMenu>
                 ) : experiment.status === "draft" && nextScheduledStartDate ? (
                   <Button
                     variant="ghost"
@@ -890,38 +1256,94 @@ export default function ExperimentHeader({
                     {editSchedule && <PiPencilSimpleFill className="ml-1" />}
                   </Button>
                 ) : experiment.status === "draft" ? (
-                  <Tooltip
-                    shouldDisplay={
-                      isBandit &&
-                      !experimentHasLiveLinkedChanges(
-                        experiment,
-                        linkedFeatures,
-                      )
-                    }
-                    body="Add at least one live Linked Feature, AI Visual Editor change, or URL Redirect before starting."
-                  >
-                    <Button
-                      variant={checklistReady ? "solid" : "soft"}
-                      onClick={() => {
-                        setShowStartExperiment(true);
-                      }}
-                      disabled={
-                        !canRunExperiment ||
-                        (isBandit &&
+                  // 12px between Test and Start, set in review.
+                  <Flex align="center" gap="3">
+                    {/* Test, left of the primary action, per the design's
+                      header cluster (draft states). A dropdown: the design
+                      doesn't specify its contents yet, so it holds a
+                      disabled placeholder. Standard experiments only. */}
+                    {!isBandit && !isHoldout ? (
+                      <DropdownMenu
+                        trigger={
+                          // No leading icon, --slate-12 text, and the same
+                          // --slate-6 inset outline as the kebab (set in
+                          // review).
+                          <Button
+                            variant="outline"
+                            color="gray"
+                            // The caret as DropdownMenu's built-in text
+                            // trigger adds it (a right-hand PiCaretDown), on
+                            // a custom button so the styling below applies.
+                            icon={<PiCaretDown />}
+                            iconPosition="right"
+                            // The --slate-6 outline, darkening on hover (see
+                            // .outlineButton).
+                            className={headerStyles.outlineButton}
+                            style={{ color: "var(--slate-12)" }}
+                          >
+                            Test
+                          </Button>
+                        }
+                        menuPlacement="end"
+                      >
+                        <DropdownMenuItem disabled>
+                          Testing options coming soon
+                        </DropdownMenuItem>
+                      </DropdownMenu>
+                    ) : null}
+                    {deliveryStartBlocker ? (
+                      // The design's disabled-start popover: what to finish
+                      // first, on hover. A span wraps the disabled button,
+                      // which fires no pointer events of its own; it's
+                      // focusable so keyboard users can reach the explanation.
+                      <Popover
+                        openOnHover
+                        side="bottom"
+                        // Centred on the button, so the arrow sits in the
+                        // middle of both (set in review). Near the page edge,
+                        // Radix shifts the panel inward but keeps the arrow on
+                        // the button's centre.
+                        align="center"
+                        contentStyle={{
+                          padding: "var(--space-3) var(--space-4)",
+                          maxWidth: 340,
+                        }}
+                        trigger={
+                          <span
+                            tabIndex={0}
+                            aria-label={`Start Experiment unavailable. Finish this first: ${deliveryStartBlocker.title}`}
+                            style={{ display: "inline-flex" }}
+                          >
+                            {startExperimentButton}
+                          </span>
+                        }
+                        content={
+                          // The To Do tab's own rows (ring, title, location),
+                          // for the open "Required to Start" items, set in
+                          // review. Clicking one jumps to it, as in the tab.
+                          <ToDoGroup
+                            title="Finish this first:"
+                            items={(setupToDos?.start ?? []).filter(
+                              (item) => !item.done,
+                            )}
+                          />
+                        }
+                      />
+                    ) : (
+                      <Tooltip
+                        shouldDisplay={
+                          isBandit &&
                           !experimentHasLiveLinkedChanges(
                             experiment,
                             linkedFeatures,
-                          ))
-                      }
-                      icon={
-                        hasExperimentSchedule ? undefined : <MdRocketLaunch />
-                      }
-                    >
-                      {hasExperimentSchedule
-                        ? "Approve for Scheduled Start"
-                        : `Start ${isHoldout ? "Holdout" : "Experiment"}`}
-                    </Button>
-                  </Tooltip>
+                          )
+                        }
+                        body="Add at least one live Linked Feature, AI Visual Editor change, or URL Redirect before starting."
+                      >
+                        {startExperimentButton}
+                      </Tooltip>
+                    )}
+                  </Flex>
                 ) : null}
                 {experiment.status === "stopped" && experiment.results ? (
                   <>
@@ -936,15 +1358,57 @@ export default function ExperimentHeader({
                 ) : null}
               </div>
             )}
+            {/* Divider between the primary action and the kebab, per the
+              design: 1px x 20px. 12px either side (set in review): the row's
+              gap="2" (8px) plus mx="1" (4px). */}
+            {!isBandit && !isHoldout ? (
+              <Box
+                aria-hidden
+                mx="1"
+                style={{
+                  width: 1,
+                  height: 20,
+                  flexShrink: 0,
+                  backgroundColor: "var(--gray-a5)",
+                }}
+              />
+            ) : null}
             <DropdownMenu
               trigger={
+                // Outline, like the header's other buttons, on the redesigned
+                // page (set in review): violet outline with 4px corners.
+                // Bandits and holdouts keep the round ghost button.
                 <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
+                  variant={isBandit || isHoldout ? "ghost" : "outline"}
+                  // Violet like @/ui/Button's outline default, so it matches
+                  // the page's other outline buttons (set in review).
+                  color={isBandit || isHoldout ? "gray" : "violet"}
+                  radius={isBandit || isHoldout ? "full" : undefined}
+                  // The same size in both sticky states (set in review).
                   size="3"
-                  highContrast
-                  ml="2"
+                  highContrast={isBandit || isHoldout}
+                  // 4px corners and a --slate-6 outline on the outline
+                  // version, set in review. The outline is Radix's own inset
+                  // box-shadow, redrawn here with the new colour.
+                  // The outline itself, darkening on hover, is .outlineButton.
+                  className={
+                    isBandit || isHoldout
+                      ? undefined
+                      : headerStyles.outlineButton
+                  }
+                  style={
+                    isBandit || isHoldout
+                      ? undefined
+                      : {
+                          borderRadius: "var(--radius-2)",
+                          // The dots in --slate-12, like the Test button's
+                          // text (set in review), rather than the violet
+                          // outline variant's --violet-a11.
+                          color: "var(--slate-12)",
+                        }
+                  }
+                  // The divider's gap spaces it on the redesigned page.
+                  ml={isBandit || isHoldout ? "2" : "0"}
                 >
                   <BsThreeDotsVertical size={18} />
                 </IconButton>
@@ -955,6 +1419,12 @@ export default function ExperimentHeader({
               }}
               menuPlacement="end"
             >
+              {/* Title Case on these menu items (Edit Name, Edit Phase, Remove
+                from Holdout, View Watchers, Audit History, Save as Template)
+                was set in review. It departs from the repo's copy guide
+                (.agents/guides/ui-copy-style.md), which puts menu items in
+                sentence case, so reconcile before this ships. The other items
+                are unchanged. */}
               <DropdownMenuGroup>
                 {canEditExperiment ? (
                   <DropdownMenuItem
@@ -963,7 +1433,7 @@ export default function ExperimentHeader({
                       setShowEditInfoModal(true);
                     }}
                   >
-                    Edit info
+                    {isBandit || isHoldout ? "Edit info" : "Edit Name"}
                   </DropdownMenuItem>
                 ) : null}
                 {canRunExperiment &&
@@ -986,7 +1456,7 @@ export default function ExperimentHeader({
                       setDropdownOpen(false);
                     }}
                   >
-                    Edit phase
+                    Edit Phase
                   </DropdownMenuItem>
                 )}
                 {showEditHoldoutScheduleButton && (
@@ -1020,7 +1490,7 @@ export default function ExperimentHeader({
                       setDropdownOpen(false);
                     }}
                   >
-                    Remove from holdout
+                    Remove from Holdout
                   </DropdownMenuItem>
                 )}
               </DropdownMenuGroup>
@@ -1122,7 +1592,7 @@ export default function ExperimentHeader({
                           {usersWatching.length || 0}
                         </IconButton>
                         {usersWatching.length > 0
-                          ? "View watchers"
+                          ? "View Watchers"
                           : "No watchers"}
                       </Flex>
                     </DropdownMenuItem>
@@ -1135,7 +1605,7 @@ export default function ExperimentHeader({
                   setDropdownOpen(false);
                 }}
               >
-                Audit history
+                Audit History
               </DropdownMenuItem>
               {/* Only show the separator if one of the following cases is true to avoid double separators */}
               {(showConvertButton ||
@@ -1152,7 +1622,7 @@ export default function ExperimentHeader({
                     setDropdownOpen(false);
                   }}
                 >
-                  Save as template...
+                  Save as Template
                 </DropdownMenuItem>
               )}
               {showShareButton && !isHoldout && (
@@ -1256,25 +1726,61 @@ export default function ExperimentHeader({
             </DropdownMenu>
           </Flex>
         </Flex>
-        <ProjectTagBar
-          experiment={experiment}
-          holdout={holdout}
-          setShowEditInfoModal={setShowEditInfoModal}
-          setEditInfoFocusSelector={setEditInfoFocusSelector}
-          editTags={editTags}
-        />
+        {/* The redesigned page shows this metadata in the Setup tab's right
+          rail, so the header skips it, on every tab: the title row is a fixed
+          height, the same on all of them (set in review). */}
+        {setupLayout ? null : (
+          <ProjectTagBar
+            experiment={experiment}
+            holdout={holdout}
+            setShowEditInfoModal={setShowEditInfoModal}
+            setEditInfoFocusSelector={setEditInfoFocusSelector}
+            editTags={editTags}
+          />
+        )}
 
-        {runningExperimentDecisionBanner ? (
+        {/* In the header on other tabs; on the redesigned page it's below
+          the sticky title row instead, which has a fixed height. */}
+        {runningExperimentDecisionBanner && !setupLayout ? (
           <Box pt="1" pb="1">
             {runningExperimentDecisionBanner}
           </Box>
         ) : null}
-        {scheduledEndPassedBanner ? (
+        {scheduledEndPassedBanner && !setupLayout ? (
           <Box pt="1" pb="1">
             {scheduledEndPassedBanner}
           </Box>
         ) : null}
       </div>
+      {runningExperimentDecisionBanner && setupLayout ? (
+        // Collapses when the banner renders nothing (it often does: no
+        // decision yet), so a running experiment's header-to-tabs spacing is
+        // the same as a draft's (fixed in review; the 4px + 4px padding
+        // showed as an empty 8px strip).
+        <Box
+          className={clsx(
+            "container-fluid pagecontents",
+            headerStyles.decisionBanner,
+          )}
+          pt="1"
+          pb="1"
+          style={SETUP_LAYOUT_STYLE}
+        >
+          {runningExperimentDecisionBanner}
+        </Box>
+      ) : null}
+      {/* Main's "scheduled end passed" banner, placed as the decision
+        banner is on the redesigned page. */}
+      {scheduledEndPassedBanner && setupLayout ? (
+        <Box
+          className="container-fluid pagecontents"
+          pt="1"
+          pb="1"
+          style={SETUP_LAYOUT_STYLE}
+        >
+          {scheduledEndPassedBanner}
+        </Box>
+      ) : null}
 
       {shouldHideTabs ? null : (
         <>
@@ -1292,33 +1798,148 @@ export default function ExperimentHeader({
             className={clsx("experiment-tabs d-print-none", {
               pinned: headerPinned,
             })}
+            // Always sticky on the redesigned page, right under the sticky
+            // title row, so nothing can show between them; `pinned` then
+            // only adds the shadow. Elsewhere it goes sticky only once pinned
+            // (global.scss), which the observer above detects a frame or two
+            // late on a fast scroll (fixed in review).
+            //
+            // Also a solid strip of the page background 24px up from its top
+            // edge (a box-shadow, so it takes no space), hidden under the
+            // title row, which is layered above: if a gap ever opens between
+            // the two for a frame, the strip fills it instead of the content
+            // scrolling past showing through (fixed in review). Written out
+            // here with the pinned shadow, which it would otherwise replace.
+            style={
+              setupLayout
+                ? {
+                    position: "sticky",
+                    zIndex: 930,
+                    // Up over the 1px pin sentinel and by the tuck, so before
+                    // any scroll it already sits where it pins: tucked 2px
+                    // under the title row, as when sticky (set in review).
+                    marginTop: -(1 + TABS_TUCK_PX),
+                    boxShadow: [
+                      "0 -24px 0 0 var(--color-background)",
+                      ...(headerPinned
+                        ? [
+                            "0 1px 2px rgba(0, 0, 0, 0.1)",
+                            "0 4px 4px rgba(0, 0, 0, 0.025)",
+                          ]
+                        : []),
+                    ].join(", "),
+                  }
+                : undefined
+            }
           >
-            <div className="position-relative container-fluid pagecontents px-3">
+            <div
+              className={clsx(
+                "position-relative container-fluid pagecontents",
+                !setupLayout && "px-3",
+              )}
+              style={setupLayout ? SETUP_LAYOUT_STYLE : undefined}
+            >
+              {/* Full-bleed divider on the Setup tab. The tab list's own
+                divider only spans the padded content width, so it's turned off
+                below and redrawn here across the whole container. The row is
+                exactly the tabs' height (40px), so the line lands where the
+                old one was and the tabs don't move. Rendered before the tabs so
+                the active tab's indicator paints over it. */}
+              {setupLayout ? (
+                <Box
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 1,
+                    backgroundColor: "var(--gray-a5)",
+                    pointerEvents: "none",
+                  }}
+                />
+              ) : null}
               <div className="d-flex header-tabs">
                 <Tabs
                   value={tab}
                   onValueChange={setTab}
-                  style={{ width: "100%" }}
+                  // Shares the row with the rail toggle on the Setup tab.
+                  style={{ width: "100%", flex: 1, minWidth: 0 }}
                 >
-                  <TabsList size="lg">
-                    <Flex align="center" className="flex-1">
-                      <TabsTrigger value="overview">Overview</TabsTrigger>
-                      <TabsTrigger value="results">Results</TabsTrigger>
+                  {/* Size 2 on the Setup tab (14px), set in review; other tabs
+                    keep size 3 (16px). Both are 40px tall, so the divider above
+                    still lines up. */}
+                  <TabsList
+                    size={setupLayout ? "md" : "lg"}
+                    className={setupLayout ? headerStyles.setupTabs : undefined}
+                    style={
+                      setupLayout
+                        ? ({
+                            boxShadow: "none",
+                            // 4px outside each tab's hover highlight, down
+                            // from size 2's 8px. Trying it out in review.
+                            "--tab-padding-x": "var(--space-1)",
+                          } as CSSProperties)
+                        : undefined
+                    }
+                  >
+                    {/* 12px between tabs on the Setup tab, set in review. */}
+                    <Flex
+                      align="center"
+                      className="flex-1"
+                      gap={setupLayout ? "3" : undefined}
+                    >
+                      <TabsTrigger
+                        value="overview"
+                        style={tabWeight("overview")}
+                      >
+                        {/* The redesigned tab is named Setup; bandits and
+                          holdouts keep the previous layout and name. */}
+                        {isBandit || isHoldout ? "Overview" : "Setup"}
+                      </TabsTrigger>
+                      {/* Tabs disabled before the experiment starts have no
+                        hover tooltip (set in review). */}
+                      <TabsTrigger
+                        value="results"
+                        style={tabWeight("results")}
+                        disabled={disableNonSetupTabs}
+                      >
+                        Results
+                      </TabsTrigger>
                       {isBandit ? (
                         <TabsTrigger value="explore">Explore</TabsTrigger>
                       ) : null}
                       {!isBandit && !isHoldout && (
-                        <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
+                        <TabsTrigger
+                          value="dashboards"
+                          style={tabWeight("dashboards")}
+                          disabled={disableNonSetupTabs}
+                        >
+                          Dashboards
+                        </TabsTrigger>
                       )}
-                      {disableHealthTab ? (
+                      {disableNonSetupTabs ? (
+                        <TabsTrigger
+                          disabled
+                          value="health"
+                          style={tabWeight("health")}
+                        >
+                          Health
+                        </TabsTrigger>
+                      ) : disableHealthTab ? (
                         <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                          <TabsTrigger disabled value="health">
+                          <TabsTrigger
+                            disabled
+                            value="health"
+                            style={tabWeight("health")}
+                          >
                             Health
                           </TabsTrigger>
                         </DisabledHealthTabTooltip>
                       ) : (
                         <TabsTrigger
                           value="health"
+                          style={tabWeight("health")}
                           onClick={() => {
                             track("Open health tab", { source: "tab-click" });
                           }}
@@ -1350,6 +1971,63 @@ export default function ExperimentHeader({
                     </Flex>
                   </TabsList>
                 </Tabs>
+                {/* Collapse / expand the right rail, per the design: at the
+                  end of the tab row, above the rail. Outside the tab list, so
+                  it isn't announced as a tab. */}
+                {onSetupTab && setSetupRailCollapsed ? (
+                  <Flex align="center" flexShrink="0" pl="2">
+                    {/* A plain span around the button, as the legacy tooltip
+                      had: it sets where the button sits in the row, and the
+                      3px nudge below was tuned against it. It's OUTSIDE the
+                      tooltip so the tooltip attaches to the button itself,
+                      and its arrow centres on the button, not the span. */}
+                    <span>
+                      {/* @/ui/Tooltip, the design system's (set in review),
+                        not the legacy one the rest of this header uses. */}
+                      <UiTooltip
+                        // To the left of the button, not above (set in
+                        // review).
+                        side="left"
+                        content={
+                          setupRailCollapsed
+                            ? "Expand right rail"
+                            : "Collapse right rail"
+                        }
+                      >
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          // Size 2 at its own 24px (set in review), not the
+                          // design's 28px, which left a lot of empty space
+                          // around the icon.
+                          size="2"
+                          aria-label={
+                            setupRailCollapsed
+                              ? "Expand right rail"
+                              : "Collapse right rail"
+                          }
+                          aria-pressed={!setupRailCollapsed}
+                          onClick={() =>
+                            setSetupRailCollapsed(!setupRailCollapsed)
+                          }
+                          // Lined up under the header's kebab, set in review:
+                          // a 2px right margin, replacing the ghost button's
+                          // own -6px, so its right edge sits 2px inside the
+                          // row's 32px padding. Nudged down 3px so its bottom
+                          // edge is 4px above the tab divider (centred, it was
+                          // 7px); a relative offset, so the row doesn't move.
+                          style={{
+                            marginRight: 2,
+                            position: "relative",
+                            top: 3,
+                          }}
+                        >
+                          <RailToggleIcon collapsed={setupRailCollapsed} />
+                        </IconButton>
+                      </UiTooltip>
+                    </span>
+                  </Flex>
+                ) : null}
               </div>
             </div>
           </div>

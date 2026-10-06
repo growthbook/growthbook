@@ -28,6 +28,10 @@ type SelectProps = {
   align?: "start" | "center" | "end";
   /** Portal container — use to render the dropdown inside a parent portal (e.g. Popover). */
   container?: HTMLElement | null;
+  /** What the closed field shows, instead of the selected item's content (e.g. just a name, when items also show a description). Optional and additive. */
+  valueLabel?: ReactNode;
+  /** A class on the open menu (e.g. for taller, two-line items). Optional and additive. */
+  contentClassName?: string;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -49,6 +53,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     triggerClassName,
     align = "start",
     container,
+    valueLabel,
+    contentClassName,
     ...containerProps
   }: SelectProps,
   ref,
@@ -80,12 +86,15 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
           className={clsx(triggerClassName, { error: error })}
           disabled={disabled}
           variant={variant}
-        />
+        >
+          {valueLabel}
+        </RadixSelect.Trigger>
         <RadixSelect.Content
           variant="soft"
           position="popper"
           align={align}
           container={container ?? undefined}
+          className={contentClassName}
         >
           {children}
         </RadixSelect.Content>

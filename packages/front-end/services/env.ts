@@ -81,6 +81,10 @@ export function allowSelfOrgCreation(): boolean {
 export function showMultiOrgSelfSelector(): boolean {
   return env.showMultiOrgSelfSelector;
 }
+// The server's NODE_ENV, as /api/init reports it.
+export function isDevelopmentEnvironment(): boolean {
+  return env.environment === "development";
+}
 export function isTelemetryEnabled(): boolean {
   return env.telemetry === "enable" || env.telemetry === "enable-with-debug";
 }

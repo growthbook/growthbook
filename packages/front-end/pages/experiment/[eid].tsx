@@ -31,6 +31,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
+import {
+  ExperimentTypeProvider,
+  ManagedValuesProvider,
+} from "@/components/Experiment/TabbedPage/ManagedValuesContext";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -168,168 +172,177 @@ const ExperimentPage = (): ReactElement => {
     );
 
   return (
-    <>
-      {metricsModalOpen && (
-        <EditMetricsForm
-          experiment={experiment}
-          cancel={() => setMetricsModalOpen(false)}
-          mutate={mutate}
-          source="eid"
-        />
-      )}
-      {stopModalOpen && (
-        <StopExperimentForm
-          close={() => setStopModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          runningExperimentStatus={runningExperimentStatus}
-          decisionCriteria={decisionCriteria}
-          source="eid"
-        />
-      )}
-      {variationsModalOpen && (
-        <EditVariationsForm
-          experiment={experiment}
-          cancel={() => setVariationsModalOpen(false)}
-          onlySafeToEditVariationMetadata={!safeToEdit}
-          mutate={mutate}
-          source="eid"
-        />
-      )}
-      {duplicateModalOpen && (
-        <NewExperimentForm
-          onClose={() => setDuplicateModalOpen(false)}
-          initialValue={{
-            ...experiment,
-            name: experiment.name + " (Copy)",
-            trackingKey: "",
-          }}
-          source="duplicate-eid"
-          duplicate={true}
-        />
-      )}
-      {tagsModalOpen && (
-        <EditTagsForm
-          tags={experiment.tags}
-          save={async (tags) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ tags }),
-            });
-          }}
-          cancel={() => setTagsModalOpen(false)}
-          mutate={mutate}
-          source="eid"
-        />
-      )}
-      {phaseModalOpen && (
-        <NewPhaseForm
-          close={() => setPhaseModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          source="eid"
-        />
-      )}
-      {editPhaseId !== null && (
-        <EditPhaseModal
-          close={() => setEditPhaseId(null)}
-          experiment={experiment}
-          mutate={mutate}
-          i={editPhaseId}
-          editTargeting={editTargeting}
-          source="eid"
-        />
-      )}
-      {editPhasesOpen && (
-        <EditPhasesModal
-          close={() => setEditPhasesOpen(false)}
-          mutateExperiment={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          editTargeting={editTargeting}
-          source="eid"
-        />
-      )}
-      {targetingModalOpen && (
-        <EditTargetingModal
-          close={() => setTargetingModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          safeToEdit={safeToEdit}
-          // source="eid"
-        />
-      )}
-      {trafficModalOpen && (
-        <EditTrafficModal
-          close={() => {
-            setTrafficModalOpen(false);
-            setTrafficFocusVariation(null);
-            setAddVariationOnOpen(false);
-          }}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          safeToEdit={safeToEdit}
-          focusVariationId={trafficFocusVariation}
-          addVariationOnOpen={addVariationOnOpen}
-        />
-      )}
-      {namespaceModalOpen && (
-        <EditNamespaceModal
-          close={() => setNamespaceModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          safeToEdit={safeToEdit}
-        />
-      )}
-      {editScheduleModalOpen && (
-        <EditScheduleModal
-          experiment={experiment}
-          close={() => setEditScheduleModalOpen(false)}
-          mutate={mutate}
-          envs={envs}
-        />
-      )}
+    // Prototype-only delivery-type state, front-end only (localStorage). See
+    // ManagedValuesContext.tsx. Wraps the modals too: they read the type.
+    <ExperimentTypeProvider experimentId={experiment.id}>
+      <ManagedValuesProvider experimentId={experiment.id}>
+        <>
+          {metricsModalOpen && (
+            <EditMetricsForm
+              experiment={experiment}
+              cancel={() => setMetricsModalOpen(false)}
+              mutate={mutate}
+              source="eid"
+            />
+          )}
+          {stopModalOpen && (
+            <StopExperimentForm
+              close={() => setStopModalOpen(false)}
+              mutate={mutate}
+              experiment={experiment}
+              runningExperimentStatus={runningExperimentStatus}
+              decisionCriteria={decisionCriteria}
+              source="eid"
+            />
+          )}
+          {variationsModalOpen && (
+            <EditVariationsForm
+              experiment={experiment}
+              cancel={() => setVariationsModalOpen(false)}
+              onlySafeToEditVariationMetadata={!safeToEdit}
+              mutate={mutate}
+              source="eid"
+            />
+          )}
+          {duplicateModalOpen && (
+            <NewExperimentForm
+              onClose={() => setDuplicateModalOpen(false)}
+              initialValue={{
+                ...experiment,
+                name: experiment.name + " (Copy)",
+                trackingKey: "",
+              }}
+              source="duplicate-eid"
+              duplicate={true}
+            />
+          )}
+          {tagsModalOpen && (
+            <EditTagsForm
+              tags={experiment.tags}
+              save={async (tags) => {
+                await apiCall(`/experiment/${experiment.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({ tags }),
+                });
+              }}
+              cancel={() => setTagsModalOpen(false)}
+              mutate={mutate}
+              source="eid"
+            />
+          )}
+          {phaseModalOpen && (
+            <NewPhaseForm
+              close={() => setPhaseModalOpen(false)}
+              mutate={mutate}
+              experiment={experiment}
+              linkedFeatures={linkedFeatures}
+              source="eid"
+            />
+          )}
+          {editPhaseId !== null && (
+            <EditPhaseModal
+              close={() => setEditPhaseId(null)}
+              experiment={experiment}
+              mutate={mutate}
+              i={editPhaseId}
+              editTargeting={editTargeting}
+              source="eid"
+            />
+          )}
+          {editPhasesOpen && (
+            <EditPhasesModal
+              close={() => setEditPhasesOpen(false)}
+              mutateExperiment={mutate}
+              experiment={experiment}
+              linkedFeatures={linkedFeatures}
+              editTargeting={editTargeting}
+              source="eid"
+            />
+          )}
+          {targetingModalOpen && (
+            <EditTargetingModal
+              close={() => setTargetingModalOpen(false)}
+              mutate={mutate}
+              experiment={experiment}
+              linkedFeatures={linkedFeatures}
+              safeToEdit={safeToEdit}
+              // source="eid"
+            />
+          )}
+          {trafficModalOpen && (
+            <EditTrafficModal
+              close={() => {
+                setTrafficModalOpen(false);
+                setTrafficFocusVariation(null);
+                setAddVariationOnOpen(false);
+              }}
+              mutate={mutate}
+              experiment={experiment}
+              linkedFeatures={linkedFeatures}
+              safeToEdit={safeToEdit}
+              focusVariationId={trafficFocusVariation}
+              addVariationOnOpen={addVariationOnOpen}
+              // The variations table is read-only on this page (set in
+              // review); coverage stays editable.
+              readOnlyVariations
+            />
+          )}
+          {namespaceModalOpen && (
+            <EditNamespaceModal
+              close={() => setNamespaceModalOpen(false)}
+              mutate={mutate}
+              experiment={experiment}
+              linkedFeatures={linkedFeatures}
+              safeToEdit={safeToEdit}
+            />
+          )}
+          {editScheduleModalOpen && (
+            <EditScheduleModal
+              experiment={experiment}
+              close={() => setEditScheduleModalOpen(false)}
+              mutate={mutate}
+              envs={envs}
+            />
+          )}
 
-      <PageHead
-        breadcrumb={[
-          {
-            display: "Experiments",
-            href: `/experiments`,
-          },
-          { display: experiment.name },
-        ]}
-      />
+          <PageHead
+            breadcrumb={[
+              {
+                display: "Experiments",
+                href: `/experiments`,
+              },
+              { display: experiment.name },
+            ]}
+          />
 
-      <SnapshotProvider experiment={experiment}>
-        <TabbedPage
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          mutate={mutate}
-          visualChangesets={visualChangesets}
-          urlRedirects={urlRedirects}
-          editMetrics={editMetrics}
-          editResult={editResult}
-          editVariations={editVariations}
-          duplicate={duplicate}
-          editTags={editTags}
-          newPhase={newPhase}
-          editPhases={editPhases}
-          editPhase={editPhase}
-          envs={envs}
-          editTargeting={editTargeting}
-          editTraffic={editTraffic}
-          addVariation={addVariation}
-          editNamespace={editNamespace}
-          visualChangesetEnvStates={visualChangesetEnvStates}
-          urlRedirectEnvStates={urlRedirectEnvStates}
-          editSchedule={editSchedule}
-        />
-      </SnapshotProvider>
-    </>
+          <SnapshotProvider experiment={experiment}>
+            <TabbedPage
+              experiment={experiment}
+              linkedFeatures={linkedFeatures}
+              mutate={mutate}
+              visualChangesets={visualChangesets}
+              urlRedirects={urlRedirects}
+              editMetrics={editMetrics}
+              editResult={editResult}
+              editVariations={editVariations}
+              duplicate={duplicate}
+              editTags={editTags}
+              newPhase={newPhase}
+              editPhases={editPhases}
+              editPhase={editPhase}
+              envs={envs}
+              editTargeting={editTargeting}
+              editTraffic={editTraffic}
+              addVariation={addVariation}
+              editNamespace={editNamespace}
+              visualChangesetEnvStates={visualChangesetEnvStates}
+              urlRedirectEnvStates={urlRedirectEnvStates}
+              editSchedule={editSchedule}
+            />
+          </SnapshotProvider>
+        </>
+      </ManagedValuesProvider>
+    </ExperimentTypeProvider>
   );
 };
 

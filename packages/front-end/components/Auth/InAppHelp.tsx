@@ -8,6 +8,12 @@ import { isCloud } from "@/services/env";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
+// Above sticky page chrome, so the floating Help button and its panel are
+// never covered: the pinned experiment tab bar is 930 (global.scss) and the
+// redesigned Setup page's rail sits just above it at 931. Still below the
+// top nav (1010). Was 10, which let the rail cover it.
+const HELP_Z_INDEX = 935;
+
 export default function InAppHelp() {
   const router = useRouter();
   const config = useFeature("pylon-config").value;
@@ -44,6 +50,10 @@ export default function InAppHelp() {
   // Hide on presentation view (fullscreen present mode)
   if (router.pathname.startsWith("/present/")) return null;
 
+  // PROTOTYPE: hidden on the experiment page for now, where it sat on top of
+  // the Setup tab's save bar. To be brought back later.
+  if (router.pathname === "/experiment/[eid]") return null;
+
   // If the Pylon key exists on the window, we're showing the Pylon widget, so don't show the freeHelpModal
   if (window["pylon"]) return null;
 
@@ -64,7 +74,7 @@ export default function InAppHelp() {
             right: "50px",
             bottom: "80px",
             maxWidth: "310px",
-            zIndex: 10,
+            zIndex: HELP_Z_INDEX,
           }}
         >
           <div className="bg-purple rounded-top p-3 pb-4 d-flex align-items-center">
@@ -129,7 +139,7 @@ export default function InAppHelp() {
         style={{
           right: "20px",
           bottom: "20px",
-          zIndex: 10,
+          zIndex: HELP_Z_INDEX,
           height: "50px",
           width: "50px",
           fontSize: "30px",

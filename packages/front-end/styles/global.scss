@@ -533,9 +533,11 @@ pre {
   }
   .experiment-tabs {
     background-color: var(--color-background);
-    // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
-    // also, make sure shared reports & shared experiments look good
-    top: 55px;
+    // NB: Keep the fallback in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
+    // also, make sure shared reports & shared experiments look good.
+    // --experiment-tabs-top is set by the redesigned page's sticky title row
+    // (ExperimentHeader.tsx); everywhere else it's unset, so 55px.
+    top: var(--experiment-tabs-top, 55px);
     height: 40px;
     transition: 150ms all;
     .header-tabs {

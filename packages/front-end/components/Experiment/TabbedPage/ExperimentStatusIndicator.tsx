@@ -10,10 +10,16 @@ export default function ExperimentStatusIndicator({
   experimentData,
   labelFormat = "full",
   skipArchived = false,
+  neutralDraft = false,
 }: {
   experimentData: ExperimentDataForStatusStringDates;
   labelFormat?: LabelFormat;
   skipArchived?: boolean;
+  // Render the Draft status in the design system's neutral grey (Badge
+  // gray/soft) instead of its status colour. Optional and additive: callers
+  // that pass nothing are unchanged. Used by the redesigned experiment
+  // page's header.
+  neutralDraft?: boolean;
 }) {
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
   const statusIndicatorData = getExperimentStatusIndicator(
@@ -26,6 +32,7 @@ export default function ExperimentStatusIndicator({
       statusIndicatorData={statusIndicatorData}
       labelFormat={labelFormat}
       experimentData={experimentData}
+      neutralDraft={neutralDraft}
     />
   );
 }
@@ -74,10 +81,12 @@ export function RawExperimentStatusIndicator({
   statusIndicatorData,
   labelFormat = "full",
   experimentData,
+  neutralDraft = false,
 }: {
   statusIndicatorData: StatusIndicatorData;
   labelFormat?: LabelFormat;
   experimentData: ExperimentDataForStatusStringDates;
+  neutralDraft?: boolean;
 }) {
   const { color, status, detailedStatus, tooltip } = statusIndicatorData;
   const isHoldout = experimentData.type === "holdout";
@@ -92,10 +101,12 @@ export function RawExperimentStatusIndicator({
     experimentData.status === "running" &&
     !experimentData.archived;
 
+  const neutral = neutralDraft && status === "Draft";
+
   const badge = (
     <Badge
-      color={color}
-      variant={"solid"}
+      color={neutral ? "gray" : color}
+      variant={neutral ? "soft" : "solid"}
       radius="full"
       label={`${label}${isInAnalysisPeriod ? ": Analysis Phase" : ""}`}
       style={{

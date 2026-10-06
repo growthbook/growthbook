@@ -23,7 +23,7 @@ import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetin
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
-function operatorToText({
+export function operatorToText({
   operator,
   isPrerequisite,
   hasMultipleSavedGroups,
@@ -93,13 +93,13 @@ function operatorToText({
   return operator;
 }
 
-function needsValue(operator: string) {
+export function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
 function hasMultiValues(operator: string) {
   return ["$in", "$nin", "$ini", "$nini"].includes(operator);
 }
-function getValue(
+export function getValue(
   operator: string,
   value: string,
   savedGroups?: SavedGroupWithoutValues[],

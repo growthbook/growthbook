@@ -28,6 +28,8 @@ export type MetricAnalysisWindowSelectorProps = {
   /** For experiments: phase end date or now */
   phaseEndDate?: Date | null;
   helpText?: React.ReactNode;
+  // The field's visible label. Default "Metric Analysis Windows", as before.
+  label?: React.ReactNode;
 };
 
 const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
@@ -39,6 +41,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
   analysisEndDate,
   phaseEndDate,
   helpText,
+  label = "Metric Analysis Windows",
 }) => {
   const endDate = analysisEndDate ?? phaseEndDate ?? new Date();
   const [localWindowValue, setLocalWindowValue] = useState<string | null>(null);
@@ -76,7 +79,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
             size="legacy"
             label={
               <AttributionModelTooltip>
-                Metric Analysis Windows <GBInfo />
+                {label} <GBInfo />
               </AttributionModelTooltip>
             }
             labelClassName="font-weight-bold"

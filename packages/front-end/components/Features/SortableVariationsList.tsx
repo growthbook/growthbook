@@ -29,6 +29,10 @@ const SortableVariationsList: FC<{
   // same for multiple variations.
   forceRenormalizeVariationKeysOnSort?: boolean;
   sortingStrategy?: "vertical" | "rect";
+  // Pixels the pointer must move before a drag starts, so a click that
+  // drifts a pixel isn't a reorder. Optional and additive: unset, a drag
+  // starts at once, as before.
+  activationDistance?: number;
 }> = ({
   children,
   variations,
@@ -36,9 +40,15 @@ const SortableVariationsList: FC<{
   valuesAsIds = false,
   forceRenormalizeVariationKeysOnSort = false,
   sortingStrategy = "vertical",
+  activationDistance,
 }) => {
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(
+      PointerSensor,
+      activationDistance !== undefined
+        ? { activationConstraint: { distance: activationDistance } }
+        : undefined,
+    ),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),

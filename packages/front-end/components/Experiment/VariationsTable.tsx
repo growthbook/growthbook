@@ -3,12 +3,16 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { FC, useState, useRef, useCallback, useEffect } from "react";
+import type { DraggableSyntheticListeners } from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { FC, ReactNode, useState, useRef, useCallback, useEffect } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   PiCameraLight,
   PiCameraPlusLight,
   PiPencilSimpleFill,
+  PiPlus,
   PiPlusCircle,
   PiUploadSimple,
 } from "react-icons/pi";
@@ -23,6 +27,9 @@ import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselM
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
+import { SetupVariationCard } from "@/components/Experiment/TabbedPage/SetupPage/SetupFunnel";
+import setupFunnelStyles from "@/components/Experiment/TabbedPage/SetupPage/SetupFunnel.module.scss";
+import SortableVariationsList from "@/components/Features/SortableVariationsList";
 
 export const MAX_VARIATION_WIDTH = 336;
 
@@ -160,6 +167,43 @@ interface Props {
   onEditTraffic?: (variationId?: string) => void;
   // When true, the grid is centered and capped at 3 columns.
   centered?: boolean;
+  // An extra row below the cards, one cell per variation, laid out on the
+  // same grid so each cell sits in its card's column. Optional and additive:
+  // callers that pass nothing render exactly as before. Used by the
+  // redesigned Setup page's inline Values row.
+  variationRow?: VariationRow;
+  // "setup": the redesigned Setup page's layout (see
+  // TabbedPage/SetupPage/SetupFunnel.tsx): every variation in one row of
+  // equal columns, compact cards, and the add button in the row's right
+  // gutter. Optional and additive, like variationRow.
+  layout?: "default" | "setup";
+  // Setup layout only: drag a card's colour band to reorder the variations
+  // (set in review; replaces the Edit Traffic & Variations modal's
+  // reordering). onReorder gets the new order (variation ids) for the
+  // caller's draft, which the page's Save commits; the caller passes it only
+  // before the experiment starts. variationOrder shows that draft order.
+  variationOrder?: string[];
+  onReorder?: (order: string[]) => void;
+  // Setup layout only: variations added in the caller's draft and not
+  // saved yet, shown after the saved ones. Until saved, their cards have no
+  // pencil or image upload (both act on the saved experiment).
+  extraVariations?: Variation[];
+  // Setup layout only: the split bar above the cards (SetupSplit), drawn in
+  // the same scrolling row so its pills stay over their cards.
+  splitRow?: ReactNode;
+  // Setup layout only: names and descriptions from the caller's draft, by
+  // variation id, shown before they're saved.
+  variationEdits?: Record<string, { name: string; description: string }>;
+  // Setup layout only: the card's pencil opens that variation's own modal
+  // (set in review), unsaved variations included, instead of the traffic or
+  // metadata modal.
+  onEditVariation?: (variationId: string) => void;
+}
+
+export interface VariationRow {
+  // Shown above the cells, full width (e.g. an eyebrow and a type picker).
+  header?: ReactNode;
+  renderCell: (variationId: string) => ReactNode;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -379,6 +423,86 @@ export function VariationBox({
   );
 }
 
+// The Setup cards' grid, inside SortableVariationsList when reordering is
+// allowed, or as-is when it isn't.
+function MaybeSortable({
+  enabled,
+  variations,
+  onSort,
+  children,
+}: {
+  enabled: boolean;
+  variations: (Variation & { value: string })[];
+  onSort: (sorted: { id: string }[]) => void;
+  children: ReactNode;
+}) {
+  if (!enabled) return <>{children}</>;
+  return (
+    <SortableVariationsList
+      variations={variations}
+      // Only the new order: the move itself (and renumbering default keys)
+      // happens on save, in the Setup page.
+      setVariations={(sorted) => onSort(sorted)}
+      sortingStrategy="rect"
+      activationDistance={4}
+    >
+      {children}
+    </SortableVariationsList>
+  );
+}
+
+// One reorderable Setup card's cell: it moves with the drag, and hands the
+// drag listeners to the card, which puts them on its colour band and index
+// notch only (see SetupVariationCard).
+// How a card is moving mid-drag, so the cell below it in the Values row
+// can move the same way (set in review): the dragged card's value travels
+// with it, and the others shift with theirs.
+type CellMotion = {
+  transform: string | undefined;
+  transition: string | undefined;
+  dragging: boolean;
+};
+
+function SortableSetupCell({
+  id,
+  onMotion,
+  children,
+}: {
+  id: string;
+  onMotion: (id: string, motion: CellMotion | null) => void;
+  children: (dragListeners: DraggableSyntheticListeners) => ReactNode;
+}) {
+  const { setNodeRef, transform, transition, listeners, isDragging } =
+    useSortable({ id });
+  const translate = CSS.Translate.toString(transform);
+  useEffect(() => {
+    onMotion(
+      id,
+      translate || isDragging
+        ? { transform: translate, transition, dragging: isDragging }
+        : null,
+    );
+  }, [id, translate, transition, isDragging, onMotion]);
+  return (
+    <Box
+      ref={setNodeRef}
+      height="100%"
+      minWidth="0"
+      className={isDragging ? setupFunnelStyles.dragging : undefined}
+      style={{
+        position: "relative",
+        // Translate only: the cards differ in height, and a scale would
+        // stretch them.
+        transform: CSS.Translate.toString(transform),
+        transition,
+        zIndex: isDragging ? 1 : undefined,
+      }}
+    >
+      {children(listeners)}
+    </Box>
+  );
+}
+
 const VariationsTable: FC<Props> = ({
   experiment,
   variationsList,
@@ -393,9 +517,35 @@ const VariationsTable: FC<Props> = ({
   onAddVariation,
   onEditTraffic,
   centered = false,
+  variationRow,
+  layout = "default",
+  variationOrder,
+  onReorder,
+  extraVariations = [],
+  splitRow,
+  variationEdits,
+  onEditVariation,
 }) => {
   const { apiCall } = useAuth();
-  const variations = getLatestPhaseVariations(experiment);
+  const phaseVariations = getLatestPhaseVariations(experiment);
+  const latestVariations = [
+    ...phaseVariations,
+    ...extraVariations.map((v, i) => ({
+      ...v,
+      index: phaseVariations.length + i,
+    })),
+  ].map((v) =>
+    variationEdits?.[v.id] ? { ...v, ...variationEdits[v.id] } : v,
+  );
+  const unsavedIds = new Set(extraVariations.map((v) => v.id));
+  // In the caller's draft order, if any (an unsaved reorder); the index is
+  // the position.
+  const variations = variationOrder
+    ? variationOrder.flatMap((id, i) => {
+        const v = latestVariations.find((lv) => lv.id === id);
+        return v ? [{ ...v, index: i }] : [];
+      })
+    : latestVariations;
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
   const lastPhase = phases[lastPhaseIndex];
@@ -424,80 +574,329 @@ const VariationsTable: FC<Props> = ({
     maxColsForViewport > 0 && variations.length % maxColsForViewport === 0;
   const lastIndex = variations.length - 1;
 
+  const isSetup = layout === "setup";
+  const canReorder = isSetup && !!onReorder;
+  // Each card's movement mid-drag, keyed by variation id, mirrored onto the
+  // Values row below (see CellMotion).
+  const [cellMotion, setCellMotion] = useState<Record<string, CellMotion>>({});
+  const setCellMotionFor = useCallback(
+    (id: string, motion: CellMotion | null) => {
+      setCellMotion((prev) => {
+        if (!motion) {
+          if (!(id in prev)) return prev;
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        }
+        const cur = prev[id];
+        if (
+          cur &&
+          cur.transform === motion.transform &&
+          cur.transition === motion.transition &&
+          cur.dragging === motion.dragging
+        )
+          return prev;
+        return { ...prev, [id]: motion };
+      });
+    },
+    [],
+  );
+
+  // Shared by the cards and the optional variationRow, so the row's cells
+  // land in the same columns as the cards above them.
+  const gridLayout = isSetup
+    ? { columns: `repeat(${variations.length}, minmax(0, 1fr))` }
+    : centered
+      ? { justify: "center" as const, columns: getVariationGridColumns(cols) }
+      : {
+          columns: {
+            initial: "1",
+            xs: "2",
+            sm: cols === 2 ? "2" : "3",
+            md: cols.toString(),
+          },
+        };
+
+  // More than three variations in the Setup layout: each column keeps a
+  // third of the row's width and the row scrolls sideways to the rest (set
+  // in review). The split bar, the cards and the Values row scroll as one,
+  // in content as wide as all the columns, so they stay aligned.
+  const SETUP_VISIBLE_COLUMNS = 3;
+  const scrolls = isSetup && variations.length > SETUP_VISIBLE_COLUMNS;
+  const n = variations.length;
+  // Where the cards' vertical centre is, for the "+" outside the scroll.
+  const cardsRef = useRef<HTMLDivElement>(null);
+  const [plusTop, setPlusTop] = useState<number | null>(null);
+  useEffect(() => {
+    const el = cardsRef.current;
+    if (!scrolls || !el) return;
+    const measure = () => setPlusTop(el.offsetTop + el.offsetHeight / 2);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [scrolls]);
+  const scrollContentWidth = `calc((100% - ${SETUP_VISIBLE_COLUMNS - 1} * var(--space-4)) / ${SETUP_VISIBLE_COLUMNS} * ${n} + ${n - 1} * var(--space-4))`;
+
   return (
-    <Box mx={noMargin ? "0" : "4"}>
-      <Grid
-        gap={gap}
-        style={{ gridAutoRows: "1fr" }}
-        {...(centered
-          ? { justify: "center", columns: getVariationGridColumns(cols) }
-          : {
-              columns: {
-                initial: "1",
-                xs: "2",
-                sm: cols === 2 ? "2" : "3",
-                md: cols.toString(),
-              },
-            })}
-      >
-        {variations.map((v, i) => {
-          if (variationsList && !variationsList.includes(v.id)) return null;
-          const box = (
-            <VariationBox
-              i={v.index}
-              v={v}
-              experiment={experiment}
-              showIds={hasUniqueIDs}
-              height={MAX_IMAGE_HEIGHT}
-              canEdit={canEditExperiment}
-              allowImages={allowImages}
-              openCarousel={(variationId, index) => {
-                setOpenCarousel({ variationId, index });
-              }}
-              mutate={mutate}
-              percent={percentages?.[i]}
-              isPublic={isPublic}
-              shareUid={shareUid}
-              shareType={shareType}
-              onEditMetadata={onEditMetadata}
-              onEditTraffic={onEditTraffic}
-              showNoImage={
-                experiment.status === "draft" || someVariationHasImage
-              }
-              capWidth={centered}
-            />
-          );
-
-          if (onAddVariation && !fullLastRow && i === lastIndex) {
-            return (
-              <Box key={v.id} height="100%" style={{ position: "relative" }}>
-                {box}
-                <Box
-                  style={{
-                    position: "absolute",
-                    left: "calc(100% + var(--space-3))",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                  }}
-                >
-                  <AddVariationButton onClick={onAddVariation} />
-                </Box>
-              </Box>
-            );
-          }
-
-          return (
-            <Box key={v.id} height="100%">
-              {box}
-            </Box>
-          );
-        })}
-      </Grid>
-      {onAddVariation && fullLastRow ? (
-        <Flex justify="center" style={{ marginTop: 20 }}>
-          <AddVariationButton onClick={onAddVariation} />
-        </Flex>
+    <Box
+      mx={noMargin ? "0" : "4"}
+      style={scrolls ? { position: "relative" } : undefined}
+    >
+      {scrolls && onAddVariation && plusTop !== null ? (
+        // While the row scrolls, the "+" stays in its usual place (set in
+        // review): outside the scrolling row, in the gutter 12px to its
+        // right, centred on the cards (measured, as the split bar sits above
+        // them and the Values row below). FALLBACK: Radix IconButton; @/ui/
+        // has no icon button.
+        <Box
+          style={{
+            position: "absolute",
+            left: "calc(100% + var(--space-3))",
+            top: plusTop,
+            transform: "translateY(-50%)",
+            zIndex: 1,
+          }}
+        >
+          <IconButton
+            variant="outline"
+            color="gray"
+            size="2"
+            onClick={() => onAddVariation()}
+            aria-label="Add variation"
+            title="Add variation"
+          >
+            <PiPlus size="14" />
+          </IconButton>
+        </Box>
       ) : null}
+      <Box
+        className={scrolls ? setupFunnelStyles.variationScroller : undefined}
+      >
+        <Box
+          style={
+            scrolls
+              ? ({
+                  width: scrollContentWidth,
+                  // The scroll box's visible width, for what stays put while
+                  // the row scrolls (.stickyVisible): three columns and their
+                  // gaps, from this content's width.
+                  "--setup-visible-width": `calc((100% - ${n - 1} * var(--space-4)) * ${SETUP_VISIBLE_COLUMNS} / ${n} + ${SETUP_VISIBLE_COLUMNS - 1} * var(--space-4))`,
+                } as React.CSSProperties)
+              : undefined
+          }
+        >
+          {splitRow}
+          {/* The cards, wrapped for drag-to-reorder when it's allowed:
+        SortableVariationsList (as the modal uses), with a 4px threshold so a
+        click on the band that drifts a pixel isn't a reorder. */}
+          {/* Positioned against the whole row, so the "+" stays put while a
+        card is dragged (fixed in review; it was in the last card's cell and
+        moved with it). */}
+          <Box
+            ref={cardsRef}
+            style={isSetup ? { position: "relative" } : undefined}
+          >
+            <MaybeSortable
+              enabled={canReorder}
+              variations={variations.map((v) => ({ ...v, value: v.key }))}
+              onSort={(sorted) => onReorder?.(sorted.map((v) => v.id))}
+            >
+              <Grid
+                // 16px in the Setup layout (being tried in review; was 12px).
+                // SetupSplit places its pills over the columns assuming this gap
+                // (columnCenter in SetupFunnel.tsx), so the two change together.
+                gap={isSetup ? "4" : gap}
+                style={{ gridAutoRows: "1fr" }}
+                {...gridLayout}
+              >
+                {variations.map((v, i) => {
+                  if (variationsList && !variationsList.includes(v.id))
+                    return null;
+                  if (isSetup) {
+                    // dragListeners: the drag handle's listeners when reorderable.
+                    const card = (
+                      dragListeners?: DraggableSyntheticListeners,
+                    ) => (
+                      <SetupVariationCard
+                        v={v}
+                        experiment={experiment}
+                        canEdit={
+                          canEditExperiment &&
+                          (!!onEditVariation || !unsavedIds.has(v.id))
+                        }
+                        // Images only once saved: the uploader saves to the
+                        // experiment.
+                        canUpload={!unsavedIds.has(v.id)}
+                        onEdit={
+                          onEditVariation
+                            ? () => onEditVariation(v.id)
+                            : !unsavedIds.has(v.id) &&
+                                onEditMetadata &&
+                                onEditTraffic
+                              ? () =>
+                                  experiment.status === "running"
+                                    ? onEditMetadata(v.index)
+                                    : onEditTraffic(v.id)
+                              : undefined
+                        }
+                        mutate={mutate}
+                        openCarousel={(variationId, index) =>
+                          setOpenCarousel({ variationId, index })
+                        }
+                        imageCache={imageCache}
+                        dragListeners={dragListeners}
+                      />
+                    );
+                    if (canReorder) {
+                      return (
+                        <SortableSetupCell
+                          key={v.id}
+                          id={v.id}
+                          onMotion={setCellMotionFor}
+                        >
+                          {(dragListeners) => card(dragListeners)}
+                        </SortableSetupCell>
+                      );
+                    }
+                    return (
+                      <Box
+                        key={v.id}
+                        height="100%"
+                        minWidth="0"
+                        style={{ position: "relative" }}
+                      >
+                        {card()}
+                      </Box>
+                    );
+                  }
+                  const box = (
+                    <VariationBox
+                      i={v.index}
+                      v={v}
+                      experiment={experiment}
+                      showIds={hasUniqueIDs}
+                      height={MAX_IMAGE_HEIGHT}
+                      canEdit={canEditExperiment}
+                      allowImages={allowImages}
+                      openCarousel={(variationId, index) => {
+                        setOpenCarousel({ variationId, index });
+                      }}
+                      mutate={mutate}
+                      percent={percentages?.[i]}
+                      isPublic={isPublic}
+                      shareUid={shareUid}
+                      shareType={shareType}
+                      onEditMetadata={onEditMetadata}
+                      onEditTraffic={onEditTraffic}
+                      showNoImage={
+                        experiment.status === "draft" || someVariationHasImage
+                      }
+                      capWidth={centered}
+                    />
+                  );
+
+                  if (onAddVariation && !fullLastRow && i === lastIndex) {
+                    return (
+                      <Box
+                        key={v.id}
+                        height="100%"
+                        style={{ position: "relative" }}
+                      >
+                        {box}
+                        <Box
+                          style={{
+                            position: "absolute",
+                            left: "calc(100% + var(--space-3))",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                          }}
+                        >
+                          <AddVariationButton onClick={onAddVariation} />
+                        </Box>
+                      </Box>
+                    );
+                  }
+
+                  return (
+                    <Box key={v.id} height="100%">
+                      {box}
+                    </Box>
+                  );
+                })}
+              </Grid>
+            </MaybeSortable>
+            {isSetup && onAddVariation && !scrolls ? (
+              // In the gutter to the right of the row, 12px out, centred on the
+              // cards, as the design places it. FALLBACK: Radix IconButton; @/ui/
+              // has no icon button.
+              <Box
+                style={{
+                  position: "absolute",
+                  left: "calc(100% + var(--space-3))",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                }}
+              >
+                <IconButton
+                  variant="outline"
+                  color="gray"
+                  size="2"
+                  onClick={() => onAddVariation()}
+                  aria-label="Add variation"
+                  title="Add variation"
+                >
+                  <PiPlus size="14" />
+                </IconButton>
+              </Box>
+            ) : null}
+          </Box>
+          {onAddVariation && fullLastRow && !isSetup ? (
+            <Flex justify="center" style={{ marginTop: 20 }}>
+              <AddVariationButton onClick={onAddVariation} />
+            </Flex>
+          ) : null}
+          {variationRow ? (
+            <Box mt="4">
+              {/* "Values" and Type stay put while the row scrolls (set in
+                review). */}
+              {variationRow.header ? (
+                <Box mb="2" className={setupFunnelStyles.stickyVisible}>
+                  {variationRow.header}
+                </Box>
+              ) : null}
+              <Grid gap={isSetup ? "4" : gap} {...gridLayout}>
+                {variations
+                  .filter(
+                    (v) => !variationsList || variationsList.includes(v.id),
+                  )
+                  .map((v) => {
+                    // Moves with its card mid-drag (see CellMotion).
+                    const motion = cellMotion[v.id];
+                    return (
+                      <Box
+                        key={v.id}
+                        minWidth="0"
+                        style={
+                          motion
+                            ? {
+                                position: "relative",
+                                transform: motion.transform,
+                                transition: motion.transition,
+                                zIndex: motion.dragging ? 1 : undefined,
+                              }
+                            : undefined
+                        }
+                      >
+                        {variationRow.renderCell(v.id)}
+                      </Box>
+                    );
+                  })}
+              </Grid>
+            </Box>
+          ) : null}
+        </Box>
+      </Box>
       {openCarousel && (
         <ExperimentCarouselModal
           experiment={experiment}

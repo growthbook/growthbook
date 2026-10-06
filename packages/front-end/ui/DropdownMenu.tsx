@@ -57,6 +57,8 @@ type DropdownProps = {
   onCloseAutoFocus?: React.ComponentProps<
     typeof RadixDropdownMenu.Content
   >["onCloseAutoFocus"];
+  // A class on the open menu. Optional and additive.
+  contentClassName?: string;
 } & MarginProps;
 
 export function DropdownMenu({
@@ -68,6 +70,7 @@ export function DropdownMenu({
   menuWidth,
   menuMaxHeight,
   menuZIndex,
+  contentClassName,
   children,
   color,
   variant,
@@ -171,7 +174,12 @@ export function DropdownMenu({
           variant={variant}
           onCloseAutoFocus={onCloseAutoFocus}
           className={
-            menuWidth === "full" ? "dropdown-content-width-full" : undefined
+            [
+              menuWidth === "full" ? "dropdown-content-width-full" : "",
+              contentClassName ?? "",
+            ]
+              .filter(Boolean)
+              .join(" ") || undefined
           }
           style={{
             width: typeof menuWidth === "number" ? menuWidth : undefined,

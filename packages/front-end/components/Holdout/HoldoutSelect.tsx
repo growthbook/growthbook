@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { ReactNode, useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { resolveAnalysisIdentifierType, getHoldoutStage } from "shared/util";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
@@ -18,6 +18,8 @@ export const HoldoutSelect = ({
   selectedHoldoutId,
   formType,
   hideEmptyStatePromo,
+  label = "Holdout",
+  labelClassName = "font-weight-bold",
 }: {
   selectedProject?: string;
   setHoldout: (holdoutId: string) => void;
@@ -27,6 +29,10 @@ export const HoldoutSelect = ({
   // when the org has no holdouts yet. The actual selector still renders when
   // there are holdouts to pick from. Useful for onboarding contexts.
   hideEmptyStatePromo?: boolean;
+  // Optional overrides for the field's label and its class. Default to the
+  // bold "Holdout" every other caller gets.
+  label?: ReactNode;
+  labelClassName?: string;
 }) => {
   const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
@@ -137,8 +143,8 @@ export const HoldoutSelect = ({
     <>
       <SelectField
         size="legacy"
-        label="Holdout"
-        labelClassName="font-weight-bold"
+        label={label}
+        labelClassName={labelClassName}
         value={selectedHoldoutId || ""}
         onChange={(v) => {
           setHoldout(v);

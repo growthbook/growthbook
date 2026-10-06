@@ -18,7 +18,9 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LoadingSpinner from "./LoadingSpinner";
 import CommentCard from "./Comments/CommentCard";
 import CommentForm from "./CommentForm";
+import PlainCommentBox from "./Comments/PlainCommentBox";
 import Markdown from "./Markdown/Markdown";
+import { formatCommentTime } from "./Comments/commentTime";
 
 const DiscussionThread: FC<{
   type: DiscussionParentType;
@@ -27,6 +29,10 @@ const DiscussionThread: FC<{
   allowNewComments?: boolean;
   showTitle?: boolean;
   title?: string;
+  // Compact comments for narrow panels: no avatar, name with the email on
+  // hover, abbreviated times ("Just now", "15 min. ago", the date after a
+  // day). Optional and additive; see CommentCard's compact prop.
+  compact?: boolean;
 }> = ({
   type,
   id,
@@ -34,10 +40,13 @@ const DiscussionThread: FC<{
   showTitle = false,
   title = "Add comment",
   projects,
+  compact = false,
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
   const [edit, setEdit] = useState<number | null>(null);
+  // The compact edit box's text (CommentForm keeps its own).
+  const [editValue, setEditValue] = useState("");
 
   const permissions = usePermissionsUtil();
 
@@ -76,7 +85,27 @@ const DiscussionThread: FC<{
             return (
               <Flex key={i} align="start">
                 <Box flexGrow="1">
-                  {edit === i ? (
+                  {edit === i && compact ? (
+                    // Compact: the same plain box as the new-comment box,
+                    // with "Done" and "Cancel".
+                    <PlainCommentBox
+                      value={editValue}
+                      onChange={setEditValue}
+                      cta="Done"
+                      discardLabel="Cancel"
+                      autoFocus
+                      discardAlwaysEnabled
+                      onDiscard={() => setEdit(null)}
+                      onSubmit={async () => {
+                        await apiCall(`/discussion/${type}/${id}/${i}`, {
+                          method: "PUT",
+                          body: JSON.stringify({ comment: editValue }),
+                        });
+                        await mutate();
+                        setEdit(null);
+                      }}
+                    />
+                  ) : edit === i ? (
                     <CommentForm
                       cta="Save"
                       onSave={() => {
@@ -93,8 +122,16 @@ const DiscussionThread: FC<{
                   ) : (
                     <CommentCard
                       user={eventUser}
-                      metadata={`commented on ${datetime(comment.date)}`}
+                      metadata={
+                        compact
+                          ? formatCommentTime(comment.date)
+                          : `commented on ${datetime(comment.date)}`
+                      }
+                      compact={compact}
                       metadataExtra={
+                        // Compact shows "Edited" under the comment instead
+                        // (see body).
+                        !compact &&
                         comment.edited && (
                           <Text color="text-low" size="sm" fontStyle="italic">
                             &bull; edited
@@ -118,7 +155,12 @@ const DiscussionThread: FC<{
                             variant="soft"
                             menuPlacement="end"
                           >
-                            <DropdownMenuItem onClick={() => setEdit(i)}>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setEditValue(comment.content || "");
+                                setEdit(i);
+                              }}
+                            >
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem
@@ -141,9 +183,30 @@ const DiscussionThread: FC<{
                         )
                       }
                       body={
-                        <Markdown className="speech-bubble">
-                          {comment.content || ""}
-                        </Markdown>
+                        <>
+                          <Markdown className="speech-bubble">
+                            {comment.content || ""}
+                          </Markdown>
+                          {compact && comment.edited ? (
+                            // Compact: "Edited" under the comment, in the time
+                            // line's --slate-10, at 10px, rather than
+                            // "• edited" beside the time (set in review).
+                            // OFF THE TOKENS: the colour isn't a text token and
+                            // Text's smallest size is 12px, so both are set on
+                            // a wrapper that Text inherits from.
+                            <Box
+                              mt="1"
+                              style={{
+                                color: "var(--slate-10)",
+                                fontSize: "10px",
+                              }}
+                            >
+                              <Text as="div" size="inherit">
+                                Edited
+                              </Text>
+                            </Box>
+                          ) : null}
+                        </>
                       }
                     />
                   )}

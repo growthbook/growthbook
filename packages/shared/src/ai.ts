@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { parseOptionalInt } from "./util/numbers";
 
 export const AI_PROVIDERS = [
@@ -873,3 +874,99 @@ export function formatAIRateLimitRetryMessage(
   }
   return `You have reached the AI request limit. Try again in ${hourPart || minutePart}.`;
 }
+
+// PROTOTYPE: "Set up with AI" in Create Experiment. The structured answer the
+// model gives for a description or spec (POST /ai/experiment-setup). Every
+// field is required but nullable: null means the input didn't state it, and
+// the model is told to give null rather than guess. (Required-and-nullable
+// rather than optional so the same schema works with OpenAI's strict
+// structured outputs.) Data source, assignment query and decision criteria
+// are deliberately absent: they're org configuration, not something a spec
+// describes, and a wrong answer there is silently wrong.
+export const AI_EXPERIMENT_SETUP_TYPES = [
+  "values",
+  "feature-flag",
+  "visual-editor",
+  "url-redirect",
+] as const;
+
+export const AI_EXPERIMENT_SETUP_OPERATORS = [
+  "is",
+  "is not",
+  "is any of",
+  "is none of",
+] as const;
+
+export const aiExperimentSetupSchema = z.object({
+  hypothesis: z.string().nullable(),
+  description: z.string().nullable(),
+  // The variations in order, control first. Each part is null when the
+  // input doesn't state it; value only when the input states it outright.
+  variations: z
+    .array(
+      z.object({
+        name: z.string().nullable(),
+        description: z.string().nullable(),
+        value: z.string().nullable(),
+      }),
+    )
+    .nullable(),
+  experimentType: z.enum(AI_EXPERIMENT_SETUP_TYPES).nullable(),
+  targeting: z
+    .array(
+      z.object({
+        attribute: z.string(),
+        operator: z.enum(AI_EXPERIMENT_SETUP_OPERATORS),
+        values: z.array(z.string()),
+      }),
+    )
+    .nullable(),
+  trafficSplit: z
+    .object({
+      // Percent of eligible users in the experiment, 1 to 100.
+      coveragePercent: z.number(),
+      // One per variation, control first, in percent, summing to 100.
+      variationPercents: z.array(z.number()),
+    })
+    .nullable(),
+  // The id of one of the metrics listed in the prompt.
+  goalMetricId: z.string().nullable(),
+  // Ids of listed metrics the input names as secondary or guardrail
+  // metrics.
+  secondaryMetricIds: z.array(z.string()).nullable(),
+  guardrailMetricIds: z.array(z.string()).nullable(),
+  duration: z
+    .object({
+      amount: z.number(),
+      unit: z.enum(["days", "weeks"]),
+    })
+    .nullable(),
+  // When the experiment should start: an ISO 8601 date (YYYY-MM-DD) or
+  // date-time.
+  scheduledStart: z.string().nullable(),
+});
+
+export type AIExperimentSetup = z.infer<typeof aiExperimentSetupSchema>;
+
+// What the front end sends: the user's text and attached files, plus the
+// org context the model may choose from (it never invents attributes or
+// metrics).
+export const aiExperimentSetupRequestValidator = z.object({
+  // The project the experiment is being created in (permission check).
+  project: z.string().max(255),
+  description: z.string().max(20000),
+  files: z
+    .array(
+      z.object({ name: z.string().max(255), content: z.string().max(100000) }),
+    )
+    // One spec at most (the create form replaces rather than adds).
+    .max(1),
+  attributes: z.array(z.string().max(255)).max(500),
+  metrics: z
+    .array(z.object({ id: z.string().max(255), name: z.string().max(500) }))
+    .max(1000),
+});
+
+export type AIExperimentSetupRequest = z.infer<
+  typeof aiExperimentSetupRequestValidator
+>;

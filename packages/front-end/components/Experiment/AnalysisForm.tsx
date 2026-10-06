@@ -71,6 +71,24 @@ import MetricSelector from "./MetricSelector";
 import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
+// What the data source section edits, or clears when the data source
+// changes: metrics it can't use, the segment, the activation metric. See
+// AnalysisForm's onApply.
+const DATA_SOURCE_FIELDS = [
+  "datasource",
+  "exposureQueryId",
+  "trackingKey",
+  "goalMetrics",
+  "secondaryMetrics",
+  "guardrailMetrics",
+  "segment",
+  "activationMetric",
+] as const;
+
+export type AnalysisFormDataSourceChanges = Partial<
+  Pick<ExperimentInterfaceStringDates, (typeof DATA_SOURCE_FIELDS)[number]>
+>;
+
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
@@ -81,6 +99,22 @@ const AnalysisForm: FC<{
   editDates?: boolean;
   editMetrics?: boolean;
   source?: string;
+  // Optional and additive: callers that pass nothing get the existing modal.
+  // header / cta override the title and submit label. hideStatsSettings
+  // drops the stats engine, CUPED, post-stratification and sequential
+  // testing controls, and leaves those fields out of the save so this form
+  // can't overwrite them.
+  header?: string;
+  cta?: string;
+  hideStatsSettings?: boolean;
+  // Open the data source section in edit mode even when one is already set,
+  // instead of its read-only summary with an Edit button.
+  alwaysEditDataSource?: boolean;
+  // Hand the changes to the caller instead of saving (set in review, for the
+  // Setup page's rail, whose draft and save bar save them). Only the fields
+  // the data source section edits or clears, and only those that differ
+  // from `experiment` (which the caller can seed with its draft).
+  onApply?: (changes: AnalysisFormDataSourceChanges) => void;
 }> = ({
   experiment,
   envs,
@@ -91,6 +125,11 @@ const AnalysisForm: FC<{
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
+  header = "Analysis Settings",
+  cta = "Save",
+  hideStatsSettings = false,
+  alwaysEditDataSource = false,
+  onApply,
 }) => {
   const {
     segments,
@@ -111,7 +150,9 @@ const AnalysisForm: FC<{
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [editingDataSource, setEditingDataSource] = useState(
-    !experiment.datasource || !experiment.exposureQueryId,
+    alwaysEditDataSource ||
+      !experiment.datasource ||
+      !experiment.exposureQueryId,
   );
 
   const pid = experiment?.project;
@@ -452,7 +493,7 @@ const AnalysisForm: FC<{
     <ModalStandard
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
-      header={"Analysis Settings"}
+      header={header}
       open={true}
       close={cancel}
       size="lg"
@@ -531,13 +572,37 @@ const AnalysisForm: FC<{
           }
         }
 
+        // Into the caller's draft: just what the data source section changed
+        // or cleared. Nothing is saved here.
+        if (onApply) {
+          const changes: AnalysisFormDataSourceChanges = {};
+          for (const key of DATA_SOURCE_FIELDS) {
+            if (
+              JSON.stringify(body[key] ?? null) !==
+              JSON.stringify(experiment[key] ?? null)
+            ) {
+              Object.assign(changes, { [key]: body[key] });
+            }
+          }
+          onApply(changes);
+          return;
+        }
+
+        if (hideStatsSettings) {
+          delete body.statsEngine;
+          delete body.regressionAdjustmentEnabled;
+          delete body.postStratificationEnabled;
+          delete body.sequentialTestingEnabled;
+          delete body.sequentialTestingTuningParameter;
+        }
+
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(body),
         });
         mutate();
       })}
-      cta="Save"
+      cta={cta}
     >
       <Box>
         {isBandit && (
@@ -811,171 +876,182 @@ const AnalysisForm: FC<{
               )}
             </div>
           )}
-        <Flex gap="3" align="start" wrap="wrap">
-          <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
-            <StatsEngineSelect
-              value={form.watch("statsEngine")}
-              onChange={(v) => {
-                form.setValue("statsEngine", v);
-              }}
-              parentSettings={parentScopedSettings}
-              allowUndefined={!isBandit}
-              disabled={isBandit}
-              className=""
-            />
-          </Box>
-          {!isHoldout && (
-            <>
+        {/* Hidden when hideStatsSettings is set: the redesigned Setup page
+          edits these inline, in its Analysis Plan's Advanced section. */}
+        {hideStatsSettings ? null : (
+          <>
+            <Flex gap="3" align="start" wrap="wrap">
               <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
-                <SelectField
-                  label={
-                    <PremiumTooltip commercialFeature="regression-adjustment">
-                      CUPED
-                    </PremiumTooltip>
-                  }
-                  value={
-                    hasRegressionAdjustmentFeature &&
-                    form.watch("regressionAdjustmentEnabled")
-                      ? "on"
-                      : "off"
-                  }
+                <StatsEngineSelect
+                  value={form.watch("statsEngine")}
                   onChange={(v) => {
-                    form.setValue("regressionAdjustmentEnabled", v === "on");
+                    form.setValue("statsEngine", v);
                   }}
-                  options={[
-                    { label: "On", value: "on" },
-                    { label: "Off", value: "off" },
-                  ]}
-                  disabled={
-                    !hasRegressionAdjustmentFeature ||
-                    (isBandit && experiment.status !== "draft")
-                  }
+                  parentSettings={parentScopedSettings}
+                  allowUndefined={!isBandit}
+                  disabled={isBandit}
+                  className=""
                 />
               </Box>
-              {!orgSettings.disablePrecomputedDimensions ? (
-                <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
-                  <SelectField
-                    label={
-                      <PremiumTooltip commercialFeature="post-stratification">
-                        Post-Stratification
-                      </PremiumTooltip>
-                    }
-                    value={
-                      !hasPostStratificationFeature ||
-                      form.watch("postStratificationEnabled") == null
-                        ? ""
-                        : form.watch("postStratificationEnabled")
+              {!isHoldout && (
+                <>
+                  <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
+                    <SelectField
+                      label={
+                        <PremiumTooltip commercialFeature="regression-adjustment">
+                          CUPED
+                        </PremiumTooltip>
+                      }
+                      value={
+                        hasRegressionAdjustmentFeature &&
+                        form.watch("regressionAdjustmentEnabled")
                           ? "on"
                           : "off"
-                    }
-                    onChange={(v) => {
-                      form.setValue(
-                        "postStratificationEnabled",
-                        v === "" ? null : v === "on",
-                      );
-                    }}
-                    options={[
-                      {
-                        label: `Default (${
-                          hasPostStratificationFeature &&
-                          parentScopedSettings.postStratificationEnabled.value
-                            ? "On"
-                            : "Off"
-                        })`,
-                        value: "",
-                      },
-                      { label: "On", value: "on" },
-                      { label: "Off", value: "off" },
-                    ]}
-                    formatOptionLabel={({ value, label }) => {
-                      if (value === "") {
-                        return <em className="text-muted">{label}</em>;
                       }
-                      return label;
-                    }}
-                    sort={false}
-                    disabled={
-                      !hasPostStratificationFeature ||
-                      (isBandit && experiment.status !== "draft")
-                    }
-                  />
-                </Box>
-              ) : null}
-            </>
-          )}
-        </Flex>
-        {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
-          "frequentist" &&
-          !isBandit &&
-          !isHoldout && (
-            <Flex gap="3" align="start">
-              <Box style={{ flex: 1, minWidth: 0 }}>
-                <SelectField
-                  label={
-                    <PremiumTooltip commercialFeature="sequential-testing">
-                      Sequential Testing
-                    </PremiumTooltip>
-                  }
-                  value={
-                    usingSequentialTestingDefault
-                      ? ""
-                      : form.watch("sequentialTestingEnabled")
-                        ? "on"
-                        : "off"
-                  }
-                  onChange={(v) => {
-                    if (v === "") {
-                      setSequentialTestingToDefault(true);
-                    } else {
-                      setSequentialTestingToDefault(false);
-                      form.setValue("sequentialTestingEnabled", v === "on");
-                    }
-                  }}
-                  options={[
-                    {
-                      label: `Default (${
-                        orgSettings.sequentialTestingEnabled ? "On" : "Off"
-                      })`,
-                      value: "",
-                    },
-                    { label: "On", value: "on" },
-                    { label: "Off", value: "off" },
-                  ]}
-                  formatOptionLabel={({ value, label }) => {
-                    if (value === "") {
-                      return <em className="text-muted">{label}</em>;
-                    }
-                    return label;
-                  }}
-                  sort={false}
-                  disabled={!hasSequentialTestingFeature}
-                />
-              </Box>
-              <Box style={{ flex: 1, minWidth: 0 }}>
-                {(usingSequentialTestingDefault &&
-                  !!orgSettings.sequentialTestingEnabled) ||
-                (!usingSequentialTestingDefault &&
-                  form.watch("sequentialTestingEnabled")) ? (
-                  <Field
-                    label="Tuning parameter"
-                    type="number"
-                    containerClassName="mb-0"
-                    min="0"
-                    readOnly={usingSequentialTestingDefault}
-                    disabled={!hasSequentialTestingFeature || hasFileConfig()}
-                    {...form.register("sequentialTestingTuningParameter", {
-                      valueAsNumber: true,
-                      validate: (v) => {
-                        return !((v ?? 0) <= 0);
-                      },
-                    })}
-                  />
-                ) : null}
-              </Box>
-              <Box style={{ flex: 1, minWidth: 0 }} />
+                      onChange={(v) => {
+                        form.setValue(
+                          "regressionAdjustmentEnabled",
+                          v === "on",
+                        );
+                      }}
+                      options={[
+                        { label: "On", value: "on" },
+                        { label: "Off", value: "off" },
+                      ]}
+                      disabled={
+                        !hasRegressionAdjustmentFeature ||
+                        (isBandit && experiment.status !== "draft")
+                      }
+                    />
+                  </Box>
+                  {!orgSettings.disablePrecomputedDimensions ? (
+                    <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
+                      <SelectField
+                        label={
+                          <PremiumTooltip commercialFeature="post-stratification">
+                            Post-Stratification
+                          </PremiumTooltip>
+                        }
+                        value={
+                          !hasPostStratificationFeature ||
+                          form.watch("postStratificationEnabled") == null
+                            ? ""
+                            : form.watch("postStratificationEnabled")
+                              ? "on"
+                              : "off"
+                        }
+                        onChange={(v) => {
+                          form.setValue(
+                            "postStratificationEnabled",
+                            v === "" ? null : v === "on",
+                          );
+                        }}
+                        options={[
+                          {
+                            label: `Default (${
+                              hasPostStratificationFeature &&
+                              parentScopedSettings.postStratificationEnabled
+                                .value
+                                ? "On"
+                                : "Off"
+                            })`,
+                            value: "",
+                          },
+                          { label: "On", value: "on" },
+                          { label: "Off", value: "off" },
+                        ]}
+                        formatOptionLabel={({ value, label }) => {
+                          if (value === "") {
+                            return <em className="text-muted">{label}</em>;
+                          }
+                          return label;
+                        }}
+                        sort={false}
+                        disabled={
+                          !hasPostStratificationFeature ||
+                          (isBandit && experiment.status !== "draft")
+                        }
+                      />
+                    </Box>
+                  ) : null}
+                </>
+              )}
             </Flex>
-          )}
-
+            {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
+              "frequentist" &&
+              !isBandit &&
+              !isHoldout && (
+                <Flex gap="3" align="start">
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <SelectField
+                      label={
+                        <PremiumTooltip commercialFeature="sequential-testing">
+                          Sequential Testing
+                        </PremiumTooltip>
+                      }
+                      value={
+                        usingSequentialTestingDefault
+                          ? ""
+                          : form.watch("sequentialTestingEnabled")
+                            ? "on"
+                            : "off"
+                      }
+                      onChange={(v) => {
+                        if (v === "") {
+                          setSequentialTestingToDefault(true);
+                        } else {
+                          setSequentialTestingToDefault(false);
+                          form.setValue("sequentialTestingEnabled", v === "on");
+                        }
+                      }}
+                      options={[
+                        {
+                          label: `Default (${
+                            orgSettings.sequentialTestingEnabled ? "On" : "Off"
+                          })`,
+                          value: "",
+                        },
+                        { label: "On", value: "on" },
+                        { label: "Off", value: "off" },
+                      ]}
+                      formatOptionLabel={({ value, label }) => {
+                        if (value === "") {
+                          return <em className="text-muted">{label}</em>;
+                        }
+                        return label;
+                      }}
+                      sort={false}
+                      disabled={!hasSequentialTestingFeature}
+                    />
+                  </Box>
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    {(usingSequentialTestingDefault &&
+                      !!orgSettings.sequentialTestingEnabled) ||
+                    (!usingSequentialTestingDefault &&
+                      form.watch("sequentialTestingEnabled")) ? (
+                      <Field
+                        label="Tuning parameter"
+                        type="number"
+                        containerClassName="mb-0"
+                        min="0"
+                        readOnly={usingSequentialTestingDefault}
+                        disabled={
+                          !hasSequentialTestingFeature || hasFileConfig()
+                        }
+                        {...form.register("sequentialTestingTuningParameter", {
+                          valueAsNumber: true,
+                          validate: (v) => {
+                            return !((v ?? 0) <= 0);
+                          },
+                        })}
+                      />
+                    ) : null}
+                  </Box>
+                  <Box style={{ flex: 1, minWidth: 0 }} />
+                </Flex>
+              )}
+          </>
+        )}
         <hr className="mt-2" />
 
         {editMetrics && (

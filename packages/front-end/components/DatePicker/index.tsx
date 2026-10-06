@@ -42,6 +42,14 @@ type Props = {
   wrapRangeInputs?: boolean;
   compact?: boolean;
   disabled?: boolean;
+  // Single date only: while the field is empty, show this plain placeholder
+  // (e.g. "mm/dd/yyyy") instead of the browser's date and time segments, and
+  // don't take typing; a click opens the calendar, as always. Optional and
+  // additive.
+  emptyPlaceholder?: string;
+  // An icon at the right of the field (e.g. a calendar). Decorative; the
+  // field still opens the picker. Optional and additive.
+  endIcon?: ReactNode;
   fixedSpanMode?: {
     phase: "committed" | "choosing";
     anchorDate?: Date;
@@ -116,6 +124,8 @@ export default function DatePicker({
   wrapRangeInputs = false,
   compact = false,
   disabled,
+  emptyPlaceholder,
+  endIcon,
   fixedSpanMode,
 }: Props) {
   const inputHeight = compact ? 32 : 38;
@@ -238,6 +248,7 @@ export default function DatePicker({
   }
 
   const isRange = !!setDate2 || !!fixedSpanMode;
+  const showEmptyPlaceholder = !!emptyPlaceholder && !isRange && !bufferedDate;
 
   const rangeFieldValue = useMemo(() => {
     if (
@@ -391,12 +402,29 @@ export default function DatePicker({
                     height: compact ? inputHeight : undefined,
                     minHeight: inputHeight,
                     overflow: "clip",
+                    ...(endIcon ? { position: "relative" } : {}),
                   }}
                 >
+                  {endIcon ? (
+                    <span
+                      aria-hidden
+                      style={{
+                        position: "absolute",
+                        right: 8,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        display: "flex",
+                        pointerEvents: "none",
+                        zIndex: 1,
+                      }}
+                    >
+                      {endIcon}
+                    </span>
+                  ) : null}
                   <Field
                     id={id ?? ""}
                     disabled={disabled}
-                    readOnly={!!fixedSpanMode}
+                    readOnly={!!fixedSpanMode || showEmptyPlaceholder}
                     style={{
                       border: 0,
                       marginRight: -20,
@@ -409,7 +437,7 @@ export default function DatePicker({
                       "text-muted": isRange ? !date || !date2 : !date,
                     })}
                     type={
-                      isRange
+                      isRange || showEmptyPlaceholder
                         ? "text"
                         : precision === "datetime"
                           ? "datetime-local"
@@ -420,7 +448,9 @@ export default function DatePicker({
                         ? precision === "datetime"
                           ? `yyyy-MM-dd'T'HH:mm${RANGE_DISPLAY_SEP}yyyy-MM-dd'T'HH:mm`
                           : `yyyy-MM-dd${RANGE_DISPLAY_SEP}yyyy-MM-dd`
-                        : undefined
+                        : showEmptyPlaceholder
+                          ? emptyPlaceholder
+                          : undefined
                     }
                     value={isRange ? rangeFieldValue : bufferedDate}
                     onChange={(e) => {

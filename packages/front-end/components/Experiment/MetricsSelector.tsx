@@ -12,9 +12,9 @@ import {
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
-import { Flex } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { FactMetricType } from "shared/types/fact-table";
-import { PiInfo } from "react-icons/pi";
+import { PiInfo, PiTag } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -27,6 +27,13 @@ import MetricName from "@/components/Metrics/MetricName";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
+import UITooltip from "@/ui/Tooltip";
+import styles from "./MetricsSelector.module.scss";
 
 type MetricOption = {
   id: string;
@@ -98,6 +105,21 @@ export const MetricsSelectorTooltip = ({
   );
 };
 
+// @/ui/Select's chevron: Radix Themes' ChevronDownIcon, which it doesn't
+// export, redrawn from the same path.
+const SelectChevron = () => (
+  <svg
+    width="9"
+    height="9"
+    viewBox="0 0 9 9"
+    fill="currentColor"
+    aria-hidden
+    style={{ display: "block" }}
+  >
+    <path d="M0.135232 3.15803C0.324102 2.95657 0.640521 2.94637 0.841971 3.13523L4.5 6.56464L8.158 3.13523C8.3595 2.94637 8.6759 2.95657 8.8648 3.15803C9.0536 3.35949 9.0434 3.67591 8.842 3.86477L4.84197 7.6148C4.64964 7.7951 4.35036 7.7951 4.15803 7.6148L0.158031 3.86477C-0.0434285 3.67591 -0.0536285 3.35949 0.135232 3.15803Z" />
+  </svg>
+);
+
 const MetricsSelector: FC<{
   datasource?: string;
   project?: string;
@@ -125,6 +147,14 @@ const MetricsSelector: FC<{
     reason?: string;
   };
   requireDatasource?: boolean;
+  // "menu": select-by-tag as a tag button inside the field, on the right,
+  // that opens a menu of tags, instead of the "Select metric by tag" row
+  // under it. Optional and additive: "row" (the default) is as before. Used
+  // by the redesigned experiment Setup page.
+  tagSelect?: "row" | "menu";
+  // Wraps a selected metric's chip label, e.g. to open details on click.
+  // Optional and additive; used by the redesigned experiment Setup page.
+  renderSelectedLabel?: (id: string, label: ReactNode) => ReactNode;
 }> = ({
   datasource,
   project,
@@ -146,6 +176,8 @@ const MetricsSelector: FC<{
   groupOptions = true,
   getMetricDisabledInfo,
   requireDatasource = false,
+  tagSelect = "row",
+  renderSelectedLabel,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
@@ -466,7 +498,7 @@ const MetricsSelector: FC<{
       const metricsWithJoinableStatus = isGroup
         ? groupMetricsJoinableMap.get(value) || []
         : [];
-      return (
+      const name = (
         <MetricName
           id={value}
           showDescription={context !== "value"}
@@ -479,8 +511,12 @@ const MetricsSelector: FC<{
           officialBadgePosition="left"
         />
       );
+      return context === "value" && renderSelectedLabel
+        ? renderSelectedLabel(value, name)
+        : name;
     },
     [
+      renderSelectedLabel,
       filteredOptionsMap,
       groupMetricsJoinableMap,
       filterConversionWindowMetrics,
@@ -515,6 +551,55 @@ const MetricsSelector: FC<{
 
   const selectorDisabled = disabled || (requireDatasource && !datasource);
 
+  // Adds every metric with the tag, as the "Select metric by tag" row does.
+  const addMetricsWithTag = (tag: string) => {
+    const newValue = new Set(selected);
+    filteredOptions.forEach((m) => {
+      if (m.tags && m.tags.includes(tag)) {
+        newValue.add(m.id);
+      }
+    });
+    onChange(Array.from(newValue));
+  };
+  const showTagSelect =
+    !forceSingleMetric && filteredOptions.length > 0 && !disabled;
+  const tagMenu =
+    tagSelect === "menu" &&
+    showTagSelect &&
+    Object.keys(tagCounts).length > 0 ? (
+      // FALLBACK: Radix IconButton for the trigger; @/ui/ has no icon button.
+      <DropdownMenu
+        trigger={
+          <IconButton
+            // Shown only while the field is hovered (see
+            // MetricsSelector.module.scss).
+            className={styles.tagButton}
+            variant="ghost"
+            color="gray"
+            radius="full"
+            size="1"
+            aria-label="Select metrics by tag"
+          >
+            <UITooltip content="Select metrics by tag">
+              <span style={{ display: "inline-flex" }}>
+                <PiTag size="14" />
+              </span>
+            </UITooltip>
+          </IconButton>
+        }
+        menuPlacement="end"
+      >
+        <DropdownMenuLabel textSize="sm">
+          Add all metrics with a tag
+        </DropdownMenuLabel>
+        {Object.keys(tagCounts).map((k) => (
+          <DropdownMenuItem key={k} onClick={() => addMetricsWithTag(k)}>
+            {k} ({tagCounts[k]})
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenu>
+    ) : null;
+
   const selector = !forceSingleMetric ? (
     <MultiSelectField
       legacyHeight
@@ -526,6 +611,11 @@ const MetricsSelector: FC<{
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
       disabled={selectorDisabled}
+      indicatorsStart={tagMenu}
+      customClassName={tagSelect === "menu" ? styles.typeaheadField : undefined}
+      // The Setup page's fields use @/ui/Select's chevron (Radix's 9px
+      // ChevronDownIcon), to match the selects around them (set in review).
+      dropdownIcon={tagSelect === "menu" ? <SelectChevron /> : undefined}
       helpText={
         <>
           {helpText}
@@ -566,54 +656,40 @@ const MetricsSelector: FC<{
           ) : null}
           <div className="d-flex align-items-center justify-content-end">
             <div>
-              {!forceSingleMetric &&
-                filteredOptions.length > 0 &&
-                !disabled && (
-                  <div className="metric-from-tag text-muted form-inline">
-                    <span
-                      style={{
-                        color: "var(--color-text-low)",
-                        fontWeight: 500,
-                      }}
-                    >
-                      Select metric by tag
-                      <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
-                        <PiInfo
-                          color="var(--color-text-low)"
-                          className="ml-1"
-                        />
-                      </Tooltip>
-                    </span>
-                    <SelectField
-                      size="legacy"
-                      value="choose"
-                      placeholder="choose"
-                      className="ml-3"
-                      containerClassName="select-dropdown-underline"
-                      style={{ minWidth: 140 }}
-                      onChange={(v) => {
-                        const newValue = new Set(selected);
-                        const tag = v;
-                        filteredOptions.forEach((m) => {
-                          if (m.tags && m.tags.includes(tag)) {
-                            newValue.add(m.id);
-                          }
-                        });
-                        onChange(Array.from(newValue));
-                      }}
-                      options={[
-                        {
-                          value: "...",
-                          label: "...",
-                        },
-                        ...Object.keys(tagCounts).map((k) => ({
-                          value: k,
-                          label: `${k} (${tagCounts[k]})`,
-                        })),
-                      ]}
-                    />
-                  </div>
-                )}
+              {tagSelect === "row" && showTagSelect && (
+                <div className="metric-from-tag text-muted form-inline">
+                  <span
+                    style={{
+                      color: "var(--color-text-low)",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Select metric by tag
+                    <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
+                      <PiInfo color="var(--color-text-low)" className="ml-1" />
+                    </Tooltip>
+                  </span>
+                  <SelectField
+                    size="legacy"
+                    value="choose"
+                    placeholder="choose"
+                    className="ml-3"
+                    containerClassName="select-dropdown-underline"
+                    style={{ minWidth: 140 }}
+                    onChange={addMetricsWithTag}
+                    options={[
+                      {
+                        value: "...",
+                        label: "...",
+                      },
+                      ...Object.keys(tagCounts).map((k) => ({
+                        value: k,
+                        label: `${k} (${tagCounts[k]})`,
+                      })),
+                    ]}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </>

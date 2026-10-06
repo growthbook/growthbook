@@ -17,6 +17,7 @@ import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSource
 import NPSSurvey from "@/components/NPSSurvey/NPSSurvey";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
+import { ToastProvider } from "@/ui/Toast";
 import { AuthProvider, useAuth } from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
 import {
@@ -193,77 +194,80 @@ function App({
       </Head>
       <AppearanceUIThemeProvider>
         <RadixTheme>
-          {ready || noLoadingOverlay ? (
-            <HoverTooltipProvider>
-              <SidebarOpenProvider>
-                <GrowthBookProvider growthbook={growthbook}>
-                  <div id="portal-root" />
-                  {preAuth || progressiveAuth ? (
-                    renderPreAuth()
-                  ) : (
-                    <PageHeadProvider>
-                      <AuthProvider>
-                        <ProtectedPage
-                          organizationRequired={organizationRequired}
-                        >
-                          {organizationRequired ? (
-                            <GetStartedProvider>
-                              <DefinitionsProvider>
-                                <FeatureHealthStatesProvider>
-                                  <AgentPanelProvider>
-                                    {liteLayout ? <LayoutLite /> : <Layout />}
-                                    <CommandPaletteLauncher />
-                                    <AgentLauncher />
-                                    <main className={`main ${parts[0]}`}>
-                                      <OrgSuspendedBannerContainer />
-                                      <OrganizationMessagesContainer />
-                                      <DemoDataSourceGlobalBannerContainer />
-                                      <NPSSurvey />
-                                      <OrgPageContent>
-                                        <GuidedGetStartedBar />
-                                        <DefinitionsGuard>
-                                          <Component
-                                            {...{
-                                              ...pageProps,
-                                              envReady: ready,
-                                            }}
-                                          />
-                                        </DefinitionsGuard>
-                                      </OrgPageContent>
-                                    </main>
-                                  </AgentPanelProvider>
-                                </FeatureHealthStatesProvider>
-                              </DefinitionsProvider>
-                            </GetStartedProvider>
-                          ) : (
-                            <div>
-                              <TopNavLite />
-                              <main className="container">
-                                <Component
-                                  {...{ ...pageProps, envReady: ready }}
-                                />
-                              </main>
-                            </div>
-                          )}
-                        </ProtectedPage>
-                      </AuthProvider>
-                    </PageHeadProvider>
-                  )}
-                </GrowthBookProvider>
-              </SidebarOpenProvider>
-            </HoverTooltipProvider>
-          ) : error ? (
-            <Container mt="9">
-              <Callout status="error">
-                Error Initializing GrowthBook:
-                <br />
-                <br />
-                {error}
-              </Callout>
-            </Container>
-          ) : (
-            <LoadingOverlay />
-          )}
+          {/* Toasts, for anywhere in the app (@/ui/Toast). */}
+          <ToastProvider>
+            {ready || noLoadingOverlay ? (
+              <HoverTooltipProvider>
+                <SidebarOpenProvider>
+                  <GrowthBookProvider growthbook={growthbook}>
+                    <div id="portal-root" />
+                    {preAuth || progressiveAuth ? (
+                      renderPreAuth()
+                    ) : (
+                      <PageHeadProvider>
+                        <AuthProvider>
+                          <ProtectedPage
+                            organizationRequired={organizationRequired}
+                          >
+                            {organizationRequired ? (
+                              <GetStartedProvider>
+                                <DefinitionsProvider>
+                                  <FeatureHealthStatesProvider>
+                                    <AgentPanelProvider>
+                                      {liteLayout ? <LayoutLite /> : <Layout />}
+                                      <CommandPaletteLauncher />
+                                      <AgentLauncher />
+                                      <main className={`main ${parts[0]}`}>
+                                        <OrgSuspendedBannerContainer />
+                                        <OrganizationMessagesContainer />
+                                        <DemoDataSourceGlobalBannerContainer />
+                                        <NPSSurvey />
+                                        <OrgPageContent>
+                                          <GuidedGetStartedBar />
+                                          <DefinitionsGuard>
+                                            <Component
+                                              {...{
+                                                ...pageProps,
+                                                envReady: ready,
+                                              }}
+                                            />
+                                          </DefinitionsGuard>
+                                        </OrgPageContent>
+                                      </main>
+                                    </AgentPanelProvider>
+                                  </FeatureHealthStatesProvider>
+                                </DefinitionsProvider>
+                              </GetStartedProvider>
+                            ) : (
+                              <div>
+                                <TopNavLite />
+                                <main className="container">
+                                  <Component
+                                    {...{ ...pageProps, envReady: ready }}
+                                  />
+                                </main>
+                              </div>
+                            )}
+                          </ProtectedPage>
+                        </AuthProvider>
+                      </PageHeadProvider>
+                    )}
+                  </GrowthBookProvider>
+                </SidebarOpenProvider>
+              </HoverTooltipProvider>
+            ) : error ? (
+              <Container mt="9">
+                <Callout status="error">
+                  Error Initializing GrowthBook:
+                  <br />
+                  <br />
+                  {error}
+                </Callout>
+              </Container>
+            ) : (
+              <LoadingOverlay />
+            )}
+          </ToastProvider>
         </RadixTheme>
       </AppearanceUIThemeProvider>
     </>

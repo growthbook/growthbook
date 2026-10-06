@@ -6,6 +6,7 @@ import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
 import { scheduleStagesStatusChange } from "shared/experiments";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { format as formatTimeZone } from "date-fns-tz";
 import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DatePicker from "@/components/DatePicker";
@@ -27,6 +28,8 @@ import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/Decisio
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
+import { useToast } from "@/ui/Toast";
+import SetupDateField from "@/components/Experiment/TabbedPage/SetupPage/SetupDateField";
 
 type ScheduledStopMode = "notify" | "auto-ship" | "force-ship" | "stop";
 type ScheduledStopFallback = "notify" | "force-ship";
@@ -47,6 +50,7 @@ export default function EditScheduleModal({
   mutate,
   close,
   envs,
+  redesigned = false,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
@@ -54,6 +58,17 @@ export default function EditScheduleModal({
   // Environments the experiment reaches; a scheduled start, stop or ship is
   // only offered to viewers who could run the experiment there.
   envs?: string[];
+  // Optional and additive: the redesigned experiment page's start-only view
+  // (all set in review). A callout saying when the experiment is currently
+  // scheduled to start; the label "Experiment Start Date" and the Setup
+  // page's date field, with the time zone beside it; a small (md) modal; no
+  // Unschedule button (the header's menu has Cancel Scheduled Start);
+  // "Submit"; a toast once saved. Only the start changes: any scheduled end
+  // (stopAt / stopAfter) and its end plan are sent back unchanged. Changing
+  // an approved schedule's time clears its approval on the server, so it
+  // re-approves it after saving, the same request the Schedule Start button
+  // makes.
+  redesigned?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
   const { getExperimentMetricById } = useDefinitions();
@@ -117,6 +132,7 @@ export default function EditScheduleModal({
   });
 
   const { apiCall } = useAuth();
+  const toast = useToast();
 
   const now = new Date();
   const initialStopAfter = experiment.statusUpdateSchedule?.stopAfter ?? null;
@@ -291,6 +307,103 @@ export default function EditScheduleModal({
       }
     }
   };
+
+  if (redesigned) {
+    const timeZone = formatTimeZone(new Date(), "z");
+    const currentStart = experiment.statusUpdateSchedule?.startAt;
+    return (
+      <ModalStandard
+        trackingEventModalType="edit-schedule-modal"
+        trackingEventModalSource="eid"
+        open={true}
+        close={close}
+        header={hasSchedule ? "Edit Schedule" : "Add Schedule"}
+        cta="Submit"
+        ctaColor="violet"
+        // No clear button here, so it always needs a date.
+        ctaEnabled={!!startAt && !statusChangeLocked}
+        size="md"
+        submit={form.handleSubmit(async (data) => {
+          // Only the start changes; the rest of the schedule is kept as is.
+          await apiCall(`/experiment/${experiment.id}`, {
+            method: "POST",
+            body: JSON.stringify({
+              statusUpdateSchedule: {
+                ...experiment.statusUpdateSchedule,
+                startAt: data.startAt || undefined,
+              },
+            }),
+          });
+          if (isApproved && data.startAt && data.startAt !== currentStart) {
+            await apiCall(
+              `/experiment/${experiment.id}/approve-scheduled-start`,
+              { method: "POST" },
+            );
+          }
+          mutate();
+          // Feedback for the save, since the modal just closes.
+          toast("Schedule updated");
+        })}
+      >
+        {currentStart ? (
+          // 24px to the date field's label.
+          <Callout status="info" size="sm" mb="5">
+            {isApproved
+              ? "Currently scheduled to start "
+              : "Start time set for "}
+            <strong>
+              {formatTimeZone(
+                new Date(currentStart),
+                "MMM d, yyyy 'at' h:mm a (z)",
+              )}
+            </strong>
+            {isApproved ? "." : ", not yet approved."}
+          </Callout>
+        ) : null}
+        <Box>
+          {/* Styled as the Advanced cards' field labels: 12px at weight 500
+            in the page text colour, 4px above the field. */}
+          <Text as="label" size="sm" weight="medium" mb="1">
+            Experiment Start Date
+          </Text>
+          {/* The Setup page's date field (as the Timing section's), filling
+            the body's width, with the time zone beside it. */}
+          <Flex align="center" gap="2">
+            <SetupDateField
+              fullWidth
+              size="medium"
+              date={startAt || undefined}
+              disableBefore={now}
+              setDate={(v) =>
+                form.setValue("startAt", v ? v.toISOString() : "")
+              }
+            />
+            {/* 12px in --slate-10. OFF THE TEXT TOKENS: @/ui/Text's colours
+              are the four text tokens only. */}
+            <span
+              style={{
+                fontSize: "var(--font-size-1)",
+                lineHeight: "var(--line-height-1)",
+                color: "var(--slate-10)",
+              }}
+            >
+              {timeZone}
+            </span>
+          </Flex>
+          {scheduleIsInThePast && (
+            <Helpertext mt="2" status="warning">
+              Scheduled time has passed
+            </Helpertext>
+          )}
+          {statusChangeLocked && (
+            <Helpertext mt="2" status="warning">
+              {runPermissionReason}
+            </Helpertext>
+          )}
+        </Box>
+      </ModalStandard>
+    );
+  }
 
   return (
     <>

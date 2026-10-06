@@ -1,6 +1,7 @@
 import bodyParser from "body-parser";
 import express from "express";
 import { z } from "zod";
+import { aiExperimentSetupRequestValidator } from "shared/ai";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawAIController from "./ai.controller";
@@ -84,6 +85,17 @@ router.post(
   "/transcribe",
   bodyParser.raw({ type: "audio/*", limit: "25mb" }),
   AIController.postTranscribe,
+);
+
+// PROTOTYPE: "Set up with AI" in Create Experiment (see
+// postExperimentSetup). Its own route; /reformat and the prompt types are
+// left alone.
+router.post(
+  "/experiment-setup",
+  validateRequestMiddleware({
+    body: aiExperimentSetupRequestValidator,
+  }),
+  AIController.postExperimentSetup,
 );
 
 export { router as aiRouter };

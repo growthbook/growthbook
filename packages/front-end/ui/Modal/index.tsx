@@ -24,7 +24,12 @@ import { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-export type Size = SharedSize<"md" | "lg"> | "xl" | "fill";
+// Main's sizes plus two from the experiment Setup page redesign:
+// "640", a literal-pixel size for content meaningfully narrower than "lg"
+// (800px) but wider than "md" (500px); and "full", which fills the window
+// but for 120px at each side and 74px above and below (the Setup page's
+// JSON value editor).
+export type Size = SharedSize<"md" | "lg"> | "640" | "xl" | "fill" | "full";
 
 // Modal does not use the shared Radix map. Radix Dialog's size drives padding
 // and border radius rather than a step on the control scale, its own default is
@@ -33,24 +38,33 @@ export type Size = SharedSize<"md" | "lg"> | "xl" | "fill";
 function getRadixSize(size: Size): Responsive<"3" | "4"> {
   switch (size) {
     case "md":
+    case "640":
       return "3";
     case "lg":
     case "xl":
     case "fill":
+    case "full":
       return "4";
   }
 }
+
+// "full": the window's height less 74px above and below.
+const FULL_HEIGHT = "calc(100vh - 148px)";
 
 function getMaxWidth(size: Size) {
   switch (size) {
     case "md":
       return "500px";
+    case "640":
+      return "640px";
     case "lg":
       return "800px";
     case "xl":
       return "1100px";
     case "fill":
       return "calc(100vw - 32px)";
+    case "full":
+      return "calc(100vw - 240px)";
   }
 }
 
@@ -196,7 +210,17 @@ function Root({
         ref={contentRef}
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
-        maxHeight={size === "fill" ? "calc(100vh - 32px)" : "85vh"}
+        maxHeight={
+          size === "fill"
+            ? "calc(100vh - 32px)"
+            : size === "full"
+              ? FULL_HEIGHT
+              : "85vh"
+        }
+        // "full" is a fixed size, not just a cap.
+        {...(size === "full"
+          ? { width: getMaxWidth(size), height: FULL_HEIGHT }
+          : {})}
         {...ariaDescribedBy}
         onEscapeKeyDown={(e) => {
           // A submit in flight keeps the dialog up even when it is otherwise dismissible.
@@ -221,6 +245,15 @@ function Root({
                 }
               : {}),
             "--inset-padding-left": "40px",
+            // "full" centred in the window. Radix pads its dialogs 32px above
+            // but max(32px, 6vh) below, which lifts a window-filling dialog
+            // by half the difference; this moves it back down by that much.
+            // A relative offset, so it doesn't fight Radix's open animation.
+            ...(size === "full"
+              ? {
+                  top: "calc((max(var(--space-6), 6vh) - var(--space-6)) / 2)",
+                }
+              : {}),
           } as CSSProperties
         }
       >
@@ -271,13 +304,21 @@ function Description({ children }: { children: ReactNode }) {
 // so ModalForm consumers get error handling for free.
 // ---------------------------------------------------------------------------
 
-function Body({ children }: { children: ReactNode }) {
+function Body({
+  children,
+  flushBottom = false,
+}: {
+  children: ReactNode;
+  // No space below the body, so its content runs right up to the footer
+  // (used with Footer's flushTop). Optional and additive.
+  flushBottom?: boolean;
+}) {
   const { bodyRef, error } = useModalContext();
   return (
     <ScrollArea
       type="auto"
       mt="5"
-      mb="3"
+      mb={flushBottom ? "0" : "3"}
       ml="-1"
       ref={bodyRef}
       scrollbars="vertical"
@@ -300,14 +341,22 @@ function Body({ children }: { children: ReactNode }) {
 function Footer({
   children,
   justify = "end",
+  flushTop = false,
 }: {
   children: ReactNode;
   justify?: "start" | "center" | "end" | "between";
+  // No space above the footer's divider (used with Body's flushBottom).
+  // Optional and additive.
+  flushTop?: boolean;
 }) {
   return (
     <Box flexShrink="0" ml="-3">
       <Inset side="x">
-        <Separator size="4" mt="5" style={{ marginBottom: "20px" }} />
+        <Separator
+          size="4"
+          mt={flushTop ? "0" : "5"}
+          style={{ marginBottom: "20px" }}
+        />
       </Inset>
       <Flex gap="3" justify={justify} pr="7">
         {children}

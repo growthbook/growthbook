@@ -9,6 +9,8 @@ export type Props = {
   gap?: "1" | "2" | "3";
   size?: Size;
   textColor?: TextProps["color"];
+  // Optional and additive: callers that pass nothing keep Text's default.
+  textSize?: TextProps["size"];
   weight?: "regular" | "medium";
 };
 
@@ -17,6 +19,7 @@ export default function Owner({
   gap = "2",
   size = "sm",
   textColor,
+  textSize,
   weight = "regular",
 }: Props) {
   const { getOwnerDisplay } = useUser();
@@ -26,7 +29,7 @@ export default function Owner({
   return (
     <Flex align="center" gap={gap} display="inline-flex">
       <UserAvatar name={display} size={size} variant="soft" />
-      <Text weight={weight} color={textColor}>
+      <Text weight={weight} color={textColor} size={textSize}>
         {display || "None"}
       </Text>
     </Flex>
