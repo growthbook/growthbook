@@ -3,6 +3,7 @@ import { CustomHookInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import useApi from "@/hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
@@ -54,8 +55,11 @@ export default function CustomHooksPage() {
     null,
   );
 
+  const { getProjectById } = useDefinitions();
+
   const { data, error, mutate } = useApi<{
     customHooks: CustomHookInterface[];
+    deletedProjects: string[];
   }>("/custom-hooks");
 
   if (isCloud()) {
@@ -79,6 +83,25 @@ export default function CustomHooksPage() {
   const featureHooks = allHooks.filter((h) => h.entityType === "feature");
   const configHooks = allHooks.filter((h) => h.entityType === "config");
   const experimentHooks = allHooks.filter((h) => h.entityType === "experiment");
+
+  const deletedProjects = new Set(data.deletedProjects);
+  const projectsLabel = (projects: string[]) => {
+    const labels: string[] = [];
+    // Definitions omit Projects the viewer can't read; show only a count
+    let restricted = 0;
+    for (const id of projects) {
+      const name = getProjectById(id)?.name;
+      if (name) labels.push(name);
+      else if (deletedProjects.has(id)) labels.push(`${id} (deleted)`);
+      else restricted++;
+    }
+    if (restricted) {
+      labels.push(
+        `${restricted} restricted Project${restricted === 1 ? "" : "s"}`,
+      );
+    }
+    return labels.join(", ");
+  };
 
   return (
     <div className="container-fluid pagecontents">
@@ -134,7 +157,7 @@ export default function CustomHooksPage() {
                   header: "Projects",
                   render: (hook) =>
                     hook.projects.length ? (
-                      hook.projects.join(", ")
+                      projectsLabel(hook.projects)
                     ) : (
                       <em>All Projects</em>
                     ),
