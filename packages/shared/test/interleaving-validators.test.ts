@@ -2,10 +2,7 @@ import {
   interleavingMetricConfigValidator,
   interleavingValidator,
 } from "../src/validators/interleaving";
-import {
-  getInterleavingSnapshotRunSettings,
-  parseInterleavingRankerConfig,
-} from "../src/util/interleaving";
+import { parseInterleavingRankerConfig } from "../src/util/interleaving";
 
 const ranker = (id: string, key: string, config = "{}") => ({
   id,
@@ -13,6 +10,22 @@ const ranker = (id: string, key: string, config = "{}") => ({
   name: key,
   config,
 });
+
+const schema = (schemaString: string, enabled = true) => ({
+  schemaType: "schema" as const,
+  schema: schemaString,
+  simple: { type: "object" as const, fields: [] },
+  date: new Date("2026-10-01"),
+  enabled,
+});
+
+const weightSchema = schema(
+  JSON.stringify({
+    type: "object",
+    properties: { weight: { type: "number" } },
+    required: ["weight"],
+  }),
+);
 
 const baseDoc = {
   id: "il_1",
@@ -31,10 +44,11 @@ const baseDoc = {
     ranker("var_a", "buyers-pick", '{"algorithm":"buyers-pick"}'),
     ranker("var_b", "price-first", '{"algorithm":"price-first"}'),
   ],
+  jsonSchema: null,
   datasource: "ds_1",
   interleavingQueryId: "ilq_1",
   userIdType: "user_id",
-  metrics: [{ id: "fact__clicks", attributionType: "paired" as const }],
+  metrics: [{ id: "fact__clicks", paired: true, ownership: null }],
   environmentSettings: { production: { enabled: true } },
 };
 
@@ -72,58 +86,43 @@ describe("interleavingValidator", () => {
 });
 
 describe("interleavingMetricConfigValidator", () => {
-  it.each(["paired", "ownershipByExposureCount"])(
-    "accepts %s",
-    (attributionType) => {
-      expect(
-        interleavingMetricConfigValidator.safeParse({
-          id: "fact__m",
-          attributionType,
-        }).success,
-      ).toBe(true);
-    },
-  );
-
-  it("rejects an unknown attribution type", () => {
+  it.each([
+    ["paired only", { paired: true, ownership: null }],
+    [
+      "ownership only",
+      { paired: false, ownership: { attribution: "exposureCount" } },
+    ],
+    [
+      "both at once",
+      { paired: true, ownership: { attribution: "engagementSignal" } },
+    ],
+  ])("accepts %s", (_label, analyses) => {
     expect(
       interleavingMetricConfigValidator.safeParse({
         id: "fact__m",
-        attributionType: "lastClick",
+        ...analyses,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an unknown ownership attribution", () => {
+    expect(
+      interleavingMetricConfigValidator.safeParse({
+        id: "fact__m",
+        paired: false,
+        ownership: { attribution: "lastClick" },
       }).success,
     ).toBe(false);
   });
-});
 
-describe("getInterleavingSnapshotRunSettings", () => {
-  it("maps the parent onto the snapshot's run settings", () => {
-    const dateStarted = new Date("2026-10-05");
+  it("rejects a metric with no analysis selected", () => {
     expect(
-      getInterleavingSnapshotRunSettings({ ...baseDoc, dateStarted }),
-    ).toEqual({
-      interleavingId: "il_1",
-      trackingKey: "featured-products-ranker",
-      interleavingQueryId: "ilq_1",
-      userIdType: "user_id",
-      variationNames: ["buyers-pick", "price-first"],
-      metrics: baseDoc.metrics,
-      startDate: dateStarted,
-      endDate: null,
-    });
-  });
-
-  it("carries the stop date as the end date", () => {
-    const dateStopped = new Date("2026-10-20");
-    expect(
-      getInterleavingSnapshotRunSettings({
-        ...baseDoc,
-        dateStarted: new Date("2026-10-05"),
-        dateStopped,
-      }).endDate,
-    ).toEqual(dateStopped);
-  });
-
-  it("refuses an experiment that hasn't started", () => {
-    expect(() => getInterleavingSnapshotRunSettings(baseDoc)).toThrow();
+      interleavingMetricConfigValidator.safeParse({
+        id: "fact__m",
+        paired: false,
+        ownership: null,
+      }).success,
+    ).toBe(false);
   });
 });
 
@@ -136,5 +135,22 @@ describe("parseInterleavingRankerConfig", () => {
 
   it.each(["not json", "[]", "null", "3", '"x"'])("rejects %j", (config) => {
     expect(() => parseInterleavingRankerConfig(config)).toThrow();
+  });
+
+  it("accepts a config matching the schema", () => {
+    expect(
+      parseInterleavingRankerConfig('{"weight":0.3}', weightSchema),
+    ).toEqual({ weight: 0.3 });
+  });
+
+  it("rejects a config that violates the schema", () => {
+    expect(() =>
+      parseInterleavingRankerConfig('{"weight":"heavy"}', weightSchema),
+    ).toThrow(/weight/);
+  });
+
+  it("skips validation when the schema is disabled", () => {
+    const disabled = { ...weightSchema, enabled: false };
+    expect(parseInterleavingRankerConfig("{}", disabled)).toEqual({});
   });
 });

@@ -20,6 +20,7 @@ const BaseClass = MakeModelClass({
     tags: [],
     archived: false,
     metrics: [],
+    jsonSchema: null,
     environmentSettings: {},
   },
   auditLog: {
@@ -63,7 +64,11 @@ export class InterleavingModel extends BaseClass {
       }
     }
 
-    if (!previousDoc || !isEqual(doc.variations, previousDoc.variations)) {
+    if (
+      !previousDoc ||
+      !isEqual(doc.variations, previousDoc.variations) ||
+      !isEqual(doc.jsonSchema, previousDoc.jsonSchema)
+    ) {
       const [a, b] = doc.variations;
       if (a.key === b.key) {
         throw new Error("The two rankers must have different keys.");
@@ -73,7 +78,7 @@ export class InterleavingModel extends BaseClass {
       }
       for (const v of doc.variations) {
         try {
-          parseInterleavingRankerConfig(v.config);
+          parseInterleavingRankerConfig(v.config, doc.jsonSchema);
         } catch (e) {
           throw new Error(
             `Ranker "${v.name || v.key}": ${e instanceof Error ? e.message : String(e)}`,
@@ -192,9 +197,6 @@ export class InterleavingModel extends BaseClass {
   protected canDelete(doc: InterleavingInterface): boolean {
     return this.context.permissions.canDeleteInterleaving(doc);
   }
-
-  // TODO(interleaving): afterDelete should remove the experiment's snapshots
-  // once InterleavingSnapshotModel lands (ls/interleaving-analysis).
 
   /** All interleaving experiments that read from a given Interleaving Query. */
   public getByInterleavingQueryId(

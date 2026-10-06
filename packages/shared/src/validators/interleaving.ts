@@ -1,35 +1,41 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { baseSchema } from "./base-model";
-import { featureEnvironment } from "./features";
+import { featureEnvironment, JSONSchemaDef } from "./features";
 import { ownerField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 
 export const interleavingStatus = ["draft", "running", "stopped"] as const;
 export type InterleavingStatus = (typeof interleavingStatus)[number];
 
-export const interleavingMetricConfigValidator = z.discriminatedUnion(
-  "attributionType",
-  [
-    z
-      .object({
-        id: z.string(),
-        attributionType: z.literal("paired"),
-      })
-      .strict(),
-    z
-      .object({
-        id: z.string(),
-        attributionType: z.literal("ownershipByExposureCount"),
-      })
-      .strict(),
-  ],
-);
+// How ownership analysis decides which ranker owns a conversion. Paired
+// analysis needs no equivalent — it counts engagement per competitive exposure.
+export const interleavingOwnershipAttribution = [
+  "exposureCount",
+  "engagementSignal",
+] as const;
+export type InterleavingOwnershipAttribution =
+  (typeof interleavingOwnershipAttribution)[number];
+
+// One row per metric: a metric is added once and can carry both analyses at
+// once, which a (metric, analysis) pair array can't express alongside the
+// model's duplicate-id check.
+export const interleavingMetricConfigValidator = z
+  .object({
+    id: z.string(),
+    paired: z.boolean(),
+    ownership: z
+      .object({ attribution: z.enum(interleavingOwnershipAttribution) })
+      .strict()
+      .nullable(),
+  })
+  .strict()
+  .refine((m) => m.paired || m.ownership !== null, {
+    message: "Select at least one analysis for each metric.",
+  });
 export type InterleavingMetricConfig = z.infer<
   typeof interleavingMetricConfigValidator
 >;
-export type InterleavingAttributionType =
-  InterleavingMetricConfig["attributionType"];
 
 export const interleavingVariationValidator = z
   .object({
@@ -71,7 +77,9 @@ export const interleavingValidator = baseSchema
       interleavingVariationValidator,
     ]),
 
-    // Analysis inputs frozen onto each snapshot.
+    jsonSchema: JSONSchemaDef.nullable(),
+
+    // Analysis inputs.
     datasource: z.string(),
     interleavingQueryId: z.string(),
     userIdType: z.string(),

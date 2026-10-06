@@ -1,53 +1,11 @@
-import type {
-  InterleavingInterface,
-  InterleavingMetricConfig,
-} from "../validators/interleaving";
+import type { InterleavingInterface } from "../validators/interleaving";
+import { validateJSONFeatureValue } from "./features";
 
-export type InterleavingSnapshotRunSettingsFromParent = {
-  interleavingId: string;
-  trackingKey: string;
-  interleavingQueryId: string;
-  userIdType: string;
-  variationNames: [string, string];
-  metrics: InterleavingMetricConfig[];
-  startDate: Date;
-  endDate?: Date | null;
-};
-
-export function getInterleavingSnapshotRunSettings(
-  interleaving: Pick<
-    InterleavingInterface,
-    | "id"
-    | "trackingKey"
-    | "interleavingQueryId"
-    | "userIdType"
-    | "variations"
-    | "metrics"
-    | "dateStarted"
-    | "dateStopped"
-  >,
-): InterleavingSnapshotRunSettingsFromParent {
-  if (!interleaving.dateStarted) {
-    throw new Error(
-      "Start this interleaving experiment before updating its results",
-    );
-  }
-  const [a, b] = interleaving.variations;
-  return {
-    interleavingId: interleaving.id,
-    trackingKey: interleaving.trackingKey,
-    interleavingQueryId: interleaving.interleavingQueryId,
-    userIdType: interleaving.userIdType,
-    variationNames: [a.key, b.key],
-    metrics: interleaving.metrics,
-    startDate: interleaving.dateStarted,
-    endDate: interleaving.dateStopped ?? null,
-  };
-}
-
-/** Parses a ranker config, requiring a JSON object. */
+// Parses a ranker config, requiring a JSON object, and validates it against the
+// experiment's schema when one is enabled.
 export function parseInterleavingRankerConfig(
   config: string,
+  jsonSchema?: InterleavingInterface["jsonSchema"],
 ): Record<string, unknown> {
   let parsed: unknown;
   try {
@@ -59,6 +17,14 @@ export function parseInterleavingRankerConfig(
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("Ranker config must be a JSON object");
+  }
+  // Not validateFeatureValue: it also resolves `$extends`/`@config:`, which
+  // nothing on the interleaving payload path reads.
+  const { valid, errors } = validateJSONFeatureValue(parsed, {
+    jsonSchema: jsonSchema ?? undefined,
+  });
+  if (!valid) {
+    throw new Error(errors.join(", "));
   }
   return parsed as Record<string, unknown>;
 }
