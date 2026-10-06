@@ -1,5 +1,9 @@
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import { apiKeySchema } from "shared/validators";
+import {
+  apiKeySchema,
+  DEFAULT_REQUESTED_BY_POLICY,
+  RequestedByPolicy,
+} from "shared/validators";
 import { getRoleById } from "shared/permissions";
 import {
   generateEncryptionKey,
@@ -105,6 +109,7 @@ export class ApiKeyModel extends BaseClass {
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
       environments: doc.environments,
       projectRoles: doc.projectRoles,
+      requestedByPolicy: doc.requestedByPolicy,
       disabled: doc.disabled,
     };
   }
@@ -140,9 +145,9 @@ export class ApiKeyModel extends BaseClass {
           "PATs do not support additional roles.",
         );
       }
-      if (doc.requireOnBehalfOf) {
+      if (doc.requestedByPolicy) {
         this.context.throwBadRequestError(
-          "PATs already act as a user and cannot require X-On-Behalf-Of.",
+          "PATs already act as a user and cannot take X-Requested-By.",
         );
       }
     } else {
@@ -199,6 +204,47 @@ export class ApiKeyModel extends BaseClass {
           this.context.throwBadRequestError(e.message);
         }
       }
+      if (doc.requestedByPolicy) {
+        await this.validateRequestedByPolicy(
+          doc.requestedByPolicy,
+          previousDoc?.requestedByPolicy,
+        );
+      }
+    }
+  }
+
+  private async validateRequestedByPolicy(
+    policy: RequestedByPolicy,
+    previous: RequestedByPolicy | undefined,
+  ) {
+    // An optional header would let a caller opt out of the limit.
+    if (policy.limitToRequester && policy.mode !== "required") {
+      this.context.throwBadRequestError(
+        "Limiting a key to the requester's permissions requires X-Requested-By on every request.",
+      );
+    }
+    // Only ids this write adds are checked, so a key that names a since-removed
+    // member or team stays editable.
+    const memberIds = new Set(this.context.org.members.map((m) => m.id));
+    for (const id of policy.memberIds) {
+      if (!previous?.memberIds.includes(id) && !memberIds.has(id)) {
+        this.context.throwBadRequestError(
+          `Not a member of this organization: ${id}`,
+        );
+      }
+    }
+    const addedTeams = policy.teamIds.filter(
+      (id) => !previous?.teamIds.includes(id),
+    );
+    if (addedTeams.length) {
+      const teamIds = new Set(
+        (await this.context.models.teams.getAll()).map((t) => t.id),
+      );
+      for (const id of addedTeams) {
+        if (!teamIds.has(id)) {
+          this.context.throwBadRequestError(`Team not found: ${id}`);
+        }
+      }
     }
   }
 
@@ -229,7 +275,7 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
-    requireOnBehalfOf,
+    requestedByPolicy,
   }: {
     description: string;
     roleId: string;
@@ -237,7 +283,7 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requireOnBehalfOf?: boolean;
+    requestedByPolicy?: RequestedByPolicy;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       secret: true,
@@ -251,10 +297,11 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       // The org setting is only the default a new key starts with
-      requireOnBehalfOf:
-        requireOnBehalfOf ??
-        this.context.org.settings?.apiKeysRequireOnBehalfOf ??
-        false,
+      requestedByPolicy:
+        requestedByPolicy ??
+        (this.context.org.settings?.apiKeysRequireRequestedBy
+          ? { ...DEFAULT_REQUESTED_BY_POLICY, mode: "required" }
+          : undefined),
     });
   }
 
@@ -335,7 +382,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       description,
-      requireOnBehalfOf,
+      requestedByPolicy,
     }: {
       role?: string;
       limitAccessByEnvironment?: boolean;
@@ -343,7 +390,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
-      requireOnBehalfOf?: boolean;
+      requestedByPolicy?: RequestedByPolicy;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
@@ -384,7 +431,7 @@ export class ApiKeyModel extends BaseClass {
         additionalRoles,
         projectRoles,
         description,
-        requireOnBehalfOf,
+        requestedByPolicy,
       },
       { forceCanUpdate: true },
     );
@@ -530,7 +577,7 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
-    requireOnBehalfOf,
+    requestedByPolicy,
   }: {
     environment: string;
     project: string;
@@ -543,7 +590,7 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requireOnBehalfOf?: boolean;
+    requestedByPolicy?: RequestedByPolicy;
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -572,7 +619,7 @@ export class ApiKeyModel extends BaseClass {
       environments: environments ?? [],
       additionalRoles,
       projectRoles,
-      ...(requireOnBehalfOf !== undefined ? { requireOnBehalfOf } : {}),
+      ...(requestedByPolicy ? { requestedByPolicy } : {}),
     });
   }
 }

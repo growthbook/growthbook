@@ -12,7 +12,8 @@ export interface AuditUserInfo {
   email?: string;
   name?: string;
   apiKey?: string;
-  onBehalfOf?: { id: string; name: string; email: string };
+  requestedBy?: { id: string; name: string; email: string };
+  limitedToRequester?: boolean;
 }
 
 /** A single item displayed in the left-column list. May represent 1 or N raw audit entries that were coarsened into a single group (same time bucket + same author). */

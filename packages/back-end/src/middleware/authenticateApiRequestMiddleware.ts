@@ -1,11 +1,20 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
-import { getRolePermissions, hasPermission } from "shared/permissions";
+import {
+  getRolePermissions,
+  hasPermission,
+  intersectUserPermissions,
+} from "shared/permissions";
+import { DEFAULT_REQUESTED_BY_POLICY } from "shared/validators";
 import {
   EventUserApiKey,
   EventUserLoggedIn,
 } from "shared/types/events/event-types";
-import { OrganizationInterface, Permission } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  Permission,
+  UserPermissions,
+} from "shared/types/organization";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { licenseInit } from "back-end/src/enterprise";
@@ -18,9 +27,11 @@ import { getCustomLogProps } from "back-end/src/util/logger";
 import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
-  ON_BEHALF_OF_HEADER,
-  assertOnBehalfOfIsTokenUser,
-  resolveOnBehalfOf,
+  REQUESTED_BY_HEADER,
+  RequestedByMember,
+  assertNoRequestedByOnUserToken,
+  assertRequestedByAllowed,
+  resolveRequestedBy,
 } from "back-end/src/util/api-key.util";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import { getUserById, getUserByEmail } from "back-end/src/models/UserModel";
@@ -300,35 +311,48 @@ function authenticateWithApiKey(
         throw new Error("Could not find user attached to this API key");
       }
 
-      // `X-On-Behalf-Of` names the member an org key acts for. Attribution only:
-      // a personal token already acts as its owner, so it may only name them.
-      let onBehalfOf: EventUserApiKey["onBehalfOf"];
+      // `X-Requested-By` names the member who asked an org key to act. The
+      // key's own settings decide whether it may or must, and for whom.
+      const policy = apiKeyDoc.requestedByPolicy ?? DEFAULT_REQUESTED_BY_POLICY;
+      let requestedBy: RequestedByMember | null = null;
       try {
-        if (!userId) {
-          onBehalfOf =
-            (await resolveOnBehalfOf(req.headers[ON_BEHALF_OF_HEADER], org, {
-              byId: getUserById,
-              byEmail: getUserByEmail,
-            })) ?? undefined;
-          if (!onBehalfOf && apiKeyDoc.requireOnBehalfOf) {
-            throw new Error(
-              "This API key requires an X-On-Behalf-Of header naming an organization member",
-            );
-          }
-        } else if (req.user) {
-          assertOnBehalfOfIsTokenUser(
-            req.headers[ON_BEHALF_OF_HEADER],
-            req.user,
+        if (userId) {
+          assertNoRequestedByOnUserToken(req.headers[REQUESTED_BY_HEADER]);
+        } else {
+          requestedBy = await resolveRequestedBy(
+            req.headers[REQUESTED_BY_HEADER],
+            org,
+            { byId: getUserById, byEmail: getUserByEmail },
           );
+          assertRequestedByAllowed(policy, requestedBy, org);
         }
       } catch (e) {
-        return res.status(400).json({ message: e.message });
+        return res.status(e.status ?? 400).json({ message: e.message });
       }
 
       const [teams, restrictedProjects] = await Promise.all([
         TeamModel.dangerousGetTeamsForOrganization(org.id),
         ProjectModel.dangerousGetRestrictedProjectIds(org.id),
       ]);
+
+      // A limited key may only do what both it and the requester may do.
+      const limitedPermissions: UserPermissions | undefined =
+        requestedBy && policy.limitToRequester
+          ? intersectUserPermissions(
+              getRolePermissions(
+                apiKeyDoc as ApiKeyWithRole,
+                org,
+                teams,
+                restrictedProjects,
+              ),
+              getUserPermissions(
+                { id: requestedBy.id },
+                org,
+                teams,
+                restrictedProjects,
+              ),
+            )
+          : undefined;
 
       const eventAudit: EventUserApiKey = {
         type: "api_key",
@@ -341,7 +365,8 @@ function authenticateWithApiKey(
             }
           : {
               name: apiKeyDoc.description || "",
-              ...(onBehalfOf ? { onBehalfOf } : {}),
+              ...(requestedBy ? { requestedBy } : {}),
+              ...(limitedPermissions ? { limitedToRequester: true } : {}),
             }),
       };
 
@@ -355,6 +380,7 @@ function authenticateWithApiKey(
         apiKeyData: apiKeyDoc,
         req,
         restrictedProjects,
+        userPermissions: limitedPermissions,
       });
 
       // Check permissions for user API keys
@@ -371,6 +397,21 @@ function authenticateWithApiKey(
         }
 
         for (const p of checkProjects) {
+          if (limitedPermissions) {
+            if (
+              !hasPermission(
+                limitedPermissions,
+                permission,
+                p,
+                envs ? [...envs] : undefined,
+              )
+            ) {
+              throw new Error(
+                "API key user does not have this level of access",
+              );
+            }
+            continue;
+          }
           verifyApiKeyPermission({
             apiKey: apiKeyDoc,
             permission,

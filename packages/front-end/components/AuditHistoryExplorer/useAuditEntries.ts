@@ -49,7 +49,8 @@ function toAuditUserInfo(user: AuditInterface["user"]): AuditUserInfo {
       apiKey: key.apiKey,
       name: key.name,
       email: key.email,
-      onBehalfOf: key.onBehalfOf,
+      requestedBy: key.requestedBy,
+      limitedToRequester: key.limitedToRequester,
     };
   }
   const u = user as AuditUserLoggedIn;

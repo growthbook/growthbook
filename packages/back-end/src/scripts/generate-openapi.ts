@@ -575,14 +575,14 @@ curl https://api.growthbook.io/api/v1/features \\
 -H "Authorization: Bearer secret_abc123DEF456"
 \`\`\`
 
-### Acting on behalf of a person
+### Naming who asked
 
-Requests made with an organization API key may add an \`X-On-Behalf-Of\` header naming the organization member the change is for, as a user id or an email address. History, revision logs and webhooks then show that person next to the key. The header is attribution only: the key's role still decides what is allowed. A value that does not match a member of the organization is rejected with a 400, and a key configured to require the header rejects requests without it. A personal access token already acts as its owner, so the header may only name that owner.
+Requests made with an organization API key may add an \`X-Requested-By\` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks then show that member next to the key. The key's own role still decides what is allowed, unless the key limits each request to the requester's permissions. Each key's settings make the header off, optional or required, and can restrict which members it may name. An unknown member is rejected with a 400, and a header the key doesn't allow with a 403. Approvals still need a personal access token. Personal access tokens already act as their owner and reject the header.
 
 \`\`\`bash
 curl https://api.growthbook.io/api/v1/features \\
 -H "Authorization: Bearer secret_abc123DEF456" \\
--H "X-On-Behalf-Of: alice@example.com"
+-H "X-Requested-By: alice@example.com"
 \`\`\`
 
 ## Errors

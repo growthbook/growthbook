@@ -3,6 +3,10 @@ import { useForm } from "react-hook-form";
 import { getRoles } from "shared/permissions";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
+import {
+  DEFAULT_REQUESTED_BY_POLICY,
+  RequestedByPolicy,
+} from "shared/validators";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -11,7 +15,7 @@ import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
+import RequestedByPolicyFields from "@/components/Settings/RequestedByPolicyFields";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -65,8 +69,11 @@ const ApiKeysModal: FC<{
     additionalRoles: existingKey?.additionalRoles,
     projectRoles: existingKey?.projectRoles,
   });
-  const [requireOnBehalfOf, setRequireOnBehalfOf] = useState<boolean>(
-    existingKey?.requireOnBehalfOf ?? !!settings?.apiKeysRequireOnBehalfOf,
+  const [requestedByPolicy, setRequestedByPolicy] = useState<RequestedByPolicy>(
+    existingKey?.requestedByPolicy ??
+      (existingKey || !settings?.apiKeysRequireRequestedBy
+        ? DEFAULT_REQUESTED_BY_POLICY
+        : { ...DEFAULT_REQUESTED_BY_POLICY, mode: "required" }),
   );
 
   const onSubmit = form.handleSubmit(async (value) => {
@@ -79,7 +86,7 @@ const ApiKeysModal: FC<{
           description: value.description,
           role,
           ...roleStateData,
-          requireOnBehalfOf,
+          requestedByPolicy,
         }),
       });
       track("Edit API Key");
@@ -96,7 +103,7 @@ const ApiKeysModal: FC<{
           description: value.description,
           type: role,
           ...roleStateData,
-          requireOnBehalfOf,
+          requestedByPolicy,
         };
     await apiCall("/keys", {
       method: "POST",
@@ -141,14 +148,10 @@ const ApiKeysModal: FC<{
             </Callout>
           )}
           <RoleRulesTable value={roleState} setValue={setRoleState} />
-          <Box mt="4">
-            <Checkbox
-              label="Require X-On-Behalf-Of"
-              description="Every request with this key must name the organization member it acts for, so history shows a person instead of the key."
-              value={requireOnBehalfOf}
-              setValue={setRequireOnBehalfOf}
-            />
-          </Box>
+          <RequestedByPolicyFields
+            value={requestedByPolicy}
+            setValue={setRequestedByPolicy}
+          />
         </>
       )}
     </ModalStandard>

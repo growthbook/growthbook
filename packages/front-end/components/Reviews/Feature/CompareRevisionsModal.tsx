@@ -1425,8 +1425,8 @@ export default function CompareRevisionsModal({
                                       {logEntry.user?.type === "dashboard"
                                         ? ` · ${logEntry.user.name}`
                                         : logEntry.user?.type === "api_key"
-                                          ? logEntry.user.onBehalfOf
-                                            ? ` · ${logEntry.user.onBehalfOf.name || logEntry.user.onBehalfOf.email} via ${logEntry.user.name || "API key"}`
+                                          ? logEntry.user.requestedBy
+                                            ? ` · ${logEntry.user.requestedBy.name || logEntry.user.requestedBy.email} via ${logEntry.user.name || "API key"}`
                                             : logEntry.user.name
                                               ? ` · ${logEntry.user.name} (API)`
                                               : logEntry.user.email

@@ -610,7 +610,9 @@ export default function CompareRevisionsModal<
       item.userId;
     if (item.user?.type !== "api_key") return name;
     const key = item.user.name || "API key";
-    return item.user.onBehalfOf ? `${name} via ${key}` : `${name || key} (API)`;
+    return item.user.requestedBy
+      ? `${name} via ${key}`
+      : `${name || key} (API)`;
   };
 
   // Compute selected revisions sorted by creation date

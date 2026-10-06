@@ -100,15 +100,19 @@ export default function EventUser({
     return <span>System</span>;
   }
 
-  // A key that acted on behalf of a member renders as that member, with the
-  // key named beside them.
-  const onBehalfOf = user.type === "api_key" ? user.onBehalfOf : undefined;
-  let name = onBehalfOf ? onBehalfOf.name : "name" in user ? user.name : "";
-  let email = onBehalfOf ? onBehalfOf.email : "email" in user ? user.email : "";
-  const isApi = user.type === "api_key" && !onBehalfOf;
+  // A key that names who asked renders as that member, with the key's name
+  // beside them.
+  const requestedBy = user.type === "api_key" ? user.requestedBy : undefined;
+  let name = requestedBy ? requestedBy.name : "name" in user ? user.name : "";
+  let email = requestedBy
+    ? requestedBy.email
+    : "email" in user
+      ? user.email
+      : "";
+  const isApi = user.type === "api_key" && !requestedBy;
 
   // Try to override name/email from latest user context values based on id
-  const personId = onBehalfOf?.id ?? user.id;
+  const personId = requestedBy?.id ?? user.id;
   if (personId) {
     const latestUser = users.get(personId);
     if (latestUser) {
@@ -136,13 +140,17 @@ export default function EventUser({
 
   // Only badge named actors; a nameless key already reads as "API Key" (see
   // getUserLabel), so the badge would just double the "API" signal.
-  const apiBadge = onBehalfOf ? (
+  const apiBadge = requestedBy ? (
     <Badge
       variant="outline"
       label={`via ${user.name || "API key"}`}
       size="xs"
       ml="1"
-      title="Attributed by an API key, not signed in"
+      title={
+        user.type === "api_key" && user.limitedToRequester
+          ? "Requested through this API key, limited to this member's permissions"
+          : "Requested through this API key, using the key's own permissions"
+      }
     />
   ) : isApi && (name || email) ? (
     <Badge

@@ -2,6 +2,26 @@ import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 import { projectMemberRole, roleRule } from "./organization";
 
+// How an organization API key handles `X-Requested-By`. With no member or team
+// listed, any member may be named.
+export const requestedByPolicy = z
+  .object({
+    mode: z.enum(["off", "optional", "required"]),
+    limitToRequester: z.boolean(),
+    memberIds: z.array(z.string()),
+    teamIds: z.array(z.string()),
+  })
+  .strict();
+
+export type RequestedByPolicy = z.infer<typeof requestedByPolicy>;
+
+export const DEFAULT_REQUESTED_BY_POLICY: RequestedByPolicy = {
+  mode: "optional",
+  limitToRequester: false,
+  memberIds: [],
+  teamIds: [],
+};
+
 export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   key: z.string(),
 }).safeExtend({
@@ -51,11 +71,10 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Org API keys only. Project-specific role overrides, same shape as member projectRoles",
     ),
-  requireOnBehalfOf: z
-    .boolean()
+  requestedByPolicy: requestedByPolicy
     .optional()
     .describe(
-      "Org API keys only. When true, every request must carry an `X-On-Behalf-Of` header naming an organization member",
+      "Org API keys only. Whether requests may or must name the member who asked with `X-Requested-By`, which members, and whether each request is limited to that member's permissions. Absent means optional for any member, unlimited.",
     ),
   disabled: z
     .boolean()

@@ -2,6 +2,7 @@ import { webcrypto } from "node:crypto";
 import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
+import type { RequestedByPolicy } from "shared/validators";
 import {
   IS_MULTI_ORG,
   SECRET_API_KEY,
@@ -124,11 +125,11 @@ export async function dangerousLookupOrganizationByApiKey(
   return migrated;
 }
 
-export const ON_BEHALF_OF_HEADER = "x-on-behalf-of";
+export const REQUESTED_BY_HEADER = "x-requested-by";
 
-export type OnBehalfOfMember = { id: string; name: string; email: string };
+export type RequestedByMember = { id: string; name: string; email: string };
 
-type OnBehalfOfLookup = {
+type MemberLookup = {
   byId: (
     id: string,
   ) => Promise<{ id: string; name?: string; email: string } | null>;
@@ -137,48 +138,95 @@ type OnBehalfOfLookup = {
   ) => Promise<{ id: string; name?: string; email: string } | null>;
 };
 
-function onBehalfOfHeaderValue(
-  headerValue: string | string[] | undefined,
-): string | null {
-  const value = (
-    Array.isArray(headerValue) ? headerValue[0] : headerValue
-  )?.trim();
-  return value || null;
+// Carries the status the auth middleware answers with.
+export class RequestedByError extends Error {
+  constructor(
+    public readonly status: 400 | 403,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
-// Resolves an `X-On-Behalf-Of` header to an organization member, matching a user
-// id first and then an email. Null when the header is absent. Throws when the
-// value names nobody in the organization, so attribution never silently fails.
-export async function resolveOnBehalfOf(
-  headerValue: string | string[] | undefined,
+function headerValue(value: string | string[] | undefined): string | null {
+  const first = (Array.isArray(value) ? value[0] : value)?.trim();
+  return first || null;
+}
+
+// Resolves `X-Requested-By` to an organization member by user id, then email.
+// Null when the header is absent. Throws when it names nobody in the
+// organization, so attribution never silently falls back to the key alone.
+export async function resolveRequestedBy(
+  value: string | string[] | undefined,
   organization: Pick<OrganizationInterface, "members">,
-  lookup: OnBehalfOfLookup,
-): Promise<OnBehalfOfMember | null> {
-  const value = onBehalfOfHeaderValue(headerValue);
-  if (!value) return null;
+  lookup: MemberLookup,
+): Promise<RequestedByMember | null> {
+  const named = headerValue(value);
+  if (!named) return null;
 
   const memberIds = new Set((organization.members ?? []).map((m) => m.id));
-  const user = memberIds.has(value)
-    ? await lookup.byId(value)
-    : await lookup.byEmail(value);
+  const user = memberIds.has(named)
+    ? await lookup.byId(named)
+    : await lookup.byEmail(named);
   if (!user || !memberIds.has(user.id)) {
-    throw new Error(
-      `X-On-Behalf-Of does not match a member of this organization: ${value}`,
+    throw new RequestedByError(
+      400,
+      `X-Requested-By does not match a member of this organization: ${named}`,
     );
   }
   return { id: user.id, name: user.name || "", email: user.email };
 }
 
-// A personal token already acts as its owner, so the header may only name
-// them. Anyone else would be silently misattributed, so refuse instead.
-export function assertOnBehalfOfIsTokenUser(
-  headerValue: string | string[] | undefined,
-  user: { id: string; email: string },
+export function isMemberAllowedByPolicy(
+  policy: RequestedByPolicy,
+  memberId: string,
+  organization: Pick<OrganizationInterface, "members">,
+): boolean {
+  if (!policy.memberIds.length && !policy.teamIds.length) return true;
+  if (policy.memberIds.includes(memberId)) return true;
+  const teams =
+    (organization.members ?? []).find((m) => m.id === memberId)?.teams ?? [];
+  return teams.some((team) => policy.teamIds.includes(team));
+}
+
+// The key's own settings decide whether a request may, or must, name a member,
+// and which members.
+export function assertRequestedByAllowed(
+  policy: RequestedByPolicy,
+  member: RequestedByMember | null,
+  organization: Pick<OrganizationInterface, "members">,
 ): void {
-  const value = onBehalfOfHeaderValue(headerValue);
-  if (!value || value === user.id) return;
-  if (value.toLowerCase() === user.email.toLowerCase()) return;
-  throw new Error(
-    "X-On-Behalf-Of cannot change who a personal access token acts as",
-  );
+  if (!member) {
+    if (policy.mode === "required") {
+      throw new RequestedByError(
+        400,
+        "This API key requires an X-Requested-By header naming an organization member",
+      );
+    }
+    return;
+  }
+  if (policy.mode === "off") {
+    throw new RequestedByError(
+      403,
+      "This API key does not accept X-Requested-By",
+    );
+  }
+  if (!isMemberAllowedByPolicy(policy, member.id, organization)) {
+    throw new RequestedByError(
+      403,
+      `This API key is not allowed to act for ${member.email}`,
+    );
+  }
+}
+
+// Personal access and OAuth tokens already act as their owner.
+export function assertNoRequestedByOnUserToken(
+  value: string | string[] | undefined,
+): void {
+  if (headerValue(value)) {
+    throw new RequestedByError(
+      400,
+      "X-Requested-By is only for organization API keys. Personal access tokens already act as their owner.",
+    );
+  }
 }

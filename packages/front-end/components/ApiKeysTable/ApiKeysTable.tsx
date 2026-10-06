@@ -70,14 +70,21 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 {key.disabled && (
                   <Badge ml="2" color="red" variant="soft" label="Disabled" />
                 )}
-                {key.requireOnBehalfOf && (
+                {key.requestedByPolicy?.limitToRequester ? (
                   <Badge
                     ml="2"
                     variant="soft"
-                    label="Requires X-On-Behalf-Of"
-                    title="Requests must name the member they act for"
+                    label="Limited to requester"
+                    title="Every request names the member who asked and is limited to their permissions"
                   />
-                )}
+                ) : key.requestedByPolicy?.mode === "required" ? (
+                  <Badge
+                    ml="2"
+                    variant="soft"
+                    label="Requires X-Requested-By"
+                    title="Every request must name the member who asked"
+                  />
+                ) : null}
               </td>
               <td style={{ minWidth: 270 }}>
                 {canCreateKeys ? (

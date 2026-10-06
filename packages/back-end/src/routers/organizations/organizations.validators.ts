@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requestedByPolicy } from "shared/validators";
 
 const roleRuleValidator = z
   .object({
@@ -45,7 +46,7 @@ export const postApiKeyValidator = z.strictObject({
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
   additionalRoles: z.array(roleRuleValidator).optional(),
-  requireOnBehalfOf: z.boolean().optional(),
+  requestedByPolicy: requestedByPolicy.optional(),
 });
 
 export const putApiKeyValidator = z.strictObject({
@@ -55,7 +56,7 @@ export const putApiKeyValidator = z.strictObject({
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
   additionalRoles: z.array(roleRuleValidator).optional(),
-  requireOnBehalfOf: z.boolean().optional(),
+  requestedByPolicy: requestedByPolicy.optional(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({

@@ -652,7 +652,7 @@ export function eventUserPerson(
     return { id: user.id, name: user.name, email: user.email };
   }
   if (user.type === "api_key") {
-    if (user.onBehalfOf) return user.onBehalfOf;
+    if (user.requestedBy) return user.requestedBy;
     return user.id ? { id: user.id, name: user.name, email: user.email } : null;
   }
   return null;
@@ -665,13 +665,14 @@ export function eventUserPersonId(
 }
 
 // Stable identifier for a reviewer across review lifecycle events, or null if
-// the event user can't hold a review verdict (system/anonymous users).
+// the event user can't hold a review verdict (system/anonymous users). The
+// member an org key names with X-Requested-By isn't the reviewer: the key is.
 export function reviewerKeyForEventUser(
   user: z.infer<typeof eventUser>,
 ): string | null {
-  const personId = eventUserPersonId(user);
-  if (personId) return personId;
-  if (user?.type === "api_key") return user.apiKey || null;
+  if (!user) return null;
+  if (user.type === "dashboard") return user.id;
+  if (user.type === "api_key") return user.id || user.apiKey || null;
   return null;
 }
 

@@ -103,7 +103,7 @@ export async function undoRevisionReview({
 
   const updated = await context.models.revisions.undoReview(
     revision.id,
-    context.actingUserId,
+    context.userId,
     reviewAuthorityOnRow(context),
     // The cycle this caller was looking at when they asked to retract.
     revision.reviewCycle ?? 0,

@@ -94,14 +94,14 @@ export async function submitRevisionReview(
     revision.createdBy != null && "id" in revision.createdBy
       ? revision.createdBy.id
       : "";
-  if (action !== "comment" && !req.context.actingUserId) {
+  if (action !== "comment" && !req.context.userId) {
     throw new BadRequestError(
-      "Submitting a review requires a user identity. Use a Personal Access Token or an X-On-Behalf-Of header instead of a bare organization key.",
+      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
     );
   }
   if (
     action !== "comment" &&
-    mayBeRevisionAuthor(creatorId, req.context.actingUserId)
+    mayBeRevisionAuthor(creatorId, req.context.userId)
   ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
@@ -115,7 +115,7 @@ export async function submitRevisionReview(
   // Rechecked inside the verdict CAS against the row it writes.
   if (action === "approve" && blockSelfApproval) {
     const isSelfApproval = (revision.contributors ?? []).some(
-      (id) => id === req.context.actingUserId,
+      (id) => id === req.context.userId,
     );
     if (isSelfApproval) {
       throw new BadRequestError(

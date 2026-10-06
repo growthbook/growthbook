@@ -420,21 +420,21 @@ export class ReqContextClass {
   public superAdmin = false;
 
   // The person a request acts for: the signed-in user, a personal token's
-  // user, or the member an org key named in its X-On-Behalf-Of header. Use it
-  // for attribution and draft targeting only. Authority shortcuts (author-only
-  // edit rights, who a deferred publish fires as) stay on `userId`, so the
-  // header never widens what a key may do.
+  // owner, or the member an org key names with X-Requested-By. Use it for
+  // attribution and draft targeting only. Authority that comes from being a
+  // person (author-only edit rights, review verdicts, who a deferred publish
+  // fires as) stays on `userId`, so the header never widens what a key may do.
   public get actingUserId(): string {
     if (this.userId) return this.userId;
     return this.auditUser?.type === "api_key"
-      ? this.auditUser.onBehalfOf?.id || ""
+      ? this.auditUser.requestedBy?.id || ""
       : "";
   }
 
   public get actingUserName(): string {
     if (this.userName) return this.userName;
     return this.auditUser?.type === "api_key"
-      ? this.auditUser.onBehalfOf?.name || ""
+      ? this.auditUser.requestedBy?.name || ""
       : "";
   }
   public teams: TeamInterface[] = [];
@@ -459,6 +459,7 @@ export class ReqContextClass {
     apiKeyData,
     req,
     restrictedProjects = [],
+    userPermissions,
   }: {
     org: OrganizationInterface;
     user?: {
@@ -474,6 +475,8 @@ export class ReqContextClass {
     auditUser: EventUser;
     req?: Request;
     restrictedProjects?: string[];
+    // Used as-is: an org key limited to the member who requested the call.
+    userPermissions?: UserPermissions;
   }) {
     this.org = org;
     this.auditUser = auditUser;
@@ -517,12 +520,14 @@ export class ReqContextClass {
         environments: [] as string[],
       };
 
-      this.userPermissions = getRolePermissions(
-        { ...roleInfo, role },
-        org,
-        teams || [],
-        restrictedProjects,
-      );
+      this.userPermissions =
+        userPermissions ??
+        getRolePermissions(
+          { ...roleInfo, role },
+          org,
+          teams || [],
+          restrictedProjects,
+        );
     }
 
     this.permissions = new Permissions(this.userPermissions);
@@ -704,7 +709,8 @@ export class ReqContextClass {
           id: apiKeyUser?.id,
           name: apiKeyUser?.name,
           email: apiKeyUser?.email,
-          onBehalfOf: apiKeyUser?.onBehalfOf,
+          requestedBy: apiKeyUser?.requestedBy,
+          limitedToRequester: apiKeyUser?.limitedToRequester,
         }
       : this.userId
         ? {

@@ -58,7 +58,7 @@ export async function loadRevisionsPage(
   }
   if (mine && !context.actingUserId) {
     throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key or an X-On-Behalf-Of header (the caller must be identifiable as a user).",
+      "`mine=true` requires a user-scoped API key or an X-Requested-By header (the caller must be identifiable as a user).",
     );
   }
   const involvedUserId = mine ? context.actingUserId : undefined;

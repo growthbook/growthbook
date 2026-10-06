@@ -167,6 +167,12 @@ Triggered when a feature is created
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -271,6 +277,12 @@ Triggered when a feature is updated
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -340,6 +352,12 @@ Triggered when a feature is deleted
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -384,6 +402,12 @@ Triggered when a safe rollout is completed and safe to roll out to 100%.
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -428,6 +452,12 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -473,6 +503,12 @@ Triggered when a safe rollout is failing a health check and may not be working a
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -519,6 +555,12 @@ Triggered when a ramp schedule is created for a feature
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -563,6 +605,12 @@ Triggered when a ramp schedule is deleted from a feature
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -609,6 +657,12 @@ Triggered when a feature ramp schedule starts
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -656,6 +710,12 @@ Triggered when a feature ramp schedule completes all steps
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -704,6 +764,12 @@ Triggered when a feature ramp schedule is rolled back or reset to start
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -751,6 +817,12 @@ Triggered when a feature ramp schedule is jumped to a specific step
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -798,6 +870,12 @@ Triggered when a feature ramp schedule advances. Overdue steps are caught up in 
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -845,6 +923,12 @@ Triggered when a feature ramp step is waiting for approval
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -891,6 +975,12 @@ Triggered when a feature ramp schedule is published but held at the start, await
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -937,6 +1027,12 @@ Triggered when a held ramp schedule's start is approved by a user
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -984,6 +1080,12 @@ Triggered when a feature ramp schedule pauses because a step could not be applie
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1031,6 +1133,12 @@ Triggered when a monitored ramp step is held by a health check (SRM, multiple ex
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1078,6 +1186,12 @@ Triggered when a feature ramp schedule is paused by a user or by its monitoring 
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1124,6 +1238,12 @@ Triggered when a paused feature ramp schedule is resumed
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1191,6 +1311,12 @@ Triggered when a new draft revision is created for a feature
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1260,6 +1386,12 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1328,6 +1460,12 @@ Triggered when a draft revision is submitted for review
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1401,6 +1539,12 @@ Triggered when a draft revision is approved by a reviewer
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1474,6 +1618,12 @@ Triggered when a reviewer requests changes on a draft revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1547,6 +1697,12 @@ Triggered when a comment is added to a draft revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1614,6 +1770,12 @@ Triggered when a draft revision is discarded
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1681,6 +1843,12 @@ Triggered when a discarded draft revision is reopened as a draft
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1748,6 +1916,12 @@ Triggered when the author (or an editor) recalls a review request, returning the
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1815,6 +1989,12 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1882,6 +2062,12 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1949,6 +2135,12 @@ Triggered when a draft revision is rebased onto the latest published version
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2017,6 +2209,12 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2086,6 +2284,12 @@ Triggered when a feature is reverted to a previous published revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2157,6 +2361,12 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2436,6 +2646,12 @@ Triggered when an experiment is created
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2960,6 +3176,12 @@ Triggered when an experiment is updated
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3239,6 +3461,12 @@ Triggered when an experiment is deleted
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3331,6 +3559,12 @@ Triggered when a warning condition is detected on an experiment, such as a sampl
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3381,6 +3615,12 @@ Triggered when an experiment starts or resumes running.
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3465,6 +3705,12 @@ Triggered when an experiment stops, including its result and any temporary rollo
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3514,6 +3760,12 @@ Triggered when a running experiment is within 3 days of its scheduled end date.
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3562,6 +3814,12 @@ Triggered when a running experiment has been active for a long time without a de
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3612,6 +3870,12 @@ Triggered when a running experiment has a failing guardrail metric.
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3659,6 +3923,12 @@ Triggered when a multi-armed bandit materially changes variation weights.
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3710,6 +3980,12 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3761,6 +4037,12 @@ Triggered when a scheduled start or stop is automatically applied to an experime
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3807,6 +4089,12 @@ Triggered when an experiment is ready to ship a variation.
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3853,6 +4141,12 @@ Triggered when an experiment should be rolled back to the control.
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3899,6 +4193,12 @@ Triggered when an experiment has reached the desired power point, but the result
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3943,6 +4243,12 @@ Triggered when a holdout is created.
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3989,6 +4295,12 @@ Triggered when a holdout moves between its lifecycle stages, such as running or 
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4035,6 +4347,12 @@ Triggered when feature flags or experiments are linked to a holdout.
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4088,6 +4406,12 @@ Triggered when an SDK Connection's payload grows past half, 80%, or all of the 1
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4147,6 +4471,12 @@ Triggered when a saved group is created
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4231,6 +4561,12 @@ Triggered when a saved group is updated
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4290,6 +4626,12 @@ Triggered when a saved group is deleted
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4333,6 +4675,18 @@ Triggered when a new draft revision is created for a saved group
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -4413,6 +4767,12 @@ Triggered when a new draft revision is created for a saved group
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4456,6 +4816,18 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -4537,6 +4909,12 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4580,6 +4958,18 @@ Triggered when a draft revision is submitted for review
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -4660,6 +5050,12 @@ Triggered when a draft revision is submitted for review
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4703,6 +5099,18 @@ Triggered when a draft revision is approved by a reviewer
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -4789,6 +5197,12 @@ Triggered when a draft revision is approved by a reviewer
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4832,6 +5246,18 @@ Triggered when a reviewer requests changes on a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -4918,6 +5344,12 @@ Triggered when a reviewer requests changes on a draft revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -4961,6 +5393,18 @@ Triggered when a comment is added to a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -5047,6 +5491,12 @@ Triggered when a comment is added to a draft revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -5090,6 +5540,18 @@ Triggered when a draft revision is discarded
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -5170,6 +5632,12 @@ Triggered when a draft revision is discarded
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -5213,6 +5681,18 @@ Triggered when a draft revision is rebased onto the latest live state
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -5293,6 +5773,12 @@ Triggered when a draft revision is rebased onto the latest live state
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -5336,6 +5822,18 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -5417,6 +5915,12 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -5460,6 +5964,18 @@ Triggered when a saved group is reverted to a previous published revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -5542,6 +6058,12 @@ Triggered when a saved group is reverted to a previous published revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -5585,6 +6107,18 @@ Triggered when a discarded revision is reopened
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -5665,6 +6199,12 @@ Triggered when a discarded revision is reopened
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -5708,6 +6248,18 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -5788,6 +6340,12 @@ Triggered when the author (or an editor) recalls a review request, returning the
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -5831,6 +6389,18 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -5911,6 +6481,12 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -5954,6 +6530,18 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -6034,6 +6622,12 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -6077,6 +6671,18 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -6161,6 +6767,12 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -6220,6 +6832,12 @@ Triggered when a constant is created
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -6304,6 +6922,12 @@ Triggered when a constant is updated
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -6363,6 +6987,12 @@ Triggered when a constant is deleted
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -6406,6 +7036,18 @@ Triggered when a new draft revision is created for a constant
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -6486,6 +7128,12 @@ Triggered when a new draft revision is created for a constant
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -6529,6 +7177,18 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -6610,6 +7270,12 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -6653,6 +7319,18 @@ Triggered when a draft revision is submitted for review
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -6733,6 +7411,12 @@ Triggered when a draft revision is submitted for review
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -6776,6 +7460,18 @@ Triggered when a draft revision is approved by a reviewer
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -6862,6 +7558,12 @@ Triggered when a draft revision is approved by a reviewer
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -6905,6 +7607,18 @@ Triggered when a reviewer requests changes on a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -6991,6 +7705,12 @@ Triggered when a reviewer requests changes on a draft revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -7034,6 +7754,18 @@ Triggered when a comment is added to a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -7120,6 +7852,12 @@ Triggered when a comment is added to a draft revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -7163,6 +7901,18 @@ Triggered when a draft revision is discarded
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -7243,6 +7993,12 @@ Triggered when a draft revision is discarded
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -7286,6 +8042,18 @@ Triggered when a draft revision is rebased onto the latest live state
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -7366,6 +8134,12 @@ Triggered when a draft revision is rebased onto the latest live state
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -7409,6 +8183,18 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -7490,6 +8276,12 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -7533,6 +8325,18 @@ Triggered when a constant is reverted to a previous published revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -7615,6 +8419,12 @@ Triggered when a constant is reverted to a previous published revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -7658,6 +8468,18 @@ Triggered when a discarded revision is reopened
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -7738,6 +8560,12 @@ Triggered when a discarded revision is reopened
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -7781,6 +8609,18 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -7861,6 +8701,12 @@ Triggered when the author (or an editor) recalls a review request, returning the
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -7904,6 +8750,18 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -7984,6 +8842,12 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -8027,6 +8891,18 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -8107,6 +8983,12 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -8150,6 +9032,18 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -8234,6 +9128,12 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -8342,6 +9242,12 @@ Triggered when a config is created
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -8524,6 +9430,12 @@ Triggered when a config is updated
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -8632,6 +9544,12 @@ Triggered when a config is deleted
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -8675,6 +9593,18 @@ Triggered when a new draft revision is created for a config
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -8853,6 +9783,12 @@ Triggered when a new draft revision is created for a config
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -8896,6 +9832,18 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -9075,6 +10023,12 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -9118,6 +10072,18 @@ Triggered when a draft revision is submitted for review
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -9296,6 +10262,12 @@ Triggered when a draft revision is submitted for review
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -9339,6 +10311,18 @@ Triggered when a draft revision is approved by a reviewer
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -9523,6 +10507,12 @@ Triggered when a draft revision is approved by a reviewer
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -9566,6 +10556,18 @@ Triggered when a reviewer requests changes on a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -9750,6 +10752,12 @@ Triggered when a reviewer requests changes on a draft revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -9793,6 +10801,18 @@ Triggered when a comment is added to a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -9977,6 +10997,12 @@ Triggered when a comment is added to a draft revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -10020,6 +11046,18 @@ Triggered when a draft revision is discarded
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -10198,6 +11236,12 @@ Triggered when a draft revision is discarded
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -10241,6 +11285,18 @@ Triggered when a draft revision is rebased onto the latest live state
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -10419,6 +11475,12 @@ Triggered when a draft revision is rebased onto the latest live state
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -10462,6 +11524,18 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -10641,6 +11715,12 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -10684,6 +11764,18 @@ Triggered when a config is reverted to a previous published revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -10864,6 +11956,12 @@ Triggered when a config is reverted to a previous published revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -10907,6 +12005,18 @@ Triggered when a discarded revision is reopened
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -11085,6 +12195,12 @@ Triggered when a discarded revision is reopened
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -11128,6 +12244,18 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -11306,6 +12434,12 @@ Triggered when the author (or an editor) recalls a review request, returning the
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -11349,6 +12483,18 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -11527,6 +12673,12 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -11570,6 +12722,18 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -11748,6 +12912,12 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -11791,6 +12961,18 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    limitedToRequester?: boolean | undefined;
+                } | undefined;
             }[];
             activityLog: {
                 id: string;
@@ -11973,6 +13155,12 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -12021,6 +13209,12 @@ Triggered when a user logs in
         id?: string | undefined;
         name?: string | undefined;
         email?: string | undefined;
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        limitedToRequester?: boolean | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;

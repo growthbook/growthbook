@@ -1,11 +1,13 @@
 import { ApiKeyInterface } from "shared/types/apikey";
 import { OrganizationInterface } from "shared/types/organization";
+import { RequestedByPolicy } from "shared/validators";
 import {
   isApiKeyForUserInOrganization,
   migrateApiKey,
   roleForApiKey,
-  resolveOnBehalfOf,
-  assertOnBehalfOfIsTokenUser,
+  resolveRequestedBy,
+  assertRequestedByAllowed,
+  assertNoRequestedByOnUserToken,
 } from "back-end/src/util/api-key.util";
 
 describe("api key utils", () => {
@@ -162,10 +164,14 @@ describe("api key utils", () => {
   });
 });
 
-describe("resolveOnBehalfOf", () => {
-  const org = {
-    members: [{ id: "u_alice" }, { id: "u_bob" }],
-  } as unknown as OrganizationInterface;
+const org = {
+  members: [
+    { id: "u_alice", teams: ["t_growth"] },
+    { id: "u_bob", teams: [] },
+  ],
+} as unknown as OrganizationInterface;
+
+describe("resolveRequestedBy", () => {
   const users = [
     { id: "u_alice", name: "Alice", email: "alice@example.com" },
     { id: "u_bob", name: "", email: "bob@example.com" },
@@ -178,20 +184,17 @@ describe("resolveOnBehalfOf", () => {
   };
 
   it("returns null when the header is absent or blank", async () => {
-    expect(await resolveOnBehalfOf(undefined, org, lookup)).toBeNull();
-    expect(await resolveOnBehalfOf("  ", org, lookup)).toBeNull();
+    expect(await resolveRequestedBy(undefined, org, lookup)).toBeNull();
+    expect(await resolveRequestedBy("  ", org, lookup)).toBeNull();
   });
 
-  it("matches a member by user id", async () => {
-    expect(await resolveOnBehalfOf("u_alice", org, lookup)).toEqual({
+  it("matches a member by user id, or by email case-insensitively", async () => {
+    expect(await resolveRequestedBy("u_alice", org, lookup)).toEqual({
       id: "u_alice",
       name: "Alice",
       email: "alice@example.com",
     });
-  });
-
-  it("matches a member by email, case-insensitively, and blanks a missing name", async () => {
-    expect(await resolveOnBehalfOf("Bob@Example.com", org, lookup)).toEqual({
+    expect(await resolveRequestedBy("Bob@Example.com", org, lookup)).toEqual({
       id: "u_bob",
       name: "",
       email: "bob@example.com",
@@ -199,34 +202,58 @@ describe("resolveOnBehalfOf", () => {
   });
 
   it("uses the first value when the header repeats", async () => {
-    const member = await resolveOnBehalfOf(["u_alice", "u_bob"], org, lookup);
+    const member = await resolveRequestedBy(["u_alice", "u_bob"], org, lookup);
     expect(member?.id).toBe("u_alice");
   });
 
-  it("refuses a user who is not a member and an unknown value", async () => {
-    await expect(
-      resolveOnBehalfOf("out@example.com", org, lookup),
-    ).rejects.toThrow("does not match a member");
-    await expect(resolveOnBehalfOf("nobody", org, lookup)).rejects.toThrow(
-      "does not match a member",
-    );
+  it.each(["out@example.com", "nobody"])(
+    "refuses %s, who is not a member, with a 400",
+    async (value) => {
+      await expect(
+        resolveRequestedBy(value, org, lookup),
+      ).rejects.toMatchObject({ status: 400 });
+    },
+  );
+});
+
+describe("assertRequestedByAllowed", () => {
+  const alice = { id: "u_alice", name: "Alice", email: "alice@example.com" };
+  const bob = { id: "u_bob", name: "", email: "bob@example.com" };
+  const policy = (overrides: Partial<RequestedByPolicy> = {}) => ({
+    mode: "optional" as const,
+    limitToRequester: false,
+    memberIds: [],
+    teamIds: [],
+    ...overrides,
+  });
+  const check = (p: RequestedByPolicy, member: typeof alice | null) => {
+    try {
+      assertRequestedByAllowed(p, member, org);
+      return "ok";
+    } catch (e) {
+      return e.status;
+    }
+  };
+
+  it.each([
+    ["optional, no header", policy(), null, "ok"],
+    ["required, no header", policy({ mode: "required" }), null, 400],
+    ["off, header sent", policy({ mode: "off" }), alice, 403],
+    ["off, no header", policy({ mode: "off" }), null, "ok"],
+    ["any member allowed", policy(), bob, "ok"],
+    ["member listed", policy({ memberIds: ["u_bob"] }), bob, "ok"],
+    ["member in a listed team", policy({ teamIds: ["t_growth"] }), alice, "ok"],
+    ["member outside the lists", policy({ teamIds: ["t_growth"] }), bob, 403],
+  ] as const)("%s", (_, p, member, expected) => {
+    expect(check(p, member)).toBe(expected);
   });
 });
 
-describe("assertOnBehalfOfIsTokenUser", () => {
-  const user = { id: "u_alice", email: "alice@example.com" };
-
-  it("allows an absent header or the token's own user", () => {
-    expect(() => assertOnBehalfOfIsTokenUser(undefined, user)).not.toThrow();
-    expect(() => assertOnBehalfOfIsTokenUser("u_alice", user)).not.toThrow();
-    expect(() =>
-      assertOnBehalfOfIsTokenUser("Alice@Example.com", user),
-    ).not.toThrow();
-  });
-
-  it("refuses anyone else", () => {
-    expect(() => assertOnBehalfOfIsTokenUser("u_bob", user)).toThrow(
-      "personal access token",
+describe("assertNoRequestedByOnUserToken", () => {
+  it("allows a request without the header and refuses one with it", () => {
+    expect(() => assertNoRequestedByOnUserToken(undefined)).not.toThrow();
+    expect(() => assertNoRequestedByOnUserToken("alice@example.com")).toThrow(
+      "only for organization API keys",
     );
   });
 });

@@ -11,9 +11,10 @@ export const eventUserLoggedIn = z
 
 export type EventUserLoggedIn = z.infer<typeof eventUserLoggedIn>;
 
-// The org member an org key acted for (`X-On-Behalf-Of` request header).
-// Attribution only: it never changes what the key may do.
-export const eventUserOnBehalfOf = z
+// The member who asked an organization API key to make a request
+// (`X-Requested-By`). The key's own permissions apply unless it limits each
+// request to this member's.
+export const eventUserRequestedBy = z
   .object({
     id: z.string(),
     name: z.string(),
@@ -21,18 +22,25 @@ export const eventUserOnBehalfOf = z
   })
   .strict();
 
-export type EventUserOnBehalfOf = z.infer<typeof eventUserOnBehalfOf>;
+export type EventUserRequestedBy = z.infer<typeof eventUserRequestedBy>;
 
 // Actor shape the REST API returns: the event user without the API key id.
+// For an organization API key, `name` is the key's name.
 export const apiEventUser = z
   .object({
     type: z.enum(["dashboard", "api_key", "system"]),
     id: z.string().optional(),
     name: z.string().optional(),
     email: z.string().optional(),
-    onBehalfOf: eventUserOnBehalfOf
+    requestedBy: eventUserRequestedBy
       .optional()
-      .describe("The organization member an API key acted for"),
+      .describe("The organization member who asked the API key to act"),
+    limitedToRequester: z
+      .boolean()
+      .optional()
+      .describe(
+        "True when the request was limited to the requester's permissions",
+      ),
   })
   .strict();
 
@@ -43,7 +51,8 @@ const eventUserApiKey = z
     id: z.string().optional(),
     name: z.string().optional(),
     email: z.string().optional(),
-    onBehalfOf: eventUserOnBehalfOf.optional(),
+    requestedBy: eventUserRequestedBy.optional(),
+    limitedToRequester: z.boolean().optional(),
   })
   .strict();
 

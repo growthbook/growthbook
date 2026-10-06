@@ -23,7 +23,8 @@ export function eventUserToApi(user: EventUser): {
   id?: string;
   name?: string;
   email?: string;
-  onBehalfOf?: { id: string; name: string; email: string };
+  requestedBy?: { id: string; name: string; email: string };
+  limitedToRequester?: boolean;
 } | null {
   if (!user) return null;
   switch (user.type) {
@@ -40,7 +41,8 @@ export function eventUserToApi(user: EventUser): {
         ...(user.id !== undefined ? { id: user.id } : {}),
         ...(user.name !== undefined ? { name: user.name } : {}),
         ...(user.email !== undefined ? { email: user.email } : {}),
-        ...(user.onBehalfOf ? { onBehalfOf: user.onBehalfOf } : {}),
+        ...(user.requestedBy ? { requestedBy: user.requestedBy } : {}),
+        ...(user.limitedToRequester ? { limitedToRequester: true } : {}),
       };
     case "system":
       return {
