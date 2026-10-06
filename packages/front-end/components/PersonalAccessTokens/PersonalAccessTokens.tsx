@@ -112,10 +112,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
               <>Administrators can review or disable</>
             )}{" "}
             members&apos; tokens under{" "}
-            <Link href="/settings/personal-access-tokens">
-              Manage PATs
-            </Link>
-            .
+            <Link href="/settings/personal-access-tokens">Manage PATs</Link>.
           </Callout>
         </div>
       )}

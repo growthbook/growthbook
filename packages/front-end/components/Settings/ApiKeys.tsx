@@ -41,10 +41,7 @@ const ApiKeys: FC = () => {
           {canManageTokens && (
             <>
               Organization-wide token settings live under{" "}
-              <Link href="/settings/personal-access-tokens">
-                Manage PATs
-              </Link>
-              .
+              <Link href="/settings/personal-access-tokens">Manage PATs</Link>.
             </>
           )}
         </Callout>
