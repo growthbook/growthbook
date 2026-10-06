@@ -120,6 +120,7 @@ const sampleExperiment = (
   ],
   settings: {
     datasourceId: "ds_notification_test",
+    assignmentQuery: { id: "user_id", identifierType: "user_id" },
     assignmentQueryId: "user_id",
     experimentId: "checkout-cta",
     segmentId: "",

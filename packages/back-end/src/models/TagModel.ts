@@ -69,7 +69,7 @@ export async function addTag(
 ) {
   if (tag.length < MIN_TAG_LENGTH || tag.length > MAX_TAG_LENGTH) {
     throw new Error(
-      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`,
+      `Tags must be between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characters long.`,
     );
   }
   if (description.length > 256) {

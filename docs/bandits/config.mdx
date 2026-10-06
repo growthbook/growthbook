@@ -1,6 +1,5 @@
 ---
 title: Setting up a Bandit
-slug: /bandits/config
 description: "Set up a GrowthBook bandit: pick a decision metric, assignment attribute, exploration window, update cadence, and sticky bucketing."
 ---
 
@@ -8,6 +7,8 @@ Bandits are run similarly to Experiments in GrowthBook. Key differences include:
 
 1. We require you to select a **Decision Metric** to optimize towards
 2. You have to decide the exploration window and update cadence for your Bandits
+
+This page covers multi-armed bandits, which find one winning variation for everyone. If you expect the best variation to differ by country, device, plan, or another attribute, use a [Contextual Bandit](/bandits/contextual) instead. See [Setting up a Contextual Bandit](/bandits/contextual-config) for its prerequisites.
 
 ## Creating a Bandit
 
@@ -87,7 +88,7 @@ While longer update windows mean that the Bandit will send more traffic to lower
 
 After you create your bandit, you'll be able to configure the different variations each arm of the Bandit will serve.
 
-Use either Feature Flags, the Visual Editor, or URL Redirects to set up your different variations. You can also use the API to set up your variations.
+Use either Feature Flags, the AI Visual Editor, or URL Redirects to set up your different variations. You can also use the API to set up your variations.
 
 <Frame>
   <img src="/static/images/bandits/bandit-config-3.png" alt="Linking Bandit Changes" width="800" />

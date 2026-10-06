@@ -1124,6 +1124,54 @@ export function getRowFilterSQL({
   }
 }
 
+export function buildRowFilterWhereClause({
+  rowFilters,
+  factTable,
+  dialect,
+}: {
+  rowFilters: RowFilter[];
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  dialect: Pick<
+    SqlDialect,
+    | "jsonExtract"
+    | "escapeStringLiteral"
+    | "stringMatch"
+    | "evalBoolean"
+    | "castToTimestamp"
+    | "identifierQuote"
+  >;
+}): string {
+  const where: string[] = [];
+  rowFilters.forEach((rowFilter) => {
+    const sql = getRowFilterSQL({
+      rowFilter,
+      factTable,
+      jsonExtract: dialect.jsonExtract,
+      escapeStringLiteral: dialect.escapeStringLiteral,
+      stringMatch: dialect.stringMatch,
+      evalBoolean: dialect.evalBoolean,
+      castToTimestamp: dialect.castToTimestamp,
+      identifierQuote: dialect.identifierQuote,
+    });
+
+    // Incomplete/deleted filters would silently widen the preview.
+    if (sql === null) {
+      if (rowFilter.operator === "saved_filter") {
+        throw new Error(
+          `Saved Filter "${rowFilter.values?.[0]}" no longer exists. Remove it from the row filters to preview rows.`,
+        );
+      }
+      throw new Error(
+        `The row filter on "${rowFilter.column || rowFilter.operator}" is incomplete and cannot be previewed.`,
+      );
+    }
+
+    where.push(sql);
+  });
+
+  return where.join("\n  AND ");
+}
+
 export function getAggregateFilters({
   columnRef,
   column,
@@ -2667,6 +2715,19 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
   );
 }
 
+export function isAutoSnapshotScheduled(
+  experiment: Pick<
+    ExperimentInterface,
+    "autoSnapshots" | "disableAutoSnapshots" | "archived"
+  >,
+): boolean {
+  return (
+    !!experiment.autoSnapshots &&
+    !experiment.disableAutoSnapshots &&
+    !experiment.archived
+  );
+}
+
 export async function generateTrackingKey<
   T = ExperimentInterface | ExperimentInterfaceStringDates,
 >(
@@ -3133,9 +3194,12 @@ export function scheduleStagesStatusChange(
 // Stamps who staged a status update so the job can run it on their authority.
 export function withScheduledBy<T extends object>(
   staged: T | null,
-  userId: string | undefined,
-): (T & { scheduledBy?: string }) | null {
-  return staged && userId ? { ...staged, scheduledBy: userId } : staged;
+  by?: { userId?: string; apiKey?: string },
+): (T & { scheduledBy?: string; scheduledByApiKey?: string }) | null {
+  if (!staged) return null;
+  if (by?.userId) return { ...staged, scheduledBy: by.userId };
+  if (by?.apiKey) return { ...staged, scheduledByApiKey: by.apiKey };
+  return staged;
 }
 
 // True when the incoming schedule stages a status change, or a staged one is

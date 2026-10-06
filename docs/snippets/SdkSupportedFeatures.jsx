@@ -2,7 +2,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
   const sdkInfo = {
     js: {
       name: "JS SDK",
-      version: "1.7.0",
+      version: "1.8.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -23,6 +23,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v1.8.0",
         },
         {
           contextualBandits: "≥ v1.7.0",
@@ -82,7 +85,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     react: {
       name: "React SDK",
-      version: "1.7.0",
+      version: "1.8.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -111,6 +114,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v1.8.0",
         },
         {
           contextualBandits: "≥ v1.7.0",
@@ -279,7 +285,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     node: {
       name: "Node SDK",
-      version: "1.7.0",
+      version: "1.8.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -300,6 +306,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v1.8.0",
         },
         {
           contextualBandits: "≥ v1.7.0",
@@ -393,7 +402,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     python: {
       name: "Python SDK",
-      version: "3.0.0",
+      version: "3.2.0",
       github: "https://github.com/growthbook/growthbook-python",
       examples: [],
       packageRepos: [
@@ -408,6 +417,12 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v3.2.0",
+        },
+        {
+          contextualBandits: "≥ v3.1.0",
         },
         {
           remoteEval: "≥ v2.3.0",
@@ -449,7 +464,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     go: {
       name: "Go SDK",
-      version: "0.2.9",
+      version: "0.6.0",
       github: "https://github.com/growthbook/growthbook-golang",
       examples: [
         {
@@ -469,6 +484,12 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.6.0",
+        },
+        {
+          contextualBandits: "≥ v0.5.0",
         },
         {
           trackingPlugin: "≥ v0.2.8",
@@ -510,7 +531,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     rust: {
       name: "Rust SDK",
-      version: "0.2.1",
+      version: "0.3.0",
       github: "https://github.com/growthbook/growthbook-rust",
       examples: [
         {
@@ -530,6 +551,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.3.0",
         },
         {
           savedGroupReferences: "≥ v0.2.0",
@@ -565,7 +589,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.10.10",
+      version: "0.11.0",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
@@ -787,7 +811,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     swift: {
       name: "Swift SDK",
-      version: "1.2.0",
+      version: "1.2.4",
       github: "https://github.com/growthbook/growthbook-swift",
       examples: [],
       packageRepos: [
@@ -802,6 +826,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v1.2.3",
         },
         {
           namespacesV2: "≥ v1.1.4",
@@ -840,7 +867,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     reactNative: {
       name: "React Native SDK",
-      version: "1.7.0",
+      version: "1.8.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -861,6 +888,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v1.8.0",
         },
         {
           contextualBandits: "≥ v1.7.0",
@@ -1360,7 +1390,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
       ),
     },
     visualEditor: {
-      label: "Visual Editor",
+      label: "AI Visual Editor",
       icon: () => (
         <svg
           fill="currentColor"
@@ -1384,7 +1414,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
       ),
     },
     visualEditorJS: {
-      label: "Visual Editor (JS)",
+      label: "AI Visual Editor (JS)",
       icon: () => (
         <svg
           fill="currentColor"
@@ -1408,7 +1438,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
       ),
     },
     visualEditorDragDrop: {
-      label: "Visual Editor Drag & Drop",
+      label: "AI Visual Editor Drag & Drop",
       icon: () => (
         <svg
           fill="currentColor"
@@ -1457,6 +1487,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     savedGroupReferences: {
       label: "Saved Group References",
+      icon: () => (
+        <svg
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 256 256"
+        >
+          <path d="M88,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H96A8,8,0,0,1,88,64Zm128,56H96a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,64H96a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16ZM56,56H40a8,8,0,0,0,0,16H56a8,8,0,0,0,0-16Zm0,64H40a8,8,0,0,0,0,16H56a8,8,0,0,0,0-16Zm0,64H40a8,8,0,0,0,0,16H56a8,8,0,0,0,0-16Z" />
+        </svg>
+      ),
+    },
+    savedGroupReferencesV2: {
+      label: "Saved Group References (All Types)",
       icon: () => (
         <svg
           fill="currentColor"

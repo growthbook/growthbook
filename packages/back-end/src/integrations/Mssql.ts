@@ -1,5 +1,4 @@
 import { parseIntWithDefault } from "shared/util";
-import { SqlDialect } from "shared/types/sql";
 import { IRecordSet } from "mssql";
 import {
   QueryResponse,
@@ -10,7 +9,6 @@ import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
 import { getFactTableTypeFromMssqlDeclaration } from "back-end/src/util/warehouseColumnTypes";
 import SqlIntegration from "./SqlIntegration";
-import { mssqlDialect } from "./dialects/mssql";
 
 /** Default TCP port for SQL Server; used when stored params are missing or not parseable as an integer. */
 const MSSQL_DEFAULT_TCP_PORT = 1433;
@@ -46,9 +44,6 @@ export default class Mssql extends SqlIntegration {
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<MssqlConnectionParams>(encryptedParams);
-  }
-  getSqlDialect(): SqlDialect {
-    return mssqlDialect;
   }
   async runQuery(sqlStr: string): Promise<QueryResponse> {
     const conn = await findOrCreateConnection(this.datasource.id, {

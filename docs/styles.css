@@ -303,6 +303,17 @@ code a {
   }
 }
 
+/* The 404 hides the sidebar, but #body-content keeps the 18rem sidebar
+   padding (and #content-area the wide-screen offset), so the message sits
+   right of center. */
+#body-content:has(.not-found-container) {
+  padding-left: 0 !important;
+}
+
+#content-area:has(.not-found-container) {
+  margin-left: 0 !important;
+}
+
 /* Set the reference sections apart from the product docs above them, the way
    docs.growthbook.io separates them with a rule. */
 ul.sidebar-group > li[data-title="Tutorials"],
@@ -483,4 +494,14 @@ ul.sidebar-group > li[data-title="GrowthBook Guide"] {
    Turning the assistant off entirely also requires the dashboard toggle. */
 .chat-assistant-send-button {
   display: none !important;
+}
+
+/* Mintlify markdown tables ship [&_td]:min-w-[150px] on every cell, which
+   wraps identifier columns, making them unseemly. */
+table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
+  max-width: 25%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-wrap: break-word;
 }
