@@ -521,8 +521,9 @@ export async function putDataSource(
     }
   }
 
-  // If changing projects, make sure the user has access to the new projects as well
-  if (projects) {
+  // If changing projects, make sure the user has access to the new projects as well.
+  // An empty list is "All Projects" and must still be checked and saved.
+  if (Array.isArray(projects)) {
     if (!context.permissions.canUpdateDataSourceSettings({ projects })) {
       context.permissions.throwPermissionError();
     }
@@ -570,7 +571,7 @@ export async function putDataSource(
       updates.settings = settings;
     }
 
-    if (projects) {
+    if (Array.isArray(projects)) {
       updates.projects = projects;
     }
 
