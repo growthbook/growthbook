@@ -1,8 +1,7 @@
-import { Box } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
 import { ago } from "shared/dates";
 import { isExpired } from "shared/api-key-expiration";
-import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -16,38 +15,35 @@ export default function PatExpiryTopNavNotice() {
 
   const expiredCount = tokens.filter((t) => isExpired(t.expiresAt)).length;
   const severe = expiredCount > 0;
-  // The pill names the worst state, so it counts only tokens in it
+  // The label names the worst state, so it counts only tokens in it
   const count = severe ? expiredCount : tokens.length;
-  const color = severe ? "red" : "amber";
+  const label =
+    count === 1
+      ? `${severe ? "Expired" : "Expiring"} access token`
+      : `${count} ${severe ? "expired" : "expiring"} access tokens`;
 
   return (
     <Tooltip
       body={
-        <Box className={styles["notice-tooltip"]}>
-          <Box asChild pl="4" mb="2">
-            <ul>
-              {tokens.map((t) => {
-                const name = t.description || t.id;
-                return (
-                  <li key={t.id}>
-                    {isExpired(t.expiresAt)
-                      ? `${name} expired ${ago(t.expiresAt as Date)} but was used ${ago(t.lastUsed as Date)}.`
-                      : `${name} expires ${ago(t.expiresAt as Date)}.`}
-                  </li>
-                );
-              })}
-            </ul>
-          </Box>
-          <Text as="p" mb="0">
+        <Flex direction="column" gap="2" className={styles["notice-tooltip"]}>
+          {tokens.map((t) => (
+            <Text as="div" key={t.id}>
+              <strong>{t.description || t.id}</strong>{" "}
+              {isExpired(t.expiresAt)
+                ? `expired ${ago(t.expiresAt as Date)} but was used ${ago(t.lastUsed as Date)}.`
+                : `expires ${ago(t.expiresAt as Date)}.`}
+            </Text>
+          ))}
+          <Text as="div">
             Replace a token with <strong>Copy settings to new key</strong> on
             your Personal Access Tokens page.
           </Text>
-        </Box>
+        </Flex>
       }
     >
       <Link
         href="/account/personal-access-tokens"
-        color={color}
+        color={severe ? "red" : "amber"}
         underline="hover"
         className={
           styles[severe ? "error-notification" : "warning-notification"]
@@ -60,14 +56,7 @@ export default function PatExpiryTopNavNotice() {
         }}
       >
         <PiWarningFill size={15} />
-        {severe ? "Expired" : "Expiring"} access token{count === 1 ? "" : "s"}
-        <Badge
-          label={String(count)}
-          color={color}
-          variant="solid"
-          radius="full"
-          size="xs"
-        />
+        {label}
       </Link>
     </Tooltip>
   );
