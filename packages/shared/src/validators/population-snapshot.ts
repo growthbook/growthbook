@@ -48,6 +48,9 @@ export const apiPopulationSnapshotValidator = namedSchema(
       comparisonDays: z.number(),
       status: populationSnapshotStatusValidator,
       error: z.string(),
+      queries: z
+        .array(queryPointerValidator)
+        .describe("The warehouse queries this refresh ran"),
       result: populationSnapshotResultValidator
         .nullable()
         .describe(

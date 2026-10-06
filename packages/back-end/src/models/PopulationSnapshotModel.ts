@@ -130,6 +130,7 @@ export function toApiPopulationSnapshot(
     comparisonDays: doc.comparisonDays,
     status: doc.status,
     error: doc.error ?? "",
+    queries: doc.queries,
     result: doc.result,
   };
 }

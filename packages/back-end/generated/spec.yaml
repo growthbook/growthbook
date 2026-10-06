@@ -81997,6 +81997,29 @@ components:
             - error
         error:
           type: string
+        queries:
+          description: The warehouse queries this refresh ran
+          type: array
+          items:
+            type: object
+            properties:
+              query:
+                type: string
+              status:
+                type: string
+                enum:
+                  - queued
+                  - running
+                  - failed
+                  - partially-succeeded
+                  - succeeded
+              name:
+                type: string
+            required:
+              - query
+              - status
+              - name
+            additionalProperties: false
         result:
           description: >-
             Members as of `asOf`, members `comparisonDays` earlier, and the
@@ -82030,6 +82053,7 @@ components:
         - comparisonDays
         - status
         - error
+        - queries
         - result
       additionalProperties: false
     ExperimentSnapshot:
