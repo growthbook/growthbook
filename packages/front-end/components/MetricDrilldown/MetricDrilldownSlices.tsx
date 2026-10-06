@@ -108,7 +108,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     hasCommercialFeature("metric-slices");
   const tableId = `${experimentId}_${metric.id}_slices`;
 
-  // TODO: Do we stil need?
+  // TODO: Do we still need?
   const [sortBy, setSortBy] = useState<ExperimentSortBy>(initialSortBy);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
     initialSortDirection,

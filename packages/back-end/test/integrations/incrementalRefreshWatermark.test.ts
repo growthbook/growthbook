@@ -1,10 +1,12 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
+import {
+  bigQueryDialect,
+  snowflakeDialect,
+  prestoDialect,
+  baseDialect,
+} from "shared/dialects";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
-import { prestoDialect } from "back-end/src/integrations/dialects/presto";
-import { baseDialect } from "back-end/src/integrations/dialects/base";
 import {
   afterWatermark,
   rawWatermark,
@@ -59,7 +61,7 @@ const exposureQuery: ExposureQuery = {
 };
 const resolvedExposureQuery = {
   query: exposureQuery.query,
-  userIdType: exposureQuery.userIdType,
+  identifierType: exposureQuery.userIdType,
 };
 
 const settings: ExperimentSnapshotSettings = {
@@ -109,7 +111,7 @@ describe("formatTimestampExact", () => {
 
   it("is selected alongside every watermark", () => {
     // @ts-expect-error -- context not needed for this unit test
-    const bq = new BigQuery("", { settings: {} });
+    const bq = new BigQuery("", { type: "bigquery", settings: {} });
     const exact = 'format_timestamp("%F %H:%M:%E6S", MAX(max_timestamp))';
     for (const sql of [
       bq.getMaxTimestampIncrementalUnitsQuery({
@@ -202,6 +204,7 @@ describe("incremental refresh watermark filters", () => {
   beforeEach(() => {
     // @ts-expect-error -- context not needed for this unit test
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: { queries: { exposure: [exposureQuery] } },
     });
   });

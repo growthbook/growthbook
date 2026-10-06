@@ -133,9 +133,11 @@
                       "event-trackers/heap",
                       "event-trackers/jitsu",
                       "event-trackers/keenio",
+                      "event-trackers/langfuse",
                       "guide/matomo",
                       "guide/mixpanel",
                       "event-trackers/mparticle",
+                      "event-trackers/phoenix",
                       "guide/rudderstack",
                       "event-trackers/segment",
                       "event-trackers/snowplow",
@@ -180,7 +182,7 @@
                     "pages": [
                       "features/feature-flag-experiments",
                       {
-                        "group": "Visual Editor",
+                        "group": "AI Visual Editor",
                         "root": "app/visual",
                         "pages": [
                           "app/visual/install-and-connect",
@@ -190,8 +192,7 @@
                           "app/visual/design-import",
                           "app/visual/running-on-your-site",
                           "app/visual/preview-and-qa",
-                          "app/visual/troubleshooting",
-                          "app/visual/legacy"
+                          "app/visual/troubleshooting"
                         ]
                       },
                       "app/url-redirects"
@@ -290,6 +291,7 @@
                     "group": "AI Agents",
                     "root": "integrations/ai-agents",
                     "pages": [
+                      "integrations/ai-agents/wizard",
                       "integrations/mcp",
                       "integrations/ai-agents/agent-skills"
                     ]
@@ -305,7 +307,8 @@
                   "tools/cli",
                   "integrations/clarity",
                   "integrations/jira",
-                  "integrations/ai"
+                  "integrations/ai",
+                  "integrations/llm-tracing"
                 ]
               },
               {
@@ -386,6 +389,17 @@
                   "using/growthbook-best-practices",
                   "using/security",
                   "using/programs"
+                ]
+              },
+              {
+                "group": "Guides for Agents",
+                "pages": [
+                  "guides-for-agents/start-here",
+                  "guides-for-agents/nextjs-app-router-production-feature-flags",
+                  "guides-for-agents/free-ab-test-javascript",
+                  "guides-for-agents/migrate-diy-feature-flags",
+                  "guides-for-agents/test-llm-prompt-model-change",
+                  "guides-for-agents/self-host-growthbook-kubernetes"
                 ]
               }
             ]
@@ -996,6 +1010,7 @@
                   "api/Dashboards/operation/deleteDashboard",
                   "api/Dashboards/operation/listDashboards",
                   "api/Dashboards/operation/createDashboard",
+                  "api/Dashboards/operation/createDashboardV2",
                   "api/Dashboards/operation/getDashboardsForExperiment"
                 ]
               },
@@ -1208,6 +1223,7 @@
               "api/Safe Rollout Rule_model",
               "api/SavedGroup_model",
               "api/SavedGroupApprovalRule_model",
+              "api/SavedGroupReferenceResource_model",
               "api/SavedGroupReferences_model",
               "api/SavedGroupRevision_model",
               "api/SavedGroupRevisionActivityLogEntry_model",
@@ -1242,7 +1258,7 @@
     ],
     "primary": {
       "type": "button",
-      "label": "Log in",
+      "label": "Open App",
       "href": "https://app.growthbook.io/"
     }
   },
@@ -1638,6 +1654,14 @@
     {
       "source": "/bandits/contextual-bandit-via-api",
       "destination": "/bandits/contextual-via-api"
+    },
+    {
+      "source": "/event-trackers/missing-event-tracker-docs",
+      "destination": "/event-trackers/custom"
+    },
+    {
+      "source": "/app/visual/legacy",
+      "destination": "/app/visual"
     }
   ]
 }

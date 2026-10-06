@@ -1,5 +1,6 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
+import omit from "lodash/omit";
 import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
@@ -1251,9 +1252,10 @@ export async function updateExposureQuery(
   }
 
   const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
+  // Only for dimension metadata; identifiers are edited with the whole query.
   copy.settings.queries.exposure[exposureQueryIndex] = {
     ...exposureQuery,
-    ...updates,
+    ...omit(updates, ["userIdType", "userIdTypes"]),
   };
 
   try {
