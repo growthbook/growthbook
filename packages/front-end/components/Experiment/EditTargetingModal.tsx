@@ -4,6 +4,7 @@ import {
 } from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
 import { Box } from "@radix-ui/themes";
+import pick from "lodash/pick";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
@@ -27,7 +28,13 @@ import {
   getLinkedExperimentAttributeScopes,
   useAttributeScopePicker,
 } from "./useAttributeScopePicker";
-import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
+import {
+  ExperimentTargetingDraft,
+  TARGETING_DRAFT_FIELDS,
+  TargetingDraft,
+  targetingDraftChanged,
+  useExperimentTargetingForm,
+} from "./useExperimentTargetingForm";
 
 export interface Props {
   close: () => void;
@@ -35,6 +42,15 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
+  // Apply to the caller's draft instead of saving (set in review, for the
+  // Setup page): the modal starts from the draft's targeting (value; null
+  // when it has none), and its button, "Apply", checks the targeting as a
+  // save would and hands it back; the page's save bar then saves it. Only
+  // when safeToEdit.
+  draft?: {
+    value: ExperimentTargetingDraft | null;
+    onApply: (targeting: TargetingDraft) => void;
+  };
 }
 
 export default function EditTargetingModal({
@@ -43,6 +59,7 @@ export default function EditTargetingModal({
   linkedFeatures,
   mutate,
   safeToEdit,
+  draft,
 }: Props) {
   const { enforcement: enforcementScope, dropdown: dropdownScope } =
     getLinkedExperimentAttributeScopes(experiment.project, linkedFeatures);
@@ -54,7 +71,11 @@ export default function EditTargetingModal({
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
     onSubmit,
-  } = useExperimentTargetingForm(experiment, enforcementScope);
+  } = useExperimentTargetingForm(
+    experiment,
+    enforcementScope,
+    safeToEdit ? draft?.value : null,
+  );
 
   const { effectiveAttributeProjects, attributeScopeToggle } =
     useAttributeScopePicker({
@@ -142,8 +163,19 @@ export default function EditTargetingModal({
         open={true}
         close={close}
         header="Edit Targeting"
-        ctaEnabled={canSubmit}
+        cta={draft ? "Apply" : undefined}
+        // Apply only once something differs from where the modal started.
+        ctaEnabled={
+          canSubmit &&
+          (!draft || targetingDraftChanged(form.watch(), defaultValues))
+        }
         submit={async () => {
+          if (draft) {
+            await onSubmit(mutate, "targeting", (value) =>
+              draft.onApply(pick(value, TARGETING_DRAFT_FIELDS)),
+            )();
+            return;
+          }
           await onSubmit(mutate, "targeting")();
           trackAddedTargeting();
         }}

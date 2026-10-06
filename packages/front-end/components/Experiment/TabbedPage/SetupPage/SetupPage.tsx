@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import isUndefined from "lodash/isUndefined";
+import omitBy from "lodash/omitBy";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
@@ -18,6 +20,12 @@ import EditVariationMetadataModal from "@/components/Experiment/EditVariationMet
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import TrafficAllocationFunnel from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
+import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
+import {
+  ExperimentTargetingDraft,
+  getTargetingDefaults,
+} from "@/components/Experiment/useExperimentTargetingForm";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useDismissToasts, useToast } from "@/ui/Toast";
@@ -197,7 +205,8 @@ export default function SetupPage({
   // backed fields above: once running, the values and their type are
   // read-only (set in review). It persists to localStorage only (see
   // ManagedValuesContext.tsx).
-  const { environments, setType, setVisualEditorUrl } = useExperimentType();
+  const { environments, setEnvironments, setType, setVisualEditorUrl } =
+    useExperimentType();
   const { config: managedValues, setConfig: setManagedValues } =
     useManagedValues();
   const isValuesType = deliveryType === "values";
@@ -222,6 +231,46 @@ export default function SetupPage({
           (valuesBase.valuesByVariationId[v.id] ?? ""),
       ));
 
+  // The Values type's environments, from Edit Environments' Apply, until
+  // Save commits them (set in review). Null: unchanged.
+  const [environmentsDraft, setEnvironmentsDraft] = useState<string[] | null>(
+    null,
+  );
+  const shownEnvironments = environmentsDraft ?? environments;
+  const environmentsDirty =
+    isValuesType &&
+    environmentsDraft !== null &&
+    [...environmentsDraft].sort().join("\n") !==
+      [...environments].sort().join("\n");
+
+  // Targeting and namespace from Edit Targeting's and Edit Namespace's
+  // Apply, until Save commits them (set in review). Null: unchanged.
+  // Implementation shows them meanwhile.
+  const [targetingDraft, setTargetingDraft] =
+    useState<ExperimentTargetingDraft | null>(null);
+  const applyTargeting = (next: ExperimentTargetingDraft) =>
+    setTargetingDraft((prev) => ({ ...prev, ...next }));
+  const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
+  const shownExperiment = useMemo(() => {
+    if (!targetingDraft) return experiment;
+    // Only what was applied: the draft may hold targeting, namespace or both.
+    const { condition, savedGroups, prerequisites, namespace, ...rest } =
+      targetingDraft;
+    const phasePatch = omitBy(
+      { condition, savedGroups, prerequisites, namespace },
+      isUndefined,
+    );
+    const last = experiment.phases.length - 1;
+    return {
+      ...experiment,
+      ...omitBy(rest, isUndefined),
+      phases: experiment.phases.map((p, i) =>
+        i === last ? { ...p, ...phasePatch } : p,
+      ),
+    };
+  }, [experiment, targetingDraft]);
+
   const [typeModalOpen, setTypeModalOpen] = useState(false);
   const [environmentsModalOpen, setEnvironmentsModalOpen] = useState(false);
 
@@ -236,7 +285,11 @@ export default function SetupPage({
   }, []);
 
   const dirty =
-    changedFields(base, draft).length > 0 || valuesDirty || advancedDirty;
+    changedFields(base, draft).length > 0 ||
+    valuesDirty ||
+    environmentsDirty ||
+    targetingDraft !== null ||
+    advancedDirty;
 
   const toast = useToast();
 
@@ -266,6 +319,18 @@ export default function SetupPage({
           ? draft.dataSourceResets
           : {}),
       };
+      // Applied targeting first, on the saved coverage, split and
+      // namespace; the save below then sets the draft's coverage and split.
+      if (targetingDraft) {
+        await apiCall(`/experiment/${experiment.id}/targeting`, {
+          method: "POST",
+          body: JSON.stringify({
+            ...getTargetingDefaults(experiment, false),
+            ...targetingDraft,
+          }),
+        });
+        setTargetingDraft(null);
+      }
       if (Object.keys(payload).length > 0) {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
@@ -296,6 +361,14 @@ export default function SetupPage({
           valuesByVariationId: valuesDraft.valuesByVariationId,
         });
       }
+      if (
+        environmentsDirty &&
+        environmentsDraft &&
+        !(typeChanged && base.deliveryType === "values")
+      ) {
+        setEnvironments(environmentsDraft);
+      }
+      setEnvironmentsDraft(null);
       // STUBBED fields "save" locally only: they become the new baseline so
       // the page stops reporting them as unsaved, but nothing is persisted.
       // A reload loses them.
@@ -402,6 +475,8 @@ export default function SetupPage({
     setError(null);
     setDraft(base);
     setValuesDraft(valuesBase);
+    setEnvironmentsDraft(null);
+    setTargetingDraft(null);
     advancedRef.current?.reset();
   }
 
@@ -508,6 +583,8 @@ export default function SetupPage({
         {environmentsModalOpen ? (
           <EditValuesEnvironmentsModal
             close={() => setEnvironmentsModalOpen(false)}
+            environments={shownEnvironments}
+            onApply={setEnvironmentsDraft}
           />
         ) : null}
         {/* The app's schedule modal, as the header's Edit schedule opens
@@ -551,6 +628,29 @@ export default function SetupPage({
             />
           );
         })()}
+        {targetingModalOpen ? (
+          <EditTargetingModal
+            close={() => setTargetingModalOpen(false)}
+            experiment={experiment}
+            linkedFeatures={linkedFeatures}
+            mutate={mutate}
+            safeToEdit={safeToEdit}
+            draft={{ value: targetingDraft, onApply: applyTargeting }}
+          />
+        ) : null}
+        {namespaceModalOpen ? (
+          <EditNamespaceModal
+            close={() => setNamespaceModalOpen(false)}
+            experiment={experiment}
+            linkedFeatures={linkedFeatures}
+            mutate={mutate}
+            safeToEdit={safeToEdit}
+            draft={{
+              value: targetingDraft,
+              onApply: (namespace) => applyTargeting({ namespace }),
+            }}
+          />
+        ) : null}
         {trafficModalOpen ? (
           <EditTrafficModal
             close={() => setTrafficModalOpen(false)}
@@ -673,7 +773,8 @@ export default function SetupPage({
           <GreyContainer px="4" py="5">
             <TrafficAllocationFunnel
               bare
-              experiment={experiment}
+              // With any applied, unsaved targeting (set in review).
+              experiment={shownExperiment}
               editTraffic={
                 scheduleArmed || !editTraffic
                   ? null
@@ -681,8 +782,22 @@ export default function SetupPage({
                     ? () => setTrafficModalOpen(true)
                     : editTraffic
               }
-              editTargeting={scheduleArmed ? null : editTargeting}
-              editNamespace={scheduleArmed ? null : editNamespace}
+              // On a draft, Apply goes to the page's draft (set in review).
+              editTargeting={
+                scheduleArmed || !editTargeting
+                  ? null
+                  : editable && safeToEdit
+                    ? () => setTargetingModalOpen(true)
+                    : editTargeting
+              }
+              // On a draft, Apply goes to the page's draft (set in review).
+              editNamespace={
+                scheduleArmed || !editNamespace
+                  ? null
+                  : editable && safeToEdit
+                    ? () => setNamespaceModalOpen(true)
+                    : editNamespace
+              }
               addVariation={
                 scheduleArmed || !addVariation ? null : addVariationInline
               }
@@ -728,10 +843,11 @@ export default function SetupPage({
               header={
                 isValuesType ? (
                   <EnvironmentsRow
-                    environments={environments}
-                    // No pencil while running (set in review).
+                    environments={shownEnvironments}
+                    // No pencil once started (set in review): Apply goes to
+                    // the page's draft, which only a draft can save.
                     onEdit={
-                      canEditExperiment && experiment.status !== "running"
+                      valuesEditable
                         ? () => setEnvironmentsModalOpen(true)
                         : undefined
                     }

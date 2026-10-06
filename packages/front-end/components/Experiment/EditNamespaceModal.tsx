@@ -2,11 +2,15 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import isEqual from "lodash/isEqual";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import MakeChangesFlow from "./MakeChangesFlow";
 import { getLinkedExperimentAttributeScopes } from "./useAttributeScopePicker";
-import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
+import {
+  ExperimentTargetingDraft,
+  useExperimentTargetingForm,
+} from "./useExperimentTargetingForm";
 
 export interface Props {
   close: () => void;
@@ -14,6 +18,14 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
+  // Apply to the caller's draft instead of saving (set in review, for the
+  // Setup page), as Edit Targeting does: the modal starts from the draft
+  // (value; null when it has none), and its button, "Apply", hands the
+  // namespace back; the page's save bar then saves it. Only when safeToEdit.
+  draft?: {
+    value: ExperimentTargetingDraft | null;
+    onApply: (namespace: ExperimentTargetingDraft["namespace"]) => void;
+  };
 }
 
 export default function EditNamespaceModal({
@@ -22,6 +34,7 @@ export default function EditNamespaceModal({
   linkedFeatures,
   mutate,
   safeToEdit,
+  draft,
 }: Props) {
   const { enforcement, dropdown } = getLinkedExperimentAttributeScopes(
     experiment.project,
@@ -34,7 +47,11 @@ export default function EditNamespaceModal({
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
     onSubmit,
-  } = useExperimentTargetingForm(experiment, enforcement);
+  } = useExperimentTargetingForm(
+    experiment,
+    enforcement,
+    safeToEdit ? draft?.value : null,
+  );
 
   if (safeToEdit) {
     return (
@@ -44,8 +61,19 @@ export default function EditNamespaceModal({
         close={close}
         header="Edit Namespace"
         subheader="Run mutually exclusive experiments within a shared namespace."
-        ctaEnabled={canSubmit}
-        submit={onSubmit(mutate, "namespace")}
+        cta={draft ? "Apply" : undefined}
+        // Apply only once the namespace differs from where it started.
+        ctaEnabled={
+          canSubmit &&
+          (!draft || !isEqual(form.watch("namespace"), defaultValues.namespace))
+        }
+        submit={
+          draft
+            ? onSubmit(mutate, "namespace", (value) =>
+                draft.onApply(value.namespace),
+              )
+            : onSubmit(mutate, "namespace")
+        }
         size="lg"
       >
         <div className="pt-2">
