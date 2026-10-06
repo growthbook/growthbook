@@ -88,6 +88,8 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
+import { InterleavingQueryModel } from "back-end/src/enterprise/models/InterleavingQueryModel";
+import { InterleavingSnapshotModel } from "back-end/src/enterprise/models/InterleavingSnapshotModel";
 import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
@@ -170,6 +172,8 @@ export type ModelName =
   | "contextualBandits"
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
+  | "interleavingQueries"
+  | "interleavingSnapshots"
   | "contextualBanditEvents"
   | "sessionReplays"
   | "eventForwarderConfigs"
@@ -230,6 +234,8 @@ export const modelClasses = {
   contextualBandits: ContextualBanditModel,
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  interleavingQueries: InterleavingQueryModel,
+  interleavingSnapshots: InterleavingSnapshotModel,
   contextualBanditEvents: ContextualBanditEventModel,
   sessionReplays: SessionReplayModel,
   eventForwarderConfigs: EventForwarderConfigModel,
@@ -407,6 +413,8 @@ export class ReqContextClass {
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      interleavingQueries: new InterleavingQueryModel(this),
+      interleavingSnapshots: new InterleavingSnapshotModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),
       sessionReplays: new SessionReplayModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),

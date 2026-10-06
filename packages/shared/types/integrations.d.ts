@@ -20,6 +20,7 @@ import {
   MetricQuantileSettings,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
+import type { AttributionType } from "shared/validators";
 import { SegmentInterface } from "shared/types/segment";
 import { PhaseSQLVar, TemplateVariables } from "shared/types/sql";
 
@@ -1056,3 +1057,35 @@ export interface FeatureUsageAggregateRow {
   evaluations: number;
 }
 export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
+
+export interface InterleavingMetricQueryMetric {
+  // "paired" needs interleave_id on the metric's fact table; the ownership
+  // types only need item_id. The user chooses per metric.
+  attributionType: AttributionType;
+  metricType: "mean" | "proportion";
+  // Numerator column for mean metrics; null means count rows / existence
+  valueColumn: string | null;
+}
+
+export interface InterleavingMetricQueryParams {
+  // The interleaving exposure query SQL (one row per impression, nested
+  // items JSON column)
+  exposureQuery: string;
+  userIdType: string;
+  trackingKey: string;
+  // Control first; must match the exposure `variation` column values
+  variationNames: [string, string];
+  startDate: Date;
+  endDate?: Date | null;
+  // One query analyzes all metrics sharing this fact table; output columns
+  // are prefixed m{i}_ by array index. Paired/ownership CTEs are only
+  // included when at least one metric requests them.
+  factTableSql: string;
+  metrics: InterleavingMetricQueryMetric[];
+}
+
+// One row of numeric aggregates; the column set depends on the attribution type
+// (paired sufficient statistics vs ownership preference counts)
+export type InterleavingMetricQueryResponseRows = Record<string, number>[];
+export type InterleavingMetricQueryResponse =
+  QueryResponse<InterleavingMetricQueryResponseRows>;
