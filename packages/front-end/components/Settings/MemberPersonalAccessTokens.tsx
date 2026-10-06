@@ -1,6 +1,7 @@
 import React, { FC, useMemo, useState } from "react";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { ago, datetime } from "shared/dates";
+import { getExpirationStatus } from "shared/api-key-expiration";
 import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -16,6 +17,7 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Tooltip from "@/ui/Tooltip";
+import Switch from "@/ui/Switch";
 import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -102,6 +104,20 @@ const MemberPersonalAccessTokens: FC = () => {
     [data?.keys, users],
   );
 
+  const [showExpired, setShowExpired] = useState(false);
+  const expiredCount = rows.filter(
+    (r) => getExpirationStatus(r.token.expiresAt) === "expired",
+  ).length;
+  const visibleRows = useMemo(
+    () =>
+      showExpired
+        ? rows
+        : rows.filter(
+            (r) => getExpirationStatus(r.token.expiresAt) !== "expired",
+          ),
+    [rows, showExpired],
+  );
+
   const {
     items,
     searchInputProps,
@@ -109,7 +125,7 @@ const MemberPersonalAccessTokens: FC = () => {
     SortableTableColumnHeader,
     pagination,
   } = useSearch({
-    items: rows,
+    items: visibleRows,
     localStorageKey: "memberPersonalAccessTokens",
     defaultSortField: "memberName",
     searchFields: ["memberName", "memberEmail", "description"],
@@ -165,7 +181,7 @@ const MemberPersonalAccessTokens: FC = () => {
               </Callout>
             )}
             <Flex align="center" gap="3" mb="2">
-              <Text weight="medium">{`${rows.length} token${rows.length === 1 ? "" : "s"}`}</Text>
+              <Text weight="medium">{`${visibleRows.length} token${visibleRows.length === 1 ? "" : "s"}`}</Text>
               <Box width="250px" flexShrink="0">
                 <TextField
                   type="search"
@@ -173,6 +189,14 @@ const MemberPersonalAccessTokens: FC = () => {
                   {...searchInputProps}
                 />
               </Box>
+              {expiredCount > 0 && (
+                <Switch
+                  size="sm"
+                  label={`Show expired tokens (${expiredCount})`}
+                  value={showExpired}
+                  onChange={setShowExpired}
+                />
+              )}
             </Flex>
             <Table variant="surface">
               <TableHeader>
@@ -273,10 +297,12 @@ const MemberPersonalAccessTokens: FC = () => {
                     </TableRow>
                   );
                 })}
-                {!items.length && isFiltered && (
+                {!items.length && (
                   <TableRow>
                     <TableCell colSpan={5} style={{ textAlign: "center" }}>
-                      No matching tokens found.
+                      {isFiltered
+                        ? "No matching tokens found."
+                        : "All of these tokens have expired."}
                     </TableCell>
                   </TableRow>
                 )}
