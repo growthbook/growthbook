@@ -27,6 +27,7 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import { DATA_SOURCE_TYPE_AVATAR } from "./dataSourceTypeAvatar";
 import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";
 
 const REGION_NAMES: Record<DataRegion, string> = {
@@ -55,15 +56,6 @@ const HOW_IT_WORKS: { icon: ReactNode; title: string; description: string }[] =
         "Build metrics from forwarded events, or from any other table you give us read access to.",
     },
   ];
-
-const WAREHOUSE_AVATAR: Record<
-  string,
-  { abbr: string; color: "blue" | "cyan" | "orange" }
-> = {
-  bigquery: { abbr: "BQ", color: "blue" },
-  snowflake: { abbr: "SF", color: "cyan" },
-  databricks: { abbr: "DB", color: "orange" },
-};
 
 const warehouses = dataSourceConnections.filter((connection) =>
   supportsEventForwarder({ type: connection.type }),
@@ -241,11 +233,11 @@ export default function EventForwarderModal({
               value={type}
               setValue={(value) => setType(value as DataSourceType)}
               options={warehouses.map((connection) => {
-                const avatar = WAREHOUSE_AVATAR[connection.type];
+                const avatar = DATA_SOURCE_TYPE_AVATAR[connection.type];
                 return {
                   value: connection.type,
                   label: connection.display,
-                  avatar: avatar ? (
+                  avatar: (
                     <Avatar
                       size="sm"
                       variant="soft"
@@ -254,7 +246,7 @@ export default function EventForwarderModal({
                     >
                       {avatar.abbr}
                     </Avatar>
-                  ) : undefined,
+                  ),
                 };
               })}
             />
