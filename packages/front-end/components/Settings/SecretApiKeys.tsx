@@ -20,6 +20,7 @@ const SecretApiKeys: FC<{
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<ApiKeyInterface | null>(null);
+  const [copyFrom, setCopyFrom] = useState<ApiKeyInterface | null>(null);
   const [auditLog, setAuditLog] = useState<{
     keyId?: string;
     keyName?: string;
@@ -101,6 +102,18 @@ const SecretApiKeys: FC<{
         />
       )}
 
+      {copyFrom && canCreateKeys && (
+        <ApiKeysModal
+          close={() => setCopyFrom(null)}
+          onCreate={mutate}
+          personalAccessToken={false}
+          copyFrom={copyFrom}
+          onDeleteCopySource={
+            canDeleteKeys ? onDelete(copyFrom.id || "") : undefined
+          }
+        />
+      )}
+
       <div>
         <Flex align="center" justify="between">
           <h1>Secret API Keys</h1>
@@ -122,6 +135,7 @@ const SecretApiKeys: FC<{
             onReveal={onReveal}
             onToggleDisabled={canDeleteKeys ? onToggleDisabled : undefined}
             onEdit={canCreateKeys ? (key) => setEditingKey(key) : undefined}
+            onCopy={canCreateKeys ? setCopyFrom : undefined}
             onShowAuditLog={
               canCreateKeys
                 ? (key) =>

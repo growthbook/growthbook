@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { getRoles } from "shared/permissions";
 import { MemberRoleWithProjects } from "shared/types/organization";
@@ -24,6 +24,8 @@ const ApiKeysModal: FC<{
   existingKey?: ApiKeyInterface;
   /** Seeds a new key with this one's settings; it still gets its own value and expiry. */
   copyFrom?: ApiKeyInterface;
+  /** Offers to delete `copyFrom` once the copy exists; omit when the user can't. */
+  onDeleteCopySource?: () => Promise<void>;
 }> = ({
   close,
   personalAccessToken,
@@ -31,6 +33,7 @@ const ApiKeysModal: FC<{
   defaultDescription = "",
   existingKey,
   copyFrom,
+  onDeleteCopySource,
 }) => {
   const { apiCall } = useAuth();
   const { organization, settings } = useUser();
@@ -47,6 +50,10 @@ const ApiKeysModal: FC<{
   // instead of creating a new one.
   const editMode = !!existingKey;
   const source = existingKey ?? copyFrom;
+  const canDeleteSource = !!copyFrom && !!onDeleteCopySource;
+  const [deleteSource, setDeleteSource] = useState(true);
+  // A retry after a failed delete must not mint a second copy.
+  const created = useRef(false);
 
   const defaultRole = useMemo(() => {
     const deactivated = new Set(organization.deactivatedRoles ?? []);
@@ -122,15 +129,27 @@ const ApiKeysModal: FC<{
           ...roleStateData,
           expiresAt: expiresAt?.toISOString() ?? null,
         };
-    await apiCall("/keys", {
-      method: "POST",
-      body: JSON.stringify(key),
-    });
-    track("Create API Key", {
-      isSecret: !personalAccessToken,
-      ...(personalAccessToken ? { scoped } : {}),
-    });
-    onCreate();
+    if (!created.current) {
+      await apiCall("/keys", {
+        method: "POST",
+        body: JSON.stringify(key),
+      });
+      created.current = true;
+      track("Create API Key", {
+        isSecret: !personalAccessToken,
+        ...(personalAccessToken ? { scoped } : {}),
+      });
+      onCreate();
+    }
+    if (canDeleteSource && deleteSource && onDeleteCopySource) {
+      try {
+        await onDeleteCopySource();
+      } catch (e) {
+        throw new Error(
+          `The new key was created, but the original couldn't be deleted: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
   });
 
   return (
@@ -156,6 +175,15 @@ const ApiKeysModal: FC<{
           value={expiresAt}
           setValue={setExpiresAt}
         />
+      )}
+      {canDeleteSource && (
+        <Box mb="3">
+          <Checkbox
+            value={deleteSource}
+            setValue={setDeleteSource}
+            label={`Delete "${copyFrom?.description || copyFrom?.id}" once the new key is created`}
+          />
+        </Box>
       )}
       {canScopeToken && (
         <>

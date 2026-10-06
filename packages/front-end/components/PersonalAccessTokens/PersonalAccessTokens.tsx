@@ -52,6 +52,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
           onCreate={onCreate}
           personalAccessToken
           copyFrom={copyFrom ?? undefined}
+          onDeleteCopySource={copyFrom ? onDelete(copyFrom.id) : undefined}
         />
       )}
 

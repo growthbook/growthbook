@@ -57,7 +57,7 @@ export default function ApiKeyRowMenu({
           )}
         {onCopy && (
           <DropdownMenuItem onClick={() => onCopy(apiKey)}>
-            Copy to new key
+            Copy settings to new key
           </DropdownMenuItem>
         )}
         {onToggleClick && (
