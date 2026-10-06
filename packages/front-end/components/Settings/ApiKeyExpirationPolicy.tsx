@@ -7,6 +7,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { hasFileConfig } from "@/services/env";
 import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Button from "@/ui/Button";
@@ -154,46 +155,46 @@ const ApiKeyExpirationPolicy: FC<{
 
   return (
     <>
-      <Frame mb="4" py="3" px="4">
-        <Flex align="center" justify="between" gap="3" wrap="wrap">
-          <Flex align="center" gap="2" wrap="wrap">
-            <Text weight="medium">Expiration Policy:</Text>
-            <Text color="text-mid">
-              {saved === null
-                ? `${COPY[kind].subject} last indefinitely`
-                : `${COPY[kind].subject} last up to ${saved} day${saved === 1 ? "" : "s"}`}
-            </Text>
-            {nonCompliant.length > 0 &&
-              // The count is the reason to open the modal, so it opens it.
-              (locked ? (
-                <Badge
-                  color="amber"
-                  variant="soft"
-                  label={`${nonCompliant.length} non-compliant`}
-                  title={nonCompliantReason}
-                />
-              ) : (
-                <Link
-                  onClick={() => setEditing(true)}
-                  title={nonCompliantReason}
-                >
-                  <Badge
-                    color="amber"
-                    variant="soft"
-                    label={`${nonCompliant.length} non-compliant`}
-                    style={{ cursor: "pointer" }}
-                  />
-                </Link>
-              ))}
-          </Flex>
+      <Frame mb="4">
+        <Flex align="center" justify="between" gap="3" mb="3">
+          <Heading as="h3" size="md" mb="0">
+            Expiration Policy
+          </Heading>
           <Button
             variant="outline"
+            size="sm"
             disabled={locked}
             title={locked ? FILE_CONFIG_REASON : undefined}
             onClick={() => setEditing(true)}
           >
             {saved === null ? "Set expiration" : "Edit expiration"}
           </Button>
+        </Flex>
+        <Flex align="center" gap="2" wrap="wrap">
+          <Text color="text-mid">
+            {saved === null
+              ? `${COPY[kind].subject} last indefinitely`
+              : `${COPY[kind].subject} last up to ${saved} day${saved === 1 ? "" : "s"}`}
+          </Text>
+          {nonCompliant.length > 0 &&
+            // The count is the reason to open the modal, so it opens it.
+            (locked ? (
+              <Badge
+                color="amber"
+                variant="soft"
+                label={`${nonCompliant.length} non-compliant`}
+                title={nonCompliantReason}
+              />
+            ) : (
+              <Link onClick={() => setEditing(true)} title={nonCompliantReason}>
+                <Badge
+                  color="amber"
+                  variant="soft"
+                  label={`${nonCompliant.length} non-compliant`}
+                  style={{ cursor: "pointer" }}
+                />
+              </Link>
+            ))}
         </Flex>
       </Frame>
 
