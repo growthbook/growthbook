@@ -11,6 +11,7 @@ import {
   capitalizeFirstCharacter,
   resolveAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
+  getExposureQueryProjects,
   isExposureQueryAvailableForProjects,
   isProjectListValidForProject,
 } from "shared/util";
@@ -1030,9 +1031,13 @@ export function isIdentifierUndeclared(
 export function getExposureQueriesForProject(
   exposureQueries: ExposureQuery[],
   project: string | undefined,
+  datasourceProjects: string[] | undefined,
 ): ExposureQuery[] {
   return exposureQueries.filter((q) =>
-    isProjectListValidForProject(q.projects, project),
+    isProjectListValidForProject(
+      getExposureQueryProjects(q, datasourceProjects),
+      project,
+    ),
   );
 }
 
@@ -1047,7 +1052,7 @@ export function getExposureQueriesInScope(
     ? all.filter((q) =>
         isExposureQueryAvailableForProjects(q, projects, datasource.projects),
       )
-    : getExposureQueriesForProject(all, project);
+    : getExposureQueriesForProject(all, project, datasource.projects);
 }
 
 /** How a saved selection drifted from what its scope and query now allow. */

@@ -48,6 +48,14 @@ export function getExperimentAssignmentQueryScope(
       : { project };
 }
 
+async function getScopeFor(
+  datasource: DataSourceInterface,
+  getScope: GetAssignmentQueryScope | undefined,
+): Promise<AssignmentQueryScope | undefined> {
+  const scope = await getScope?.(datasource);
+  return scope && { datasourceProjects: datasource.projects, ...scope };
+}
+
 /**
  * Whether `next` changes `previous` (always when `previous` is null), with the
  * data source to validate it against. The data source is null when there's no
@@ -131,7 +139,7 @@ export async function resolveAssignmentQueryIdentifier(
       next: kept,
       onOmitted,
       field,
-      scope: await getScope?.(selection.datasource),
+      scope: await getScopeFor(selection.datasource, getScope),
     },
   );
   if (!result.ok) throw new Error(result.error);
@@ -160,7 +168,7 @@ export async function assertValidAssignmentQuerySelectionChange(
       exposureQueryId: next.exposureQueryId,
       identifierType: next.identifierType,
       onOmitted: "defaultToFirst",
-      scope: await getScope?.(selection.datasource),
+      scope: await getScopeFor(selection.datasource, getScope),
     },
   );
   if (!parsed.ok) throw new Error(parsed.error);

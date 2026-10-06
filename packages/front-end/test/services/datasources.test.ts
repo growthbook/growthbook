@@ -215,7 +215,7 @@ describe("getExposureQueriesForProject", () => {
 
   it("keeps queries scoped to the project and queries with no scope", () => {
     expect(
-      getExposureQueriesForProject([scoped, unscoped], "prj_a").map(
+      getExposureQueriesForProject([scoped, unscoped], "prj_a", []).map(
         (q) => q.id,
       ),
     ).toEqual(["exq_a", "exq_all"]);
@@ -223,10 +223,16 @@ describe("getExposureQueriesForProject", () => {
 
   it("drops queries scoped to a different project", () => {
     expect(
-      getExposureQueriesForProject([scoped, unscoped], "prj_b").map(
+      getExposureQueriesForProject([scoped, unscoped], "prj_b", []).map(
         (q) => q.id,
       ),
     ).toEqual(["exq_all"]);
+  });
+
+  it("scopes a query with no projects to its data source's", () => {
+    expect(
+      getExposureQueriesForProject([scoped, unscoped], "prj_b", ["prj_a"]),
+    ).toEqual([]);
   });
 });
 

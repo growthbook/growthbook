@@ -1388,7 +1388,10 @@ export async function postExperiments(
           exposureQueryId: obj.exposureQueryId,
           identifierType: obj.exposureQueryIdentifierType,
           onOmitted: "defaultToFirst",
-          scope: { project: obj.project ?? "" },
+          scope: {
+            project: obj.project ?? "",
+            datasourceProjects: datasource.projects,
+          },
         },
       );
       if (!parsed.ok) throw new Error(parsed.error);

@@ -108,6 +108,7 @@ export function getAutoExposureQueryId({
   const exposureQueries = getExposureQueriesForProject(
     dsSettings?.queries?.exposure || [],
     project,
+    datasource?.projects,
   );
 
   if (templateExposureQueryId) {
@@ -182,6 +183,7 @@ export function resolveTemplateAssignment({
   const query = getExposureQueriesForProject(
     [templateQuery, ...queries],
     project,
+    datasource?.projects,
   ).find((q) => getExposureQueryIdentifierTypes(q).includes(identifierType));
   return query
     ? { kind: "selected", exposureQueryId: query.id, identifierType }
@@ -377,6 +379,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const autoDsExposureQueries = getExposureQueriesForProject(
     autoDatasource?.settings?.queries?.exposure || [],
     selectedProject,
+    autoDatasource?.projects,
   );
   const hashAttributeLinkedToIdentifier = (
     autoDatasource?.settings?.userIdTypes || []

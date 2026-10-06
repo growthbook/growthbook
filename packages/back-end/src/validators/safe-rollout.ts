@@ -81,7 +81,10 @@ export async function validateCreateSafeRolloutFields(
       },
       onOmitted,
       field: "exposureQuery",
-      scope: project !== undefined ? { project } : undefined,
+      scope:
+        project !== undefined
+          ? { project, datasourceProjects: datasource.projects }
+          : undefined,
     },
   );
   if (!resolved.ok) throw new BadRequestError(resolved.error);

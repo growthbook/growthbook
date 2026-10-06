@@ -253,6 +253,7 @@ export default function ExperimentRefNewFields({
     const query = getExposureQueriesForProject(
       datasource?.settings?.queries?.exposure ?? [],
       project,
+      datasource?.projects,
     ).find((q) => getExposureQueryIdentifierTypes(q).includes(identifierType));
     if (!query) return null;
     return { exposureQueryId: query.id, identifierType };

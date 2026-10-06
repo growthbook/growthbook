@@ -150,9 +150,8 @@ const AnalysisForm: FC<{
   }
 
   const phaseObj = experiment.phases[phase];
-  const initialDatasourceSettings = getDatasourceById(
-    experiment.datasource,
-  )?.settings;
+  const initialDatasource = getDatasourceById(experiment.datasource);
+  const initialDatasourceSettings = initialDatasource?.settings;
   const initialExposureQuery = getExposureQuery(
     initialDatasourceSettings,
     experiment.exposureQueryId,
@@ -172,6 +171,7 @@ const AnalysisForm: FC<{
           getExposureQueriesForProject(
             initialDatasourceSettings?.queries?.exposure ?? [],
             experiment.project,
+            initialDatasource?.projects,
           ),
         ),
         hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
@@ -663,6 +663,7 @@ const AnalysisForm: FC<{
                         getExposureQueriesForProject(
                           ds?.settings?.queries?.exposure ?? [],
                           experiment.project,
+                          ds?.projects,
                         ),
                       ),
                       hashAttributeIdentifierTypeMap:

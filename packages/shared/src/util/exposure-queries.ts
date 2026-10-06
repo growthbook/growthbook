@@ -140,7 +140,7 @@ type SelectableExposureQuery = Pick<
 export type AssignmentQueryScope = {
   project?: string;
   projects?: string[];
-  // Inherited by queries without their own project scope (holdout check).
+  /** Inherited by queries without their own project scope. */
   datasourceProjects?: string[];
 };
 
@@ -164,7 +164,10 @@ function getAssignmentQueryScopeError(
   }
   if (
     project !== undefined &&
-    !isProjectListValidForProject(query.projects, project)
+    !isProjectListValidForProject(
+      getExposureQueryProjects(query, datasourceProjects),
+      project,
+    )
   ) {
     return `Assignment query "${name}" isn't available for the selected project`;
   }
@@ -382,14 +385,20 @@ export function resolveAssignmentQuerySelectionChange(
  * and no projects on either means all. A holdout with no projects covers all
  * projects, so only an unrestricted query qualifies.
  */
+/** A query's own projects, else its data source's. Empty means all projects. */
+export function getExposureQueryProjects(
+  query: Pick<ExposureQuery, "projects">,
+  datasourceProjects: string[] | undefined,
+): string[] {
+  return query.projects?.length ? query.projects : (datasourceProjects ?? []);
+}
+
 export function isExposureQueryAvailableForProjects(
   query: Pick<ExposureQuery, "projects">,
   projects: string[],
   datasourceProjects: string[] | undefined,
 ): boolean {
-  const scope = query.projects?.length
-    ? query.projects
-    : (datasourceProjects ?? []);
+  const scope = getExposureQueryProjects(query, datasourceProjects);
   if (!scope.length) return true;
   if (!projects.length) return false;
   return projects.every((project) => scope.includes(project));

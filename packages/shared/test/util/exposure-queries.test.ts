@@ -796,6 +796,22 @@ describe("assignment query project scope", () => {
     expect(parseAssignmentQuerySelection([scoped], selection).ok).toBe(true);
   });
 
+  it("scopes a query with no projects to its data source's", () => {
+    const unscoped = query({
+      id: "eq_unscoped",
+      userIdType: "user_id",
+      userIdTypes: ["user_id"],
+    });
+    const parse = (project: string) =>
+      parseAssignmentQuerySelection([unscoped], {
+        exposureQueryId: "eq_unscoped",
+        onOmitted: "defaultToFirst",
+        scope: { project, datasourceProjects: ["prj_a"] },
+      }).ok;
+    expect(parse("prj_a")).toBe(true);
+    expect(parse("prj_b")).toBe(false);
+  });
+
   it("only checks a new or changed selection", () => {
     const previous = { datasource: "ds_1", exposureQueryId: "eq_scoped" };
     expect(

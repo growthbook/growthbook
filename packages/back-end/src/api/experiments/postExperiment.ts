@@ -190,7 +190,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
              * on the template, not in this body.
              */
             field: template ? "exposureQuery" : "assignmentQuery",
-            scope: { project: fields.project ?? "" },
+            scope: {
+              project: fields.project ?? "",
+              datasourceProjects: datasource.projects,
+            },
           },
         )
       : null;

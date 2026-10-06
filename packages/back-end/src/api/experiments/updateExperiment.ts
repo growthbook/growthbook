@@ -141,7 +141,10 @@ export const updateExperiment = createApiRequestHandler(
         field: "assignmentQuery",
         // A project change alone that strands the current query is left to
         // drift (outdated reason); only choosing a query is rejected.
-        scope: { project: payload.project ?? experiment.project ?? "" },
+        scope: {
+          project: payload.project ?? experiment.project ?? "",
+          datasourceProjects: datasource.projects,
+        },
       },
     );
     if (!resolved.ok) throw new Error(resolved.error);
