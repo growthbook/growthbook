@@ -1778,7 +1778,7 @@ describe("SDK payload generation (scenario-specific)", () => {
       const ctx = minimalContext();
       ctx.models = {
         contextualBandits: {
-          getById: async (id: string) => (id === "cb1" ? doc : null),
+          getByIds: async (ids: string[]) => (ids.includes("cb1") ? [doc] : []),
         },
       } as unknown as ApiReqContext["models"];
       return ctx;

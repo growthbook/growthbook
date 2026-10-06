@@ -1,9 +1,10 @@
 import { FC, useState, useMemo } from "react";
 import { AuditInterface, EventType } from "shared/types/audit";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
@@ -58,7 +59,7 @@ function EventDetails({
             ))}
           </div>
         )}
-        <ReactDiffViewer
+        <LazyDiffViewer
           oldValue={JSON.stringify(json.pre || {}, null, 2)}
           newValue={JSON.stringify(json.post || {}, null, 2)}
           compareMethod={DiffMethod.LINES}

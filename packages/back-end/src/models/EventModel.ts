@@ -123,6 +123,8 @@ export const createEventWithPayload = async <
   // Save event history even when webhook and legacy Slack dispatch is skipped.
   notify?: boolean;
 }) => {
+  // Set once saved, so a failed dispatch still reports the event as created
+  let savedEventId: string | null = null;
   try {
     const eventId = `event-${randomUUID()}`;
 
@@ -141,11 +143,13 @@ export const createEventWithPayload = async <
       NotificationEventPayload<Resource, Event>,
       typeof MODEL_VERSION
     >;
+    savedEventId = event.id;
 
     if (notify) await new EventNotifier(event.id).perform();
   } catch (e) {
     logger.error(e);
   }
+  return savedEventId;
 };
 
 // createEvent can handle creating the diff
