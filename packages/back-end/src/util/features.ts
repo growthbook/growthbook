@@ -52,9 +52,11 @@ import {
   VariationWeightPair,
 } from "shared/validators";
 import {
+  describeSavedGroupError,
   getJSONValue,
   getPayloadAllowedKeys,
   getSavedGroupPayloadStrategy,
+  SAVED_GROUP_ERROR_UNKNOWN,
   resolveConstantRefs,
   ConstantValueMap,
   SavedGroupPayloadStrategy,
@@ -240,6 +242,16 @@ export function buildPayloadMetadata<
   return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
+// With no payload cache this runs on every SDK fetch, so each problem is
+// logged once per process. The flag health check names where it is used.
+const loggedSavedGroupProblems = new Set<string>();
+function warnSavedGroupProblemOnce(problem: string) {
+  if (loggedSavedGroupProblems.has(problem)) return;
+  if (loggedSavedGroupProblems.size >= 1000) loggedSavedGroupProblems.clear();
+  loggedSavedGroupProblems.add(problem);
+  logger.warn(`SDK payload targeting cannot be resolved: ${problem}`);
+}
+
 /**
  * Merges a rule's `condition` and its `savedGroups` targeting into the one
  * condition an SDK evaluates. Returns undefined if the rule targets nothing.
@@ -280,6 +292,12 @@ export function mergeConditionAndSavedGroups({
 
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
+      // A group that no longer exists is served as empty. An "all" entry that
+      // names one, or an "any" entry left with no usable group, then matches
+      // nobody, so it fails closed. A "none" entry drops it: excluding an
+      // empty group excludes nobody, and failing closed there would block
+      // every user over a configuration mistake. The health check reports both.
+      const missing = ids.filter((id) => !groupMap.has(id));
       const groupIds = ids.filter((id) => {
         const group = groupMap.get(id);
         if (!group) return false;
@@ -295,6 +313,14 @@ export function mergeConditionAndSavedGroups({
         }
         return true;
       });
+      if (
+        missing.length &&
+        match !== "none" &&
+        (match === "all" || !groupIds.length)
+      ) {
+        conditions.push({ [SAVED_GROUP_ERROR_UNKNOWN]: missing[0] });
+        return;
+      }
       if (!groupIds.length) return;
 
       // Add each group as a separate top-level AND
@@ -346,6 +372,10 @@ export function mergeConditionAndSavedGroups({
   // Rewrite any `$savedGroups` operators the stored conditions still hold
   conditions.forEach((cond) => {
     recursiveWalk(cond, savedGroupStrategy.createSavedGroupsOperatorHandler());
+  });
+  conditions.forEach((cond) => {
+    const problem = describeSavedGroupError(cond);
+    if (problem) warnSavedGroupProblemOnce(problem);
   });
 
   // Exactly one condition, return it
@@ -733,8 +763,10 @@ export function buildPrerequisiteProjectReach(
   const featuresMap = new Map(features.map((f) => [f.id, f]));
   const reach = new Map<string, Set<string>>();
 
+  // A parent with no project ("") is carried too: project-scoped connections
+  // only match the "" key when treatEmptyProjectAsGlobal is on.
   const link = (from: string, to: string) => {
-    if (!from || !to || from === to) return;
+    if (!to || from === to) return;
     const set = reach.get(from) ?? new Set<string>();
     set.add(to);
     reach.set(from, set);

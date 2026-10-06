@@ -1,4 +1,5 @@
 import { listProjectsValidator } from "shared/validators";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -15,8 +16,11 @@ export const listProjects = createApiRequestHandler(listProjectsValidator)(
     );
 
     return {
-      projects: filtered.map((project) =>
-        req.context.models.projects.toApiInterface(project),
+      projects: await resolveOwnerEmails(
+        filtered.map((project) =>
+          req.context.models.projects.toApiInterface(project),
+        ),
+        req.context,
       ),
       ...returnFields,
     };

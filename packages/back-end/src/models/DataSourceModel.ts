@@ -42,6 +42,12 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
+import {
+  ensureIndexOnce,
+  getCollection,
+  isDuplicateKeyError,
+  isDuplicateKeyErrorForIndex,
+} from "back-end/src/util/mongo.util";
 import { deleteClickhouseUser } from "back-end/src/services/licenseServerManagedClickhouse";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
@@ -91,6 +97,19 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
+
+// At most one Managed Warehouse per org. Partial so other datasource types
+// stay unconstrained. exists() is the fast path; this index closes the race
+// where two creates both pass that check.
+const MANAGED_WAREHOUSE_INDEX = "uniqueManagedWarehousePerOrg";
+const MANAGED_WAREHOUSE_EXISTS_ERROR =
+  "Your organization already has a Managed Warehouse. Only one is allowed per organization.";
+const managedWarehouseUniquenessIndex = {
+  name: MANAGED_WAREHOUSE_INDEX,
+  unique: true,
+  partialFilterExpression: { type: "growthbook_clickhouse" },
+} as const;
+dataSourceSchema.index({ organization: 1 }, managedWarehouseUniquenessIndex);
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
 
 const DataSourceModel = mongoose.model<DataSourceInterface>(
@@ -457,16 +476,20 @@ export async function createDataSource(
 
   // Unfiltered by project permissions so a Managed Warehouse the user can't
   // read still counts.
-  if (
-    type === "growthbook_clickhouse" &&
-    (await DataSourceModel.exists({
-      organization: context.org.id,
-      type: "growthbook_clickhouse",
-    }))
-  ) {
-    throw new Error(
-      "Your organization already has a Managed Warehouse. Only one is allowed per organization.",
+  if (type === "growthbook_clickhouse") {
+    await ensureIndexOnce(
+      getCollection("datasources"),
+      { organization: 1 },
+      managedWarehouseUniquenessIndex,
     );
+    if (
+      await DataSourceModel.exists({
+        organization: context.org.id,
+        type: "growthbook_clickhouse",
+      })
+    ) {
+      throw new Error(MANAGED_WAREHOUSE_EXISTS_ERROR);
+    }
   }
 
   id = id || uniqid("ds_");
@@ -516,9 +539,17 @@ export async function createDataSource(
   assertUniqueUserIdTypeNames(settings);
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
-  const model = (await DataSourceModel.create(
-    datasource,
-  )) as DataSourceDocument;
+  let model: DataSourceDocument;
+  try {
+    model = (await DataSourceModel.create(datasource)) as DataSourceDocument;
+  } catch (error) {
+    // The fixed managed-warehouse id can lose to {id, organization} instead of
+    // the partial index. Either duplicate key means the org already has one.
+    if (type === "growthbook_clickhouse" && isDuplicateKeyError(error)) {
+      throw new Error(MANAGED_WAREHOUSE_EXISTS_ERROR);
+    }
+    throw error;
+  }
   context.forgetDataSourceRefs();
 
   const integration = getSourceIntegrationObject(context, datasource);
@@ -762,15 +793,25 @@ export async function updateDataSource(
   // stamp it here at the model choke point so every real change is recorded.
   updates = { ...updates, dateUpdated: new Date() };
 
-  await DataSourceModel.updateOne(
-    {
-      id: datasource.id,
-      organization: context.org.id,
-    },
-    {
-      $set: updates,
-    },
-  );
+  try {
+    await DataSourceModel.updateOne(
+      {
+        id: datasource.id,
+        organization: context.org.id,
+      },
+      {
+        $set: updates,
+      },
+    );
+  } catch (error) {
+    if (
+      (updates.type ?? datasource.type) === "growthbook_clickhouse" &&
+      isDuplicateKeyErrorForIndex(error, MANAGED_WAREHOUSE_INDEX)
+    ) {
+      throw new Error(MANAGED_WAREHOUSE_EXISTS_ERROR);
+    }
+    throw error;
+  }
   context.forgetDataSourceRefs();
 
   await audit.logUpdate(context, datasource, { ...datasource, ...updates });

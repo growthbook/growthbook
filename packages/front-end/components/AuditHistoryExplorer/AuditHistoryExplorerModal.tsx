@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { PiArrowsClockwise } from "react-icons/pi";
 import { AuditInterface, EventType } from "shared/types/audit";
 import { datetime } from "shared/dates";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Link from "@/ui/Link";
 import EventUser from "@/components/Avatar/EventUser";
 import { auditInterfaceUserToEventUser } from "@/components/Avatar/auditUserToEventUser";
@@ -67,7 +68,7 @@ function EventDetails({
             ))}
           </div>
         )}
-        <ReactDiffViewer
+        <LazyDiffViewer
           oldValue={JSON.stringify(json.pre || {}, null, 2)}
           newValue={JSON.stringify(json.post || {}, null, 2)}
           compareMethod={DiffMethod.LINES}

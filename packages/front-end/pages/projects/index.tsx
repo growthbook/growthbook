@@ -16,7 +16,7 @@ import UITooltip from "@/ui/Tooltip";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
-import { useSearch } from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import Table, {
   TableHeader,
@@ -30,7 +30,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
 
-  const { organization } = useUser();
+  const { organization, getOwnerDisplay } = useUser();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null,
@@ -52,6 +52,12 @@ const ProjectsPage: FC = () => {
   const atProjectLimit =
     maxProjects !== null && nonDemoProjectCount >= maxProjects;
 
+  const projectsWithOwners = useAddComputedFields(
+    projects,
+    (p) => ({ ownerNameDisplay: getOwnerDisplay(p.owner) }),
+    [getOwnerDisplay],
+  );
+
   const {
     items,
     searchInputProps,
@@ -59,11 +65,17 @@ const ProjectsPage: FC = () => {
     SortableTableColumnHeader,
     pagination,
   } = useSearch({
-    items: projects,
+    items: projectsWithOwners,
     localStorageKey: "projects",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
-    searchFields: ["name^3", "description^2", "publicId", "id"],
+    searchFields: [
+      "name^3",
+      "description^2",
+      "publicId",
+      "id",
+      "ownerNameDisplay",
+    ],
     pageSize: 50,
     updateSearchQueryOnChange: true,
   });
@@ -145,7 +157,13 @@ const ProjectsPage: FC = () => {
                   >
                     ID
                   </SortableTableColumnHeader>
-                  <TableColumnHeader width="30%">Description</TableColumnHeader>
+                  <TableColumnHeader width="20%">Description</TableColumnHeader>
+                  <SortableTableColumnHeader
+                    field="ownerNameDisplay"
+                    style={{ width: "10%" }}
+                  >
+                    Owner
+                  </SortableTableColumnHeader>
                   <SortableTableColumnHeader
                     field="dateCreated"
                     style={{ width: "15%" }}
@@ -210,6 +228,7 @@ const ProjectsPage: FC = () => {
                           ? p.description.substring(0, 80).trim() + "..."
                           : (p.description ?? "")}
                       </TableCell>
+                      <TableCell>{p.ownerNameDisplay}</TableCell>
                       <TableCell>{ago(p.dateCreated)}</TableCell>
                       <TableCell>{ago(p.dateUpdated)}</TableCell>
                     </TableRow>
@@ -217,7 +236,7 @@ const ProjectsPage: FC = () => {
                 })}
                 {!items.length && isFiltered && (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
+                    <TableCell colSpan={6} align="center">
                       No matching projects
                     </TableCell>
                   </TableRow>
