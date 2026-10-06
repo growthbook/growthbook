@@ -1,9 +1,13 @@
 import { Request, Response } from "express";
-import { oauthDcrRequestValidator } from "shared/validators";
+import {
+  oauthDcrRequestValidator,
+  oauthPermissionLimitValidator,
+} from "shared/validators";
 import { isOAuthClientAllowed } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { getConsentRoleOptions } from "back-end/src/services/oauth/permissionLimit";
 import {
   exchangeAuthorizationCode,
   exchangeDelegatedToken,
@@ -226,7 +230,11 @@ export async function getAuthorizeInfoHandler(
           : undefined,
       },
       redirectUri: info.redirectUri,
-      organizations: orgs.map((o) => ({ id: o.id, name: o.name })),
+      organizations: orgs.map((o) => ({
+        id: o.id,
+        name: o.name,
+        roles: getConsentRoleOptions(o),
+      })),
       user: {
         id: req.userId,
         email: req.email,
@@ -258,6 +266,7 @@ export async function postAuthorize(
     scope?: string;
     resource?: string;
     organization?: string;
+    permissionLimit?: unknown;
   }>,
   res: Response,
 ) {
@@ -290,6 +299,16 @@ export async function postAuthorize(
       });
     }
 
+    const permissionLimit = oauthPermissionLimitValidator
+      .optional()
+      .safeParse(body.permissionLimit);
+    if (!permissionLimit.success) {
+      return res.status(400).json({
+        status: 400,
+        message: "Invalid permission limit",
+      });
+    }
+
     const { redirectTo } = await mintAuthorizationCode({
       clientId: String(body.client_id || ""),
       redirectUri: String(body.redirect_uri || ""),
@@ -300,6 +319,7 @@ export async function postAuthorize(
       scope: body.scope ? String(body.scope) : undefined,
       resource: body.resource ? String(body.resource) : undefined,
       state: body.state ? String(body.state) : undefined,
+      permissionLimit: permissionLimit.data ?? null,
     });
 
     return res.status(200).json({ status: 200, redirectTo });

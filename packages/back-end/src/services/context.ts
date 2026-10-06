@@ -429,6 +429,8 @@ export class ReqContextClass {
   public environments: string[];
   public auditUser: EventUser;
   public apiKey?: string;
+  // Set when the request came through an OAuth access token.
+  public oauthClientId?: string;
   private scopedApiKey = false;
   public req?: Request;
   public logger: pino.BaseLogger;
@@ -480,6 +482,7 @@ export class ReqContextClass {
     this.isApiRequest = auditUser?.type === "api_key";
     this.role = role;
     this.apiKey = apiKey;
+    this.oauthClientId = apiKeyData?.oauthClientId;
     this.req = req;
 
     if (this.req && this.req.log) {

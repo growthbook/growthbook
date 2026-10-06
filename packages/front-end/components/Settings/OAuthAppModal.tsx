@@ -1,8 +1,10 @@
 import React, { FC, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { OAuthAppInterface } from "shared/validators";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
+import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -34,11 +36,20 @@ export const OAuthAppModal: FC<{
     existing?.allowDelegation ?? false,
   );
   const [confirmingDelegationOff, setConfirmingDelegationOff] = useState(false);
+  const [limited, setLimited] = useState(!!existing?.permissionLimit);
+  const [limit, setLimit] = useState<MemberRoleWithProjects>(
+    existing?.permissionLimit ?? {
+      role: "readonly",
+      limitAccessByEnvironment: false,
+      environments: [],
+    },
+  );
 
   return (
     <>
       <ModalStandard
         trackingEventModalType=""
+        size={limited ? "xl" : "md"}
         open={true}
         header={existing ? "Edit OAuth App" : "New OAuth App"}
         cta={existing ? "Save" : "Create"}
@@ -50,6 +61,15 @@ export const OAuthAppModal: FC<{
             redirectUris,
             clientUri,
             allowDelegation,
+            permissionLimit: limited
+              ? {
+                  role: limit.role,
+                  limitAccessByEnvironment: limit.limitAccessByEnvironment,
+                  environments: limit.environments,
+                  additionalRoles: limit.additionalRoles,
+                  projectRoles: limit.projectRoles,
+                }
+              : null,
           });
           if (existing) {
             await apiCall(`/oauth-apps/${existing.clientId}`, {
@@ -103,6 +123,13 @@ export const OAuthAppModal: FC<{
               }
             }}
           />
+          <Checkbox
+            label="Limit what the app can do"
+            description="The app's tokens can't go beyond these permissions, even for members who have more. Members can limit it further when they authorize it."
+            value={limited}
+            setValue={setLimited}
+          />
+          {limited && <RoleRulesTable value={limit} setValue={setLimit} />}
         </Flex>
       </ModalStandard>
       {confirmingDelegationOff && (

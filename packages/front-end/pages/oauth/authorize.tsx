@@ -28,7 +28,12 @@ type AuthorizeInfoResponse = {
     registeredBy?: { id: string; name: string };
   };
   redirectUri?: string;
-  organizations?: { id: string; name: string }[];
+  organizations?: {
+    id: string;
+    name: string;
+    // Empty when the org's plan has no roles to limit the token to.
+    roles: { id: string; name: string; description: string }[];
+  }[];
   user?: { id: string; email: string; name: string };
 };
 
@@ -56,6 +61,9 @@ function describeRedirectTarget(
     return null;
   }
 }
+
+// Radix Select can't hold an empty value, so "no limit" needs a sentinel.
+const FULL_ACCESS = "__full__";
 
 // Shared narrow-page wrapper so the consent and success screens can't drift.
 function ConsentPageWrapper({ children }: { children: ReactNode }) {
@@ -193,6 +201,8 @@ export default function OAuthAuthorizePage() {
   }, [router.query]);
 
   const [orgId, setOrgId] = useState("");
+  // Empty means the member's full permissions.
+  const [limitRole, setLimitRole] = useState("");
   const [actionError, setActionError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -323,6 +333,13 @@ export default function OAuthAuthorizePage() {
           scope: query.scope || undefined,
           resource: query.resource || undefined,
           organization: orgId,
+          permissionLimit: limitRole
+            ? {
+                role: limitRole,
+                limitAccessByEnvironment: false,
+                environments: [],
+              }
+            : null,
         }),
       });
       if (res.status !== 200 || !res.redirectTo) {
@@ -339,7 +356,7 @@ export default function OAuthAuthorizePage() {
       setActionError(e instanceof Error ? e.message : String(e));
       setSubmitting(false);
     }
-  }, [apiCall, orgId, query]);
+  }, [apiCall, orgId, limitRole, query]);
 
   // Unauthenticated users are redirected to login by AuthProvider; keep the
   // overlay up during that transient state instead of flashing the page.
@@ -372,6 +389,9 @@ export default function OAuthAuthorizePage() {
 
   const claimedName = info?.client?.clientName;
   const redirectTarget = describeRedirectTarget(info?.redirectUri);
+  const roleOptions =
+    info?.organizations?.find((o) => o.id === orgId)?.roles ?? [];
+  const limitRoleName = roleOptions.find((r) => r.id === limitRole)?.name;
   const showDetails = !!info?.client && !error;
 
   return (
@@ -465,18 +485,39 @@ export default function OAuthAuthorizePage() {
           ) : null}
 
           {info.organizations && info.organizations.length > 0 ? (
-            <Select
-              label="Organization"
-              value={orgId || undefined}
-              setValue={setOrgId}
-              placeholder="Select an organization"
-            >
-              {info.organizations.map((o) => (
-                <SelectItem key={o.id} value={o.id}>
-                  {o.name}
-                </SelectItem>
-              ))}
-            </Select>
+            <Flex direction="column" gap="4">
+              <Select
+                label="Organization"
+                value={orgId || undefined}
+                setValue={(id) => {
+                  setOrgId(id);
+                  setLimitRole("");
+                }}
+                placeholder="Select an organization"
+              >
+                {info.organizations.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.name}
+                  </SelectItem>
+                ))}
+              </Select>
+              {roleOptions.length > 0 ? (
+                <Select
+                  label="Access"
+                  value={limitRole || FULL_ACCESS}
+                  setValue={(v) => setLimitRole(v === FULL_ACCESS ? "" : v)}
+                >
+                  <SelectItem value={FULL_ACCESS}>
+                    Your full permissions
+                  </SelectItem>
+                  {roleOptions.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      Up to {r.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              ) : null}
+            </Flex>
           ) : (
             <NoOrganization
               onCreated={() => {
@@ -493,8 +534,9 @@ export default function OAuthAuthorizePage() {
         </Text>
         <Flex direction="column" gap="3">
           <AccessItem icon={<PiUserCircle size={16} />}>
-            Acting as you in the selected organization, with the same
-            permissions you have in GrowthBook.
+            {limitRoleName
+              ? `Acting as you in the selected organization, limited to what the ${limitRoleName} role allows and never more than you can do.`
+              : "Acting as you in the selected organization, with the same permissions you have in GrowthBook."}
           </AccessItem>
           <AccessItem icon={<PiKey size={16} />}>
             Access through the GrowthBook API on your behalf. Your password is

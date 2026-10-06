@@ -11,6 +11,7 @@ import {
   exchangeDelegatedToken,
   isDelegatedTokenCurrent,
   exchangeRefreshToken,
+  getContextForOAuthGrant,
   listOrgGrants,
   mintAuthorizationCode,
   OAuthError,
@@ -19,6 +20,8 @@ import {
 } from "back-end/src/services/oauth";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
+import { assertValidPermissionLimit } from "back-end/src/services/oauth/permissionLimit";
 import {
   getOAuthClientById,
   getOAuthClientsByIds,
@@ -62,6 +65,16 @@ jest.mock("back-end/src/models/OrgOAuthClientModel", () => ({
   OrgOAuthClientModel: {
     dangerousFindById: jest.fn(),
   },
+}));
+
+jest.mock("back-end/src/models/OAuthGrantModel", () => ({
+  OAuthGrantModel: {
+    dangerousIsActive: jest.fn(),
+  },
+}));
+
+jest.mock("back-end/src/services/oauth/permissionLimit", () => ({
+  assertValidPermissionLimit: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
@@ -724,6 +737,7 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
         codeChallengeMethod: "S256",
         userId: "user-1",
         organization: "org-1",
+        permissionLimit: null,
       }),
     ).rejects.toMatchObject({ error: "access_denied" });
     expect(context.models.oauthAuthCodes.create).not.toHaveBeenCalled();
@@ -844,6 +858,125 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
     expect(
       context.models.oauthAuthCodes.consumeAllForGrant,
     ).toHaveBeenCalledWith(APP_ID, "user-1");
+  });
+
+  const READONLY_LIMIT = {
+    role: "readonly",
+    limitAccessByEnvironment: false,
+    environments: [],
+  };
+
+  it("validates the member's chosen limit in their org and keeps it on the code", async () => {
+    mockDcrClient();
+    const { context } = mockOrgContext();
+
+    await mintAuthorizationCode({
+      clientId: "gbc_dcr",
+      redirectUri: "http://localhost/cb",
+      codeChallenge: "challenge",
+      codeChallengeMethod: "S256",
+      userId: "user-1",
+      organization: "org-1",
+      permissionLimit: READONLY_LIMIT,
+    });
+
+    expect(assertValidPermissionLimit).toHaveBeenCalledWith(
+      context,
+      READONLY_LIMIT,
+    );
+    expect(context.models.oauthAuthCodes.create).toHaveBeenCalledWith(
+      expect.objectContaining({ permissionLimit: READONLY_LIMIT }),
+    );
+  });
+
+  it("carries the limit from the code to the grant", async () => {
+    const verifier = "code-verifier";
+    mockOrgApp();
+    jest.mocked(OAuthAuthCodeModel.dangerousConsumeByHash).mockResolvedValue({
+      codeHash: hashToken("code"),
+      clientId: APP_ID,
+      userId: "user-1",
+      organization: "org-1",
+      redirectUri: "https://mcp.example.com/cb",
+      codeChallenge: crypto
+        .createHash("sha256")
+        .update(verifier, "ascii")
+        .digest("base64url"),
+      codeChallengeMethod: "S256",
+      permissionLimit: READONLY_LIMIT,
+      used: true,
+      expiresAt: new Date(Date.now() + 60_000),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    } as never);
+    const { startGrant } = mockOrgContext();
+
+    await exchangeAuthorizationCode({
+      code: "code",
+      redirectUri: "https://mcp.example.com/cb",
+      clientId: APP_ID,
+      clientSecret: APP_SECRET,
+      codeVerifier: verifier,
+    });
+
+    expect(startGrant).toHaveBeenCalledWith(
+      expect.objectContaining({ permissionLimit: READONLY_LIMIT }),
+    );
+  });
+
+  describe("deferred work armed through an OAuth token", () => {
+    const org = (settings?: Record<string, unknown>) =>
+      ({ id: "org-1", settings }) as never;
+
+    it("runs as the member while the grant, app and policy all allow it", async () => {
+      mockOrgApp();
+      jest.mocked(OAuthGrantModel.dangerousIsActive).mockResolvedValue(true);
+      const { context } = mockOrgContext();
+
+      await expect(
+        getContextForOAuthGrant(org(), "user-1", APP_ID),
+      ).resolves.toBe(context);
+      expect(OAuthGrantModel.dangerousIsActive).toHaveBeenCalledWith(
+        "org-1",
+        APP_ID,
+        "user-1",
+      );
+    });
+
+    it.each([
+      [
+        "the grant was revoked",
+        () => {
+          mockOrgApp();
+          jest
+            .mocked(OAuthGrantModel.dangerousIsActive)
+            .mockResolvedValue(false);
+        },
+        undefined,
+      ],
+      [
+        "the app was deleted",
+        () => {
+          mockFindOrgApp.mockResolvedValue(null);
+          mockGetOAuthClientById.mockResolvedValue(null);
+        },
+        undefined,
+      ],
+      [
+        "the app belongs to another org",
+        () => mockOrgApp("org-other"),
+        undefined,
+      ],
+      ["the policy now blocks it", () => mockOrgApp(), { oauthAccess: "none" }],
+    ])("has nobody to run as once %s", async (_, arrange, settings) => {
+      mockOrgContext();
+      jest.mocked(OAuthGrantModel.dangerousIsActive).mockResolvedValue(true);
+      arrange();
+
+      await expect(
+        getContextForOAuthGrant(org(settings), "user-1", APP_ID),
+      ).resolves.toBeNull();
+    });
   });
 });
 

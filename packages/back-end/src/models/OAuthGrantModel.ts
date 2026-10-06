@@ -1,4 +1,8 @@
-import { OAuthGrantInterface, oauthGrantValidator } from "shared/validators";
+import {
+  OAuthGrantInterface,
+  oauthGrantValidator,
+  OAuthPermissionLimit,
+} from "shared/validators";
 import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
 import {
   getCollection,
@@ -120,6 +124,7 @@ export class OAuthGrantModel extends BaseClass {
     userId: string;
     scope?: string;
     resource?: string;
+    permissionLimit?: OAuthPermissionLimit;
     revoked: boolean;
     revokedAt?: Date;
     expiresAt: Date;
@@ -137,7 +142,7 @@ export class OAuthGrantModel extends BaseClass {
   }
 
   /**
-   * Consent: create, or clear `revoked` and refresh scope on re-consent.
+   * Consent: create, or clear `revoked` and refresh scope and limit on re-consent.
    * Returns null when the grant was revoked after this consent was given, so
    * a code minted before an admin revoke can't undo it.
    */
@@ -146,6 +151,7 @@ export class OAuthGrantModel extends BaseClass {
     userId: string;
     scope?: string;
     resource?: string;
+    permissionLimit: OAuthPermissionLimit;
     consentedAt: Date;
   }): Promise<OAuthGrantInterface | null> {
     const { grant, created } = await this.getOrCreateGrant({
@@ -153,6 +159,7 @@ export class OAuthGrantModel extends BaseClass {
       userId: params.userId,
       scope: params.scope,
       resource: params.resource,
+      permissionLimit: params.permissionLimit,
       revoked: false,
       expiresAt: grantExpiry(),
     });
@@ -169,6 +176,7 @@ export class OAuthGrantModel extends BaseClass {
       revokedAt: null,
       scope: params.scope,
       resource: params.resource,
+      permissionLimit: params.permissionLimit,
       expiresAt: grantExpiry(),
     });
   }

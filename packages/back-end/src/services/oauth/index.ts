@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Request } from "express";
-import { OAuthDcrRequest } from "shared/validators";
+import { OAuthDcrRequest, OAuthPermissionLimit } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { isOAuthClientAllowed } from "shared/util";
 import {
@@ -11,6 +11,7 @@ import {
 } from "back-end/src/util/secrets";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
 import {
   createOAuthClient,
   getOAuthClientById,
@@ -32,6 +33,7 @@ import {
   timingSafeEqualStrings,
   verifyPkceS256,
 } from "back-end/src/util/oauth-token.util";
+import { assertValidPermissionLimit } from "./permissionLimit";
 
 export {
   OAUTH_ACCESS_TOKEN_PREFIX,
@@ -297,6 +299,25 @@ export async function listOrgGrants(
     .sort((a, b) => b.lastUsedAt.getTime() - a.lastUsedAt.getTime());
 }
 
+/**
+ * Runs deferred work (a scheduled status change) as a member who armed it
+ * through an OAuth token, so it's bound by the same grant, app and policy.
+ */
+export async function getContextForOAuthGrant(
+  org: OrganizationInterface,
+  userId: string,
+  clientId: string,
+): Promise<ApiReqContext | null> {
+  const client = await findOAuthClient(clientId);
+  if (!client) return null;
+  if (client.organization && client.organization !== org.id) return null;
+  if (!isOAuthClientAllowed(org, client.organization)) return null;
+  if (!(await OAuthGrantModel.dangerousIsActive(org.id, clientId, userId))) {
+    return null;
+  }
+  return getContextForUserIdInOrg(org, userId);
+}
+
 /** Admin revoke of one member's grant; same teardown as the member's own revoke. */
 export async function revokeMemberGrant(
   context: ApiReqContext,
@@ -430,6 +451,7 @@ export async function mintAuthorizationCode(params: {
   scope?: string;
   resource?: string;
   state?: string;
+  permissionLimit: OAuthPermissionLimit;
 }): Promise<{ redirectTo: string }> {
   if (params.codeChallengeMethod !== "S256") {
     throw new OAuthError(
@@ -455,6 +477,7 @@ export async function mintAuthorizationCode(params: {
     );
   }
   assertClientAllowedInOrg(info, org, "access_denied");
+  await assertValidPermissionLimit(context, params.permissionLimit);
   const code = randomUrlSafe(32);
   const now = new Date();
   await context.models.oauthAuthCodes.create({
@@ -466,6 +489,7 @@ export async function mintAuthorizationCode(params: {
     codeChallengeMethod: "S256",
     scope: params.scope,
     resource: params.resource,
+    permissionLimit: params.permissionLimit,
     used: false,
     expiresAt: new Date(now.getTime() + AUTH_CODE_TTL_MS),
   });
@@ -522,6 +546,7 @@ export async function exchangeAuthorizationCode(params: {
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
+    permissionLimit: authCode.permissionLimit ?? null,
     consentedAt: authCode.dateCreated,
   });
   if (!grant) {

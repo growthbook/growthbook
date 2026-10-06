@@ -1,6 +1,20 @@
 import { z } from "zod";
 import { isLoopbackHost } from "../util/oauth";
 import { baseSchema, createBaseSchemaWithPrimaryKey } from "./base-model";
+import { memberRoleWithProjects } from "./organization";
+
+/**
+ * The most an OAuth token may do, in the shape of a member's role assignment.
+ * A token's access is its user's permissions intersected with every limit
+ * that applies; null means no limit.
+ */
+export const oauthPermissionLimitValidator = memberRoleWithProjects
+  .omit({ teams: true })
+  .nullable();
+
+export type OAuthPermissionLimit = z.infer<
+  typeof oauthPermissionLimitValidator
+>;
 
 // "org-apps" allows only OAuth apps registered by this organization's admins.
 export const oauthAccessPolicyValidator = z.enum(["any", "org-apps", "none"]);
@@ -47,6 +61,8 @@ export const oauthAppPropsValidator = z
     clientUri: z.string().url().optional().or(z.literal("")),
     // Omitted means off on create and unchanged on edit.
     allowDelegation: z.boolean().optional(),
+    // Omitted means none on create and unchanged on edit; null clears it.
+    permissionLimit: oauthPermissionLimitValidator.optional(),
   })
   .strict();
 
@@ -64,6 +80,8 @@ export const orgOAuthClientValidator = baseSchema.safeExtend({
   createdBy: z.string(),
   // Lets the app exchange its secret for a token acting as a member who has authorized it.
   allowDelegation: z.boolean(),
+  // Admin-set ceiling on every token the app gets, consent flow or delegated.
+  permissionLimit: oauthPermissionLimitValidator.optional(),
 });
 
 export type OrgOAuthClientInterface = z.infer<typeof orgOAuthClientValidator>;
@@ -90,6 +108,8 @@ export const oauthAuthCodeValidator = createBaseSchemaWithPrimaryKey({
   codeChallengeMethod: z.literal("S256"),
   scope: z.string().optional(),
   resource: z.string().optional(),
+  // What the member chose on the consent screen; carried to the grant.
+  permissionLimit: oauthPermissionLimitValidator.optional(),
   used: z.boolean(),
   expiresAt: z.date(),
 });
@@ -134,6 +154,8 @@ export const oauthGrantValidator = createBaseSchemaWithPrimaryKey({
   userId: z.string(),
   scope: z.string().optional(),
   resource: z.string().optional(),
+  // The member's own limit from their latest consent.
+  permissionLimit: oauthPermissionLimitValidator.optional(),
   revoked: z.boolean(),
   // Set with `revoked`; consent that predates it can't re-arm the grant.
   revokedAt: z.date().nullable().optional(),
