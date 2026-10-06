@@ -281,10 +281,24 @@ export async function getAllHistory(
     context.permissions.throwPermissionError();
   }
 
+  // Leave out access-restricted Projects the user has no role on.
+  const hiddenProjects =
+    type === "project"
+      ? (req.restrictedProjects ?? []).filter(
+          (p) => !context.permissions.canReadSingleProjectResource(p),
+        )
+      : [];
+  const entityFilter = hiddenProjects.length
+    ? { "entity.id": { $nin: hiddenProjects } }
+    : undefined;
+  const parentFilter = hiddenProjects.length
+    ? { "parent.id": { $nin: hiddenProjects } }
+    : undefined;
+
   // Get total count for display
   const [entityCount, parentCount] = await Promise.all([
-    countAllAuditsByEntityType(org.id, type),
-    countAllAuditsByEntityTypeParent(org.id, type),
+    countAllAuditsByEntityType(org.id, type, entityFilter),
+    countAllAuditsByEntityTypeParent(org.id, type, parentFilter),
   ]);
   const total = entityCount + parentCount;
 
@@ -299,7 +313,7 @@ export async function getAllHistory(
         limit: fetchLimit,
         sort: { dateCreated: -1 },
       },
-      cursorFilter,
+      { ...cursorFilter, ...entityFilter },
     ),
     findAllAuditsByEntityTypeParent(
       org.id,
@@ -308,7 +322,7 @@ export async function getAllHistory(
         limit: fetchLimit,
         sort: { dateCreated: -1 },
       },
-      cursorFilter,
+      { ...cursorFilter, ...parentFilter },
     ),
   ]);
 
@@ -369,6 +383,12 @@ export async function getHistory(
   // same admin permission used to manage keys (matching the admin-gated UI).
   // Other entity types keep their existing org-scoped access.
   if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    type === "project" &&
+    !context.permissions.canReadSingleProjectResource(id)
+  ) {
     context.permissions.throwPermissionError();
   }
 

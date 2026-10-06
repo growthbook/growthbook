@@ -238,19 +238,23 @@ export async function countAuditByEntityParent(
 export async function countAllAuditsByEntityType(
   organization: string,
   type: EntityType,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<number> {
   return await AuditModel.countDocuments({
     organization,
     "entity.object": type,
+    ...customFilter,
   });
 }
 
 export async function countAllAuditsByEntityTypeParent(
   organization: string,
   type: EntityType,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<number> {
   return await AuditModel.countDocuments({
     organization,
     "parent.object": type,
+    ...customFilter,
   });
 }
