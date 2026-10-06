@@ -2,7 +2,7 @@ name: Build impact
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
 
 # No path filters: a required check has to report on every PR.
 
@@ -23,7 +23,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           BODY: ${{ github.event.pull_request.body }}
+          NO_IMPACT: ${{ contains(github.event.pull_request.labels.*.name, 'no-build-impact') }}
         run: |
+          if [ "$NO_IMPACT" = "true" ]; then
+            echo "Labeled no-build-impact."
+            exit 0
+          fi
           touched=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename' \
             | grep -Fx -f .github/build-change-paths.txt || true)
           if [ -z "$touched" ]; then
@@ -33,6 +38,6 @@ jobs:
           echo "Build files changed:"
           echo "$touched"
           if [ -z "$(printf '%s' "$BODY" | .github/scripts/build-impact-section.sh)" ]; then
-            echo "::error::Self-hosted users who build the Docker image from source depend on these files. Add a '### Self-hosted build impact' section to the PR description saying what they need to change, or 'None'. It is copied into the release notes."
+            echo "::error::Self-hosted users who build the Docker image from source depend on these files. Add a '### Self-hosted build impact' section to the PR description saying what they need to change, or add the 'no-build-impact' label. The note is copied into the release notes."
             exit 1
           fi

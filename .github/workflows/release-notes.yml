@@ -35,9 +35,9 @@ jobs:
 
           notes=""
           for pr in $prs; do
-            pr_json=$(gh pr view "$pr" --json title,body)
+            pr_json=$(gh pr view "$pr" --json title,body,labels)
+            if jq -e '.labels | any(.name == "no-build-impact")' <<< "$pr_json" > /dev/null; then continue; fi
             impact=$(jq -r .body <<< "$pr_json" | .github/scripts/build-impact-section.sh)
-            if [[ "${impact,,}" =~ ^(none|n/?a)\.?$ ]]; then continue; fi
             # PRs from before the Build impact check have no note; list them anyway
             notes+="- $(jq -r .title <<< "$pr_json") (#$pr)"$'\n'
             if [ -n "$impact" ]; then notes+="$(sed 's/^/  /' <<< "$impact")"$'\n'; fi
