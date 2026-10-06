@@ -7,6 +7,7 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";
 import PersonalAccessTokenSettings from "./PersonalAccessTokenSettings";
+import OnBehalfOfSettings from "./OnBehalfOfSettings";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -22,6 +23,7 @@ const ApiKeys: FC = () => {
   return (
     <>
       <SecretApiKeys keys={data.keys} mutate={mutate} />
+      <OnBehalfOfSettings />
 
       <PersonalAccessTokenSettings />
 

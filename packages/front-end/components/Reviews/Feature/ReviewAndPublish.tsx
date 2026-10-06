@@ -1,4 +1,9 @@
 import {
+  eventUserPerson,
+  RampScheduleInterface,
+  ACTIVE_DRAFT_STATUSES,
+} from "shared/validators";
+import {
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   holdsFeatureMoveDestination,
@@ -8,10 +13,6 @@ import {
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
-import {
-  RampScheduleInterface,
-  ACTIVE_DRAFT_STATUSES,
-} from "shared/validators";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
@@ -356,12 +357,8 @@ export default function ReviewAndPublish({
             r.status === "approved-stale" ||
             r.status === "changes-requested-stale",
           timestamp: new Date(r.timestamp).toISOString(),
-          name:
-            r.user && "name" in r.user && r.user.name ? r.user.name : undefined,
-          email:
-            r.user && "email" in r.user && r.user.email
-              ? r.user.email
-              : undefined,
+          name: eventUserPerson(r.user)?.name || undefined,
+          email: eventUserPerson(r.user)?.email || undefined,
         })),
       );
     }

@@ -642,14 +642,36 @@ export const revisionReviewSchema = z
 
 export type RevisionReview = z.infer<typeof revisionReviewSchema>;
 
+// The person behind an event user: the signed-in member, a personal token's
+// user, or the member an org key acted for. Null for keys acting as nobody.
+export function eventUserPerson(
+  user: z.infer<typeof eventUser>,
+): { id?: string; name?: string; email?: string } | null {
+  if (!user) return null;
+  if (user.type === "dashboard") {
+    return { id: user.id, name: user.name, email: user.email };
+  }
+  if (user.type === "api_key") {
+    if (user.onBehalfOf) return user.onBehalfOf;
+    return user.id ? { id: user.id, name: user.name, email: user.email } : null;
+  }
+  return null;
+}
+
+export function eventUserPersonId(
+  user: z.infer<typeof eventUser>,
+): string | null {
+  return eventUserPerson(user)?.id || null;
+}
+
 // Stable identifier for a reviewer across review lifecycle events, or null if
 // the event user can't hold a review verdict (system/anonymous users).
 export function reviewerKeyForEventUser(
   user: z.infer<typeof eventUser>,
 ): string | null {
-  if (!user) return null;
-  if (user.type === "dashboard") return user.id;
-  if (user.type === "api_key") return user.id || user.apiKey || null;
+  const personId = eventUserPersonId(user);
+  if (personId) return personId;
+  if (user?.type === "api_key") return user.apiKey || null;
   return null;
 }
 

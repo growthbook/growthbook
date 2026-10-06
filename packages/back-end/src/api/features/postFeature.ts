@@ -212,6 +212,14 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   addIdsToFlatRules(feature.rules, feature.id);
 
   await createFeature(req.context, feature, { comment: req.body.comment });
+  // Mirror the dashboard: whoever the create is for watches the new flag
+  if (req.context.actingUserId) {
+    await req.context.models.watch.upsertWatch({
+      userId: req.context.actingUserId,
+      item: feature.id,
+      type: "features",
+    });
+  }
 
   await req.audit({
     event: "feature.create",

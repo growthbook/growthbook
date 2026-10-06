@@ -54,7 +54,7 @@ export async function ensureLiveRevisionExists(
   );
   if (alreadyExists) return;
 
-  const authorId = entity.owner || context.userId;
+  const authorId = entity.owner || context.actingUserId;
   const snapshot = getAdapter(entityType).buildSnapshot(entity);
 
   // Wrapped in createWithVersionRetry so that two concurrent backfill calls
@@ -314,7 +314,7 @@ export async function createOrUpdateRevision(
       return context.models.revisions.updateProposedChanges(
         targetRevision.id,
         finalChanges,
-        context.userId,
+        context.actingUserId,
         advanceAuthorityOnRow(context),
       );
     }
@@ -325,7 +325,7 @@ export async function createOrUpdateRevision(
       await context.models.revisions.getOpenByTargetAndAuthor(
         entityType,
         entity.id,
-        context.userId,
+        context.actingUserId,
       );
     if (existingRevision) {
       const finalChanges =
@@ -351,7 +351,7 @@ export async function createOrUpdateRevision(
       return context.models.revisions.updateProposedChanges(
         existingRevision.id,
         finalChanges,
-        context.userId,
+        context.actingUserId,
         advanceAuthorityOnRow(context),
       );
     }

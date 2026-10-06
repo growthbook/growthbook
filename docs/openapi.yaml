@@ -76,6 +76,30 @@ info:
     ```
 
 
+    ### Acting on behalf of a person
+
+
+    Requests made with an organization API key may add an `X-On-Behalf-Of`
+    header naming the organization member the change is for, as a user id or an
+    email address. History, revision logs and webhooks then show that person
+    next to the key. The header is attribution only: the key's role still
+    decides what is allowed. A value that does not match a member of the
+    organization is rejected with a 400, and a key configured to require the
+    header rejects requests without it. A personal access token already acts as
+    its owner, so the header may only name that owner.
+
+
+    ```bash
+
+    curl https://api.growthbook.io/api/v1/features \
+
+    -H "Authorization: Bearer secret_abc123DEF456" \
+
+    -H "X-On-Behalf-Of: alice@example.com"
+
+    ```
+
+
     ## Errors
 
 
@@ -69525,6 +69549,39 @@ components:
         dateCreated:
           format: date-time
           type: string
+        user:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - dashboard
+                - api_key
+                - system
+            id:
+              type: string
+            name:
+              type: string
+            email:
+              type: string
+            onBehalfOf:
+              description: The organization member an API key acted for
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+              required:
+                - id
+                - name
+                - email
+              additionalProperties: false
+          required:
+            - type
+          additionalProperties: false
       required:
         - id
         - userId
@@ -69655,6 +69712,39 @@ components:
         dateCreated:
           format: date-time
           type: string
+        user:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - dashboard
+                - api_key
+                - system
+            id:
+              type: string
+            name:
+              type: string
+            email:
+              type: string
+            onBehalfOf:
+              description: The organization member an API key acted for
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+              required:
+                - id
+                - name
+                - email
+              additionalProperties: false
+          required:
+            - type
+          additionalProperties: false
       required:
         - id
         - userId
@@ -69964,6 +70054,39 @@ components:
         dateCreated:
           format: date-time
           type: string
+        user:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - dashboard
+                - api_key
+                - system
+            id:
+              type: string
+            name:
+              type: string
+            email:
+              type: string
+            onBehalfOf:
+              description: The organization member an API key acted for
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+              required:
+                - id
+                - name
+                - email
+              additionalProperties: false
+          required:
+            - type
+          additionalProperties: false
       required:
         - id
         - userId
@@ -70094,6 +70217,39 @@ components:
         dateCreated:
           format: date-time
           type: string
+        user:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - dashboard
+                - api_key
+                - system
+            id:
+              type: string
+            name:
+              type: string
+            email:
+              type: string
+            onBehalfOf:
+              description: The organization member an API key acted for
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+              required:
+                - id
+                - name
+                - email
+              additionalProperties: false
+          required:
+            - type
+          additionalProperties: false
       required:
         - id
         - userId
@@ -70656,6 +70812,39 @@ components:
         dateCreated:
           format: date-time
           type: string
+        user:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - dashboard
+                - api_key
+                - system
+            id:
+              type: string
+            name:
+              type: string
+            email:
+              type: string
+            onBehalfOf:
+              description: The organization member an API key acted for
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+              required:
+                - id
+                - name
+                - email
+              additionalProperties: false
+          required:
+            - type
+          additionalProperties: false
       required:
         - id
         - userId
@@ -70786,6 +70975,39 @@ components:
         dateCreated:
           format: date-time
           type: string
+        user:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - dashboard
+                - api_key
+                - system
+            id:
+              type: string
+            name:
+              type: string
+            email:
+              type: string
+            onBehalfOf:
+              description: The organization member an API key acted for
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+              required:
+                - id
+                - name
+                - email
+              additionalProperties: false
+          required:
+            - type
+          additionalProperties: false
       required:
         - id
         - userId
@@ -82996,6 +83218,21 @@ components:
                   type: string
                 email:
                   type: string
+                onBehalfOf:
+                  description: The organization member an API key acted for
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    email:
+                      type: string
+                  required:
+                    - id
+                    - name
+                    - email
+                  additionalProperties: false
               required:
                 - type
               additionalProperties: false

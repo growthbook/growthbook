@@ -51,6 +51,12 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Org API keys only. Project-specific role overrides, same shape as member projectRoles",
     ),
+  requireOnBehalfOf: z
+    .boolean()
+    .optional()
+    .describe(
+      "Org API keys only. When true, every request must carry an `X-On-Behalf-Of` header naming an organization member",
+    ),
   disabled: z
     .boolean()
     .optional()

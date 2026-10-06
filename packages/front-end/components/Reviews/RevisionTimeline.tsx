@@ -1,3 +1,4 @@
+import { eventUserPerson } from "shared/validators";
 import { RevisionLog } from "shared/types/feature-revision";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -665,12 +666,9 @@ export default function RevisionTimeline({
             break;
           }
           if (next.action === "Recall Review") {
-            const recallerName =
-              (next.user && "name" in next.user && next.user.name) ||
-              (next.user && "email" in next.user && next.user.email) ||
-              null;
-            const isSelfRecall =
-              next.user && "id" in next.user && next.user.id === userId;
+            const recaller = eventUserPerson(next.user);
+            const recallerName = recaller?.name || recaller?.email || null;
+            const isSelfRecall = !!recaller?.id && recaller.id === userId;
             const label = isSelfRecall
               ? "Discarded by you"
               : recallerName

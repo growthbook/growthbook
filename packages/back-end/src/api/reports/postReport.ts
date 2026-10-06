@@ -65,7 +65,7 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
   // ownership, so an owner-less report can only be managed by admins.
   const ownerId =
     (await resolveOwnerToUserId(owner, req.context, { strict: true })) ??
-    req.context.userId;
+    req.context.actingUserId;
 
   const phaseIndex = Math.max(experiment.phases.length - 1, 0);
   const latestSnapshot = await getLatestSuccessfulSnapshot({

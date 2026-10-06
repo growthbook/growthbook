@@ -21,6 +21,12 @@ const auditSchema = new mongoose.Schema({
     email: String,
     name: String,
     apiKey: String,
+    onBehalfOf: {
+      _id: false,
+      id: String,
+      name: String,
+      email: String,
+    },
   },
   reason: String,
   event: String,

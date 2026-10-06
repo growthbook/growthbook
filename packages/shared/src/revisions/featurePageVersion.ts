@@ -50,6 +50,8 @@ export function getFeaturePageDefaultVersion({
       ? revisionList.find(
           (r) =>
             isOpenUserDraft(r) &&
+            // A draft an API key made, even on your behalf, never opens as yours
+            r.createdBy?.type !== "api_key" &&
             (r.createdBy?.id === userId ||
               (r.contributors ?? []).includes(userId)),
         )

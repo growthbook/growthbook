@@ -45,7 +45,7 @@ export async function loadLatestDraft(
     feature.id,
     feature,
     {
-      involvedUserId: mine ? context.userId : undefined,
+      involvedUserId: mine ? context.actingUserId : undefined,
       status: parseRevisionStatusFilter(status),
       author,
     },

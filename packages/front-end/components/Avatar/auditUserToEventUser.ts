@@ -18,6 +18,7 @@ export function auditUserInfoToEventUser(user: AuditUserInfo): EventUser {
       id: user.id,
       name: user.name,
       email: user.email,
+      onBehalfOf: user.onBehalfOf,
     };
   }
   return {
@@ -42,6 +43,7 @@ export function auditInterfaceUserToEventUser(
       id: u.id,
       name: u.name,
       email: u.email,
+      onBehalfOf: u.onBehalfOf,
     };
   }
   const u = user as AuditUserLoggedIn;

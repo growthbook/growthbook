@@ -414,6 +414,9 @@ export interface OrganizationSettings {
   // ones are rejected at authentication. Covers Personal Access Tokens and
   // OAuth-issued access tokens; app-issued Visual Editor keys are unaffected.
   disablePersonalAccessTokens?: boolean;
+  // Default for the per-key `requireOnBehalfOf` setting on newly created org
+  // API keys. Existing keys keep their own value.
+  apiKeysRequireOnBehalfOf?: boolean;
 }
 
 export type LearningStatusColor =

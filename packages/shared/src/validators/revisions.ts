@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { eventUser } from "./event-user";
 import { savedGroupValidator } from "./saved-group";
 import { constantValidator } from "./constant";
 import { configValidator } from "./config";
@@ -22,7 +23,10 @@ export type ReviewDecision = (typeof reviewDecision)[number];
 
 export const reviewValidator = z.object({
   id: z.string(),
+  // The person the verdict counts for (coverage, self-approval). `user` is
+  // the full actor behind it, including an API key and who it acted for.
   userId: z.string(),
+  user: eventUser.optional(),
   decision: z.enum(reviewDecision),
   comment: z.string().optional(),
   dateCreated: z.date(),
@@ -102,6 +106,8 @@ export type JsonPatchOperation = z.infer<typeof jsonPatchOperationValidator>;
 export const activityLogEntryValidator = z.object({
   id: z.string(),
   userId: z.string(),
+  // Full actor, so history can show "person via API key". Absent on legacy entries.
+  user: eventUser.optional(),
   action: z.enum([
     "created",
     "updated",

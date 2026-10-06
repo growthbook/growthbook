@@ -20,6 +20,7 @@ export interface AuditUserApiKey {
   id?: string;
   name?: string;
   email?: string;
+  onBehalfOf?: { id: string; name: string; email: string };
 }
 
 export interface AuditUserSystem {

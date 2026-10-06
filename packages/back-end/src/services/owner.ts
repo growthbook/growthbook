@@ -56,9 +56,9 @@ export async function resolveOwnerForCreate(
 ): Promise<string> {
   const resolved = await resolveOwnerToUserId(ownerInput, context, { strict });
   if (resolved) return resolved;
-  if (context.userId) return context.userId;
+  if (context.actingUserId) return context.actingUserId;
   throw new Error(
-    "Must specify an `owner` in the request body. The `owner` field is only optional when authenticating with a Personal Access Token (PAT).",
+    "Must specify an `owner` in the request body. The `owner` field is only optional when authenticating with a Personal Access Token (PAT) or when the request carries an `X-On-Behalf-Of` header.",
   );
 }
 

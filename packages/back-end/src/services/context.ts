@@ -418,6 +418,25 @@ export class ReqContextClass {
   public email = "";
   public userName = "";
   public superAdmin = false;
+
+  // The person a request acts for: the signed-in user, a personal token's
+  // user, or the member an org key named in its X-On-Behalf-Of header. Use it
+  // for attribution and draft targeting only. Authority shortcuts (author-only
+  // edit rights, who a deferred publish fires as) stay on `userId`, so the
+  // header never widens what a key may do.
+  public get actingUserId(): string {
+    if (this.userId) return this.userId;
+    return this.auditUser?.type === "api_key"
+      ? this.auditUser.onBehalfOf?.id || ""
+      : "";
+  }
+
+  public get actingUserName(): string {
+    if (this.userName) return this.userName;
+    return this.auditUser?.type === "api_key"
+      ? this.auditUser.onBehalfOf?.name || ""
+      : "";
+  }
   public teams: TeamInterface[] = [];
   public role?: string;
   public isApiRequest = false;
@@ -685,6 +704,7 @@ export class ReqContextClass {
           id: apiKeyUser?.id,
           name: apiKeyUser?.name,
           email: apiKeyUser?.email,
+          onBehalfOf: apiKeyUser?.onBehalfOf,
         }
       : this.userId
         ? {

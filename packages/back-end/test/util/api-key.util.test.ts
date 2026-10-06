@@ -4,6 +4,8 @@ import {
   isApiKeyForUserInOrganization,
   migrateApiKey,
   roleForApiKey,
+  resolveOnBehalfOf,
+  assertOnBehalfOfIsTokenUser,
 } from "back-end/src/util/api-key.util";
 
 describe("api key utils", () => {
@@ -157,5 +159,74 @@ describe("api key utils", () => {
 
       expect(migrated.role).toEqual("admin");
     });
+  });
+});
+
+describe("resolveOnBehalfOf", () => {
+  const org = {
+    members: [{ id: "u_alice" }, { id: "u_bob" }],
+  } as unknown as OrganizationInterface;
+  const users = [
+    { id: "u_alice", name: "Alice", email: "alice@example.com" },
+    { id: "u_bob", name: "", email: "bob@example.com" },
+    { id: "u_outsider", name: "Out", email: "out@example.com" },
+  ];
+  const lookup = {
+    byId: async (id: string) => users.find((u) => u.id === id) ?? null,
+    byEmail: async (email: string) =>
+      users.find((u) => u.email === email.toLowerCase()) ?? null,
+  };
+
+  it("returns null when the header is absent or blank", async () => {
+    expect(await resolveOnBehalfOf(undefined, org, lookup)).toBeNull();
+    expect(await resolveOnBehalfOf("  ", org, lookup)).toBeNull();
+  });
+
+  it("matches a member by user id", async () => {
+    expect(await resolveOnBehalfOf("u_alice", org, lookup)).toEqual({
+      id: "u_alice",
+      name: "Alice",
+      email: "alice@example.com",
+    });
+  });
+
+  it("matches a member by email, case-insensitively, and blanks a missing name", async () => {
+    expect(await resolveOnBehalfOf("Bob@Example.com", org, lookup)).toEqual({
+      id: "u_bob",
+      name: "",
+      email: "bob@example.com",
+    });
+  });
+
+  it("uses the first value when the header repeats", async () => {
+    const member = await resolveOnBehalfOf(["u_alice", "u_bob"], org, lookup);
+    expect(member?.id).toBe("u_alice");
+  });
+
+  it("refuses a user who is not a member and an unknown value", async () => {
+    await expect(
+      resolveOnBehalfOf("out@example.com", org, lookup),
+    ).rejects.toThrow("does not match a member");
+    await expect(resolveOnBehalfOf("nobody", org, lookup)).rejects.toThrow(
+      "does not match a member",
+    );
+  });
+});
+
+describe("assertOnBehalfOfIsTokenUser", () => {
+  const user = { id: "u_alice", email: "alice@example.com" };
+
+  it("allows an absent header or the token's own user", () => {
+    expect(() => assertOnBehalfOfIsTokenUser(undefined, user)).not.toThrow();
+    expect(() => assertOnBehalfOfIsTokenUser("u_alice", user)).not.toThrow();
+    expect(() =>
+      assertOnBehalfOfIsTokenUser("Alice@Example.com", user),
+    ).not.toThrow();
+  });
+
+  it("refuses anyone else", () => {
+    expect(() => assertOnBehalfOfIsTokenUser("u_bob", user)).toThrow(
+      "personal access token",
+    );
   });
 });

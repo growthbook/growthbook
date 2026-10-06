@@ -44,12 +44,12 @@ export async function loadFeatureRevisionsPage(
       "`mine` and `author` are mutually exclusive. Pass one or the other.",
     );
   }
-  if (mine && !context.userId) {
+  if (mine && !context.actingUserId) {
     throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
+      "`mine=true` requires a user-scoped API key or an X-On-Behalf-Of header (the caller must be identifiable as a user).",
     );
   }
-  const involvedUserId = mine ? context.userId : undefined;
+  const involvedUserId = mine ? context.actingUserId : undefined;
 
   const skipPagination = stringToBoolean(query.skipPagination?.toString());
   if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {

@@ -324,7 +324,8 @@ async function recoverStrandedMerge({
               ),
               {
                 id: claimId,
-                userId: context.userId || "",
+                userId: context.actingUserId,
+                user: context.auditUser,
                 action: "merge-recovered" as const,
                 description: "Re-published a merge that never landed",
                 dateCreated: new Date(),
@@ -573,14 +574,14 @@ export async function approveRevision(
     context.permissions.throwPermissionError();
   }
 
-  // An approval is attributed to a member; an org key has none, so its
-  // approval could never satisfy coverage — refuse it instead of storing it.
-  if (!context.userId) {
+  // An approval is attributed to a member; an org key has none unless it
+  // named one (X-On-Behalf-Of), so refuse rather than store an unattributable one.
+  if (!context.actingUserId) {
     throw new BadRequestError(
-      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
+      "Submitting a review requires a user identity. Use a Personal Access Token or an X-On-Behalf-Of header instead of a bare organization key.",
     );
   }
-  if (mayBeRevisionAuthor(revision.authorId, context.userId)) {
+  if (mayBeRevisionAuthor(revision.authorId, context.actingUserId)) {
     throw new BadRequestError("Cannot approve your own revision");
   }
 
@@ -590,7 +591,7 @@ export async function approveRevision(
       settings: context.org.settings,
       entityType: revision.target.type,
       revision,
-      userId: context.userId,
+      userId: context.actingUserId,
     })
   ) {
     throw new BadRequestError(
@@ -610,7 +611,7 @@ export async function approveRevision(
 
   const updated = await context.models.revisions.addReview(
     revision.id,
-    context.userId,
+    context.actingUserId,
     "approve",
     comment ?? "",
     reviewAuthorityOnRow(context),
@@ -623,7 +624,7 @@ export async function approveRevision(
     {
       type: "reviewed",
       decision: "approve",
-      userId: context.userId,
+      userId: context.actingUserId,
       ...(comment ? { comment } : {}),
     },
   );
@@ -884,7 +885,7 @@ async function publishRevisionInner(
   if (!hasChanges) {
     const merged = await context.models.revisions.merge(
       revision.id,
-      context.userId,
+      context.actingUserId,
       {
         bypass: isBypass,
         // Pin the revision the caller AUTHORIZED: a draft edit landing between
@@ -922,7 +923,7 @@ async function publishRevisionInner(
       const reopened = await context.models.revisions
         .reopenAfterFailedApply(
           merged.id,
-          context.userId,
+          context.actingUserId,
           revision,
           merged.dateUpdated,
         )
@@ -952,7 +953,7 @@ async function publishRevisionInner(
   // merge would orphan a half-applied change on the live entity.
   const merged = await context.models.revisions.merge(
     revision.id,
-    context.userId,
+    context.actingUserId,
     {
       bypass: isBypass,
       // Same authorized-content pin as the no-op branch and bulk's claim.
@@ -1056,7 +1057,7 @@ async function publishRevisionInner(
       // No unguarded fallback, for the same reason.
       const restored = await context.models.revisions.reopenAfterFailedApply(
         merged.id,
-        context.userId,
+        context.actingUserId,
         revision,
         merged.dateUpdated,
       );
@@ -1189,7 +1190,7 @@ export async function maybeAutoPublishRevision(
       try {
         disarmed = await context.models.revisions.setAutoPublishOnApproval(
           revision.id,
-          context.userId,
+          context.actingUserId,
           false,
         );
       } catch {
@@ -1369,7 +1370,7 @@ export async function discardEntityRevision({
 
   const closed = await context.models.revisions.close(
     revision.id,
-    context.userId,
+    context.actingUserId,
     // Re-asked on the row each attempt: the check above ran against the project the
     // draft was in when it was read, and a rebase can move it.
     discardAuthorityOnRow(context),
@@ -1427,7 +1428,7 @@ export async function requestRevisionReview({
 
   const updated = await context.models.revisions.submitForReview(
     revision.id,
-    context.userId,
+    context.actingUserId,
     advanceAuthorityOnRow(context),
     { autoPublishOnApproval: enableAutoPublish, armAcknowledgments },
   );
@@ -1492,16 +1493,19 @@ export async function submitRevisionReview({
     context.permissions.throwPermissionError();
   }
 
-  // A verdict is attributed to a member; an org key has none, so its approval
-  // could never satisfy coverage — refuse it instead of storing it.
-  if (!isComment && !context.userId) {
+  // A verdict is attributed to a member; an org key has none unless it named
+  // one (X-On-Behalf-Of), so refuse rather than store an unattributable one.
+  if (!isComment && !context.actingUserId) {
     throw new BadRequestError(
-      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
+      "Submitting a review requires a user identity. Use a Personal Access Token or an X-On-Behalf-Of header instead of a bare organization key.",
     );
   }
 
   // The author may comment on their own draft, but not rule on it.
-  if (mayBeRevisionAuthor(revision.authorId, context.userId) && !isComment) {
+  if (
+    mayBeRevisionAuthor(revision.authorId, context.actingUserId) &&
+    !isComment
+  ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 
@@ -1513,7 +1517,7 @@ export async function submitRevisionReview({
       settings: context.org.settings,
       entityType,
       revision,
-      userId: context.userId,
+      userId: context.actingUserId,
     })
   ) {
     throw new BadRequestError("You cannot approve a draft you contributed to.");
@@ -1530,7 +1534,7 @@ export async function submitRevisionReview({
 
   const updated = await context.models.revisions.addReview(
     revision.id,
-    context.userId,
+    context.actingUserId,
     decision,
     comment ?? "",
     reviewAuthorityOnRow(context),
@@ -1540,7 +1544,7 @@ export async function submitRevisionReview({
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
     type: "reviewed",
     decision,
-    userId: context.userId,
+    userId: context.actingUserId,
     ...(comment ? { comment } : {}),
   });
 
@@ -1701,7 +1705,7 @@ export async function rebaseRevision({
     revision.id,
     entity,
     newOps,
-    context.userId,
+    context.actingUserId,
     advanceAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {

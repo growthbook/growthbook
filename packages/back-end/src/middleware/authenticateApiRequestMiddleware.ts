@@ -18,9 +18,12 @@ import { getCustomLogProps } from "back-end/src/util/logger";
 import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
+  ON_BEHALF_OF_HEADER,
+  assertOnBehalfOfIsTokenUser,
+  resolveOnBehalfOf,
 } from "back-end/src/util/api-key.util";
 import { getUserPermissions } from "back-end/src/util/organization.util";
-import { getUserById } from "back-end/src/models/UserModel";
+import { getUserById, getUserByEmail } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
@@ -297,6 +300,31 @@ function authenticateWithApiKey(
         throw new Error("Could not find user attached to this API key");
       }
 
+      // `X-On-Behalf-Of` names the member an org key acts for. Attribution only:
+      // a personal token already acts as its owner, so it may only name them.
+      let onBehalfOf: EventUserApiKey["onBehalfOf"];
+      try {
+        if (!userId) {
+          onBehalfOf =
+            (await resolveOnBehalfOf(req.headers[ON_BEHALF_OF_HEADER], org, {
+              byId: getUserById,
+              byEmail: getUserByEmail,
+            })) ?? undefined;
+          if (!onBehalfOf && apiKeyDoc.requireOnBehalfOf) {
+            throw new Error(
+              "This API key requires an X-On-Behalf-Of header naming an organization member",
+            );
+          }
+        } else if (req.user) {
+          assertOnBehalfOfIsTokenUser(
+            req.headers[ON_BEHALF_OF_HEADER],
+            req.user,
+          );
+        }
+      } catch (e) {
+        return res.status(400).json({ message: e.message });
+      }
+
       const [teams, restrictedProjects] = await Promise.all([
         TeamModel.dangerousGetTeamsForOrganization(org.id),
         ProjectModel.dangerousGetRestrictedProjectIds(org.id),
@@ -313,6 +341,7 @@ function authenticateWithApiKey(
             }
           : {
               name: apiKeyDoc.description || "",
+              ...(onBehalfOf ? { onBehalfOf } : {}),
             }),
       };
 

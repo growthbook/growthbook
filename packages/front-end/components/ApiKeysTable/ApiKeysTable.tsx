@@ -70,6 +70,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 {key.disabled && (
                   <Badge ml="2" color="red" variant="soft" label="Disabled" />
                 )}
+                {key.requireOnBehalfOf && (
+                  <Badge
+                    ml="2"
+                    variant="soft"
+                    label="Requires X-On-Behalf-Of"
+                    title="Requests must name the member they act for"
+                  />
+                )}
               </td>
               <td style={{ minWidth: 270 }}>
                 {canCreateKeys ? (

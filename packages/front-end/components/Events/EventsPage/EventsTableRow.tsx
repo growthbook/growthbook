@@ -49,7 +49,14 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
             {user?.type === "dashboard" ? (
               <span title={user.email}>{user.name}</span>
             ) : user?.type === "api_key" ? (
-              user.email ? (
+              user.onBehalfOf ? (
+                <span title={user.onBehalfOf.email}>
+                  {user.onBehalfOf.name || user.onBehalfOf.email}{" "}
+                  <span className="badge badge-secondary">
+                    via {user.name || "API key"}
+                  </span>
+                </span>
+              ) : user.email ? (
                 <span title={user.email}>
                   {user.name || user.email}{" "}
                   <span className="badge badge-secondary">API</span>

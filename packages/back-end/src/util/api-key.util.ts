@@ -123,3 +123,62 @@ export async function dangerousLookupOrganizationByApiKey(
 
   return migrated;
 }
+
+export const ON_BEHALF_OF_HEADER = "x-on-behalf-of";
+
+export type OnBehalfOfMember = { id: string; name: string; email: string };
+
+type OnBehalfOfLookup = {
+  byId: (
+    id: string,
+  ) => Promise<{ id: string; name?: string; email: string } | null>;
+  byEmail: (
+    email: string,
+  ) => Promise<{ id: string; name?: string; email: string } | null>;
+};
+
+function onBehalfOfHeaderValue(
+  headerValue: string | string[] | undefined,
+): string | null {
+  const value = (
+    Array.isArray(headerValue) ? headerValue[0] : headerValue
+  )?.trim();
+  return value || null;
+}
+
+// Resolves an `X-On-Behalf-Of` header to an organization member, matching a user
+// id first and then an email. Null when the header is absent. Throws when the
+// value names nobody in the organization, so attribution never silently fails.
+export async function resolveOnBehalfOf(
+  headerValue: string | string[] | undefined,
+  organization: Pick<OrganizationInterface, "members">,
+  lookup: OnBehalfOfLookup,
+): Promise<OnBehalfOfMember | null> {
+  const value = onBehalfOfHeaderValue(headerValue);
+  if (!value) return null;
+
+  const memberIds = new Set((organization.members ?? []).map((m) => m.id));
+  const user = memberIds.has(value)
+    ? await lookup.byId(value)
+    : await lookup.byEmail(value);
+  if (!user || !memberIds.has(user.id)) {
+    throw new Error(
+      `X-On-Behalf-Of does not match a member of this organization: ${value}`,
+    );
+  }
+  return { id: user.id, name: user.name || "", email: user.email };
+}
+
+// A personal token already acts as its owner, so the header may only name
+// them. Anyone else would be silently misattributed, so refuse instead.
+export function assertOnBehalfOfIsTokenUser(
+  headerValue: string | string[] | undefined,
+  user: { id: string; email: string },
+): void {
+  const value = onBehalfOfHeaderValue(headerValue);
+  if (!value || value === user.id) return;
+  if (value.toLowerCase() === user.email.toLowerCase()) return;
+  throw new Error(
+    "X-On-Behalf-Of cannot change who a personal access token acts as",
+  );
+}

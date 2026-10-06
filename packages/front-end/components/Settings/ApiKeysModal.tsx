@@ -11,6 +11,7 @@ import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -26,7 +27,7 @@ const ApiKeysModal: FC<{
   existingKey,
 }) => {
   const { apiCall } = useAuth();
-  const { organization } = useUser();
+  const { organization, settings } = useUser();
 
   // When an existing key is passed in, the modal edits that key in place
   // instead of creating a new one. Only org secret keys can be edited.
@@ -64,6 +65,9 @@ const ApiKeysModal: FC<{
     additionalRoles: existingKey?.additionalRoles,
     projectRoles: existingKey?.projectRoles,
   });
+  const [requireOnBehalfOf, setRequireOnBehalfOf] = useState<boolean>(
+    existingKey?.requireOnBehalfOf ?? !!settings?.apiKeysRequireOnBehalfOf,
+  );
 
   const onSubmit = form.handleSubmit(async (value) => {
     const { role, ...roleStateData } = roleState;
@@ -75,6 +79,7 @@ const ApiKeysModal: FC<{
           description: value.description,
           role,
           ...roleStateData,
+          requireOnBehalfOf,
         }),
       });
       track("Edit API Key");
@@ -91,6 +96,7 @@ const ApiKeysModal: FC<{
           description: value.description,
           type: role,
           ...roleStateData,
+          requireOnBehalfOf,
         };
     await apiCall("/keys", {
       method: "POST",
@@ -135,6 +141,14 @@ const ApiKeysModal: FC<{
             </Callout>
           )}
           <RoleRulesTable value={roleState} setValue={setRoleState} />
+          <Box mt="4">
+            <Checkbox
+              label="Require X-On-Behalf-Of"
+              description="Every request with this key must name the organization member it acts for, so history shows a person instead of the key."
+              value={requireOnBehalfOf}
+              setValue={setRequireOnBehalfOf}
+            />
+          </Box>
         </>
       )}
     </ModalStandard>

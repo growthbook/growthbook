@@ -317,6 +317,7 @@ export class RevisionModel extends BaseClass {
       status: "pending-review",
       resetEntry: {
         id: uniqid("act_"),
+        user: this.context.auditUser,
         userId,
         action: "reopened",
         description:
@@ -466,6 +467,7 @@ export class RevisionModel extends BaseClass {
       const activityLog: ActivityLogEntry[] = [
         {
           id: uniqid("act_"),
+          user: this.context.auditUser,
           userId: doc.authorId,
           action: "created",
           description,
@@ -1033,6 +1035,7 @@ export class RevisionModel extends BaseClass {
               ...this.cleanActivityLog(existing.activityLog),
               {
                 id: uniqid("act_"),
+                user: this.context.auditUser,
                 userId,
                 // Timeline label and review-cycle start marker.
                 action: "review-requested",
@@ -1147,6 +1150,7 @@ export class RevisionModel extends BaseClass {
     // Build these once so CAS retries re-base the same entry, not a duplicate.
     const review: Revision["reviews"][number] = {
       id: uniqid("rev_"),
+      user: this.context.auditUser,
       userId,
       decision,
       ...(comment ? { comment } : {}),
@@ -1154,6 +1158,7 @@ export class RevisionModel extends BaseClass {
     };
     const activityEntry: ActivityLogEntry = {
       id: uniqid("act_"),
+      user: this.context.auditUser,
       userId,
       action: actionMap[decision],
       ...(comment ? { description: comment } : {}),
@@ -1309,6 +1314,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "recalled",
               description: "Recalled review request — returned to draft",
@@ -1389,6 +1395,7 @@ export class RevisionModel extends BaseClass {
         const retractedVerdict = retracted[retracted.length - 1];
         const activityEntry: ActivityLogEntry = {
           id: uniqid("act_"),
+          user: this.context.auditUser,
           userId,
           action: "review-retracted",
           description: JSON.stringify({
@@ -1581,6 +1588,7 @@ export class RevisionModel extends BaseClass {
         } as Revision["target"],
         entry: {
           id: uniqid("act_"),
+          user: this.context.auditUser,
           userId,
           action: "updated",
           description: "Updated proposed changes",
@@ -1696,6 +1704,7 @@ export class RevisionModel extends BaseClass {
       } as Revision["target"],
       entry: {
         id: uniqid("act_"),
+        user: this.context.auditUser,
         userId,
         action: "updated" as const,
         description: "Rebased revision on current live state",
@@ -1795,6 +1804,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "merged",
               description,
@@ -1855,6 +1865,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "discarded",
               description: reason || "Discarded revision",
@@ -1936,6 +1947,7 @@ export class RevisionModel extends BaseClass {
       $push: {
         activityLog: {
           id: uniqid("act_"),
+          user: this.context.auditUser,
           userId,
           action: "reopened" as const,
           description: "Reopened revision — publish failed to apply",
@@ -1995,6 +2007,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "reopened",
               description: "Reopened revision",
@@ -2066,6 +2079,7 @@ export class RevisionModel extends BaseClass {
           $push: {
             activityLog: {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId: enabledBy ?? existing.authorId,
               action: "scheduled-publish-canceled",
               description: "Cancelled scheduled publish",
@@ -2089,6 +2103,7 @@ export class RevisionModel extends BaseClass {
 
     const armEntry: ActivityLogEntry = {
       id: uniqid("act_"),
+      user: this.context.auditUser,
       userId: enabledBy ?? existing.authorId,
       action: existing.scheduledPublishAt
         ? "scheduled-publish-updated"
@@ -2449,7 +2464,7 @@ export class RevisionModel extends BaseClass {
         comment: target.comment,
         revertedFrom: target.revertedFrom,
         status: "draft",
-        authorId: this.context.userId,
+        authorId: this.context.actingUserId,
         reviews: [],
         activityLog: [],
         // CreateProps strips fields generated by BaseModel (id, version,
@@ -2528,7 +2543,7 @@ export class RevisionModel extends BaseClass {
     const cleanedSnapshot = getAdapter(params.type).buildSnapshot(
       params.snapshot,
     );
-    const userId = this.context.userId;
+    const userId = this.context.actingUserId;
     const now = new Date();
 
     return this.createWithVersionRetry(() =>
@@ -2552,6 +2567,7 @@ export class RevisionModel extends BaseClass {
         activityLog: [
           {
             id: uniqid("act_"),
+            user: this.context.auditUser,
             userId,
             action: "merged",
             description: params.bypass

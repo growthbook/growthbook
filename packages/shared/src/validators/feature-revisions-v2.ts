@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiAssignmentQueryInputFields } from "./assignment-query-field";
+import { apiEventUser } from "./event-user";
 import {
   featurePrerequisite,
   savedGroupTargeting,
@@ -816,16 +817,6 @@ const revisionLogParams = revisionParamsStrict.extend({ logId: z.string() });
 const okResponse = z.object({ status: z.literal(200) }).strict();
 
 // Sanitized actor for log entries — never exposes API key secrets.
-const apiRevisionLogUser = z
-  .object({
-    type: z.enum(["dashboard", "api_key", "system"]),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-  })
-  .strict()
-  .nullable();
-
 const apiRevisionLogEntry = z
   .object({
     id: z
@@ -842,7 +833,7 @@ const apiRevisionLogEntry = z
     subject: z.string(),
     value: z.string().describe("JSON-encoded payload for the entry"),
     timestamp: z.string().meta({ format: "date-time" }),
-    user: apiRevisionLogUser,
+    user: apiEventUser.nullable(),
   })
   .strict();
 

@@ -16,6 +16,7 @@ import {
   activityLogEntryValidator,
   reviewValidator,
 } from "./revisions";
+import { apiEventUser } from "./event-user";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
@@ -81,16 +82,22 @@ const revisionStatusQuery = z.string().refine(
 const apiReviewValidator = namedSchema(
   "ConstantRevisionReview",
   reviewValidator
-    .omit({ dateCreated: true })
-    .extend({ dateCreated: z.string().meta({ format: "date-time" }) })
+    .omit({ dateCreated: true, user: true })
+    .extend({
+      dateCreated: z.string().meta({ format: "date-time" }),
+      user: apiEventUser.optional(),
+    })
     .strict(),
 );
 
 const apiActivityLogEntryValidator = namedSchema(
   "ConstantRevisionActivityLogEntry",
   activityLogEntryValidator
-    .omit({ dateCreated: true })
-    .extend({ dateCreated: z.string().meta({ format: "date-time" }) })
+    .omit({ dateCreated: true, user: true })
+    .extend({
+      dateCreated: z.string().meta({ format: "date-time" }),
+      user: apiEventUser.optional(),
+    })
     .strict(),
 );
 

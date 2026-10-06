@@ -5,6 +5,7 @@ import {
   JsonPatchOperation,
   normalizeProposedChanges,
 } from "shared/enterprise";
+import { EventUser } from "shared/types/events/event-types";
 import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
@@ -16,6 +17,39 @@ function toIsoString(d: Date | string | null | undefined): string {
   return d.toISOString();
 }
 
+// Strip secrets (API key strings) from an actor before returning it.
+export function eventUserToApi(user: EventUser): {
+  type: "dashboard" | "api_key" | "system";
+  id?: string;
+  name?: string;
+  email?: string;
+  onBehalfOf?: { id: string; name: string; email: string };
+} | null {
+  if (!user) return null;
+  switch (user.type) {
+    case "dashboard":
+      return {
+        type: "dashboard",
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      };
+    case "api_key":
+      return {
+        type: "api_key",
+        ...(user.id !== undefined ? { id: user.id } : {}),
+        ...(user.name !== undefined ? { name: user.name } : {}),
+        ...(user.email !== undefined ? { email: user.email } : {}),
+        ...(user.onBehalfOf ? { onBehalfOf: user.onBehalfOf } : {}),
+      };
+    case "system":
+      return {
+        type: "system",
+        ...(user.id !== undefined ? { id: user.id } : {}),
+      };
+  }
+}
+
 function reviewsToApi(reviews: Review[] | undefined) {
   if (!reviews) return [];
   return reviews.map((r) => ({
@@ -25,6 +59,7 @@ function reviewsToApi(reviews: Review[] | undefined) {
     // Whether a later cycle reset superseded this verdict (no longer active).
     stale: !!r.stale,
     ...(r.comment ? { comment: r.comment } : {}),
+    ...(r.user ? { user: eventUserToApi(r.user) ?? undefined } : {}),
     dateCreated: toIsoString(r.dateCreated),
   }));
 }
@@ -36,6 +71,7 @@ function activityLogToApi(entries: ActivityLogEntry[] | undefined) {
     userId: e.userId,
     action: e.action,
     ...((e.description ?? null) !== null ? { description: e.description } : {}),
+    ...(e.user ? { user: eventUserToApi(e.user) ?? undefined } : {}),
     dateCreated: toIsoString(e.dateCreated),
     ...(e.proposedChangesSnapshot
       ? { proposedChangesSnapshot: e.proposedChangesSnapshot }

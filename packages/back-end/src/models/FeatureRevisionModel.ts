@@ -41,6 +41,7 @@ import {
   RevisionMetadata,
   RevisionRampAction,
   RevisionReview,
+  eventUserPersonId,
   reviewerKeyForEventUser,
 } from "shared/validators";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
@@ -1608,8 +1609,7 @@ export async function updateRevision(
   });
 
   // Track contributors as user ID strings via atomic $addToSet.
-  const contributorId =
-    log.user != null && "id" in log.user && log.user.id ? log.user.id : null;
+  const contributorId = eventUserPersonId(log.user);
   const contributorUpdate =
     contributorId != null ? { $addToSet: { contributors: contributorId } } : {};
 

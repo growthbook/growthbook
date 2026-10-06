@@ -141,9 +141,9 @@ export const postVariationImageUpload = createApiRequestHandler(
     }),
   });
 
-  if (context.userId) {
+  if (context.actingUserId) {
     await context.models.watch.upsertWatch({
-      userId: context.userId,
+      userId: context.actingUserId,
       item: experiment.id,
       type: "experiments",
     });

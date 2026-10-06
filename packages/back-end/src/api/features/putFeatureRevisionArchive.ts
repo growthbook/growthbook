@@ -64,7 +64,7 @@ export async function archiveRevision(
             : undefined,
         contributors: revision.contributors,
       },
-      userId: context.userId,
+      userId: context.actingUserId,
     })
   ) {
     context.permissions.throwPermissionError();

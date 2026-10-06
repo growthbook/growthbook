@@ -91,7 +91,7 @@ export function revisionTimelineLogs(
           : "Comment";
     logs.push({
       id: r.id,
-      user: toUser(r.userId),
+      user: r.user ?? toUser(r.userId),
       timestamp: iso(r.dateCreated),
       action,
       subject: "",
@@ -120,7 +120,7 @@ export function revisionTimelineLogs(
         // mark it "Retracted".
         logs.push({
           id: `${a.id}-verdict`,
-          user: toUser(a.userId),
+          user: a.user ?? toUser(a.userId),
           timestamp: iso(payload.verdictDate),
           action: verdictAction,
           subject: "",
@@ -129,7 +129,7 @@ export function revisionTimelineLogs(
       }
       logs.push({
         id: a.id,
-        user: toUser(a.userId),
+        user: a.user ?? toUser(a.userId),
         timestamp: iso(a.dateCreated),
         action: "Undo Review",
         subject: "",
@@ -142,7 +142,7 @@ export function revisionTimelineLogs(
     if (!action) continue;
     logs.push({
       id: a.id,
-      user: toUser(a.userId),
+      user: a.user ?? toUser(a.userId),
       timestamp: iso(a.dateCreated),
       action,
       subject: "",

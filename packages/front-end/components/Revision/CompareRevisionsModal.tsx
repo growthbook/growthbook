@@ -23,6 +23,7 @@ import {
   PiX,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import { EventUser, eventUserPerson } from "shared/validators";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -201,6 +202,7 @@ type ActivityTimelineItem =
       type: "review";
       id: string;
       userId: string;
+      user?: EventUser;
       createdAt: Date;
       decision: Review["decision"];
       comment: string | null;
@@ -209,6 +211,7 @@ type ActivityTimelineItem =
       type: "activity";
       id: string;
       userId: string;
+      user?: EventUser;
       createdAt: Date;
       action: ActivityLogEntry["action"];
       description: string | null;
@@ -225,6 +228,7 @@ function buildActivityTimeline(revision: Revision): ActivityTimelineItem[] {
       type: "review" as const,
       id: r.id,
       userId: r.userId,
+      user: r.user,
       createdAt: new Date(r.dateCreated),
       decision: r.decision,
       comment: r.comment ?? null,
@@ -240,6 +244,7 @@ function buildActivityTimeline(revision: Revision): ActivityTimelineItem[] {
         type: "activity" as const,
         id: a.id,
         userId: a.userId,
+        user: a.user,
         createdAt: new Date(a.dateCreated),
         action: a.action,
         description: a.description ?? null,
@@ -593,6 +598,20 @@ export default function CompareRevisionsModal<
   }, [allRevisions]);
 
   const { getUserDisplay } = useUser();
+  // "Person via key" when an API key acted on someone's behalf; legacy entries
+  // only carry a user id.
+  const actorLabel = (item: { userId: string; user?: EventUser }) => {
+    const person = eventUserPerson(item.user ?? null);
+    const name =
+      (person?.id ? getUserDisplay(person.id) : "") ||
+      person?.name ||
+      person?.email ||
+      getUserDisplay(item.userId) ||
+      item.userId;
+    if (item.user?.type !== "api_key") return name;
+    const key = item.user.name || "API key";
+    return item.user.onBehalfOf ? `${name} via ${key}` : `${name || key} (API)`;
+  };
 
   // Compute selected revisions sorted by creation date
   const selectedSorted = useMemo(() => {
@@ -1593,11 +1612,8 @@ export default function CompareRevisionsModal<
                                   </div>
                                   <Text size="sm" color="text-low">
                                     {datetime(item.createdAt)}
-                                    {item.userId
-                                      ? ` · ${
-                                          getUserDisplay(item.userId) ||
-                                          item.userId
-                                        }`
+                                    {item.userId || item.user
+                                      ? ` · ${actorLabel(item)}`
                                       : ""}
                                   </Text>
                                 </Flex>
@@ -1635,7 +1651,7 @@ export default function CompareRevisionsModal<
               );
               const rev = revisionById.get(activeActivity.revisionId);
               if (!item) return null;
-              const userDisplay = getUserDisplay(item.userId) || item.userId;
+              const userDisplay = actorLabel(item);
               return (
                 <>
                   <Box

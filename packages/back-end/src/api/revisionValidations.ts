@@ -20,9 +20,9 @@ export function assertUserScopedKeyForMine(
   context: ApiReqContext,
   mine: boolean,
 ): void {
-  if (mine && !context.userId) {
+  if (mine && !context.actingUserId) {
     throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
+      "`mine=true` requires a user-scoped API key or an X-On-Behalf-Of header (the caller must be identifiable as a user).",
     );
   }
 }

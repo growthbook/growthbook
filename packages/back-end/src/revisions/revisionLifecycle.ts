@@ -44,7 +44,7 @@ export async function recallRevisionReview({
 
   const recalled = await context.models.revisions.recallReview(
     revision.id,
-    context.userId,
+    context.actingUserId,
     draftAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, recalled, {
@@ -76,7 +76,7 @@ export async function reopenRevision({
 
   const reopened = await context.models.revisions.reopen(
     revision.id,
-    context.userId,
+    context.actingUserId,
     draftAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, reopened, {
@@ -103,7 +103,7 @@ export async function undoRevisionReview({
 
   const updated = await context.models.revisions.undoReview(
     revision.id,
-    context.userId,
+    context.actingUserId,
     reviewAuthorityOnRow(context),
     // The cycle this caller was looking at when they asked to retract.
     revision.reviewCycle ?? 0,

@@ -140,6 +140,11 @@ export class ApiKeyModel extends BaseClass {
           "PATs do not support additional roles.",
         );
       }
+      if (doc.requireOnBehalfOf) {
+        this.context.throwBadRequestError(
+          "PATs already act as a user and cannot require X-On-Behalf-Of.",
+        );
+      }
     } else {
       // Org API keys — validate role, environments, project roles, and commercial features
       this.validateRole(doc.role);
@@ -224,6 +229,7 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
+    requireOnBehalfOf,
   }: {
     description: string;
     roleId: string;
@@ -231,6 +237,7 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
+    requireOnBehalfOf?: boolean;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       secret: true,
@@ -243,6 +250,11 @@ export class ApiKeyModel extends BaseClass {
       environments,
       additionalRoles,
       projectRoles,
+      // The org setting is only the default a new key starts with
+      requireOnBehalfOf:
+        requireOnBehalfOf ??
+        this.context.org.settings?.apiKeysRequireOnBehalfOf ??
+        false,
     });
   }
 
@@ -323,6 +335,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       description,
+      requireOnBehalfOf,
     }: {
       role?: string;
       limitAccessByEnvironment?: boolean;
@@ -330,6 +343,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
+      requireOnBehalfOf?: boolean;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
@@ -370,6 +384,7 @@ export class ApiKeyModel extends BaseClass {
         additionalRoles,
         projectRoles,
         description,
+        requireOnBehalfOf,
       },
       { forceCanUpdate: true },
     );
@@ -515,6 +530,7 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
+    requireOnBehalfOf,
   }: {
     environment: string;
     project: string;
@@ -527,6 +543,7 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
+    requireOnBehalfOf?: boolean;
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -555,6 +572,7 @@ export class ApiKeyModel extends BaseClass {
       environments: environments ?? [],
       additionalRoles,
       projectRoles,
+      ...(requireOnBehalfOf !== undefined ? { requireOnBehalfOf } : {}),
     });
   }
 }
