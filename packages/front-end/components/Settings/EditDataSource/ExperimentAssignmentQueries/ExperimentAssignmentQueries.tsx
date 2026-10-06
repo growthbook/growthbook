@@ -26,6 +26,7 @@ import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 import ProjectBadges from "@/components/ProjectBadges";
+import UITooltip from "@/ui/Tooltip";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
@@ -176,7 +177,7 @@ export const ExperimentAssignmentQueries: FC<
                   <p className="text-muted mb-0 mt-1">{query.description}</p>
                 )}
 
-                <Flex gap="4">
+                <Flex gap="4" wrap="wrap" align="center">
                   <Box>
                     <strong className="font-weight-semibold">
                       Identifiers:{" "}
@@ -212,8 +213,21 @@ export const ExperimentAssignmentQueries: FC<
                         projectIds={query.projects}
                         skipMargin
                       />
+                    ) : dataSource.projects?.length ? (
+                      <UITooltip content="Inherited from the Data Source">
+                        <span>
+                          <ProjectBadges
+                            resourceType="experiment assignment query"
+                            projectIds={dataSource.projects}
+                            skipMargin
+                          />
+                        </span>
+                      </UITooltip>
                     ) : (
-                      <em className="text-muted">All Data Source Projects</em>
+                      <ProjectBadges
+                        resourceType="experiment assignment query"
+                        skipMargin
+                      />
                     )}
                   </Box>
                 </Flex>

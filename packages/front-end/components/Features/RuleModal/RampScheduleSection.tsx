@@ -107,6 +107,7 @@ import { Popover } from "@/ui/Popover";
 import { getExposureQuery } from "@/services/datasources";
 import {
   AssignmentQueryDriftWarning,
+  getNoAssignmentQueriesMessage,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import styles from "./RampScheduleSection.module.scss";
@@ -3210,8 +3211,7 @@ export default function RampScheduleSection({
         {state.monitoring.datasourceId &&
         assignmentQuerySelection.identifierTypes.length === 0 ? (
           <HelperText status="warning" size="sm">
-            No assignment queries are scoped to this Project. Add one in the
-            Data Source settings.
+            {getNoAssignmentQueriesMessage(assignmentQuerySelection)}
           </HelperText>
         ) : null}
         <AssignmentQueryDriftWarning selection={assignmentQuerySelection} />

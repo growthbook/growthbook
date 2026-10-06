@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getExposureQueryIdentifierTypes } from "shared/util";
-import { PiWarningFill } from "react-icons/pi";
+import { PiInfoFill, PiWarningFill } from "react-icons/pi";
 import {
   AssignmentQueryNotice,
   getAssignmentQueryDrift,
@@ -29,10 +29,24 @@ type Selection = {
   outOfScope: boolean;
   /** A kept selection whose query no longer declares its identifier. */
   identifierUndeclared: boolean;
-  multiProject: boolean;
+  scopeKind: AssignmentQueryScopeKind;
+  hasExposureQueries: boolean;
   setExposureQueryId: (exposureQueryId: string) => void;
   changeIdentifierType: (identifierType: string) => void;
 };
+
+/** One Project, a Holdout's Projects, or a Holdout covering all Projects. */
+export type AssignmentQueryScopeKind =
+  | "project"
+  | "holdoutProjects"
+  | "holdoutAllProjects";
+
+export function getAssignmentQueryScopeKind(
+  projects: string[] | undefined,
+): AssignmentQueryScopeKind {
+  if (!projects) return "project";
+  return projects.length ? "holdoutProjects" : "holdoutAllProjects";
+}
 
 export function useAssignmentQuerySelection({
   datasource,
@@ -250,7 +264,8 @@ export function useAssignmentQuerySelection({
     exposureQueryOptions,
     outOfScope,
     identifierUndeclared,
-    multiProject: !!projects,
+    scopeKind: getAssignmentQueryScopeKind(projects),
+    hasExposureQueries: !!datasource?.settings?.queries?.exposure?.length,
     setExposureQueryId: selectExposureQueryId,
     changeIdentifierType,
   };
@@ -258,22 +273,52 @@ export function useAssignmentQuerySelection({
 
 type DriftState = Pick<
   Selection,
-  "outOfScope" | "identifierUndeclared" | "identifierType" | "multiProject"
+  "outOfScope" | "identifierUndeclared" | "identifierType" | "scopeKind"
 >;
 
-function getAssignmentQueryDriftMessage({
+const OUT_OF_SCOPE_MESSAGES: Record<AssignmentQueryScopeKind, string> = {
+  project:
+    "The selected assignment query is no longer scoped to this Project. Results still update. Switch to a query that is scoped to this Project.",
+  holdoutProjects:
+    "The selected assignment query is no longer scoped to every Project this Holdout covers. Results still update. Switch to a query that covers all of them.",
+  holdoutAllProjects:
+    "This assignment query is limited to specific Projects, but this Holdout covers all Projects. Results still update. Switch to a query that isn't limited to specific Projects.",
+};
+
+function getDriftNotice({
   outOfScope,
   identifierUndeclared,
   identifierType,
-  multiProject,
-}: DriftState): string | null {
+  scopeKind,
+}: DriftState): { status: "warning" | "info"; message: string } | null {
   if (identifierUndeclared) {
-    return `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`;
+    return {
+      status: "warning",
+      message: `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`,
+    };
   }
   if (outOfScope) {
-    return `The selected assignment query is no longer scoped to ${multiProject ? "every selected Project" : "this Project"}. Results still update, but consider switching to a query that is.`;
+    return { status: "info", message: OUT_OF_SCOPE_MESSAGES[scopeKind] };
   }
   return null;
+}
+
+/** Why no identifier type can be chosen. */
+export function getNoAssignmentQueriesMessage({
+  hasExposureQueries,
+  scopeKind,
+}: Pick<Selection, "hasExposureQueries" | "scopeKind">): string {
+  if (!hasExposureQueries) {
+    return "This Data Source has no assignment queries. Add one in the Data Source settings.";
+  }
+  switch (scopeKind) {
+    case "holdoutProjects":
+      return "No assignment queries cover every Project this Holdout includes. Add one in the Data Source settings.";
+    case "holdoutAllProjects":
+      return "No assignment queries are available to a Holdout that covers all Projects. Add one that isn't limited to specific Projects.";
+    case "project":
+      return "No assignment queries are scoped to this Project. Add one in the Data Source settings.";
+  }
 }
 
 export function AssignmentQueryDriftWarning({
@@ -281,11 +326,11 @@ export function AssignmentQueryDriftWarning({
 }: {
   selection: DriftState;
 }) {
-  const message = getAssignmentQueryDriftMessage(selection);
-  if (!message) return null;
+  const drift = getDriftNotice(selection);
+  if (!drift) return null;
   return (
-    <Callout status="warning" mb="3">
-      {message}
+    <Callout status={drift.status} mb="3">
+      {drift.message}
     </Callout>
   );
 }
@@ -295,11 +340,15 @@ export function AssignmentQueryDriftIcon({
 }: {
   selection: DriftState;
 }) {
-  const message = getAssignmentQueryDriftMessage(selection);
-  if (!message) return null;
+  const drift = getDriftNotice(selection);
+  if (!drift) return null;
   return (
-    <Tooltip body={message}>
-      <PiWarningFill style={{ color: "var(--amber-11)" }} />
+    <Tooltip body={drift.message}>
+      {drift.status === "warning" ? (
+        <PiWarningFill style={{ color: "var(--amber-11)" }} />
+      ) : (
+        <PiInfoFill style={{ color: "var(--violet-11)" }} />
+      )}
     </Tooltip>
   );
 }
@@ -327,7 +376,6 @@ export default function AssignmentQueryFields({
     exposureQueryOptions,
     setExposureQueryId,
     changeIdentifierType,
-    multiProject,
   } = selection;
   return (
     <>
@@ -348,7 +396,7 @@ export default function AssignmentQueryFields({
         labelClassName="font-weight-bold"
         helpText={
           identifierTypes.length === 0
-            ? `No assignment queries are scoped to ${multiProject ? "the selected Projects" : "this Project"}. Add one in the Data Source settings.`
+            ? getNoAssignmentQueriesMessage(selection)
             : undefined
         }
         value={identifierType ?? ""}

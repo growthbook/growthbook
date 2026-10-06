@@ -134,7 +134,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const projectOptions = useProjectOptions(
     () => permissionsUtil.canUpdateDataSourceSettings(dataSource),
     userEnteredProjects,
-    filteredProjects.length ? filteredProjects : undefined,
+    filteredProjects,
   );
 
   const savedUserIdTypes =
@@ -347,8 +347,16 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 <MultiSelectField
                   legacyHeight
                   label="Projects"
-                  helpText="Only the Data Source's Projects can be selected. Leave empty to make this query available to all of them."
-                  placeholder="All Data Source Projects"
+                  helpText={
+                    dataSource.projects?.length
+                      ? "Only this Data Source's Projects can be selected. Leave empty to include all of them."
+                      : "Leave empty to make this query available in all Projects."
+                  }
+                  placeholder={
+                    dataSource.projects?.length
+                      ? "All Data Source Projects"
+                      : "All Projects"
+                  }
                   value={userEnteredProjects}
                   options={projectOptions}
                   onChange={(value) => form.setValue("projects", value)}
