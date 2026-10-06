@@ -1,7 +1,11 @@
 import React, { FC, useState } from "react";
 import { FaCheck, FaFilter, FaTimes } from "react-icons/fa";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
-import { getRoleDisplayName, roleHasAccessToEnv } from "shared/permissions";
+import {
+  apiKeyToggleRequiresAdmin,
+  getRoleDisplayName,
+  roleHasAccessToEnv,
+} from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
@@ -41,7 +45,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onEdit,
   onShowAuditLog,
 }) => {
-  const { organization, userId } = useUser();
+  const { organization, userId, users } = useUser();
   const canManageTokens = usePermissionsUtil().canDeleteApiKey();
   const { projects } = useDefinitions();
   const environments = useEnvironments();
@@ -74,8 +78,11 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               !!key.disabled &&
               !!key.disabledBy &&
               key.disabledBy !== userId;
-            // Only an admin can re-enable such a token; mirrors canUpdate.
-            const adminLocked = disabledByAdmin && !canManageTokens;
+            const adminLocked =
+              !canManageTokens && apiKeyToggleRequiresAdmin(key, userId || "");
+            const disabler = key.disabledBy
+              ? users.get(key.disabledBy)
+              : undefined;
             // Data cells dim, never the actions cell that holds Enable.
             const dimmed = key.disabled ? { opacity: 0.55 } : undefined;
             return (
@@ -88,7 +95,13 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                       color="red"
                       variant="soft"
                       label={disabledByAdmin ? "Disabled by admin" : "Disabled"}
-                      title={adminLocked ? ADMIN_LOCKED_REASON : undefined}
+                      title={
+                        adminLocked
+                          ? ADMIN_LOCKED_REASON
+                          : !key.userId && key.disabledBy
+                            ? `Disabled by ${disabler?.name || disabler?.email || "a former member"}`
+                            : undefined
+                      }
                     />
                   )}
                 </td>

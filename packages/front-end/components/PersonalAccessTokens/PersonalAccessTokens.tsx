@@ -113,7 +113,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             )}{" "}
             members&apos; tokens under{" "}
             <Link href="/settings/personal-access-tokens">
-              Personal Access Tokens settings
+              Manage PATs
             </Link>
             .
           </Callout>

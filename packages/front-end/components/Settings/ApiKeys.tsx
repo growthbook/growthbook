@@ -42,7 +42,7 @@ const ApiKeys: FC = () => {
             <>
               Organization-wide token settings live under{" "}
               <Link href="/settings/personal-access-tokens">
-                Personal Access Tokens
+                Manage PATs
               </Link>
               .
             </>

@@ -2,7 +2,7 @@ import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
-import { getRoleById } from "shared/permissions";
+import { apiKeyToggleRequiresAdmin, getRoleById } from "shared/permissions";
 import {
   generateEncryptionKey,
   generateSigningKey,
@@ -59,8 +59,8 @@ export class ApiKeyModel extends BaseClass {
   }
   protected canRead(apiKey: ApiKeyInterface): boolean {
     if (apiKey.userId) {
-      // Admins need an inventory of members' PATs to revoke a compromised one.
-      // `sanitize` still strips the token value, and reveal stays owner-only.
+      // Admins can read members' PATs, so "readable" doesn't mean "own": getApiKeys
+      // filters to the caller's userId and postApiKeyReveal checks ownership.
       return (
         apiKey.userId === this.context.userId ||
         this.context.permissions.canDeleteApiKey()
@@ -81,21 +81,10 @@ export class ApiKeyModel extends BaseClass {
     const editable = new Set(["disabled", "disabledBy"]);
     const keys = Object.keys(updates);
     if (!keys.length || keys.some((k) => !editable.has(k))) return false;
-    if (apiKey.userId) {
-      // Admins can revoke another member's PAT without being able to delete it —
-      // the disabled doc keeps `lastUsed` ticking so they can see continued use.
-      if (apiKey.userId !== this.context.userId) {
-        return this.context.permissions.canDeleteApiKey();
-      }
-      // The owner can undo their own disable but not an admin's. Any write is
-      // blocked, not just enabling, or re-disabling would take over `disabledBy`.
-      if (
-        apiKey.disabled &&
-        apiKey.disabledBy &&
-        apiKey.disabledBy !== this.context.userId
-      ) {
-        return this.context.permissions.canDeleteApiKey();
-      }
+    // Admins can disable another member's PAT without being able to delete it —
+    // the disabled doc keeps `lastUsed` ticking so they can see continued use.
+    if (apiKeyToggleRequiresAdmin(apiKey, this.context.userId)) {
+      return this.context.permissions.canDeleteApiKey();
     }
     return this.canDelete(apiKey);
   }

@@ -16,7 +16,9 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Tooltip from "@/ui/Tooltip";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import HistoryTable from "@/components/HistoryTable";
 import Table, {
   TableBody,
   TableCell,
@@ -56,8 +58,14 @@ const MemberPersonalAccessTokens: FC = () => {
   const { apiCall } = useAuth();
   const { users, settings } = useUser();
   const orgTokensDisabled = !!settings?.disablePersonalAccessTokens;
-  const canManage = usePermissionsUtil().canDeleteApiKey();
+  const permissionsUtil = usePermissionsUtil();
+  const canManage = permissionsUtil.canDeleteApiKey();
+  // The apiKey history endpoint gates on create, not delete.
+  const canViewAuditLog = permissionsUtil.canCreateApiKey();
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
+    null,
+  );
+  const [auditLogToken, setAuditLogToken] = useState<ApiKeyInterface | null>(
     null,
   );
 
@@ -215,7 +223,7 @@ const MemberPersonalAccessTokens: FC = () => {
                           title={
                             token.disabledBy &&
                             token.disabledBy !== token.userId
-                              ? `Disabled by ${users.get(token.disabledBy)?.name || "a former member"}`
+                              ? `Disabled by ${users.get(token.disabledBy)?.name || users.get(token.disabledBy)?.email || "a former member"}`
                               : undefined
                           }
                         />
@@ -225,13 +233,23 @@ const MemberPersonalAccessTokens: FC = () => {
                       <LastUsed token={token} />
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        color={token.disabled ? "violet" : "red"}
-                        onClick={() => setPendingToggle(token)}
-                      >
-                        {token.disabled ? "Enable" : "Disable"}
-                      </Button>
+                      <Flex gap="4">
+                        <Button
+                          variant="ghost"
+                          color={token.disabled ? "violet" : "red"}
+                          onClick={() => setPendingToggle(token)}
+                        >
+                          {token.disabled ? "Enable" : "Disable"}
+                        </Button>
+                        {canViewAuditLog && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => setAuditLogToken(token)}
+                          >
+                            Audit log
+                          </Button>
+                        )}
+                      </Flex>
                     </TableCell>
                   </TableRow>
                 );
@@ -269,6 +287,18 @@ const MemberPersonalAccessTokens: FC = () => {
           }}
           onCancel={() => setPendingToggle(null)}
         />
+      )}
+
+      {auditLogToken && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header={`Audit Log: ${auditLogToken.description || auditLogToken.id}`}
+          close={() => setAuditLogToken(null)}
+          size="lg"
+        >
+          <HistoryTable type="apiKey" id={auditLogToken.id} />
+        </ModalStandard>
       )}
     </Frame>
   );

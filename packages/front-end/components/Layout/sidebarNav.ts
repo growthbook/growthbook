@@ -308,7 +308,7 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canDeleteApiKey(),
       },
       {
-        name: "Personal Access Tokens",
+        name: "Manage PATs",
         href: "/settings/personal-access-tokens",
         path: /^settings\/personal-access-tokens/,
         filter: ({ permissionsUtils }) =>

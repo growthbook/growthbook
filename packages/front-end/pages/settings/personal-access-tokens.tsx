@@ -25,7 +25,7 @@ const ManagePersonalAccessTokensPage: FC = () => {
   return (
     <div className="container-fluid pagecontents">
       <Heading as="h1" size="xl" mb="2">
-        Personal Access Tokens
+        Manage PATs
       </Heading>
       <Text as="p" color="text-mid" mb="4">
         Personal access tokens act as the member who created them and carry
