@@ -3,7 +3,7 @@ import type { DataSourceType } from "shared/types/datasource";
 
 // Managed Warehouse credentials are internal, and Google Analytics connects
 // through OAuth, so neither has user-entered credentials to test.
-const testableDataSourceTypes = [
+export const testableDataSourceTypes = [
   "redshift",
   "athena",
   "snowflake",
@@ -18,6 +18,16 @@ const testableDataSourceTypes = [
   "vertica",
   "adobe_experience_platform_query_service",
 ] as const satisfies readonly DataSourceType[];
+
+export type TestableDataSourceType = (typeof testableDataSourceTypes)[number];
+
+export function isTestableDataSourceType(
+  type: string | undefined | null,
+): type is TestableDataSourceType {
+  return (
+    !!type && (testableDataSourceTypes as readonly string[]).includes(type)
+  );
+}
 
 export const testDataSourceConnectionBodySchema = z.strictObject({
   type: z.enum(testableDataSourceTypes),

@@ -39,7 +39,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Username</label>
         <input
           type="text"
@@ -51,7 +51,7 @@ const SnowflakeForm: FC<{
         />
       </div>
 
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Authentication Method</label>
         <select
           className="form-control"
@@ -180,7 +180,7 @@ const SnowflakeForm: FC<{
         </div>
       )}
 
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Database</label>
         <input
           type="text"
@@ -191,7 +191,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Schema</label>
         <input
           type="text"
@@ -202,7 +202,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Role</label>
         <input
           type="text"
@@ -212,7 +212,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>
           Warehouse (Optional){" "}
           <Tooltip body="If no Warehouse is specified, queries will be executed in the default Warehouse for your User, set in Snowflake." />

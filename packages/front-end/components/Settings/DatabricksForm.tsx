@@ -41,7 +41,7 @@ const DatabricksForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <TextField
           label="Port"
           type="number"
@@ -51,7 +51,7 @@ const DatabricksForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <TextField
           label="HTTP path"
           name="path"
@@ -73,7 +73,7 @@ const DatabricksForm: FC<{
 
       {authType === "oauth-m2m" ? (
         <>
-          <div className="form-group col-md-12">
+          <div className="form-group col-md-6">
             <TextField
               label="Client ID"
               name="oauthClientId"
@@ -82,7 +82,7 @@ const DatabricksForm: FC<{
               onChange={onParamChange}
             />
           </div>
-          <div className="form-group col-md-12">
+          <div className="form-group col-md-6">
             <TextField
               label="OAuth secret"
               type="password"

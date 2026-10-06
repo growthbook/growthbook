@@ -35,6 +35,7 @@ import AskDataSettings from "@/components/Settings/EditDataSource/AskDataSetting
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 import Badge from "@/ui/Badge";
 import {
   DropdownMenu,
@@ -66,6 +67,7 @@ export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
+  const newDataSourceOnboarding = useNewDataSourceOnboarding();
   const [editConn, setEditConn] = useState(false);
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -269,8 +271,12 @@ const DataSourcePage: FC = () => {
               {canUpdateConnectionParams && (
                 <DropdownMenuItem
                   onClick={() => {
-                    setEditConn(true);
                     setDropdownOpen(false);
+                    if (newDataSourceOnboarding.enabled) {
+                      router.push(`/datasources/${d.id}/connect`);
+                    } else {
+                      setEditConn(true);
+                    }
                   }}
                 >
                   Edit Connection Info
