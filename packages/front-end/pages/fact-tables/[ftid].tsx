@@ -7,6 +7,7 @@ import {
   FactMetricInterface,
 } from "shared/types/fact-table";
 import { getFactMetricFactTableIds } from "shared/experiments";
+import { hasStartDateFilter } from "shared/sql";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -49,6 +50,7 @@ import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
+import { DocLink } from "@/components/DocLink";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -533,6 +535,20 @@ export default function FactTablePage() {
             <div className="p-2 bg-light border border-top-0">
               <strong>eventName</strong> = <code>{factTable.eventName}</code>
             </div>
+          )}
+          {!hasStartDateFilter(factTable.sql) && (
+            <Callout
+              status="info"
+              mt="3"
+              action={
+                <DocLink docSection="queryOptimization" useRadix>
+                  Learn more
+                </DocLink>
+              }
+            >
+              This SQL has no <code>{"{{startDate}}"}</code> filter, so queries
+              may scan the whole table.
+            </Callout>
           )}
         </div>
         <div className="col col-md-6 d-flex flex-column">

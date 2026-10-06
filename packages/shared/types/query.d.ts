@@ -26,6 +26,25 @@ export type QueryStatistics = z.infer<typeof queryStatisticsValidator>;
 
 export type QueryLogInterface = z.infer<typeof queryLogValidator>;
 
+// Summed querylogs rows; stats a warehouse doesn't report sum to 0
+export type QueryLogUsage = {
+  queries: number;
+  durationMs: number;
+  executionDurationMs: number;
+  bytesProcessed: number;
+  bytesBilled: number;
+  totalSlotMs: number;
+};
+// id is null for rows without the grouped field, e.g. scheduled runs have no user
+export type QueryLogUsageGroup = QueryLogUsage & { id: string | null };
+export type DataSourceUsage = {
+  total: QueryLogUsage;
+  factTables: QueryLogUsageGroup[];
+  experiments: QueryLogUsageGroup[];
+  users: QueryLogUsageGroup[];
+  queryTypes: QueryLogUsageGroup[];
+};
+
 export type TestQueryType = z.infer<typeof testQueryTypeValidator>;
 
 export type QueryType =

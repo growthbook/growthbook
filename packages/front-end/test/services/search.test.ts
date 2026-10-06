@@ -437,10 +437,10 @@ describe("useSearch", () => {
       });
 
       expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "e",
         "b",
         "a",
         "d",
-        "e",
       ]);
 
       const header = result.current.SortableTH({
@@ -539,10 +539,10 @@ describe("useSearch", () => {
 
       // Removing free-text falls back to the last selected manual column sort.
       expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "e",
         "b",
         "a",
         "d",
-        "e",
       ]);
       expect(
         getSortLinkClass(
@@ -552,6 +552,30 @@ describe("useSearch", () => {
           }) as React.ReactElement,
         ),
       ).toBe("activesort");
+    });
+  });
+
+  describe("sorting numbers", () => {
+    it("sorts zero values like any other number", () => {
+      const items = [
+        { id: "zero", bytes: 0 },
+        { id: "small", bytes: 5 },
+        { id: "large", bytes: 50 },
+      ];
+      const { result } = renderHook(() =>
+        useSearch({
+          items,
+          searchFields: ["id"],
+          localStorageKey: "search-service-test-zero-sort",
+          defaultSortField: "bytes",
+          defaultSortDir: -1,
+        }),
+      );
+      expect(result.current.items.map((i) => i.id)).toEqual([
+        "large",
+        "small",
+        "zero",
+      ]);
     });
   });
 

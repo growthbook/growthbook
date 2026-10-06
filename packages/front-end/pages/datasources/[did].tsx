@@ -52,7 +52,7 @@ import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
-import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
+import LinkButton from "@/ui/LinkButton";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -194,10 +194,6 @@ const DataSourcePage: FC = () => {
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
-  const canOpenInExplorer =
-    supportsSQL &&
-    !!d.properties?.supportsInformationSchema &&
-    permissionsUtil.canRunFactQueries(d);
 
   return (
     <div className="container pagecontents">
@@ -239,13 +235,9 @@ const DataSourcePage: FC = () => {
           />
         </Flex>
         <Flex align="center" gap="2" pr="2">
-          <OpenInExplorerButton
-            enabled={canOpenInExplorer}
-            href={`/product-analytics/explore/data-source?datasourceId=${encodeURIComponent(
-              d.id,
-            )}`}
-            tooltip="Open this Data Source in Product Analytics to choose a table and visualize its data. Chart trends, compare time periods, and slice/dice your data."
-          />
+          <LinkButton href={`/datasources/queries/${did}`} variant="outline">
+            View usage
+          </LinkButton>
           {(canUpdateConnectionParams ||
             canUpdateDataSourceSettings ||
             canDelete) && (
@@ -309,14 +301,6 @@ const DataSourcePage: FC = () => {
                   View SQL Explorer
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem
-                onClick={() => {
-                  setDropdownOpen(false);
-                  router.push(`/datasources/queries/${did}`);
-                }}
-              >
-                View Queries
-              </DropdownMenuItem>
               {canDelete && (
                 <>
                   <DropdownMenuSeparator />
