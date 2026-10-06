@@ -34,6 +34,7 @@ import {
   mergeUpsertColumns,
   getAllFactTablesForOrganization,
   getFactTable,
+  getFactTablesByIds,
   createColumn,
   updateColumn,
   deleteColumn as deleteColumnInDb,
@@ -86,13 +87,21 @@ import {
   testVirtualColumnQuery,
 } from "back-end/src/services/factTableTestQueries";
 
+// Optional `ids` narrows the list to a specific set (e.g. the Explorer's
+// dimension picker, which needs full jsonFields that definitions strip).
 export const getFactTables = async (
-  req: AuthRequest,
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<{ status: 200; factTables: FactTableInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
-  const factTables = await getAllFactTablesForOrganization(context);
+  const factTables =
+    req.query.ids !== undefined
+      ? await getFactTablesByIds(
+          context,
+          req.query.ids.split(",").filter(Boolean),
+        )
+      : await getAllFactTablesForOrganization(context);
 
   res.status(200).json({
     status: 200,
