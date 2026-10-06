@@ -3,6 +3,7 @@ import { date, datetime } from "shared/dates";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import { PopulationStep } from "shared/validators";
+import { FactTableDefinition, RowFilter } from "shared/types/fact-table";
 import { getPopulationStepWindowLabel } from "shared/populations";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
@@ -15,7 +16,8 @@ import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Owner from "@/components/Avatar/Owner";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
-import { formatFilterPreview } from "@/enterprise/components/ProductAnalytics/util";
+import PopulationSizePanel from "@/components/Populations/PopulationSizePanel";
+import { operatorLabelMap } from "@/components/FactTables/rowFilterUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { usePopulation } from "@/hooks/usePopulations";
 import Custom404 from "@/pages/404";
@@ -86,15 +88,7 @@ export default function PopulationPage() {
 
       <Grid columns={{ initial: "1", md: "3" }} gap="4">
         <Box gridColumn={{ initial: "1", md: "1 / 3" }}>
-          <Frame>
-            <Heading as="h3" size="md" mb="2">
-              Population Size
-            </Heading>
-            <Text color="text-mid">
-              Member counts and trends will appear here once populations can be
-              refreshed against your Data Source.
-            </Text>
-          </Frame>
+          <PopulationSizePanel population={population} />
         </Box>
         <Box>
           <Frame>
@@ -131,6 +125,33 @@ export default function PopulationPage() {
   );
 }
 
+// Same wording as Product Analytics' funnel step filters, e.g. `event_name=signup`.
+function getRowFilterLabel(
+  filter: RowFilter,
+  factTable: FactTableDefinition | null,
+): string {
+  if (filter.operator === "sql_expr") return "SQL expr";
+  if (filter.operator === "saved_filter") {
+    const saved = factTable?.filters.find((f) => f.id === filter.values?.[0]);
+    return saved ? saved.name : "Saved Filter";
+  }
+  const column =
+    factTable?.columns.find((c) => c.column === filter.column)?.name ||
+    filter.column ||
+    "?";
+  const op = operatorLabelMap[filter.operator] ?? filter.operator;
+  if (
+    ["is_true", "is_false", "is_null", "not_null"].includes(filter.operator)
+  ) {
+    return `${column} ${op}`;
+  }
+  const values = (filter.values ?? []).filter((v) => v !== "");
+  const value = values.length ? values.join(", ") : "…";
+  return /^[a-zA-Z]/.test(op)
+    ? `${column} ${op} ${value}`
+    : `${column}${op}${value}`;
+}
+
 function PopulationStepSummary({
   step,
   index,
@@ -154,7 +175,7 @@ function PopulationStepSummary({
       </Text>
       {step.rowFilters.map((rf, i) => (
         <Text key={i} size="sm" color="text-mid">
-          {formatFilterPreview(rf, factTable)}
+          {getRowFilterLabel(rf, factTable)}
         </Text>
       ))}
       {windowLabel && (

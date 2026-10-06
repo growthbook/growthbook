@@ -1,5 +1,6 @@
 import type { PopulationStep } from "shared/validators";
 import {
+  getPopulationDateRange,
   getPopulationFactTableIds,
   getPopulationRuleViolations,
   getPopulationStepsLabel,
@@ -49,6 +50,26 @@ describe("getPopulationFactTableIds", () => {
         step("ftb_orders"),
       ]),
     ).toEqual(["ftb_orders", "ftb_events"]);
+  });
+});
+
+describe("getPopulationDateRange", () => {
+  const now = new Date("2026-10-06T15:30:00Z");
+
+  it("includes today in day presets, starting at UTC midnight", () => {
+    expect(getPopulationDateRange("last30Days", now)).toEqual({
+      startDate: new Date("2026-09-07T00:00:00Z"),
+      endDate: now,
+    });
+    expect(getPopulationDateRange("last90Days", now).startDate).toEqual(
+      new Date("2026-07-09T00:00:00Z"),
+    );
+  });
+
+  it("spans exactly 12 calendar months", () => {
+    expect(getPopulationDateRange("last12Months", now).startDate).toEqual(
+      new Date("2025-10-07T00:00:00Z"),
+    );
   });
 });
 

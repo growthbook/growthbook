@@ -2,6 +2,41 @@ import type { PopulationStep } from "shared/validators";
 
 export * from "./population-sql";
 export * from "./population-snapshots";
+
+// Same preset names, labels and UTC day boundaries as Product Analytics'
+// `calculateProductAnalyticsDateRange`, which lives in enterprise code.
+export const POPULATION_DATE_RANGE_PRESETS = [
+  "last30Days",
+  "last90Days",
+  "last12Months",
+] as const;
+export type PopulationDateRangePreset =
+  (typeof POPULATION_DATE_RANGE_PRESETS)[number];
+export const POPULATION_DATE_RANGE_LABELS: Record<
+  PopulationDateRangePreset,
+  string
+> = {
+  last30Days: "Past 30 days",
+  last90Days: "Past 90 days",
+  last12Months: "Past 12 months",
+};
+
+export function getPopulationDateRange(
+  preset: PopulationDateRangePreset,
+  now: Date = new Date(),
+): { startDate: Date; endDate: Date } {
+  const startDate = new Date(now);
+  if (preset === "last12Months") {
+    startDate.setUTCMonth(startDate.getUTCMonth() - 12);
+    startDate.setUTCDate(startDate.getUTCDate() + 1);
+  } else {
+    startDate.setUTCDate(
+      startDate.getUTCDate() - (preset === "last30Days" ? 29 : 89),
+    );
+  }
+  startDate.setUTCHours(0, 0, 0, 0);
+  return { startDate, endDate: new Date(now) };
+}
 import type { FactTableInterface } from "shared/types/fact-table";
 
 export type PopulationRuleFactTable = Pick<

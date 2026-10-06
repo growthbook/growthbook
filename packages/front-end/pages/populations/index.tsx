@@ -3,6 +3,7 @@ import { ago, datetime } from "shared/dates";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import { getPopulationStepsLabel } from "shared/populations";
+import { ApiPopulationSnapshot } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -24,7 +25,10 @@ import Owner from "@/components/Avatar/Owner";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import { usePopulations } from "@/hooks/usePopulations";
+import {
+  useLatestPopulationSnapshots,
+  usePopulations,
+} from "@/hooks/usePopulations";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import Custom404 from "@/pages/404";
 
@@ -38,20 +42,30 @@ export default function PopulationsPage() {
     useDefinitions();
   const { getOwnerDisplay } = useUser();
   const { populations, loading, error, mutate } = usePopulations(project);
+  const { latestSnapshots, mutate: mutateSnapshots } =
+    useLatestPopulationSnapshots();
   const [datasourceFilter, setDatasourceFilter] = useState(ALL_DATASOURCES);
 
   const populationsWithLabels = useAddComputedFields(
     populations,
-    (p) => ({
-      ...p,
-      stepsLabel: getPopulationStepsLabel(
-        p.steps,
-        (id) => getFactTableById(id)?.name,
-      ),
-      datasourceName: getDatasourceById(p.datasource)?.name || p.datasource,
-      ownerName: getOwnerDisplay(p.owner),
-    }),
-    [getFactTableById, getDatasourceById, getOwnerDisplay],
+    (p) => {
+      const snapshot = latestSnapshots.get(p.id) ?? null;
+      const counts = snapshot?.status === "success" ? snapshot.result : null;
+      return {
+        ...p,
+        stepsLabel: getPopulationStepsLabel(
+          p.steps,
+          (id) => getFactTableById(id)?.name,
+        ),
+        datasourceName: getDatasourceById(p.datasource)?.name || p.datasource,
+        ownerName: getOwnerDisplay(p.owner),
+        snapshot,
+        size: counts?.membersNow ?? -1,
+        change: counts ? counts.membersNow - counts.membersPrior : 0,
+        refreshedAt: snapshot ? new Date(snapshot.asOf).getTime() : 0,
+      };
+    },
+    [getFactTableById, getDatasourceById, getOwnerDisplay, latestSnapshots],
   );
 
   const filterResults = useCallback(
@@ -149,11 +163,17 @@ export default function PopulationsPage() {
                 <SortableTableColumnHeader field="name">
                   Name
                 </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="size">
+                  Size
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="change">
+                  Change, 30 days
+                </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="stepsLabel">
                   Steps
                 </SortableTableColumnHeader>
-                <SortableTableColumnHeader field="dateUpdated">
-                  Last Updated
+                <SortableTableColumnHeader field="refreshedAt">
+                  Last Refreshed
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="ownerName">
                   Owner
@@ -176,9 +196,42 @@ export default function PopulationsPage() {
                       )}
                     </Flex>
                   </TableCell>
+                  <TableCell>
+                    {p.size >= 0 ? (
+                      <Flex direction="column">
+                        <Text weight="medium">{p.size.toLocaleString()}</Text>
+                        <Text size="sm" color="text-low">
+                          {p.snapshot?.userIdType}
+                        </Text>
+                      </Flex>
+                    ) : (
+                      <Text color="text-low">—</Text>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {p.size >= 0 ? (
+                      <span
+                        style={{
+                          color:
+                            p.change > 0
+                              ? "var(--green-11)"
+                              : p.change < 0
+                                ? "var(--red-11)"
+                                : undefined,
+                        }}
+                      >
+                        <Text>
+                          {p.change > 0 ? "+" : ""}
+                          {p.change.toLocaleString()}
+                        </Text>
+                      </span>
+                    ) : (
+                      <Text color="text-low">—</Text>
+                    )}
+                  </TableCell>
                   <TableCell>{p.stepsLabel}</TableCell>
-                  <TableCell title={datetime(p.dateUpdated)}>
-                    {ago(p.dateUpdated)}
+                  <TableCell>
+                    <RefreshStatus snapshot={p.snapshot} />
                   </TableCell>
                   <TableCell>
                     <Owner ownerId={p.owner} />
@@ -187,14 +240,17 @@ export default function PopulationsPage() {
                     <PopulationMoreMenu
                       population={p}
                       onDuplicated={() => mutate()}
-                      onDeleted={() => mutate()}
+                      onDeleted={() => {
+                        void mutateSnapshots();
+                        return mutate();
+                      }}
                     />
                   </TableCell>
                 </TableRow>
               ))}
               {!items.length && isFiltered && (
                 <TableRow>
-                  <TableCell colSpan={5} style={{ textAlign: "center" }}>
+                  <TableCell colSpan={7} style={{ textAlign: "center" }}>
                     No matching populations.
                   </TableCell>
                 </TableRow>
@@ -205,4 +261,23 @@ export default function PopulationsPage() {
       )}
     </Box>
   );
+}
+
+function RefreshStatus({
+  snapshot,
+}: {
+  snapshot: ApiPopulationSnapshot | null;
+}) {
+  if (!snapshot) return <Text color="text-low">Never</Text>;
+  if (snapshot.status === "running") {
+    return <Text color="text-mid">Refreshing…</Text>;
+  }
+  if (snapshot.status === "error") {
+    return (
+      <span style={{ color: "var(--red-11)" }}>
+        <Text title={snapshot.error || undefined}>Refresh failed</Text>
+      </span>
+    );
+  }
+  return <Text title={datetime(snapshot.asOf)}>{ago(snapshot.asOf)}</Text>;
 }
