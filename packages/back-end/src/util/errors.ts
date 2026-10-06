@@ -283,7 +283,7 @@ export class DimensionAlreadyUpToDateError extends ApiError<"dimension_already_u
   }
 }
 
-// Snapshot failures that repeat on every retry; auto-updates get disabled, even for bandits
+// Snapshot failures that repeat on every retry; auto-updates turn off at once instead of after repeated failures
 export class UnrecoverableSnapshotError extends Error {
   constructor(message: string) {
     super(message);
