@@ -1,0 +1,38 @@
+name: Build impact
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+# No path filters: a required check has to report on every PR.
+
+jobs:
+  note:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github
+
+      - name: Require a self-hosted build impact note
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          touched=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename' \
+            | grep -Fx -f .github/build-change-paths.txt || true)
+          if [ -z "$touched" ]; then
+            echo "No build files changed."
+            exit 0
+          fi
+          echo "Build files changed:"
+          echo "$touched"
+          if [ -z "$(printf '%s' "$BODY" | .github/scripts/build-impact-section.sh)" ]; then
+            echo "::error::Self-hosted users who build the Docker image from source depend on these files. Add a '### Self-hosted build impact' section to the PR description saying what they need to change, or 'None'. It is copied into the release notes."
+            exit 1
+          fi

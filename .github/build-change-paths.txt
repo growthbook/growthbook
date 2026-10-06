@@ -1,0 +1,6 @@
+Dockerfile
+.dockerignore
+.npmrc
+pnpm-workspace.yaml
+ecosystem.config.js
+scripts/run-apps.js
