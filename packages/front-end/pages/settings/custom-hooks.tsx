@@ -12,6 +12,8 @@ import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
 import CustomHooksTable from "@/components/CustomHooks/CustomHooksTable";
 import Link from "@/ui/Link";
 
+// Push test from Claude; do not merge.
+
 // Feature- and config-scoped hooks are managed from their entity's Validation
 // tab; here they are listed with a link to that entity plus history/revert.
 function EntityScopedHooksSection({
