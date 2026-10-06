@@ -76,6 +76,13 @@ export const ATTR_CB_PREFIX = "attr_cb_";
 export const ATTR_CB_RAW_PREFIX = "attr_cb_raw_";
 /** Bucket value for low-traffic / merged contextual bandit attribute slices. */
 export const CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE = "Combined";
+/**
+ * Minimum total units a variation needs to participate in contextual bandit tree
+ * construction.
+ */
+export const MIN_UNITS_PER_VARIATION = 100;
+/** Per-variation minimum units applied within a single contextual bandit leaf. */
+export const MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY = 100;
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 export const NULL_ATTRIBUTE_VALUE = "__NULL_ATTRIBUTE";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
@@ -332,3 +339,18 @@ export const entityEvents = {
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
 
 export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;
+
+// SDK Connection settings that add optional data to the SDK payload
+export const SDK_OPTIONAL_PAYLOAD_SETTINGS = [
+  "includeDraftExperiments",
+  "includeVisualExperiments",
+  "includeRedirectExperiments",
+  "includeProjectIdInMetadata",
+  "includeCustomFieldsInMetadata",
+  "includeTagsInMetadata",
+  "includeExperimentScheduleInMetadata",
+] as const;
+
+// ID lists longer than this are treated as opaque by the flag page's rule
+// conflict analysis, so their values are never fetched.
+export const SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES = 1000;

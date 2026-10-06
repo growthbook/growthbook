@@ -9,6 +9,8 @@ import {
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
+  getExposureQueryIdentifierTypes,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -16,6 +18,7 @@ import {
   DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
+  ExposureQuery,
   GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
@@ -132,13 +135,17 @@ export async function getDataSourcesByOrganization(
   );
 }
 
-// Unfiltered by project permissions - the org's event ingestor region isn't
-// sensitive on its own, and gating it on datasource read permissions means
-// users without access to the Managed Warehouse/Event Forwarder datasource
-// would get an incorrect region for the SDK setup snippets.
-export async function getEventIngestorRegionForOrganization(
+// Unfiltered by project permissions - none of this is sensitive on its own, and
+// gating it on datasource read permissions means users without access to the
+// Managed Warehouse/Event Forwarder datasource would get an incorrect region for
+// the SDK setup snippets and be offered to set up a second one.
+export async function getEventPipelineStatusForOrganization(
   context: ReqContext | ApiReqContext,
-): Promise<DataRegion | undefined> {
+): Promise<{
+  eventIngestorRegion: DataRegion | undefined;
+  hasManagedWarehouse: boolean;
+  hasEventForwarder: boolean;
+}> {
   const datasources = usingFileConfig()
     ? getConfigDatasources(context.org.id)
     : (await DataSourceModel.find({ organization: context.org.id })).map(
@@ -149,13 +156,16 @@ export async function getEventIngestorRegionForOrganization(
     (d): d is GrowthbookClickhouseDataSource =>
       d.type === "growthbook_clickhouse",
   );
-  if (managedWarehouse) {
-    return managedWarehouse.settings?.region;
-  }
-
   const forwarderConfigs =
     await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
-  return forwarderConfigs.find((c) => c.region)?.region;
+
+  return {
+    eventIngestorRegion: managedWarehouse
+      ? managedWarehouse.settings?.region
+      : forwarderConfigs.find((c) => c.region)?.region,
+    hasManagedWarehouse: !!managedWarehouse,
+    hasEventForwarder: forwarderConfigs.length > 0,
+  };
 }
 
 // WARNING: This does not restrict by organization
@@ -192,6 +202,28 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
 ): Promise<DataSourceInterface | null> {
   const doc: DataSourceDocument | null = await DataSourceModel.findOne({
     type: "growthbook_clickhouse",
+    organization: context.org.id,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
+/**
+ * WARNING: bypasses project-read permission. Validation-only: a caller who may
+ * edit a selection can still lack read access to its data source (reading
+ * needs one of its projects), and the selection must be checked anyway. Never
+ * return the result to the user.
+ */
+export async function dangerouslyGetDataSourceByIdBypassPermission(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<DataSourceInterface | null> {
+  if (usingFileConfig()) {
+    return (
+      getConfigDatasources(context.org.id).find((d) => d.id === id) ?? null
+    );
+  }
+  const doc: DataSourceDocument | null = await DataSourceModel.findOne({
+    id,
     organization: context.org.id,
   });
   return doc ? toInterface(doc) : null;
@@ -295,6 +327,7 @@ export async function deleteDatasource(
     id: datasource.id,
     organization: context.org.id,
   });
+  context.forgetDataSourceRefs();
 
   // Eviction is synchronous; socket teardown can take up to the driver's
   // connect timeout, so don't make the request wait on it
@@ -459,7 +492,12 @@ export async function createDataSource(
     datasource,
     settings,
     "all",
+    false,
+    [],
   );
+  // Validation returns a copy; save it, with its generated ids and errors,
+  // not the settings as submitted.
+  datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
   validatePipelineSettingsInvariants(settings.pipelineSettings);
@@ -467,6 +505,7 @@ export async function createDataSource(
   const model = (await DataSourceModel.create(
     datasource,
   )) as DataSourceDocument;
+  context.forgetDataSourceRefs();
 
   const integration = getSourceIntegrationObject(context, datasource);
   if (
@@ -500,6 +539,8 @@ export async function validateExposureQueriesAndAddMissingIds(
   updates: Partial<DataSourceSettings>,
   validation: ExposureQueryValidation = "changed",
   skipEventForwarderManagedValidation: boolean = false,
+  storedExposureQueries: ExposureQuery[] = datasource.settings.queries
+    ?.exposure ?? [],
 ): Promise<Partial<DataSourceSettings>> {
   const updatesCopy = cloneDeep(updates);
   if (updatesCopy.queries?.exposure) {
@@ -508,6 +549,21 @@ export async function validateExposureQueriesAndAddMissingIds(
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
         }
+        if (!exposure.userIdTypes?.length) {
+          exposure.userIdTypes = [exposure.userIdType].filter(Boolean);
+        }
+        if (!exposure.userIdTypes.length) {
+          throw new Error(
+            `Experiment assignment query "${
+              exposure.name || exposure.id
+            }" must declare at least one identifier type`,
+          );
+        }
+        // The legacy identifier is frozen once the query exists, so ignore
+        // whatever the client echoes back.
+        exposure.userIdType =
+          storedExposureQueries.find((q) => q.id === exposure.id)?.userIdType ||
+          exposure.userIdTypes[0];
         // Skip live validation while the warehouse can't serve queries — never
         // provisioned OR mid-migration (tables being recreated). Otherwise a
         // concurrent settings save would test-run against unavailable tables and
@@ -701,6 +757,7 @@ export async function updateDataSource(
       $set: updates,
     },
   );
+  context.forgetDataSourceRefs();
 
   await audit.logUpdate(context, datasource, { ...datasource, ...updates });
   await touchDefinitionsVersion(
@@ -741,7 +798,9 @@ export function toDataSourceApiInterface(
       id: q.id,
       name: q.name,
       description: q.description || "",
-      identifierType: q.userIdType,
+      identifierTypes: getExposureQueryIdentifierTypes(q),
+      /** What records without a stored identifier analyze on. */
+      identifierType: resolveAnalysisIdentifierType(q, undefined),
       sql: q.query,
       includesNameColumns: !!q.hasNameCol,
       dimensionColumns: q.dimensions,

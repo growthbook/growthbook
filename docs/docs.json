@@ -182,7 +182,7 @@
                     "pages": [
                       "features/feature-flag-experiments",
                       {
-                        "group": "Visual Editor",
+                        "group": "AI Visual Editor",
                         "root": "app/visual",
                         "pages": [
                           "app/visual/install-and-connect",
@@ -192,8 +192,7 @@
                           "app/visual/design-import",
                           "app/visual/running-on-your-site",
                           "app/visual/preview-and-qa",
-                          "app/visual/troubleshooting",
-                          "app/visual/legacy"
+                          "app/visual/troubleshooting"
                         ]
                       },
                       "app/url-redirects"
@@ -292,6 +291,7 @@
                     "group": "AI Agents",
                     "root": "integrations/ai-agents",
                     "pages": [
+                      "integrations/ai-agents/wizard",
                       "integrations/mcp",
                       "integrations/ai-agents/agent-skills"
                     ]
@@ -1010,6 +1010,7 @@
                   "api/Dashboards/operation/deleteDashboard",
                   "api/Dashboards/operation/listDashboards",
                   "api/Dashboards/operation/createDashboard",
+                  "api/Dashboards/operation/createDashboardV2",
                   "api/Dashboards/operation/getDashboardsForExperiment"
                 ]
               },
@@ -1222,6 +1223,7 @@
               "api/Safe Rollout Rule_model",
               "api/SavedGroup_model",
               "api/SavedGroupApprovalRule_model",
+              "api/SavedGroupReferenceResource_model",
               "api/SavedGroupReferences_model",
               "api/SavedGroupRevision_model",
               "api/SavedGroupRevisionActivityLogEntry_model",
@@ -1256,7 +1258,7 @@
     ],
     "primary": {
       "type": "button",
-      "label": "Log in",
+      "label": "Open App",
       "href": "https://app.growthbook.io/"
     }
   },
@@ -1652,6 +1654,14 @@
     {
       "source": "/bandits/contextual-bandit-via-api",
       "destination": "/bandits/contextual-via-api"
+    },
+    {
+      "source": "/event-trackers/missing-event-tracker-docs",
+      "destination": "/event-trackers/custom"
+    },
+    {
+      "source": "/app/visual/legacy",
+      "destination": "/app/visual"
     }
   ]
 }
