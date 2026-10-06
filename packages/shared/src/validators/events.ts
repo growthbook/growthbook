@@ -157,7 +157,6 @@ const apiKeyExpirationEventSchema = z
   .object({
     id: z.string(),
     description: z.string().optional(),
-    kind: z.enum(["personalAccessToken", "secretApiKey"]),
     expiresAt: z.string(),
   })
   .strict();

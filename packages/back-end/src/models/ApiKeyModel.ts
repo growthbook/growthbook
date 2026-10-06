@@ -4,6 +4,9 @@ import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
 import { apiKeyToggleRequiresAdmin, getRoleById } from "shared/permissions";
 import {
+  addDays,
+  EXPIRING_SOON_DAYS,
+  isExpired,
   maxExpirationDate,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
@@ -576,6 +579,8 @@ export class ApiKeyModel extends BaseClass {
     return getCollection<ApiKeyInterface>(COLLECTION_NAME)
       .find({
         secret: true,
+        // Org keys only: a PAT's owner is told in-app, not via org webhooks.
+        userId: { $not: { $type: "string" } },
         oauthClientId: { $exists: false },
         $or: [
           {
@@ -687,6 +692,29 @@ export class ApiKeyModel extends BaseClass {
       { id },
       { bypassSanitization: true },
     )) as SecretApiKey;
+  }
+
+  // The member's own PATs worth a top-nav warning: lapsing soon, or lapsed but still in use.
+  public async getExpiringPersonalAccessTokens(userId: string) {
+    const now = new Date();
+    const tokens = await this._find({
+      userId,
+      oauthClientId: { $exists: false },
+      disabled: { $ne: true },
+      expiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) },
+    });
+    return tokens
+      .filter(
+        (t) =>
+          !isExpired(t.expiresAt, now) ||
+          (!!t.lastUsed && !!t.expiresAt && t.lastUsed > t.expiresAt),
+      )
+      .map(({ id, description, expiresAt, lastUsed }) => ({
+        id,
+        description,
+        expiresAt,
+        lastUsed,
+      }));
   }
 
   // Every member's PAT, for the admin revocation list. OAuth access tokens are

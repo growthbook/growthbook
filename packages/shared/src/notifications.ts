@@ -602,12 +602,12 @@ export const notificationEventMetadata = {
   "apiKey.expiring": {
     label: "API key expiring",
     description:
-      "Triggered once when an API key or personal access token is within a week of expiring",
+      "Triggered once when a secret API key is within a week of expiring",
   },
   "apiKey.expired": {
     label: "API key expired",
     description:
-      "Triggered once when an API key or personal access token passes its expiration date",
+      "Triggered once when a secret API key passes its expiration date",
   },
   "webhook.test": {
     label: "Webhook test",

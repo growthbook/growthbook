@@ -35,6 +35,7 @@ import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getAuthConnection, processJWT } from "back-end/src/services/auth";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -239,7 +240,21 @@ function authenticateWithApiKey(
       // survives for audit and `lastUsed` keeps recording attempts after it
       // lapses — same reasoning as the disabled check above.
       if (isExpired(expiresAt)) {
-        throw new Error("This API key has expired");
+        // OAuth clients refresh on their own; anything else needs a person to replace it.
+        throw new Error(
+          apiKeyDoc.oauthClientId
+            ? "This API key has expired"
+            : userId
+              ? `This personal access token has expired. Create a new one at ${APP_ORIGIN}/account/personal-access-tokens`
+              : `This API key has expired. An admin can create a new one at ${APP_ORIGIN}/settings/keys`,
+        );
+      }
+      // Lets the CLI and other clients warn before the key lapses.
+      if (expiresAt && !apiKeyDoc.oauthClientId) {
+        res.set(
+          "X-GrowthBook-Key-Expires-At",
+          new Date(expiresAt).toISOString(),
+        );
       }
       req.apiKey = id || "";
 

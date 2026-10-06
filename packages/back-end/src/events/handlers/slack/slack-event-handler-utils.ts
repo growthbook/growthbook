@@ -1339,14 +1339,10 @@ const buildSlackMessageForApiKeyExpirationEvent = (
   apiKey: {
     id: string;
     description?: string;
-    kind: "personalAccessToken" | "secretApiKey";
     expiresAt: string;
   },
 ): SlackMessage => {
-  const kind =
-    apiKey.kind === "personalAccessToken"
-      ? "personal access token"
-      : "secret API key";
+  const kind = "secret API key";
   const name = apiKey.description || apiKey.id;
   const text =
     event === "apiKey.expired"

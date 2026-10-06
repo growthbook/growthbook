@@ -72,7 +72,6 @@ const notifyApiKeyExpiration = async () => {
             object: {
               id: key.id || "",
               description: key.description,
-              kind: key.userId ? "personalAccessToken" : "secretApiKey",
               expiresAt: new Date(key.expiresAt as Date).toISOString(),
             },
           },
