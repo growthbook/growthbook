@@ -23,6 +23,16 @@ describe("cleanCompletion", () => {
       cleanCompletion('"Create a flag for checkout."', "create a flag"),
     ).toBe(" for checkout.");
   });
+  it("strips a last word the model restarted instead of echoing", () => {
+    expect(
+      cleanCompletion("D7 Purchase Retention?", "How about the metric D"),
+    ).toBe("7 Purchase Retention?");
+    expect(cleanCompletion("flag for checkout", "create a flag")).toBe(
+      " for checkout",
+    );
+    // Only whole words count as overlap.
+    expect(cleanCompletion("nothing else", "turn on")).toBe(" nothing else");
+  });
   it("adds a space when the model sends only a continuation", () => {
     expect(cleanCompletion("for the checkout page.\n", "create a flag")).toBe(
       " for the checkout page.",
@@ -35,6 +45,26 @@ describe("cleanCompletion", () => {
     expect(
       cleanCompletion("create a flag now\nSecond thought", "create a flag"),
     ).toBe(" now");
+  });
+  it("finishes a listed name the model stopped inside", () => {
+    const names = ["D7 Purchase Retention", "Daily Active Users"];
+    expect(cleanCompletion("D7", "How about the metric D", names)).toBe(
+      "7 Purchase Retention",
+    );
+    expect(
+      cleanCompletion("the metric D7 Purchase", "the metric D", names),
+    ).toBe("7 Purchase Retention");
+    expect(
+      cleanCompletion(
+        "the metric D7 Purchase Retention?",
+        "the metric D",
+        names,
+      ),
+    ).toBe("7 Purchase Retention?");
+    // The model's own first word is not snapped to a name.
+    expect(
+      cleanCompletion("show me the data", "show me the ", ["Data Quality"]),
+    ).toBe("data");
   });
   it("returns nothing for an unchanged draft", () => {
     expect(cleanCompletion("create a flag", "create a flag")).toBe("");

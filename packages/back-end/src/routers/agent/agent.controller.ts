@@ -199,15 +199,50 @@ function skillsForPrompt(org: ReqContext["org"], kinds: ContextKind[]): string {
     .join("\n");
 }
 
-/** Labelled name lists for the entity kinds the context points at. */
-// ponytail: up to five queries per call; cache per org for a minute if this shows up in latency.
+type EntityLists = (readonly [string, string[]])[];
+// A freshly created entity may take this long to show up in suggestions.
+const ENTITY_CACHE_MS = 2 * 60 * 1000;
+const ENTITY_CACHE_MAX = 1000;
+// ponytail: per-process; a second instance just fetches once more.
+const entityCache = new Map<string, { at: number; lists: EntityLists }>();
+
+/**
+ * Labelled name lists for the entity kinds the context points at, cached per
+ * user and kind set so pauses on the same page skip Mongo.
+ */
 async function entityNames(
   context: ReqContext,
   {
     datasourceId,
     kinds: kindList,
   }: { datasourceId?: string; kinds: ContextKind[] },
-): Promise<(readonly [string, string[]])[]> {
+): Promise<EntityLists> {
+  const key = [
+    context.org.id,
+    context.userId,
+    datasourceId ?? "",
+    [...kindList].sort().join(","),
+  ].join(":");
+  const hit = entityCache.get(key);
+  if (hit && Date.now() - hit.at < ENTITY_CACHE_MS) return hit.lists;
+  const lists = await fetchEntityNames(context, {
+    datasourceId,
+    kinds: kindList,
+  });
+  if (entityCache.size >= ENTITY_CACHE_MAX) {
+    entityCache.delete(entityCache.keys().next().value as string);
+  }
+  entityCache.set(key, { at: Date.now(), lists });
+  return lists;
+}
+
+async function fetchEntityNames(
+  context: ReqContext,
+  {
+    datasourceId,
+    kinds: kindList,
+  }: { datasourceId?: string; kinds: ContextKind[] },
+): Promise<EntityLists> {
   const kinds = new Set(kindList);
   const limit = ORG_CONTEXT_LIMIT;
   // Lets the feature and metric lookups filter by read access in Mongo, so
@@ -271,32 +306,61 @@ async function entityNames(
 }
 
 /**
- * Model output → text to append. The model writes the whole message so word
- * spacing comes out naturally; the draft prefix is stripped here.
+ * Model output → text to append. One pass that rebuilds the message the model
+ * meant and checks it against what the org has, instead of trusting the
+ * output's shape:
+ * - normalize: strip quotes, keep the first line
+ * - align: the model is asked to echo the draft, but may echo part of it or
+ *   restart the word being typed ("…metric D" → "D7 …"); drop the longest
+ *   whole-word tail of the draft the output repeats, or add a space when it
+ *   repeats nothing
+ * - ground: when the word being typed grew into the start of a listed name,
+ *   the rest of that name
+ * - cap: one short phrase
  */
-export function cleanCompletion(raw: string, draft: string): string {
-  const full = raw
-    .trimEnd()
-    .replace(/^\s*["'“”`]+|["'“”`]+$/g, "")
-    .trimStart();
+export function cleanCompletion(
+  raw: string,
+  draft: string,
+  names: string[] = [],
+): string {
+  const output = raw
+    .trim()
+    .replace(/^["'“”`]+|["'“”`]+$/g, "")
+    .split("\n")[0]
+    .trim();
   const d = draft.trimStart();
-  const lowerFull = full.toLowerCase();
+  const lowerOut = output.toLowerCase();
   const lowerDraft = d.toLowerCase();
-  // Output ran out mid-echo: nothing useful to append.
-  if (
-    lowerFull.length < lowerDraft.length &&
-    lowerDraft.startsWith(lowerFull)
-  ) {
-    return "";
+  // Ran out of tokens mid-echo, or had nothing to add.
+  if (!output || lowerDraft.startsWith(lowerOut)) return "";
+
+  let message: string | undefined;
+  for (const { index } of lowerDraft.matchAll(/\S+/g)) {
+    const tail = lowerDraft.slice(index);
+    if (lowerOut.startsWith(tail)) {
+      message = d.slice(0, index) + output;
+      break;
+    }
   }
-  const echoed = lowerFull.startsWith(lowerDraft);
-  // No echo: the model sent just a continuation, so assume it starts a new word.
-  const out = echoed
-    ? full.slice(d.length)
-    : d && d === d.trimEnd() && full
-      ? ` ${full}`
-      : full;
-  return out.split("\n")[0].slice(0, 120).trimEnd();
+  message ??= d + (d === d.trimEnd() ? " " : "") + output;
+
+  // Only names the user had started typing, so a generic word the model
+  // chose isn't turned into a name that happens to begin with it.
+  const typing = d.search(/\S+$/);
+  const lowerMsg = message.toLowerCase();
+  for (const { index } of lowerMsg.matchAll(/\S+/g)) {
+    if (typing < 0 || index > typing) break;
+    const tail = lowerMsg.slice(index);
+    const name = names.find(
+      (n) => n.length > tail.length && n.toLowerCase().startsWith(tail),
+    );
+    if (name) {
+      message += name.slice(tail.length);
+      break;
+    }
+  }
+
+  return message.slice(d.length, d.length + 120).trimEnd();
 }
 
 export const postAutocomplete = async (
@@ -348,7 +412,8 @@ export const postAutocomplete = async (
   // conversation. Guessing here is what produced invented metrics.
   if (!kinds) return res.status(200).json({ status: 200, completion: "" });
 
-  const orgContext = (await entityNames(context, { datasourceId, kinds }))
+  const lists = await entityNames(context, { datasourceId, kinds });
+  const orgContext = lists
     .map(([label, names]) => `${label}: ${names.join(", ") || "(none)"}`)
     .join("\n");
   // Only enabled skills in the domains the context points at.
@@ -366,7 +431,12 @@ export const postAutocomplete = async (
     prompt: `Assistant skills:\n${skills}\n\nThis organization has:\n${orgContext}\n\nCurrent page: ${currentPage?.trim() || "(unknown)"}\n\nRecent conversation:\n${history || "(none)"}\n\nDraft:\n${text}`,
   });
 
-  return res
-    .status(200)
-    .json({ status: 200, completion: cleanCompletion(raw, text) });
+  return res.status(200).json({
+    status: 200,
+    completion: cleanCompletion(
+      raw,
+      text,
+      lists.flatMap(([, names]) => names),
+    ),
+  });
 };
