@@ -32,7 +32,8 @@ jobs:
           prev=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^")
           prs=""
           for sha in $(git rev-list --no-merges "$prev..$TAG"); do
-            [ -n "$(.github/scripts/build-changes.sh "$sha^" "$sha")" ] || continue
+            changes=$(.github/scripts/build-changes.sh "$sha^" "$sha")
+            [ -n "$changes" ] || continue
             prs+=" $(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/pulls" --jq '.[0].number // empty')"
           done
 
