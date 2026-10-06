@@ -97,7 +97,10 @@ export function selectColumnsForTopValues({
 export async function runColumnsTopValuesQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">,
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "timestampColumn" | "columns"
+  >,
   columns: ColumnInterface[],
   options?: {
     limit?: number;
@@ -393,7 +396,7 @@ export async function refreshColumnTopValues(
         const topValuesByColumn = await runColumnsTopValuesQuery(
           context,
           datasource,
-          factTable,
+          { ...factTable, columns },
           columnChunk,
         );
 

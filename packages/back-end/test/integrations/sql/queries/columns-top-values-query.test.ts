@@ -29,6 +29,18 @@ function makeColumn(column: string): ColumnInterface {
 const factTable = {
   sql: "SELECT country, plan, timestamp FROM events WHERE timestamp >= {{startDate}}",
   eventName: "",
+  columns: [],
+};
+
+const jsonFactTable = {
+  ...factTable,
+  columns: [
+    {
+      ...makeColumn("props"),
+      datatype: "json" as const,
+      jsonFields: { plan: { datatype: "string" as const } },
+    },
+  ],
 };
 
 const columns = [makeColumn("country"), makeColumn("plan")];
@@ -74,6 +86,15 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
     const sql7 = buildSql(dialect, { lookbackDays: 7 });
     expect(sql7).not.toEqual(sql);
     expect(sql7).toMatch(/timestamp\s*>=/i);
+  });
+
+  it("extracts dotted JSON paths instead of querying them as columns", () => {
+    const columns = [makeColumn("props.plan")];
+    const jsonSql = buildSql(dialect, { factTable: jsonFactTable, columns });
+    // Without a JSON parent column, the same name is queried as-is.
+    const rawSql = buildSql(dialect, { columns });
+    expect(jsonSql).toContain("'props.plan'");
+    expect(jsonSql).not.toEqual(rawSql);
   });
 
   it("filters matching values before ranking them", () => {
