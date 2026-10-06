@@ -215,11 +215,13 @@ export async function countAuditByEntity(
   organization: string,
   type: EntityType,
   id: string,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<number> {
   return await AuditModel.countDocuments({
     organization,
     "entity.object": type,
     "entity.id": id,
+    ...customFilter,
   });
 }
 
@@ -227,11 +229,13 @@ export async function countAuditByEntityParent(
   organization: string,
   type: EntityType,
   id: string,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<number> {
   return await AuditModel.countDocuments({
     organization,
     "parent.object": type,
     "parent.id": id,
+    ...customFilter,
   });
 }
 

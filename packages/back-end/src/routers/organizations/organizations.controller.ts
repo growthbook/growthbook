@@ -257,8 +257,17 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
   }
 }
 
+// Only a plain string, so a crafted query object can't reach Mongo.
+function auditEventFilter(event: unknown) {
+  return typeof event === "string" && event ? { event } : {};
+}
+
 export async function getAllHistory(
-  req: AuthRequest<null, { type: string }, { cursor?: string; limit?: string }>,
+  req: AuthRequest<
+    null,
+    { type: string },
+    { cursor?: string; limit?: string; event?: string }
+  >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -266,6 +275,7 @@ export async function getAllHistory(
   const { type } = req.params;
   const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+  const eventFilter = auditEventFilter(req.query.event);
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -289,11 +299,11 @@ export async function getAllHistory(
         )
       : [];
   const entityFilter = hiddenProjects.length
-    ? { "entity.id": { $nin: hiddenProjects } }
-    : undefined;
+    ? { ...eventFilter, "entity.id": { $nin: hiddenProjects } }
+    : eventFilter;
   const parentFilter = hiddenProjects.length
-    ? { "parent.id": { $nin: hiddenProjects } }
-    : undefined;
+    ? { ...eventFilter, "parent.id": { $nin: hiddenProjects } }
+    : eventFilter;
 
   // Get total count for display
   const [entityCount, parentCount] = await Promise.all([
@@ -362,7 +372,7 @@ export async function getHistory(
   req: AuthRequest<
     null,
     { type: string; id: string },
-    { cursor?: string; limit?: string }
+    { cursor?: string; limit?: string; event?: string }
   >,
   res: Response,
 ) {
@@ -371,6 +381,7 @@ export async function getHistory(
   const { type, id } = req.params;
   const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+  const eventFilter = auditEventFilter(req.query.event);
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -394,8 +405,8 @@ export async function getHistory(
 
   // Get total count for display
   const [entityCount, parentCount] = await Promise.all([
-    countAuditByEntity(org.id, type, id),
-    countAuditByEntityParent(org.id, type, id),
+    countAuditByEntity(org.id, type, id, eventFilter),
+    countAuditByEntityParent(org.id, type, id, eventFilter),
   ]);
   const total = entityCount + parentCount;
 
@@ -412,7 +423,7 @@ export async function getHistory(
         limit: fetchLimit,
         sort: { dateCreated: -1 },
       },
-      cursorFilter,
+      { ...cursorFilter, ...eventFilter },
     ),
     findAuditByEntityParent(
       org.id,
@@ -422,7 +433,7 @@ export async function getHistory(
         limit: fetchLimit,
         sort: { dateCreated: -1 },
       },
-      cursorFilter,
+      { ...cursorFilter, ...eventFilter },
     ),
   ]);
 
