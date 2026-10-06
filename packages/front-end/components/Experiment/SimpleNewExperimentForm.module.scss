@@ -1,0 +1,63 @@
+@import "./TabbedPage/SetupPage/hoverOutline";
+
+// The Create Experiment modal's body (set in review): every field gets the
+// Setup page's hover, as the Hypothesis field there has it. A field's outline
+// eases to --slate-9 on hover, and back when the cursor leaves (see
+// _hoverOutline.scss).
+.fields {
+  // Holds the fields' margins inside (the last field's bottom margin would
+  // otherwise poke out), so the box's height is the whole of its content:
+  // the modal measures it to keep its height when switching options.
+  display: flow-root;
+
+  @include hover-outline-fields;
+
+  // The Experiment Type trigger draws its outline as an inline border (to
+  // match the selects around it), which the shared rule's box-shadow can't
+  // reach, so its border colour changes too. !important is what beats an
+  // inline style.
+  :global(.rt-BaseButton.rt-variant-outline) {
+    transition:
+      box-shadow 150ms ease,
+      border-color 150ms ease;
+  }
+
+  :global(.rt-BaseButton.rt-variant-outline):hover:not([data-disabled]):not(
+      [data-state="open"]
+    ) {
+    border-color: var(--slate-9) !important;
+  }
+
+  // The setup choice cards: the same hover as the text fields (set in
+  // review), the outline easing to --slate-9 over 150ms, in place of the
+  // app's violet hover fill for radio cards (global-radix-overrides.scss).
+  // Not on the selected card, which keeps its violet outline. Radix draws
+  // the card's outline as the ::after's inset box-shadow.
+  :global(.rt-RadioCardsItem):hover:not(:global(.disabled)) {
+    background: none;
+  }
+
+  :global(.rt-RadioCardsItem)::after {
+    transition: box-shadow 150ms ease;
+  }
+
+  :global(.rt-RadioCardsItem):not(:disabled):not(
+      [data-state="checked"]
+    ):hover::after {
+    box-shadow: inset 0 0 0 1px var(--slate-9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.rt-RadioCardsItem)::after {
+      transition: none;
+    }
+  }
+}
+
+// Field-label info icons (Assignment Attribute's): as the Setup page's
+// (.infoIcon in AnalysisPlan.module.scss), --slate-10, centred on the
+// label's line.
+.infoIcon {
+  display: inline-flex;
+  color: var(--slate-10);
+}

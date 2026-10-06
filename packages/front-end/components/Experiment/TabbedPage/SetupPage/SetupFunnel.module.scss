@@ -1,0 +1,789 @@
+@import "../../../../styles/colors.scss";
+@import "./hoverOutline";
+
+// The Setup page's Implementation block, per the design (Experiment
+// Page.dc.html, Empty and Partial frames), adjusted in review: small cards,
+// a thin arrow between them, split pills above the variation cards, and
+// compact variation cards. Only used when TrafficAllocationFunnel is `bare`
+// (the Setup page); other pages keep the product's funnel.
+//
+// OFF THE SCALES, from the design: the 72px value column.
+
+// Targeting / Population / Namespace.
+.card {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  // 16px all around, set in review.
+  padding: var(--space-4);
+  background-color: var(--color-panel-solid);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+}
+
+// A variation, below the split pills.
+.variationCard {
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
+  min-width: 0;
+  // 16px on the sides and 12px at the bottom; 34px on top, so the name sits
+  // 4px under the number's circle (which ends 30px down; see .cardTab), set
+  // in review.
+  padding: 34px var(--space-4) var(--space-3);
+  overflow: hidden;
+  // A variable so the number tab can match the card, hovered or not.
+  --card-bg: var(--color-panel-solid);
+  background-color: var(--card-bg);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+}
+
+// The variation card, after the review mockup: a band in the variation's
+// colour inset 4px from the card's top and sides, with the variation's
+// number in a tab of the card's own colour notched up into the band's
+// bottom-left corner.
+.cardBand {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  left: 4px;
+  // 12px, set in review.
+  height: 12px;
+  border-radius: var(--radius-2) var(--radius-2) 0 0;
+}
+
+// A 20px circle (set in review) rising 6px into the band, which ends 16px
+// down, leaving 6px of colour above it. Its lower half is the card's own
+// colour, so it reads as a round notch. 10px from the card's left edge, so
+// the number lines up with the start of the name (16px in).
+.cardTab {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: var(--font-size-1);
+  font-weight: 600;
+  line-height: 1;
+  background-color: var(--card-bg);
+  border-radius: 50%;
+  transition: background-color 120ms ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// 1px below the circle's centre, set in review. A relative offset, so the
+// circle doesn't move.
+.cardTabNumber {
+  position: relative;
+  top: 1px;
+}
+
+// The number in the variation's text colour: the darker of each variation's
+// two colours, so it reads on white.
+$tab-colors:
+  $variant-text-0, $variant-text-1, $variant-text-2, $variant-text-3,
+  $variant-text-4, $variant-text-5, $variant-text-6, $variant-text-7,
+  $variant-text-8;
+
+@for $i from 0 through length($tab-colors) - 1 {
+  .tabColor#{$i} {
+    color: nth($tab-colors, $i + 1);
+  }
+}
+
+// Both cards (Targeting and Population, and the variations): on hover the
+// outline darkens to --slate-9 over 150ms, the Hypothesis field's hover
+// (set in review; it was a light fill), and the pencil, hidden until then,
+// appears. Focus inside also shows the pencil, so it appears when tabbed to;
+// touch screens always show it.
+.card,
+.variationCard {
+  transition: border-color 150ms ease;
+
+  .editButton {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  &:hover {
+    border-color: var(--slate-9);
+  }
+
+  &:hover,
+  &:focus-within {
+    .editButton {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: none) {
+    .editButton {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    .editButton {
+      transition: none;
+    }
+  }
+}
+
+// A label on the left, its value in a fixed column on the right, so the
+// values line up down the card.
+.rowValue {
+  flex: 0 0 auto;
+  min-width: 72px;
+  box-sizing: border-box;
+  padding-left: 9px;
+}
+
+// Code values ("id"): the code font at 14px, the same size as the rows'
+// other values (set in review; the design has 11.5px).
+.mono {
+  font-family: var(--code-font-family);
+  font-size: 14px;
+}
+
+// The namespace's value on the arrow (its name and share): the label's
+// styling at regular weight (set in review).
+.namespaceValue {
+  font-weight: var(--font-weight-regular);
+}
+
+// The arrow between cards: 64px long, 59px of line and the 5px arrowhead,
+// with 8px clear of the cards at both ends (set in review).
+.connector {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  height: 64px;
+  margin: var(--space-2) 0;
+
+  &::before {
+    content: "";
+    width: 1px;
+    height: 59px;
+    background-color: var(--slate-7);
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    width: 8px;
+    height: 5px;
+    background-color: var(--slate-7);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+  }
+}
+
+// The Targeting → Population arrow's annotation (the namespace), over the
+// middle of the line so it takes no space of its own.
+// As wide as the cards, so the annotation's width can be capped against
+// them (see .namespaceSet); the line stays centred.
+.connectorWrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+// Spans the cards' width less 40px each side (room for the set namespace's
+// pencil, kept even so the text stays centred), and centres its content on
+// the line. Only the content takes the pointer, not the empty sides.
+.connectorAnnotation {
+  position: absolute;
+  top: 50%;
+  right: 40px;
+  left: 40px;
+  display: flex;
+  justify-content: center;
+  white-space: nowrap;
+  transform: translateY(-50%);
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+// A plain button, styled like the split pills' buttons: no border, the
+// panel's own grey behind it so the line doesn't show through the text.
+// --slate-2 is what the panel's --slate-a2 comes to on the white page.
+.annotationButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font: inherit;
+  color: inherit;
+  background-color: var(--slate-2);
+  border: none;
+  border-radius: var(--radius-2);
+}
+
+button.annotationButton {
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--slate-3);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 1px;
+  }
+}
+
+// "+ Namespace": hidden until the Targeting / arrow / Population group
+// (.namespaceHoverGroup, NamespaceHoverGroup in SetupFunnel.tsx) is hovered,
+// or it has keyboard focus. Opacity only, ~150ms. With no hover to reveal it
+// (touch), it's always shown.
+.namespaceAdd {
+  opacity: 0;
+  transition: opacity 150ms ease;
+
+  &:focus-visible {
+    opacity: 1;
+  }
+
+  @media (hover: hover) {
+    .namespaceHoverGroup:hover & {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: none) {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// A set namespace: its text, with the pencil just outside it on the right,
+// hidden until the text (or the pencil) is hovered or the pencil has
+// keyboard focus; always shown on touch screens.
+.namespaceSet {
+  position: relative;
+  // One line, no wider than the annotation area; longer text truncates.
+  max-width: 100%;
+  // 6px above and below the text, so the line stops 6px short of it, a
+  // little less than "Split %"'s 8px (set in review).
+  padding-top: 6px;
+  padding-bottom: 6px;
+  // The text and its pencil 1px above the line's centre (set in review).
+  top: -1px;
+}
+
+// Centred on the text: a flex box exactly the pencil's height, moved up by
+// half of it. The ghost button's negative margins are cleared (they pulled
+// it 8px up here), and the box starts at the label's edge, after its 6px of
+// padding. The icon is centred in the 32px button, so there are about 15px
+// between the text and the icon (set in review).
+.namespaceEdit {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  display: flex;
+  align-items: center;
+  transform: translateY(-50%);
+
+  .editButton {
+    margin: 0;
+    opacity: 0;
+    transition: opacity 150ms ease;
+
+    &:focus-visible {
+      opacity: 1;
+    }
+
+    @media (hover: none) {
+      opacity: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+}
+
+@media (hover: hover) {
+  .namespaceSet:hover .namespaceEdit .editButton {
+    opacity: 1;
+  }
+}
+
+// The hover area for "+ Namespace": Targeting, the arrow and Population.
+.namespaceHoverGroup {
+  position: relative;
+}
+
+// The split, as a fork (set in review, after the product's own funnel): a
+// line down from Population, "Split %", a horizontal line across to the
+// first and last variation's centres, then a drop to each card with that
+// variation's percentage on it and an arrowhead at the end. All in the
+// connector colour; the variation colours are in the cards.
+// 19px: a fifth shorter than the drops' 24px lines (19.2px, rounded to a
+// whole pixel so the line stays crisp; set in review).
+.stem {
+  width: 1px;
+  height: 19px;
+  margin: 0 auto;
+  background-color: var(--slate-7);
+}
+
+// 8px clear of the lines above and below it (set in review).
+.splitLabel {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-2) 0;
+}
+
+// 72px: the pill (~19px) and arrowhead (5px) leave ~24px of line above and
+// below the pill. The pill sits right on its line, with no gap (set in
+// review).
+.fork {
+  position: relative;
+  height: 72px;
+}
+
+// The horizontal line; its ends are set inline, at the outer columns'
+// centres.
+.bus {
+  position: absolute;
+  top: 0;
+  height: 1px;
+  background-color: var(--slate-7);
+}
+
+// One drop per variation: line, pill, line, arrowhead.
+.drop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+}
+
+.dropLine {
+  flex: 1;
+  width: 1px;
+  background-color: var(--slate-7);
+}
+
+.arrow {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 5px;
+  background-color: var(--slate-7);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  // The page's font (Inter), not the code font, set in review. Explicit, as
+  // the pill is sometimes a button, which doesn't always inherit it.
+  font-family: inherit;
+  // 12px (--font-size-1), set in review; the design has 10.5px.
+  font-size: var(--font-size-1);
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: nowrap;
+  color: var(--color-text-high);
+  background-color: var(--color-panel-solid);
+  border: 1px solid var(--gray-a5);
+  border-radius: 9999px;
+}
+
+// An editable pill shows a pencil after its number on hover or keyboard
+// focus (set in review). The pill widens to fit it, evenly on both sides
+// since it's centred on its line.
+.pillIcon {
+  display: none;
+  margin-left: var(--space-1);
+}
+
+// On hover an editable pill's outline darkens to --slate-9 over 150ms,
+// the cards' and Hypothesis field's hover (set in review; it was a grey
+// fill).
+button.pill {
+  cursor: pointer;
+  transition: border-color 150ms ease;
+
+  &:hover {
+    border-color: var(--slate-9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+
+  &:hover .pillIcon,
+  &:focus-visible .pillIcon {
+    display: inline-flex;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 1px;
+  }
+}
+
+// A variation's screenshot slot, after the review mockup: a filled, borderless
+// grey block with an image icon when empty, or the first screenshot.
+.thumb {
+  display: flex;
+  // 48 × 36px, set in review (4:3, like the earlier 64 × 48px).
+  flex: 0 0 48px;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0;
+  overflow: hidden;
+  // The image icon in --slate-8, set in review.
+  color: var(--slate-8);
+  // Slate 2, set in review.
+  background-color: var(--slate-2);
+  border: none;
+  // 4px, set in review.
+  border-radius: 4px;
+}
+
+button.thumb,
+.thumbUpload {
+  cursor: pointer;
+}
+
+// "+n" more images, over the thumbnail's bottom-right corner (set in
+// review): 10px medium text on a white circle just big enough for it
+// (16px, wider for two digits), dark text, with the image remove button's
+// very light shadow. The panel colour and --gray-12, so dark mode flips.
+.thumbCount {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 1;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--gray-12);
+  background-color: var(--color-panel-solid);
+  border-radius: 8px;
+  box-shadow:
+    0 1px 2px var(--black-a2),
+    0 1px 3px var(--black-a1);
+}
+
+// A card's image: a light outline over its edge (set in review), solid
+// --gray-4 (not the translucent --gray-a4, so it looks the same over any
+// image), as the variation modal's images have. 1px at this small size
+// (the modal's are 2px). Drawn on top, since an inset shadow on the box
+// would sit under the image.
+.thumbWithImage {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px var(--gray-4);
+  }
+}
+
+// Value fields' placeholders in --slate-9, the same as the Hypothesis
+// field's (PlainCommentBox.module.scss), set in review. Radix's default is
+// --gray-a10. For the text fields and the true/false select.
+.valueField :global(.rt-TextFieldInput)::placeholder {
+  color: var(--slate-9);
+}
+
+.valueField[data-placeholder] :global(.rt-SelectTriggerInner) {
+  color: var(--slate-9);
+}
+
+// The coloured dot at the start of each value field.
+.valueDot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+}
+
+// The Environments row: as wide as the Targeting card below it (440px), with
+// the cards' hover fill, and its pencil hidden until the row is hovered or has
+// focus inside it (set in review). Always shown on touch screens. The 4px of
+// padding that makes room for the fill is offset by a negative top margin, so
+// the row's content doesn't move.
+.hoverRow {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  margin-top: calc(-1 * var(--space-1));
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-3);
+  transition: background-color 120ms ease;
+
+  &:hover,
+  &:focus-within {
+    background-color: var(--slate-2);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+
+  .editButton {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  &:hover,
+  &:focus-within {
+    .editButton {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: none) {
+    .editButton {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .editButton {
+      transition: none;
+    }
+  }
+}
+
+// Every field in the Implementation diagram (the value fields and Included
+// %) gets the Setup page's hover outline (see _hoverOutline.scss; set in
+// review).
+.funnel {
+  @include hover-outline-fields;
+}
+
+// The true/false value select, with the coloured dot the text fields have
+// (set in review): the dot sits 12px in, where the text fields' does (their
+// 8px padding plus its 4px margin), and the select's text starts 8px after
+// it.
+.selectWithDot.selectWithDot {
+  padding-left: calc(12px + 6px + var(--space-2));
+}
+
+.selectDot {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  display: flex;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+// The Values "Type" menu with @/ui/Toast's shadow instead of Radix's
+// --shadow-5 (a 1px --gray-a3 ring and a 60px blur), being tried in review.
+// The class is doubled to outrank Radix's menu rule.
+.softMenuShadow.softMenuShadow {
+  box-shadow:
+    0 1px 2px var(--black-a2),
+    0 4px 8px -2px var(--black-a3);
+}
+
+// A JSON value, read-only (set in review): no fill (the read-only cue) and
+// a lighter outline than the other fields, three 20px lines tall plus 8px above and 6px
+// below (both set in review).
+// The dot, the preview and the pencil sit at the top, on the first line,
+// rather than centred. 12px of padding on the left, where the dot is, and on
+// the right, where the pencil's icon ends up (its ghost button pulls itself
+// 8px into that padding). Clicking anywhere opens the editor. The preview is
+// the JSON in the code font, at most three lines, then "…".
+.jsonField {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  height: calc(3 * var(--line-height-2) + 14px);
+  padding: 8px 12px 6px;
+  cursor: pointer;
+  background-color: transparent;
+  border-radius: var(--radius-2);
+  // Two steps lighter than the other fields' outline (set in review).
+  box-shadow: inset 0 0 0 1px var(--gray-a5);
+}
+
+// The dot centred on the first 20px line.
+.jsonDot {
+  display: flex;
+  align-items: center;
+  height: var(--line-height-2);
+}
+
+// The pencil centred on the first line too.
+.jsonEdit {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: var(--line-height-2);
+}
+
+.jsonPreview {
+  display: -webkit-box;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--code-font-family);
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-2);
+  color: var(--gray-12);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+// "Click to edit JSON", in the page font like the other fields'
+// placeholders, in their --slate-9.
+.jsonPlaceholder {
+  font-family: inherit;
+  font-size: var(--font-size-2);
+  color: var(--slate-9);
+}
+
+// The Type menu's items, laid out like @/ui/Select's menu (set in review):
+// a 24px indicator column on the left (Radix's --select-item-indicator-width
+// at size 2), with the check centred in it on the current type. Classes
+// doubled to outrank Radix's menu item padding.
+.checkItem.checkItem {
+  position: relative;
+  padding-left: var(--space-5);
+}
+
+.checkIndicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+}
+
+// The current type's item keeps the fill @/ui/Select shows on its selected
+// option (Radix's soft highlight, --accent-a4, which is --violet-a4 here;
+// set in review).
+.checkItemSelected.checkItemSelected {
+  background-color: var(--accent-a4);
+}
+
+// A read-only value (e.g. running; set in review): the editable field's box,
+// 32px like the small TextField, with the dot 12px in where the field has
+// it, but no fill, no caret and the read-only JSON field's lighter outline
+// (--gray-a5).
+.readOnlyValue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 12px;
+  background-color: transparent;
+  border-radius: var(--radius-2);
+  box-shadow: inset 0 0 0 1px var(--gray-a5);
+}
+
+// Nothing to open: the read-only JSON field drops its pointer too.
+.readOnlyField.readOnlyField {
+  cursor: default;
+}
+
+.readOnlyText {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-size-2);
+  color: var(--gray-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.readOnlyEmpty {
+  font-size: var(--font-size-2);
+  color: var(--slate-9);
+}
+
+// Drag-to-reorder's handle: the colour band and the index notch on its
+// edge (set in review). A grab cursor, and both brighten a little together
+// while either is hovered, so something answers before you press. No icon.
+.dragHandle {
+  cursor: grab;
+  transition: filter 120ms ease;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.variationCard:has(.dragHandle:hover) .dragHandle {
+  filter: brightness(1.08);
+}
+
+// The card being dragged: a grabbing cursor wherever the pointer is over it.
+.dragging,
+.dragging .dragHandle {
+  cursor: grabbing;
+}
+
+// More than three variations (VariationsTable's Setup layout): the split,
+// cards and Values row scroll sideways together (set in review). A little
+// padding so focus rings and the outline buttons at the edges aren't
+// clipped by the scroll box, offset so nothing moves; room below for the
+// scrollbar.
+.variationScroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: -4px;
+  padding: 4px 4px var(--space-2);
+  overscroll-behavior-x: contain;
+}
+
+// Stays where it is while a wide row of variations scrolls sideways (set
+// in review): as wide as the visible area (--setup-visible-width, set by
+// VariationsTable while it scrolls) and pinned to its left edge. Without
+// the variable it's simply full width, as before.
+.stickyVisible {
+  position: sticky;
+  left: 0;
+  width: var(--setup-visible-width, 100%);
+}

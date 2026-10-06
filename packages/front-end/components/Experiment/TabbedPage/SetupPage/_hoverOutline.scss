@@ -1,0 +1,75 @@
+// The Setup page's field hover (set in review): a field's outline eases to
+// --slate-9 over 150ms when hovered, and back when the cursor leaves. Not
+// while the field is focused or open, which has its own focus outline. Off
+// for reduced motion. Include inside a container's rule to cover every
+// field in it:
+//
+//   - Radix (@/ui/TextField, @/ui/Select, text areas): outline is an inset
+//     box-shadow.
+//   - Bootstrap .form-control (legacy Field inputs, DatePicker): a border.
+//   - react-select (legacy SelectField, @/ui/MultiSelectField, the metric
+//     pickers): a border, which its styles set with !important.
+@mixin hover-outline-fields {
+  :global(.rt-TextFieldRoot.rt-variant-surface),
+  :global(.rt-TextAreaRoot.rt-variant-surface),
+  :global(.rt-SelectTrigger.rt-variant-surface) {
+    transition: box-shadow 150ms ease;
+  }
+
+  :global(.rt-TextFieldRoot.rt-variant-surface):hover:not(:focus-within) {
+    box-shadow: inset 0 0 0 var(--text-field-border-width) var(--slate-9);
+  }
+
+  :global(.rt-TextAreaRoot.rt-variant-surface):hover:not(:focus-within) {
+    box-shadow: inset 0 0 0 var(--text-area-border-width) var(--slate-9);
+  }
+
+  :global(.rt-SelectTrigger.rt-variant-surface):hover:not([data-state="open"]) {
+    box-shadow: inset 0 0 0 1px var(--slate-9);
+  }
+
+  :global(.form-control),
+  :global(.gb-select__control),
+  :global(.gb-multi-select__control) {
+    transition: border-color 150ms ease;
+  }
+
+  :global(.form-control):hover:not(:focus):not(:focus-within) {
+    border-color: var(--slate-9);
+  }
+
+  :global(.gb-select__control):hover:not(
+      :global(.gb-select__control--is-focused)
+    ),
+  :global(.gb-multi-select__control):hover:not(
+      :global(.gb-multi-select__control--is-focused)
+    ) {
+    border-color: var(--slate-9) !important;
+  }
+
+  // Outline buttons (e.g. the add-variation button): their inset outline
+  // too. Not disabled, or while their menu is open.
+  :global(.rt-BaseButton.rt-variant-outline) {
+    transition:
+      box-shadow 150ms ease,
+      background-color 150ms ease;
+  }
+
+  :global(.rt-BaseButton.rt-variant-outline):hover:not([data-disabled]):not(
+      [data-state="open"]
+    ) {
+    box-shadow: inset 0 0 0 1px var(--slate-9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.rt-BaseButton),
+    :global(.rt-TextFieldRoot),
+    :global(.rt-TextAreaRoot),
+    :global(.rt-SelectTrigger),
+    :global(.form-control),
+    :global(.gb-select__control),
+    :global(.gb-multi-select__control) {
+      transition: none;
+    }
+  }
+}

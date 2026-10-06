@@ -1,0 +1,115 @@
+// The tag menu button (tagSelect="menu"): hidden until the field is hovered
+// (set in review). It also shows while it has keyboard focus or its menu is
+// open, so it doesn't vanish mid-use; touch screens, which can't hover,
+// always show it. Hidden with opacity, so it keeps its place and nothing
+// shifts when it appears.
+//
+// margin-right: 0 cancels 4px of Radix's ghost negative margin (-4px), so
+// there's 4px more space before the field's other controls (set in review).
+//
+// Coloured and sized like the field's own clear and copy icons (see
+// styles/components/react-select.scss; set in review): light grey,
+// darkening on hover, in a 22px circle with a light grey fill on hover.
+.tagButton {
+  margin-right: 0;
+  width: 22px;
+  height: 22px;
+  color: hsl(0, 0%, 80%);
+  opacity: 0;
+  transition:
+    opacity 120ms ease,
+    color 150ms ease;
+
+  &:hover {
+    color: hsl(0, 0%, 60%);
+    background-color: var(--gray-a3);
+  }
+
+  // Darker while the field has focus (its menu open, or typing in it), as the
+  // copy and clear icons are.
+  :global(.gb-multi-select__control--is-focused) & {
+    color: hsl(0, 0%, 40%);
+
+    &:hover {
+      color: hsl(0, 0%, 20%);
+    }
+  }
+
+  :global(.gb-multi-select__control):hover &,
+  &:focus-visible,
+  &[data-state="open"] {
+    opacity: 1;
+  }
+
+  @media (hover: none) {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The text cursor over the field, since it's typed into (set in review);
+// the pointer only on its buttons: the tag menu, copy, clear, dropdown and
+// each chip's remove. Not while disabled, which keeps its not-allowed cursor.
+.typeaheadField:not(:global(.cursor-disabled))
+  :global(.gb-multi-select__control) {
+  cursor: text;
+}
+
+.typeaheadField:not(:global(.cursor-disabled))
+  :global(.gb-multi-select__indicator),
+.typeaheadField:not(:global(.cursor-disabled))
+  :global(.gb-multi-select__multi-value__remove),
+.typeaheadField:not(:global(.cursor-disabled)) button {
+  cursor: pointer;
+}
+
+// Padding and chevron to match @/ui/Select, like the "After" select in
+// Timing (set in review): 12px of padding on each side, and the chevron in
+// the text colour at 0.9 opacity. The value area's 10px plus the placeholder
+// and chips' own 2px margin puts the text 12px in; the chevron's 10px plus
+// the indicators' 2px margin puts it 12px from the right edge.
+.typeaheadField :global(.gb-multi-select__value-container) {
+  padding-left: 10px;
+}
+
+// !important: styles/components/react-select.scss forces every dropdown
+// chevron's padding to 4px with !important.
+.typeaheadField :global(.gb-multi-select__dropdown-indicator) {
+  padding: 4px 10px 4px 6px !important;
+  opacity: 0.9;
+}
+
+// Selected metrics' names in --gray-a11, the text colour of the neutral
+// badges used for the Implementation section's environments (gray, soft;
+// set in review). The name itself is MetricName's span, whose colour is set
+// inline (--color-text-high), hence !important; badges inside it (e.g.
+// Official) keep their own colours.
+.typeaheadField :global(.gb-multi-select__multi-value__label),
+.typeaheadField :global(.gb-multi-select__multi-value__label) > span {
+  color: var(--gray-a11) !important;
+}
+
+// Each chip's remove (×): --slate-9 at full strength while resting, instead
+// of --slate-12 at 25% opacity (set in review). Hover is unchanged: full
+// --slate-12 on a light slate fill (react-select.scss).
+.typeaheadField :global(.gb-multi-select__multi-value__remove) {
+  color: var(--slate-9) !important;
+  opacity: 1;
+}
+
+.typeaheadField :global(.gb-multi-select__multi-value__remove):hover {
+  color: var(--slate-12) !important;
+}
+
+// A "semibold" ×, between Phosphor's regular (16-unit lines on its 256-unit
+// grid, ~0.9px at 14px) and bold (24 units, ~1.3px); Phosphor has no
+// semibold (set in review). Drawn by outlining the regular icon's filled
+// shape with a 4-unit stroke in the same colour: 20-unit lines, ~1.1px.
+.typeaheadField :global(.gb-multi-select__multi-value__remove) svg path {
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}

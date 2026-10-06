@@ -1,0 +1,31 @@
+// Padding for the plain text areas (the rail's comment box and the Setup
+// page's Hypothesis field): 12px all around (--space-3), set in review. Radix
+// TextArea puts its padding on the inner textarea (.rt-TextAreaInput), where
+// size 2 defaults to 5px / 7px, so it's overridden there.
+.textArea :global(.rt-TextAreaInput) {
+  padding: var(--space-3);
+}
+
+// Placeholder --slate-9, set in review (lighter than Radix's default,
+// --gray-a10).
+.textArea :global(.rt-TextAreaInput)::placeholder {
+  color: var(--slate-9);
+}
+
+// The Hypothesis field's outline goes a step darker on hover, --slate-9, the
+// same as the Analysis Plan's selects (set in review). Not while focused,
+// which has its own focus outline. Used by the Hypothesis field and the
+// rail's comment box.
+.hoverOutline:hover:not(:focus-within) {
+  box-shadow: inset 0 0 0 var(--text-area-border-width) var(--slate-9);
+}
+
+// Eases between resting and hover over 150ms, like the Analysis Plan's
+// selects (set in review). Off for reduced motion.
+.hoverOutline {
+  transition: box-shadow 150ms ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}

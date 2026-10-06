@@ -1,0 +1,43 @@
+// The Setup tab's tab names in --gray-12, the same as the page title,
+// section headings and Implementation cards' titles (set in review). Radix
+// draws inactive tabs in --gray-a11 (the active one is already --gray-12).
+// Disabled tabs keep their own, lighter, look.
+.setupTabs :global(.rt-BaseTabListTrigger):not(:disabled):not([data-disabled]) {
+  color: var(--gray-12);
+}
+
+// The header's outline buttons on the Setup tab (Test, the kebab): a
+// --slate-6 outline (Radix's inset box-shadow, redrawn in the colour set in
+// review) that eases to --slate-9 over 150ms on hover, like the page's
+// fields. Off for reduced motion. The class is doubled to outrank Radix's
+// own outline rule, which has the same specificity and may load later.
+.outlineButton.outlineButton {
+  box-shadow: inset 0 0 0 1px var(--slate-6);
+  transition:
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+
+  &:hover:not([data-disabled]) {
+    box-shadow: inset 0 0 0 1px var(--slate-9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The title on one line in the sticky row, ending in "…" when it's too long
+// for the space beside the buttons, with the full name on hover. The row's
+// heights are fixed, so a wrapped title would be clipped instead.
+.titleLine h1 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The running experiment's decision banner, below the title row: gone
+// entirely when the banner renders nothing (see ExperimentHeader.tsx).
+.decisionBanner:empty {
+  display: none;
+}

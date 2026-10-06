@@ -1,0 +1,25 @@
+// The Edit Split % modal (SplitEditModal.tsx; set in review).
+
+// A field the normalisation changed (not one the user typed in): a brief
+// highlight, the accent's soft fill and outline, existing tokens only, that
+// fades back. Off for reduced motion (the live region still announces it).
+.flash :global(.rt-TextFieldRoot) {
+  animation: splitFlash 1200ms ease-out;
+}
+
+@keyframes splitFlash {
+  from {
+    background-color: var(--accent-a3);
+    box-shadow: inset 0 0 0 1px var(--accent-8);
+  }
+
+  to {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flash :global(.rt-TextFieldRoot) {
+    animation: none;
+  }
+}

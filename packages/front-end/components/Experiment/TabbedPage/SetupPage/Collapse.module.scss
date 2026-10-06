@@ -1,0 +1,47 @@
+// Collapse.tsx: a section that opens and closes smoothly (set in review).
+// The height eases between none and the contents' own over 250ms, by
+// animating a one-row grid from 0fr to 1fr (no measuring). Closed, it's also
+// invisible, so its contents leave the tab order and the accessibility
+// tree; visibility switches at the end of closing and the start of opening.
+// The contents are clipped only while it animates (data-settled is set once
+// it has finished opening), so focus rings aren't cut off when open. Off for
+// reduced motion.
+.collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 250ms ease,
+    visibility 0s linear 250ms;
+
+  &[data-open="true"] {
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition:
+      grid-template-rows 250ms ease,
+      visibility 0s linear 0s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &[data-open="true"] {
+      transition: none;
+    }
+  }
+}
+
+.inner {
+  min-height: 0;
+  overflow: hidden;
+
+  .collapse[data-settled="true"] > & {
+    overflow: visible;
+  }
+
+  // No animation, so no transitionend to settle on: unclipped once open.
+  @media (prefers-reduced-motion: reduce) {
+    .collapse[data-open="true"] > & {
+      overflow: visible;
+    }
+  }
+}

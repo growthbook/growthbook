@@ -1,0 +1,49 @@
+// Compact comment cards (the experiment Setup page's rail): the actions
+// menu stays hidden until the comment is hovered, and the card's outline
+// darkens (no fill; set in review). The menu also shows while the card has
+// keyboard focus inside it, or while its menu is open, so it doesn't vanish
+// under the cursor or keyboard.
+.compactCard {
+  // Its outline eases to --slate-9 on hover too, over 150ms, like the Setup
+  // page's fields (set in review).
+  &::after {
+    transition: box-shadow 150ms ease;
+  }
+
+  &:hover::after,
+  &:has([data-state="open"])::after {
+    box-shadow: 0 0 0 1px var(--slate-9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      transition: none;
+    }
+  }
+}
+
+// Hidden with opacity rather than display, so the trigger stays in the tab
+// order and appears when it takes focus.
+.compactActions {
+  opacity: 0;
+  transition: opacity 120ms ease;
+
+  .compactCard:hover &,
+  .compactCard:focus-within &,
+  .compactCard:has([data-state="open"]) & {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The compact avatar's initials at 10px, the same as the rail's Owner field
+// (.ownerAvatar in SetupRail.module.scss; set in review). OFF THE TYPE SCALE:
+// Radix sizes them from --font-size-1/2 (12/14px) and @/ui/Avatar has no prop
+// for it, so this overrides Radix's own variables inside this wrapper.
+.compactAvatar :global(.rt-AvatarRoot) {
+  --avatar-fallback-one-letter-font-size: 10px;
+  --avatar-fallback-two-letters-font-size: 10px;
+}

@@ -1,0 +1,76 @@
+// The running experiment's "Actions" menu (ExperimentActionButtons.tsx; set
+// in review): grouped items, each an icon, a name and a line of
+// description.
+//
+// Spaced like @/ui/Select's menu (Radix's select at size 2; set in review):
+// 8px around the list (DropdownMenu's size 2 already has it), and 24px on
+// the right of each item. On the left, the icon 4px in where Select's check
+// sits, then 8px to the text. Hover is Select's soft highlight, from variant="soft".
+
+// The toast's soft shadow, as the Setup page's other menus have, instead of
+// Radix's --shadow-5. Doubled to outrank Radix's menu rule.
+.menu.menu {
+  box-shadow:
+    0 1px 2px var(--black-a2),
+    0 4px 8px -2px var(--black-a3);
+
+  // The full width inside the list's 8px padding (set in review), 8px above
+  // and below, as Select's.
+  :global(.rt-DropdownMenuSeparator) {
+    margin: var(--space-2) 0;
+  }
+}
+
+// Two lines tall, so not Radix's fixed 32px item height; 6px above and
+// below, as a 32px Select item has around its 20px line. The text starts
+// 28px in: the icon's 4px inset, its 16px and an 8px gap (set in review;
+// Select's 24px column left only 4px).
+.item.item {
+  position: relative;
+  align-items: flex-start;
+  height: auto;
+  padding: 6px var(--space-5) 6px calc(4px + 16px + var(--space-2));
+}
+
+// The 16px icon 4px in, on the name's line, in --slate-12 (set in review).
+.icon {
+  position: absolute;
+  top: 6px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  width: 16px;
+  height: var(--line-height-2);
+  color: var(--slate-12);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--font-size-2);
+  font-weight: 500;
+  line-height: var(--line-height-2);
+  color: var(--gray-12);
+}
+
+.description {
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--slate-11);
+  white-space: normal;
+}
+
+// The Make Decision button's chevron a touch heavier (set in review): a
+// "semibold", between Phosphor's regular (16-unit lines on its 256-unit
+// grid) and bold (24), which it doesn't have. Drawn by outlining the regular
+// icon's filled shape with a 4-unit stroke in the same colour: 20-unit
+// lines. As MetricsSelector does for the chips' remove ×.
+.semiboldCaret path {
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}

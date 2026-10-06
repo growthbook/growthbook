@@ -1,0 +1,186 @@
+// An editable rail field (currently only Experiment Type).
+//
+// Hover or focus gives the whole field, label and value, a light grey
+// background. The padding that makes room for it is always there and offset
+// by an equal negative margin, so the text stays lined up with the
+// non-editable fields around it and nothing shifts when the background
+// appears.
+//
+// The pencil is always rendered, so it holds its slot and nothing reflows;
+// it's hidden until the field is hovered or anything in it has focus.
+// Keyboard users reach it by tabbing (the button is always focusable, and
+// focusing it shows it). On touch screens, which can't hover, it's always
+// visible.
+.editableRow {
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2));
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-2);
+  transition: background-color 120ms ease;
+
+  .editButton {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  // Keyboard focus only (:focus-visible), not any focus: a mouse click on
+  // the pencil or chevron leaves focus there, and :focus-within kept the
+  // row highlighted after the cursor left (fixed in review).
+  &:hover,
+  &:has(:focus-visible) {
+    background-color: var(--gray-a2);
+
+    .editButton {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: none) {
+    .editButton {
+      opacity: 1;
+    }
+  }
+}
+
+// The Owner field's avatar initials, 10px in this one place (set in review).
+// OFF THE TYPE SCALE: Radix sizes them from --font-size-1/2 (12/14px), and
+// @/ui/Avatar has no prop for it, so this overrides Radix's own variables on
+// the avatar inside this wrapper. Nothing else is affected.
+.ownerAvatar :global(.rt-AvatarRoot) {
+  --avatar-fallback-one-letter-font-size: 10px;
+  --avatar-fallback-two-letters-font-size: 10px;
+}
+
+// A To Do row, per the design: the whole row is the target, with a light
+// hover background. Negative margin lets the background extend past the text
+// without moving it out of line with the rest of the rail.
+.todoItem {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  width: calc(100% + 2 * var(--space-2));
+  margin: 0 calc(-1 * var(--space-2));
+  padding: var(--space-2);
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+
+  &:hover {
+    background-color: var(--gray-a2);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+}
+
+div.todoItem {
+  cursor: default;
+
+  &:hover {
+    background-color: transparent;
+  }
+}
+
+// Temporary focus ring for a To Do jump target that isn't normally
+// focusable (see focusSetupTarget). Removed again on blur.
+.focusTarget {
+  outline: 2px solid var(--focus-8);
+  outline-offset: 2px;
+  border-radius: var(--radius-2);
+}
+
+// The rail's slide open and closed. Width animates between 280px and 0.
+// Collapsed, its contents also become hidden (so they can't be tabbed to),
+// but only once the slide has finished; opening, they show immediately.
+// Its pinned top also eases over 120ms, with the sticky title row and the
+// tab bar above it, so it never lands on the tab bar mid-change.
+.railSlide {
+  transition:
+    width 200ms ease,
+    top 120ms ease,
+    visibility 0s linear 0s;
+
+  &[data-collapsed="true"] {
+    visibility: hidden;
+    transition:
+      width 200ms ease,
+      top 120ms ease,
+      visibility 0s linear 200ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &[data-collapsed="true"] {
+      transition: none;
+    }
+  }
+}
+
+// The main column's side of the slide: padding and divider ease with it.
+.mainColumn {
+  transition:
+    padding-right 200ms ease,
+    border-color 200ms ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The rail's tab names in --gray-12 whether selected or not, the same as the
+// page's tabs (see ExperimentHeader.module.scss; set in review). Radix draws
+// unselected tabs in --gray-a11. Disabled tabs keep their own look.
+.railTabs :global(.rt-BaseTabListTrigger):not(:disabled):not([data-disabled]) {
+  color: var(--gray-12);
+}
+
+// The rail's eyebrows, "To Do", "General" and "Data" (set in review): the same as the
+// Targeting card's section labels on this page (.sectionLabel in
+// TargetingConditions.module.scss), 11px, weight 500, uppercase, 0.04em
+// tracking, in --slate-9, one step lighter than
+// those (set in review). OFF THE TYPE SCALE (Text's smallest size is 12px),
+// so set here and Text inherits it (size="inherit").
+.railEyebrow {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--slate-9);
+}
+
+// The Data accordion's chevron: turns from pointing right (closed) to down
+// (open).
+.accordionCaret {
+  transition: transform 150ms ease;
+
+  &[data-open="true"] {
+    transform: rotate(90deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The save bar rises into view from the bottom of the window when it
+// appears (set in review): a short slide up with a fade, to draw the eye.
+// Instant for reduced motion.
+.footerRaise {
+  animation: footerRaise 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes footerRaise {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

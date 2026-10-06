@@ -1,0 +1,14 @@
+@import "./hoverOutline";
+
+// The Setup page's field hover (outline to --slate-9 on hover; see
+// _hoverOutline.scss), built into the shared date field so it has it
+// anywhere, e.g. the Edit Schedule modal (set in review).
+.field {
+  @include hover-outline-fields;
+}
+
+// Full width: the field fills its row.
+.fullWidth {
+  flex: 1 1 auto;
+  min-width: 0;
+}

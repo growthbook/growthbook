@@ -1,0 +1,186 @@
+// The Targeting card's "Conditions" row and its popover (see
+// TargetingConditions.tsx; set in review).
+
+// The row: one button, laid out like the card's other label/value rows
+// (SetupFunnelRow): the label on the left, the value in their 72px column
+// (inset 9px) on the right, on a shared baseline. No fill of its own; its
+// hover underlines the count (set in review).
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-radius: var(--radius-2);
+
+  &:hover .count,
+  &[data-state="open"] .count {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+  }
+}
+
+// "Conditions": the card's row label (SetupLabel's --slate-11, 14px).
+.label {
+  flex-shrink: 0;
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+  color: var(--slate-11);
+}
+
+// "View (3)": in the row value column, in the link colour, underlined
+// only on hover.
+.count {
+  flex: 0 0 auto;
+  min-width: 72px;
+  box-sizing: border-box;
+  padding-left: 9px;
+  // 12px, set in review.
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--violet-11);
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+// Everything in the popover is in the page font, Inter (set in review),
+// including attribute names, values and JSON.
+//
+// The popover: a set width, so long values wrap instead of widening it,
+// and at most 320px tall, then it scrolls.
+// As wide as the row (set in review), so the popover's edges line up with
+// "Conditions" and the card's other rows.
+.popover {
+  width: var(--radix-popover-trigger-width);
+  max-width: calc(100vw - 32px);
+  max-height: 320px;
+  overflow-y: auto;
+  user-select: text;
+}
+
+// 4px above its rows, the same as between them (set in review).
+.sectionLabel {
+  margin-bottom: var(--space-1);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--slate-10);
+}
+
+// Attribute rules: three columns on the container, so every row's operator
+// and value line up. Each group (and section) is its own grid.
+//
+// Rows sit close, as a block you can run your eye down (set in review): 4px
+// apart (--space-1), at a 1.4 line height. The spacing between groups, around OR and
+// between sections stays generous; that's what carries the structure.
+.ruleGrid {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  align-items: baseline;
+  line-height: 1.4;
+}
+
+// Saved groups and prerequisites: their own two columns, at the same
+// rhythm.
+.twoColumnGrid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-3);
+  row-gap: calc(var(--space-1) * 1.5);
+  align-items: baseline;
+  line-height: 1.4;
+}
+
+// The scan edge: medium (500), ink (set in review).
+.attribute {
+  font-family: inherit;
+  font-size: var(--font-size-1);
+  font-weight: 500;
+  color: var(--gray-12);
+  overflow-wrap: anywhere;
+}
+
+// Smaller and muted, in its own column.
+.operator {
+  font-size: var(--font-size-1);
+  color: var(--slate-10);
+}
+
+// Values: ink (not violet: violet means interactive), wrapping.
+.value {
+  min-width: 0;
+  font-family: inherit;
+  font-size: var(--font-size-1);
+  color: var(--gray-12);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.plainValue {
+  min-width: 0;
+  font-size: var(--font-size-1);
+  color: var(--gray-12);
+  overflow-wrap: anywhere;
+}
+
+// OR groups: a subtle left rail per group, "All of:" first, a bold OR
+// between.
+.orGroup {
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--gray-a5);
+}
+
+// "All of:" a little closer to its first row (2px; set in review).
+.allOf {
+  margin-bottom: 2px;
+  font-size: var(--font-size-1);
+  color: var(--slate-10);
+}
+
+.or {
+  font-size: var(--font-size-1);
+  font-weight: 600;
+  color: var(--gray-12);
+}
+
+// "· has a condition": a footnote to the prerequisite's state, so quieter
+// than it.
+.footnote {
+  color: var(--slate-9);
+}
+
+.featureLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+  font-size: var(--font-size-1);
+  overflow-wrap: anywhere;
+}
+
+// A condition the builder can't show simply: its JSON, as written.
+.json {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-family: inherit;
+  font-size: var(--font-size-1);
+  color: var(--gray-12);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background-color: var(--slate-2);
+  border-radius: var(--radius-2);
+}

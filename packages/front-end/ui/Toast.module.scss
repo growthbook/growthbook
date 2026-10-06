@@ -1,0 +1,134 @@
+// Toasts (see Toast.tsx): bottom right of the window, 24px in from both
+// edges, above everything but modals' own layers, one under another.
+.viewport {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  outline: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 240px;
+  max-width: 420px;
+  // 12px all round, set in review.
+  padding: var(--space-3);
+  // Coloured like @/ui/Callout for the same status (set in review): Radix's
+  // soft callout, --{colour}-a3 behind --{colour}-a11 text and icon, with
+  // the colour from Callout's mapping (success green, error red, info
+  // violet). The a3 tint is laid over the solid panel colour, so the toast
+  // looks the same as a callout on the page but isn't see-through over
+  // whatever it floats above.
+  --toast-color-a3: var(--green-a3);
+  --toast-color-a11: var(--green-a11);
+  color: var(--toast-color-a11);
+  background:
+    linear-gradient(var(--toast-color-a3), var(--toast-color-a3)),
+    var(--color-panel-solid);
+  border-radius: var(--radius-3);
+  // A soft, close shadow and no outline ring (set in review), rather than
+  // Radix's --shadow-5 (a 1px --gray-a3 ring and a 60px blur).
+  // The lift's blur slightly tighter, 8px (set in review).
+  box-shadow:
+    0 1px 2px var(--black-a2),
+    0 4px 8px -2px var(--black-a3);
+
+  &[data-status="error"] {
+    --toast-color-a3: var(--red-a3);
+    --toast-color-a11: var(--red-a11);
+  }
+
+  &[data-status="info"] {
+    --toast-color-a3: var(--violet-a3);
+    --toast-color-a11: var(--violet-a11);
+  }
+
+  // In: a slide in from past the window's right edge, leftwards into place.
+  // Out (expired or closed): back off to the right, the way it swipes. No
+  // fades, just movement (all set in review). Swiped: follows the finger.
+  &[data-state="open"] {
+    animation: toastIn 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  &[data-state="closed"] {
+    animation: toastOut 200ms ease-in forwards;
+  }
+
+  // Swiped right, off the corner it sits in.
+  &[data-swipe="move"] {
+    transform: translateX(var(--radix-toast-swipe-move-x));
+  }
+
+  &[data-swipe="cancel"] {
+    transform: translateX(0);
+    transition: transform 200ms ease-out;
+  }
+
+  &[data-swipe="end"] {
+    animation: toastOut 200ms ease-in forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &[data-state="open"],
+    &[data-state="closed"],
+    &[data-swipe="end"] {
+      animation: none;
+    }
+  }
+}
+
+// In the text colour, like the callout's icon.
+.icon {
+  display: flex;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+// The dismiss button in the toast's colour too. The class is doubled to
+// outrank Radix's own button colour, which has the same specificity.
+.close.close {
+  color: inherit;
+}
+
+.message {
+  flex: 1;
+  min-width: 0;
+  // Medium (500), set in review.
+  font-weight: 500;
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+}
+
+// From past the window's right edge: its own width plus the 24px gap.
+@keyframes toastIn {
+  from {
+    transform: translateX(calc(100% + var(--space-5)));
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+// Off the window's right edge: its own width plus the 24px gap.
+@keyframes toastOut {
+  from {
+    transform: translateX(var(--radix-toast-swipe-end-x, 0));
+  }
+
+  to {
+    transform: translateX(calc(100% + var(--space-5)));
+  }
+}

@@ -1,0 +1,152 @@
+// The decision criteria's rules popover (DecisionRulesPopover.tsx; set in
+// review).
+
+// Wide enough for a two-condition rule on two lines; the toast's soft
+// shadow, as the goal metric popover. Doubled to outrank Popover's rule.
+// The View Rules link: a bare button, no browser padding.
+.trigger.trigger {
+  padding: 0;
+  line-height: var(--line-height-1);
+}
+
+.popover.popover {
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  box-shadow:
+    0 1px 2px var(--black-a2),
+    0 4px 8px -2px var(--black-a3);
+}
+
+.description {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--slate-11);
+}
+
+// No colour of its own: the page text colour, as the Analysis Plan's
+// "Timing" label has (set in review).
+.note {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+}
+
+// One line (or more) per sentence; text-wrap: pretty also keeps a single
+// word from wrapping alone onto a sentence's last line.
+.sentence {
+  display: block;
+  text-wrap: pretty;
+}
+
+.separator.separator {
+  background-color: var(--gray-a5);
+}
+
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// Number, conditions, action: the action right-aligned on the first line.
+// 12px (set in review; was 14px).
+.rule {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  column-gap: var(--space-2);
+  align-items: start;
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--gray-12);
+}
+
+.number {
+  color: var(--slate-10);
+}
+
+.conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.condition {
+  overflow-wrap: anywhere;
+}
+
+.quantifier {
+  font-weight: 600;
+}
+
+// "AND": small caps-like, quieter than the condition.
+.and {
+  font-size: var(--font-size-1);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--slate-9);
+}
+
+.good {
+  color: var(--green-11);
+}
+
+.bad {
+  color: var(--red-11);
+}
+
+.otherwise {
+  color: var(--slate-11);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.actionIcon {
+  display: flex;
+}
+
+.ship {
+  color: var(--green-11);
+}
+
+.rollback {
+  color: var(--red-11);
+}
+
+.review {
+  color: var(--amber-11);
+}
+
+// One opening animation whatever side it opens on (fixed in review). The
+// Popover's own animation is chosen by side, so when scrolling flips it from
+// below "View Rules" to above, the animation changed and replayed from
+// transparent. A side-independent one only plays on open. Tripled to outrank
+// Popover's [data-state][data-side] rules.
+.popover.popover.popover[data-state="open"] {
+  animation-name: rulesPopoverIn;
+}
+
+@keyframes rulesPopoverIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover.popover.popover[data-state="open"] {
+    animation: none;
+  }
+}

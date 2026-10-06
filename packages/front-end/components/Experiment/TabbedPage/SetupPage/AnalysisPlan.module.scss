@@ -1,0 +1,204 @@
+@import "./hoverOutline";
+
+// The Analysis Plan's date fields: an empty field's placeholder ("mm/dd/yyyy")
+// in --slate-9, the same as the Hypothesis field's (set in review).
+// DatePicker marks an empty field with Bootstrap's .text-muted, whose colour
+// is !important, so this is too.
+.dateField :global(.date-picker-field.text-muted) {
+  color: var(--slate-9) !important;
+}
+
+// The same colour for the "mm/dd/yyyy" placeholder shown while empty (a
+// placeholder, which .text-muted doesn't colour), and the calendar icon in
+// the placeholder's colour.
+.dateField :global(.date-picker-field)::placeholder {
+  color: var(--slate-9);
+  opacity: 1;
+}
+
+.dateField svg {
+  color: var(--slate-9);
+}
+
+// While empty the field is read-only (a click opens the calendar instead),
+// and Bootstrap fills read-only fields grey; keep it looking like the other
+// fields (fixed in review).
+.dateField :global(.date-picker-field)[readonly] {
+  background-color: transparent;
+}
+
+// A select menu whose items show a description under the name (Decision
+// Criteria, set in review): items grow to fit their lines, and the menu is
+// up to 80px wider than the field, so descriptions have a little more room.
+.describedMenu {
+  max-width: calc(var(--radix-select-trigger-width) + 80px);
+
+  :global(.rt-SelectItem) {
+    height: auto;
+    min-height: var(--select-item-height);
+    padding-top: var(--space-1);
+    padding-bottom: var(--space-1);
+  }
+
+  // The checkmark centred on the name's line rather than sitting at the
+  // item's top (set in review): as tall as that 20px line, at the item's
+  // 4px top padding.
+  :global(.rt-SelectItemIndicator) {
+    top: var(--space-1);
+    height: var(--line-height-2);
+  }
+}
+
+// The description line: styled like the legacy select's descriptions (the
+// metric pickers' "— description", Bootstrap's .text-muted): the muted text
+// colour.
+// At most two lines, ending in "…" beyond that, at 12px (both set in review).
+.optionDescription {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--text-color-muted);
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+// When any description in the menu takes two lines, all of them keep room
+// for two, so every option is the same height (set in review).
+.describedMenuTwoLine .optionDescription {
+  min-height: calc(2 * var(--line-height-1));
+}
+
+// "No description", a step lighter than a description (set in review).
+.optionDescriptionEmpty {
+  color: var(--slate-9);
+}
+
+// The Advanced row: a plain full-width button, so clicking anywhere on the
+// row opens or closes it (set in review).
+.disclosureRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+    border-radius: var(--radius-2);
+  }
+}
+
+// The rail's Data chevron: --slate-9, pointing right when closed and turning
+// to point down when open.
+.disclosureCaret {
+  flex-shrink: 0;
+  color: var(--slate-9);
+  transition: transform 150ms ease;
+
+  &[data-open="true"] {
+    transform: rotate(90deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Every field in the Analysis Plan (metric pickers, selects, the Ends
+// number, dates, and Advanced's fields) gets the Setup page's hover outline
+// (see _hoverOutline.scss; set in review).
+.plan {
+  @include hover-outline-fields;
+}
+
+// Advanced's settings cards (SettingsCard in AnalysisPlan.tsx; set in
+// review): the Setup page's card (SetupFunnel.module.scss's .card) at full
+// width, with 24px of padding for the fields inside.
+.settingsCard {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-5);
+  background-color: var(--color-panel-solid);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+}
+
+// 24px at the bottom too: the last field block in a card drops the bottom
+// margin it brings (Bootstrap's .form-group mb-2, Radix's mb), which would
+// otherwise add to the card's padding (set in review). Only the wrappers,
+// never the controls' own internals.
+// The card's last block, a field at its end, and the last field in each
+// column of a row of fields (Statistics' three-across row) — not the space
+// between rows above it.
+.settingsCard > :last-child > :last-child,
+.settingsCard > :last-child > :last-child > :global(.form-group):last-child,
+.settingsCard
+  > :last-child
+  > :last-child
+  > *
+  > :global(.form-group):last-child {
+  margin-bottom: 0 !important;
+}
+
+// Field labels in Advanced's cards: 12px at weight 500 (set in review),
+// instead of the legacy fields' 14px at 600. Labels only, never the
+// controls. Covers the legacy Field/SelectField/MultiSelectField labels
+// (label[for], weight set inline, hence !important), DatePicker's (a Radix
+// Text label) and the section labels set bold with Bootstrap's
+// .font-weight-bold (Custom Metric Slices, Variation IDs, Metric
+// Overrides). Checkbox labels (@/ui/Checkbox's .rt-CheckboxItem), toggle
+// labels (.small) and the metric name heading
+// each override card (no for, no class) are left alone.
+.settingsCard label[for]:not(:global(.small)),
+.settingsCard label:global(.rt-Text):not(:global(.rt-CheckboxItem)),
+.settingsCard label:global(.font-weight-bold) {
+  font-size: var(--font-size-1) !important;
+  font-weight: 500 !important;
+  line-height: var(--line-height-1);
+  // 4px to the control below (set in review), instead of Bootstrap's 0.5rem
+  // label margin (or .mb-1's 0.25rem, also !important).
+  margin-bottom: var(--space-1) !important;
+}
+
+// Field-label info icons in the Advanced cards (e.g. Activation Metric): as
+// the Setup page's others, --slate-10, centred on the label's line.
+.infoIcon {
+  display: inline-flex;
+  color: var(--slate-10);
+}
+
+// Timing's read-only Starts row (a locked, approved schedule): the page's
+// pencil after the value, hidden until the row is hovered or focused, as
+// the Setup cards' pencils are (set in review). Always shown on touch
+// screens, which can't hover.
+.hoverEdit button {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.hoverEdit:hover button,
+.hoverEdit:focus-within button {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .hoverEdit button {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hoverEdit button {
+    transition: none;
+  }
+}

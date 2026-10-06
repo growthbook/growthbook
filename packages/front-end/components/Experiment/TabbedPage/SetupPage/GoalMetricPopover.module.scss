@@ -1,0 +1,169 @@
+// A goal metric's popover (see GoalMetricPopover.tsx; set in review).
+
+// The chip's label as the trigger: no button look of its own, so the chip
+// reads exactly as before.
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+
+  &:focus-visible {
+    border-radius: var(--radius-1);
+    outline: 2px solid var(--focus-8);
+    outline-offset: 1px;
+  }
+}
+
+// The metric's name, then its Target MDE (set in review). The name
+// truncates so the MDE always shows.
+.triggerName {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The name in the chips' --gray-a11, as MetricsSelector.module.scss sets
+// it for a name directly in the chip; the trigger sits between them here,
+// so that rule doesn't reach. MetricName's inline colour needs !important.
+:global(.gb-multi-select__multi-value__label) .triggerName > span {
+  color: var(--gray-a11) !important;
+}
+
+// "(↑15%)": one piece of text, 4px after the name. In --slate-10 (set in
+// review; was --slate-11): lighter than the name, still a step above the ×
+// (--slate-9), so the data reads as data and the × as the quieter action.
+.triggerMDE {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  margin-left: var(--space-1);
+  color: var(--slate-10);
+  white-space: nowrap;
+}
+
+// A set width, so a long description wraps rather than widening it.
+.popover {
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  user-select: text;
+}
+
+// The Values "Type" menu's shadow (SetupFunnel.module.scss
+// .softMenuShadow; set in review) instead of the Popover's --shadow-5 (a
+// 1px --gray-a3 ring and a 60px blur). Doubled to outrank Popover's rule.
+.popover.popover {
+  box-shadow:
+    0 1px 2px var(--black-a2),
+    0 4px 8px -2px var(--black-a3);
+}
+
+// The open-in-new-tab button is a link, so Bootstrap's link colours (a
+// lighter blue-grey on hover) would win over the pencil's. Pinned to the
+// pencil's colour, Radix's high-contrast ghost (--accent-12, gray here), in
+// every state. The class is doubled to outrank Bootstrap's a:hover.
+.openLink.openLink {
+  &,
+  &:hover,
+  &:focus,
+  &:visited {
+    color: var(--accent-12);
+    text-decoration: none;
+  }
+}
+
+.separator.separator {
+  background-color: var(--gray-a5);
+}
+
+// Styled like the rail's Details labels (RailLabel in SetupRail.tsx; set in
+// review): 12px, regular (400), --slate-11. 2px above their content (set in
+// review; the rail has none).
+.sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: 2px;
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  font-weight: 400;
+  color: var(--slate-11);
+}
+
+.info {
+  display: flex;
+  color: var(--slate-10);
+}
+
+// The values at 12px, the same size as their labels (set in review).
+.description {
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--gray-12);
+  overflow-wrap: anywhere;
+}
+
+.value {
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--gray-12);
+}
+
+.checkbox {
+  margin-top: var(--space-3);
+}
+
+// In a metric field's chip, the trigger is the chip's whole left side (set
+// in review): its padding moves from react-select's label onto the trigger,
+// so every pixel left of the × opens the popover. On hover, and while its
+// popover is open, that side takes the ×'s own hover fill (--slate-a4, over
+// 150ms; react-select.scss), so the two halves read as two controls.
+:global(.gb-multi-select__multi-value__label):has(> .trigger) {
+  align-self: stretch;
+  padding: 0 !important;
+  border-radius: var(--radius-1) 0 0 var(--radius-1);
+  transition: background-color 150ms ease;
+
+  &:has(> .trigger:hover),
+  &:has(> .trigger[data-state="open"]) {
+    background-color: var(--slate-a4);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+
+  // 6px before the ×, more than the arrow-to-value 2px, so the × reads as
+  // its own control, not part of the value (set in review; was 3px).
+  > .trigger {
+    height: 100%;
+    padding: 0 6px;
+  }
+}
+
+// The read-only goal metric chip (a soft grey Badge): one step darker on
+// hover, and while its popover is open, so it reads as clickable, like the
+// editable chip's name side (set in review). The Badge's soft fill is
+// --accent-a3 (gray here); this is --accent-a4, over the same 150ms. The
+// class is doubled to outrank Radix's soft badge rule.
+.badgeChip.badgeChip {
+  transition: background-color 150ms ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.trigger:hover .badgeChip.badgeChip,
+.trigger[data-state="open"] .badgeChip.badgeChip {
+  background-color: var(--accent-a4);
+}

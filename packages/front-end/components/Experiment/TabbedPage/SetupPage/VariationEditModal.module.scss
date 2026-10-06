@@ -1,0 +1,162 @@
+@import "./hoverOutline";
+
+// A variation's own modal (VariationEditModal.tsx; set in review).
+
+// The variation under the title: its dot and index, 14px, as the JSON
+// value modal shows its variation.
+.which {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: -2px;
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+}
+
+// The images: five to a row, in equal columns 12px apart (set in review).
+.imageGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+// The add tile in the next cell: an image's size and shape.
+.addCell {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+// The add tile (set in review): an image's 2px --gray-4 outline, no fill,
+// and a bold + in the middle. Its outline and + darken to --slate-9 on
+// hover, the page's field hover.
+.addTile {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--slate-11);
+  cursor: pointer;
+  border-radius: var(--radius-2);
+  box-shadow: inset 0 0 0 2px var(--gray-4);
+  transition:
+    box-shadow 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    color: var(--slate-12);
+    box-shadow: inset 0 0 0 2px var(--slate-9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Image thumbnails: squares as wide as their column (about 133px in the
+// 800px modal), the card's thumb shape (radius, outline) at a larger size.
+.thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-2);
+  overflow: hidden;
+
+  // A light outline over the image's edge (set in review): drawn on top,
+  // since an inset shadow on the box itself sits under the image and was
+  // hidden by it.
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    // 2px in --gray-4, the solid step, not the translucent --gray-a4, so
+    // it looks the same over any image (all set in review).
+    box-shadow: inset 0 0 0 2px var(--gray-4);
+  }
+}
+
+.thumbImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+// The remove ×, in the thumbnail's top-right corner. White with a dark,
+// bold × and a very light shadow, so it sits on any image (set in review;
+// it was the solid dark button). The panel colour and --gray-12, so dark
+// mode flips with the rest of the page. Doubled to outrank Radix's solid
+// button colours.
+.remove.remove {
+  position: absolute;
+  // 6px in (set in review).
+  top: 6px;
+  right: 6px;
+  color: var(--gray-12);
+  background-color: var(--color-panel-solid);
+  box-shadow:
+    0 1px 2px var(--black-a2),
+    0 1px 3px var(--black-a1);
+
+  &:hover {
+    background-color: var(--gray-2);
+  }
+}
+
+// With no images yet: a full-width dashed drop area, as tall as the
+// description's 8-line text area (8 × 20px lines, plus 12px of padding and
+// the 1px border top and bottom: 186px), to click, drop or paste an image
+// onto (set in review).
+.attach {
+  box-sizing: border-box;
+  width: 100%;
+  height: calc(8 * var(--line-height-2) + 26px);
+  border-radius: var(--radius-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  color: var(--slate-11);
+  cursor: pointer;
+
+  // The dashed outline, with fewer, longer dashes than a CSS dashed border
+  // gives (5px dashes, 4px gaps; set in review). Drawn as an SVG dash
+  // pattern used as a mask, so its colour stays a token: --gray-a7, and
+  // --slate-9 on hover, over 150ms. The stroke is 2px on the box's edge, so
+  // the 1px inside it shows; rounded to the box's 4px radius.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background-color: var(--gray-a7);
+    $dashes: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='4' ry='4' fill='none' stroke='black' stroke-width='2' stroke-dasharray='5 4'/%3E%3C/svg%3E";
+    -webkit-mask-image: url($dashes);
+    mask-image: url($dashes);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    transition: background-color 150ms ease;
+  }
+
+  &:hover::before {
+    background-color: var(--slate-9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      transition: none;
+    }
+  }
+}
+
+// The Name field: the Setup page's field hover (see _hoverOutline.scss).
+.hoverFields {
+  @include hover-outline-fields;
+}
