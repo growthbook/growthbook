@@ -22,7 +22,7 @@ import {
   PiProhibit,
   PiClockFill,
 } from "react-icons/pi";
-import { ago, datetime } from "shared/dates";
+import { ago, datetime, timezoneShortLabel } from "shared/dates";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import {
   isScheduledPublishPending,
@@ -671,8 +671,12 @@ export default function FeaturesOverview({
                           This <strong>draft</strong> is scheduled to publish on{" "}
                           <strong>
                             {datetime(revision.scheduledPublishAt as Date)}
-                          </strong>
-                          {awaitingApproval ? " once approved" : ""}
+                          </strong>{" "}
+                          (
+                          {timezoneShortLabel(
+                            revision.scheduledPublishAt as Date,
+                          )}
+                          ){awaitingApproval ? " once approved" : ""}
                           {lockClauses.length
                             ? ` — ${lockClauses.join(" and ")}`
                             : ""}

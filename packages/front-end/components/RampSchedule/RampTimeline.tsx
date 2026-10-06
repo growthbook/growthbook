@@ -2,7 +2,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
-import { abbreviateAgo } from "shared/dates";
+import { abbreviateAgo, timezoneShortLabel } from "shared/dates";
 import {
   isReadyForApproval,
   isAwaitingStartApproval,
@@ -125,7 +125,7 @@ export function formatScheduledDate(
   const now = new Date();
   const sameYear = parsed.getFullYear() === now.getFullYear();
   const dateLine = format(parsed, sameYear ? "MMM d" : "MMM d, yyyy");
-  const timeLine = format(parsed, "h:mm a");
+  const timeLine = `${format(parsed, "h:mm a")} (${timezoneShortLabel(parsed)})`;
   if (inline) {
     return (
       <Text size="sm">
