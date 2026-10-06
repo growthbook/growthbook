@@ -445,11 +445,8 @@ export function buildPatch(
     out.environments = allEnvironments ? undefined : (patch.environments ?? []);
   }
   if (patch.force !== undefined) {
-    try {
-      out.force = JSON.parse(patch.force);
-    } catch {
-      out.force = patch.force;
-    }
+    // Rule values are stored as strings; send the value field's text as-is.
+    out.force = patch.force;
   }
   return out;
 }
@@ -868,6 +865,7 @@ interface Props {
   readOnly?: boolean;
   feature: FeatureInterface;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   // Used by the standalone modal.
@@ -904,6 +902,7 @@ export default function RampScheduleSection({
   readOnly = false,
   feature,
   attributeProjects,
+  savedGroupProjects,
   attributeSelectIndicator,
   environments,
   boxStepGrid = false,
@@ -1391,6 +1390,7 @@ export default function RampScheduleSection({
         effectRows.push(
           <Box mb="3">
             <SavedGroupTargetingField
+              savedGroupProjects={savedGroupProjects}
               value={patch.savedGroups ?? []}
               setValue={(v) => setPatchFn("savedGroups", v)}
               project={feature.project ?? ""}
@@ -1420,6 +1420,7 @@ export default function RampScheduleSection({
               onChange={(v) => setPatchFn("condition", v)}
               project={feature.project ?? ""}
               attributeProjects={attributeProjects}
+              savedGroupProjects={savedGroupProjects}
               attributeSelectIndicator={attributeSelectIndicator}
               slimMode
               emptyText=""

@@ -26,6 +26,7 @@ describe("redactSecretParams", () => {
   it("blanks secrets and passes public params through", () => {
     const redacted = redactSecretParams("bigquery", {
       projectId: "my-project",
+      apiEndpoint: "https://proxy.example.com",
       clientEmail: "sa@my-project.iam.gserviceaccount.com",
       privateKey: "-----BEGIN PRIVATE KEY-----",
       serviceAccountJson: '{"private_key":"-----BEGIN PRIVATE KEY-----"}',
@@ -34,6 +35,7 @@ describe("redactSecretParams", () => {
 
     expect(redacted).toEqual({
       projectId: "my-project",
+      apiEndpoint: "https://proxy.example.com",
       clientEmail: "sa@my-project.iam.gserviceaccount.com",
       privateKey: "",
       serviceAccountJson: "",
@@ -88,6 +90,19 @@ describe("redactSecretParams", () => {
 });
 
 describe("mergeDataSourceParams", () => {
+  it("clears a BigQuery endpoint override while preserving stored credentials", () => {
+    expect(
+      mergeDataSourceParams(
+        "bigquery",
+        {
+          apiEndpoint: "https://proxy.example.com",
+          privateKey: "stored private key",
+        },
+        { apiEndpoint: "", privateKey: "" },
+      ),
+    ).toEqual({ apiEndpoint: "", privateKey: "stored private key" });
+  });
+
   it("preserves unsubmitted secrets while applying classified nested updates", () => {
     const merged = mergeDataSourceParams(
       "mssql",

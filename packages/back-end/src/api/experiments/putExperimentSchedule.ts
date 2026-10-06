@@ -2,8 +2,10 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   putExperimentScheduleValidator,
 } from "shared/validators";
+import { scheduleWriteNeedsRunPermission } from "shared/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { setExperimentSchedule } from "back-end/src/services/experimentScheduling";
+import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
@@ -18,6 +20,11 @@ export const putExperimentSchedule = createApiRequestHandler(
   }
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
+  }
+  // A schedule that will start, stop or ship is a deferred status change and
+  // takes the same permission as making it now; notify-only ends do not.
+  if (scheduleWriteNeedsRunPermission(experiment, req.body)) {
+    await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
   }
 
   // Full-replace: the body is the complete desired schedule + stop-plan state, so

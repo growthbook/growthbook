@@ -24,7 +24,6 @@ import {
 } from "back-end/src/services/owner";
 import {
   getFeature,
-  updateFeature as updateFeatureToDb,
   createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import {
@@ -35,8 +34,7 @@ import {
   addIdsToFlatRules,
   assertFeatureValuesValid,
   getApiFeatureObjV2,
-  getNextScheduledUpdate,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
   inheritStoredRolloutSeeds,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
@@ -59,8 +57,7 @@ import {
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
 import {
-  assertValidRuleEnvironments,
-  validateChangedRuleReferences,
+  assertValidFeatureRules,
   validateCustomFields,
   validateRuleAttributes,
 } from "./validations";
@@ -73,10 +70,7 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidChangedRuleProjectIds,
   assertUniqueRuleIds,
-  assertValidChangedRuleExperimentIds,
-  validateRulesScheduleRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -317,25 +311,9 @@ export const updateFeatureV2 = createApiRequestHandler(
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
     assertUniqueRuleIds(inboundFlatRules);
-    assertValidRuleEnvironments(req.context, inboundFlatRules);
-    await assertValidChangedRuleProjectIds(
-      inboundFlatRules,
-      feature.rules ?? [],
+    await assertValidFeatureRules(
       req.context,
-    );
-    await assertValidChangedRuleExperimentIds(
       inboundFlatRules,
-      feature.rules ?? [],
-      req.context,
-    );
-    await validateChangedRuleReferences(
-      inboundFlatRules,
-      feature.rules ?? [],
-      req.context,
-    );
-    validateRulesScheduleRules(
-      inboundFlatRules,
-      req.context,
       feature.rules ?? [],
     );
     // Request-supplied config keys must exist, be live, and belong to the
@@ -357,9 +335,12 @@ export const updateFeatureV2 = createApiRequestHandler(
     addIdsToFlatRules(inboundFlatRules, feature.id);
     // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
     // here (against the effective schema, opt-out via ?skipSchemaValidation).
-    assertFeatureValuesValid(req.context, effectiveFeature, {
-      rules: inboundFlatRules,
-    });
+    assertFeatureValuesValid(
+      req.context,
+      effectiveFeature,
+      { rules: inboundFlatRules },
+      jsonSchema === null ? feature : undefined,
+    );
   }
 
   // Config-backed values (default + rules) validate against the backing config's
@@ -441,12 +422,6 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
   }
 
-  if (inboundFlatRules != null || updates.defaultValue !== undefined) {
-    updates.nextScheduledUpdate = getNextScheduledUpdate(
-      inboundFlatRules ?? feature.rules,
-    );
-  }
-
   // JWT-backed REST calls should behave like dashboard actions: the org-level
   // REST bypass setting only applies to API keys/PATs.
   const canBypass = canBypassReviewChecks(req, feature);
@@ -513,6 +488,11 @@ export const updateFeatureV2 = createApiRequestHandler(
     hasArchivedChange ||
     hasHoldoutChange;
 
+  // The landing inside createAndPublishRevision is this handler's only write
+  // to the feature document. A second write would not refuse to land over a
+  // newer revision and could put this request's value back over a rival's.
+  let updatedFeature: FeatureInterface = feature;
+
   if (hasRevisionChanges) {
     if (hasMetadataChanges) {
       await assertFeatureMoveDependentsGuard(
@@ -549,12 +529,11 @@ export const updateFeatureV2 = createApiRequestHandler(
       user: req.eventAudit,
       org: req.organization,
       changes: revisionChanges,
-      comment: "Created via REST API",
+      comment: req.body.comment ?? "Created via REST API",
       canBypassApprovalChecks: canBypass,
     });
 
-    Object.assign(feature, updatedFeatureFromRevision);
-    updates.version = revision.version;
+    updatedFeature = updatedFeatureFromRevision;
 
     // See updateFeature: this path lands a live revision, so it owes the same
     // `revision.published` webhook the dedicated publish endpoints emit.
@@ -564,8 +543,12 @@ export const updateFeatureV2 = createApiRequestHandler(
     try {
       await dispatchFeatureRevisionEvent(
         req.context,
-        feature,
-        await getPublishedRevisionForEvents(req.context, feature, revision),
+        updatedFeature,
+        await getPublishedRevisionForEvents(
+          req.context,
+          updatedFeature,
+          revision,
+        ),
         "revision.published",
         {},
       );
@@ -605,8 +588,6 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
   }
 
-  const updatedFeature = await updateFeatureToDb(req.context, feature, updates);
-
   await addTagsDiff(
     req.context.org.id,
     feature.tags || [],
@@ -622,7 +603,6 @@ export const updateFeatureV2 = createApiRequestHandler(
     details: auditDetailsUpdate(feature, updatedFeature),
   });
 
-  const groupMap = await getSavedGroupMap(req.context);
   const experimentMap = await getExperimentMapForFeature(
     req.context,
     feature.id,
@@ -634,8 +614,10 @@ export const updateFeatureV2 = createApiRequestHandler(
     feature: updatedFeature,
     version: updatedFeature.version,
   });
-  const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+  const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+    req.context,
+    { features: [updatedFeature], experiments: experimentMap.values() },
+  );
   return {
     feature: await resolveOwnerEmail(
       getApiFeatureObjV2({

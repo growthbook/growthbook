@@ -34,6 +34,7 @@ import {
   updateSdkConnectionsRemoveManagedBy,
 } from "back-end/src/models/SdkConnectionModel";
 import {
+  PendingSSOConnectionCookie,
   SSOConnectionIdCookie,
   setIdTokenCookie,
 } from "back-end/src/util/cookie";
@@ -793,6 +794,7 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
   });
 
   SSOConnectionIdCookie.setValue(`vercel:${installationId}`, req, res);
+  PendingSSOConnectionCookie.setValue("", req, res);
   setIdTokenCookie(token, req, res);
 
   res.send({

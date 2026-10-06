@@ -1,9 +1,4 @@
-import React, {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from "react";
+import React, { useEffect, useRef } from "react";
 import "rrweb-player/dist/style.css";
 import type { eventWithTime } from "@rrweb/types";
 import Player from "rrweb-player";
@@ -14,6 +9,7 @@ export type RrwebPlayerHandle = {
 
 type Props = {
   events: eventWithTime[];
+  handleRef?: React.MutableRefObject<RrwebPlayerHandle | null>;
 };
 
 const PLAYER_CONTROLLER_PX = 80;
@@ -45,23 +41,23 @@ function measurePlayerDims(container: HTMLElement | null): {
  *   - "Node with id N not found" comes from multi-FullSnapshot stitching
  *     in sessions that span a page reload
  */
-const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
-  { events },
-  ref,
-) {
+// next/dynamic doesn't forward refs, so we use a regular prop instead.
+function RrwebPlayer({ events, handleRef }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const playerInstance = useRef<any>(null);
 
-  useImperativeHandle(
-    ref,
-    () => ({
+  useEffect(() => {
+    if (!handleRef) return;
+    handleRef.current = {
       goto: (timeOffsetMs: number) => {
         playerInstance.current?.goto?.(timeOffsetMs);
       },
-    }),
-    [],
-  );
+    };
+    return () => {
+      handleRef.current = null;
+    };
+  }, [handleRef]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -137,6 +133,6 @@ const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
   }, [events]);
 
   return <div ref={containerRef} />;
-});
+}
 
 export default RrwebPlayer;

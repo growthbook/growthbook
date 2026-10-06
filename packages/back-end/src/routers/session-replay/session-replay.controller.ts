@@ -20,8 +20,10 @@ type SessionReplayListItem = Pick<
   | "startedAt"
   | "endedAt"
   | "lastEventAt"
+  | "ingestedAt"
   | "durationMs"
   | "eventCount"
+  | "keyEventCount"
   | "errorCount"
   | "urlFirst"
   | "urlsVisited"
@@ -54,6 +56,8 @@ export async function listSessions(
       eventCountMax?: string;
       featureKey?: string;
       experimentKey?: string;
+      dateAfter?: string;
+      dateBefore?: string;
       project?: string;
       page?: string;
     }
@@ -83,6 +87,8 @@ export async function listSessions(
     maxEventCount: parsePositiveFloat(req.query.eventCountMax),
     featureKey: req.query.featureKey,
     experimentKey: req.query.experimentKey,
+    dateAfter: req.query.dateAfter,
+    dateBefore: req.query.dateBefore,
     project: req.query.project,
     limit: pageSize,
     offset,
@@ -99,8 +105,10 @@ function toListItem(session: SessionReplayInterface): SessionReplayListItem {
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     lastEventAt: session.lastEventAt,
+    ingestedAt: session.ingestedAt,
     durationMs: session.durationMs,
     eventCount: session.eventCount,
+    keyEventCount: session.keyEventCount,
     errorCount: session.errorCount,
     urlFirst: session.urlFirst,
     urlsVisited: session.urlsVisited,

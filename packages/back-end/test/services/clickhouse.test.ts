@@ -91,6 +91,10 @@ describe("listSessionReplays", () => {
     const runQuery = jest.fn().mockResolvedValue({ rows: [] });
     mockGetSourceIntegrationObject.mockReturnValue({
       runQuery,
+      getSqlDialect: () => ({
+        escapeStringLiteral: (v: string) =>
+          v.replace(/\\/g, "\\\\").replace(/'/g, "''"),
+      }),
     } as never);
 
     await listSessionReplays(context, {
@@ -105,6 +109,8 @@ describe("listSessionReplays", () => {
       maxEventCount: 25,
       featureKey: "flag'one",
       experimentKey: "exp_one",
+      dateAfter: "2026-07-01",
+      dateBefore: "2026-07-21",
       limit: 50,
       offset: 100,
     });
@@ -112,7 +118,7 @@ describe("listSessionReplays", () => {
     expect(runQuery).toHaveBeenCalledTimes(1);
     const query = runQuery.mock.calls[0][0] as string;
     expect(query).toContain("deleted_at IS NULL");
-    expect(query).toContain("user_id = 'user\\'1'");
+    expect(query).toContain("user_id = 'user''1'");
     expect(query).toContain("client_key = 'ck_1'");
     expect(query).toContain(
       "positionCaseInsensitive(url_first, 'https://example.com/path') > 0",
@@ -123,8 +129,10 @@ describe("listSessionReplays", () => {
     expect(query).toContain("duration_ms <= 10000");
     expect(query).toContain("event_count >= 5");
     expect(query).toContain("event_count <= 25");
-    expect(query).toContain("has(feature_keys, 'flag\\'one')");
+    expect(query).toContain("has(feature_keys, 'flag''one')");
     expect(query).toContain("has(experiment_keys, 'exp_one')");
+    expect(query).toContain("started_at >= '2026-07-01'");
+    expect(query).toContain("started_at < '2026-07-22'");
     expect(query).toContain("LIMIT 50");
     expect(query).toContain("OFFSET 100");
   });

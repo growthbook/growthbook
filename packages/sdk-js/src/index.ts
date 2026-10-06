@@ -59,6 +59,8 @@ export type {
   Helpers,
   GrowthBookPayload,
   SavedGroupsValues,
+  SavedGroupsPayload,
+  SavedGroupPayloadEntry,
   EventLogger,
   EventProperties,
   Plugin,
@@ -68,6 +70,7 @@ export type {
 export type {
   ConditionInterface,
   ParentConditionInterface,
+  SavedGroupReference,
 } from "./types/mongrule";
 
 export {

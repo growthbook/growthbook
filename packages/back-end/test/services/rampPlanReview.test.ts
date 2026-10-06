@@ -170,4 +170,31 @@ describe("changesRampPlan", () => {
     ).toBe(true);
     expect(changesRampPlan({ ...echo, cutoffDate: null }, stored)).toBe(true);
   });
+
+  it("compares a step or end value in its stored string form, so echoing a raw JSON value is not a re-plan", () => {
+    const act = (force: unknown) => ({
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch: { ruleId: "r1", force },
+    });
+    const stored = {
+      steps: [{ interval: 3600, actions: [act("false")] }],
+      endActions: [act('{"limit":5}')],
+    } as never;
+    expect(
+      changesRampPlan(
+        {
+          steps: [{ interval: 3600, actions: [act(false)] }],
+          endActions: [act({ limit: 5 })],
+        },
+        stored,
+      ),
+    ).toBe(false);
+    expect(
+      changesRampPlan(
+        { steps: [{ interval: 3600, actions: [act(true)] }] },
+        stored,
+      ),
+    ).toBe(true);
+  });
 });

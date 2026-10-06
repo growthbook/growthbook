@@ -26,7 +26,11 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { RampScheduleInterface, HoldoutInterface } from "shared/validators";
+import {
+  RampScheduleInterface,
+  HoldoutInterface,
+  RevisionRampDetachAction,
+} from "shared/validators";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
@@ -955,11 +959,14 @@ export function buildRampDiffs({
   revision,
   rampSchedules,
   holdoutsMap,
+  revertDetaches = [],
 }: {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   rampSchedules?: RampScheduleInterface[];
   holdoutsMap: Map<string, HoldoutInterface>;
+  // Ramps a revert draft removes because its target predates them.
+  revertDetaches?: RevisionRampDetachAction[];
 }): FeatureRevisionDiff[] {
   // Ramps that this revision's publication will move into the start lifecycle.
   const activatingRamps = (rampSchedules ?? []).filter(
@@ -1025,7 +1032,7 @@ export function buildRampDiffs({
         ],
       } as FeatureRevisionDiff;
     }),
-    ...(revision.rampActions ?? [])
+    ...[...(revision.rampActions ?? []), ...revertDetaches]
       .filter((action) => {
         const ruleId = (action as { ruleId?: string }).ruleId;
         if (!ruleId) return true;

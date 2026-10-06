@@ -3,9 +3,11 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { Flex } from "@radix-ui/themes";
 import { CustomHookInterface } from "shared/validators";
 import Text from "@/ui/Text";
+import Code from "@/components/SyntaxHighlighting/Code";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
+// null `pre` = the hook's creation; render the initial values, not a diff.
 type Snap = Partial<CustomHookInterface> | null;
 
 const onOff = (b?: boolean): string => (b ? "On" : "Off");
@@ -28,7 +30,7 @@ function ChangeRow({
   to,
 }: {
   label: string;
-  from: string;
+  from?: string;
   to: string;
 }) {
   return (
@@ -38,14 +40,18 @@ function ChangeRow({
           {label}
         </Text>
       </span>
-      <span style={{ textDecoration: "line-through" }}>
-        <Text size="sm" color="text-low">
-          {from}
-        </Text>
-      </span>
-      <Text size="sm" color="text-low">
-        →
-      </Text>
+      {from !== undefined && (
+        <>
+          <span style={{ textDecoration: "line-through" }}>
+            <Text size="sm" color="text-low">
+              {from}
+            </Text>
+          </span>
+          <Text size="sm" color="text-low">
+            →
+          </Text>
+        </>
+      )}
       <Text size="sm" weight="medium">
         {to}
       </Text>
@@ -57,9 +63,10 @@ export function renderCustomHookSettingsSection(
   pre: Snap,
   post: Partial<CustomHookInterface>,
 ): ReactNode {
-  const rows: { label: string; from: string; to: string }[] = [];
+  const rows: { label: string; from?: string; to: string }[] = [];
   const add = (label: string, from: string, to: string) => {
-    if (from !== to) rows.push({ label, from, to });
+    if (pre === null) rows.push({ label, to });
+    else if (from !== to) rows.push({ label, from, to });
   };
   add("Name", pre?.name ?? "—", post.name ?? "—");
   add("Hook type", pre?.hook ?? "—", post.hook ?? "—");
@@ -85,11 +92,12 @@ export function getCustomHookSettingsBadges(
   pre: Snap,
   post: Partial<CustomHookInterface>,
 ): DiffBadge[] {
+  if (pre === null) return [];
   const badges: DiffBadge[] = [];
-  if ((pre?.name ?? "") !== (post.name ?? "")) {
+  if ((pre.name ?? "") !== (post.name ?? "")) {
     badges.push({ label: "Renamed", action: "update" });
   }
-  if ((pre?.hook ?? "") !== (post.hook ?? "")) {
+  if ((pre.hook ?? "") !== (post.hook ?? "")) {
     badges.push({ label: `Type → ${post.hook}`, action: "update" });
   }
   if (statusStr(pre) !== statusStr(post)) {
@@ -98,7 +106,7 @@ export function getCustomHookSettingsBadges(
   if (scopeStr(pre) !== scopeStr(post)) {
     badges.push({ label: "Scope changed", action: "update" });
   }
-  if (!!pre?.incrementalChangesOnly !== !!post.incrementalChangesOnly) {
+  if (!!pre.incrementalChangesOnly !== !!post.incrementalChangesOnly) {
     badges.push({
       label: post.incrementalChangesOnly ? "Incremental on" : "Incremental off",
       action: "update",
@@ -111,8 +119,11 @@ export function renderCustomHookCodeSection(
   pre: Snap,
   post: Partial<CustomHookInterface>,
 ): ReactNode {
-  const preCode = pre?.code ?? "";
   const postCode = post.code ?? "";
+  if (pre === null) {
+    return <Code language="javascript" code={postCode} />;
+  }
+  const preCode = pre.code ?? "";
   if (preCode === postCode) return null;
   return (
     <div className="diff-wrapper">
@@ -131,7 +142,8 @@ export function getCustomHookCodeBadges(
   pre: Snap,
   post: Partial<CustomHookInterface>,
 ): DiffBadge[] {
-  return (pre?.code ?? "") !== (post.code ?? "")
+  if (pre === null) return [];
+  return (pre.code ?? "") !== (post.code ?? "")
     ? [{ label: "Code edited", action: "update" }]
     : [];
 }

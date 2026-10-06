@@ -46,6 +46,10 @@ const otherPageTitles = [
     title: "Personal Access Tokens",
   },
   {
+    path: /^account\/slack/,
+    title: "My Slack Links",
+  },
+  {
     path: /^getstarted/,
     title: "Get Started",
   },

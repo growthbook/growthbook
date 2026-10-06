@@ -23,6 +23,7 @@ const nonNegativeIntegerString = z
   .string()
   .regex(/^\d+$/)
   .refine((value) => Number(value) <= MAX_EVENT_COUNT);
+const isoDateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 router.get(
   "/",
@@ -40,6 +41,8 @@ router.get(
         eventCountMax: nonNegativeIntegerString.optional(),
         featureKey: filterString.optional(),
         experimentKey: filterString.optional(),
+        dateAfter: isoDateString.optional(),
+        dateBefore: isoDateString.optional(),
         project: filterString.optional(),
         page: z.string().optional(),
       })

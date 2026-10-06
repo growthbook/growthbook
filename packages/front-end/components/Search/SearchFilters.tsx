@@ -43,7 +43,7 @@ export function filterToString(filter: SyntaxFilter): string {
 // raw search string. The prefix is regex-escaped (operators like `^` are regex
 // metacharacters), and a negative lookahead keeps a plain `field:` pattern
 // from also swallowing `field:!...` / `field:>...` tokens for the same field.
-function filterTokenRegex(filter: SyntaxFilter): RegExp {
+export function filterTokenRegex(filter: SyntaxFilter): RegExp {
   const prefix = (
     filter.field +
     ":" +

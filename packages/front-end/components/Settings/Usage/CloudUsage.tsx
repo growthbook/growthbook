@@ -131,6 +131,7 @@ export default function CloudUsage() {
         requests: Math.floor(Math.random() * 1000000),
         bandwidth: Math.floor(Math.random() * 2000000000),
         managedClickhouseEvents: Math.floor(Math.random() * 1000000),
+        sessionReplays: Math.floor(Math.random() * 5000),
       });
       current.setUTCDate(current.getUTCDate() + 1);
     }
@@ -143,6 +144,10 @@ export default function CloudUsage() {
   const totalBandwidth = usage.reduce((sum, u) => sum + u.bandwidth, 0);
   const totalManagedClickhouseEvents = usage.reduce(
     (sum, u) => sum + u.managedClickhouseEvents,
+    0,
+  );
+  const totalSessionReplays = usage.reduce(
+    (sum, u) => sum + u.sessionReplays,
     0,
   );
 
@@ -205,6 +210,10 @@ export default function CloudUsage() {
         <div>
           <strong>Total managed Clickhouse events: </strong>
           <span>{requestsFormatter.format(totalManagedClickhouseEvents)}</span>
+        </div>
+        <div>
+          <strong>Total session replays: </strong>
+          <span>{requestsFormatter.format(totalSessionReplays)}</span>
         </div>
         {useDummyData && <Badge label="Dummy Data" color="amber" />}
         <Flex className="ml-auto" gap="2">
@@ -285,6 +294,21 @@ export default function CloudUsage() {
                 ? null
                 : limits.managedClickhouseEvents
             }
+          />
+        </Box>
+      )}
+      {totalSessionReplays > 0 && (
+        <Box>
+          <h3>Session Replays</h3>
+          <DailyGraph
+            data={usage.map((u) => ({
+              ts: new Date(u.date),
+              v: u.sessionReplays,
+            }))}
+            formatValue={(v) => requestsFormatter.format(v)}
+            start={startDate}
+            end={endDate}
+            limitLine={null}
           />
         </Box>
       )}

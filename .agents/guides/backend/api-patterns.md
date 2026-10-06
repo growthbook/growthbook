@@ -410,3 +410,11 @@ shorthand becomes a one-step ramp action. Gate them the same way.
   whose stored counterpart was unscheduled; and the ramp-schedule update
   endpoints (dashboard and REST) carry no plan gate at all. Reuse those helpers
   rather than adding an inline check.
+- Review gating (`services/rampPlanReview.ts`) covers attaching a schedule to a
+  live rule and re-planning one. Lifecycle actions, `eject-target` and `DELETE`
+  are deliberately never gated: cleanup must not need an approval.
+- A publish that edits a rule under an anchored schedule (`ready`, `running`,
+  `paused`) goes through `planRampBaseStateSync` (`services/rampSchedule.ts`)
+  in both landing paths: refused while the schedule runs (pause first) and for
+  a field a step sets; any other anchor field is written into the schedule's
+  `startActions`. Engine replays pass `rampEnginePublish` and skip it.

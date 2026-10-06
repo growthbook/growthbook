@@ -1,6 +1,7 @@
 import {
   dateStringArrayBetweenDates,
   getValidDate,
+  lastMondayString,
   resolveScheduleStopAfter,
   resolveScheduledStop,
 } from "../src/dates";
@@ -156,5 +157,26 @@ describe("resolveScheduledStop", () => {
     expect(r.stopAt).toBeNull();
     expect(r.stopAfter).toBeNull();
     expect(r.stagedStop).toBeNull();
+  });
+});
+
+describe("lastMondayString", () => {
+  it("returns the date itself when it is already a Monday", () => {
+    expect(lastMondayString("2026-09-07")).toBe("2026-09-07");
+    expect(lastMondayString("2026-09-14")).toBe("2026-09-14");
+  });
+
+  it("returns the start of the week for every other day", () => {
+    expect(lastMondayString("2026-09-08")).toBe("2026-09-07");
+    expect(lastMondayString("2026-09-10")).toBe("2026-09-07");
+    expect(lastMondayString("2026-09-13")).toBe("2026-09-07");
+    expect(lastMondayString("2026-09-15")).toBe("2026-09-14");
+  });
+
+  it("buckets on the UTC calendar day regardless of local timezone", () => {
+    // Timestamps late in the UTC day land on the prior day in western
+    // timezones, which previously shifted them into the wrong week.
+    expect(lastMondayString("2026-09-07T23:30:00Z")).toBe("2026-09-07");
+    expect(lastMondayString("2026-09-06T23:30:00Z")).toBe("2026-08-31");
   });
 });

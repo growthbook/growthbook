@@ -3,8 +3,10 @@ import type {
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
+import type { ExperimentReportVariation } from "shared/types/report";
 import {
   analyzeExperimentTraffic,
+  getAnalysisSettingsForStatsEngine,
   parseStatsEngineResult,
 } from "back-end/src/services/stats";
 
@@ -316,5 +318,37 @@ describe("analyzeExperimentTraffic", () => {
     expect(
       analyzeExperimentTraffic({ variations, rows: [] }).multipleExposures,
     ).toBeUndefined();
+  });
+});
+
+describe("getAnalysisSettingsForStatsEngine", () => {
+  const reportVariations: ExperimentReportVariation[] = [
+    { id: "control", name: "Control", weight: 0.5, index: 0 },
+    { id: "treatment", name: "Treatment", weight: 0.5, index: 1 },
+  ];
+  const alphaFor = (
+    settings: Partial<ExperimentSnapshotAnalysisSettings>,
+  ): number =>
+    getAnalysisSettingsForStatsEngine(
+      { ...analysisSettings, ...settings },
+      reportVariations,
+      1,
+      14,
+    ).alpha;
+
+  it("sets alpha from the p-value threshold for frequentist analyses", () => {
+    expect(alphaFor({ statsEngine: "frequentist", pValueThreshold: 0.2 })).toBe(
+      0.2,
+    );
+    expect(alphaFor({ statsEngine: "frequentist" })).toBe(0.05);
+  });
+
+  it("holds Bayesian credible intervals at 95% regardless of the threshold", () => {
+    expect(alphaFor({ statsEngine: "bayesian", pValueThreshold: 0.2 })).toBe(
+      0.05,
+    );
+    expect(alphaFor({ statsEngine: "bayesian", pValueThreshold: 0.001 })).toBe(
+      0.05,
+    );
   });
 });

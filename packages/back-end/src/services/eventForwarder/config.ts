@@ -113,6 +113,51 @@ function buildBigQueryServiceAccountKey(
   });
 }
 
+function parseBigQueryServiceAccountKey(raw: string): {
+  project_id?: string;
+  client_email?: string;
+  private_key?: string;
+} | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    throw new Error("Event Forwarder service account key is not valid JSON.");
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Event Forwarder service account key is not valid JSON.");
+  }
+
+  return parsed;
+}
+
+export function getEventForwarderBigQueryConnectionParams(
+  params: BigQueryConnectionParams,
+  serviceAccountKeyJson: string | undefined,
+): BigQueryConnectionParams {
+  const serviceAccountKey = parseBigQueryServiceAccountKey(
+    serviceAccountKeyJson || "",
+  );
+  if (!serviceAccountKey) return params;
+
+  return {
+    ...params,
+    authType: "json",
+    projectId: serviceAccountKey.project_id || params.projectId,
+    defaultProject:
+      params.defaultProject ||
+      serviceAccountKey.project_id ||
+      params.projectId ||
+      "",
+    clientEmail: serviceAccountKey.client_email || params.clientEmail,
+    privateKey: serviceAccountKey.private_key || params.privateKey,
+    serviceAccountJson: serviceAccountKeyJson,
+  };
+}
+
 function buildBigQueryStoredConfigFromDraft(
   draft: BigQueryEventForwarderConfigDraft,
   datasourceParams: BigQueryConnectionParams | undefined,
@@ -266,6 +311,7 @@ function buildNormalizedSinkPayload(
         datasourceParams as SnowflakeConnectionParams | undefined,
         existingModel,
       );
+    case "databricks":
     default:
       throw new Error(
         `Unsupported event forwarder sink type: ${String((draft as EventForwarderConfigDraft).sinkType)}`,
@@ -368,6 +414,7 @@ export function toEventForwarderConfigDraft(
         },
       };
     }
+    case "databricks":
     default:
       throw new Error(
         `Unsupported event forwarder sink type: ${String(config.sinkType)}`,
@@ -385,16 +432,14 @@ export function stripEventForwarderConfigMetadata(
   if (draft === undefined || draft === null) {
     return draft;
   }
-  if (draft.sinkType === "bigquery") {
-    return {
-      sinkType: "bigquery",
-      config: draft.config,
-    };
+  switch (draft.sinkType) {
+    case "bigquery":
+      return { sinkType: "bigquery", config: draft.config };
+    case "snowflake":
+      return { sinkType: "snowflake", config: draft.config };
+    case "databricks":
+      return { sinkType: "databricks", config: draft.config };
   }
-  return {
-    sinkType: draft.sinkType,
-    config: draft.config,
-  };
 }
 
 /**

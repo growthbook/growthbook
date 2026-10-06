@@ -37,6 +37,7 @@ import {
   isPureFeatureArchive,
   isPureFeatureRevert,
   MergeStrategy,
+  getRevertRampDetachActions,
 } from "shared/util";
 import {
   isScheduledPublishPending,
@@ -80,6 +81,7 @@ import Revisionlog, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
+import { useFeatureRevisionByVersion } from "@/hooks/useFeatureRevisionByVersion";
 import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
@@ -102,6 +104,7 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -761,6 +764,31 @@ export default function ReviewAndPublish({
     governingRules,
   });
 
+  // An open revert draft also removes the ramps its target predates; they show
+  // and count as changes like the draft's own ramp removals.
+  const revertDraftTargetVersion =
+    revision &&
+    revision.status !== "published" &&
+    revision.status !== "discarded"
+      ? revision.revertedFrom
+      : undefined;
+  const revertDraftTarget = useFeatureRevisionByVersion(
+    feature.id,
+    revertDraftTargetVersion,
+    revisions,
+  );
+  const revertDraftDetaches = useMemo(
+    () =>
+      revertDraftTarget
+        ? getRevertRampDetachActions(
+            feature.id,
+            revertDraftTarget,
+            rampSchedules ?? [],
+          )
+        : [],
+    [feature.id, revertDraftTarget, rampSchedules],
+  );
+
   // Fall back to all applicable environments until the merge footprint is known.
   const affectedRevisionEnvs = useMemo(() => {
     if (!mergeResult?.success) return envIds;
@@ -777,9 +805,12 @@ export default function ReviewAndPublish({
       holdoutsMap,
       // Ramp actions ride the revision, not the merge result, so pass them
       // explicitly — the endpoint counts their reach either way.
-      rampActions: revision?.rampActions,
+      rampActions: [...(revision?.rampActions ?? []), ...revertDraftDetaches],
+      rampSchedules,
     });
   }, [
+    revertDraftDetaches,
+    rampSchedules,
     mergeResult,
     envIds,
     feature,
@@ -1198,9 +1229,15 @@ export default function ReviewAndPublish({
   const rampDiffs = useMemo(
     () =>
       revision
-        ? buildRampDiffs({ feature, revision, rampSchedules, holdoutsMap })
+        ? buildRampDiffs({
+            feature,
+            revision,
+            rampSchedules,
+            holdoutsMap,
+            revertDetaches: revertDraftDetaches,
+          })
         : [],
-    [feature, revision, rampSchedules, holdoutsMap],
+    [feature, revision, rampSchedules, holdoutsMap, revertDraftDetaches],
   );
 
   const onUpdateFromLive = async () => {
@@ -1672,6 +1709,7 @@ export default function ReviewAndPublish({
             revision={revertTarget}
             revisionList={revisionList}
             allRevisions={revisions}
+            rampSchedules={rampSchedules ?? []}
             close={() => setRevertOpen(false)}
             mutate={mutate}
             setVersion={setVersion}
@@ -2862,24 +2900,16 @@ export default function ReviewAndPublish({
             {(() => {
               const continueLabel = "Continue to Publish →";
 
-              // A pending schedule must be canceled before a manual publish (one
-              // explicit path back to "approved"). An admin bypass override lets an
-              // admin publish now over someone else's pending schedule — but not
-              // over a schedule that was itself admin-armed (that reads as the
-              // intentional deferral, so it still blocks publish-now).
-              const scheduleBlocksPublish =
-                scheduledPending && (!adminPublish || scheduleArmedByAdmin);
+              // A pending schedule does not block publishing: the server answers
+              // with a warning the "Save anyway?" retry acknowledges, and the
+              // schedule is cancelled by the publish.
               const publishEnabled =
                 state.submitAction === "publish" &&
                 state.ctaEnabled &&
-                canDoPrimary &&
-                !scheduleBlocksPublish;
+                canDoPrimary;
 
               const continueEnabled =
-                continueToPublish &&
-                state.ctaEnabled &&
-                canDoPrimary &&
-                !scheduleBlocksPublish;
+                continueToPublish && state.ctaEnabled && canDoPrimary;
 
               const primaryFooterEnabled = continueToPublish
                 ? continueEnabled
@@ -2887,8 +2917,8 @@ export default function ReviewAndPublish({
 
               const primaryFooterLabel = continueToPublish
                 ? continueLabel
-                : scheduleBlocksPublish
-                  ? "Publish scheduled"
+                : scheduledPending
+                  ? "Publish now"
                   : onlyScheduledSelected
                     ? "Schedule to Start"
                     : "Publish";
@@ -3021,7 +3051,7 @@ export default function ReviewAndPublish({
                       )}
                       {scheduleError && (
                         <Callout status="error" mt="2">
-                          {scheduleError}
+                          <MarkdownLinks text={scheduleError} />
                         </Callout>
                       )}
                       {/* Unchecking "Automatically publish" cancels the schedule;
@@ -3172,7 +3202,7 @@ export default function ReviewAndPublish({
                           <Checkbox
                             label="Acknowledge incomplete recommended items and continue"
                             weight="regular"
-                            disabled={!canDoPrimary || scheduleBlocksPublish}
+                            disabled={!canDoPrimary}
                             value={checklistAcknowledged}
                             setValue={(value) =>
                               setChecklistAcknowledged(!!value)
@@ -3181,26 +3211,19 @@ export default function ReviewAndPublish({
                         </Box>
                       )}
 
-                      {/* A live schedule blocks "publish now"; the scheduled
-                    status card above already explains this and offers
-                    Cancel/Change, so we hide the otherwise-dead disabled
-                    button. It reappears the moment the block clears (e.g. admin
-                    bypass toggled, or the experiments "continue" flow). */}
-                      {!(scheduleBlocksPublish && !continueToPublish) && (
-                        <Button
-                          onClick={primaryFooterEnabled ? doSubmit : undefined}
-                          loading={
-                            submitting &&
-                            (state.submitAction === "publish" ||
-                              continueToPublish)
-                          }
-                          disabled={!primaryFooterEnabled}
-                          icon={state.ctaLocked ? <PiLockSimple /> : undefined}
-                          style={{ width: "100%" }}
-                        >
-                          {primaryFooterLabel}
-                        </Button>
-                      )}
+                      <Button
+                        onClick={primaryFooterEnabled ? doSubmit : undefined}
+                        loading={
+                          submitting &&
+                          (state.submitAction === "publish" ||
+                            continueToPublish)
+                        }
+                        disabled={!primaryFooterEnabled}
+                        icon={state.ctaLocked ? <PiLockSimple /> : undefined}
+                        style={{ width: "100%" }}
+                      >
+                        {primaryFooterLabel}
+                      </Button>
 
                       {/* ── Uniform status displays for the publish state ──
                     All callouts use the same size, spacing, and chrome so
@@ -3289,12 +3312,12 @@ export default function ReviewAndPublish({
                     <Flex direction="column" gap="2" mt="3">
                       {submitError && (
                         <Callout status="error" size="sm">
-                          {submitError}
+                          <MarkdownLinks text={submitError} />
                         </Callout>
                       )}
                       {secondaryError && (
                         <Callout status="error" size="sm">
-                          {secondaryError}
+                          <MarkdownLinks text={secondaryError} />
                         </Callout>
                       )}
                     </Flex>
