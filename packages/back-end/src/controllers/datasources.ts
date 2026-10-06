@@ -1,5 +1,6 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
@@ -7,6 +8,7 @@ import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
+  getChangedExposureQueries,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -40,6 +42,7 @@ import type { ClickHouseConnectionParams } from "shared/types/integrations/click
 import { SDKAttributeSchema } from "shared/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/request";
 import {
   getSourceIntegrationObject,
   mergeParams,
@@ -364,6 +367,73 @@ export async function postManagedWarehouse(
   });
 }
 
+// Settings with the assignment queries left out, normalized as JSON so values
+// round-tripped through the client compare equal.
+function withoutExposureQueries(settings: DataSourceSettings | undefined) {
+  return JSON.parse(
+    JSON.stringify({
+      ...settings,
+      queries: omit(settings?.queries ?? {}, "exposure"),
+    }),
+  );
+}
+
+// Assignment queries are scoped to projects, so editing one needs the
+// permission in the projects it covers rather than in every project of the
+// data source. Any other change still needs the data source-wide permission.
+function assertCanUpdateDataSource(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  body: {
+    name?: string;
+    description?: string;
+    params?: unknown;
+    settings?: DataSourceSettings;
+    projects?: string[];
+    metricsToCreate?: unknown[];
+    eventForwarderConfig?: unknown;
+  },
+) {
+  const { permissions } = context;
+  const changesOtherFields =
+    (body.name !== undefined && body.name !== datasource.name) ||
+    ("description" in body && body.description !== datasource.description) ||
+    body.params !== undefined ||
+    body.projects !== undefined ||
+    !!body.metricsToCreate?.length ||
+    body.eventForwarderConfig !== undefined ||
+    (body.settings !== undefined &&
+      !isEqual(
+        withoutExposureQueries(body.settings),
+        withoutExposureQueries(datasource.settings),
+      ));
+  if (changesOtherFields) {
+    if (!permissions.canUpdateDataSourceSettings(datasource)) {
+      permissions.throwPermissionError();
+    }
+  } else if (!permissions.canCreateExposureQuery(datasource)) {
+    permissions.throwPermissionError();
+  }
+
+  const nextDatasource = { projects: body.projects ?? datasource.projects };
+  const changes = body.settings
+    ? getChangedExposureQueries(
+        datasource.settings?.queries?.exposure ?? [],
+        body.settings.queries?.exposure ?? [],
+      )
+    : [];
+  for (const change of changes) {
+    if (
+      (change.previous &&
+        !permissions.canUpdateExposureQuery(change.previous, datasource)) ||
+      (change.next &&
+        !permissions.canUpdateExposureQuery(change.next, nextDatasource))
+    ) {
+      permissions.throwPermissionError();
+    }
+  }
+}
+
 export async function putDataSource(
   req: AuthRequest<
     {
@@ -438,9 +508,7 @@ export async function putDataSource(
     return;
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
-    context.permissions.throwPermissionError();
-  }
+  assertCanUpdateDataSource(context, datasource, req.body);
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
@@ -1232,10 +1300,6 @@ export async function updateExposureQuery(
     return;
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(dataSource)) {
-    context.permissions.throwPermissionError();
-  }
-
   const copy = cloneDeep<DataSourceInterface>(dataSource);
   const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
     (e) => e.id === exposureQueryId,
@@ -1253,10 +1317,17 @@ export async function updateExposureQuery(
 
   const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
   // Only for dimension metadata; identifiers are edited with the whole query.
-  copy.settings.queries.exposure[exposureQueryIndex] = {
+  const updatedQuery = {
     ...exposureQuery,
     ...omit(updates, ["userIdType", "userIdTypes"]),
   };
+  if (
+    !context.permissions.canUpdateExposureQuery(exposureQuery, dataSource) ||
+    !context.permissions.canUpdateExposureQuery(updatedQuery, dataSource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  copy.settings.queries.exposure[exposureQueryIndex] = updatedQuery;
 
   try {
     const updates: Partial<DataSourceInterface> = {

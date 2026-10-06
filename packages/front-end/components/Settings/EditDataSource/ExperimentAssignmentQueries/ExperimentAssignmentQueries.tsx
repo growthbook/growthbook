@@ -42,7 +42,9 @@ export const ExperimentAssignmentQueries: FC<
   const [openIndexes, setOpenIndexes] = useState<boolean[]>(initialOpenIndexes);
 
   const permissionsUtil = usePermissionsUtil();
-  canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
+  const canAdd = canEdit && permissionsUtil.canCreateExposureQuery(dataSource);
+  const canEditQuery = (query: ExposureQuery) =>
+    canEdit && permissionsUtil.canUpdateExposureQuery(query, dataSource);
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {
@@ -135,7 +137,7 @@ export const ExperimentAssignmentQueries: FC<
         </Box>
 
         <Box>
-          <Button onClick={handleAdd} disabled={!canEdit} icon={<PiPlus />}>
+          <Button onClick={handleAdd} disabled={!canAdd} icon={<PiPlus />}>
             Add
           </Button>
         </Box>
@@ -246,7 +248,7 @@ export const ExperimentAssignmentQueries: FC<
                         >
                           Check it again.
                         </Button>
-                        {canEdit && !isManaged && (
+                        {canEditQuery(query) && !isManaged && (
                           <Button
                             color="inherit"
                             onClick={handleActionClicked(idx, "edit")}
@@ -266,7 +268,7 @@ export const ExperimentAssignmentQueries: FC<
               {/* region Actions*/}
 
               <Flex align="center">
-                {canEdit && (
+                {canEditQuery(query) && (
                   <DropdownMenu
                     trigger={
                       <IconButton

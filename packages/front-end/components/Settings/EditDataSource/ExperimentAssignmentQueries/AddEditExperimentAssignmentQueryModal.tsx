@@ -90,6 +90,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
+    if (!canCoverAllProjects && !value.projects?.length) {
+      throw new Error(
+        "Choose at least one Project. You can't edit queries for every Project this Data Source covers.",
+      );
+    }
     await onSave(value);
 
     form.reset({
@@ -131,8 +136,17 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       dataSource.projects.includes(project.id) ||
       userEnteredProjects.includes(project.id),
   );
+  // Leaving the scope empty covers every Project the Data Source does.
+  const canCoverAllProjects = permissionsUtil.canUpdateExposureQuery(
+    { projects: [] },
+    dataSource,
+  );
   const projectOptions = useProjectOptions(
-    () => permissionsUtil.canUpdateDataSourceSettings(dataSource),
+    (project) =>
+      permissionsUtil.canUpdateExposureQuery(
+        { projects: [project] },
+        dataSource,
+      ),
     userEnteredProjects,
     filteredProjects,
   );
@@ -348,15 +362,20 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   legacyHeight
                   label="Projects"
                   helpText={
-                    dataSource.projects?.length
-                      ? "Only this Data Source's Projects can be selected. Leave empty to include all of them."
-                      : "Leave empty to make this query available in all Projects."
+                    !canCoverAllProjects
+                      ? "Only Projects you can edit this Data Source's settings in can be selected."
+                      : dataSource.projects?.length
+                        ? "Only this Data Source's Projects can be selected. Leave empty to include all of them."
+                        : "Leave empty to make this query available in all Projects."
                   }
                   placeholder={
-                    dataSource.projects?.length
-                      ? "All Data Source Projects"
-                      : "All Projects"
+                    !canCoverAllProjects
+                      ? "Choose Projects"
+                      : dataSource.projects?.length
+                        ? "All Data Source Projects"
+                        : "All Projects"
                   }
+                  required={!canCoverAllProjects}
                   value={userEnteredProjects}
                   options={projectOptions}
                   onChange={(value) => form.setValue("projects", value)}

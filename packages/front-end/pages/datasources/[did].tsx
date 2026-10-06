@@ -590,7 +590,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
+                    canEdit={!hasFileConfig()}
                   />
                 </Frame>
 

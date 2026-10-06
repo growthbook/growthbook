@@ -1,3 +1,5 @@
+import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { ExposureQuery } from "shared/types/datasource";
 import { ResolvedExposureQuery } from "shared/types/integrations";
 import type {
@@ -465,4 +467,26 @@ export function resolveExposureQueryForAnalysis(
     query: query.query,
     identifierType: resolveAnalysisIdentifierType(query, storedIdentifierType),
   };
+}
+
+/**
+ * Assignment queries added, changed or removed between two lists, matched by
+ * id. Validation errors are written by the server, so they don't count.
+ */
+export function getChangedExposureQueries<
+  Q extends { id?: string; error?: unknown },
+>(previous: Q[], next: Q[]): { previous: Q | null; next: Q | null }[] {
+  const byId = new Map(previous.filter((q) => q.id).map((q) => [q.id, q]));
+  const changes: { previous: Q | null; next: Q | null }[] = [];
+  for (const query of next) {
+    const before = query.id ? byId.get(query.id) : undefined;
+    if (before) byId.delete(query.id);
+    if (!before || !isEqual(omit(before, "error"), omit(query, "error"))) {
+      changes.push({ previous: before ?? null, next: query });
+    }
+  }
+  for (const removed of byId.values()) {
+    changes.push({ previous: removed, next: null });
+  }
+  return changes;
 }

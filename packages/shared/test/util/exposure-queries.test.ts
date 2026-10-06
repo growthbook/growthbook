@@ -1,4 +1,5 @@
 import {
+  getChangedExposureQueries,
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
@@ -830,5 +831,26 @@ describe("assignment query project scope", () => {
         scope: { project: "prj_b" },
       }).ok,
     ).toBe(false);
+  });
+});
+
+describe("getChangedExposureQueries", () => {
+  const a = { id: "eq_a", query: "SELECT 1" };
+  const b = { id: "eq_b", query: "SELECT 2" };
+
+  it("ignores validation errors and unchanged queries", () => {
+    expect(
+      getChangedExposureQueries([a, b], [{ ...a, error: "bad" }, b]),
+    ).toEqual([]);
+  });
+
+  it("lists added, changed and removed queries", () => {
+    const changed = { ...a, query: "SELECT 3" };
+    const added = { query: "SELECT 4" };
+    expect(getChangedExposureQueries([a, b], [changed, added])).toEqual([
+      { previous: a, next: changed },
+      { previous: null, next: added },
+      { previous: b, next: null },
+    ]);
   });
 });
