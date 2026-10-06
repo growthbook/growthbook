@@ -1,17 +1,16 @@
 import { FC, useState } from "react";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { violatesExpirationPolicy } from "shared/api-key-expiration";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiGear } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { hasFileConfig } from "@/services/env";
-import Frame from "@/ui/Frame";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
-import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/ui/Tooltip";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
@@ -21,18 +20,18 @@ type Kind = "pat" | "secret";
 
 const COPY: Record<
   Kind,
-  { noun: string; nounPlural: string; subject: string; short: string }
+  { noun: string; nounPlural: string; lifetimeLabel: string; short: string }
 > = {
   pat: {
     noun: "personal access token",
     nounPlural: "personal access tokens",
-    subject: "Tokens",
+    lifetimeLabel: "Maximum token lifetime",
     short: "tokens",
   },
   secret: {
     noun: "secret API key",
     nounPlural: "secret API keys",
-    subject: "Keys",
+    lifetimeLabel: "Maximum key lifetime",
     short: "keys",
   },
 };
@@ -128,9 +127,9 @@ const ExpirationPolicyModal: FC<{
 };
 
 /**
- * Policy summary for one key kind, rendered above that kind's table. The two
- * kinds stay separate because a lapsed personal access token inconveniences one
- * member while a lapsed secret key takes down an integration.
+ * One row in an "Organization Policies" card, laid out like the Checkbox rows
+ * beside it. The two kinds stay separate because a lapsed personal access token
+ * inconveniences one member while a lapsed secret key takes down an integration.
  */
 const ApiKeyExpirationPolicy: FC<{
   kind: Kind;
@@ -152,29 +151,35 @@ const ApiKeyExpirationPolicy: FC<{
   );
   const nonCompliantReason = `${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than the maximum.`;
   const locked = hasFileConfig();
+  const editLabel = saved === null ? "Set expiration" : "Edit expiration";
 
   return (
     <>
-      <Frame mb="4">
-        <Flex align="center" justify="between" gap="3" mb="3">
-          <Heading as="h3" size="md" mb="0">
-            Expiration Policy
-          </Heading>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={locked}
-            title={locked ? FILE_CONFIG_REASON : undefined}
-            onClick={() => setEditing(true)}
-          >
-            {saved === null ? "Set expiration" : "Edit expiration"}
-          </Button>
+      <Flex direction="column" gap="1">
+        <Flex align="center" gap="2">
+          <Tooltip content={locked ? FILE_CONFIG_REASON : editLabel}>
+            {/* Ghost size 1 is 24px; the margin fits it to the checkbox's 16px slot. */}
+            <IconButton
+              variant="ghost"
+              size="1"
+              color="violet"
+              style={{ margin: -4 }}
+              disabled={locked}
+              aria-label={editLabel}
+              onClick={() => setEditing(true)}
+            >
+              <PiGear size={16} />
+            </IconButton>
+          </Tooltip>
+          <Text weight="semibold">{COPY[kind].lifetimeLabel}</Text>
         </Flex>
-        <Flex align="center" gap="2" wrap="wrap">
+        {/* Indented past the icon and gap, like a Checkbox description. */}
+        <Flex align="center" gap="2" wrap="wrap" style={{ paddingLeft: 24 }}>
           <Text color="text-mid">
             {saved === null
-              ? `${COPY[kind].subject} last indefinitely`
-              : `${COPY[kind].subject} last up to ${saved} day${saved === 1 ? "" : "s"}`}
+              ? `None — ${COPY[kind].short} last indefinitely.`
+              : `${saved} day${saved === 1 ? "" : "s"}.`}{" "}
+            Applies to newly created {COPY[kind].short}.
           </Text>
           {nonCompliant.length > 0 &&
             // The count is the reason to open the modal, so it opens it.
@@ -196,7 +201,7 @@ const ApiKeyExpirationPolicy: FC<{
               </Link>
             ))}
         </Flex>
-      </Frame>
+      </Flex>
 
       {editing && (
         <ExpirationPolicyModal

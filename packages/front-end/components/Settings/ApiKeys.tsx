@@ -2,6 +2,8 @@ import React, { FC } from "react";
 import { ApiKeyInterface } from "shared/types/apikey";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -27,11 +29,18 @@ const ApiKeys: FC = () => {
   return (
     <>
       <SecretApiKeys keys={data.keys} mutate={mutate}>
-        <ApiKeyExpirationPolicy
-          kind="secret"
-          keys={data.keys.filter((k) => k.secret && !k.userId)}
-          mutate={mutate}
-        />
+        {permissionsUtils.canDeleteApiKey() && (
+          <Frame mb="4">
+            <Heading as="h3" size="md" mb="3">
+              Organization Policies
+            </Heading>
+            <ApiKeyExpirationPolicy
+              kind="secret"
+              keys={data.keys.filter((k) => k.secret && !k.userId)}
+              mutate={mutate}
+            />
+          </Frame>
+        )}
       </SecretApiKeys>
 
       {(!settings?.disablePersonalAccessTokens || canManageTokens) && (

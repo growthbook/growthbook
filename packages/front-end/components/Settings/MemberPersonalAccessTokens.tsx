@@ -29,7 +29,6 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
-import ApiKeyExpirationPolicy from "./ApiKeyExpirationPolicy";
 
 const LastUsed: FC<{ token: ApiKeyInterface }> = ({ token }) => {
   if (token.lastUsed) {
@@ -145,208 +144,201 @@ const MemberPersonalAccessTokens: FC = () => {
   };
 
   return (
-    <>
-      <ApiKeyExpirationPolicy
-        kind="pat"
-        keys={data?.keys ?? []}
-        mutate={mutate}
-      />
-      <Frame mb="4">
-        <Heading as="h3" size="md" mb="1">
-          Member Tokens
-        </Heading>
-        <Text as="p" color="text-mid" mb="3">
-          Disable a member&apos;s token without removing them from your
-          organization. Token values stay visible only to the member who created
-          them.
-        </Text>
+    <Frame mb="4">
+      <Heading as="h3" size="md" mb="1">
+        Member Tokens
+      </Heading>
+      <Text as="p" color="text-mid" mb="3">
+        Disable a member&apos;s token without removing them from your
+        organization. Token values stay visible only to the member who created
+        them.
+      </Text>
 
-        {loadError ? (
-          <Callout status="error">{loadError.message}</Callout>
-        ) : !data ? (
-          <Text as="p" color="text-mid">
-            <LoadingSpinner /> Loading...
-          </Text>
-        ) : rows.length === 0 ? (
-          <Text as="p" color="text-mid">
-            No members have created personal access tokens.
-          </Text>
-        ) : (
-          <>
-            {orgTokensDisabled && (
-              <Callout status="warning" mb="3">
-                Personal access tokens are disabled for this organization, so
-                none of these currently authenticate. Disabling one here still
-                applies if that setting is turned back off.
-              </Callout>
+      {loadError ? (
+        <Callout status="error">{loadError.message}</Callout>
+      ) : !data ? (
+        <Text as="p" color="text-mid">
+          <LoadingSpinner /> Loading...
+        </Text>
+      ) : rows.length === 0 ? (
+        <Text as="p" color="text-mid">
+          No members have created personal access tokens.
+        </Text>
+      ) : (
+        <>
+          {orgTokensDisabled && (
+            <Callout status="warning" mb="3">
+              Personal access tokens are disabled for this organization, so none
+              of these currently authenticate. Disabling one here still applies
+              if that setting is turned back off.
+            </Callout>
+          )}
+          <Flex align="center" gap="3" mb="2">
+            <Text weight="medium">{`${visibleRows.length} token${visibleRows.length === 1 ? "" : "s"}`}</Text>
+            <Box width="250px" flexShrink="0">
+              <TextField
+                type="search"
+                placeholder="Search..."
+                {...searchInputProps}
+              />
+            </Box>
+            {expiredCount > 0 && (
+              <Switch
+                size="sm"
+                label={`Show expired tokens (${expiredCount})`}
+                value={showExpired}
+                onChange={setShowExpired}
+              />
             )}
-            <Flex align="center" gap="3" mb="2">
-              <Text weight="medium">{`${visibleRows.length} token${visibleRows.length === 1 ? "" : "s"}`}</Text>
-              <Box width="250px" flexShrink="0">
-                <TextField
-                  type="search"
-                  placeholder="Search..."
-                  {...searchInputProps}
-                />
-              </Box>
-              {expiredCount > 0 && (
-                <Switch
-                  size="sm"
-                  label={`Show expired tokens (${expiredCount})`}
-                  value={showExpired}
-                  onChange={setShowExpired}
-                />
-              )}
-            </Flex>
-            <Table variant="surface">
-              <TableHeader>
-                <TableRow>
-                  <SortableTableColumnHeader field="memberName">
-                    Member
-                  </SortableTableColumnHeader>
-                  <SortableTableColumnHeader field="description">
-                    Description
-                  </SortableTableColumnHeader>
-                  <SortableTableColumnHeader field="lastUsedSort">
-                    Last used
-                  </SortableTableColumnHeader>
-                  <SortableTableColumnHeader field="expiresAtSort">
-                    Expires
-                  </SortableTableColumnHeader>
-                  <TableColumnHeader>
-                    <span className="sr-only">Actions</span>
-                  </TableColumnHeader>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map(({ id, memberName, memberEmail, token }) => {
-                  // Never dims the action cell — an admin still needs to read and
-                  // click it in exactly the states that dim everything else.
-                  const dimmed =
-                    token.disabled || orgTokensDisabled
-                      ? { opacity: 0.55 }
-                      : undefined;
-                  return (
-                    <TableRow key={id}>
-                      <TableCell style={dimmed}>
-                        {memberEmail ? (
-                          <>
-                            <div>{memberName || memberEmail}</div>
-                            {memberName && (
-                              <Text size="sm" color="text-low">
-                                {memberEmail}
-                              </Text>
-                            )}
-                          </>
-                        ) : (
-                          <Tooltip content="This member is no longer part of your organization, so the token no longer authenticates.">
-                            <Text color="text-low">Former member</Text>
-                          </Tooltip>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span style={dimmed}>
-                          {token.description || <Text color="text-low">—</Text>}
-                        </span>
-                        {token.disabled && (
-                          <Badge
-                            ml="2"
-                            color="red"
-                            variant="soft"
-                            label={
-                              !token.disabledBy
-                                ? "Disabled"
-                                : token.disabledBy === token.userId
-                                  ? "Disabled by member"
-                                  : "Disabled by admin"
-                            }
-                            title={
-                              token.disabledBy &&
-                              token.disabledBy !== token.userId
-                                ? `Disabled by ${users.get(token.disabledBy)?.name || users.get(token.disabledBy)?.email || "a former member"}`
-                                : undefined
-                            }
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell style={dimmed}>
-                        <LastUsed token={token} />
-                      </TableCell>
-                      <TableCell style={dimmed}>
-                        <ExpiresCell expiresAt={token.expiresAt} />
-                      </TableCell>
-                      <TableCell>
-                        <Flex gap="4">
+          </Flex>
+          <Table variant="surface">
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeader field="memberName">
+                  Member
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="description">
+                  Description
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="lastUsedSort">
+                  Last used
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="expiresAtSort">
+                  Expires
+                </SortableTableColumnHeader>
+                <TableColumnHeader>
+                  <span className="sr-only">Actions</span>
+                </TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map(({ id, memberName, memberEmail, token }) => {
+                // Never dims the action cell — an admin still needs to read and
+                // click it in exactly the states that dim everything else.
+                const dimmed =
+                  token.disabled || orgTokensDisabled
+                    ? { opacity: 0.55 }
+                    : undefined;
+                return (
+                  <TableRow key={id}>
+                    <TableCell style={dimmed}>
+                      {memberEmail ? (
+                        <>
+                          <div>{memberName || memberEmail}</div>
+                          {memberName && (
+                            <Text size="sm" color="text-low">
+                              {memberEmail}
+                            </Text>
+                          )}
+                        </>
+                      ) : (
+                        <Tooltip content="This member is no longer part of your organization, so the token no longer authenticates.">
+                          <Text color="text-low">Former member</Text>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span style={dimmed}>
+                        {token.description || <Text color="text-low">—</Text>}
+                      </span>
+                      {token.disabled && (
+                        <Badge
+                          ml="2"
+                          color="red"
+                          variant="soft"
+                          label={
+                            !token.disabledBy
+                              ? "Disabled"
+                              : token.disabledBy === token.userId
+                                ? "Disabled by member"
+                                : "Disabled by admin"
+                          }
+                          title={
+                            token.disabledBy &&
+                            token.disabledBy !== token.userId
+                              ? `Disabled by ${users.get(token.disabledBy)?.name || users.get(token.disabledBy)?.email || "a former member"}`
+                              : undefined
+                          }
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell style={dimmed}>
+                      <LastUsed token={token} />
+                    </TableCell>
+                    <TableCell style={dimmed}>
+                      <ExpiresCell expiresAt={token.expiresAt} />
+                    </TableCell>
+                    <TableCell>
+                      <Flex gap="4">
+                        <Button
+                          variant="ghost"
+                          color={token.disabled ? "violet" : "red"}
+                          onClick={() => setPendingToggle(token)}
+                        >
+                          {token.disabled ? "Enable" : "Disable"}
+                        </Button>
+                        {canViewAuditLog && (
                           <Button
                             variant="ghost"
-                            color={token.disabled ? "violet" : "red"}
-                            onClick={() => setPendingToggle(token)}
+                            onClick={() => setAuditLogToken(token)}
                           >
-                            {token.disabled ? "Enable" : "Disable"}
+                            Audit log
                           </Button>
-                          {canViewAuditLog && (
-                            <Button
-                              variant="ghost"
-                              onClick={() => setAuditLogToken(token)}
-                            >
-                              Audit log
-                            </Button>
-                          )}
-                        </Flex>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {!items.length && (
-                  <TableRow>
-                    <TableCell colSpan={5} style={{ textAlign: "center" }}>
-                      {isFiltered
-                        ? "No matching tokens found."
-                        : "All of these tokens have expired."}
+                        )}
+                      </Flex>
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-            {pagination}
-          </>
-        )}
+                );
+              })}
+              {!items.length && (
+                <TableRow>
+                  <TableCell colSpan={5} style={{ textAlign: "center" }}>
+                    {isFiltered
+                      ? "No matching tokens found."
+                      : "All of these tokens have expired."}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+          {pagination}
+        </>
+      )}
 
-        {pendingToggle && (
-          <ConfirmDialog
-            title={
-              pendingToggle.disabled
-                ? "Enable personal access token?"
-                : "Disable personal access token?"
-            }
-            content={
-              pendingToggle.disabled
-                ? "This token will immediately start accepting requests again."
-                : "Any request using this token will be rejected until it is re-enabled. The member keeps their access to GrowthBook and can still delete or replace the token themselves."
-            }
-            yesText={pendingToggle.disabled ? "Enable" : "Disable"}
-            color={pendingToggle.disabled ? "violet" : "red"}
-            onConfirm={async () => {
-              await toggleDisabled(pendingToggle);
-              setPendingToggle(null);
-            }}
-            onCancel={() => setPendingToggle(null)}
-          />
-        )}
+      {pendingToggle && (
+        <ConfirmDialog
+          title={
+            pendingToggle.disabled
+              ? "Enable personal access token?"
+              : "Disable personal access token?"
+          }
+          content={
+            pendingToggle.disabled
+              ? "This token will immediately start accepting requests again."
+              : "Any request using this token will be rejected until it is re-enabled. The member keeps their access to GrowthBook and can still delete or replace the token themselves."
+          }
+          yesText={pendingToggle.disabled ? "Enable" : "Disable"}
+          color={pendingToggle.disabled ? "violet" : "red"}
+          onConfirm={async () => {
+            await toggleDisabled(pendingToggle);
+            setPendingToggle(null);
+          }}
+          onCancel={() => setPendingToggle(null)}
+        />
+      )}
 
-        {auditLogToken && (
-          <ModalStandard
-            trackingEventModalType=""
-            open={true}
-            header={`Audit Log: ${auditLogToken.description || auditLogToken.id}`}
-            close={() => setAuditLogToken(null)}
-            size="lg"
-          >
-            <HistoryTable type="apiKey" id={auditLogToken.id} />
-          </ModalStandard>
-        )}
-      </Frame>
-    </>
+      {auditLogToken && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header={`Audit Log: ${auditLogToken.description || auditLogToken.id}`}
+          close={() => setAuditLogToken(null)}
+          size="lg"
+        >
+          <HistoryTable type="apiKey" id={auditLogToken.id} />
+        </ModalStandard>
+      )}
+    </Frame>
   );
 };
 

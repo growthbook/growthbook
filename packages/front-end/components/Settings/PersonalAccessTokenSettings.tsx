@@ -1,5 +1,8 @@
 import React, { FC, useState } from "react";
+import { ApiKeyInterface } from "shared/types/apikey";
+import { Box } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
+import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -8,6 +11,7 @@ import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import HelperText from "@/ui/HelperText";
+import ApiKeyExpirationPolicy from "./ApiKeyExpirationPolicy";
 
 // Org-wide kill switch for user-minted API tokens. Enabling it blocks creation
 // AND rejects existing tokens at authentication, so there is no separate
@@ -15,7 +19,13 @@ import HelperText from "@/ui/HelperText";
 const PersonalAccessTokenSettings: FC = () => {
   const { apiCall } = useAuth();
   const { settings, refreshOrganization } = useUser();
-  const canManageOrgSettings = usePermissionsUtil().canManageOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
+  const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
+  // Same key as the member table, so SWR shares the request and a save refreshes both.
+  const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>(
+    "/keys/personal-access-tokens",
+    { shouldRun: () => permissionsUtil.canDeleteApiKey() },
+  );
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +43,7 @@ const PersonalAccessTokenSettings: FC = () => {
   return (
     <Frame mb="4">
       <Heading as="h3" size="md" mb="3">
-        Organization Policy
+        Organization Policies
       </Heading>
       <Checkbox
         label="Disable personal access tokens"
@@ -58,6 +68,15 @@ const PersonalAccessTokenSettings: FC = () => {
         <HelperText status="error" mt="2">
           {error}
         </HelperText>
+      )}
+      {permissionsUtil.canDeleteApiKey() && (
+        <Box mt="4">
+          <ApiKeyExpirationPolicy
+            kind="pat"
+            keys={data?.keys ?? []}
+            mutate={mutate}
+          />
+        </Box>
       )}
       {confirming && (
         <ConfirmDialog
