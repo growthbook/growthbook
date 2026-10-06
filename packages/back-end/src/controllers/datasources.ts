@@ -395,13 +395,13 @@ export async function postTestDataSourceConnection(
     if (!context.permissions.canUpdateDataSourceParams(existing)) {
       context.permissions.throwPermissionError();
     }
-    const integration = getSourceIntegrationObject(context, existing);
     if (existing.type !== type) {
       return res.status(400).json({
         status: 400,
         message: "Cannot change the type of an existing data source.",
       });
     }
+    const integration = getSourceIntegrationObject(context, existing);
 
     // The browser never receives saved secrets, so blank fields keep them.
     mergeParams(integration, params);
