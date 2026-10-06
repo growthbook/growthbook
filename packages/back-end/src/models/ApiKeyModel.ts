@@ -126,13 +126,16 @@ export class ApiKeyModel extends BaseClass {
         );
       }
       if (doc.scoped) {
-        // Scoping only narrows the user's access, so it isn't plan-gated.
+        // Scope is write-once, so only creation validates it; re-checking on
+        // disable would trap a token whose role or environment is gone.
+        if (previousDoc) return;
         if (!doc.role) {
           this.context.throwBadRequestError(
             "Scoped personal access tokens require a role.",
           );
         }
-        await this.validateScope(doc, previousDoc);
+        this.assertPlanAllowsScope(doc);
+        await this.validateScope(doc);
         return;
       }
       // Unscoped PATs inherit permissions from their user — scoping fields must not be set
@@ -146,35 +149,42 @@ export class ApiKeyModel extends BaseClass {
         );
       }
     } else {
-      // Org API keys — commercial features, then the shared scope validation
-      // Only gate a role change so existing keys keep working
-      if (
-        doc.role &&
-        doc.role !== previousDoc?.role &&
-        doc.role !== "admin" &&
-        !this.context.limits.orgSupportsRoles()
-      ) {
-        this.context.throwPaymentRequiredError(
-          "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
-        );
-      }
-      if (
-        doc.limitAccessByEnvironment &&
-        !this.context.hasPremiumFeature("advanced-permissions")
-      ) {
-        this.context.throwPlanDoesNotAllowError(
-          "Your plan does not support restricting API key permissions by environment.",
-        );
-      }
-      if (
-        doc.projectRoles?.length &&
-        !this.context.hasPremiumFeature("advanced-permissions")
-      ) {
-        this.context.throwPlanDoesNotAllowError(
-          "Your plan does not support project-level permissions on API keys.",
-        );
-      }
+      this.assertPlanAllowsScope(doc, previousDoc);
       await this.validateScope(doc, previousDoc);
+    }
+  }
+
+  // Commercial gates, for org keys and scoped PATs alike. Only a role change is
+  // gated so existing keys keep working.
+  private assertPlanAllowsScope(
+    doc: ApiKeyInterface,
+    previousDoc?: ApiKeyInterface,
+  ) {
+    if (
+      doc.role &&
+      doc.role !== previousDoc?.role &&
+      doc.role !== "admin" &&
+      !this.context.limits.orgSupportsRoles()
+    ) {
+      this.context.throwPaymentRequiredError(
+        "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+      );
+    }
+    if (
+      doc.limitAccessByEnvironment &&
+      !this.context.hasPremiumFeature("advanced-permissions")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support restricting API key permissions by environment.",
+      );
+    }
+    if (
+      doc.projectRoles?.length &&
+      !this.context.hasPremiumFeature("advanced-permissions")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support project-level permissions on API keys.",
+      );
     }
   }
 
@@ -286,7 +296,7 @@ export class ApiKeyModel extends BaseClass {
       project: "",
       encryptSDK: false,
       description,
-      role: scopedRole ?? "user",
+      role: scopedRole || "user",
       scoped: !!scopedRole,
       limitAccessByEnvironment,
       environments,
@@ -475,6 +485,8 @@ export class ApiKeyModel extends BaseClass {
       {
         userId,
         role: "visualEditor",
+        // A user's own scoped PAT may carry this role; only the auto-created key counts.
+        scoped: { $ne: true },
       },
       {
         bypassSanitization: true,
@@ -493,6 +505,15 @@ export class ApiKeyModel extends BaseClass {
 
   public async dangerousGetAllApiKeysInOrg() {
     return await this._find({}, { bypassReadPermissionChecks: true });
+  }
+
+  // Deferred actions resolve their armer with no reading user, so a PAT needs this.
+  public async dangerousGetById(id: string): Promise<ApiKeyInterface | null> {
+    const [key] = await this._find(
+      { id },
+      { bypassReadPermissionChecks: true, limit: 1 },
+    );
+    return key ?? null;
   }
 
   private prefixForApiKey({

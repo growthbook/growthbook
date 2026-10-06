@@ -6,6 +6,7 @@ import { ApiKeyInterface } from "shared/types/apikey";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import useOrgLimits from "@/hooks/useOrgLimits";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -28,6 +29,7 @@ const ApiKeysModal: FC<{
 }) => {
   const { apiCall } = useAuth();
   const { organization } = useUser();
+  const { orgSupportsRoles } = useOrgLimits();
 
   // When an existing key is passed in, the modal edits that key in place
   // instead of creating a new one. Only org secret keys can be edited.
@@ -66,6 +68,8 @@ const ApiKeysModal: FC<{
     projectRoles: existingKey?.projectRoles,
   });
   const [scoped, setScoped] = useState(false);
+  // Gated like org-key roles; with only the admin role there is nothing to narrow to.
+  const canScopeToken = personalAccessToken && orgSupportsRoles();
 
   const onSubmit = form.handleSubmit(async (value) => {
     const { role, ...roleStateData } = roleState;
@@ -122,7 +126,7 @@ const ApiKeysModal: FC<{
         required={true}
         {...form.register("description")}
       />
-      {personalAccessToken && (
+      {canScopeToken && (
         <>
           <Checkbox
             label="Limit this token's permissions"
