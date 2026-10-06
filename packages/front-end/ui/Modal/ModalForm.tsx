@@ -1,31 +1,29 @@
-import { createContext, ReactNode, useContext, useMemo, useState } from "react";
+import { ReactNode, useMemo } from "react";
 import { truncateString } from "shared/util";
-import { useModalContext } from "@/ui/Modal";
+import { useModalContext, useOptionalModalContext } from "@/ui/Modal";
 
 // ---------------------------------------------------------------------------
 // ModalForm — optional wrapper that turns a Modal body into a submittable
 // form.
 //
-// Owns loading state, error-on-submit handling, and submit-success/error
-// tracking. Exposes loading via <useModalForm()> so a submit button can show
-// a spinner without explicit plumbing. Must be rendered inside a <Modal.Root>
-// because it reads setError / scrollBodyToTop / sendTrackingEvent from the
-// Modal context.
+// Handles error-on-submit and submit-success/error tracking, and writes the
+// pending state onto Modal.Root so dismiss and the submit button share it.
+// Exposes that state via <useModalForm()>. Must be rendered inside a
+// <Modal.Root> because it reads setError / scrollBodyToTop /
+// sendTrackingEvent from the Modal context.
 // ---------------------------------------------------------------------------
 
 type ModalFormContextValue = {
   loading: boolean;
 };
 
-const ModalFormContext = createContext<ModalFormContextValue>({
-  loading: false,
-});
-
 // Lets a descendant (typically the submit button) read the pending state of
-// the enclosing <ModalForm>. Returns { loading: false } when there is no
-// ModalForm ancestor, so it is always safe to call.
+// the enclosing modal. Returns { loading: false } outside a Modal, so it is
+// always safe to call. Loading lives on Modal.Root so dismiss can follow it.
 export function useModalForm(): ModalFormContextValue {
-  return useContext(ModalFormContext);
+  const ctx = useOptionalModalContext();
+  const loading = ctx?.loading ?? false;
+  return useMemo(() => ({ loading }), [loading]);
 }
 
 type ModalFormProps = {
@@ -39,8 +37,8 @@ export default function ModalForm({
   trackOnSubmit = true,
   children,
 }: ModalFormProps) {
-  const { setError, scrollBodyToTop, sendTrackingEvent } = useModalContext();
-  const [loading, setLoading] = useState(false);
+  const { setError, scrollBodyToTop, sendTrackingEvent, loading, setLoading } =
+    useModalContext();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,11 +64,6 @@ export default function ModalForm({
     }
   };
 
-  const formCtx = useMemo<ModalFormContextValue>(
-    () => ({ loading }),
-    [loading],
-  );
-
   return (
     <form
       onSubmit={handleSubmit}
@@ -82,9 +75,7 @@ export default function ModalForm({
         minWidth: 0,
       }}
     >
-      <ModalFormContext.Provider value={formCtx}>
-        {children}
-      </ModalFormContext.Provider>
+      {children}
     </form>
   );
 }
