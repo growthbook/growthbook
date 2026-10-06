@@ -81,7 +81,7 @@ const AddLinkedChangeRow = ({
   return (
     <Flex align="center" justify="between" gap="3" width="100%">
       <Flex align="center" direction="row" flexGrow="1" minWidth="0" gap="5">
-        <Box width="150px" flexShrink="0">
+        <Box width="200px" flexShrink="0">
           <Avatar
             radius="full"
             color={radixColor as AvatarProps["color"]}
