@@ -145,10 +145,19 @@ export default function ConnectDataSourceLayout({
     });
   };
 
+  // BigQuery verifies the connection from the form above, which also loads
+  // datasets so the user can choose a default dataset.
+  const isBigQuery = datasource.type === "bigquery";
+  const bigQueryDefaultDataset =
+    isBigQuery && datasource.params && "defaultDataset" in datasource.params
+      ? (datasource.params.defaultDataset || "").trim()
+      : "";
+
   const canTest =
     !!datasource.type &&
     isTestableDataSourceType(datasource.type) &&
-    !isSampleData;
+    !isSampleData &&
+    !isBigQuery;
 
   const runTest = async () => {
     if (
@@ -209,12 +218,13 @@ export default function ConnectDataSourceLayout({
     }
   };
 
-  const needsSuccessfulTest = !existing || paramsDirty;
+  const needsSuccessfulTest = (!existing || paramsDirty) && canTest;
   const canSave =
     !isSampleData &&
     !!datasource.name?.trim() &&
     !!datasource.type &&
     (!needsSuccessfulTest || testStatus === "passed") &&
+    (!isBigQuery || !!bigQueryDefaultDataset) &&
     (existing ? dirty : true);
 
   const saveHint = (() => {
@@ -223,6 +233,9 @@ export default function ConnectDataSourceLayout({
     }
     if (!datasource.name?.trim()) {
       return "Enter a Data Source name to continue";
+    }
+    if (isBigQuery && !bigQueryDefaultDataset) {
+      return "Choose a default dataset to continue";
     }
     if (needsSuccessfulTest && testStatus === "idle") {
       return "Test the connection to continue";

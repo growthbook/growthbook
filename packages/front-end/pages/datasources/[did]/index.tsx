@@ -57,7 +57,7 @@ import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenI
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import DataSourceDescription from "@/components/Settings/EditDataSource/DataSourceDescription";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -435,28 +435,17 @@ const DataSourcePage: FC = () => {
           )}
         </Flex>
       </Flex>
-      <Frame mt="3">
-        <MarkdownInlineEdit
-          header="Description"
-          save={async (description) => {
-            await apiCall(`/datasource/${d.id}`, {
-              method: "PUT",
-              body: JSON.stringify({
-                description,
-              }),
-            });
-            await Promise.all([
-              mutateDefinitions({}),
-              mutateCurrentDataSource(),
-            ]);
-          }}
-          emptyHelperText="Add a description to keep your team informed about this Data Source."
-          value={d.description || ""}
-          canCreate={canUpdateDataSourceSettings}
-          canEdit={canUpdateDataSourceSettings}
-          label="description"
-        />
-      </Frame>
+      <DataSourceDescription
+        value={d.description || ""}
+        canEdit={canUpdateDataSourceSettings}
+        save={async (description) => {
+          await apiCall(`/datasource/${d.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ description }),
+          });
+          await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
+        }}
+      />
 
       {!d.properties?.hasSettings && (
         <Box mt="3">
