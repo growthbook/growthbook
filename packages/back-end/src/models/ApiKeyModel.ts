@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
+import pickBy from "lodash/pickBy";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
 import { getRoleById, hasRequesterOnlyRules } from "shared/permissions";
@@ -24,6 +25,14 @@ const SCOPE_FIELDS = [
   "additionalRoles",
   "projectRoles",
 ] as const;
+
+// The X-Requested-By flags a caller sent; an omitted one keeps its saved value.
+const sentRequesterFlags = (
+  flags: Pick<
+    ApiKeyInterface,
+    "requireRequestedBy" | "requesterOnly" | "extendWithRequester"
+  >,
+) => pickBy(flags, (value) => value !== undefined);
 
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
@@ -486,10 +495,11 @@ export class ApiKeyModel extends BaseClass {
         additionalRoles,
         projectRoles,
         description,
-        // Omitted flags keep their saved value instead of being cleared.
-        ...(requireRequestedBy !== undefined ? { requireRequestedBy } : {}),
-        ...(requesterOnly !== undefined ? { requesterOnly } : {}),
-        ...(extendWithRequester !== undefined ? { extendWithRequester } : {}),
+        ...sentRequesterFlags({
+          requireRequestedBy,
+          requesterOnly,
+          extendWithRequester,
+        }),
       },
       { forceCanUpdate: true },
     );
@@ -695,9 +705,11 @@ export class ApiKeyModel extends BaseClass {
       environments: environments ?? [],
       additionalRoles,
       projectRoles,
-      ...(requireRequestedBy !== undefined ? { requireRequestedBy } : {}),
-      ...(requesterOnly !== undefined ? { requesterOnly } : {}),
-      ...(extendWithRequester !== undefined ? { extendWithRequester } : {}),
+      ...sentRequesterFlags({
+        requireRequestedBy,
+        requesterOnly,
+        extendWithRequester,
+      }),
     });
   }
 }
