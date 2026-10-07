@@ -13,7 +13,7 @@ export interface TimeRangeOption {
   hours: number;
 }
 
-// Must stay within MAX_RECORDS_WINDOW_HOURS (24 * 7) in
+// Must stay within MAX_WINDOW_HOURS (24 * 7) in
 // back-end/src/routers/experiment-exposures/experiment-exposures.controller.ts
 // — a longer range is rejected with a 400.
 export const DEFAULT_TIME_RANGES: TimeRangeOption[] = [

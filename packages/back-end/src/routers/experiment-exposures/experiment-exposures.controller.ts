@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { snapToMinuteStart } from "shared/dates";
 import type { ExperimentExposureRecord } from "shared/validators";
 import {
   formatQueryExecutionErrorForApi,
@@ -90,8 +91,8 @@ export async function getExposures(
     return;
   }
 
-  const startDate = new Date(req.query.startDate);
-  const endDate = new Date(req.query.endDate);
+  const startDate = snapToMinuteStart(new Date(req.query.startDate));
+  const endDate = snapToMinuteStart(new Date(req.query.endDate));
   const windowMs = endDate.getTime() - startDate.getTime();
   if (windowMs <= 0) {
     context.throwBadRequestError("End date must be after start date.");

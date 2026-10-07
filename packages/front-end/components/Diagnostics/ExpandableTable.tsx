@@ -60,14 +60,11 @@ export default function ExpandableTable<T extends object>({
 
           return (
             <Fragment key={id}>
-              {/* The row stays a row for assistive tech; the caret button is
-              the keyboard control, so clicking a cell to select text is safe. */}
-              <TableRow style={{ cursor: "pointer" }} onClick={toggle}>
+              <TableRow>
                 <TableCell>
                   <Button
                     variant="ghost"
                     size="sm"
-                    stopPropagation
                     aria-expanded={isExpanded}
                     aria-label={
                       isExpanded ? "Hide full record" : "Show full record"

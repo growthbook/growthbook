@@ -62,12 +62,16 @@ export function getExperimentExposuresQuery(
   const extraConditions: string[] = [];
   if (params.userId) {
     extraConditions.push(
-      `${params.userIdType} = '${dialect.escapeStringLiteral(params.userId)}'`,
+      `${dialect.castToString(params.userIdType)} = '${dialect.escapeStringLiteral(
+        params.userId,
+      )}'`,
     );
   }
   if (params.variationId) {
     extraConditions.push(
-      `variation_id = '${dialect.escapeStringLiteral(params.variationId)}'`,
+      `${dialect.castToString("variation_id")} = '${dialect.escapeStringLiteral(
+        params.variationId,
+      )}'`,
     );
   }
   if (params.dimensionFilters) {
@@ -78,7 +82,9 @@ export function getExperimentExposuresQuery(
           `Dimension "${dim}" is not available on this exposure query.`,
         );
       }
-      extraConditions.push(`${dim} = '${dialect.escapeStringLiteral(val)}'`);
+      extraConditions.push(
+        `${dialect.castToString(dim)} = '${dialect.escapeStringLiteral(val)}'`,
+      );
     }
   }
   const extraWhere = extraConditions.length

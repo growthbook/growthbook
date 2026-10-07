@@ -4,6 +4,7 @@ import {
   lastMondayString,
   resolveScheduleStopAfter,
   resolveScheduledStop,
+  snapToMinuteStart,
 } from "../src/dates";
 
 describe("getValidDate", () => {
@@ -178,5 +179,33 @@ describe("lastMondayString", () => {
     // timezones, which previously shifted them into the wrong week.
     expect(lastMondayString("2026-09-07T23:30:00Z")).toBe("2026-09-07");
     expect(lastMondayString("2026-09-06T23:30:00Z")).toBe("2026-08-31");
+  });
+});
+
+describe("snapToMinuteStart", () => {
+  it("Drops seconds and milliseconds without mutating the input", () => {
+    const input = new Date("2026-03-01T12:34:56.789Z");
+    expect(snapToMinuteStart(input).toISOString()).toBe(
+      "2026-03-01T12:34:00.000Z",
+    );
+    expect(input.toISOString()).toBe("2026-03-01T12:34:56.789Z");
+  });
+
+  it("Collapses timestamps in the same minute and separates adjacent ones", () => {
+    // This is the whole point: identical bounds produce identical SQL, which is
+    // what the query cache matches on.
+    const early = snapToMinuteStart(new Date("2026-03-01T12:34:00.001Z"));
+    const late = snapToMinuteStart(new Date("2026-03-01T12:34:59.999Z"));
+    const next = snapToMinuteStart(new Date("2026-03-01T12:35:00.000Z"));
+
+    expect(early.getTime()).toBe(late.getTime());
+    expect(next.getTime()).not.toBe(early.getTime());
+  });
+
+  it("Is a no-op on a date already on the minute", () => {
+    const onTheMinute = new Date("2026-03-01T12:34:00.000Z");
+    expect(snapToMinuteStart(onTheMinute).getTime()).toBe(
+      onTheMinute.getTime(),
+    );
   });
 });

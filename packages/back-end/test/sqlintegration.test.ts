@@ -1998,7 +1998,32 @@ describe("getExperimentExposuresQuery", () => {
       ...params,
       dimensionFilters: { country: "US" },
     });
-    expect(sql).toContain("country = 'US'");
+    expect(sql).toContain("cast(country as string) = 'US'");
+  });
+
+  it("casts filtered columns to string so INT64 columns compare", () => {
+    // BigQuery has no implicit INT64/STRING coercion, so an uncast comparison
+    // against a numeric user_id or variation_id is a hard query error.
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      userId: "abc",
+      variationId: "0",
+      dimensionFilters: { country: "US" },
+    });
+    expect(sql).toContain("cast(user_id as string) = 'abc'");
+    expect(sql).toContain("cast(variation_id as string) = '0'");
+    expect(sql).toContain("cast(country as string) = 'US'");
+  });
+
+  it("uses the dialect's own cast, and leaves experiment_id bare", () => {
+    const sql = getExperimentExposuresQuery(mssqlDialect, {
+      ...params,
+      variationId: "0",
+    });
+    expect(sql).toContain("cast(variation_id as varchar(256)) = '0'");
+    // The tracking key is always a string, and it is the predicate most likely
+    // to drive partition pruning.
+    expect(sql).toContain("experiment_id = 'my-experiment'");
   });
 
   it("rejects dimension names that are not identifier-shaped", () => {

@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowsClockwise, PiKeyReturn } from "react-icons/pi";
+import { PiArrowsClockwise } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { FilterDropdown } from "@/components/Search/SearchFilters";
@@ -122,7 +122,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
             ))}
           </Select>
           <Button
-            variant="outline"
+            variant={hasPendingChanges ? "solid" : "outline"}
             size="sm"
             loading={isRefreshing}
             onClick={submit}
@@ -147,17 +147,6 @@ export default function RecordsPanel<TRow extends object, TResponse>({
               e.preventDefault();
               submit();
             }}
-            append={
-              <Button
-                variant={hasPendingChanges ? "soft" : "ghost"}
-                size="sm"
-                onClick={submit}
-                aria-label="Run query"
-                title="Run query (Enter)"
-              >
-                <PiKeyReturn aria-hidden />
-              </Button>
-            }
           />
         </Box>
         {dropdownKeys.map((key) => (

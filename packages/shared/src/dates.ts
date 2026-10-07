@@ -167,6 +167,15 @@ export function snapToUtcDayStart(date: Date): Date {
   return snapped;
 }
 
+// Drop seconds and milliseconds. Used to make repeated warehouse queries for a
+// rolling "last N hours" window produce byte-identical SQL within the same
+// minute, so the query cache can actually hit.
+export function snapToMinuteStart(date: Date): Date {
+  const snapped = new Date(date);
+  snapped.setSeconds(0, 0);
+  return snapped;
+}
+
 export function precedingUtcDayStart(date: Date): Date {
   const dayStart = snapToUtcDayStart(date);
   return new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);
