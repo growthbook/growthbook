@@ -65,7 +65,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
         node: (
           <>
             <ExtendsWithRequesterIcon />
-            Member&apos;s permissions
+            <em>Member&apos;s permissions</em>
           </>
         ),
       },
