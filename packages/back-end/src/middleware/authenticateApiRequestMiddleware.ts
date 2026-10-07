@@ -19,7 +19,10 @@ import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
 } from "back-end/src/util/api-key.util";
-import { getUserPermissions } from "back-end/src/util/organization.util";
+import {
+  getPersonalAccessTokenPermissions,
+  getUserPermissions,
+} from "back-end/src/util/organization.util";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
@@ -238,6 +241,8 @@ function authenticateWithApiKey(
         if (!req.user) {
           throw new Error("Could not find user attached to this API key");
         }
+        // Super-admin authority bypasses roles, so a scoped token never carries it.
+        if (apiKeyDoc.scoped) req.user = { ...req.user, superAdmin: false };
       }
 
       let asOrg = organization;
@@ -394,8 +399,9 @@ function doesUserHavePermission(
       return false;
     }
 
-    // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(
+    // Generate full list of permissions for the user, capped by a scoped PAT
+    const userPermissions = getPersonalAccessTokenPermissions(
+      apiKeyDoc,
       { id: userId, superAdmin },
       org,
       teams,

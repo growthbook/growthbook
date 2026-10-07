@@ -42,12 +42,14 @@ export default function ApiKeyRowMenu({
       variant="soft"
     >
       <DropdownMenuGroup>
-        {/* Only org secret keys (not PATs) can be edited in place */}
-        {onEdit && apiKey.secret && !apiKey.userId && (
-          <DropdownMenuItem onClick={() => onEdit(apiKey)}>
-            Edit permissions & description
-          </DropdownMenuItem>
-        )}
+        {/* The auto-created visual editor key is managed by the app, not the user */}
+        {onEdit &&
+          apiKey.secret &&
+          !(apiKey.role === "visualEditor" && !apiKey.scoped) && (
+            <DropdownMenuItem onClick={() => onEdit(apiKey)}>
+              Edit permissions & description
+            </DropdownMenuItem>
+          )}
         {onToggleClick && (
           <DropdownMenuItem onClick={() => onToggleClick(apiKey)}>
             {apiKey.disabled ? "Enable key" : "Disable key"}

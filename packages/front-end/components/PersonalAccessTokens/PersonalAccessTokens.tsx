@@ -29,6 +29,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   onCreate,
 }) => {
   const [open, setOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<ApiKeyInterface | null>(null);
   const { settings } = useUser();
   const tokensDisabled = !!settings?.disablePersonalAccessTokens;
 
@@ -42,11 +43,23 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
         />
       )}
 
+      {editingKey && (
+        <ApiKeysModal
+          close={() => setEditingKey(null)}
+          onCreate={() => {
+            setEditingKey(null);
+            onCreate();
+          }}
+          personalAccessToken
+          existingKey={editingKey}
+        />
+      )}
+
       <div className="mb-4">
         <h1>Personal Access Tokens</h1>
         <p className="text-gray">
-          Personal Access Tokens have full read and write access to your
-          account. Because of this, they must be kept secure and{" "}
+          Personal Access Tokens can do everything you can, unless you limit
+          their permissions. Because of this, they must be kept secure and{" "}
           <strong>must not be exposed to others</strong>.
         </p>
         {accessTokens.length > 0 && (
@@ -57,6 +70,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             canDeleteKeys
             onReveal={onReveal}
             onToggleDisabled={onToggleDisabled}
+            onEdit={(key) => setEditingKey(key)}
           />
         )}
         {tokensDisabled ? (

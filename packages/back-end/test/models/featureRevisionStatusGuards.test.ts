@@ -3,6 +3,7 @@ import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import { ReqContextClass } from "back-end/src/services/context";
 import {
   markRevisionAsReviewRequested,
@@ -109,6 +110,7 @@ describe("feature revision status guards", () => {
       org,
       auditUser: { type: "api_key", apiKey: "key_test" },
       role: "admin",
+      apiKey: "key_test",
       req: { query: {}, headers: {}, body: {} } as unknown as Request,
     });
   });
@@ -300,21 +302,63 @@ describe("feature revision status guards", () => {
     expect((await stored())?.defaultValue).toBe("edited");
   });
 
+  const author = { id: "u_author", email: "a@t.co", name: "A" };
+  const memberOrg = {
+    ...org,
+    members: [
+      {
+        ...author,
+        role: "admin",
+        environments: [],
+        limitAccessByEnvironment: false,
+        projectRoles: [],
+      },
+    ],
+  } as unknown as OrganizationInterface;
+  const req = { query: {}, headers: {}, body: {} } as unknown as Request;
+
   it.each([
-    ["a user", user, "u_author"],
     [
-      "an org API key",
-      { type: "api_key", apiKey: "key_ci", name: "CI" },
-      "key_ci",
+      "a user",
+      () =>
+        new ReqContextClass({
+          org: memberOrg,
+          auditUser: { type: "dashboard", ...author },
+          user: author,
+          req,
+        }),
+      "u_author",
+    ],
+    ["an org API key", () => context, "key_test"],
+    [
+      "a scoped PAT, as the key so its cap travels with the publish",
+      () =>
+        new ReqContextClass({
+          org: memberOrg,
+          auditUser: { type: "api_key", apiKey: "key_pat", ...author },
+          user: author,
+          apiKey: "key_pat",
+          apiKeyData: {
+            id: "key_pat",
+            userId: author.id,
+            scoped: true,
+            role: "admin",
+            limitAccessByEnvironment: false,
+            environments: [],
+          } as unknown as ApiKeyInterface,
+          req,
+        }),
+      "key_pat",
     ],
   ])(
     "records %s as the armer of a scheduled publish",
-    async (_who, actor, armer) => {
+    async (_who, armedBy, armer) => {
       await seed("draft");
+      const actor = armedBy();
       await markRevisionAsReviewRequested(
-        context,
+        actor,
         asRead("draft"),
-        actor as typeof user,
+        actor.auditUser,
         "go",
         { scheduledPublishAt: new Date(Date.now() + 3_600_000) },
       );

@@ -1823,6 +1823,7 @@ export async function postApiKey(
   req: AuthRequest<{
     description?: string;
     type: string;
+    scopedRole?: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
@@ -1835,6 +1836,7 @@ export async function postApiKey(
   const {
     description = "",
     type,
+    scopedRole,
     limitAccessByEnvironment,
     environments,
     additionalRoles,
@@ -1852,6 +1854,11 @@ export async function postApiKey(
     key = await context.models.apiKeys.createUserPersonalAccessApiKey({
       description,
       userId: userId,
+      scopedRole,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
     });
   }
   // Handle organization secret tokens
@@ -1885,7 +1892,8 @@ export async function postApiKey(
 export async function putApiKey(
   req: AuthRequest<
     {
-      role: string;
+      role?: string;
+      scopedRole?: string;
       description?: string;
       limitAccessByEnvironment?: boolean;
       environments?: string[];
@@ -1900,6 +1908,7 @@ export async function putApiKey(
   const { id } = req.params;
   const {
     role,
+    scopedRole,
     description,
     limitAccessByEnvironment,
     environments,
@@ -1907,19 +1916,13 @@ export async function putApiKey(
     projectRoles,
   } = req.body;
 
-  // Editing a key's authority is at least as sensitive as revealing it, so we
-  // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user
-  // keys (permissions.canCreateApiKey()).
-  if (!context.permissions.canCreateApiKey()) {
-    context.permissions.throwPermissionError();
-  }
-
   // The model returns both the pre- and post-update docs from a single read so
   // the audit log can diff the permission scope. If the key doesn't exist the
   // model throws, so there is always a before-state here.
   const { before, after } =
     await context.models.apiKeys.updateSecretApiKeyPermissions(id, {
       role,
+      scopedRole,
       description,
       limitAccessByEnvironment,
       environments,

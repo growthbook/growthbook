@@ -63,7 +63,9 @@ export type UserPermission = {
   /**
    * Per role: its env-scoped permissions with its own env restriction, so one
    * role's permission can't borrow another's environments. Absent for roles
-   * granting nothing env-scoped, and for payloads predating the field.
+   * granting nothing env-scoped, and for payloads predating the field. An
+   * intersection (scoped PAT) instead carries one grant per environment set,
+   * covering every permission it grants.
    */
   envGrants?: {
     environments: string[];
