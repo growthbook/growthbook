@@ -328,6 +328,13 @@ export const JSONSchemaDef = z
   })
   .strict();
 
+// REST input shape: a JSON body can't carry a Date, so the server stamps `date`.
+export const apiJSONSchemaDefInput = JSONSchemaDef.omit({
+  date: true,
+}).describe(
+  "Validation schema to stage on the draft. The server sets `date`, so don't send it.",
+);
+
 const revisionLog = z
   .object({
     // Optional — legacy log entries stored inline on the revision document
@@ -454,6 +461,9 @@ const minimalFeatureRevisionInterface = z
     scheduledPublishLockEdits: z.boolean().optional(),
     scheduledPublishLockOthers: z.boolean().optional(),
     scheduledPublishBypassApproval: z.boolean().optional(),
+    // Lets the flag page load a draft together with its base, without first
+    // loading the draft to find out which base that is.
+    baseVersion: z.number().optional(),
   })
   .strict();
 

@@ -162,6 +162,22 @@ export function removeMongooseFields<T>(
   return result;
 }
 
+// Undefined until the database has answered; null when it doesn't say
+let maxDocumentSize: number | null | undefined;
+// The largest document the connected database accepts, as it reports it.
+// Mongo-compatible services differ, and some don't report it at all.
+export async function getMaxDocumentSizeBytes(): Promise<number | null> {
+  if (maxDocumentSize !== undefined) return maxDocumentSize;
+  try {
+    const res = await mongoose.connection.db.command({ hello: 1 });
+    maxDocumentSize =
+      typeof res.maxBsonObjectSize === "number" ? res.maxBsonObjectSize : null;
+    return maxDocumentSize;
+  } catch {
+    return null;
+  }
+}
+
 export function getCollection<T extends Document>(name: string) {
   return mongoose.connection.db.collection<T>(name);
 }

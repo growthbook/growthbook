@@ -3,7 +3,11 @@ import {
   UserPermissions,
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
-import { getRolePermissions } from "shared/permissions";
+import { ApiKeyInterface } from "shared/types/apikey";
+import {
+  getRolePermissions,
+  intersectUserPermissions,
+} from "shared/permissions";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
@@ -59,5 +63,31 @@ export function getUserPermissions(
     teams,
     // Super admins bypass access-restricted projects
     user.superAdmin ? undefined : restrictedProjects,
+  );
+}
+
+// A scoped PAT can never exceed its user: it gets what both the user and the key allow.
+export function getPersonalAccessTokenPermissions(
+  apiKey: ApiKeyInterface,
+  user: { id: string; superAdmin?: boolean },
+  org: OrganizationInterface,
+  teams: TeamInterface[],
+  restrictedProjects?: string[],
+): UserPermissions {
+  const userPermissions = getUserPermissions(
+    user,
+    org,
+    teams,
+    restrictedProjects,
+  );
+  if (!apiKey.scoped) return userPermissions;
+  return intersectUserPermissions(
+    userPermissions,
+    getRolePermissions(
+      { ...apiKey, role: apiKey.role ?? "noaccess" },
+      org,
+      teams,
+      restrictedProjects,
+    ),
   );
 }

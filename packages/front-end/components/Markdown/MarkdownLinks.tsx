@@ -1,5 +1,5 @@
 import Link from "@/ui/Link";
-import { splitMarkdownLinks } from "./markdownLinks";
+import { splitMarkdownLinks } from "./markdownLinkUtils";
 
 // Renders `[text](https://…)` and `[text](/path)` Markdown links; the rest stays plain text.
 export default function MarkdownLinks({ text }: { text: string }) {

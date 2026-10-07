@@ -52,6 +52,7 @@ import {
   buildExperimentAlertMessage,
 } from "./experimentAlertMessage";
 import { buildHoldoutAlertMessage } from "./holdoutAlerts";
+import { buildSdkConnectionAlertMessage } from "./sdkConnectionAlerts";
 import { buildExperimentAlertMessageForEvent } from "./experimentAlerts";
 
 // region Filtering
@@ -132,6 +133,9 @@ export const getSlackMessageForNotificationEvent = async (
     case "holdout.status.changed":
     case "holdout.config.newLinkage":
       return buildHoldoutAlertMessage(event);
+
+    case "sdkConnection.payloadSize.warning":
+      return buildSdkConnectionAlertMessage(event);
 
     case "experiment.warning":
       return buildSlackMessageForExperimentWarningEvent(event.data.object);
@@ -320,6 +324,13 @@ export const getSlackMessageForNotificationEvent = async (
         event.event,
         event.data.object,
         stored,
+      );
+
+    case "apiKey.expiring":
+    case "apiKey.expired":
+      return buildSlackMessageForApiKeyExpirationEvent(
+        event.event,
+        event.data.object,
       );
 
     default:
@@ -1318,6 +1329,38 @@ const buildSlackMessageForConfigUpdatedEvent = (
         },
       },
       ...changeBlocks,
+    ],
+  };
+};
+
+// No event user: the expiration sweep is a system actor, not a person.
+const buildSlackMessageForApiKeyExpirationEvent = (
+  event: "apiKey.expiring" | "apiKey.expired",
+  apiKey: {
+    id: string;
+    description?: string;
+    expiresAt: string;
+  },
+): SlackMessage => {
+  const kind = "secret API key";
+  const name = apiKey.description || apiKey.id;
+  const text =
+    event === "apiKey.expired"
+      ? `The ${kind} ${name} expired on ${apiKey.expiresAt}.`
+      : `The ${kind} ${name} expires on ${apiKey.expiresAt}.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            event === "apiKey.expired"
+              ? `The ${kind} *${name}* expired on ${apiKey.expiresAt}.`
+              : `The ${kind} *${name}* expires on ${apiKey.expiresAt}.`,
+        },
+      },
     ],
   };
 };
