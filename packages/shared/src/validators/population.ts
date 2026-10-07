@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  MAX_POPULATION_FACT_TABLES,
+  MAX_POPULATION_STEPS,
+} from "shared/populations";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
 import { rowFilterValidator, windowSettingsValidator } from "./fact-table";
@@ -34,7 +38,7 @@ export const populationValidator = baseSchema
     description: z.string(),
     datasource: z.string(),
     userIdTypes: z.array(z.string()).min(1),
-    steps: z.array(populationStepValidator).min(1),
+    steps: z.array(populationStepValidator).min(1).max(MAX_POPULATION_STEPS),
   })
   .strict();
 
@@ -86,7 +90,10 @@ export const apiCreatePopulationBody = z
     steps: z
       .array(apiPopulationStepInput)
       .min(1)
-      .describe("Steps a unit must complete, in order, to be included"),
+      .max(MAX_POPULATION_STEPS)
+      .describe(
+        `Steps a unit must complete, in order, to be included. The steps can read from at most ${MAX_POPULATION_FACT_TABLES} distinct fact tables`,
+      ),
   })
   .describe("Create a population");
 

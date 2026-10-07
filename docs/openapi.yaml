@@ -62025,8 +62025,11 @@ paths:
                   items:
                     type: string
                 steps:
-                  description: Steps a unit must complete, in order, to be included
+                  description: >-
+                    Steps a unit must complete, in order, to be included. The
+                    steps can read from at most 5 distinct fact tables
                   minItems: 1
+                  maxItems: 20
                   type: array
                   items:
                     type: object
@@ -62220,8 +62223,11 @@ paths:
                   items:
                     type: string
                 steps:
-                  description: Steps a unit must complete, in order, to be included
+                  description: >-
+                    Steps a unit must complete, in order, to be included. The
+                    steps can read from at most 5 distinct fact tables
                   minItems: 1
+                  maxItems: 20
                   type: array
                   items:
                     type: object

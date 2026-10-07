@@ -1,6 +1,10 @@
 import type { PopulationStep } from "shared/validators";
 import type { FactTableInterface } from "shared/types/fact-table";
 
+export const MAX_POPULATION_STEPS = 20;
+/** Distinct fact tables a population's steps may read from. */
+export const MAX_POPULATION_FACT_TABLES = 5;
+
 export type PopulationRuleFactTable = Pick<
   FactTableInterface,
   "id" | "datasource" | "userIdTypes"
@@ -26,12 +30,25 @@ export function getPopulationRuleViolations({
 }: PopulationRuleInput): string[] {
   const violations: string[] = [];
 
+  if (steps.length > MAX_POPULATION_STEPS) {
+    violations.push(
+      `Populations can have at most ${MAX_POPULATION_STEPS} steps (this one has ${steps.length}).`,
+    );
+  }
+
   if (steps[0]?.windowSettings.type === "conversion") {
     violations.push("The first step cannot use a conversion window.");
   }
 
+  const factTableIds = getPopulationFactTableIds(steps);
+  if (factTableIds.length > MAX_POPULATION_FACT_TABLES) {
+    violations.push(
+      `Populations can read from at most ${MAX_POPULATION_FACT_TABLES} distinct fact tables (this one reads from ${factTableIds.length}).`,
+    );
+  }
+
   const factTableMap = new Map(factTables.map((f) => [f.id, f]));
-  for (const factTableId of getPopulationFactTableIds(steps)) {
+  for (const factTableId of factTableIds) {
     const factTable = factTableMap.get(factTableId);
     if (!factTable) {
       violations.push(`Fact table ${factTableId} not found.`);
