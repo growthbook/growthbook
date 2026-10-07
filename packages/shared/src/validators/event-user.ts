@@ -35,11 +35,11 @@ export const apiEventUser = z
     requestedBy: eventUserRequestedBy
       .optional()
       .describe("The organization member who asked the API key to act"),
-    limitedToRequester: z
+    extendedByRequester: z
       .boolean()
       .optional()
       .describe(
-        "True when the request was capped at the requester's permissions",
+        "True when the named member's permissions extended the key's for this request",
       ),
   })
   .strict();
@@ -52,7 +52,7 @@ const eventUserApiKey = z
     name: z.string().optional(),
     email: z.string().optional(),
     requestedBy: eventUserRequestedBy.optional(),
-    limitedToRequester: z.boolean().optional(),
+    extendedByRequester: z.boolean().optional(),
   })
   .strict();
 

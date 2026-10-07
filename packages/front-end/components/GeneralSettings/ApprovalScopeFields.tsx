@@ -71,7 +71,7 @@ function StaticCheck({
   );
 }
 
-export function HelpCheckbox({
+function HelpCheckbox({
   id,
   label,
   help,

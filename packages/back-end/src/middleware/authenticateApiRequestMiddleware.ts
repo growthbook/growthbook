@@ -1,7 +1,10 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
-import { getRolePermissions, hasPermission } from "shared/permissions";
-import { DEFAULT_REQUESTED_BY_POLICY } from "shared/validators";
+import {
+  getRolePermissions,
+  hasPermission,
+  hasRequesterOnlyRules,
+} from "shared/permissions";
 import {
   EventUserApiKey,
   EventUserLoggedIn,
@@ -24,13 +27,13 @@ import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
   REQUESTED_BY_HEADER,
+  RequestedByError,
   RequestedByMember,
   assertNoRequestedByOnUserToken,
-  assertRequestedByAllowed,
   resolveRequestedBy,
 } from "back-end/src/util/api-key.util";
 import {
-  getRequesterCappedPermissions,
+  getKeyPermissionsForRequest,
   getUserPermissions,
 } from "back-end/src/util/organization.util";
 import { getUserById, getUserByEmail } from "back-end/src/models/UserModel";
@@ -310,9 +313,7 @@ function authenticateWithApiKey(
         throw new Error("Could not find user attached to this API key");
       }
 
-      // `X-Requested-By` names the member who asked an org key to act. The
-      // key's own settings decide whether it may or must.
-      const policy = apiKeyDoc.requestedByPolicy ?? DEFAULT_REQUESTED_BY_POLICY;
+      // `X-Requested-By` names the member who asked an org key to act.
       let requestedBy: RequestedByMember | null = null;
       try {
         if (userId) {
@@ -323,7 +324,12 @@ function authenticateWithApiKey(
             org,
             { byId: getUserById, byEmail: getUserByEmail },
           );
-          assertRequestedByAllowed(policy, requestedBy);
+          if (!requestedBy && apiKeyDoc.requireRequestedBy) {
+            throw new RequestedByError(
+              400,
+              "This API key requires an X-Requested-By header naming an organization member",
+            );
+          }
         }
       } catch (e) {
         return res.status(e.status ?? 400).json({ message: e.message });
@@ -334,16 +340,17 @@ function authenticateWithApiKey(
         ProjectModel.dangerousGetRestrictedProjectIds(org.id),
       ]);
 
-      const limitedPermissions: UserPermissions | undefined =
-        requestedBy && policy.limitToRequester
-          ? getRequesterCappedPermissions(
-              apiKeyDoc as ApiKeyWithRole,
-              requestedBy.id,
-              org,
-              teams,
-              restrictedProjects,
-            )
-          : undefined;
+      const extendedPermissions: UserPermissions | undefined = userId
+        ? undefined
+        : getKeyPermissionsForRequest({
+            apiKey: apiKeyDoc as ApiKeyWithRole,
+            requesterId: requestedBy?.id ?? null,
+            org,
+            teams,
+            restrictedProjects,
+          });
+      const extendedByRequester =
+        !!requestedBy && hasRequesterOnlyRules(apiKeyDoc);
 
       const eventAudit: EventUserApiKey = {
         type: "api_key",
@@ -357,7 +364,7 @@ function authenticateWithApiKey(
           : {
               name: apiKeyDoc.description || "",
               ...(requestedBy ? { requestedBy } : {}),
-              ...(limitedPermissions ? { limitedToRequester: true } : {}),
+              ...(extendedByRequester ? { extendedByRequester: true } : {}),
             }),
       };
 
@@ -371,7 +378,7 @@ function authenticateWithApiKey(
         apiKeyData: apiKeyDoc,
         req,
         restrictedProjects,
-        userPermissions: limitedPermissions,
+        userPermissions: extendedPermissions,
       });
 
       // Check permissions for user API keys
@@ -388,10 +395,10 @@ function authenticateWithApiKey(
         }
 
         for (const p of checkProjects) {
-          if (limitedPermissions) {
+          if (extendedPermissions) {
             if (
               !hasPermission(
-                limitedPermissions,
+                extendedPermissions,
                 permission,
                 p,
                 envs ? [...envs] : undefined,

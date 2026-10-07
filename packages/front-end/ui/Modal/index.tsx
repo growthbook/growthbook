@@ -221,6 +221,9 @@ function Root({
                 }
               : {}),
             "--inset-padding-left": "40px",
+            // Matches the zero right padding, so a full-bleed Inset doesn't
+            // overflow and let the dialog scroll sideways.
+            "--inset-padding-right": "0px",
           } as CSSProperties
         }
       >

@@ -9,3 +9,4 @@ export * from "./targetingAuthority";
 export * from "./controlAuthority";
 export * from "./publishFootprint";
 export * from "./createScope";
+export * from "./requesterRules";

@@ -19,7 +19,7 @@ export function auditUserInfoToEventUser(user: AuditUserInfo): EventUser {
       name: user.name,
       email: user.email,
       requestedBy: user.requestedBy,
-      limitedToRequester: user.limitedToRequester,
+      extendedByRequester: user.extendedByRequester,
     };
   }
   return {
@@ -45,7 +45,7 @@ export function auditInterfaceUserToEventUser(
       name: u.name,
       email: u.email,
       requestedBy: u.requestedBy,
-      limitedToRequester: u.limitedToRequester,
+      extendedByRequester: u.extendedByRequester,
     };
   }
   const u = user as AuditUserLoggedIn;

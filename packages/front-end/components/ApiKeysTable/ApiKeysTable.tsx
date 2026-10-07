@@ -1,7 +1,11 @@
 import React, { FC, useState } from "react";
 import { FaCheck, FaFilter, FaTimes } from "react-icons/fa";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
-import { getRoleDisplayName, roleHasAccessToEnv } from "shared/permissions";
+import {
+  getRoleDisplayName,
+  roleHasAccessToEnv,
+  hasRequesterOnlyRules,
+} from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
@@ -70,14 +74,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 {key.disabled && (
                   <Badge ml="2" color="red" variant="soft" label="Disabled" />
                 )}
-                {key.requestedByPolicy?.limitToRequester ? (
+                {hasRequesterOnlyRules(key) ? (
                   <Badge
                     ml="2"
                     variant="soft"
-                    label="Capped at requester"
-                    title="Each request names the member who asked and can only do what they may do"
+                    label="Extends with requester"
+                    title="Some of this key's permissions apply only as far as the member a request names has them"
                   />
-                ) : key.requestedByPolicy?.mode === "required" ? (
+                ) : key.requireRequestedBy ? (
                   <Badge
                     ml="2"
                     variant="soft"

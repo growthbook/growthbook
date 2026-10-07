@@ -1,12 +1,10 @@
 import { ApiKeyInterface } from "shared/types/apikey";
 import { OrganizationInterface } from "shared/types/organization";
-import { RequestedByPolicy } from "shared/validators";
 import {
   isApiKeyForUserInOrganization,
   migrateApiKey,
   roleForApiKey,
   resolveRequestedBy,
-  assertRequestedByAllowed,
   assertNoRequestedByOnUserToken,
 } from "back-end/src/util/api-key.util";
 
@@ -211,32 +209,6 @@ describe("resolveRequestedBy", () => {
       ).rejects.toMatchObject({ status: 400 });
     },
   );
-});
-
-describe("assertRequestedByAllowed", () => {
-  const alice = { id: "u_alice", name: "Alice", email: "alice@example.com" };
-  const check = (
-    mode: RequestedByPolicy["mode"],
-    member: typeof alice | null,
-  ) => {
-    try {
-      assertRequestedByAllowed({ mode, limitToRequester: false }, member);
-      return "ok";
-    } catch (e) {
-      return e.status;
-    }
-  };
-
-  it.each([
-    ["optional, no header", "optional", null, "ok"],
-    ["optional, header sent", "optional", alice, "ok"],
-    ["required, no header", "required", null, 400],
-    ["required, header sent", "required", alice, "ok"],
-    ["off, header sent", "off", alice, 403],
-    ["off, no header", "off", null, "ok"],
-  ] as const)("%s", (_, mode, member, expected) => {
-    expect(check(mode, member)).toBe(expected);
-  });
 });
 
 describe("assertNoRequestedByOnUserToken", () => {

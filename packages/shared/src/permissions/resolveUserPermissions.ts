@@ -143,6 +143,38 @@ function mergeUserPermissionObj(
   return updatedUserPermissionObj;
 }
 
+// Everything either principal may do, each judged in its own scope: a project
+// falls back to that principal's global entry, as `hasPermission` does.
+export function unionUserPermissions(
+  a: UserPermissions,
+  b: UserPermissions,
+  org: OrganizationInterface,
+): UserPermissions {
+  // The merge writes into its first argument, and a scope can be the shared
+  // global entry, so each side is copied first.
+  const scope = (p: UserPermissions, project: string) =>
+    cloneDeep(p.projects[project] || p.global);
+  const projects: UserPermissions["projects"] = {};
+  for (const project of new Set([
+    ...Object.keys(a.projects),
+    ...Object.keys(b.projects),
+  ])) {
+    projects[project] = mergeUserPermissionObj(
+      scope(a, project),
+      scope(b, project),
+      org,
+    );
+  }
+  return {
+    global: mergeUserPermissionObj(
+      cloneDeep(a.global),
+      cloneDeep(b.global),
+      org,
+    ),
+    projects,
+  };
+}
+
 function mergeUserAndTeamPermissions(
   userPermissions: UserPermissions,
   teamPermissions: UserPermissions,

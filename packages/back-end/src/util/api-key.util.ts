@@ -2,7 +2,6 @@ import { webcrypto } from "node:crypto";
 import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
-import type { RequestedByPolicy } from "shared/validators";
 import {
   IS_MULTI_ORG,
   SECRET_API_KEY,
@@ -175,28 +174,6 @@ export async function resolveRequestedBy(
     );
   }
   return { id: user.id, name: user.name || "", email: user.email };
-}
-
-// The key's own settings decide whether a request may, or must, name a member.
-export function assertRequestedByAllowed(
-  policy: RequestedByPolicy,
-  member: RequestedByMember | null,
-): void {
-  if (!member) {
-    if (policy.mode === "required") {
-      throw new RequestedByError(
-        400,
-        "This API key requires an X-Requested-By header naming an organization member",
-      );
-    }
-    return;
-  }
-  if (policy.mode === "off") {
-    throw new RequestedByError(
-      403,
-      "This API key does not accept X-Requested-By",
-    );
-  }
 }
 
 // Personal access and OAuth tokens already act as their owner.

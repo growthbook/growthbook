@@ -1,5 +1,5 @@
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import { apiKeySchema, RequestedByPolicy } from "shared/validators";
+import { apiKeySchema } from "shared/validators";
 import { getRoleById } from "shared/permissions";
 import {
   generateEncryptionKey,
@@ -14,6 +14,11 @@ import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
+
+type RoleConfig = Pick<
+  ApiKeyInterface,
+  "role" | "limitAccessByEnvironment" | "additionalRoles" | "projectRoles"
+> & { environments?: string[] };
 
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
@@ -105,7 +110,8 @@ export class ApiKeyModel extends BaseClass {
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
       environments: doc.environments,
       projectRoles: doc.projectRoles,
-      requestedByPolicy: doc.requestedByPolicy,
+      requesterOnly: doc.requesterOnly,
+      requireRequestedBy: doc.requireRequestedBy,
       disabled: doc.disabled,
     };
   }
@@ -141,77 +147,72 @@ export class ApiKeyModel extends BaseClass {
           "PATs do not support additional roles.",
         );
       }
-      if (doc.requestedByPolicy) {
+      if (doc.requireRequestedBy || doc.requesterOnly) {
         this.context.throwBadRequestError(
           "PATs already act as a user and cannot take X-Requested-By.",
         );
       }
     } else {
       // Org API keys — validate role, environments, project roles, and commercial features
-      this.validateRole(doc.role);
-      // Only gate a role change so existing keys keep working
-      if (
-        doc.role &&
-        doc.role !== previousDoc?.role &&
-        doc.role !== "admin" &&
-        !this.context.limits.orgSupportsRoles()
-      ) {
-        this.context.throwPaymentRequiredError(
-          "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
-        );
-      }
-      if (
-        doc.limitAccessByEnvironment &&
-        !this.context.hasPremiumFeature("advanced-permissions")
-      ) {
-        this.context.throwPlanDoesNotAllowError(
-          "Your plan does not support restricting API key permissions by environment.",
-        );
-      }
-      this.validateEnvironments(doc.environments);
-      for (const rule of doc.additionalRoles ?? []) {
-        this.validateRole(rule.role);
-        this.validateEnvironments(rule.environments);
-      }
-      if (doc.projectRoles?.length) {
-        if (!this.context.hasPremiumFeature("advanced-permissions")) {
-          this.context.throwPlanDoesNotAllowError(
-            "Your plan does not support project-level permissions on API keys.",
-          );
-        }
-        for (const pr of doc.projectRoles) {
-          this.validateRole(pr.role);
-          this.validateEnvironments(pr.environments);
-          for (const rule of pr.additionalRoles ?? []) {
-            this.validateRole(rule.role);
-            this.validateEnvironments(rule.environments);
-          }
-        }
-        // Only rules this write adds or changes are checked (same as members and
-        // teams), so a key still pointing at a since-deleted project stays
-        // editable and can be disabled.
-        try {
-          await assertProjectRulesReferenceProjects(
-            this.context,
-            previousDoc?.projectRoles,
-            doc.projectRoles,
-          );
-        } catch (e) {
-          this.context.throwBadRequestError(e.message);
-        }
-      }
-      if (doc.requestedByPolicy) {
-        this.validateRequestedByPolicy(doc.requestedByPolicy);
-      }
+      await this.validateRoleConfig(doc, previousDoc);
     }
   }
 
-  private validateRequestedByPolicy(policy: RequestedByPolicy) {
-    // An optional header would let a caller opt out of the cap.
-    if (policy.limitToRequester && policy.mode !== "required") {
-      this.context.throwBadRequestError(
-        "Capping a key at the requester's permissions requires X-Requested-By on every request.",
+  private async validateRoleConfig(
+    config: RoleConfig,
+    previous: RoleConfig | undefined,
+  ) {
+    this.validateRole(config.role);
+    // Only gate a role change so existing keys keep working
+    if (
+      config.role &&
+      config.role !== previous?.role &&
+      config.role !== "admin" &&
+      !this.context.limits.orgSupportsRoles()
+    ) {
+      this.context.throwPaymentRequiredError(
+        "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
       );
+    }
+    if (
+      config.limitAccessByEnvironment &&
+      !this.context.hasPremiumFeature("advanced-permissions")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support restricting API key permissions by environment.",
+      );
+    }
+    this.validateEnvironments(config.environments ?? []);
+    for (const rule of config.additionalRoles ?? []) {
+      this.validateRole(rule.role);
+      this.validateEnvironments(rule.environments);
+    }
+    if (config.projectRoles?.length) {
+      if (!this.context.hasPremiumFeature("advanced-permissions")) {
+        this.context.throwPlanDoesNotAllowError(
+          "Your plan does not support project-level permissions on API keys.",
+        );
+      }
+      for (const pr of config.projectRoles) {
+        this.validateRole(pr.role);
+        this.validateEnvironments(pr.environments);
+        for (const rule of pr.additionalRoles ?? []) {
+          this.validateRole(rule.role);
+          this.validateEnvironments(rule.environments);
+        }
+      }
+      // Only rules this write adds or changes are checked (same as members and
+      // teams), so a key still pointing at a since-deleted project stays
+      // editable and can be disabled.
+      try {
+        await assertProjectRulesReferenceProjects(
+          this.context,
+          previous?.projectRoles,
+          config.projectRoles,
+        );
+      } catch (e) {
+        this.context.throwBadRequestError(e.message);
+      }
     }
   }
 
@@ -242,7 +243,8 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
-    requestedByPolicy,
+    requireRequestedBy,
+    requesterOnly,
   }: {
     description: string;
     roleId: string;
@@ -250,7 +252,8 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requestedByPolicy?: RequestedByPolicy;
+    requireRequestedBy?: boolean;
+    requesterOnly?: boolean;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       secret: true,
@@ -263,7 +266,8 @@ export class ApiKeyModel extends BaseClass {
       environments,
       additionalRoles,
       projectRoles,
-      requestedByPolicy,
+      requireRequestedBy,
+      requesterOnly,
     });
   }
 
@@ -344,7 +348,8 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       description,
-      requestedByPolicy,
+      requireRequestedBy,
+      requesterOnly,
     }: {
       role?: string;
       limitAccessByEnvironment?: boolean;
@@ -352,7 +357,8 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
-      requestedByPolicy?: RequestedByPolicy;
+      requireRequestedBy?: boolean;
+      requesterOnly?: boolean;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
@@ -393,7 +399,8 @@ export class ApiKeyModel extends BaseClass {
         additionalRoles,
         projectRoles,
         description,
-        requestedByPolicy,
+        requireRequestedBy,
+        requesterOnly,
       },
       { forceCanUpdate: true },
     );
@@ -539,7 +546,8 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
-    requestedByPolicy,
+    requireRequestedBy,
+    requesterOnly,
   }: {
     environment: string;
     project: string;
@@ -552,7 +560,8 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requestedByPolicy?: RequestedByPolicy;
+    requireRequestedBy?: boolean;
+    requesterOnly?: boolean;
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -581,7 +590,8 @@ export class ApiKeyModel extends BaseClass {
       environments: environments ?? [],
       additionalRoles,
       projectRoles,
-      ...(requestedByPolicy ? { requestedByPolicy } : {}),
+      ...(requireRequestedBy !== undefined ? { requireRequestedBy } : {}),
+      ...(requesterOnly !== undefined ? { requesterOnly } : {}),
     });
   }
 }

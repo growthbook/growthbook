@@ -24,7 +24,7 @@ export function eventUserToApi(user: EventUser): {
   name?: string;
   email?: string;
   requestedBy?: { id: string; name: string; email: string };
-  limitedToRequester?: boolean;
+  extendedByRequester?: boolean;
 } | null {
   if (!user) return null;
   switch (user.type) {
@@ -42,7 +42,7 @@ export function eventUserToApi(user: EventUser): {
         ...(user.name !== undefined ? { name: user.name } : {}),
         ...(user.email !== undefined ? { email: user.email } : {}),
         ...(user.requestedBy ? { requestedBy: user.requestedBy } : {}),
-        ...(user.limitedToRequester ? { limitedToRequester: true } : {}),
+        ...(user.extendedByRequester ? { extendedByRequester: true } : {}),
       };
     case "system":
       return {

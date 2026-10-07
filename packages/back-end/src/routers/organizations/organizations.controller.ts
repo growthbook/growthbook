@@ -12,11 +12,7 @@ import {
 import { getRoles } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import {
-  AgreementType,
-  RequestedByPolicy,
-  updateSdkWebhookValidator,
-} from "shared/validators";
+import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
@@ -1959,8 +1955,9 @@ export async function postApiKey(
     limitAccessByEnvironment?: boolean;
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
-    projectRoles?: ProjectMemberRole[];
-    requestedByPolicy?: RequestedByPolicy;
+    projectRoles?: ApiKeyInterface["projectRoles"];
+    requireRequestedBy?: boolean;
+    requesterOnly?: boolean;
   }>,
   res: Response,
 ) {
@@ -1973,7 +1970,8 @@ export async function postApiKey(
     environments,
     additionalRoles,
     projectRoles,
-    requestedByPolicy,
+    requireRequestedBy,
+    requesterOnly,
   } = req.body;
 
   let key: ApiKeyInterface;
@@ -1998,7 +1996,8 @@ export async function postApiKey(
       environments,
       additionalRoles,
       projectRoles,
-      requestedByPolicy,
+      requireRequestedBy,
+      requesterOnly,
     });
   }
 
@@ -2026,8 +2025,9 @@ export async function putApiKey(
       limitAccessByEnvironment?: boolean;
       environments?: string[];
       additionalRoles?: ApiKeyInterface["additionalRoles"];
-      projectRoles?: ProjectMemberRole[];
-      requestedByPolicy?: RequestedByPolicy;
+      projectRoles?: ApiKeyInterface["projectRoles"];
+      requireRequestedBy?: boolean;
+      requesterOnly?: boolean;
     },
     { id: string }
   >,
@@ -2042,7 +2042,8 @@ export async function putApiKey(
     environments,
     additionalRoles,
     projectRoles,
-    requestedByPolicy,
+    requireRequestedBy,
+    requesterOnly,
   } = req.body;
 
   // Editing a key's authority is at least as sensitive as revealing it, so we
@@ -2063,7 +2064,8 @@ export async function putApiKey(
       environments,
       additionalRoles,
       projectRoles,
-      requestedByPolicy,
+      requireRequestedBy,
+      requesterOnly,
     });
 
   await req.audit({

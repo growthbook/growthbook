@@ -82,13 +82,12 @@ info:
     Requests made with an organization API key may add an `X-Requested-By`
     header naming the organization member who asked for the change, as a user id
     or an email address. History, revision logs and webhooks then show that
-    member next to the key. The key's own role still decides what is allowed,
-    unless the key caps each request at the requester's permissions. The cap
-    never adds permissions, and it relies on the service holding the key to name
-    the right member. Each key's settings make the header off, optional or
-    required. An unknown member is rejected with a 400, and a header the key
-    doesn't allow with a 403. Approvals still need a personal access token.
-    Personal access tokens already act as their owner and reject the header.
+    member next to the key. The key's own permissions decide what is allowed.
+    Any of them can be set to apply only as far as the named member has the same
+    permissions, which relies on the service holding the key to name the right
+    member. A key can require the header on every request. An unknown member is
+    rejected with a 400. Approvals still need a personal access token. Personal
+    access tokens already act as their owner and reject the header.
 
 
     ```bash
@@ -69581,8 +69580,10 @@ components:
                 - name
                 - email
               additionalProperties: false
-            limitedToRequester:
-              description: True when the request was capped at the requester's permissions
+            extendedByRequester:
+              description: >-
+                True when the named member's permissions extended the key's for
+                this request
               type: boolean
           required:
             - type
@@ -69747,8 +69748,10 @@ components:
                 - name
                 - email
               additionalProperties: false
-            limitedToRequester:
-              description: True when the request was capped at the requester's permissions
+            extendedByRequester:
+              description: >-
+                True when the named member's permissions extended the key's for
+                this request
               type: boolean
           required:
             - type
@@ -70092,8 +70095,10 @@ components:
                 - name
                 - email
               additionalProperties: false
-            limitedToRequester:
-              description: True when the request was capped at the requester's permissions
+            extendedByRequester:
+              description: >-
+                True when the named member's permissions extended the key's for
+                this request
               type: boolean
           required:
             - type
@@ -70258,8 +70263,10 @@ components:
                 - name
                 - email
               additionalProperties: false
-            limitedToRequester:
-              description: True when the request was capped at the requester's permissions
+            extendedByRequester:
+              description: >-
+                True when the named member's permissions extended the key's for
+                this request
               type: boolean
           required:
             - type
@@ -70856,8 +70863,10 @@ components:
                 - name
                 - email
               additionalProperties: false
-            limitedToRequester:
-              description: True when the request was capped at the requester's permissions
+            extendedByRequester:
+              description: >-
+                True when the named member's permissions extended the key's for
+                this request
               type: boolean
           required:
             - type
@@ -71022,8 +71031,10 @@ components:
                 - name
                 - email
               additionalProperties: false
-            limitedToRequester:
-              description: True when the request was capped at the requester's permissions
+            extendedByRequester:
+              description: >-
+                True when the named member's permissions extended the key's for
+                this request
               type: boolean
           required:
             - type
@@ -83253,10 +83264,10 @@ components:
                     - name
                     - email
                   additionalProperties: false
-                limitedToRequester:
+                extendedByRequester:
                   description: >-
-                    True when the request was capped at the requester's
-                    permissions
+                    True when the named member's permissions extended the key's
+                    for this request
                   type: boolean
               required:
                 - type

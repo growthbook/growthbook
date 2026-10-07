@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { requestedByPolicy } from "shared/validators";
 
 const roleRuleValidator = z
   .object({
@@ -39,14 +38,28 @@ export const putMemberProjectRoleValidator = z
   })
   .strict();
 
+// Org API keys only: any rule can apply only as far as the member named in
+// X-Requested-By has the same permissions.
+const apiKeyRoleRuleValidator = roleRuleValidator
+  .extend({ requesterOnly: z.boolean().optional() })
+  .strict();
+
+const apiKeyProjectRoleValidator = projectMemberRoleValidator
+  .extend({
+    requesterOnly: z.boolean().optional(),
+    additionalRoles: z.array(apiKeyRoleRuleValidator).optional(),
+  })
+  .strict();
+
 export const postApiKeyValidator = z.strictObject({
   type: z.string(),
   description: z.string().optional(),
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
-  projectRoles: z.array(projectMemberRoleValidator).optional(),
-  additionalRoles: z.array(roleRuleValidator).optional(),
-  requestedByPolicy: requestedByPolicy.optional(),
+  projectRoles: z.array(apiKeyProjectRoleValidator).optional(),
+  additionalRoles: z.array(apiKeyRoleRuleValidator).optional(),
+  requesterOnly: z.boolean().optional(),
+  requireRequestedBy: z.boolean().optional(),
 });
 
 export const putApiKeyValidator = z.strictObject({
@@ -54,9 +67,10 @@ export const putApiKeyValidator = z.strictObject({
   description: z.string().optional(),
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
-  projectRoles: z.array(projectMemberRoleValidator).optional(),
-  additionalRoles: z.array(roleRuleValidator).optional(),
-  requestedByPolicy: requestedByPolicy.optional(),
+  projectRoles: z.array(apiKeyProjectRoleValidator).optional(),
+  additionalRoles: z.array(apiKeyRoleRuleValidator).optional(),
+  requesterOnly: z.boolean().optional(),
+  requireRequestedBy: z.boolean().optional(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({

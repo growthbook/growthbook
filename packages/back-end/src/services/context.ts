@@ -710,7 +710,7 @@ export class ReqContextClass {
           name: apiKeyUser?.name,
           email: apiKeyUser?.email,
           requestedBy: apiKeyUser?.requestedBy,
-          limitedToRequester: apiKeyUser?.limitedToRequester,
+          extendedByRequester: apiKeyUser?.extendedByRequester,
         }
       : this.userId
         ? {

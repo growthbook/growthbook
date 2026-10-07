@@ -6,7 +6,10 @@ import { TeamInterface } from "shared/types/team";
 import { ApiKeyWithRole } from "shared/types/apikey";
 import {
   getRolePermissions,
+  hasRequesterOnlyRules,
   intersectUserPermissions,
+  splitRequesterOnlyRules,
+  unionUserPermissions,
 } from "shared/permissions";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
@@ -66,17 +69,37 @@ export function getUserPermissions(
   );
 }
 
-// What an org key may do for a request it says a member asked for: never more
-// than the key, and never more than that member.
-export function getRequesterCappedPermissions(
-  apiKey: ApiKeyWithRole,
-  requesterId: string,
-  org: OrganizationInterface,
-  teams: TeamInterface[],
-  restrictedProjects: string[],
-): UserPermissions {
-  return intersectUserPermissions(
-    getRolePermissions(apiKey, org, teams, restrictedProjects),
-    getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
+// What an org key may do for one request: its rules that always apply, plus
+// its requester-only rules as far as the named member has the same permissions.
+// Undefined when no rule depends on the requester, so the key's role applies.
+export function getKeyPermissionsForRequest({
+  apiKey,
+  requesterId,
+  org,
+  teams,
+  restrictedProjects,
+}: {
+  apiKey: ApiKeyWithRole;
+  requesterId: string | null;
+  org: OrganizationInterface;
+  teams: TeamInterface[];
+  restrictedProjects: string[];
+}): UserPermissions | undefined {
+  if (!hasRequesterOnlyRules(apiKey)) return undefined;
+  const { always, requesterOnly } = splitRequesterOnlyRules(apiKey);
+  const alwaysPermissions = getRolePermissions(
+    always,
+    org,
+    teams,
+    restrictedProjects,
+  );
+  if (!requesterId) return alwaysPermissions;
+  return unionUserPermissions(
+    alwaysPermissions,
+    intersectUserPermissions(
+      getRolePermissions(requesterOnly, org, teams, restrictedProjects),
+      getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
+    ),
+    org,
   );
 }

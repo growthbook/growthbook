@@ -31,14 +31,36 @@ export type RoleRule = {
   source: "direct" | "team";
   teamName?: string;
   isPrimary?: boolean;
+  // API keys only: the rule applies only as far as the named requester has it.
+  requesterOnly?: boolean;
 };
+
+type RuleFlag = { requesterOnly?: boolean };
+type AdditionalRole = NonNullable<
+  MemberRoleWithProjects["additionalRoles"]
+>[number] &
+  RuleFlag;
+
+// Member roles, plus the per-rule flag API keys can carry.
+export type RoleRulesValue = Omit<
+  MemberRoleWithProjects,
+  "additionalRoles" | "projectRoles"
+> &
+  RuleFlag & {
+    additionalRoles?: AdditionalRole[];
+    projectRoles?: (Omit<
+      NonNullable<MemberRoleWithProjects["projectRoles"]>[number],
+      "additionalRoles"
+    > &
+      RuleFlag & { additionalRoles?: AdditionalRole[] })[];
+  };
 
 export const ALL_PROJECTS = "";
 
 // Keys must be derived from position, not generated. A fresh key on every edit
 // remounts the row and throws away its inline editing state.
 export function toRules(
-  value: MemberRoleWithProjects,
+  value: RoleRulesValue,
   teams: TeamRuleSource[] = [],
 ): RoleRule[] {
   const rules: RoleRule[] = [
@@ -50,6 +72,7 @@ export function toRules(
       limitAccessByEnvironment: !!value.limitAccessByEnvironment,
       source: "direct",
       isPrimary: true,
+      requesterOnly: !!value.requesterOnly,
     },
     ...(value.additionalRoles || []).map((r, i) => ({
       key: `global:${i}`,
@@ -58,6 +81,7 @@ export function toRules(
       environments: r.environments || [],
       limitAccessByEnvironment: !!r.limitAccessByEnvironment,
       source: "direct" as const,
+      requesterOnly: !!r.requesterOnly,
     })),
     ...(value.projectRoles || []).flatMap((pr, p) => [
       {
@@ -67,6 +91,7 @@ export function toRules(
         environments: pr.environments || [],
         limitAccessByEnvironment: !!pr.limitAccessByEnvironment,
         source: "direct" as const,
+        requesterOnly: !!pr.requesterOnly,
       },
       ...(pr.additionalRoles || []).map((r, i) => ({
         key: `project:${p}:${i}`,
@@ -75,6 +100,7 @@ export function toRules(
         environments: r.environments || [],
         limitAccessByEnvironment: !!r.limitAccessByEnvironment,
         source: "direct" as const,
+        requesterOnly: !!r.requesterOnly,
       })),
     ]),
   ];
@@ -105,10 +131,14 @@ export function toRules(
   return rules;
 }
 
+// Only set when true, so member and team roles never carry the key-only flag.
+const flagOf = (rule: RoleRule) =>
+  rule.requesterOnly ? { requesterOnly: true } : {};
+
 export function fromRules(
   rules: RoleRule[],
-  base: MemberRoleWithProjects,
-): MemberRoleWithProjects {
+  base: RoleRulesValue,
+): RoleRulesValue {
   const direct = rules.filter((r) => r.source === "direct");
   const primary = direct.find((r) => r.isPrimary) ?? direct[0];
   const globals = direct.filter(
@@ -127,10 +157,12 @@ export function fromRules(
     role: primary?.role ?? base.role,
     environments: primary?.environments ?? [],
     limitAccessByEnvironment: !!primary?.limitAccessByEnvironment,
+    requesterOnly: primary?.requesterOnly || undefined,
     additionalRoles: globals.map((r) => ({
       role: r.role,
       environments: r.environments,
       limitAccessByEnvironment: r.limitAccessByEnvironment,
+      ...flagOf(r),
     })),
     projectRoles: [...byProject.entries()].map(
       ([project, [first, ...rest]]) => ({
@@ -138,10 +170,12 @@ export function fromRules(
         role: first.role,
         environments: first.environments,
         limitAccessByEnvironment: first.limitAccessByEnvironment,
+        ...flagOf(first),
         additionalRoles: rest.map((r) => ({
           role: r.role,
           environments: r.environments,
           limitAccessByEnvironment: r.limitAccessByEnvironment,
+          ...flagOf(r),
         })),
       }),
     ),
@@ -221,6 +255,9 @@ export function inertRules(
       const directOnly: Coverage = new Map();
       scoped.forEach((other, j) => {
         if (j === i || (j < i && inert.has(other.key))) return;
+        // A rule that only applies for the requester can't stand in for one
+        // that always applies.
+        if (other.requesterOnly && !rule.requesterOnly) return;
         const coverage = coverageOf(other, org);
         absorb(others, coverage);
         if (other.source === "direct") absorb(directOnly, coverage);

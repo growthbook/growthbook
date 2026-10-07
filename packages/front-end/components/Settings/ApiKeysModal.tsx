@@ -1,12 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { getRoles } from "shared/permissions";
-import { MemberRoleWithProjects } from "shared/types/organization";
+import { getRoles, hasRequesterOnlyRules } from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
-import {
-  DEFAULT_REQUESTED_BY_POLICY,
-  RequestedByPolicy,
-} from "shared/validators";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -14,9 +9,10 @@ import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
+import { RoleRulesValue } from "@/components/Settings/Team/roleRules";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import RequestedByPolicyFields from "@/components/Settings/RequestedByPolicyFields";
+import RequestedByFields from "@/components/Settings/RequestedByFields";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -55,7 +51,7 @@ const ApiKeysModal: FC<{
     },
   });
 
-  const [roleState, setRoleState] = useState<MemberRoleWithProjects>({
+  const [roleState, setRoleState] = useState<RoleRulesValue>({
     // In edit mode, seed the role from the existing key rather than the generic
     // defaultRole. Legacy secret keys created before per-key roles have no
     // stored role and resolve to "admin" at auth time (see roleForApiKey); the
@@ -67,15 +63,22 @@ const ApiKeysModal: FC<{
     role: existingKey ? existingKey.role || "admin" : defaultRole,
     limitAccessByEnvironment: existingKey?.limitAccessByEnvironment ?? false,
     environments: existingKey?.environments ?? [],
+    requesterOnly: existingKey?.requesterOnly,
     additionalRoles: existingKey?.additionalRoles,
     projectRoles: existingKey?.projectRoles,
   });
-  const [requestedByPolicy, setRequestedByPolicy] = useState<RequestedByPolicy>(
-    existingKey?.requestedByPolicy ?? DEFAULT_REQUESTED_BY_POLICY,
+  const [requireRequestedBy, setRequireRequestedBy] = useState(
+    !!existingKey?.requireRequestedBy,
   );
+  const [extendWithRequester, setExtendWithRequester] = useState(() =>
+    hasRequesterOnlyRules(existingKey ?? {}),
+  );
+  const hasRequesterRows = hasRequesterOnlyRules(roleState);
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const { role, ...roleStateData } = roleState;
+    const { role, ...rest } = roleState;
+    // Explicit, so clearing the flag on the main role sticks.
+    const roleStateData = { ...rest, requesterOnly: !!rest.requesterOnly };
 
     if (existingKey) {
       await apiCall(`/keys/${existingKey.id}`, {
@@ -84,7 +87,7 @@ const ApiKeysModal: FC<{
           description: value.description,
           role,
           ...roleStateData,
-          requestedByPolicy,
+          requireRequestedBy,
         }),
       });
       track("Edit API Key");
@@ -101,7 +104,7 @@ const ApiKeysModal: FC<{
           description: value.description,
           type: role,
           ...roleStateData,
-          requestedByPolicy,
+          requireRequestedBy,
         };
     await apiCall("/keys", {
       method: "POST",
@@ -131,19 +134,28 @@ const ApiKeysModal: FC<{
       />
       {!personalAccessToken && (
         <>
+          <RequestedByFields
+            required={requireRequestedBy}
+            setRequired={setRequireRequestedBy}
+            extendWithRequester={extendWithRequester}
+            setExtendWithRequester={setExtendWithRequester}
+            hasRequesterRows={hasRequesterRows}
+          />
           <Box mt="6">
             <Heading as="h4" size="sm" mb="1">
               Permissions
             </Heading>
             <Text as="p" color="text-mid" mb="3">
-              What requests made with this key can do.
+              {extendWithRequester
+                ? "What requests made with this key can do. Rules that apply only if the requester has it go no further than the requester's own permissions."
+                : "What every request made with this key can do."}
             </Text>
-            <RoleRulesTable value={roleState} setValue={setRoleState} />
+            <RoleRulesTable
+              value={roleState}
+              setValue={setRoleState}
+              showAppliesColumn={extendWithRequester}
+            />
           </Box>
-          <RequestedByPolicyFields
-            value={requestedByPolicy}
-            setValue={setRequestedByPolicy}
-          />
         </>
       )}
     </ModalStandard>
