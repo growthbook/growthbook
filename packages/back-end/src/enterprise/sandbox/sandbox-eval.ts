@@ -1,5 +1,6 @@
-import type { EventUser } from "shared/validators";
 import {
+  EventUser,
+  eventUserPersonId,
   CustomHookInterface,
   CustomHookType,
   hookEntityType,
@@ -107,7 +108,7 @@ async function withHookRevisionContext<
     | {
         reviews?: { userId: string }[];
         contributors?: string[];
-        createdBy?: { id?: string; requestedBy?: { id: string } } | null;
+        createdBy?: EventUser | null;
       }
     | null
     | undefined,
@@ -115,7 +116,7 @@ async function withHookRevisionContext<
   if (!revision) return revision;
   const authorship = await hookAuthorship(
     context,
-    revision.createdBy?.requestedBy?.id ?? revision.createdBy?.id,
+    eventUserPersonId(revision.createdBy ?? null) ?? undefined,
     revision.contributors,
   );
   return {

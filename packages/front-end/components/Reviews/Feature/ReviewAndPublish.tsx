@@ -866,12 +866,13 @@ export default function ReviewAndPublish({
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
     (revision?.contributors ?? []).some((id) => id === user?.id);
+  const draftAuthorId = eventUserPersonId(revision?.createdBy ?? null);
   // The whole review cycle accepts verdicts, "approved" included (matching the
   // server): an approval that doesn't satisfy coverage or a required team must
   // not lock out the one that would.
   const canReview =
     isInReviewCycle(revision?.status) &&
-    eventUserPersonId(revision?.createdBy ?? null) !== user?.id &&
+    draftAuthorId !== user?.id &&
     permissionsUtil.canReviewFeatureDrafts(
       feature,
       reviewFootprint,
@@ -892,7 +893,7 @@ export default function ReviewAndPublish({
   );
   const authoredDraft =
     !!userId &&
-    (eventUserPersonId(revision?.createdBy ?? null) === userId ||
+    (draftAuthorId === userId ||
       (revision?.contributors ?? []).includes(userId));
   // The same predicates the server enforces, so the client can't offer an
   // action the server then refuses.
