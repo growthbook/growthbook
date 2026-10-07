@@ -301,7 +301,9 @@ export async function postNpsResponse(
       score,
       feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
       respondedAt: new Date().toISOString(),
-    }).catch(() => {});
+    }).catch((e) => {
+      logger.error(e, "Failed to forward NPS response to license server");
+    });
   }
 
   res.status(200).json({
