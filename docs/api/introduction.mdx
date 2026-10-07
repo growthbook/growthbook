@@ -25,7 +25,7 @@ We support both the HTTP Basic and Bearer authentication schemes for convenience
 You first need to generate a new API Key in GrowthBook. Different keys have different permissions:
 
 - **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization. These can be created by going to `Personal Access Tokens` under the your user menu.
-- **Secret Keys**: These are sensitive and provide the level of access for the role, which currently is either `admin` or `readonly`. Only Admins with the `manageApiKeys` permission can manage Secret Keys on behalf of an organization. These can be created by going to `Settings -> API Keys`
+- **Secret Keys**: These are sensitive and provide the access set by the key's permissions: a role for All Projects, plus optional project overrides. Only Admins with the `manageApiKeys` permission can manage Secret Keys on behalf of an organization. These can be created by going to `Settings -> API Keys`
 
 If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank (when using curl, add `:` at the end of the secret to indicate an empty password)
 
@@ -43,12 +43,12 @@ curl https://api.growthbook.io/api/v1/features \
 
 ## Naming who asked
 
-Requests made with a Secret Key may add an `X-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks then show that member next to the key. The key's own role still decides what is allowed.
+Requests made with a Secret Key may add an `X-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks then show that requester next to the key. Unless the key extends its permissions as described below, the header doesn't change what the key can do.
 
-Each key's settings under `Settings -> API Keys` control the header:
+Each key's X-Requested-By settings under `Settings -> API Keys`:
 
-- **Required on every request.** Requests without the header are rejected with a 400.
-- **Extend this key's permissions if the requester has them.** Any of the key's permission rules can be set to apply only if the requester has it. A request that names a member gets those rules as far as that member has the same permissions, on top of the rules that always apply. A request that names no one gets only the rules that always apply. This relies on the service holding the key to name the right member, so the key's real reach is all of its rules.
+- **Require it on every request.** Requests without the header are rejected with a 400.
+- **Extend this key's permissions if the requester has them.** This adds an **Applies** column to the key's permissions, where each rule can apply **Always** or **If the requester has it**. A request that names a member gets the second kind of rule only as far as that member has the same permissions, on top of the rules that always apply. A request that names no one gets only the rules that always apply. This relies on the service holding the key to name the right member, so the key's real reach is all of its rules.
 
 A value that does not match a member of the organization is rejected with a 400. Approvals still need a Personal Access Token, since a key can't approve on someone's behalf. Personal Access Tokens already act as their owner and reject the header.
 
