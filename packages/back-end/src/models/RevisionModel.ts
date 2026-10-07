@@ -2074,7 +2074,7 @@ export class RevisionModel extends BaseClass {
             activityLog: {
               id: uniqid("act_"),
               user: this.context.auditUser,
-              userId: enabledBy ?? existing.authorId,
+              userId: this.context.actingUserId,
               action: "scheduled-publish-canceled",
               description: "Cancelled scheduled publish",
               dateCreated: now,
@@ -2098,7 +2098,7 @@ export class RevisionModel extends BaseClass {
     const armEntry: ActivityLogEntry = {
       id: uniqid("act_"),
       user: this.context.auditUser,
-      userId: enabledBy ?? existing.authorId,
+      userId: this.context.actingUserId,
       action: existing.scheduledPublishAt
         ? "scheduled-publish-updated"
         : "scheduled-publish",

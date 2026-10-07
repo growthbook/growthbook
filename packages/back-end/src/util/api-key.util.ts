@@ -1,7 +1,11 @@
 import { webcrypto } from "node:crypto";
 import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
-import { EventUserRequestedBy } from "shared/types/events/event-types";
+import {
+  EventUserApiKey,
+  EventUserRequestedBy,
+} from "shared/types/events/event-types";
+import { requesterExtension } from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { isExpired } from "shared/api-key-expiration";
 import {
@@ -208,6 +212,46 @@ export function decodeArmingApiKeyId(id: string): {
 } {
   const [apiKeyId, requesterId] = id.split(ARMING_REQUESTER_SEPARATOR, 2);
   return { apiKeyId, requesterId: requesterId || null };
+}
+
+// The actor an API key request records: a personal token as its owner, an org
+// key under its own name with the member it named.
+export function apiKeyEventUser({
+  apiKeyId,
+  key,
+  owner,
+  requester,
+}: {
+  apiKeyId: string;
+  key: Pick<
+    ApiKeyInterface,
+    | "description"
+    | "extendWithRequester"
+    | "requesterOnly"
+    | "additionalRoles"
+    | "projectRoles"
+  >;
+  owner: { id: string; name?: string; email: string } | null;
+  requester: EventUserRequestedBy | null;
+}): EventUserApiKey {
+  if (owner) {
+    return {
+      type: "api_key",
+      apiKey: apiKeyId,
+      id: owner.id,
+      name: owner.name || "",
+      email: owner.email,
+    };
+  }
+  return {
+    type: "api_key",
+    apiKey: apiKeyId,
+    name: key.description || "",
+    ...(requester && {
+      requestedBy: requester,
+      ...(requesterExtension(key) !== "none" && { extendedByRequester: true }),
+    }),
+  };
 }
 
 // Personal access and OAuth tokens already act as their owner.

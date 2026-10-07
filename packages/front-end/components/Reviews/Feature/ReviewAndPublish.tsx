@@ -1,6 +1,7 @@
 import {
   eventUserPerson,
   eventUserPersonId,
+  reviewerKeyForEventUser,
   RampScheduleInterface,
   ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
@@ -380,7 +381,7 @@ export default function ReviewAndPublish({
         byUser.clear();
         continue;
       }
-      const uid = entry.user && "id" in entry.user ? entry.user.id : undefined;
+      const uid = reviewerKeyForEventUser(entry.user ?? null);
       if (!uid) continue;
       const timestamp = entry.timestamp as unknown as string;
       if (entry.action === "Approved") {
@@ -413,7 +414,7 @@ export default function ReviewAndPublish({
     );
     for (const entry of sorted) {
       if (entry.action !== "Review Requested") continue;
-      const uid = entry.user && "id" in entry.user ? entry.user.id : undefined;
+      const uid = eventUserPersonId(entry.user ?? null);
       if (uid) return uid;
     }
     return undefined;
@@ -1441,15 +1442,10 @@ export default function ReviewAndPublish({
   const systemCreator =
     revision.createdBy?.type === "system" ? revision.createdBy : null;
   const authorId =
-    !apiKeyCreator &&
-    !systemCreator &&
-    revision.createdBy &&
-    "id" in revision.createdBy &&
-    revision.createdBy.id
-      ? revision.createdBy.id
-      : undefined;
+    !apiKeyCreator && !systemCreator ? (draftAuthorId ?? undefined) : undefined;
+  const keyCreatorPersonId = apiKeyCreator ? draftAuthorId : null;
   const contribIds = (revision.contributors ?? []).filter(
-    (id) => id !== apiKeyCreator?.id && id !== systemCreator?.id,
+    (id) => id !== keyCreatorPersonId && id !== systemCreator?.id,
   );
   const contributorIds =
     authorId && !contribIds.includes(authorId)
@@ -2491,7 +2487,7 @@ export default function ReviewAndPublish({
   // the review log — the same source that feeds the "Return to draft" gate).
   // The revision author is only a fallback while the log loads, since the
   // requester is often a different person than the author.
-  const requesterId = reviewRequesterId || authorId;
+  const requesterId = reviewRequesterId || draftAuthorId || undefined;
   const requester = requesterId ? users.get(requesterId) : undefined;
   const requesterName = requester?.name || requester?.email || "";
   const headerTitle =

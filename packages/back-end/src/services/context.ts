@@ -17,6 +17,7 @@ import {
 } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { EventUser } from "shared/types/events/event-types";
+import { eventUserPerson } from "shared/validators";
 import { TeamInterface } from "shared/types/team";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -422,24 +423,36 @@ export class ReqContextClass {
   public superAdmin = false;
 
   // The person a request acts for: the signed-in user, a personal token's
-  // owner, or the member an org key names with X-GrowthBook-Requested-By. Use it for
-  // attribution, draft targeting and review verdicts, which are the person's.
-  // Authority that comes from being a person (author-only edit rights, who a
-  // deferred publish fires as) stays on `userId`; what a review may touch
-  // stays on the key's permissions.
+  // owner, or the member an org key names with X-GrowthBook-Requested-By. Use
+  // it for attribution, draft targeting and review verdicts, which are the
+  // person's. Author-only edit rights stay on `userId`, deferred work runs as
+  // `armer`, and what a review may touch stays on the key's permissions.
+  public get actingPerson(): {
+    id: string;
+    name: string;
+    email: string;
+  } | null {
+    if (this.userId) {
+      return { id: this.userId, name: this.userName, email: this.email };
+    }
+    const person = eventUserPerson(this.auditUser);
+    return person?.id
+      ? { id: person.id, name: person.name || "", email: person.email || "" }
+      : null;
+  }
+
   public get actingUserId(): string {
-    if (this.userId) return this.userId;
-    return this.auditUser?.type === "api_key"
-      ? this.auditUser.requestedBy?.id || ""
-      : "";
+    return this.actingPerson?.id ?? "";
   }
 
   public get actingUserName(): string {
-    if (this.userName) return this.userName;
-    return this.auditUser?.type === "api_key"
-      ? this.auditUser.requestedBy?.name || ""
-      : "";
+    return this.actingPerson?.name ?? "";
   }
+
+  public get actingUserEmail(): string {
+    return this.actingPerson?.email ?? "";
+  }
+
   public teams: TeamInterface[] = [];
   public role?: string;
   public isApiRequest = false;

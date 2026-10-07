@@ -3,6 +3,7 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
+import { eventUserPersonId } from "shared/validators";
 import CoAuthorsList from "@/components/Reviews/CoAuthorsList";
 
 // Actions that carry no content change — excluded when deriving co-authors from logs.
@@ -25,8 +26,7 @@ interface Props extends MarginProps {
 }
 
 export default function CoAuthors({ rev, logs, ...marginProps }: Props) {
-  const createdById =
-    rev.createdBy?.type === "dashboard" ? rev.createdBy.id : null;
+  const createdById = eventUserPersonId(rev.createdBy ?? null);
 
   // contributors is now string[] (user IDs). For older revisions that lack
   // the field, fall back to deriving from content-bearing log entries.
@@ -35,13 +35,9 @@ export default function CoAuthors({ rev, logs, ...marginProps }: Props) {
   const coAuthorIds =
     storedIds.length === 0 && logs
       ? logs
-          .filter(
-            (l) =>
-              !NON_CONTENT_ACTIONS.has(l.action) &&
-              l.user?.type === "dashboard" &&
-              l.user.id !== createdById,
-          )
-          .map((l) => (l.user as { id: string }).id)
+          .filter((l) => !NON_CONTENT_ACTIONS.has(l.action))
+          .map((l) => eventUserPersonId(l.user ?? null))
+          .filter((id): id is string => !!id && id !== createdById)
           .filter((id, i, arr) => arr.indexOf(id) === i)
       : storedIds.filter((id) => id !== createdById);
 

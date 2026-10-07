@@ -15,7 +15,6 @@ import {
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
-  requesterExtension,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -126,6 +125,7 @@ import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { PaymentRequiredError } from "back-end/src/util/errors";
 import {
+  apiKeyEventUser,
   decodeArmingApiKeyId,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
@@ -1918,29 +1918,16 @@ export async function getContextForApiKeyIdInOrg(
   ]);
   return new ReqContextClass({
     org,
-    auditUser: user
-      ? {
-          type: "api_key",
-          apiKey: apiKeyId,
-          id: user.id,
-          name: user.name || "",
-          email: user.email,
-        }
-      : {
-          type: "api_key",
-          apiKey: apiKeyId,
-          name: key.description || "",
-          ...(requester && {
-            requestedBy: {
-              id: requester.id,
-              name: requester.name || "",
-              email: requester.email,
-            },
-            ...(requesterExtension(key) !== "none" && {
-              extendedByRequester: true,
-            }),
-          }),
-        },
+    auditUser: apiKeyEventUser({
+      apiKeyId,
+      key,
+      owner: user,
+      requester: requester && {
+        id: requester.id,
+        name: requester.name || "",
+        email: requester.email,
+      },
+    }),
     user: user
       ? { id: user.id, email: user.email, name: user.name || "", superAdmin }
       : undefined,

@@ -649,42 +649,6 @@ export const revisionReviewSchema = z
 
 export type RevisionReview = z.infer<typeof revisionReviewSchema>;
 
-// The person behind an event user: the signed-in member, a personal token's
-// user, or the member an org key acted for. Null for keys acting as nobody.
-export function eventUserPerson(
-  user: z.infer<typeof eventUser>,
-): { id?: string; name?: string; email?: string } | null {
-  if (!user) return null;
-  if (user.type === "dashboard") {
-    return { id: user.id, name: user.name, email: user.email };
-  }
-  if (user.type === "api_key") {
-    if (user.requestedBy) return user.requestedBy;
-    return user.id ? { id: user.id, name: user.name, email: user.email } : null;
-  }
-  return null;
-}
-
-export function eventUserPersonId(
-  user: z.infer<typeof eventUser>,
-): string | null {
-  return eventUserPerson(user)?.id || null;
-}
-
-// Stable identifier for a reviewer across review lifecycle events, or null if
-// the event user can't hold a review verdict (system/anonymous users). The
-// member an org key names with X-GrowthBook-Requested-By is the reviewer, not the key.
-export function reviewerKeyForEventUser(
-  user: z.infer<typeof eventUser>,
-): string | null {
-  if (!user) return null;
-  if (user.type === "dashboard") return user.id;
-  if (user.type === "api_key") {
-    return eventUserPersonId(user) || user.apiKey || null;
-  }
-  return null;
-}
-
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
     // Stable identity, dual-shaped: new docs store a minted "frev_<uniqid>";

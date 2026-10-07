@@ -1,12 +1,7 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
+import { getRolePermissions, hasPermission } from "shared/permissions";
 import {
-  getRolePermissions,
-  hasPermission,
-  requesterExtension,
-} from "shared/permissions";
-import {
-  EventUserApiKey,
   EventUserLoggedIn,
   EventUserRequestedBy,
 } from "shared/types/events/event-types";
@@ -26,6 +21,7 @@ import {
 import { getCustomLogProps } from "back-end/src/util/logger";
 import { BadRequestError } from "back-end/src/util/errors";
 import {
+  apiKeyEventUser,
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
   REQUESTED_BY_HEADER,
@@ -360,24 +356,12 @@ function authenticateWithApiKey(
             teams,
             restrictedProjects,
           });
-      const extendedByRequester =
-        !!requestedBy && requesterExtension(apiKeyDoc) !== "none";
-
-      const eventAudit: EventUserApiKey = {
-        type: "api_key",
-        apiKey: id || "unknown",
-        ...(userId && req.user
-          ? {
-              id: req.user.id,
-              name: req.user.name || "",
-              email: req.user.email,
-            }
-          : {
-              name: apiKeyDoc.description || "",
-              ...(requestedBy ? { requestedBy } : {}),
-              ...(extendedByRequester ? { extendedByRequester: true } : {}),
-            }),
-      };
+      const eventAudit = apiKeyEventUser({
+        apiKeyId: id || "unknown",
+        key: apiKeyDoc,
+        owner: userId && req.user ? req.user : null,
+        requester: requestedBy,
+      });
 
       req.context = new ReqContextClass({
         org,

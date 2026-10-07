@@ -65343,23 +65343,39 @@ components:
         - date
       additionalProperties: false
     EventUser:
-      description: The user (or automated actor) responsible for an action
+      description: >-
+        Who performed an action. The person behind it is `requestedBy` when an
+        organization API key named a member, otherwise `id`
       type: object
       properties:
         type:
+          description: >-
+            `dashboard` for a signed-in member, `api_key` for an organization
+            API key or a personal access token, `system` for GrowthBook itself
           type: string
           enum:
             - dashboard
             - api_key
             - system
         id:
+          description: >-
+            The member's user ID: the signed-in member, or a personal access
+            token's owner. Absent for an organization API key, which names its
+            member in `requestedBy`
           type: string
         name:
+          description: The member's name, or the key's name for an organization API key
           type: string
         email:
+          description: >-
+            The member's email. Absent for an organization API key, which names
+            its member in `requestedBy`
           type: string
         requestedBy:
-          description: The organization member who asked the API key to act
+          description: >-
+            The member an organization API key named with
+            `X-GrowthBook-Requested-By`. When present, this member is the person
+            behind the action.
           type: object
           properties:
             id:
@@ -65375,8 +65391,10 @@ components:
           additionalProperties: false
         extendedByRequester:
           description: >-
-            True when the named member's permissions extended the key's for this
-            request
+            True when the key's settings let the named member affect its
+            permissions for this request: Always adds all of the member's
+            permissions, and For specific permissions applies the key's
+            requester-only rules as far as the member has them
           type: boolean
       required:
         - type

@@ -2,11 +2,11 @@ import { FC } from "react";
 import { AuditInterface } from "shared/types/audit";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
+import { auditUserToEventUser } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import EventUser from "./Avatar/EventUser";
-import { auditInterfaceUserToEventUser } from "./Avatar/auditUserToEventUser";
 //import { phaseSummary } from "@/services/utils";
 
 const eventActionMapping = {
@@ -40,7 +40,7 @@ const ActivityList: FC<{
     <div className="">
       <ul className="list-unstyled simple-divider pl-0 mb-0">
         {events.map((event) => {
-          const eventUser = auditInterfaceUserToEventUser(event.user);
+          const eventUser = auditUserToEventUser(event.user);
           return (
             <li key={event.id} className="media d-flex w-100 hover-highlight">
               <Link

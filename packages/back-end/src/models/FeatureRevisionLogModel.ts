@@ -3,6 +3,7 @@ import {
   featureReviewCandidateProjects,
 } from "shared/util";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { eventUserPersonId } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionLogInterface,
@@ -88,7 +89,7 @@ export class FeatureRevisionLogModel extends BaseClass {
   // Owner check shared by update / delete. Action membership is checked by
   // the specific protected method to allow different edit vs delete policies.
   private isOwnedEntry(doc: FeatureRevisionLogInterface): boolean {
-    const docUserId = doc.user && "id" in doc.user ? doc.user.id : null;
+    const docUserId = eventUserPersonId(doc.user ?? null);
     if (!docUserId) return false;
     return this.context.userId === docUserId;
   }

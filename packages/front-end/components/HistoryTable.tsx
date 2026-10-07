@@ -5,6 +5,7 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { entityEvents } from "shared/constants";
+import { auditUserToEventUser } from "shared/validators";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -15,7 +16,6 @@ import Button from "./Button";
 import Code from "./SyntaxHighlighting/Code";
 import LoadingOverlay from "./LoadingOverlay";
 import EventUser from "./Avatar/EventUser";
-import { auditInterfaceUserToEventUser } from "./Avatar/auditUserToEventUser";
 
 function EventDetails({
   eventType,
@@ -135,10 +135,7 @@ export function HistoryTableRow({
           <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
         )}
         <td>
-          <EventUser
-            user={auditInterfaceUserToEventUser(event.user)}
-            display="name"
-          />
+          <EventUser user={auditUserToEventUser(event.user)} display="name" />
         </td>
         <td>{event.event}</td>
         <td style={{ width: 30 }}>

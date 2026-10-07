@@ -1,5 +1,6 @@
 import { configPublishEnvironments } from "shared/util";
 import { Revision, JsonPatchOperation } from "shared/enterprise";
+import { eventUserCredit } from "shared/validators";
 import { ConfigInterface } from "shared/types/config";
 import {
   ResourceEvents,
@@ -107,12 +108,7 @@ export async function dispatchConfigRevisionEvent(
         await emit("revision.reviewRequested", apiRevision);
         break;
       case "reviewed": {
-        const [user] = await context.getUsersByIds([action.userId]);
-        const reviewer = {
-          id: action.userId,
-          ...(user?.name ? { name: user.name } : {}),
-          ...(user?.email ? { email: user.email } : {}),
-        };
+        const reviewer = eventUserCredit(context.auditUser);
         if (action.decision === "approve") {
           await emit("revision.approved", {
             ...apiRevision,

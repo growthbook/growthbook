@@ -4686,6 +4686,7 @@ describe("approveAndPublishStep", () => {
     return {
       ctx: {
         userId: USER_ID,
+        actingUserId: USER_ID,
         org: { id: ORG_ID, settings: {} },
         auditUser: { type: "session" as const, userAgent: "", ip: "" },
         environments: [],
@@ -5854,6 +5855,7 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
     const updateById = jest.fn().mockResolvedValue(doc);
     const ctx = {
       userId: "u1",
+      actingUserId: "u1",
       models: {
         rampSchedules: {
           getById: jest.fn().mockResolvedValue(doc),

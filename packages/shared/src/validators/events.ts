@@ -124,7 +124,16 @@ import {
 
 // Re-export for consumers of shared/validators
 export { eventUser } from "./event-user";
-export { apiEventUser } from "./event-user";
+export {
+  apiEventUser,
+  auditUserToEventUser,
+  eventReviewer,
+  eventUserLabel,
+  eventUserPerson,
+  eventUserPersonId,
+  reviewerKeyForEventUser,
+  eventUserCredit,
+} from "./event-user";
 export type {
   ApiEventUser,
   EventUser,

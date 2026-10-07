@@ -1201,7 +1201,7 @@ export async function applyRampBaseStateSync(
       }
       const eventHistory = appendRampEvent(fresh, "config-edited", {
         reason: baseStateSyncReason(revisionVersion, patches),
-        userId: ctx.userId,
+        userId: ctx.actingUserId,
       });
       written.push({
         id: fresh.id,
@@ -3647,7 +3647,7 @@ export async function approveAndPublishStep(
     stepApproval: {
       stepIndex,
       approvedAt: now,
-      approvedBy: ctx.userId,
+      approvedBy: ctx.actingUserId,
       context,
     },
     phaseStartedAt: rebasedPhaseStart,
@@ -3744,7 +3744,7 @@ export async function approveScheduleStart(
         stepIndex: -1,
         status: schedule.status,
         previousStatus: schedule.status,
-        userId: ctx.userId,
+        userId: ctx.actingUserId,
       }),
     });
     await dispatchRampEvent(
@@ -3776,7 +3776,7 @@ export async function approveScheduleStart(
       stepIndex: -1,
       status: schedule.status,
       previousStatus: schedule.status,
-      userId: ctx.userId,
+      userId: ctx.actingUserId,
     }),
   });
   await startReadyScheduleNowLocked(ctx, approved);

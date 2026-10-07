@@ -1,3 +1,4 @@
+import { eventUserCredit } from "shared/validators";
 import {
   Revision,
   JsonPatchOperation,
@@ -108,12 +109,7 @@ export async function dispatchConstantRevisionEvent(
         await emit("revision.reviewRequested", apiRevision);
         break;
       case "reviewed": {
-        const [user] = await context.getUsersByIds([action.userId]);
-        const reviewer = {
-          id: action.userId,
-          ...(user?.name ? { name: user.name } : {}),
-          ...(user?.email ? { email: user.email } : {}),
-        };
+        const reviewer = eventUserCredit(context.auditUser);
         if (action.decision === "approve") {
           await emit("revision.approved", {
             ...apiRevision,

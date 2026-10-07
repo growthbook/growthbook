@@ -1,3 +1,4 @@
+import { eventUserPerson } from "shared/validators";
 import { EventUser as EventUserType } from "shared/types/events/event-types";
 import { Flex } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
@@ -101,18 +102,15 @@ export default function EventUser({
   }
 
   // A key that names who asked renders as that member, with the key's name
-  // beside them.
+  // beside them; a key that named no one renders under its own name.
+  const person = eventUserPerson(user);
   const requestedBy = user.type === "api_key" ? user.requestedBy : undefined;
-  let name = requestedBy ? requestedBy.name : "name" in user ? user.name : "";
-  let email = requestedBy
-    ? requestedBy.email
-    : "email" in user
-      ? user.email
-      : "";
+  let name = person?.name ?? ("name" in user ? user.name : "") ?? "";
+  let email = person?.email ?? "";
   const isApi = user.type === "api_key" && !requestedBy;
 
   // Try to override name/email from latest user context values based on id
-  const personId = requestedBy?.id ?? user.id;
+  const personId = person?.id;
   if (personId) {
     const latestUser = users.get(personId);
     if (latestUser) {

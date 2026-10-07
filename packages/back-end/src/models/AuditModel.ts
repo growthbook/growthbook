@@ -60,6 +60,10 @@ auditSchema.index({
   dateCreated: -1,
 });
 auditSchema.index({ organization: 1, "user.id": 1, dateCreated: -1 });
+auditSchema.index(
+  { organization: 1, "user.requestedBy.id": 1, dateCreated: -1 },
+  { partialFilterExpression: { "user.requestedBy.id": { $exists: true } } },
+);
 // Activity page filters by type alone, so the indexes above can't sort it.
 auditSchema.index({ organization: 1, "entity.object": 1, dateCreated: -1 });
 auditSchema.index({ organization: 1, "parent.object": 1, dateCreated: -1 });
@@ -116,18 +120,14 @@ export async function insertAudit(
   return toInterface(auditDoc);
 }
 
-/**
- * find all audits by user id and organization
- * @param userId
- * @param organization
- */
+// A member's recent actions, made directly or by a key that named them.
 export async function findRecentAuditByUserIdAndOrganization(
   userId: string,
   organization: string,
 ): Promise<Omit<AuditInterface, "details">[]> {
   const userAudits = await AuditModel.find({
-    "user.id": userId,
     organization,
+    $or: [{ "user.id": userId }, { "user.requestedBy.id": userId }],
   })
     .select("-details")
     .limit(10)

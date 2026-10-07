@@ -138,6 +138,7 @@ async function hookReviewerVerdicts(
   context: Context,
   reviews: {
     userId: string;
+    user?: EventUser;
     decision: string;
     stale?: boolean;
     dateCreated: Date;

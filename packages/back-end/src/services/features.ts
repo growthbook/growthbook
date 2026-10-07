@@ -94,6 +94,7 @@ import {
   EventUser,
   HoldoutInterface,
   resolveSavedGroupsInput,
+  eventUserPerson,
   reviewerKeyForEventUser,
   RevisionRampAction,
   SdkConnectionCacheAuditContext,
@@ -2507,13 +2508,15 @@ export async function encrypt(
   );
 }
 
+// Legacy string actor: the person's name when there is one, else API or SYSTEM.
 function eventUserToString(
-  user: FeatureRevisionInterface["createdBy"],
+  user: FeatureRevisionInterface["createdBy"] | null | undefined,
 ): string | undefined {
   if (!user) return undefined;
-  if (user.type === "api_key") return "API";
   if (user.type === "system") return "SYSTEM";
-  return user.name || undefined;
+  return (
+    eventUserPerson(user)?.name || (user.type === "api_key" ? "API" : undefined)
+  );
 }
 
 // API-safe projection of the internal EventUser union. Deliberately never
@@ -3185,18 +3188,8 @@ export function getApiFeatureObj({
       );
     }
   });
-  const createdBy =
-    revision?.createdBy?.type === "api_key"
-      ? "API"
-      : revision?.createdBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.createdBy?.name;
-  const publishedBy =
-    revision?.publishedBy?.type === "api_key"
-      ? "API"
-      : revision?.publishedBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.publishedBy?.name;
+  const createdBy = eventUserToString(revision?.createdBy);
+  const publishedBy = eventUserToString(revision?.publishedBy);
 
   const revisionDefs = revisions?.map((rev) => {
     // Bucket twice: REST response shape (matches the feature env loop above)
@@ -3239,18 +3232,8 @@ export function getApiFeatureObj({
         scrubConfigExtends(definition),
       );
     });
-    const createdBy =
-      rev?.createdBy?.type === "api_key"
-        ? "API"
-        : rev?.createdBy?.type === "system"
-          ? "SYSTEM"
-          : rev?.createdBy?.name;
-    const publishedBy =
-      rev?.publishedBy?.type === "api_key"
-        ? "API"
-        : rev?.publishedBy?.type === "system"
-          ? "SYSTEM"
-          : rev?.publishedBy?.name;
+    const createdBy = eventUserToString(rev?.createdBy);
+    const publishedBy = eventUserToString(rev?.publishedBy);
     return {
       id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
       featureId: rev.featureId,

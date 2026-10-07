@@ -1,4 +1,9 @@
 import { z } from "zod";
+import type {
+  AuditUserApiKey,
+  AuditUserLoggedIn,
+  AuditUserSystem,
+} from "shared/types/audit";
 import { namedSchema } from "./openapi-helpers";
 
 export const eventUserLoggedIn = z
@@ -24,28 +29,52 @@ export const eventUserRequestedBy = z
 
 export type EventUserRequestedBy = z.infer<typeof eventUserRequestedBy>;
 
+const requestedByField = eventUserRequestedBy.describe(
+  "The member an organization API key named with `X-GrowthBook-Requested-By`. When present, this member is the person behind the action.",
+);
+
+const extendedByRequesterField = z
+  .boolean()
+  .describe(
+    "True when the key's settings let the named member affect its permissions for this request: Always adds all of the member's permissions, and For specific permissions applies the key's requester-only rules as far as the member has them",
+  );
+
 // Actor shape the REST API returns: the event user without the API key id.
 // For an organization API key, `name` is the key's name.
 export const apiEventUser = namedSchema(
   "EventUser",
   z
     .object({
-      type: z.enum(["dashboard", "api_key", "system"]),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      email: z.string().optional(),
-      requestedBy: eventUserRequestedBy
-        .optional()
-        .describe("The organization member who asked the API key to act"),
-      extendedByRequester: z
-        .boolean()
-        .optional()
+      type: z
+        .enum(["dashboard", "api_key", "system"])
         .describe(
-          "True when the named member's permissions extended the key's for this request",
+          "`dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself",
         ),
+      id: z
+        .string()
+        .describe(
+          "The member's user ID: the signed-in member, or a personal access token's owner. Absent for an organization API key, which names its member in `requestedBy`",
+        )
+        .optional(),
+      name: z
+        .string()
+        .describe(
+          "The member's name, or the key's name for an organization API key",
+        )
+        .optional(),
+      email: z
+        .string()
+        .describe(
+          "The member's email. Absent for an organization API key, which names its member in `requestedBy`",
+        )
+        .optional(),
+      requestedBy: requestedByField.optional(),
+      extendedByRequester: extendedByRequesterField.optional(),
     })
     .strict()
-    .describe("The user (or automated actor) responsible for an action"),
+    .describe(
+      "Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id`",
+    ),
 );
 
 export type ApiEventUser = z.infer<typeof apiEventUser>;
@@ -57,8 +86,8 @@ const eventUserApiKey = z
     id: z.string().optional(),
     name: z.string().optional(),
     email: z.string().optional(),
-    requestedBy: eventUserRequestedBy.optional(),
-    extendedByRequester: z.boolean().optional(),
+    requestedBy: requestedByField.optional(),
+    extendedByRequester: extendedByRequesterField.optional(),
   })
   .strict();
 
@@ -78,3 +107,111 @@ export const eventUser = z.union([
 ]);
 
 export type EventUser = z.infer<typeof eventUser>;
+
+// The person behind an event user: the signed-in member, a personal token's
+// user, or the member an org key acted for. Null for keys acting as nobody.
+export function eventUserPerson(
+  user: EventUser,
+): { id?: string; name?: string; email?: string } | null {
+  if (!user) return null;
+  if (user.type === "dashboard") {
+    return { id: user.id, name: user.name, email: user.email };
+  }
+  if (user.type === "api_key") {
+    if (user.requestedBy) return user.requestedBy;
+    return user.id ? { id: user.id, name: user.name, email: user.email } : null;
+  }
+  return null;
+}
+
+export function eventUserPersonId(user: EventUser): string | null {
+  return eventUserPerson(user)?.id || null;
+}
+
+// Stable identifier for a reviewer across review lifecycle events, or null if
+// the event user can't hold a review verdict (system/anonymous users). The
+// member an org key names is the reviewer, not the key.
+export function reviewerKeyForEventUser(user: EventUser): string | null {
+  if (!user) return null;
+  if (user.type === "dashboard") return user.id;
+  if (user.type === "api_key") {
+    return eventUserPersonId(user) || user.apiKey || null;
+  }
+  return null;
+}
+
+// One line naming an actor: "Dana via CI key" when an org key named Dana,
+// "Pat (API)" for a personal access token, "CI key (API)" for a key that named
+// no one. `nameFor` supplies a member's current name.
+export function eventUserLabel(
+  user: EventUser,
+  {
+    withEmail = false,
+    nameFor,
+  }: {
+    withEmail?: boolean;
+    nameFor?: (userId: string) => string | undefined;
+  } = {},
+): string {
+  if (!user) return "";
+  if (user.type === "system") return "System";
+  const person = eventUserPerson(user);
+  const name = (person?.id && nameFor?.(person.id)) || person?.name;
+  const personText =
+    withEmail && name && person?.email
+      ? `${name} (${person.email})`
+      : name || person?.email || person?.id || "";
+  if (user.type === "dashboard") return personText;
+  const keyName = user.id ? "" : user.name || "";
+  if (user.requestedBy) return `${personText} via ${keyName || "API key"}`;
+  if (personText) return `${personText} (API)`;
+  return keyName ? `${keyName} (API)` : "API key";
+}
+
+// Who a review webhook credits; see `eventUserCredit`.
+export const eventReviewer = z
+  .object({
+    id: z
+      .string()
+      .describe(
+        "The reviewer's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named",
+      )
+      .optional(),
+    name: z
+      .string()
+      .describe(
+        "The reviewer's name, or the key's name when an organization API key named no one",
+      )
+      .optional(),
+    email: z.string().describe("The reviewer's email").optional(),
+  })
+  .strict();
+
+// Who an action is credited to: the person, or the key's name when an org
+// key named no one.
+export function eventUserCredit(
+  user: EventUser,
+): z.infer<typeof eventReviewer> {
+  const person = eventUserPerson(user);
+  if (person) return person;
+  return user?.type === "api_key" && user.name ? { name: user.name } : {};
+}
+
+export function auditUserToEventUser(
+  user: AuditUserLoggedIn | AuditUserApiKey | AuditUserSystem,
+): EventUser {
+  if ("system" in user && user.system) return { type: "system" };
+  if ("apiKey" in user) {
+    return {
+      type: "api_key",
+      apiKey: user.apiKey,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      requestedBy: user.requestedBy,
+      extendedByRequester: user.extendedByRequester,
+    };
+  }
+  const u = user as AuditUserLoggedIn;
+  return { type: "dashboard", id: u.id, email: u.email, name: u.name };
+}

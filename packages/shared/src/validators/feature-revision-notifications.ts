@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { eventReviewer } from "./event-user";
 import { featureRevisionWebhookPayload } from "./feature-webhook-schemas";
 import {
   bulkPublishIdField,
@@ -48,18 +49,10 @@ export type FeatureRevisionReviewRequestedPayload = z.infer<
 >;
 
 // Reviewer identity, shared by approve/request-changes/comment events.
-const reviewer = z
-  .object({
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-  })
-  .strict();
-
 export const featureRevisionReviewApprovedPayload =
   featureRevisionWebhookPayload
     .extend({
-      reviewer,
+      reviewer: eventReviewer,
       reviewComment: z.string().nullable(),
     })
     .strict();
@@ -70,7 +63,7 @@ export type FeatureRevisionReviewApprovedPayload = z.infer<
 export const featureRevisionChangesRequestedPayload =
   featureRevisionWebhookPayload
     .extend({
-      reviewer,
+      reviewer: eventReviewer,
       reviewComment: z.string().nullable(),
     })
     .strict();
@@ -80,7 +73,7 @@ export type FeatureRevisionChangesRequestedPayload = z.infer<
 
 export const featureRevisionCommentedPayload = featureRevisionWebhookPayload
   .extend({
-    reviewer,
+    reviewer: eventReviewer,
     reviewComment: z.string(),
   })
   .strict();

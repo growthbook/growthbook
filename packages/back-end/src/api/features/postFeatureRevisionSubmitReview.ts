@@ -1,5 +1,4 @@
 import {
-  eventUserPerson,
   eventUserPersonId,
   postFeatureRevisionSubmitReviewValidator,
 } from "shared/validators";
@@ -165,12 +164,6 @@ export async function submitRevisionReview(
   });
   const finalRevision = updated ?? revision;
 
-  const auditUser = req.context.auditUser;
-  // The member the verdict counts as, or the key itself when it names no one.
-  const reviewer =
-    eventUserPerson(auditUser) ??
-    (auditUser?.type === "api_key" ? { name: auditUser.name } : {});
-
   await dispatchRevisionReviewEvent(
     req.context,
     feature,
@@ -178,7 +171,6 @@ export async function submitRevisionReview(
     finalRevision,
     review,
     comment,
-    reviewer,
   );
 
   if (action === "approve" && !req.body.skipAutoPublish) {

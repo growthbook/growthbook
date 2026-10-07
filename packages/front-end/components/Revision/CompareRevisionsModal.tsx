@@ -23,7 +23,7 @@ import {
   PiX,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { EventUser, eventUserPerson } from "shared/validators";
+import { EventUser, eventUserLabel } from "shared/validators";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -598,22 +598,13 @@ export default function CompareRevisionsModal<
   }, [allRevisions]);
 
   const { getUserDisplay } = useUser();
-  // "Person via key" when an API key acted on someone's behalf; legacy entries
-  // only carry a user id.
-  const actorLabel = (item: { userId: string; user?: EventUser }) => {
-    const person = eventUserPerson(item.user ?? null);
-    const name =
-      (person?.id ? getUserDisplay(person.id) : "") ||
-      person?.name ||
-      person?.email ||
-      getUserDisplay(item.userId) ||
-      item.userId;
-    if (item.user?.type !== "api_key") return name;
-    const key = item.user.name || "API key";
-    return item.user.requestedBy
-      ? `${name} via ${key}`
-      : `${name || key} (API)`;
-  };
+  // Legacy entries only carry a user id.
+  const actorLabel = (item: { userId: string; user?: EventUser }) =>
+    item.user
+      ? eventUserLabel(item.user, {
+          nameFor: (id) => getUserDisplay(id, false),
+        })
+      : getUserDisplay(item.userId) || item.userId;
 
   // Compute selected revisions sorted by creation date
   const selectedSorted = useMemo(() => {

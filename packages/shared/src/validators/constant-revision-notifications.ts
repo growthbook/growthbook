@@ -5,19 +5,12 @@
 // generator can emit them.
 
 import { z } from "zod";
+import { eventReviewer } from "./event-user";
 import { apiConstantRevisionValidator } from "./constant-revisions";
 import {
   bulkPublishIdField,
   revisionPublishFailedExtension,
 } from "./revision-publish-failed";
-
-const reviewer = z
-  .object({
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-  })
-  .strict();
 
 const webhookProposedChanges = z.array(
   z.object({ op: z.string(), path: z.string() }).passthrough(),
@@ -100,7 +93,7 @@ export type ConstantRevisionUpdatedPayload = z.infer<
 >;
 
 export const constantRevisionApprovedPayload = constantRevisionWebhookPayload
-  .extend({ reviewer, reviewComment: z.string().nullable() })
+  .extend({ reviewer: eventReviewer, reviewComment: z.string().nullable() })
   .strict();
 export type ConstantRevisionApprovedPayload = z.infer<
   typeof constantRevisionApprovedPayload
@@ -108,14 +101,14 @@ export type ConstantRevisionApprovedPayload = z.infer<
 
 export const constantRevisionChangesRequestedPayload =
   constantRevisionWebhookPayload
-    .extend({ reviewer, reviewComment: z.string().nullable() })
+    .extend({ reviewer: eventReviewer, reviewComment: z.string().nullable() })
     .strict();
 export type ConstantRevisionChangesRequestedPayload = z.infer<
   typeof constantRevisionChangesRequestedPayload
 >;
 
 export const constantRevisionCommentedPayload = constantRevisionWebhookPayload
-  .extend({ reviewer, reviewComment: z.string() })
+  .extend({ reviewer: eventReviewer, reviewComment: z.string() })
   .strict();
 export type ConstantRevisionCommentedPayload = z.infer<
   typeof constantRevisionCommentedPayload

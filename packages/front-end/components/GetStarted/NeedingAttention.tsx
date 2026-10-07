@@ -11,10 +11,6 @@ import { ComputedExperimentInterface } from "shared/types/experiment";
 import { FeatureMetaInfo } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { eventUserPersonId } from "shared/validators";
-import {
-  EventUserLoggedIn,
-  EventUserApiKey,
-} from "shared/types/events/event-types";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   getSafeRolloutDaysLeft,
@@ -55,7 +51,6 @@ type ComputedFeaturesAndRevisions = FeaturesAndRevisions & {
   dateCreated: Date;
   dateUpdated: Date;
   project: string | undefined;
-  creator: string | undefined;
   comment: string;
   owner: string | undefined;
   ownerNameDisplay: string;
@@ -229,10 +224,6 @@ const NeedingAttention = (): React.ReactElement | null => {
   const revisions = useAddComputedFields(
     featuresAndRevisions,
     (revision) => {
-      const createdBy = revision?.createdBy as
-        | EventUserLoggedIn
-        | EventUserApiKey
-        | null;
       let dateAndStatus = new Date(revision?.dateUpdated).getTime();
       switch (revision?.status) {
         case "draft":
@@ -257,7 +248,6 @@ const NeedingAttention = (): React.ReactElement | null => {
         dateCreated: revision?.dateCreated,
         dateUpdated: revision?.dateUpdated,
         project: revision.featureMeta?.project,
-        creator: createdBy?.name,
         comment: revision?.comment,
         owner: revision.featureMeta?.owner,
         ownerNameDisplay: getOwnerDisplay(revision.featureMeta?.owner),
