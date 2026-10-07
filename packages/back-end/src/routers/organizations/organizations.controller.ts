@@ -139,16 +139,7 @@ import {
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
-import {
-  findAllAuditsByEntityType,
-  findAllAuditsByEntityTypeParent,
-  findAuditByEntity,
-  findAuditByEntityParent,
-  countAuditByEntity,
-  countAuditByEntityParent,
-  countAllAuditsByEntityType,
-  countAllAuditsByEntityTypeParent,
-} from "back-end/src/models/AuditModel";
+import { getAuditHistory } from "back-end/src/models/AuditModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
@@ -257,106 +248,22 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
   }
 }
 
-export async function getAllHistory(
-  req: AuthRequest<null, { type: string }, { cursor?: string; limit?: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { type } = req.params;
-  const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
-  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
-
-  if (!isValidAuditEntityType(type)) {
-    return res.status(400).json({
-      status: 400,
-      message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
-    });
-  }
-
-  // API key history can expose roles/scope/descriptions, so gate it behind the
-  // same admin permission used to manage keys (matching the admin-gated UI).
-  // Other entity types keep their existing org-scoped access.
-  if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Get total count for display
-  const [entityCount, parentCount] = await Promise.all([
-    countAllAuditsByEntityType(org.id, type),
-    countAllAuditsByEntityTypeParent(org.id, type),
-  ]);
-  const total = entityCount + parentCount;
-
-  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
-  const fetchLimit = limit;
-
-  const events = await Promise.all([
-    findAllAuditsByEntityType(
-      org.id,
-      type,
-      {
-        limit: fetchLimit,
-        sort: { dateCreated: -1 },
-      },
-      cursorFilter,
-    ),
-    findAllAuditsByEntityTypeParent(
-      org.id,
-      type,
-      {
-        limit: fetchLimit,
-        sort: { dateCreated: -1 },
-      },
-      cursorFilter,
-    ),
-  ]);
-
-  // Merge and sort by dateCreated descending
-  const merged = [...events[0], ...events[1]];
-  merged.sort((a, b) => {
-    if (b.dateCreated > a.dateCreated) return 1;
-    else if (b.dateCreated < a.dateCreated) return -1;
-    return 0;
-  });
-
-  // Take only the requested limit
-  const paginatedEvents = merged.slice(0, limit);
-
-  if (paginatedEvents.filter((e) => e.organization !== org.id).length > 0) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have access to view history",
-    });
-  }
-
-  // The next cursor is the dateCreated of the last event
-  const nextCursor =
-    paginatedEvents.length > 0
-      ? paginatedEvents[paginatedEvents.length - 1].dateCreated
-      : null;
-
-  res.status(200).json({
-    status: 200,
-    events: paginatedEvents,
-    total,
-    nextCursor,
-  });
+// Only a plain string, so a crafted query object can't reach Mongo.
+function parseEventParam(event: unknown) {
+  return typeof event === "string" && event ? event : undefined;
 }
 
+// Serves both /history/:type and /history/:type/:id.
 export async function getHistory(
   req: AuthRequest<
     null,
-    { type: string; id: string },
-    { cursor?: string; limit?: string }
+    { type: string; id?: string },
+    { cursor?: string; limit?: string; event?: string }
   >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { type, id } = req.params;
-  const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
-  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -371,71 +278,35 @@ export async function getHistory(
   if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
     context.permissions.throwPermissionError();
   }
-
-  // Get total count for display
-  const [entityCount, parentCount] = await Promise.all([
-    countAuditByEntity(org.id, type, id),
-    countAuditByEntityParent(org.id, type, id),
-  ]);
-  const total = entityCount + parentCount;
-
-  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
-
-  const fetchLimit = limit;
-
-  const events = await Promise.all([
-    findAuditByEntity(
-      org.id,
-      type,
-      id,
-      {
-        limit: fetchLimit,
-        sort: { dateCreated: -1 },
-      },
-      cursorFilter,
-    ),
-    findAuditByEntityParent(
-      org.id,
-      type,
-      id,
-      {
-        limit: fetchLimit,
-        sort: { dateCreated: -1 },
-      },
-      cursorFilter,
-    ),
-  ]);
-
-  // Merge and sort by dateCreated descending
-  const merged = [...events[0], ...events[1]];
-  merged.sort((a, b) => {
-    if (b.dateCreated > a.dateCreated) return 1;
-    else if (b.dateCreated < a.dateCreated) return -1;
-    return 0;
-  });
-
-  // Take only the requested limit
-  const paginatedEvents = merged.slice(0, limit);
-
-  if (paginatedEvents.filter((e) => e.organization !== org.id).length > 0) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have access to view history for this",
-    });
+  if (
+    type === "project" &&
+    id &&
+    !context.permissions.canReadSingleProjectResource(id)
+  ) {
+    context.permissions.throwPermissionError();
   }
 
-  // The next cursor is the dateCreated of the last event
-  const nextCursor =
-    paginatedEvents.length > 0
-      ? paginatedEvents[paginatedEvents.length - 1].dateCreated
-      : null;
+  // Leave out Projects the user can't read; deleted ones stay visible.
+  const excludeIds =
+    type === "project"
+      ? (await context.getAllProjectIds()).filter(
+          (p) => !context.permissions.canReadSingleProjectResource(p),
+        )
+      : [];
 
-  res.status(200).json({
-    status: 200,
-    events: paginatedEvents,
-    total,
-    nextCursor,
-  });
+  const history = await getAuditHistory(
+    context.org.id,
+    type,
+    id,
+    parseIntWithDefaultCapped(req.query.limit, 50, 100), // Max 100 per page
+    {
+      event: parseEventParam(req.query.event),
+      before: req.query.cursor ? new Date(req.query.cursor) : undefined,
+      excludeIds,
+    },
+  );
+
+  res.status(200).json({ status: 200, ...history });
 }
 
 export async function putMemberRole(
