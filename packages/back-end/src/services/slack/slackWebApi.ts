@@ -74,11 +74,13 @@ async function slackApiRequest<T extends SlackApiResponse>(
   try {
     let waitedMs = 0;
     for (let retry = 0; ; retry++) {
+      if (signal?.aborted) return null;
       const { stringBody, responseWithoutBody } = await cancellableFetch(
         url,
         options,
         SLACK_FETCH_OPTS,
       );
+      if (signal?.aborted) return null;
       if (responseWithoutBody.status !== 429) {
         return parseSlackResponse<T>(
           method,
@@ -108,15 +110,13 @@ async function slackApiRequest<T extends SlackApiResponse>(
       );
       // Wake early if the caller gave up, rather than sleeping out the cooldown.
       await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, delayMs);
-        signal?.addEventListener(
-          "abort",
-          () => {
-            clearTimeout(timer);
-            resolve();
-          },
-          { once: true },
-        );
+        const finish = () => {
+          clearTimeout(timer);
+          signal?.removeEventListener("abort", finish);
+          resolve();
+        };
+        const timer = setTimeout(finish, delayMs);
+        signal?.addEventListener("abort", finish, { once: true });
       });
       if (signal?.aborted) return null;
       waitedMs += delayMs;
