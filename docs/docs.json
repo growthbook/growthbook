@@ -1128,6 +1128,7 @@
               },
               {
                 "group": "Populations",
+                "tag": "BETA",
                 "pages": [
                   "api/Populations/operation/listPopulations",
                   "api/Populations/operation/createPopulation",
