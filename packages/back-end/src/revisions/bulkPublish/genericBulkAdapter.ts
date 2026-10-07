@@ -285,7 +285,7 @@ export function makeGenericBulkAdapter(
       try {
         const merged = await context.models.revisions.merge(
           revision.id,
-          context.userId,
+          context.actingUserId,
           {
             bypass: isApprovalBypass,
             comment,
@@ -308,7 +308,7 @@ export function makeGenericBulkAdapter(
       // Reopen only this claim, preserving any concurrent re-publish.
       const restored = await context.models.revisions.reopenAfterFailedApply(
         revision.id,
-        context.userId,
+        context.actingUserId,
         revision.raw as Revision,
         revision.claimStamp ?? null,
       );

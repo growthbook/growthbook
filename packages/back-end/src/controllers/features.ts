@@ -93,10 +93,7 @@ import {
   FeatureUsageDataPoint,
 } from "shared/types/feature";
 import { FeatureUsageRecords } from "shared/types/realtime";
-import {
-  EventUserForResponseLocals,
-  EventUserLoggedIn,
-} from "shared/types/events/event-types";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import {
   FeatureRevisionInterface,
   RevisionLog,
@@ -1534,14 +1531,15 @@ export async function postFeatureReviewOrComment(
       context.permissions.throwPermissionError();
     }
   }
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-
   // Verdicts may stand alone, but a plain comment must have a body.
   if (review === "Comment" && !comment?.trim()) {
     throw new Error("Comment cannot be empty");
   }
 
-  if (createdByUser?.id === context.userId && review !== "Comment") {
+  if (
+    eventUserPersonId(revision.createdBy) === context.userId &&
+    review !== "Comment"
+  ) {
     throw Error("cannot submit a review for yourself");
   }
 
@@ -1682,8 +1680,7 @@ export async function postFeatureApproveAndPublish(
     context.permissions.throwPermissionError();
   }
 
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-  if (createdByUser?.id === context.userId) {
+  if (eventUserPersonId(revision.createdBy) === context.userId) {
     throw Error("Cannot approve a draft you created");
   }
 
