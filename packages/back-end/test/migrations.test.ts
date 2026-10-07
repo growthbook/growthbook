@@ -56,6 +56,7 @@ import {
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
 import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
+import { deepFreeze } from "back-end/test/test-helpers";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {
@@ -2205,6 +2206,12 @@ describe("Experiment Migration", () => {
 });
 
 describe("Organization Migration", () => {
+  // The upgrade shares nested values with its input, so a write to the input must throw
+  const upgradeFrozen = (doc: OrganizationInterface) => {
+    deepFreeze(doc as unknown as Record<string, unknown>);
+    return upgradeOrganizationDoc(doc);
+  };
+
   it("Upgrades old Organization objects", () => {
     const org: OrganizationInterface = {
       dateCreated: new Date(),
@@ -2217,7 +2224,7 @@ describe("Organization Migration", () => {
     };
 
     expect(
-      upgradeOrganizationDoc({
+      upgradeFrozen({
         ...org,
       }),
     ).toEqual({
@@ -2298,7 +2305,7 @@ describe("Organization Migration", () => {
     };
     const snapshot = cloneDeep(testOrg);
 
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
 
     expect(testOrg).toStrictEqual(snapshot);
     expect(result.members[0].role).toBe("collaborator");
@@ -2329,7 +2336,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: {},
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(true);
   });
 
@@ -2344,7 +2351,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: { restApiBypassesReviews: false },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
@@ -2361,7 +2368,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: { restApiBypassesReviews: false },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
@@ -2376,7 +2383,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: {},
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.stickyBucketingOnByDefault).toBe(true);
   });
 
@@ -2394,7 +2401,7 @@ describe("Organization Migration", () => {
         stickyBucketingOnByDefault: false,
       },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.stickyBucketingOnByDefault).toBe(false);
   });
 
@@ -2412,7 +2419,7 @@ describe("Organization Migration", () => {
         stickyBucketingOnByDefault: true,
       },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.stickyBucketingOnByDefault).toBe(true);
   });
 
@@ -2429,7 +2436,7 @@ describe("Organization Migration", () => {
         requireReviews: true,
       },
     };
-    const org = upgradeOrganizationDoc(testOrg);
+    const org = upgradeFrozen(testOrg);
     expect(org).toEqual({
       ...org,
       settings: {
