@@ -286,10 +286,10 @@ export async function getHistory(
     context.permissions.throwPermissionError();
   }
 
-  // Leave out access-restricted Projects the user has no role on.
+  // Leave out Projects the user can't read; deleted ones stay visible.
   const excludeIds =
     type === "project"
-      ? (req.restrictedProjects ?? []).filter(
+      ? (await context.getAllProjectIds()).filter(
           (p) => !context.permissions.canReadSingleProjectResource(p),
         )
       : [];
