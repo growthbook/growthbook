@@ -2026,8 +2026,8 @@ export async function putApiKey(
       environments?: string[];
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
-      requireRequestedBy?: boolean;
-      requesterOnly?: boolean;
+      requireRequestedBy: boolean;
+      requesterOnly: boolean;
     },
     { id: string }
   >,

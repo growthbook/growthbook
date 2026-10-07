@@ -3,6 +3,7 @@ import { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { ApiKeyInterface } from "shared/types/apikey";
+import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import { getEventText } from "@/components/Events/EventsPage/utils";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -51,15 +52,18 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
             ) : user?.type === "api_key" ? (
               user.requestedBy ? (
                 <span title={user.requestedBy.email}>
-                  {user.requestedBy.name || user.requestedBy.email}{" "}
-                  <span className="badge badge-secondary">
-                    via {user.name || "API key"}
-                  </span>
+                  {user.requestedBy.name || user.requestedBy.email}
+                  <Badge
+                    variant="outline"
+                    label={`via ${user.name || "API key"}`}
+                    size="xs"
+                    ml="1"
+                  />
                 </span>
               ) : user.email ? (
                 <span title={user.email}>
-                  {user.name || user.email}{" "}
-                  <span className="badge badge-secondary">API</span>
+                  {user.name || user.email}
+                  <Badge variant="outline" label="API" size="xs" ml="1" />
                 </span>
               ) : (
                 <span>

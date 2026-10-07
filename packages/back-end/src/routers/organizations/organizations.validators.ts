@@ -69,8 +69,8 @@ export const putApiKeyValidator = z.strictObject({
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(apiKeyProjectRoleValidator).optional(),
   additionalRoles: z.array(apiKeyRoleRuleValidator).optional(),
-  requesterOnly: z.boolean().optional(),
-  requireRequestedBy: z.boolean().optional(),
+  requesterOnly: z.boolean(),
+  requireRequestedBy: z.boolean(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({

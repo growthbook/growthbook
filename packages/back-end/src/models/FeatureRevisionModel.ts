@@ -455,6 +455,33 @@ export function revisionToInterfaceWithFeature(
   return toInterface(doc, context, feature);
 }
 
+// Matches who created a revision, directly or as the member an org key named
+// with X-Requested-By, and for `involvedUserId` anyone who contributed.
+function revisionPersonFilter({
+  author,
+  involvedUserId,
+}: {
+  author?: string;
+  involvedUserId?: string;
+}): Record<string, unknown> {
+  const createdBy = (id: string) => [
+    { "createdBy.id": id },
+    { "createdBy.requestedBy.id": id },
+  ];
+  const clauses: Record<string, unknown>[] = [];
+  if (author) clauses.push({ $or: createdBy(author) });
+  if (involvedUserId) {
+    clauses.push({
+      $or: [
+        ...createdBy(involvedUserId),
+        { contributors: involvedUserId },
+        { "contributors.id": involvedUserId },
+      ],
+    });
+  }
+  return clauses.length ? { $and: clauses } : {};
+}
+
 export async function countDocuments(
   organization: string,
   {
@@ -477,14 +504,7 @@ export async function countDocuments(
   if (status) {
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
-  if (author) filter["createdBy.id"] = author;
-  if (involvedUserId) {
-    filter.$or = [
-      { "createdBy.id": involvedUserId },
-      { contributors: involvedUserId },
-      { "contributors.id": involvedUserId },
-    ];
-  }
+  Object.assign(filter, revisionPersonFilter({ author, involvedUserId }));
   return FeatureRevisionModel.countDocuments(filter);
 }
 
@@ -772,14 +792,7 @@ export async function getFeatureRevisionsByStatus({
   if (status) {
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
-  if (author) filter["createdBy.id"] = author;
-  if (involvedUserId) {
-    filter.$or = [
-      { "createdBy.id": involvedUserId },
-      { contributors: involvedUserId },
-      { "contributors.id": involvedUserId },
-    ];
-  }
+  Object.assign(filter, revisionPersonFilter({ author, involvedUserId }));
   let query = FeatureRevisionModel.find(filter)
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: sort === "desc" ? -1 : 1 });
@@ -818,16 +831,7 @@ export async function getLatestActiveDraftForFeature(
         : status
       : { $in: ACTIVE_DRAFT_STATUSES },
   };
-  if (involvedUserId) {
-    filter.$or = [
-      { "createdBy.id": involvedUserId },
-      { contributors: involvedUserId },
-      { "contributors.id": involvedUserId },
-    ];
-  }
-  if (author) {
-    filter["createdBy.id"] = author;
-  }
+  Object.assign(filter, revisionPersonFilter({ author, involvedUserId }));
   const doc = await FeatureRevisionModel.findOne(filter, { log: 0 }).sort({
     dateUpdated: -1,
   });

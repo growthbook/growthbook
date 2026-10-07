@@ -34,7 +34,10 @@ interface RawAuditEntry<T> {
 
 function getAuthorKey(user: AuditInterface["user"]): string {
   if ("system" in user && (user as AuditUserSystem).system) return "system";
-  if ("apiKey" in user) return `apikey:${(user as AuditUserApiKey).apiKey}`;
+  if ("apiKey" in user) {
+    const key = user as AuditUserApiKey;
+    return `apikey:${key.apiKey}:${key.requestedBy?.id ?? ""}`;
+  }
   return `user:${(user as AuditUserLoggedIn).id}`;
 }
 
