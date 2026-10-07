@@ -52,6 +52,7 @@ import {
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import { getAffectedSDKPayloadKeys as getHoldoutSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -2400,6 +2401,46 @@ const hasChangesForSDKPayloadRefresh = (
   return !isEqual(oldChanges, newChanges);
 };
 
+// A holdout's targeting lives on its companion experiment, but that experiment
+// has no linked changes: features reach it through `feature.holdout`. So its
+// payload footprint comes from the holdout document. Only running holdouts serve.
+const getHoldoutPayloadKeysForUpdate = async (
+  context: ReqContext | ApiReqContext,
+  oldExperiment: ExperimentInterface,
+  newExperiment: ExperimentInterface,
+): Promise<SDKPayloadKey[]> => {
+  if (
+    oldExperiment.status !== "running" &&
+    newExperiment.status !== "running"
+  ) {
+    return [];
+  }
+  // What `generateHoldoutsPayload` and `getAllPayloadHoldouts` read.
+  const payloadFields: Array<keyof ExperimentInterface> = [
+    "trackingKey",
+    "hashAttribute",
+    "status",
+    "archived",
+    "phases",
+  ];
+  if (
+    isEqual(
+      pick(oldExperiment, payloadFields),
+      pick(newExperiment, payloadFields),
+    )
+  ) {
+    return [];
+  }
+  const holdout = await context.models.holdout.getByExperimentId(
+    newExperiment.id,
+  );
+  if (!holdout) return [];
+  return getHoldoutSDKPayloadKeys(
+    holdout,
+    getEnvironmentIdsFromOrg(context.org),
+  );
+};
+
 const onExperimentCreate = async ({
   context,
   experiment,
@@ -2458,7 +2499,24 @@ const onExperimentUpdate = async ({
     );
   };
 
-  if (
+  if (!bypassWebhooks && newExperiment.type === "holdout") {
+    const payloadKeys = await getHoldoutPayloadKeysForUpdate(
+      context,
+      oldExperiment,
+      newExperiment,
+    );
+    if (payloadKeys.length) {
+      queueSDKPayloadRefresh({
+        context,
+        payloadKeys,
+        auditContext: {
+          event: "updated",
+          model: "experiment",
+          id: newExperiment.id,
+        },
+      });
+    }
+  } else if (
     !bypassWebhooks &&
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
   ) {

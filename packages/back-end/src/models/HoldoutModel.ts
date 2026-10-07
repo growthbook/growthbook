@@ -880,6 +880,18 @@ export class HoldoutModel extends BaseClass {
     return holdout ?? null;
   }
 
+  // Bypasses read scope like `getByIdForLinkage`: refreshing the SDK payload
+  // after a companion-experiment edit must not depend on who made it.
+  public async getByExperimentId(
+    experimentId: string,
+  ): Promise<HoldoutInterface | null> {
+    const [holdout] = await this._find(
+      { experimentId },
+      { bypassReadPermissionChecks: true },
+    );
+    return holdout ?? null;
+  }
+
   private async getLinkageTarget(holdoutId: string): Promise<HoldoutInterface> {
     const holdout = await this.getByIdForLinkage(holdoutId);
     if (!holdout) {
