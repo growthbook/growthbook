@@ -85,6 +85,13 @@ export function tracingPlugin(options: TracingPluginOptions = {}) {
   };
 }
 
+// For callers that need tags from an instance created without the plugin.
+export function ensureTracingPlugin(gb: GrowthBook | UserScopedGrowthBook) {
+  if (!tagsByInstance.has(gb)) {
+    tracingPlugin()(gb);
+  }
+}
+
 // Sorted current tag for each experiment this instance has assigned.
 export function getTracingTags(
   gb: GrowthBook | UserScopedGrowthBook,

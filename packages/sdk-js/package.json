@@ -27,11 +27,22 @@
         "types": "./dist/plugins/index.d.ts",
         "default": "./dist/cjs/plugins/index.js"
       }
+    },
+    "./otel": {
+      "import": {
+        "types": "./dist/otel/index.d.ts",
+        "default": "./dist/esm/otel/index.mjs"
+      },
+      "require": {
+        "types": "./dist/otel/index.d.ts",
+        "default": "./dist/cjs/otel/index.js"
+      }
     }
   },
   "files": [
     "dist",
     "plugins",
+    "otel",
     "src"
   ],
   "engines": {
