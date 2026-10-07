@@ -29,7 +29,7 @@ function IconWithTooltip({
 // The member a request names, for permissions that come from them.
 function RequesterAvatar() {
   return (
-    <Avatar size="sm" color="gray" variant="soft">
+    <Avatar size="sm" color="gray" variant="soft" radius="small">
       <PiUserBold size={14} />
     </Avatar>
   );
