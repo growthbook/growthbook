@@ -168,7 +168,7 @@ export function scaleImpactAndSetMissingExperiments({
   let summaryObj: ExperimentImpactSummary | null = null;
   if (snapshots && exps) {
     // use largest experiment for population sampling variance
-    const maxUnits = 0;
+    let maxUnits = 0;
     let overallSE: number | null = null;
     const allScaledImpacts: number[] = [];
     exps.forEach((e) => {
@@ -217,6 +217,7 @@ export function scaleImpactAndSetMissingExperiments({
 
               const totalUnits = v.users + res.variations[0].users;
               if (totalUnits > maxUnits && se > 0) {
+                maxUnits = totalUnits;
                 overallSE = se;
               }
             }
