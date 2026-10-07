@@ -14,6 +14,7 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useEnvironments } from "@/services/features";
+import { useSearch } from "@/services/search";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
@@ -79,6 +80,21 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   const visibleKeys = showExpired
     ? keys
     : keys.filter((k) => getExpirationStatus(k.expiresAt) !== "expired");
+  const { items: sortedKeys, SortableTH } = useSearch({
+    items: visibleKeys.map((key, i) => ({
+      id: key.id || key.key,
+      // 1-based: useSearch treats a falsy sort value as missing.
+      order: i + 1,
+      // No expiry sorts after every dated key, as on Manage PATs.
+      expiresAtSort: key.expiresAt
+        ? new Date(key.expiresAt).getTime()
+        : Number.MAX_SAFE_INTEGER,
+      key,
+    })),
+    localStorageKey: "apiKeysTable",
+    defaultSortField: "order",
+    searchFields: [],
+  });
   return (
     <>
       {expiredCount > 0 && (
@@ -104,7 +120,12 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               {/* Relative spans like "in about 2 months" otherwise wrap and
                 double every row's height. */}
               <th style={{ whiteSpace: "nowrap" }}>Last Used</th>
-              <th style={{ whiteSpace: "nowrap" }}>Expires</th>
+              <SortableTH
+                field="expiresAtSort"
+                style={{ whiteSpace: "nowrap" }}
+              >
+                Expires
+              </SortableTH>
               {environments.map((env) => (
                 <th key={env.id}>{env.id}</th>
               ))}
@@ -122,7 +143,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 </td>
               </tr>
             )}
-            {visibleKeys.map((key) => (
+            {sortedKeys.map(({ key }) => (
               <tr key={key.id}>
                 <td style={dimStyle(key)}>
                   {key.description}
