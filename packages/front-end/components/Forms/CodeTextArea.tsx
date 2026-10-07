@@ -86,6 +86,16 @@ const AceEditor = dynamic(
     aceTyped.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl);
     aceTyped.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl);
 
+    // Ace leaves the rest of a line unstyled after 2,000 tokens, and a stored
+    // condition or JSON value is often one minified line of far more
+    (
+      aceTyped.require("ace/tokenizer") as {
+        Tokenizer: {
+          prototype: { $setMaxTokenCount: (count: number) => void };
+        };
+      }
+    ).Tokenizer.prototype.$setMaxTokenCount(100_000);
+
     const langTools = aceTyped.require("ace/ext/language_tools") as LangTools;
 
     // Return a wrapper component that handles completions

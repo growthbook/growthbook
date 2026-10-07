@@ -21,7 +21,7 @@ import {
 } from "shared/permissions";
 import isEqual from "lodash/isEqual";
 import { Flex, Box } from "@radix-ui/themes";
-import { useFeatureRevisionByVersion } from "@/hooks/useFeatureRevisionByVersion";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 // eslint-disable-next-line no-restricted-imports
@@ -47,8 +47,6 @@ export interface Props {
   revision: FeatureRevisionInterface;
   /** Minimal list for the dropdown — up to 200 entries. */
   revisionList: MinimalFeatureRevisionInterface[];
-  /** Full revisions for diff preview — lazily cached. */
-  allRevisions: FeatureRevisionInterface[];
   rampSchedules: RampScheduleInterface[];
   close: () => void;
   mutate: () => void;
@@ -59,7 +57,6 @@ export default function RevertModal({
   feature,
   revision,
   revisionList,
-  allRevisions,
   rampSchedules,
   close,
   mutate,
@@ -118,10 +115,8 @@ export default function RevertModal({
     effectiveApprovalsRequired ? "new" : "publish",
   );
 
-  const targetRevision = useFeatureRevisionByVersion(
-    feature.id,
+  const targetRevision = useFeatureRevisions(feature.id, [targetVersion]).get(
     targetVersion,
-    allRevisions,
   );
   const isLoadingRevision = !targetRevision;
   // Fall back to current revision only for submit/permissions — never for the diff.
@@ -286,7 +281,7 @@ export default function RevertModal({
     >
       <DraftSelectorForChanges
         feature={feature}
-        revisionList={allRevisions}
+        revisionList={revisionList}
         mode={mode}
         setMode={setMode}
         selectedDraft={null}

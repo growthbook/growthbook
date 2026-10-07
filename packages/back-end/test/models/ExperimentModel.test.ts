@@ -1,6 +1,8 @@
 import { ExperimentInterface } from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
 import {
   ExperimentModel,
+  getPayloadKeys,
   hasActualChanges,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
@@ -51,6 +53,42 @@ describe("ExperimentModel", () => {
     ideaSource: "",
     releasedVariationId: "",
   };
+
+  describe("getPayloadKeys", () => {
+    it("adds a visual editor experiment's linked-feature projects to its own", () => {
+      const context = {
+        org: { settings: { environments: [{ id: "production" }] } },
+      } as unknown as ReqContext;
+      const linked = {
+        id: "flag_a",
+        project: "proj_2",
+        environmentSettings: { production: { enabled: true } },
+        rules: [
+          {
+            id: "r1",
+            type: "experiment-ref",
+            experimentId: experiment.id,
+            enabled: true,
+            allEnvironments: true,
+          },
+        ],
+      } as unknown as FeatureInterface;
+      const keys = getPayloadKeys(
+        context,
+        {
+          ...experiment,
+          hasVisualChangesets: true,
+          phases: [{ name: "Main" }],
+        } as unknown as ExperimentInterface,
+        [linked],
+      );
+      expect(keys.map((k) => k.project).sort()).toEqual([
+        "",
+        "proj_1",
+        "proj_2",
+      ]);
+    });
+  });
 
   describe("hasActualChanges", () => {
     it("should not update if no changes are made", () => {

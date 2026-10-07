@@ -40,8 +40,11 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       }
 
       // Validate condition
-      const allSavedGroups = await req.context.models.savedGroups.getAll();
-      const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+      const referencedGroups =
+        await req.context.models.savedGroups.getReferencedWithoutValues(
+          condition,
+        );
+      const groupMap = new Map(referencedGroups.map((sg) => [sg.id, sg]));
       const conditionRes = validateCondition(condition, groupMap);
       if (!conditionRes.success) {
         throw new Error(conditionRes.error);
