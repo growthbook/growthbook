@@ -220,6 +220,12 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
   [T in DataSourceType]: ParamClassification<DataSourceParamsForType<T>>;
 };
 
+// This map names every DataSourceType, so its keys stay in sync when a type is added.
+export const dataSourceTypes = Object.keys(DATA_SOURCE_PARAM_SENSITIVITY) as [
+  DataSourceType,
+  ...DataSourceType[],
+];
+
 // Names from untyped config files that predate the current interfaces.
 const LEGACY_SECRET_PARAM_KEYS: ReadonlySet<string> = new Set(["pass"]);
 
