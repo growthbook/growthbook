@@ -66,6 +66,7 @@ import {
   setLicenseKey,
   assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
+import { BadRequestError } from "back-end/src/util/errors";
 import { updatePassword } from "back-end/src/services/users";
 import {
   auditDetailsCreate,
@@ -852,6 +853,7 @@ export async function getOrganization(
     agreements,
     watch,
     sdkPayloadSizeAlerts,
+    expiringPersonalAccessTokens,
   ] = await Promise.all([
     resolveLicense(),
     getInstallationName(org),
@@ -859,6 +861,7 @@ export async function getOrganization(
     context.models.agreements.getAll(),
     context.models.watch.getWatchedByUser(userId),
     getSdkPayloadSizeAlerts(context),
+    context.models.apiKeys.getExpiringPersonalAccessTokens(userId),
   ]);
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
@@ -968,6 +971,7 @@ export async function getOrganization(
     seatsInUse,
     usage: getUsageFromCache(org),
     sdkPayloadSizeAlerts,
+    expiringPersonalAccessTokens,
   });
 }
 
@@ -1709,6 +1713,23 @@ export async function putOrganization(
 
     validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
 
+    for (const field of [
+      "maxPatLifetimeDays",
+      "maxApiKeyLifetimeDays",
+    ] as const) {
+      const value = settings?.[field];
+      // `null` clears the policy; any set value is a day count with the same
+      // 1-day floor the major providers use.
+      if (
+        (value ?? null) !== null &&
+        (!Number.isInteger(value) || (value as number) < 1)
+      ) {
+        context.throwBadRequestError(
+          "Maximum token lifetime must be a whole number of days, at least 1",
+        );
+      }
+    }
+
     const topValuesLookbackValue = settings?.topValuesLookbackValue;
     if (
       typeof topValuesLookbackValue === "number" &&
@@ -1819,6 +1840,70 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
   });
 }
 
+// Admin-only inventory of every member's PAT, so a compromised token can be
+// revoked without waiting on its owner. Values are stripped by the model's
+// `sanitize`, and `postApiKeyReveal` still refuses another user's token.
+export async function getPersonalAccessTokens(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canDeleteApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const keys = await context.models.apiKeys.getAllPersonalAccessTokens();
+
+  res.status(200).json({
+    status: 200,
+    keys,
+  });
+}
+
+// Rejects a malformed date rather than letting `new Date()` yield Invalid Date,
+// which would persist as null and silently read as "never expires".
+function parseExpiresAt(input: string | null | undefined): Date | null {
+  if ((input ?? null) === null) return null;
+  const date = new Date(input as string);
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestError("Invalid expiration date");
+  }
+  return date;
+}
+
+// Brings existing keys of one kind into line with the org's expiration policy.
+// The kind is the only client input: the server selects the affected keys from
+// its own policy value, so this can't be aimed at an arbitrary set of keys.
+export async function postApplyExpirationPolicy(
+  req: AuthRequest<{ kind: "pat" | "secret" }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { kind } = req.body;
+
+  if (kind !== "pat" && kind !== "secret") {
+    context.throwBadRequestError("Invalid key kind");
+  }
+  if (!context.permissions.canDeleteApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { updated, expiresAt } =
+    await context.models.apiKeys.applyExpirationPolicy(kind);
+
+  if (updated > 0) {
+    await req.audit({
+      event: "apiKey.update",
+      entity: { object: "apiKey", id: "" },
+      details: JSON.stringify({
+        appliedExpirationPolicy: kind,
+        updated,
+        expiresAt,
+      }),
+    });
+  }
+
+  res.status(200).json({ status: 200, updated, expiresAt });
+}
+
 export async function postApiKey(
   req: AuthRequest<{
     description?: string;
@@ -1831,6 +1916,7 @@ export async function postApiKey(
     requireRequestedBy?: boolean;
     requesterOnly?: boolean;
     extendWithRequester?: boolean;
+    expiresAt?: string | null;
   }>,
   res: Response,
 ) {
@@ -1847,7 +1933,10 @@ export async function postApiKey(
     requireRequestedBy,
     requesterOnly,
     extendWithRequester,
+    expiresAt: expiresAtInput,
   } = req.body;
+
+  const expiresAt = parseExpiresAt(expiresAtInput);
 
   let key: ApiKeyInterface;
   // Handle user personal access tokens
@@ -1865,6 +1954,7 @@ export async function postApiKey(
       environments,
       additionalRoles,
       projectRoles,
+      expiresAt,
     });
   }
   // Handle organization secret tokens
@@ -1879,6 +1969,7 @@ export async function postApiKey(
       requireRequestedBy,
       requesterOnly,
       extendWithRequester,
+      expiresAt,
     });
   }
 
@@ -1911,6 +2002,7 @@ export async function putApiKey(
       requireRequestedBy?: boolean;
       requesterOnly?: boolean;
       extendWithRequester?: boolean;
+      expiresAt?: string | null;
     },
     { id: string }
   >,
@@ -1929,6 +2021,7 @@ export async function putApiKey(
     requireRequestedBy,
     requesterOnly,
     extendWithRequester,
+    expiresAt,
   } = req.body;
 
   // The model returns both the pre- and post-update docs from a single read so
@@ -1946,6 +2039,8 @@ export async function putApiKey(
       requireRequestedBy,
       requesterOnly,
       extendWithRequester,
+      expiresAt:
+        expiresAt === undefined ? undefined : parseExpiresAt(expiresAt),
     });
 
   await req.audit({

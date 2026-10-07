@@ -231,7 +231,8 @@ function authenticateWithApiKey(
   // Lookup organization by secret key and store in req
   dangerousLookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyDoc) => {
-      const { organization, secret, id, userId, role, disabled } = apiKeyDoc;
+      const { organization, secret, id, userId, role, disabled, expiresAt } =
+        apiKeyDoc;
       if (!secret) {
         throw new Error(
           "Must use a Secret API Key for this request, SDK Endpoint key given instead.",
@@ -246,6 +247,13 @@ function authenticateWithApiKey(
       );
       if (disabled) {
         throw new Error("This API key has been disabled");
+      }
+      // Expiry is enforced at lookup; this lets clients warn before it lands.
+      if (expiresAt && !apiKeyDoc.oauthClientId) {
+        res.set(
+          "X-GrowthBook-Key-Expires-At",
+          new Date(expiresAt).toISOString(),
+        );
       }
       req.apiKey = id || "";
 

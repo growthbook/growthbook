@@ -90,6 +90,13 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "When true, the key is rejected on authentication but not deleted",
     ),
+  disabledBy: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      "User who set `disabled`. A member can undo their own disable but not an admin's.",
+    ),
   lastUsed: z
     .date()
     .nullable()
@@ -103,6 +110,13 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .optional()
     .describe(
       "When set, the key is rejected after this time. Used by OAuth access tokens. Absent/null for classic API keys and PATs.",
+    ),
+  expirationNotice: z
+    .enum(["expiring", "expired"])
+    .nullable()
+    .optional()
+    .describe(
+      "Furthest expiration event already emitted for this key, so the sweep notifies once per stage. Cleared if the expiration is pushed back out.",
     ),
   oauthClientId: z
     .string()

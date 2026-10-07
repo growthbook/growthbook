@@ -88,6 +88,10 @@ router.get(
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
+router.get(
+  "/keys/personal-access-tokens",
+  organizationsController.getPersonalAccessTokens,
+);
 router.post(
   "/keys",
   validateRequestMiddleware({
@@ -103,6 +107,10 @@ router.put(
   organizationsController.putApiKey,
 );
 router.delete("/keys", organizationsController.deleteApiKey);
+router.post(
+  "/keys/apply-expiration-policy",
+  organizationsController.postApplyExpirationPolicy,
+);
 router.post("/keys/reveal", organizationsController.postApiKeyReveal);
 router.put(
   "/keys/:id/disabled",
