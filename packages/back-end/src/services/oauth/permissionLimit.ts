@@ -57,7 +57,8 @@ export async function assertValidPermissionLimit(
     );
   }
   if (
-    limit.limitAccessByEnvironment &&
+    (limit.limitAccessByEnvironment ||
+      limit.additionalRoles?.some((r) => r.limitAccessByEnvironment)) &&
     !context.hasPremiumFeature("advanced-permissions")
   ) {
     context.throwPlanDoesNotAllowError(

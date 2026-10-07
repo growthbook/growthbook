@@ -97,6 +97,20 @@ describe("assertValidPermissionLimit", () => {
       "plan",
     ],
     [
+      "an environment-limited additional role without advanced permissions",
+      { premium: false },
+      limit({
+        additionalRoles: [
+          limit({
+            role: "engineer",
+            limitAccessByEnvironment: true,
+            environments: ["dev"],
+          }),
+        ],
+      }),
+      "plan",
+    ],
+    [
       "project rules without advanced permissions",
       { premium: false },
       limit({ projectRoles: [{ project: "prj_1", ...limit() }] }),
