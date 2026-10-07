@@ -9,6 +9,7 @@ import { toSnapshotApiInterface } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { assertCanUpdateHoldoutExperiment } from "back-end/src/services/holdouts";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const postReportRefresh = createApiRequestHandler(
@@ -37,6 +38,9 @@ export const postReportRefresh = createApiRequestHandler(
 
   if (!req.context.permissions.canUpdateReport(experiment || {})) {
     req.context.permissions.throwPermissionError();
+  }
+  if (experiment) {
+    await assertCanUpdateHoldoutExperiment(req.context, experiment);
   }
 
   const previousSnapshot = report.snapshot

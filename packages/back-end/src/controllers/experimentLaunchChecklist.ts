@@ -23,6 +23,7 @@ import {
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError } from "back-end/src/util/errors";
+import { assertCanUpdateHoldoutExperiment } from "back-end/src/services/holdouts";
 
 const hiddenBuiltInItemsValidator = z
   .array(builtInChecklistItemKeyValidator)
@@ -259,6 +260,7 @@ export async function putManualLaunchChecklist(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   await validateExperimentChange({ context, experiment, changes });
   await updateExperiment({

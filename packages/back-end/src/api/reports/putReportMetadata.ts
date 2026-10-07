@@ -10,6 +10,7 @@ import {
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { assertCanUpdateHoldoutExperiment } from "back-end/src/services/holdouts";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const putReportMetadata = createApiRequestHandler(
@@ -36,6 +37,9 @@ export const putReportMetadata = createApiRequestHandler(
 
   if (!req.context.permissions.canUpdateReport(experiment || {})) {
     req.context.permissions.throwPermissionError();
+  }
+  if (experiment) {
+    await assertCanUpdateHoldoutExperiment(req.context, experiment);
   }
 
   const { title, description, status, shareLevel, editLevel } = req.body;

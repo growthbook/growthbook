@@ -49,6 +49,10 @@ import {
 } from "back-end/src/services/reports";
 import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
 import { BadRequestError } from "back-end/src/util/errors";
+import {
+  assertCanUpdateHoldoutExperiment,
+  canUpdateHoldoutExperiment,
+} from "back-end/src/services/holdouts";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -81,6 +85,7 @@ export async function postReportFromSnapshot(
   if (!context.permissions.canCreateReport(experiment)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   const phase = experiment.phases?.[snapshot.phase];
   if (!phase) {
@@ -344,6 +349,9 @@ export async function deleteReport(
   if (!context.permissions.canDeleteReport(connectedExperiment || {})) {
     context.permissions.throwPermissionError();
   }
+  if (connectedExperiment) {
+    await assertCanUpdateHoldoutExperiment(context, connectedExperiment);
+  }
 
   await deleteReportById(org.id, req.params.id);
 
@@ -372,9 +380,9 @@ export async function refreshReport(
       report.experimentId || "",
     );
     const isOwner = report.userId === req.userId;
-    const canUpdateReport = context.permissions.canUpdateReport(
-      experiment || {},
-    );
+    const canUpdateReport =
+      context.permissions.canUpdateReport(experiment || {}) &&
+      (!experiment || (await canUpdateHoldoutExperiment(context, experiment)));
     if (
       !(isOwner || (report.editLevel === "organization" && canUpdateReport))
     ) {
@@ -490,9 +498,9 @@ export async function putReport(
       report.experimentId || "",
     );
     const isOwner = report.userId === req.userId;
-    const canUpdateReport = context.permissions.canUpdateReport(
-      experiment || {},
-    );
+    const canUpdateReport =
+      context.permissions.canUpdateReport(experiment || {}) &&
+      (!experiment || (await canUpdateHoldoutExperiment(context, experiment)));
     if (
       !(isOwner || (report.editLevel === "organization" && canUpdateReport))
     ) {
@@ -602,6 +610,9 @@ export async function putReport(
     // Reports don't have projects, but the experiment does, so check the experiment's project for permission if it exists
     if (!context.permissions.canUpdateReport(experiment || {})) {
       context.permissions.throwPermissionError();
+    }
+    if (experiment) {
+      await assertCanUpdateHoldoutExperiment(context, experiment);
     }
 
     const updates: Partial<ExperimentReportInterface> = {};

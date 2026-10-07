@@ -167,6 +167,47 @@ export function assertCanUpdateHoldout(
 }
 
 /**
+ * A Holdout's experiment has no project of its own, so experiment-level checks
+ * fall back to the global role. Writes reaching it through experiment or report
+ * endpoints must also pass the Holdout's own read and update checks.
+ */
+export async function assertCanUpdateHoldoutExperiment(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "id" | "type" | "status">,
+  {
+    isTargetingChange = false,
+    isArchiveChange = false,
+  }: { isTargetingChange?: boolean; isArchiveChange?: boolean } = {},
+): Promise<void> {
+  if (experiment.type !== "holdout") return;
+  const holdout = await context.models.holdout.getByExperimentId(experiment.id);
+  if (!holdout) {
+    context.permissions.throwPermissionError();
+    return;
+  }
+  assertCanUpdateHoldout(context, {
+    holdout,
+    isTargetingChange,
+    isScheduleChange: false,
+    isArchiveChange,
+    isRunning: experiment.status === "running",
+  });
+}
+
+/**
+ * Boolean form for callers that combine it with other grants (e.g. report
+ * ownership). Doesn't apply run-permission rules.
+ */
+export async function canUpdateHoldoutExperiment(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "id" | "type">,
+): Promise<boolean> {
+  if (experiment.type !== "holdout") return true;
+  const holdout = await context.models.holdout.getByExperimentId(experiment.id);
+  return !!holdout && context.permissions.canUpdateHoldout(holdout, holdout);
+}
+
+/**
  * Shared by the model's `beforeUpdate` hook and the REST create handler, which
  * runs it before writing so a rejected schedule can't leave a half-created
  * Holdout behind.

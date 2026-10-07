@@ -13,6 +13,8 @@ import type { ReqContext } from "back-end/types/request";
 import {
   getHoldoutLivePayloadChanges,
   assertCanUpdateHoldout,
+  assertCanUpdateHoldoutExperiment,
+  canUpdateHoldoutExperiment,
   assertValidHoldoutEnvironments,
   assertValidHoldoutSchedule,
   getNextScheduledStatusUpdateForStage,
@@ -1090,6 +1092,114 @@ describe("assertCanUpdateHoldout", () => {
         isRunning: false,
       }),
     ).toThrow("permission denied");
+  });
+});
+
+describe("holdout experiment write gates", () => {
+  const holdout = {
+    id: "hld_1",
+    experimentId: "exp_h",
+    projects: ["prj_a"],
+    environmentSettings: { production: { enabled: true } },
+  } as unknown as HoldoutInterface;
+
+  const makeContext = ({
+    readable = true,
+    canUpdate = true,
+    canRun = true,
+  }: { readable?: boolean; canUpdate?: boolean; canRun?: boolean } = {}) => {
+    const getByExperimentId = jest.fn(async () => (readable ? holdout : null));
+    const canUpdateHoldout = jest.fn(() => canUpdate);
+    const context = {
+      org: { id: "org", settings: { environments: [{ id: "production" }] } },
+      models: { holdout: { getByExperimentId } },
+      permissions: {
+        canUpdateHoldout,
+        canRunHoldout: () => canRun,
+        throwPermissionError: () => {
+          throw new Error("permission denied");
+        },
+      },
+    } as unknown as ReqContext;
+    return { context, getByExperimentId, canUpdateHoldout };
+  };
+
+  const holdoutExperiment = {
+    id: "exp_h",
+    type: "holdout",
+    status: "running",
+  } as const;
+
+  it("skips non-holdout experiments without a lookup", async () => {
+    const { context, getByExperimentId } = makeContext({ canUpdate: false });
+    const experiment = {
+      id: "exp_1",
+      type: "standard",
+      status: "running",
+    } as const;
+    await expect(
+      assertCanUpdateHoldoutExperiment(context, experiment),
+    ).resolves.toBeUndefined();
+    await expect(canUpdateHoldoutExperiment(context, experiment)).resolves.toBe(
+      true,
+    );
+    expect(getByExperimentId).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the holdout is not readable", async () => {
+    const { context } = makeContext({ readable: false });
+    await expect(
+      assertCanUpdateHoldoutExperiment(context, holdoutExperiment),
+    ).rejects.toThrow("permission denied");
+    await expect(
+      canUpdateHoldoutExperiment(context, holdoutExperiment),
+    ).resolves.toBe(false);
+  });
+
+  it("checks update permission on the holdout's projects", async () => {
+    const { context, getByExperimentId, canUpdateHoldout } = makeContext({
+      canUpdate: false,
+    });
+    await expect(
+      assertCanUpdateHoldoutExperiment(context, holdoutExperiment),
+    ).rejects.toThrow("permission denied");
+    await expect(
+      canUpdateHoldoutExperiment(context, holdoutExperiment),
+    ).resolves.toBe(false);
+    expect(getByExperimentId).toHaveBeenCalledWith("exp_h");
+    expect(canUpdateHoldout).toHaveBeenCalledWith(
+      holdout,
+      expect.objectContaining({ projects: ["prj_a"] }),
+    );
+  });
+
+  it("allows an update the holdout permits", async () => {
+    const { context } = makeContext();
+    await expect(
+      assertCanUpdateHoldoutExperiment(context, holdoutExperiment),
+    ).resolves.toBeUndefined();
+    await expect(
+      canUpdateHoldoutExperiment(context, holdoutExperiment),
+    ).resolves.toBe(true);
+  });
+
+  it("requires run permission for targeting changes on a running holdout", async () => {
+    const { context } = makeContext({ canRun: false });
+    await expect(
+      assertCanUpdateHoldoutExperiment(context, holdoutExperiment),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertCanUpdateHoldoutExperiment(context, holdoutExperiment, {
+        isTargetingChange: true,
+      }),
+    ).rejects.toThrow("permission denied");
+    await expect(
+      assertCanUpdateHoldoutExperiment(
+        context,
+        { ...holdoutExperiment, status: "draft" },
+        { isTargetingChange: true },
+      ),
+    ).resolves.toBeUndefined();
   });
 });
 

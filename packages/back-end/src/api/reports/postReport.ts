@@ -17,6 +17,7 @@ import {
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertCanUpdateHoldoutExperiment } from "back-end/src/services/holdouts";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const postReport = createApiRequestHandler(postReportValidator)(async (
@@ -59,6 +60,7 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
   if (!req.context.permissions.canCreateReport(experiment)) {
     req.context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(req.context, experiment);
 
   // Attribute the report to the explicit `owner` from the body, or fall back
   // to the authenticated user. Report edit/delete permissions are gated on

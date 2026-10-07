@@ -183,7 +183,10 @@ import {
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
-import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
+import {
+  assertCanUpdateHoldoutExperiment,
+  canLinkExperimentToHoldoutFromFeatures,
+} from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 
@@ -1600,6 +1603,7 @@ export async function postExperiment(
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   const attributeScope = lazyAttributeScope(() =>
     getExperimentAttributeScopeProjects(context, {
@@ -2255,6 +2259,9 @@ export async function postExperimentArchive(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment, {
+    isArchiveChange: true,
+  });
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
@@ -2332,6 +2339,9 @@ export async function postExperimentUnarchive(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment, {
+    isArchiveChange: true,
+  });
 
   changes.archived = false;
 
@@ -2725,6 +2735,7 @@ export async function deleteExperimentPhase(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   if (experiment.phases.length === 1) {
     res.status(400).json({
@@ -2845,6 +2856,7 @@ export async function putExperimentPhase(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
   const linkedFeatures = await getFeaturesByIds(
@@ -2966,6 +2978,9 @@ export async function postExperimentTargeting(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment, {
+    isTargetingChange: true,
+  });
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
   const linkedFeatures = await getFeaturesByIds(
@@ -3140,6 +3155,7 @@ export async function postExperimentPhase(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
   const linkedFeatures = await getFeaturesByIds(
@@ -3280,6 +3296,7 @@ export async function deleteExperiment(
   if (!context.permissions.canDeleteExperiment(experiment)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
@@ -3736,6 +3753,7 @@ export async function deleteScreenshot(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   if (!experiment.variations[variation]) {
     res.status(404).json({
@@ -3811,6 +3829,7 @@ export async function addScreenshot(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   if (!experiment.variations[variation]) {
     res.status(404).json({
@@ -4337,6 +4356,7 @@ export async function postExperimentFeatureValues(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   // Authoring authority for each feature. Landing authority is checked by
   // `validateExperimentFeatureUpdates` below, per feature that actually sets
@@ -4473,6 +4493,7 @@ export async function deleteExperimentLinkedFeature(
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
   }
+  await assertCanUpdateHoldoutExperiment(context, experiment);
 
   // Also require feature-side edit rights — unlinking cancels a queued
   // autopublish that the feature team may be managing. Edit-class, not publish:
