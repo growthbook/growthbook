@@ -21,23 +21,19 @@ const PersonalAccessTokenSettings: FC = () => {
 
   const tokensDisabled = !!settings?.disablePersonalAccessTokens;
 
+  // Throws so the confirm dialog can keep itself open and show the failure.
   const save = async (disablePersonalAccessTokens: boolean) => {
-    setError(null);
-    try {
-      await apiCall("/organization", {
-        method: "PUT",
-        body: JSON.stringify({ settings: { disablePersonalAccessTokens } }),
-      });
-      await refreshOrganization();
-    } catch (e) {
-      setError(e.message);
-    }
+    await apiCall("/organization", {
+      method: "PUT",
+      body: JSON.stringify({ settings: { disablePersonalAccessTokens } }),
+    });
+    await refreshOrganization();
   };
 
   return (
     <Frame mb="4">
       <Heading as="h3" size="md" mb="3">
-        Personal Access Tokens
+        Organization Policy
       </Heading>
       <Checkbox
         label="Disable personal access tokens"
@@ -53,7 +49,8 @@ const PersonalAccessTokenSettings: FC = () => {
           if (value) {
             setConfirming(true);
           } else {
-            void save(false);
+            setError(null);
+            save(false).catch((e) => setError(e.message));
           }
         }}
       />
@@ -67,6 +64,7 @@ const PersonalAccessTokenSettings: FC = () => {
           title="Disable personal access tokens?"
           content="Every token that acts as a user stops working immediately — personal access tokens, OAuth access tokens, and the Visual Editor. Members won't be able to create new ones. Turning this setting back off restores them."
           yesText="Disable tokens"
+          color="red"
           onConfirm={async () => {
             await save(true);
             setConfirming(false);
