@@ -816,7 +816,6 @@ const revisionLogParams = revisionParamsStrict.extend({ logId: z.string() });
 
 const okResponse = z.object({ status: z.literal(200) }).strict();
 
-// Sanitized actor for log entries — never exposes API key secrets.
 const apiRevisionLogEntry = z
   .object({
     id: z

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { namedSchema } from "./openapi-helpers";
 
 export const eventUserLoggedIn = z
   .object({
@@ -12,8 +13,7 @@ export const eventUserLoggedIn = z
 export type EventUserLoggedIn = z.infer<typeof eventUserLoggedIn>;
 
 // The member who asked an organization API key to make a request
-// (`X-Requested-By`). The key's own permissions apply unless it limits each
-// request to this member's.
+// (`X-Requested-By`).
 export const eventUserRequestedBy = z
   .object({
     id: z.string(),
@@ -26,23 +26,29 @@ export type EventUserRequestedBy = z.infer<typeof eventUserRequestedBy>;
 
 // Actor shape the REST API returns: the event user without the API key id.
 // For an organization API key, `name` is the key's name.
-export const apiEventUser = z
-  .object({
-    type: z.enum(["dashboard", "api_key", "system"]),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-    requestedBy: eventUserRequestedBy
-      .optional()
-      .describe("The organization member who asked the API key to act"),
-    extendedByRequester: z
-      .boolean()
-      .optional()
-      .describe(
-        "True when the named member's permissions extended the key's for this request",
-      ),
-  })
-  .strict();
+export const apiEventUser = namedSchema(
+  "EventUser",
+  z
+    .object({
+      type: z.enum(["dashboard", "api_key", "system"]),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      email: z.string().optional(),
+      requestedBy: eventUserRequestedBy
+        .optional()
+        .describe("The organization member who asked the API key to act"),
+      extendedByRequester: z
+        .boolean()
+        .optional()
+        .describe(
+          "True when the named member's permissions extended the key's for this request",
+        ),
+    })
+    .strict()
+    .describe("The user (or automated actor) responsible for an action"),
+);
+
+export type ApiEventUser = z.infer<typeof apiEventUser>;
 
 const eventUserApiKey = z
   .object({

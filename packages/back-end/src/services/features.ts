@@ -2536,6 +2536,8 @@ export function eventUserToApiEventUser(
         id: user.id,
         name: user.name,
         email: user.email,
+        ...(user.requestedBy ? { requestedBy: user.requestedBy } : {}),
+        ...(user.extendedByRequester ? { extendedByRequester: true } : {}),
       };
     case "system":
       return {

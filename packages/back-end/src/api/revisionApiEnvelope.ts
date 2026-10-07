@@ -5,51 +5,16 @@ import {
   JsonPatchOperation,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { EventUser } from "shared/types/events/event-types";
 import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
+import { eventUserToApiEventUser } from "back-end/src/services/features";
 
 function toIsoString(d: Date | string | null | undefined): string {
   if (d === null || d === undefined) return new Date(0).toISOString();
   if (typeof d === "string") return d;
   return d.toISOString();
-}
-
-// Strip secrets (API key strings) from an actor before returning it.
-export function eventUserToApi(user: EventUser): {
-  type: "dashboard" | "api_key" | "system";
-  id?: string;
-  name?: string;
-  email?: string;
-  requestedBy?: { id: string; name: string; email: string };
-  extendedByRequester?: boolean;
-} | null {
-  if (!user) return null;
-  switch (user.type) {
-    case "dashboard":
-      return {
-        type: "dashboard",
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      };
-    case "api_key":
-      return {
-        type: "api_key",
-        ...(user.id !== undefined ? { id: user.id } : {}),
-        ...(user.name !== undefined ? { name: user.name } : {}),
-        ...(user.email !== undefined ? { email: user.email } : {}),
-        ...(user.requestedBy ? { requestedBy: user.requestedBy } : {}),
-        ...(user.extendedByRequester ? { extendedByRequester: true } : {}),
-      };
-    case "system":
-      return {
-        type: "system",
-        ...(user.id !== undefined ? { id: user.id } : {}),
-      };
-  }
 }
 
 function reviewsToApi(reviews: Review[] | undefined) {
@@ -61,7 +26,7 @@ function reviewsToApi(reviews: Review[] | undefined) {
     // Whether a later cycle reset superseded this verdict (no longer active).
     stale: !!r.stale,
     ...(r.comment ? { comment: r.comment } : {}),
-    ...(r.user ? { user: eventUserToApi(r.user) ?? undefined } : {}),
+    ...(r.user ? { user: eventUserToApiEventUser(r.user) } : {}),
     dateCreated: toIsoString(r.dateCreated),
   }));
 }
@@ -73,7 +38,7 @@ function activityLogToApi(entries: ActivityLogEntry[] | undefined) {
     userId: e.userId,
     action: e.action,
     ...((e.description ?? null) !== null ? { description: e.description } : {}),
-    ...(e.user ? { user: eventUserToApi(e.user) ?? undefined } : {}),
+    ...(e.user ? { user: eventUserToApiEventUser(e.user) } : {}),
     dateCreated: toIsoString(e.dateCreated),
     ...(e.proposedChangesSnapshot
       ? { proposedChangesSnapshot: e.proposedChangesSnapshot }

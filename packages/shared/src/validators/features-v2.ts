@@ -16,7 +16,6 @@ import {
   requiredUnlessPatOwnerInputField,
 } from "./owner-field";
 import {
-  apiEventUserValidator,
   apiFeatureBaseRuleValidator,
   apiFeatureForceRuleValidator,
   apiFeatureRolloutRuleValidator,
@@ -28,6 +27,7 @@ import {
   revisionStatusFilterSchema,
   apiRevisionRampAction,
 } from "./features";
+import { apiEventUser } from "./event-user";
 import { namedSchema } from "./openapi-helpers";
 
 // ---- V2 scope extension ----
@@ -219,8 +219,8 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
       status: z.string(),
-      createdBy: apiEventUserValidator.optional(),
-      publishedBy: apiEventUserValidator.optional(),
+      createdBy: apiEventUser.optional(),
+      publishedBy: apiEventUser.optional(),
       defaultValue: z
         .string()
         .describe(
@@ -333,7 +333,7 @@ export const apiFeatureRevisionV2Validator = namedSchema(
                 .describe(
                   "Stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts",
                 ),
-              user: apiEventUserValidator.optional(),
+              user: apiEventUser.optional(),
               status: z.enum([
                 "approved",
                 "changes-requested",
@@ -373,8 +373,8 @@ export const apiFeatureRevisionSummaryValidator = namedSchema(
       version: z.coerce.number().int(),
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
-      createdBy: apiEventUserValidator.optional(),
-      publishedBy: apiEventUserValidator.optional(),
+      createdBy: apiEventUser.optional(),
+      publishedBy: apiEventUser.optional(),
     })
     .strict(),
 );

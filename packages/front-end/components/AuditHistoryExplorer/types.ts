@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { EntityType } from "shared/types/audit";
+import type { EventUserRequestedBy } from "shared/validators";
 import type { Language } from "@/components/SyntaxHighlighting/Code";
 
 export type DiffBadge = { label: string; action: string };
@@ -12,7 +13,7 @@ export interface AuditUserInfo {
   email?: string;
   name?: string;
   apiKey?: string;
-  requestedBy?: { id: string; name: string; email: string };
+  requestedBy?: EventUserRequestedBy;
   extendedByRequester?: boolean;
 }
 

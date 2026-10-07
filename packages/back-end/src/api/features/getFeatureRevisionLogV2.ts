@@ -1,7 +1,7 @@
 import { getFeatureRevisionLogV2Validator } from "shared/validators";
 import { getValidDate } from "shared/dates";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { eventUserToApi } from "back-end/src/api/revisionApiEnvelope";
+import { eventUserToApiEventUser } from "back-end/src/services/features";
 import { NotFoundError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -57,7 +57,7 @@ export const getFeatureRevisionLogV2 = createApiRequestHandler(
     log: merged.map((entry) => ({
       ...entry,
       timestamp: getValidDate(entry.timestamp).toISOString(),
-      user: eventUserToApi(entry.user),
+      user: eventUserToApiEventUser(entry.user) ?? null,
     })),
   };
 });
