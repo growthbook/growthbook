@@ -69,9 +69,11 @@ export function getUserPermissions(
   );
 }
 
-// What an org key may do for one request: its rules that always apply, plus
-// its requester-only rules as far as the named member has the same permissions.
-// Undefined when no rule depends on the requester, so the key's role applies.
+// What an org key may do for one request when its requester can extend it:
+// with `extendWithRequester`, everything the named member may do on top of the
+// key's role; otherwise the rules that always apply, plus the requester-only
+// rules as far as the member has the same permissions. Undefined when the
+// key's own role applies.
 export function getKeyPermissionsForRequest({
   apiKey,
   requesterId,
@@ -85,6 +87,14 @@ export function getKeyPermissionsForRequest({
   teams: TeamInterface[];
   restrictedProjects: string[];
 }): UserPermissions | undefined {
+  if (apiKey.extendWithRequester) {
+    if (!requesterId) return undefined;
+    return unionUserPermissions(
+      getRolePermissions(apiKey, org, teams, restrictedProjects),
+      getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
+      org,
+    );
+  }
   if (!hasRequesterOnlyRules(apiKey)) return undefined;
   const { always, requesterOnly } = splitRequesterOnlyRules(apiKey);
   const alwaysPermissions = getRolePermissions(

@@ -13,7 +13,7 @@ import Table, {
 } from "@/ui/Table";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -188,7 +188,7 @@ export default function RoleRulesTable({
           <TableCell width={WIDTHS[4]}>
             {fromTeam ? (
               <Tooltip
-                body={`Inherited from the ${rule.teamName} team. Change it there.`}
+                content={`Inherited from the ${rule.teamName} team. Change it there.`}
               >
                 <Link href="/settings/team#teams">{rule.teamName}</Link>
               </Tooltip>
@@ -200,7 +200,7 @@ export default function RoleRulesTable({
         <TableCell width={WIDTHS[5]}>
           <Flex align="center" gap="1" justify="end" wrap="wrap">
             {inert.has(rule.key) && (
-              <Tooltip body={inertReason(rule, inert.get(rule.key))}>
+              <Tooltip content={inertReason(rule, inert.get(rule.key))}>
                 <Badge
                   color="gray"
                   variant="soft"
@@ -220,7 +220,7 @@ export default function RoleRulesTable({
         <TableCell width={WIDTHS[6]}>
           <Flex align="center" justify="end">
             {!fromTeam && !rule.isPrimary && (
-              <Tooltip body="Remove rule">
+              <Tooltip content="Remove rule">
                 <IconButton
                   variant="ghost"
                   color="red"

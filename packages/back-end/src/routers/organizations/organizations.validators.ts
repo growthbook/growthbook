@@ -60,6 +60,7 @@ export const postApiKeyValidator = z.strictObject({
   additionalRoles: z.array(apiKeyRoleRuleValidator).optional(),
   requesterOnly: z.boolean().optional(),
   requireRequestedBy: z.boolean().optional(),
+  extendWithRequester: z.boolean().optional(),
 });
 
 export const putApiKeyValidator = z.strictObject({
@@ -71,6 +72,7 @@ export const putApiKeyValidator = z.strictObject({
   additionalRoles: z.array(apiKeyRoleRuleValidator).optional(),
   requesterOnly: z.boolean(),
   requireRequestedBy: z.boolean(),
+  extendWithRequester: z.boolean(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({

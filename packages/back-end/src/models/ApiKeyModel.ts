@@ -1,6 +1,6 @@
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
-import { getRoleById } from "shared/permissions";
+import { getRoleById, hasRequesterOnlyRules } from "shared/permissions";
 import {
   generateEncryptionKey,
   generateSigningKey,
@@ -107,6 +107,7 @@ export class ApiKeyModel extends BaseClass {
       projectRoles: doc.projectRoles,
       requesterOnly: doc.requesterOnly,
       requireRequestedBy: doc.requireRequestedBy,
+      extendWithRequester: doc.extendWithRequester,
       disabled: doc.disabled,
     };
   }
@@ -142,13 +143,22 @@ export class ApiKeyModel extends BaseClass {
           "PATs do not support additional roles.",
         );
       }
-      if (doc.requireRequestedBy || doc.requesterOnly) {
+      if (
+        doc.requireRequestedBy ||
+        doc.requesterOnly ||
+        doc.extendWithRequester
+      ) {
         this.context.throwBadRequestError(
           "PATs already act as a user and cannot take X-Requested-By.",
         );
       }
     } else {
       // Org API keys — validate role, environments, project roles, and commercial features
+      if (doc.extendWithRequester && hasRequesterOnlyRules(doc)) {
+        this.context.throwBadRequestError(
+          "A key can extend with all of the requester's permissions or with specific ones, not both.",
+        );
+      }
       this.validateRole(doc.role);
       // Only gate a role change so existing keys keep working
       if (
@@ -233,6 +243,7 @@ export class ApiKeyModel extends BaseClass {
     projectRoles,
     requireRequestedBy,
     requesterOnly,
+    extendWithRequester,
   }: {
     description: string;
     roleId: string;
@@ -242,6 +253,7 @@ export class ApiKeyModel extends BaseClass {
     projectRoles?: ApiKeyInterface["projectRoles"];
     requireRequestedBy?: boolean;
     requesterOnly?: boolean;
+    extendWithRequester?: boolean;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       secret: true,
@@ -256,6 +268,7 @@ export class ApiKeyModel extends BaseClass {
       projectRoles,
       requireRequestedBy,
       requesterOnly,
+      extendWithRequester,
     });
   }
 
@@ -338,6 +351,7 @@ export class ApiKeyModel extends BaseClass {
       description,
       requireRequestedBy,
       requesterOnly,
+      extendWithRequester,
     }: {
       role?: string;
       limitAccessByEnvironment?: boolean;
@@ -347,6 +361,7 @@ export class ApiKeyModel extends BaseClass {
       description?: string;
       requireRequestedBy: boolean;
       requesterOnly: boolean;
+      extendWithRequester: boolean;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
@@ -389,6 +404,7 @@ export class ApiKeyModel extends BaseClass {
         description,
         requireRequestedBy,
         requesterOnly,
+        extendWithRequester,
       },
       { forceCanUpdate: true },
     );
@@ -536,6 +552,7 @@ export class ApiKeyModel extends BaseClass {
     projectRoles,
     requireRequestedBy,
     requesterOnly,
+    extendWithRequester,
   }: {
     environment: string;
     project: string;
@@ -550,6 +567,7 @@ export class ApiKeyModel extends BaseClass {
     projectRoles?: ApiKeyInterface["projectRoles"];
     requireRequestedBy?: boolean;
     requesterOnly?: boolean;
+    extendWithRequester?: boolean;
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -580,6 +598,7 @@ export class ApiKeyModel extends BaseClass {
       projectRoles,
       ...(requireRequestedBy !== undefined ? { requireRequestedBy } : {}),
       ...(requesterOnly !== undefined ? { requesterOnly } : {}),
+      ...(extendWithRequester !== undefined ? { extendWithRequester } : {}),
     });
   }
 }

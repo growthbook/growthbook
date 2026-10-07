@@ -1,6 +1,10 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { getRoles, hasRequesterOnlyRules } from "shared/permissions";
+import {
+  getRoles,
+  RequesterExtension,
+  requesterExtension,
+} from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -9,7 +13,10 @@ import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
-import { RoleRulesValue } from "@/components/Settings/Team/roleRules";
+import {
+  RoleRulesValue,
+  clearRequesterOnly,
+} from "@/components/Settings/Team/roleRules";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import RequestedByFields from "@/components/Settings/RequestedByFields";
@@ -70,13 +77,15 @@ const ApiKeysModal: FC<{
   const [requireRequestedBy, setRequireRequestedBy] = useState(
     !!existingKey?.requireRequestedBy,
   );
-  const [extendWithRequester, setExtendWithRequester] = useState(() =>
-    hasRequesterOnlyRules(existingKey ?? {}),
+  const [extension, setExtension] = useState<RequesterExtension>(() =>
+    requesterExtension(existingKey ?? {}),
   );
-  const hasRequesterRows = hasRequesterOnlyRules(roleState);
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const { role, ...rest } = roleState;
+    // Rules keep their Applies choice while the column is hidden, in case it
+    // comes back before saving; only "For specific permissions" saves it.
+    const { role, ...rest } =
+      extension === "specific" ? roleState : clearRequesterOnly(roleState);
     // Explicit, so clearing the flag on the main role sticks.
     const roleStateData = { ...rest, requesterOnly: !!rest.requesterOnly };
 
@@ -88,6 +97,7 @@ const ApiKeysModal: FC<{
           role,
           ...roleStateData,
           requireRequestedBy,
+          extendWithRequester: extension === "all",
         }),
       });
       track("Edit API Key");
@@ -105,6 +115,7 @@ const ApiKeysModal: FC<{
           type: role,
           ...roleStateData,
           requireRequestedBy,
+          extendWithRequester: extension === "all",
         };
     await apiCall("/keys", {
       method: "POST",
@@ -137,23 +148,24 @@ const ApiKeysModal: FC<{
           <RequestedByFields
             required={requireRequestedBy}
             setRequired={setRequireRequestedBy}
-            extendWithRequester={extendWithRequester}
-            setExtendWithRequester={setExtendWithRequester}
-            hasRequesterRows={hasRequesterRows}
+            extension={extension}
+            setExtension={setExtension}
           />
           <Box mt="6">
             <Heading as="h4" size="sm" mb="1">
               Permissions
             </Heading>
             <Text as="p" color="text-mid" mb="3">
-              {extendWithRequester
-                ? "What requests made with this key can do. Rules that apply only if the requester has it go no further than the requester's own permissions."
-                : "What every request made with this key can do."}
+              {extension === "specific"
+                ? "What requests made with this key can do. Rules set to “If the requester has it” only grant permissions the requester already has."
+                : extension === "all"
+                  ? "What every request made with this key can do. A request that names a member can also do anything that member can."
+                  : "What every request made with this key can do."}
             </Text>
             <RoleRulesTable
               value={roleState}
               setValue={setRoleState}
-              showAppliesColumn={extendWithRequester}
+              showAppliesColumn={extension === "specific"}
             />
           </Box>
         </>

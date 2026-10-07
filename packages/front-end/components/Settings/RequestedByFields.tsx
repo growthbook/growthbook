@@ -1,24 +1,21 @@
 import { FC } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
+import { RequesterExtension } from "shared/permissions";
 import Checkbox from "@/ui/Checkbox";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import HelperText from "@/ui/HelperText";
+import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
 const RequestedByFields: FC<{
   required: boolean;
   setRequired: (required: boolean) => void;
-  extendWithRequester: boolean;
-  setExtendWithRequester: (extend: boolean) => void;
-  hasRequesterRows: boolean;
-}> = ({
-  required,
-  setRequired,
-  extendWithRequester,
-  setExtendWithRequester,
-  hasRequesterRows,
-}) => (
+  extension: RequesterExtension;
+  setExtension: (extension: RequesterExtension) => void;
+}> = ({ required, setRequired, extension, setExtension }) => (
   <Box mt="6">
     <Heading as="h4" size="sm" mb="1">
       X-Requested-By
@@ -27,28 +24,61 @@ const RequestedByFields: FC<{
       Requests can send a <code>X-Requested-By: userid || email</code> header to
       show the requester next to this key in history.
     </Text>
-    <Flex direction="column" gap="3">
-      <Checkbox
-        label="Require it on every request"
-        value={required}
-        setValue={setRequired}
-      />
-      <Flex align="center" gap="1">
+    <Frame py="1" px="4">
+      <Grid
+        columns="180px 210px 1fr"
+        gapX="4"
+        align="center"
+        style={{ gridAutoRows: "minmax(48px, auto)" }}
+      >
+        <Text
+          as="label"
+          htmlFor="requested-by-required"
+          weight="semibold"
+          mb="0"
+        >
+          Require on all requests
+        </Text>
         <Checkbox
-          label="Extend this key's permissions if the requester has them"
-          value={extendWithRequester}
-          setValue={setExtendWithRequester}
-          // Requester-only rules would silently start applying to every request.
-          disabled={hasRequesterRows}
-          disabledMessage="Some rules below apply only if the requester has it. Set them back to Always to turn this off."
+          id="requested-by-required"
+          value={required}
+          setValue={setRequired}
         />
-        <Tooltip content="Adds an Applies column to the permissions below, so each rule can apply always or only if the requester has it.">
-          <span style={{ display: "inline-flex" }}>
-            <PiInfo color="var(--color-text-low)" />
-          </span>
-        </Tooltip>
-      </Flex>
-    </Flex>
+        <Box />
+        <Flex align="center" gap="1">
+          <Text as="label" weight="semibold" mb="0">
+            Extend permissions
+          </Text>
+          <Tooltip content="Gives a request the permissions of the member it names, on top of this key's own. “For specific permissions” adds an Applies column below to choose which.">
+            <span style={{ display: "inline-flex" }}>
+              <PiInfo color="var(--color-text-low)" />
+            </span>
+          </Tooltip>
+        </Flex>
+        <Select
+          value={extension}
+          setValue={(value) => setExtension(value as RequesterExtension)}
+        >
+          <SelectItem value="none">No</SelectItem>
+          <SelectItem value="all">Always</SelectItem>
+          <SelectItem value="specific">For specific permissions</SelectItem>
+        </Select>
+        <Box>
+          {extension === "all" && (
+            <HelperText status="warning" size="sm">
+              Requesters aren&apos;t verified. This key can act as any member
+              with full permissions.
+            </HelperText>
+          )}
+          {extension === "specific" && (
+            <HelperText status="info" size="sm">
+              Requesters aren&apos;t verified. This key can act as any member
+              for specific permissions.
+            </HelperText>
+          )}
+        </Box>
+      </Grid>
+    </Frame>
   </Box>
 );
 

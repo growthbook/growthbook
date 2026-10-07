@@ -1958,6 +1958,7 @@ export async function postApiKey(
     projectRoles?: ApiKeyInterface["projectRoles"];
     requireRequestedBy?: boolean;
     requesterOnly?: boolean;
+    extendWithRequester?: boolean;
   }>,
   res: Response,
 ) {
@@ -1972,6 +1973,7 @@ export async function postApiKey(
     projectRoles,
     requireRequestedBy,
     requesterOnly,
+    extendWithRequester,
   } = req.body;
 
   let key: ApiKeyInterface;
@@ -1998,6 +2000,7 @@ export async function postApiKey(
       projectRoles,
       requireRequestedBy,
       requesterOnly,
+      extendWithRequester,
     });
   }
 
@@ -2028,6 +2031,7 @@ export async function putApiKey(
       projectRoles?: ApiKeyInterface["projectRoles"];
       requireRequestedBy: boolean;
       requesterOnly: boolean;
+      extendWithRequester: boolean;
     },
     { id: string }
   >,
@@ -2044,6 +2048,7 @@ export async function putApiKey(
     projectRoles,
     requireRequestedBy,
     requesterOnly,
+    extendWithRequester,
   } = req.body;
 
   // Editing a key's authority is at least as sensitive as revealing it, so we
@@ -2066,6 +2071,7 @@ export async function putApiKey(
       projectRoles,
       requireRequestedBy,
       requesterOnly,
+      extendWithRequester,
     });
 
   await req.audit({

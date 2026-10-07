@@ -182,6 +182,14 @@ export function fromRules(
   };
 }
 
+// Every rule back to applying always, as when the requester can't extend the key.
+export function clearRequesterOnly(value: RoleRulesValue): RoleRulesValue {
+  return fromRules(
+    toRules(value).map((rule) => ({ ...rule, requesterOnly: false })),
+    value,
+  );
+}
+
 // Permission -> the environments it applies in, or "all" when the permission
 // is not environment-scoped.
 type Coverage = Map<string, Set<string> | "all">;

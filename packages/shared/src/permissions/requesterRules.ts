@@ -32,6 +32,20 @@ export function hasRequesterOnlyRules(
   );
 }
 
+export type RequesterExtension = "none" | "all" | "specific";
+
+// How a key extends a request with the member it names: not at all, with all
+// of that member's permissions, or through requester-only rules.
+export function requesterExtension(
+  key: Pick<
+    RequesterRules,
+    "requesterOnly" | "additionalRoles" | "projectRoles"
+  > & { extendWithRequester?: boolean },
+): RequesterExtension {
+  if (key.extendWithRequester) return "all";
+  return hasRequesterOnlyRules(key) ? "specific" : "none";
+}
+
 // Splits the rules into those every request gets and those that only reach a
 // request through its named member. A project group still replaces the All
 // Projects rules inside it on both sides.

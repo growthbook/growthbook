@@ -1,21 +1,31 @@
 import React, { FC, useState } from "react";
-import { FaCheck, FaFilter, FaTimes } from "react-icons/fa";
-import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
-import {
-  getRoleDisplayName,
-  roleHasAccessToEnv,
-  hasRequesterOnlyRules,
-} from "shared/permissions";
+import { ApiKeyInterface } from "shared/types/apikey";
+import { requesterExtension } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
+import {
+  ExtendsWithRequesterIcon,
+  RequiresRequesterIcon,
+} from "@/components/Settings/RequesterIcons";
+import {
+  CollapsedRuleRows,
+  projectRuleRows,
+  ruleRows,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
-import { useEnvironments } from "@/services/features";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
@@ -42,55 +52,56 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onShowAuditLog,
 }) => {
   const { organization } = useUser();
-  const { projects } = useDefinitions();
-  const environments = useEnvironments();
+  const { getProjectById } = useDefinitions();
+  // A key that extends with all of its requester's permissions lists that
+  // after its own rules.
+  const keyRoleRows = (key: ApiKeyInterface, role: string) => {
+    const rows = ruleRows({ ...key, role }, organization);
+    if (requesterExtension(key) !== "all") return rows;
+    return [
+      ...rows,
+      {
+        key: "requester",
+        node: (
+          <>
+            <ExtendsWithRequesterIcon />
+            Member&apos;s permissions
+          </>
+        ),
+      },
+    ];
+  };
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
   );
+
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table className="table mb-3 appbox gbtable">
-        <thead>
-          <tr>
-            <th style={{ width: 150 }}>Description</th>
-            <th>Key</th>
-            <th>Global Role</th>
-            <th>Project Roles</th>
-            {environments.map((env) => (
-              <th key={env.id}>{env.id}</th>
-            ))}
-            <th>Last Used</th>
-            {canDeleteKeys && <th style={{ width: 30 }}></th>}
-          </tr>
-        </thead>
-        <tbody>
+    <>
+      <Table variant="surface" layout="fixed" mb="3">
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader width="16%">Description</TableColumnHeader>
+            <TableColumnHeader width="24%">Key</TableColumnHeader>
+            <TableColumnHeader width="20%">Role</TableColumnHeader>
+            <TableColumnHeader width="20%">Project Roles</TableColumnHeader>
+            <TableColumnHeader width="150px">Last Used</TableColumnHeader>
+            {canDeleteKeys && <TableColumnHeader width="4%" />}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {keys.map((key) => (
-            <tr
+            <TableRow
               key={key.id}
               style={key.disabled ? { opacity: 0.55 } : undefined}
             >
-              <td>
+              <TableCell>
+                {key.requireRequestedBy && <RequiresRequesterIcon />}
                 {key.description}
                 {key.disabled && (
                   <Badge ml="2" color="red" variant="soft" label="Disabled" />
                 )}
-                {hasRequesterOnlyRules(key) ? (
-                  <Badge
-                    ml="2"
-                    variant="soft"
-                    label="Extends with requester"
-                    title="Some of this key's rules apply only if the requester has them"
-                  />
-                ) : key.requireRequestedBy ? (
-                  <Badge
-                    ml="2"
-                    variant="soft"
-                    label="Requires X-Requested-By"
-                    title="Every request must name the member who asked"
-                  />
-                ) : null}
-              </td>
-              <td style={{ minWidth: 270 }}>
+              </TableCell>
+              <TableCell>
                 {canCreateKeys ? (
                   <ClickToReveal
                     valueWhenHidden="secret_abcdefghijklmnop123"
@@ -99,61 +110,24 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 ) : (
                   <em>hidden</em>
                 )}
-              </td>
-              <td>
-                {key.role ? getRoleDisplayName(key.role, organization) : "-"}
-              </td>
-              <td>
-                {key.projectRoles?.map((pr) => {
-                  const p = projects.find((p) => p.id === pr.project);
-                  if (p?.name) {
-                    return (
-                      <div key={`project-tags-${p.id}`}>
-                        <ProjectBadges
-                          resourceType="member"
-                          projectIds={[p.id]}
-                        />{" "}
-                        — {getRoleDisplayName(pr.role, organization)}
-                        {pr.limitAccessByEnvironment &&
-                          pr.environments.length > 0 && (
-                            <Tooltip
-                              content={`Limited to: ${pr.environments.join(", ")}`}
-                            >
-                              <span>
-                                <FaFilter
-                                  className="text-muted ml-1"
-                                  size={10}
-                                />
-                              </span>
-                            </Tooltip>
-                          )}
-                      </div>
-                    );
-                  }
-                  return null;
-                })}
-              </td>
-              {environments.map((env) => {
-                const access = !key.role
-                  ? "N/A"
-                  : roleHasAccessToEnv(
-                      key as ApiKeyWithRole,
-                      env.id,
-                      organization,
-                    );
-                return (
-                  <td key={env.id}>
-                    {access === "N/A" ? (
-                      <span className="text-muted">N/A</span>
-                    ) : access === "yes" ? (
-                      <FaCheck className="text-success" />
-                    ) : (
-                      <FaTimes className="text-danger" />
-                    )}
-                  </td>
-                );
-              })}
-              <td>
+              </TableCell>
+              <TableCell>
+                {key.role ? (
+                  <CollapsedRuleRows rows={keyRoleRows(key, key.role)} />
+                ) : (
+                  "-"
+                )}
+              </TableCell>
+              <TableCell>
+                <CollapsedRuleRows
+                  rows={projectRuleRows(
+                    key.projectRoles ?? [],
+                    getProjectById,
+                    organization,
+                  )}
+                />
+              </TableCell>
+              <TableCell style={{ whiteSpace: "nowrap" }}>
                 {key.lastUsed ? (
                   <Tooltip
                     content={
@@ -165,15 +139,17 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     <span>{ago(key.lastUsed)}</span>
                   </Tooltip>
                 ) : key.lastUsed === null ? (
-                  <span className="text-muted">Never</span>
+                  <Text color="text-low">Never</Text>
                 ) : (
                   <Tooltip content="This key was created before usage tracking was added, so we don't know when it was last used.">
-                    <span className="text-muted">Unknown</span>
+                    <span>
+                      <Text color="text-low">Unknown</Text>
+                    </span>
                   </Tooltip>
                 )}
-              </td>
+              </TableCell>
               {canDeleteKeys && (
-                <td>
+                <TableCell>
                   <ApiKeyRowMenu
                     apiKey={key}
                     canDeleteKeys={canDeleteKeys}
@@ -184,12 +160,12 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     }
                     onShowAuditLog={onShowAuditLog}
                   />
-                </td>
+                </TableCell>
               )}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {pendingToggle && onToggleDisabled && (
         <ConfirmDialog
           title={
@@ -209,6 +185,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           onCancel={() => setPendingToggle(null)}
         />
       )}
-    </div>
+    </>
   );
 };

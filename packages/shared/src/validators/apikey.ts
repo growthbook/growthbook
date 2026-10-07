@@ -72,6 +72,12 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Org API keys only. When true, every request must name the member who asked in an `X-Requested-By` header",
     ),
+  extendWithRequester: z
+    .boolean()
+    .optional()
+    .describe(
+      "Org API keys only. When true, a request that names a member in `X-Requested-By` also gets all of that member's permissions",
+    ),
   disabled: z
     .boolean()
     .optional()

@@ -3,7 +3,7 @@ import asyncHandler from "express-async-handler";
 import {
   getRolePermissions,
   hasPermission,
-  hasRequesterOnlyRules,
+  requesterExtension,
 } from "shared/permissions";
 import {
   EventUserApiKey,
@@ -350,7 +350,7 @@ function authenticateWithApiKey(
             restrictedProjects,
           });
       const extendedByRequester =
-        !!requestedBy && hasRequesterOnlyRules(apiKeyDoc);
+        !!requestedBy && requesterExtension(apiKeyDoc) !== "none";
 
       const eventAudit: EventUserApiKey = {
         type: "api_key",

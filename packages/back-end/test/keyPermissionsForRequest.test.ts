@@ -117,6 +117,26 @@ describe("getKeyPermissionsForRequest", () => {
     );
   });
 
+  it("adds everything the requester can do when the key extends with all of it", () => {
+    const apiKey = {
+      ...rule("readonly"),
+      extendWithRequester: true,
+    } as unknown as ApiKeyWithRole;
+    expect(
+      getKeyPermissionsForRequest({
+        apiKey,
+        requesterId: null,
+        org,
+        teams,
+        restrictedProjects: [],
+      }),
+    ).toBeUndefined();
+    expect(canEdit(forRequest(apiKey, "u_engineer"))).toBe(true);
+    const reader = forRequest(apiKey, "u_reader");
+    expect(canEdit(reader)).toBe(false);
+    expect(hasPermission(reader, "readData")).toBe(true);
+  });
+
   it("keeps requester-only rules out of the member's access-restricted projects", () => {
     const permissions = new Permissions(
       forRequest(key(rule("admin", true)), "u_engineer", ["prj_private"]),
