@@ -518,6 +518,66 @@
       false
     ],
     [
+      "$nin - pass (missing attribute)",
+      {
+        "country": {
+          "$nin": ["RU", "CN"]
+        }
+      },
+      {
+        "other": "x"
+      },
+      true
+    ],
+    [
+      "$nin - pass (null attribute)",
+      {
+        "country": {
+          "$nin": ["RU", "CN"]
+        }
+      },
+      {
+        "country": null
+      },
+      true
+    ],
+    [
+      "$nini - pass (missing attribute)",
+      {
+        "country": {
+          "$nini": ["ru"]
+        }
+      },
+      {
+        "other": "x"
+      },
+      true
+    ],
+    [
+      "$in - fail (null attribute)",
+      {
+        "country": {
+          "$in": ["RU", "CN"]
+        }
+      },
+      {
+        "country": null
+      },
+      false
+    ],
+    [
+      "$all - fail (missing attribute)",
+      {
+        "tags": {
+          "$all": ["a"]
+        }
+      },
+      {
+        "other": "x"
+      },
+      false
+    ],
+    [
       "$nin - not array",
       {
         "num": {
