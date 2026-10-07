@@ -1089,6 +1089,10 @@ app.get(
 );
 app.post("/datasources", datasourcesController.postDataSources);
 app.post(
+  "/datasources/test-connection",
+  datasourcesController.postTestDataSourceConnection,
+);
+app.post(
   "/datasources/event-forwarder/test-access",
   datasourcesController.postTestEventForwarderAccessForCreate,
 );
