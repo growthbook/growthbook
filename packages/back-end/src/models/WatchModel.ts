@@ -3,12 +3,15 @@ import {
   WatchInterface,
   watchSchema,
 } from "shared/validators";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
+
+const COLLECTION_NAME = "watches";
 
 const BaseClass = MakeModelClass({
   schema: watchSchema,
   pKey: ["userId", "organization"] as const,
-  collectionName: "watches",
+  collectionName: COLLECTION_NAME,
   idPrefix: "watch_",
   readonlyFields: [],
   additionalIndexes: [{ fields: { organization: 1, experiments: 1 } }],
@@ -86,5 +89,16 @@ export class WatchModel extends BaseClass {
     await this._updateOne(existing, {
       [type]: existing[type].filter((el) => el !== item),
     });
+  }
+
+  // A single $pull, so a concurrent watch or unwatch is not overwritten.
+  public async removeEntityFromAllWatchers({
+    type,
+    item,
+  }: Omit<UpdateWatchOptions, "userId">) {
+    await getCollection<WatchInterface>(COLLECTION_NAME).updateMany(
+      { organization: this.context.org.id, [type]: item },
+      { $pull: { [type]: item }, $set: { dateUpdated: new Date() } },
+    );
   }
 }
