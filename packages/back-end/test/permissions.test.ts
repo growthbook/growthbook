@@ -2877,6 +2877,112 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
   });
 });
 
+describe("PermissionsUtilClass population checks", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    customRoles: [
+      {
+        id: "segmentsOnly",
+        description: "",
+        policies: ["ReadData", "SegmentsFullAccess"],
+      },
+      {
+        id: "populationsOnly",
+        description: "",
+        policies: ["ReadData", "PopulationsFullAccess"],
+      },
+    ],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  function permissionsFor(
+    globalRole: string,
+    projectRoles: Record<string, string> = {},
+  ) {
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(globalRole, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: Object.fromEntries(
+        Object.entries(projectRoles).map(([project, role]) => [
+          project,
+          {
+            permissions: roleToPermissionMap(role, testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ]),
+      ),
+    });
+  }
+
+  it("denies readonly and collaborator roles", () => {
+    for (const role of ["readonly", "collaborator"]) {
+      const permissions = permissionsFor(role);
+      expect(permissions.canCreatePopulation({ projects: [] })).toEqual(false);
+      expect(permissions.canUpdatePopulation({ projects: [] }, {})).toEqual(
+        false,
+      );
+      expect(permissions.canDeletePopulation({ projects: [] })).toEqual(false);
+    }
+  });
+
+  it("allows the built-in roles that manage data", () => {
+    for (const role of ["analyst", "experimenter", "admin"]) {
+      const permissions = permissionsFor(role);
+      expect(permissions.canCreatePopulation({ projects: [] })).toEqual(true);
+      expect(permissions.canUpdatePopulation({ projects: [] }, {})).toEqual(
+        true,
+      );
+      expect(permissions.canDeletePopulation({ projects: [] })).toEqual(true);
+    }
+  });
+
+  it("is independent of the Segment permission", () => {
+    const segmentsOnly = permissionsFor("segmentsOnly");
+    expect(segmentsOnly.canCreateSegment({ projects: [] })).toEqual(true);
+    expect(segmentsOnly.canCreatePopulation({ projects: [] })).toEqual(false);
+
+    const populationsOnly = permissionsFor("populationsOnly");
+    expect(populationsOnly.canCreatePopulation({ projects: [] })).toEqual(true);
+    expect(populationsOnly.canCreateSegment({ projects: [] })).toEqual(false);
+  });
+
+  it("scopes access to the Projects where the role is granted", () => {
+    const permissions = permissionsFor("readonly", { ABC123: "analyst" });
+
+    expect(permissions.canCreatePopulation({ projects: [] })).toEqual(false);
+    expect(permissions.canCreatePopulation({ projects: ["ABC123"] })).toEqual(
+      true,
+    );
+    expect(permissions.canDeletePopulation({ projects: ["ABC123"] })).toEqual(
+      true,
+    );
+    expect(
+      permissions.canUpdatePopulation(
+        { projects: ["ABC123"] },
+        { projects: ["ABC123"] },
+      ),
+    ).toEqual(true);
+    expect(
+      permissions.canUpdatePopulation(
+        { projects: ["ABC123"] },
+        { projects: ["DEF456"] },
+      ),
+    ).toEqual(false);
+  });
+});
+
 // permissionsClass Global Permissions Test
 describe("PermissionsUtilClass.canCreatePresentation check", () => {
   const testOrg: OrganizationInterface = {

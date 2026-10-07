@@ -1,4 +1,5 @@
 import { DashboardInterface } from "shared/enterprise";
+import type { PopulationInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { MetricInterface } from "shared/types/metric";
 import {
@@ -315,6 +316,29 @@ export class Permissions {
     segment: Pick<SegmentInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(segment, "createSegments");
+  };
+
+  public canCreatePopulation = (
+    population: Pick<PopulationInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(population, "managePopulations");
+  };
+
+  public canUpdatePopulation = (
+    existing: Pick<PopulationInterface, "projects">,
+    updates: Pick<PopulationInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "managePopulations",
+    );
+  };
+
+  public canDeletePopulation = (
+    population: Pick<PopulationInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(population, "managePopulations");
   };
 
   public canCreateVisualChange = (

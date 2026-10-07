@@ -57,17 +57,17 @@ export class PopulationModel extends BaseClass {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
   protected canCreate(doc: PopulationInterface): boolean {
-    return this.context.permissions.canCreateSegment(doc);
+    return this.context.permissions.canCreatePopulation(doc);
   }
   protected canUpdate(
     existing: PopulationInterface,
     _updates: UpdateProps<PopulationInterface>,
     newDoc: PopulationInterface,
   ): boolean {
-    return this.context.permissions.canUpdateSegment(existing, newDoc);
+    return this.context.permissions.canUpdatePopulation(existing, newDoc);
   }
   protected canDelete(doc: PopulationInterface): boolean {
-    return this.context.permissions.canDeleteSegment(doc);
+    return this.context.permissions.canDeletePopulation(doc);
   }
 
   protected async customValidation(doc: PopulationInterface): Promise<void> {
