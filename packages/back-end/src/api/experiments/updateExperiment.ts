@@ -404,7 +404,7 @@ export const updateExperiment = createApiRequestHandler(
     ...(identifierTypeChanged ? { exposureQueryIdentifierType } : {}),
   };
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes, req.context);
+  normalizeStatusUpdateScheduleChanges(experiment, changes, req.context.armer);
 
   // canUpdateExperiment (above) is the analysis-level check. Fields that reach
   // SDK payloads additionally need run-experiments permission in the

@@ -24,8 +24,8 @@ We support both the HTTP Basic and Bearer authentication schemes for convenience
 
 You first need to generate a new API Key in GrowthBook. Different keys have different permissions:
 
-- **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization. These can be created by going to `Personal Access Tokens` under the your user menu.
-- **Secret Keys**: These are sensitive and provide the level of access for the role, which currently is either `admin` or `readonly`. Only Admins with the `manageApiKeys` permission can manage Secret Keys on behalf of an organization. These can be created by going to `Settings -> API Keys`
+- **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization, or less if the token's permissions are limited. These can be created by going to `Personal Access Tokens` under your user menu. Admins with the `manageApiKeys` permission can disable a member's token under `Settings -> Manage PATs`, and require new tokens to expire within a maximum lifetime.
+- **Secret Keys**: These are sensitive and provide the level of access of the role they are given, which can be any built-in or custom role, with optional per-project role overrides and environment limits. Only Admins with the `manageApiKeys` permission can manage Secret Keys on behalf of an organization. These can be created by going to `Settings -> API Keys`, where Admins can also require new Secret Keys to expire within a maximum lifetime.
 
 If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank (when using curl, add `:` at the end of the secret to indicate an empty password)
 
@@ -40,6 +40,8 @@ If using Bearer auth, pass the Secret Key as the token:
 curl https://api.growthbook.io/api/v1/features \
 -H "Authorization: Bearer secret_abc123DEF456"
 ```
+
+If a key has an expiration date, every response includes it in the `X-GrowthBook-Key-Expires-At` header (ISO 8601), so scripts can warn before the key stops working. Requests made with an expired key fail with a `401` that says where to create a replacement.
 
 ## Errors
 

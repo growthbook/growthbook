@@ -78,6 +78,7 @@ export type SelectFieldProps = Omit<
   isClearable?: boolean;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
+  noOptionsMessage?: () => ReactNode;
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
   containerStyles?: StylesConfig<SingleValue, boolean>;
@@ -279,6 +280,7 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
+  noOptionsMessage,
   // forces re-render when input is undefined
   forceUndefinedValueToNull = false,
   useMultilineLabels = false,
@@ -524,6 +526,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     forceUndefinedValueToNull ? (selected ?? null) : selected
                   }
                   placeholder={initialOption ?? placeholder}
+                  noOptionsMessage={noOptionsMessage}
                   formatOptionLabel={formatOptionLabel}
                   formatGroupLabel={formatGroupLabel}
                   isSearchable={!!isSearchable}

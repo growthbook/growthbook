@@ -1996,7 +1996,7 @@ export async function postExperiment(
     }
   });
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes, context);
+  normalizeStatusUpdateScheduleChanges(experiment, changes, context.armer);
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.

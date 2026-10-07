@@ -21,6 +21,7 @@ import { TemplateVariables } from "shared/types/sql";
 import {
   eventForwarderAccessTestCreateBodySchema,
   eventForwarderAccessTestEditBodySchema,
+  testDataSourceConnectionBodySchema,
 } from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
@@ -52,6 +53,7 @@ import {
   runFeatureEvalDiagnosticsQuery,
   runFreeFormQuery,
   runUserExposureQuery,
+  testUnsavedDataSourceConnection,
 } from "back-end/src/services/datasource";
 import {
   getEventForwarderForDatasource,
@@ -432,6 +434,76 @@ function assertCanUpdateDataSource(
       permissions.throwPermissionError();
     }
   }
+}
+
+// Tests credentials without saving anything. Connection failures come back as a
+// 400 with the driver's message, the same as a failed save.
+export async function postTestDataSourceConnection(
+  req: AuthRequest,
+  res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
+) {
+  const parsed = testDataSourceConnectionBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const { type, projects, datasourceId } = parsed.data;
+  const params = parsed.data.params as Partial<DataSourceParams>;
+
+  let datasource: DataSourceInterface;
+  if (datasourceId) {
+    const existing = await getDataSourceById(context, datasourceId);
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ status: 404, message: "Cannot find data source" });
+    }
+    if (!context.permissions.canUpdateDataSourceParams(existing)) {
+      context.permissions.throwPermissionError();
+    }
+    const integration = getSourceIntegrationObject(context, existing);
+    if (existing.type !== type) {
+      return res.status(400).json({
+        status: 400,
+        message: "Cannot change the type of an existing data source.",
+      });
+    }
+
+    // The browser never receives saved secrets, so blank fields keep them.
+    mergeParams(integration, params);
+    datasource = { ...existing, params: encryptParams(integration.params) };
+  } else {
+    if (!context.permissions.canCreateDataSource({ projects, type })) {
+      context.permissions.throwPermissionError();
+    }
+    datasource = {
+      id: "",
+      name: "",
+      description: "",
+      organization: context.org.id,
+      dateCreated: null,
+      dateUpdated: null,
+      type,
+      params: encryptParams(params as DataSourceParams),
+      projects,
+      settings: {},
+    } as DataSourceInterface;
+  }
+
+  try {
+    await testUnsavedDataSourceConnection(context, datasource);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Unable to connect to the data source",
+    });
+  }
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function putDataSource(

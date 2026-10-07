@@ -2057,11 +2057,8 @@ export async function markRevisionAsReviewRequested(
   }
 
   // The auto-publish later runs with the armer's authority, so record who that
-  // was: a user as themselves, an org API key as itself, never the author.
-  const enabledBy =
-    !armed || !user
-      ? null
-      : ("id" in user && user.id) || ("apiKey" in user && user.apiKey) || null;
+  // was: a user as themselves, an API key as itself, never the author.
+  const enabledBy = armed ? context.armerId : null;
 
   const unset: Record<string, 1> = {};
   if (enabledBy === null) unset.autoPublishEnabledBy = 1;
