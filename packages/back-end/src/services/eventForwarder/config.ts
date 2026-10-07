@@ -28,6 +28,7 @@ import {
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
   normalizeDatabricksEventForwarderDestination,
+  resolveBigQueryEventForwarderTableNames,
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
@@ -42,12 +43,24 @@ type SinkConfig =
 // instead of a per-datasource Confluent connector.
 const IN_HOUSE_CONSUMER_SINKS: ReadonlySet<EventForwarderSinkType> = new Set([
   "databricks",
+  "bigquery",
 ]);
 
 export function isInHouseConsumerSink(
   sinkType: EventForwarderSinkType,
 ): boolean {
   return IN_HOUSE_CONSUMER_SINKS.has(sinkType);
+}
+
+// Whether an existing config is on the consumer: new configs get the shared
+// topic (or a per-org `__<orgId>` override); BigQuery configs created before
+// the consumer kept their per-datasource Confluent topic.
+// TODO: once every pre-consumer config is torn down, isInHouseConsumerSink suffices.
+export function isInHouseConsumerTopic(
+  topic: string,
+  sinkType: EventForwarderSinkType,
+): boolean {
+  return topic.split("__")[0] === getInHouseConsumerTopicName(sinkType);
 }
 
 export function getInHouseConsumerTopicName(
@@ -229,11 +242,17 @@ function buildBigQueryStoredConfigFromDraft(
     ) ||
     "";
 
+  const names = resolveBigQueryEventForwarderTableNames(tablePrefix);
   return {
     projectId,
     dataset,
     tablePrefix,
     serviceAccountKey,
+    tables: {
+      events: names.events,
+      experiment_viewed: names.experimentViewed,
+      feature_usage: names.featureUsage,
+    },
   };
 }
 
