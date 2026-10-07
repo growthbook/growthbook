@@ -32,7 +32,7 @@ const ApiKeysModal: FC<{
   const { orgSupportsRoles } = useOrgLimits();
 
   // When an existing key is passed in, the modal edits that key in place
-  // instead of creating a new one. Only org secret keys can be edited.
+  // instead of creating a new one.
   const editMode = !!existingKey;
 
   const defaultRole = useMemo(() => {
@@ -60,30 +60,38 @@ const ApiKeysModal: FC<{
     // is normally populated. We still fall back to "admin" (the same effective
     // role) — never defaultRole — if it's ever empty, so a description/scope-only
     // edit of a legacy key can't silently downgrade its permissions. defaultRole
-    // is only used when creating a brand-new key.
-    role: existingKey ? existingKey.role || "admin" : defaultRole,
+    // is only used when creating a brand-new key or scoping an unscoped PAT.
+    role:
+      existingKey && (!personalAccessToken || existingKey.scoped)
+        ? existingKey.role || "admin"
+        : defaultRole,
     limitAccessByEnvironment: existingKey?.limitAccessByEnvironment ?? false,
     environments: existingKey?.environments ?? [],
     additionalRoles: existingKey?.additionalRoles,
     projectRoles: existingKey?.projectRoles,
   });
-  const [scoped, setScoped] = useState(false);
+  const [scoped, setScoped] = useState(!!existingKey?.scoped);
   // Gated like org-key roles; with only the admin role there is nothing to narrow to.
-  const canScopeToken = personalAccessToken && orgSupportsRoles();
+  // An already-scoped token stays visible after a downgrade so the scope isn't silently dropped.
+  const canScopeToken =
+    personalAccessToken && (orgSupportsRoles() || !!existingKey?.scoped);
 
   const onSubmit = form.handleSubmit(async (value) => {
     const { role, ...roleStateData } = roleState;
+    const patScope = scoped ? { scopedRole: role, ...roleStateData } : {};
 
     if (existingKey) {
       await apiCall(`/keys/${existingKey.id}`, {
         method: "PUT",
         body: JSON.stringify({
           description: value.description,
-          role,
-          ...roleStateData,
+          ...(personalAccessToken ? patScope : { role, ...roleStateData }),
         }),
       });
-      track("Edit API Key");
+      track("Edit API Key", {
+        isSecret: !personalAccessToken,
+        ...(personalAccessToken ? { scoped } : {}),
+      });
       onCreate();
       return;
     }
@@ -92,7 +100,7 @@ const ApiKeysModal: FC<{
       ? {
           description: value.description,
           type: "user",
-          ...(scoped ? { scopedRole: role, ...roleStateData } : {}),
+          ...patScope,
         }
       : {
           description: value.description,

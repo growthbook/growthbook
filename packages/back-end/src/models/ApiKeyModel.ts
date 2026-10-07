@@ -135,40 +135,34 @@ export class ApiKeyModel extends BaseClass {
           "Personal access tokens are disabled for this organization.",
         );
       }
-      if (doc.scoped) {
-        // Scope is write-once, so only creation validates it; re-checking on
-        // disable would trap a token whose role or environment is gone.
-        if (previousDoc) return;
-        if (!doc.role) {
+      if (!doc.scoped) {
+        // Unscoped PATs inherit permissions from their user — scoping fields must not be set
+        if (
+          doc.limitAccessByEnvironment ||
+          doc.projectRoles?.length ||
+          doc.additionalRoles?.length
+        ) {
           this.context.throwBadRequestError(
-            "Scoped personal access tokens require a role.",
+            "Restricting a personal access token requires a scoped role.",
           );
         }
-        this.assertPlanAllowsScope(doc);
-        await this.validateScope(doc);
         return;
       }
-      // Unscoped PATs inherit permissions from their user — scoping fields must not be set
-      if (
-        doc.limitAccessByEnvironment ||
-        doc.projectRoles?.length ||
-        doc.additionalRoles?.length
-      ) {
+      if (!doc.role) {
         this.context.throwBadRequestError(
-          "Restricting a personal access token requires a scoped role.",
+          "Scoped personal access tokens require a role.",
         );
       }
-    } else {
-      // Only a write that changes the scope is checked, so a key stays disableable after its plan, roles or environments lapse.
-      if (
-        previousDoc &&
-        isEqual(pick(doc, SCOPE_FIELDS), pick(previousDoc, SCOPE_FIELDS))
-      ) {
-        return;
-      }
-      this.assertPlanAllowsScope(doc, previousDoc);
-      await this.validateScope(doc, previousDoc);
     }
+    // Only a write that changes the scope is checked, so a key stays disableable after its plan, roles or environments lapse.
+    if (
+      previousDoc &&
+      isEqual(pick(doc, SCOPE_FIELDS), pick(previousDoc, SCOPE_FIELDS))
+    ) {
+      return;
+    }
+    this.assertPlanAllowsScope(doc, previousDoc);
+    await this.validateScope(doc, previousDoc);
   }
 
   // Commercial gates, for org keys and scoped PATs alike. Only a role change is
@@ -369,14 +363,15 @@ export class ApiKeyModel extends BaseClass {
     return { before: doc, after };
   }
 
-  // Admins can edit the permission scope of an existing org secret key in place
-  // (role + environment/project restrictions + description). This lets already
-  // issued tokens pick up new permissions immediately — auth reads the role from
-  // this DB record on every request.
+  // Admins can edit the permission scope of an existing org secret key in place,
+  // and users their own PATs (role + environment/project restrictions +
+  // description). This lets already issued tokens pick up new permissions
+  // immediately — auth reads the role from this DB record on every request.
   public async updateSecretApiKeyPermissions(
     id: string,
     {
       role,
+      scopedRole,
       limitAccessByEnvironment,
       environments,
       additionalRoles,
@@ -384,6 +379,7 @@ export class ApiKeyModel extends BaseClass {
       description,
     }: {
       role?: string;
+      scopedRole?: string;
       limitAccessByEnvironment?: boolean;
       environments?: string[];
       additionalRoles?: ApiKeyInterface["additionalRoles"];
@@ -394,18 +390,42 @@ export class ApiKeyModel extends BaseClass {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
 
-    // Only plain organization secret keys are editable here. SDK keys (non
-    // secret) have no role, and PATs (secret + userId) derive their permissions
-    // from the linked member, not the key doc — so both are rejected.
+    // SDK keys (non secret) have no role, so they're rejected.
     if (!doc.secret) {
       this.context.throwBadRequestError(
         "Only secret API keys can have their permissions edited.",
       );
     }
+
     if (doc.userId) {
-      this.context.throwBadRequestError(
-        "Personal Access Tokens inherit permissions from their user and cannot be edited.",
+      // A PAT is only ever editable by its owner, like reveal and delete.
+      if (doc.userId !== this.context.userId) {
+        this.context.throwNotFoundError(`API key not found: ${id}`);
+      }
+      // Mirrors creation: no scopedRole means the token inherits its user's permissions.
+      const after = await this._updateOne(
+        doc,
+        {
+          description,
+          role: scopedRole || "user",
+          scoped: scopedRole ? true : undefined,
+          limitAccessByEnvironment: !!scopedRole && !!limitAccessByEnvironment,
+          environments: scopedRole ? environments : [],
+          additionalRoles: scopedRole ? additionalRoles : undefined,
+          projectRoles: scopedRole ? projectRoles : undefined,
+        },
+        { forceCanUpdate: true },
       );
+      return { before: doc, after };
+    }
+
+    // Editing a key's authority is at least as sensitive as revealing it, so we
+    // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user keys.
+    if (!this.context.permissions.canCreateApiKey()) {
+      this.context.permissions.throwPermissionError();
+    }
+    if (!role) {
+      this.context.throwBadRequestError("A role is required.");
     }
 
     // Permission fields (role/scope/description) are intentionally editable by
