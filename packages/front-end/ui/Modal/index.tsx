@@ -72,6 +72,9 @@ type ModalContextValue = {
     eventName: string,
     additionalProps?: Record<string, unknown>,
   ) => void;
+  // True while a ModalForm submit is in flight. Root uses it to block dismiss.
+  loading: boolean;
+  setLoading: (loading: boolean) => void;
 };
 
 const ModalContext = createContext<ModalContextValue | null>(null);
@@ -82,6 +85,10 @@ export function useModalContext(): ModalContextValue {
     throw new Error("Modal primitives must be rendered inside <Modal.Root>.");
   }
   return ctx;
+}
+
+export function useOptionalModalContext(): ModalContextValue | null {
+  return useContext(ModalContext);
 }
 
 // ---------------------------------------------------------------------------
@@ -120,6 +127,7 @@ function Root({
 }: RootProps) {
   const [modalUuid] = useState(uuidv4());
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -161,6 +169,7 @@ function Root({
       sendTrackingEvent("modal-open");
     } else if (!open && prevOpen) {
       setError(null);
+      setLoading(false);
     }
   }, [open, sendTrackingEvent]);
 
@@ -171,8 +180,10 @@ function Root({
       scrollBodyToTop,
       bodyRef,
       sendTrackingEvent,
+      loading,
+      setLoading,
     }),
-    [error, scrollBodyToTop, sendTrackingEvent],
+    [error, scrollBodyToTop, sendTrackingEvent, loading],
   );
 
   const ariaDescribedBy = hasDescription
@@ -188,10 +199,11 @@ function Root({
         maxHeight={size === "fill" ? "calc(100vh - 32px)" : "85vh"}
         {...ariaDescribedBy}
         onEscapeKeyDown={(e) => {
-          if (!dismissible) e.preventDefault();
+          // A submit in flight keeps the dialog up even when it is otherwise dismissible.
+          if (!dismissible || loading) e.preventDefault();
         }}
         onPointerDownOutside={(e) => {
-          if (!dismissible) e.preventDefault();
+          if (!dismissible || loading) e.preventDefault();
         }}
         style={
           {

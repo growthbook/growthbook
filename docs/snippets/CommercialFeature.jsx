@@ -290,7 +290,7 @@ export const CommercialFeature = ({ feature, description }) => {
     },
     "visual-editor": {
       plan: "pro",
-      displayName: "Visual Editor",
+      displayName: "AI Visual Editor",
     },
   };
 

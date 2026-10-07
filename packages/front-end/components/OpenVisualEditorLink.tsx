@@ -199,7 +199,7 @@ const OpenVisualEditorLink: FC<{
   useLink,
   button = (
     <>
-      Open Visual Editor
+      Open AI Visual Editor
       <PiArrowSquareOut
         className="ml-1"
         style={{ position: "relative", top: "-2px" }}
@@ -268,16 +268,16 @@ const OpenVisualEditorLink: FC<{
         <Modal
           trackingEventModalType=""
           open
-          header="Visual Editor Target URL"
+          header="AI Visual Editor Target URL"
           close={() => setShowEditorUrlDialog(false)}
           closeCta="Close"
           cta="Open settings"
           submit={openSettings}
         >
           You&apos;ll need to define the{" "}
-          <strong>Visual Editor Target URL</strong> in your experiment&apos;s
+          <strong>AI Visual Editor Target URL</strong> in your experiment&apos;s
           settings first. This will configure which web page will be opened when
-          you click on the &quot;Open Visual Editor&quot; button.
+          you click on the &quot;Open AI Visual Editor&quot; button.
         </Modal>
       )}
 
@@ -285,7 +285,7 @@ const OpenVisualEditorLink: FC<{
         <Modal
           trackingEventModalType=""
           open
-          header="GrowthBook Visual Editor Extension"
+          header="GrowthBook AI Visual Editor Extension"
           close={() => setShowExtensionDialog(false)}
           closeCta="Close"
           cta="View extension"
@@ -295,8 +295,8 @@ const OpenVisualEditorLink: FC<{
         >
           {browser === "chrome" ? (
             <>
-              You&apos;ll need to install the GrowthBook Visual Editor browser
-              extension to use the Visual Editor.{" "}
+              You&apos;ll need to install the GrowthBook AI Visual Editor
+              browser extension to use the AI Visual Editor.{" "}
               <a
                 href="#"
                 onClick={(e) => {
@@ -316,7 +316,7 @@ const OpenVisualEditorLink: FC<{
             </>
           ) : (
             <>
-              The Visual Editor extension is currently available for Chrome.
+              The AI Visual Editor extension is currently available for Chrome.
               We&apos;re working on bringing it to other browsers.
             </>
           )}

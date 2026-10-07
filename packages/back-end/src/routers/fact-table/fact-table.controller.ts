@@ -22,6 +22,7 @@ import {
   FactFilterTestResults,
   ColumnInterface,
   FactTableColumnType,
+  FullFactTableColumns,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
@@ -34,6 +35,7 @@ import {
   mergeUpsertColumns,
   getAllFactTablesForOrganization,
   getFactTable,
+  getFactTablesByIds,
   createColumn,
   updateColumn,
   deleteColumn as deleteColumnInDb,
@@ -86,17 +88,36 @@ import {
   testVirtualColumnQuery,
 } from "back-end/src/services/factTableTestQueries";
 
+// Optional `ids` narrows the list to a specific set (e.g. the Explorer's
+// dimension picker, which needs full jsonFields that definitions strip) and
+// returns only the fields needed to resolve columns — no `sql`.
 export const getFactTables = async (
-  req: AuthRequest,
-  res: Response<{ status: 200; factTables: FactTableInterface[] }>,
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<{
+    status: 200;
+    factTables: FactTableInterface[] | FullFactTableColumns[];
+  }>,
 ) => {
   const context = getContextFromReq(req);
 
-  const factTables = await getAllFactTablesForOrganization(context);
+  if (req.query.ids !== undefined) {
+    const factTables = await getFactTablesByIds(
+      context,
+      req.query.ids.split(",").filter(Boolean),
+    );
+    return res.status(200).json({
+      status: 200,
+      factTables: factTables.map(({ id, columns, userIdTypes }) => ({
+        id,
+        columns,
+        userIdTypes,
+      })),
+    });
+  }
 
   res.status(200).json({
     status: 200,
-    factTables,
+    factTables: await getAllFactTablesForOrganization(context),
   });
 };
 

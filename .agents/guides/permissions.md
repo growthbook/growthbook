@@ -230,8 +230,9 @@ context.permissions.canRunExperiment(experiment, environments);
 // the check at launch. assertCanRunExperimentInAffectedEnvironments wraps it.
 // A scheduled experiment status change is checked twice: arming checks
 // runExperiments across the reach and publishFeatures on each pending draft
-// (assertCanPublishPendingFeatureDrafts), and the fire runs as the armer, a
-// user or an org API key (`scheduledBy` / `scheduledByApiKey`,
+// (assertCanPublishPendingFeatureDrafts), and the fire runs as the armer
+// (`context.armer`: a user, an org API key, or a scoped PAT recorded as its
+// key so the cap travels with the work; `scheduledBy` / `scheduledByApiKey`,
 // getScheduledStatusContext), so the draft publish is judged as it is then.
 // Never the job's own authority; only a stop staged before armers were
 // recorded still runs as the owner.
@@ -355,8 +356,9 @@ export async function createArchetype(req: AuthRequest, res: Response) {
 | `admin`        | Full access                   |
 
 `traceIngest` is API-key-only (`API_KEY_ONLY_ROLE_IDS`): `isRoleValid` rejects it
-for members, invites, teams, SCIM, and the default role; role pickers hide it; and
-the REST API refuses keys that have it. It exists for keys that send AI traces
+for members, invites, teams, SCIM, and the default role; `ApiKeyModel` allows it
+only as an org secret key's base role (not on scoped PATs or as an extra rule);
+role pickers hide it; and the REST API refuses keys that have it. It exists for keys that send AI traces
 to the ingestor.
 
 ### How Permissions Resolve

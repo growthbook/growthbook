@@ -1,13 +1,16 @@
 import { FC, useState, useMemo } from "react";
 import { AuditInterface, EventType } from "shared/types/audit";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { entityEvents } from "shared/constants";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
+import { Select, SelectItem } from "@/ui/Select";
 import Button from "./Button";
 import Code from "./SyntaxHighlighting/Code";
 import LoadingOverlay from "./LoadingOverlay";
@@ -58,7 +61,7 @@ function EventDetails({
             ))}
           </div>
         )}
-        <ReactDiffViewer
+        <LazyDiffViewer
           oldValue={JSON.stringify(json.pre || {}, null, 2)}
           newValue={JSON.stringify(json.post || {}, null, 2)}
           compareMethod={DiffMethod.LINES}
@@ -165,18 +168,23 @@ const HistoryTable: FC<{
     | "savedGroup"
     | "factTable"
     | "datasource"
-    | "apiKey";
+    | "apiKey"
+    | "project";
   showName?: boolean;
   showType?: boolean;
   id?: string;
 }> = ({ id, type, showName = false, showType = false }) => {
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursors, setCursors] = useState<(string | null)[]>([null]); // Stack of cursors for each page
+  const [eventFilter, setEventFilter] = useState("");
   const limit = 50;
 
+  const query = `limit=${limit}${cursor ? `&cursor=${cursor}` : ""}${
+    eventFilter ? `&event=${eventFilter}` : ""
+  }`;
   const apiPath = id
-    ? `/history/${type}/${id}?limit=${limit}${cursor ? `&cursor=${cursor}` : ""}`
-    : `/history/${type}?limit=${limit}${cursor ? `&cursor=${cursor}` : ""}`;
+    ? `/history/${type}/${id}?${query}`
+    : `/history/${type}?${query}`;
 
   const { data, error, mutate } = useApi<{
     events: AuditInterface[];
@@ -226,6 +234,25 @@ const HistoryTable: FC<{
           {data.total} total event{data.total !== 1 ? "s" : ""}
         </div>
         <div className="col-auto ml-auto">
+          <Select
+            value={eventFilter || "all"}
+            setValue={(v) => {
+              setEventFilter(v === "all" ? "" : v);
+              setCursor(null);
+              setCursors([null]);
+              setOpen("");
+            }}
+            size="sm"
+          >
+            <SelectItem value="all">All events</SelectItem>
+            {[...new Set<string>(entityEvents[type])].map((e) => (
+              <SelectItem key={e} value={`${type}.${e}`}>
+                {type}.{e}
+              </SelectItem>
+            ))}
+          </Select>
+        </div>
+        <div className="col-auto">
           <Button
             color="link btn-sm"
             onClick={async () => {

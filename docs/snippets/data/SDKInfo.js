@@ -403,7 +403,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "3.1.1",
+    version: "3.2.0",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -418,6 +418,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v3.2.0",
       },
       {
         contextualBandits: "≥ v3.1.0",
@@ -462,7 +465,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.5.1",
+    version: "0.6.0",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -482,6 +485,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v0.6.0",
       },
       {
         contextualBandits: "≥ v0.5.0",
@@ -526,7 +532,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.2.2",
+    version: "0.3.0",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -546,6 +552,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v0.3.0",
       },
       {
         savedGroupReferences: "≥ v0.2.0",
@@ -809,7 +818,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.2.3",
+    version: "1.2.4",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [

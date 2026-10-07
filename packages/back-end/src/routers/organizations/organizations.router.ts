@@ -17,7 +17,7 @@ const organizationsController = wrapController(organizationsControllerRaw);
 
 router.get("/organization/definitions", organizationsController.getDefinitions);
 router.get("/activity", organizationsController.getActivityFeed);
-router.get("/history/:type", organizationsController.getAllHistory);
+router.get("/history/:type", organizationsController.getHistory);
 router.get("/history/:type/:id", organizationsController.getHistory);
 router.get("/organization", organizationsController.getOrganization);
 router.post("/organization", organizationsController.signup);
@@ -88,6 +88,10 @@ router.get(
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
+router.get(
+  "/keys/personal-access-tokens",
+  organizationsController.getPersonalAccessTokens,
+);
 router.post(
   "/keys",
   validateRequestMiddleware({
@@ -103,6 +107,10 @@ router.put(
   organizationsController.putApiKey,
 );
 router.delete("/keys", organizationsController.deleteApiKey);
+router.post(
+  "/keys/apply-expiration-policy",
+  organizationsController.postApplyExpirationPolicy,
+);
 router.post("/keys/reveal", organizationsController.postApiKeyReveal);
 router.put(
   "/keys/:id/disabled",

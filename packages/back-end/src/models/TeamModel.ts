@@ -2,8 +2,8 @@ import { teamSchema, ApiDeleteTeamReturn } from "shared/validators";
 import { ApiTeamInterface, TeamInterface } from "shared/types/team";
 import { UpdateProps } from "shared/types/base-model";
 import {
+  areAdditionalRolesValid,
   areProjectRolesValid,
-  isApiKeyOnlyRole,
   isRoleValid,
 } from "shared/permissions";
 import { stringToBoolean } from "shared/util";
@@ -134,7 +134,7 @@ export class TeamModel extends BaseClass {
   ) {
     if (
       !isRoleValid(doc.role, this.context.org) ||
-      (doc.additionalRoles ?? []).some((r) => isApiKeyOnlyRole(r.role)) ||
+      !areAdditionalRolesValid(doc.additionalRoles, this.context.org) ||
       !areProjectRolesValid(doc.projectRoles, this.context.org)
     ) {
       return this.context.throwBadRequestError("Invalid role");

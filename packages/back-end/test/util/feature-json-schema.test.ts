@@ -1,5 +1,8 @@
 import { FeatureInterface } from "shared/types/feature";
-import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
+import {
+  getInitialFeatureJsonSchema,
+  stampApiJsonSchema,
+} from "back-end/src/util/feature-json-schema";
 
 describe("getInitialFeatureJsonSchema", () => {
   it("preserves provided schema settings for duplicated features", () => {
@@ -66,5 +69,34 @@ describe("getInitialFeatureJsonSchema", () => {
     expect(schema.schemaType).toBe("schema");
     expect(schema.schema).toBe('{"type":"object"}');
     expect(schema.enabled).toBe(true);
+  });
+});
+
+describe("stampApiJsonSchema", () => {
+  const jsonSchema = {
+    schemaType: "schema" as const,
+    schema: '{"type":"string"}',
+    simple: { type: "primitive" as const, fields: [] },
+    enabled: true,
+  };
+
+  it("keeps the schema and sets date server-side", () => {
+    const before = Date.now();
+    const stamped = stampApiJsonSchema(jsonSchema, "string");
+
+    expect(stamped).toEqual({ ...jsonSchema, date: expect.any(Date) });
+    expect(stamped.date.getTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  it("rejects a schema on a boolean feature", () => {
+    expect(() => stampApiJsonSchema(jsonSchema, "boolean")).toThrow(
+      "Boolean features cannot have a validation schema.",
+    );
+  });
+
+  it("rejects a schema whose type doesn't match the feature", () => {
+    expect(() => stampApiJsonSchema(jsonSchema, "number")).toThrow(
+      /must have a top-level type of "number" or "integer"/,
+    );
   });
 });

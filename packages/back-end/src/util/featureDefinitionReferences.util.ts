@@ -1,7 +1,4 @@
-import {
-  forEachSavedGroupIdInCondition,
-  MAX_SAVED_GROUP_DEPTH,
-} from "shared/sdk-versioning";
+import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { ExperimentInterface } from "shared/types/experiment";
@@ -12,13 +9,17 @@ export type FeatureDefinitionSources = {
   // Revisions whose rules are compiled alongside the feature (`withRevisions`).
   revisions?: Pick<FeatureRevisionInterface, "rules">[];
   // `experiment-ref` rules take their targeting from the experiment's phase.
+  // Holdout experiments belong here too: their phase targets the holdout rule.
   experiments?: Iterable<Pick<ExperimentInterface, "phases">>;
+  // `contextual-bandit-ref` rules take their targeting from the bandit.
+  bandits?: Iterable<TargetingSource>;
 };
 
-// A rule's `savedGroups` entry spends one level before nested expansion starts
-// counting, so the deepest group a definition reads sits one past the expansion
-// depth. One spare round on top of that.
-const MAX_SAVED_GROUP_LOAD_ROUNDS = MAX_SAVED_GROUP_DEPTH + 2;
+export type TargetingSource = {
+  condition?: unknown;
+  savedGroups?: unknown;
+  prerequisites?: readonly { condition?: unknown }[] | null;
+};
 
 function rulesOf({
   features,
@@ -90,7 +91,25 @@ export function getSavedGroupIdsForFeatureDefinitions(
       }
     }
   }
+  getSavedGroupIdsInTargeting(sources.bandits ?? []).forEach((id) =>
+    ids.add(id),
+  );
 
+  return [...ids];
+}
+
+// Every Saved Group id these targeting blocks (condition, saved groups and
+// prerequisite conditions) name directly.
+export function getSavedGroupIdsInTargeting(
+  targets: Iterable<TargetingSource>,
+): string[] {
+  const ids = new Set<string>();
+  for (const target of targets) {
+    addTargetingIds(ids, target);
+    for (const p of target.prerequisites ?? []) {
+      addConditionIds(ids, p.condition);
+    }
+  }
   return [...ids];
 }
 
@@ -105,7 +124,7 @@ export function getSafeRolloutIdsForFeatureDefinitions(
 }
 
 // Loads the given Saved Groups plus any they reach through condition groups,
-// one query per nesting level.
+// one query per nesting level, until no group names one that is not loaded.
 export async function loadSavedGroupsWithNested<
   T extends Pick<SavedGroupInterface, "id" | "type" | "condition">,
 >(ids: string[], loadByIds: (ids: string[]) => Promise<T[]>): Promise<T[]> {
@@ -113,11 +132,7 @@ export async function loadSavedGroupsWithNested<
   const loaded: T[] = [];
   let wanted = [...new Set(ids)];
 
-  for (
-    let round = 0;
-    wanted.length && round < MAX_SAVED_GROUP_LOAD_ROUNDS;
-    round++
-  ) {
+  while (wanted.length) {
     wanted.forEach((id) => requested.add(id));
     const groups = await loadByIds(wanted);
     loaded.push(...groups);

@@ -431,6 +431,7 @@ export async function commitBulkPublish(
           entityPreImage: item.entityPreImage,
           isApprovalBypass: item.isApprovalBypass,
           comment: plan.flags.comment,
+          desiredState: item.desiredState,
         });
       } catch (e) {
         logger.error(

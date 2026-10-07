@@ -1,12 +1,45 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
+  ApiRampMonitoringConfigInput,
+  ApiRampScheduleTemplateInterface,
   RampScheduleTemplateInterface,
   rampScheduleTemplateValidator,
 } from "shared/validators";
+import { monitoringConfigToApi } from "shared/util";
 import { rampScheduleTemplateApiSpec } from "back-end/src/api/specs/ramp-schedule-template.spec";
+import {
+  assertValidMonitoringConfigChange,
+  withMonitoringDatasourceKey,
+} from "back-end/src/services/rampSchedule";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 import { migrateRampStepTriggers } from "./RampScheduleModel";
+
+/**
+ * Resolves a REST body's monitoring config to the stored shape. `null` (clear)
+ * and absent configs pass through.
+ */
+async function withInternalMonitoringConfig<
+  T extends { monitoringConfig?: ApiRampMonitoringConfigInput | null },
+>(
+  context: ReqContext | ApiReqContext,
+  body: T,
+  previous: RampScheduleTemplateInterface["monitoringConfig"] | undefined,
+) {
+  if (!body.monitoringConfig) return body;
+  return {
+    ...body,
+    monitoringConfig: await resolveApiMonitoringConfig(
+      context,
+      body.monitoringConfig,
+      previous,
+    ),
+  };
+}
 
 const BaseClass = MakeModelClass({
   schema: rampScheduleTemplateValidator,
@@ -32,7 +65,9 @@ const BaseClass = MakeModelClass({
 });
 
 export class RampScheduleTemplateModel extends BaseClass {
-  protected migrate(legacyDoc: unknown): RampScheduleTemplateInterface {
+  protected override migrate(
+    legacyDoc: unknown,
+  ): RampScheduleTemplateInterface {
     const doc = legacyDoc as RampScheduleTemplateInterface;
     // Templates are reusable plans, so a legacy scheduled trigger's absolute
     // date is meaningless against the template's creation time. Convert with
@@ -94,13 +129,79 @@ export class RampScheduleTemplateModel extends BaseClass {
   // REST create: append to the end unless the caller pins an explicit order, so
   // API-created templates behave like app-created ones instead of defaulting to
   // order 0 and jumping to the top.
-  protected async processApiCreateBody(
+  protected override async processApiCreateBody(
     rawBody: unknown,
   ): Promise<CreateProps<RampScheduleTemplateInterface>> {
-    const body = rawBody as CreateProps<RampScheduleTemplateInterface> & {
-      order?: number;
-    };
+    const body = (await withInternalMonitoringConfig(
+      this.context,
+      rawBody as Omit<
+        CreateProps<RampScheduleTemplateInterface>,
+        "monitoringConfig"
+      > & {
+        order?: number;
+        monitoringConfig?: ApiRampMonitoringConfigInput | null;
+      },
+      null,
+    )) as CreateProps<RampScheduleTemplateInterface> & { order?: number };
     return { ...body, order: body.order ?? (await this.getNextOrder()) };
+  }
+
+  /**
+   * Overridden to read the stored monitoring config, which
+   * processApiUpdateBody can't see.
+   */
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ) {
+    const { id } = req.params as { id: string };
+    const existing = await this.getById(id);
+    const toUpdate = (await withInternalMonitoringConfig(
+      this.context,
+      req.body as Omit<
+        UpdateProps<RampScheduleTemplateInterface>,
+        "monitoringConfig"
+      > & { monitoringConfig?: ApiRampMonitoringConfigInput | null },
+      existing?.monitoringConfig,
+    )) as UpdateProps<RampScheduleTemplateInterface>;
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.context,
+    );
+  }
+
+  /** Runs for internal and REST writes. */
+  protected override async customValidation(
+    doc: RampScheduleTemplateInterface,
+    previousDoc?: RampScheduleTemplateInterface,
+  ) {
+    await assertValidMonitoringConfigChange(
+      this.context,
+      previousDoc?.monitoringConfig,
+      doc.monitoringConfig,
+    );
+  }
+
+  protected override getForeignKeys(doc: RampScheduleTemplateInterface) {
+    return withMonitoringDatasourceKey(
+      super.getForeignKeys(doc),
+      doc.monitoringConfig,
+    );
+  }
+
+  protected override toApiInterface(
+    doc: RampScheduleTemplateInterface,
+  ): ApiRampScheduleTemplateInterface {
+    const base = super.toApiInterface(doc);
+    return {
+      ...base,
+      monitoringConfig: doc.monitoringConfig
+        ? monitoringConfigToApi(
+            doc.monitoringConfig,
+            this.getForeignRefs(doc, false).datasource?.settings?.queries
+              ?.exposure ?? [],
+          )
+        : doc.monitoringConfig,
+    };
   }
 
   // Move `oldId` into the slot held by `newId`, then renumber so `order`

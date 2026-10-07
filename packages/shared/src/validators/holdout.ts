@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { MAX_HOLDOUT_SIZE, holdoutStage } from "../util/holdouts";
+import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
 import { apiBaseSchema } from "./base-model";
 import { featureEnvironment } from "./features";
 import { namedSchema } from "./openapi-helpers";
@@ -119,6 +123,7 @@ export const createHoldoutInputValidator = z.object({
 
   datasourceId: z.string().optional(),
   assignmentQueryId: z.string().optional(),
+  assignmentQueryIdentifierType: z.string().optional(),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
 
@@ -238,7 +243,7 @@ export const apiHoldoutValidator = namedSchema(
 
     // Analysis settings
     datasourceId: z.string(),
-    assignmentQueryId: z.string(),
+    ...apiAssignmentQueryResponseFields("assignmentQuery"),
     goalMetrics: z.array(z.string()),
     secondaryMetrics: z.array(z.string()),
     statsEngine: z
@@ -329,7 +334,7 @@ export const apiCreateHoldoutBody = z.strictObject({
   savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
   datasourceId: z.string().optional(),
-  assignmentQueryId: z.string().optional(),
+  ...apiAssignmentQueryInputFields("assignmentQuery"),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
   statsEngine: z
@@ -369,7 +374,7 @@ export const apiUpdateHoldoutBody = z.strictObject({
   savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
   datasourceId: z.string().optional(),
-  assignmentQueryId: z.string().optional(),
+  ...apiAssignmentQueryInputFields("assignmentQuery"),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
   statsEngine: z

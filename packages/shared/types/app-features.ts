@@ -148,4 +148,5 @@ export type AppFeatures = {
   "pricing-phase-1-limits": Record<string, unknown>;
   "eu-data-region": boolean;
   "ai-trace-ingest": boolean;
+  "new-data-source-onboarding": boolean;
 };

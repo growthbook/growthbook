@@ -388,4 +388,18 @@ describe("authenticateApiRequestMiddleware with an API key", () => {
         "This API key has the traceIngest role and can't be used with the GrowthBook API",
     });
   });
+
+  it("rejects a token carrying traceIngest even if it's user-attributed", async () => {
+    const { res, next } = await run({
+      id: "key_2",
+      key: "secret_user_abc",
+      secret: true,
+      organization: "org_1",
+      userId: "u_1",
+      scoped: true,
+      role: "traceIngest",
+    });
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
 });

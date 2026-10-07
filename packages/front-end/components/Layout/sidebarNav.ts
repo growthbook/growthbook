@@ -308,6 +308,14 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canDeleteApiKey(),
       },
       {
+        name: "Manage PATs",
+        href: "/settings/personal-access-tokens",
+        path: /^settings\/personal-access-tokens/,
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageOrgSettings() ||
+          permissionsUtils.canDeleteApiKey(),
+      },
+      {
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,

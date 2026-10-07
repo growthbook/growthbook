@@ -4,6 +4,7 @@ import {
   DEFAULT_ROLES,
   RESERVED_ROLE_IDS,
   TRACE_INGEST_ROLE_ID,
+  areAdditionalRolesValid,
   areProjectRolesValid,
   getDefaultRole,
   getRoleById,
@@ -104,7 +105,12 @@ describe("traceIngest role", () => {
         ],
         org,
       ),
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it("isn't valid as an additional role", () => {
+    expect(areAdditionalRolesValid([rule("traceIngest")], org)).toBe(false);
+    expect(areAdditionalRolesValid([rule("engineer")], org)).toBe(true);
   });
 
   it("can't be the org default role", () => {

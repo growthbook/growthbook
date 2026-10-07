@@ -172,4 +172,73 @@ describe("ApiKeyModel traceIngest keys", () => {
       description: "renamed",
     });
   });
+
+  it("rejects traceIngest on a scoped personal access token", async () => {
+    const userContext = new ReqContextClass({
+      org: {
+        ...org,
+        members: [
+          {
+            id: "u_pat",
+            role: "admin",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+      },
+      user: { id: "u_pat", email: "pat@test.com" },
+      auditUser: {
+        type: "dashboard",
+        id: "u_pat",
+        email: "pat@test.com",
+        name: "",
+      },
+    });
+    jest.spyOn(userContext, "hasPremiumFeature").mockReturnValue(true);
+    await expect(
+      userContext.models.apiKeys.createUserPersonalAccessApiKey({
+        userId: "u_pat",
+        description: "pat",
+        scopedRole: "traceIngest",
+      }),
+    ).rejects.toThrow("can only be used for organization API keys");
+    await expect(
+      userContext.models.apiKeys.createUserPersonalAccessApiKey({
+        userId: "u_pat",
+        description: "pat",
+        scopedRole: "readonly",
+        additionalRoles: [
+          {
+            role: "traceIngest",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+      }),
+    ).rejects.toThrow("can only be a key's base role");
+  });
+
+  it("follows the org's API key expiration policy", async () => {
+    const policyContext = new ReqContextClass({
+      org: { ...org, settings: { ...org.settings, maxApiKeyLifetimeDays: 30 } },
+      auditUser: { type: "api_key", apiKey: "key_test" },
+      role: "admin",
+    });
+    jest.spyOn(policyContext, "hasPremiumFeature").mockReturnValue(true);
+    await expect(
+      policyContext.models.apiKeys.createOrganizationApiKey({
+        description: "key",
+        roleId: "traceIngest",
+      }),
+    ).rejects.toThrow("requires an expiration date");
+
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await expect(
+      policyContext.models.apiKeys.createOrganizationApiKey({
+        description: "key",
+        roleId: "traceIngest",
+        expiresAt,
+      }),
+    ).resolves.toMatchObject({ role: "traceIngest", expiresAt });
+  });
 });

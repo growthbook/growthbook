@@ -23,7 +23,10 @@ import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
 } from "back-end/src/util/api-key.util";
-import { getUserPermissions } from "back-end/src/util/organization.util";
+import {
+  getPersonalAccessTokenPermissions,
+  getUserPermissions,
+} from "back-end/src/util/organization.util";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
@@ -218,7 +221,8 @@ function authenticateWithApiKey(
   // Lookup organization by secret key and store in req
   dangerousLookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyDoc) => {
-      const { organization, secret, id, userId, role, disabled } = apiKeyDoc;
+      const { organization, secret, id, userId, role, disabled, expiresAt } =
+        apiKeyDoc;
       if (!secret) {
         throw new Error(
           "Must use a Secret API Key for this request, SDK Endpoint key given instead.",
@@ -237,9 +241,16 @@ function authenticateWithApiKey(
       // Single-purpose keys (e.g. traceIngest) have no policies, so every
       // permission check would fail anyway; reject them outright so endpoints
       // that don't check permissions can't be reached either.
-      if (!userId && role && isApiKeyOnlyRole(role)) {
+      if (role && isApiKeyOnlyRole(role)) {
         throw new Error(
           `This API key has the ${role} role and can't be used with the GrowthBook API`,
+        );
+      }
+      // Expiry is enforced at lookup; this lets clients warn before it lands.
+      if (expiresAt && !apiKeyDoc.oauthClientId) {
+        res.set(
+          "X-GrowthBook-Key-Expires-At",
+          new Date(expiresAt).toISOString(),
         );
       }
       req.apiKey = id || "";
@@ -250,10 +261,18 @@ function authenticateWithApiKey(
         if (!req.user) {
           throw new Error("Could not find user attached to this API key");
         }
+        // Super-admin authority bypasses roles, so a scoped token never carries it.
+        if (apiKeyDoc.scoped) req.user = { ...req.user, superAdmin: false };
       }
 
       let asOrg = organization;
       if (xOrganizationHeader) {
+        // A member consented for one org; don't let a super admin's token leave it.
+        if (apiKeyDoc.oauthClientId && xOrganizationHeader !== organization) {
+          throw new Error(
+            "OAuth access tokens can only access the organization they were issued for",
+          );
+        }
         if (!req.user?.superAdmin) {
           throw new Error(
             "Only super admins can use the x-organization header",
@@ -400,8 +419,9 @@ function doesUserHavePermission(
       return false;
     }
 
-    // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(
+    // Generate full list of permissions for the user, capped by a scoped PAT
+    const userPermissions = getPersonalAccessTokenPermissions(
+      apiKeyDoc,
       { id: userId, superAdmin },
       org,
       teams,

@@ -404,7 +404,15 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id, feature)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          updatedRule.id,
+          feature,
+          {
+            previousMonitoringConfig: liveSchedulesForRule[0]?.monitoringConfig,
+          },
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       const hasLegacySchedule =

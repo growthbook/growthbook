@@ -18,6 +18,7 @@ import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import { PiXBold, PiCaretDown } from "react-icons/pi";
 import CreatableSelect from "react-select/creatable";
+import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import { RadixTheme } from "@/services/RadixTheme";
 import HelperText from "@/ui/HelperText";
@@ -493,6 +494,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     IndicatorSeparator: () => null,
                     ClearIndicator: CustomClearIndicator,
                     IndicatorsContainer: IndicatorsContainerWithExtra,
+                    MenuList: VirtualizedMenuList,
                     ...(withRadixThemedPortal && {
                       MenuPortal: RadixThemeMenuPortal,
                     }),
@@ -533,6 +535,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     IndicatorSeparator: () => null,
                     ClearIndicator: CustomClearIndicator,
                     IndicatorsContainer: IndicatorsContainerWithExtra,
+                    MenuList: VirtualizedMenuList,
                     ...(withRadixThemedPortal && {
                       MenuPortal: RadixThemeMenuPortal,
                     }),
