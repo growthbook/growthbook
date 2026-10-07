@@ -37,13 +37,13 @@ export const isApiKeyForUserInOrganization = (
 };
 
 export const roleForApiKey = (
-  apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret">,
+  apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret" | "scoped">,
 ): string | null => {
   // This role stuff is only for secret keys, not SDK keys
   if (!apiKey.secret) return null;
 
-  // The role will need to be evaluated
-  if (apiKey.userId) return null;
+  // PATs take the user's role, capped by their own only when scoped
+  if (apiKey.userId) return (apiKey.scoped && apiKey.role) || null;
 
   // If there's a role assigned, return that
   if (apiKey.role) return apiKey.role;

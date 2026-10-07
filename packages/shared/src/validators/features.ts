@@ -328,6 +328,13 @@ export const JSONSchemaDef = z
   })
   .strict();
 
+// REST input shape: a JSON body can't carry a Date, so the server stamps `date`.
+export const apiJSONSchemaDefInput = JSONSchemaDef.omit({
+  date: true,
+}).describe(
+  "Validation schema to stage on the draft. The server sets `date`, so don't send it.",
+);
+
 const revisionLog = z
   .object({
     // Optional — legacy log entries stored inline on the revision document

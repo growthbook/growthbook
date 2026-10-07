@@ -53,6 +53,8 @@ const apiKeyProjectRoleValidator = projectMemberRoleValidator
 
 export const postApiKeyValidator = z.strictObject({
   type: z.string(),
+  // PATs only (type "user"): cap the token at this role and the scoping fields.
+  scopedRole: z.string().optional(),
   description: z.string().optional(),
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
@@ -64,15 +66,19 @@ export const postApiKeyValidator = z.strictObject({
 });
 
 export const putApiKeyValidator = z.strictObject({
-  role: z.string(),
+  // Org keys only
+  role: z.string().optional(),
+  // PATs only: same meaning as on create; omit to make the token unscoped.
+  scopedRole: z.string().optional(),
   description: z.string().optional(),
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(apiKeyProjectRoleValidator).optional(),
   additionalRoles: z.array(apiKeyRoleRuleValidator).optional(),
-  requesterOnly: z.boolean(),
-  requireRequestedBy: z.boolean(),
-  extendWithRequester: z.boolean(),
+  // Org keys only; an omitted flag keeps its saved value.
+  requesterOnly: z.boolean().optional(),
+  requireRequestedBy: z.boolean().optional(),
+  extendWithRequester: z.boolean().optional(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({

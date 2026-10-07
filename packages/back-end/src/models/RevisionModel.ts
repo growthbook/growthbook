@@ -1022,7 +1022,7 @@ export class RevisionModel extends BaseClass {
                 : {}),
             // The auto-publish runs as the armer, a user or an org API key.
             // Replaced, not conditionally set — see setAutoPublishOnApproval.
-            autoPublishEnabledBy: armed ? this.armerId() : null,
+            autoPublishEnabledBy: armed ? this.context.armerId : null,
             // Arm-time guard fingerprints: set the new acknowledgments, or clear a
             // stale set from a prior arm (to {}) so a re-arm with no current conflicts
             // can't be covered by an outdated fingerprint.
@@ -1054,12 +1054,6 @@ export class RevisionModel extends BaseClass {
     if (!updated) throw new Error("Revision not found");
 
     return updated;
-  }
-
-  // Who a deferred publish runs as: the acting user, else the org API key, as
-  // the feature twin records. A system actor arms nobody.
-  private armerId(): string | null {
-    return this.context.userId || this.context.apiKey || null;
   }
 
   // Arm/disarm auto-publish-on-approval after a draft has already been
@@ -1097,7 +1091,7 @@ export class RevisionModel extends BaseClass {
       // whoever armed last. `null` clears it.
       return {
         autoPublishOnApproval: enabled,
-        autoPublishEnabledBy: enabled ? this.armerId() : null,
+        autoPublishEnabledBy: enabled ? this.context.armerId : null,
         // Arm-time guard fingerprints: set the new acknowledgments, or clear a
         // stale set from a prior arm (to {}) so a re-arm with no current
         // conflicts can't be covered by an outdated fingerprint.

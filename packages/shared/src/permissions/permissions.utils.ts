@@ -357,106 +357,32 @@ export function hasPermission(
   return envsAllowedBy(usersPermissionsToCheck, permissionToCheck, envs);
 }
 
-// Resolve coverage from relevant grants; use merged legacy fields only when none exist.
+// Environments a permission covers (null = all): the union across relevant
+// grants, falling back to the merged legacy fields only when none exist.
+export function allowedEnvironments(
+  userPermission: UserPermission,
+  permissionToCheck: Permission,
+): string[] | null {
+  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
+    g.permissions.includes(permissionToCheck),
+  );
+  if (relevantGrants.length) {
+    if (relevantGrants.some((g) => !g.limitAccessByEnvironment)) return null;
+    return [...new Set(relevantGrants.flatMap((g) => g.environments))];
+  }
+  return userPermission.limitAccessByEnvironment
+    ? userPermission.environments
+    : null;
+}
+
 export function envsAllowedBy(
   userPermission: UserPermission,
   permissionToCheck: Permission,
   envs?: string[],
 ): boolean {
   if (!envs) return true;
-
-  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
-    g.permissions.includes(permissionToCheck),
-  );
-  if (relevantGrants.length) {
-    // Union environments across grants carrying this permission.
-    if (relevantGrants.some((g) => !g.limitAccessByEnvironment)) return true;
-    const allowed = new Set(relevantGrants.flatMap((g) => g.environments));
-    return envs.every((env) => allowed.has(env));
-  }
-
-  if (!userPermission.limitAccessByEnvironment) return true;
-  return envs.every((env) => userPermission.environments.includes(env));
-}
-
-// Environments a scope lets a permission reach, or null when unrestricted.
-// Mirrors `envsAllowedBy`, so checks against an intersection agree with it.
-function envCoverage(
-  scope: UserPermission,
-  permission: Permission,
-): Set<string> | null {
-  const relevantGrants = (scope.envGrants ?? []).filter((g) =>
-    g.permissions.includes(permission),
-  );
-  if (relevantGrants.length) {
-    if (relevantGrants.some((g) => !g.limitAccessByEnvironment)) return null;
-    return new Set(relevantGrants.flatMap((g) => g.environments));
-  }
-  return scope.limitAccessByEnvironment ? new Set(scope.environments) : null;
-}
-
-function intersectEnvs(
-  a: Set<string> | null,
-  b: Set<string> | null,
-): Set<string> | null {
-  if (!a) return b;
-  if (!b) return a;
-  return new Set([...a].filter((env) => b.has(env)));
-}
-
-function intersectUserPermission(
-  a: UserPermission,
-  b: UserPermission,
-): UserPermission {
-  const permissions: PermissionsObject = {};
-  for (const [permission, granted] of Object.entries(a.permissions)) {
-    if (granted && b.permissions[permission as Permission]) {
-      permissions[permission as Permission] = true;
-    }
-  }
-  const envGrants = ENV_SCOPED_PERMISSIONS.filter((p) => permissions[p]).map(
-    (permission) => {
-      const envs = intersectEnvs(
-        envCoverage(a, permission),
-        envCoverage(b, permission),
-      );
-      return {
-        permissions: [permission],
-        limitAccessByEnvironment: envs !== null,
-        environments: envs ? [...envs] : [],
-      };
-    },
-  );
-  const legacyEnvs = intersectEnvs(
-    a.limitAccessByEnvironment ? new Set(a.environments) : null,
-    b.limitAccessByEnvironment ? new Set(b.environments) : null,
-  );
-  return {
-    permissions,
-    limitAccessByEnvironment: legacyEnvs !== null,
-    environments: legacyEnvs ? [...legacyEnvs] : [],
-    ...(envGrants.length ? { envGrants } : {}),
-  };
-}
-
-// What both principals may do: a permission survives in a project only where
-// both allow it, and an environment-scoped one keeps only the environments
-// both allow. Caps an API key's requester-only rules at its requester's access.
-export function intersectUserPermissions(
-  a: UserPermissions,
-  b: UserPermissions,
-): UserPermissions {
-  const projects: UserPermissions["projects"] = {};
-  for (const project of new Set([
-    ...Object.keys(a.projects),
-    ...Object.keys(b.projects),
-  ])) {
-    projects[project] = intersectUserPermission(
-      a.projects[project] || a.global,
-      b.projects[project] || b.global,
-    );
-  }
-  return { global: intersectUserPermission(a.global, b.global), projects };
+  const allowed = allowedEnvironments(userPermission, permissionToCheck);
+  return allowed === null || envs.every((env) => allowed.includes(env));
 }
 
 // Unbound changes need this: an empty footprint would otherwise pass vacuously.
@@ -464,13 +390,7 @@ export function hasUnrestrictedEnvAuthority(
   userPermission: UserPermission,
   permissionToCheck: Permission,
 ): boolean {
-  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
-    g.permissions.includes(permissionToCheck),
-  );
-  if (relevantGrants.length) {
-    return relevantGrants.some((g) => !g.limitAccessByEnvironment);
-  }
-  return !userPermission.limitAccessByEnvironment;
+  return allowedEnvironments(userPermission, permissionToCheck) === null;
 }
 
 export const userHasPermission = (

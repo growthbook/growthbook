@@ -4616,6 +4616,9 @@ paths:
                     type: string
                   additionalProperties: {}
                 jsonSchema:
+                  description: >-
+                    Validation schema to stage on the draft. The server sets
+                    `date`, so don't send it.
                   type: object
                   properties:
                     schemaType:
@@ -4704,14 +4707,12 @@ paths:
                         - type
                         - fields
                       additionalProperties: false
-                    date: {}
                     enabled:
                       type: boolean
                   required:
                     - schemaType
                     - schema
                     - simple
-                    - date
                     - enabled
                   additionalProperties: false
                 ignoreWarnings:
@@ -10882,6 +10883,9 @@ paths:
                     type: string
                   additionalProperties: {}
                 jsonSchema:
+                  description: >-
+                    Validation schema to stage on the draft. The server sets
+                    `date`, so don't send it.
                   type: object
                   properties:
                     schemaType:
@@ -10970,14 +10974,12 @@ paths:
                         - type
                         - fields
                       additionalProperties: false
-                    date: {}
                     enabled:
                       type: boolean
                   required:
                     - schemaType
                     - schema
                     - simple
-                    - date
                     - enabled
                   additionalProperties: false
                 ignoreWarnings:

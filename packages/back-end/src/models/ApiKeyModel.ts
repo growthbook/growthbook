@@ -1,3 +1,5 @@
+import isEqual from "lodash/isEqual";
+import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
 import { getRoleById, hasRequesterOnlyRules } from "shared/permissions";
@@ -14,6 +16,14 @@ import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
+
+const SCOPE_FIELDS = [
+  "role",
+  "limitAccessByEnvironment",
+  "environments",
+  "additionalRoles",
+  "projectRoles",
+] as const;
 
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
@@ -102,6 +112,7 @@ export class ApiKeyModel extends BaseClass {
       id: doc.id,
       description: doc.description,
       role: doc.role,
+      scoped: doc.scoped,
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
       environments: doc.environments,
       projectRoles: doc.projectRoles,
@@ -117,6 +128,15 @@ export class ApiKeyModel extends BaseClass {
     previousDoc?: ApiKeyInterface,
   ) {
     if (doc.userId) {
+      if (
+        doc.requireRequestedBy ||
+        doc.extendWithRequester ||
+        hasRequesterOnlyRules(doc)
+      ) {
+        this.context.throwBadRequestError(
+          "PATs already act as a user and cannot take X-Requested-By.",
+        );
+      }
       // Creation only — existing tokens are already rejected at authentication,
       // and users must still be able to disable or delete the ones they have.
       if (
@@ -127,90 +147,106 @@ export class ApiKeyModel extends BaseClass {
           "Personal access tokens are disabled for this organization.",
         );
       }
-      // PATs inherit permissions from their user — scoping fields must not be set
-      if (doc.limitAccessByEnvironment) {
+      if (!doc.scoped) {
+        // Unscoped PATs inherit permissions from their user — scoping fields must not be set
+        if (
+          doc.limitAccessByEnvironment ||
+          doc.projectRoles?.length ||
+          doc.additionalRoles?.length
+        ) {
+          this.context.throwBadRequestError(
+            "Restricting a personal access token requires a scoped role.",
+          );
+        }
+        return;
+      }
+      if (!doc.role) {
         this.context.throwBadRequestError(
-          "PATs do not support environment restrictions.",
+          "Scoped personal access tokens require a role.",
         );
       }
-      if (doc.projectRoles?.length) {
-        this.context.throwBadRequestError(
-          "PATs do not support project-scoped roles.",
-        );
-      }
-      if (doc.additionalRoles?.length) {
-        this.context.throwBadRequestError(
-          "PATs do not support additional roles.",
-        );
-      }
-      if (
-        doc.requireRequestedBy ||
-        doc.requesterOnly ||
-        doc.extendWithRequester
-      ) {
-        this.context.throwBadRequestError(
-          "PATs already act as a user and cannot take X-Requested-By.",
-        );
-      }
-    } else {
-      // Org API keys — validate role, environments, project roles, and commercial features
-      if (doc.extendWithRequester && hasRequesterOnlyRules(doc)) {
-        this.context.throwBadRequestError(
-          "A key can extend with all of the requester's permissions or with specific ones, not both.",
-        );
-      }
-      this.validateRole(doc.role);
-      // Only gate a role change so existing keys keep working
-      if (
-        doc.role &&
-        doc.role !== previousDoc?.role &&
-        doc.role !== "admin" &&
-        !this.context.limits.orgSupportsRoles()
-      ) {
-        this.context.throwPaymentRequiredError(
-          "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
-        );
-      }
-      if (
-        doc.limitAccessByEnvironment &&
-        !this.context.hasPremiumFeature("advanced-permissions")
-      ) {
-        this.context.throwPlanDoesNotAllowError(
-          "Your plan does not support restricting API key permissions by environment.",
-        );
-      }
-      this.validateEnvironments(doc.environments);
-      for (const rule of doc.additionalRoles ?? []) {
+    } else if (doc.extendWithRequester && hasRequesterOnlyRules(doc)) {
+      this.context.throwBadRequestError(
+        "A key can extend with all of the requester's permissions or with specific ones, not both.",
+      );
+    }
+    // Only a write that changes the scope is checked, so a key stays disableable after its plan, roles or environments lapse.
+    if (
+      previousDoc &&
+      isEqual(pick(doc, SCOPE_FIELDS), pick(previousDoc, SCOPE_FIELDS))
+    ) {
+      return;
+    }
+    this.assertPlanAllowsScope(doc, previousDoc);
+    await this.validateScope(doc, previousDoc);
+  }
+
+  // Commercial gates, for org keys and scoped PATs alike. Only a role change is
+  // gated so existing keys keep working.
+  private assertPlanAllowsScope(
+    doc: ApiKeyInterface,
+    previousDoc?: ApiKeyInterface,
+  ) {
+    if (
+      doc.role &&
+      doc.role !== previousDoc?.role &&
+      doc.role !== "admin" &&
+      !this.context.limits.orgSupportsRoles()
+    ) {
+      this.context.throwPaymentRequiredError(
+        "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+      );
+    }
+    if (
+      (doc.limitAccessByEnvironment ||
+        doc.additionalRoles?.some((r) => r.limitAccessByEnvironment)) &&
+      !this.context.hasPremiumFeature("advanced-permissions")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support restricting API key permissions by environment.",
+      );
+    }
+    if (
+      doc.projectRoles?.length &&
+      !this.context.hasPremiumFeature("advanced-permissions")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support project-level permissions on API keys.",
+      );
+    }
+  }
+
+  // Role, environments and project rules, for org keys and scoped PATs alike
+  private async validateScope(
+    doc: ApiKeyInterface,
+    previousDoc?: ApiKeyInterface,
+  ) {
+    this.validateRole(doc.role);
+    this.validateEnvironments(doc.environments);
+    for (const rule of doc.additionalRoles ?? []) {
+      this.validateRole(rule.role);
+      this.validateEnvironments(rule.environments);
+    }
+    if (!doc.projectRoles?.length) return;
+    for (const pr of doc.projectRoles) {
+      this.validateRole(pr.role);
+      this.validateEnvironments(pr.environments);
+      for (const rule of pr.additionalRoles ?? []) {
         this.validateRole(rule.role);
         this.validateEnvironments(rule.environments);
       }
-      if (doc.projectRoles?.length) {
-        if (!this.context.hasPremiumFeature("advanced-permissions")) {
-          this.context.throwPlanDoesNotAllowError(
-            "Your plan does not support project-level permissions on API keys.",
-          );
-        }
-        for (const pr of doc.projectRoles) {
-          this.validateRole(pr.role);
-          this.validateEnvironments(pr.environments);
-          for (const rule of pr.additionalRoles ?? []) {
-            this.validateRole(rule.role);
-            this.validateEnvironments(rule.environments);
-          }
-        }
-        // Only rules this write adds or changes are checked (same as members and
-        // teams), so a key still pointing at a since-deleted project stays
-        // editable and can be disabled.
-        try {
-          await assertProjectRulesReferenceProjects(
-            this.context,
-            previousDoc?.projectRoles,
-            doc.projectRoles,
-          );
-        } catch (e) {
-          this.context.throwBadRequestError(e.message);
-        }
-      }
+    }
+    // Only rules this write adds or changes are checked (same as members and
+    // teams), so a key still pointing at a since-deleted project stays
+    // editable and can be disabled.
+    try {
+      await assertProjectRulesReferenceProjects(
+        this.context,
+        previousDoc?.projectRoles,
+        doc.projectRoles,
+      );
+    } catch (e) {
+      this.context.throwBadRequestError(e.message);
     }
   }
 
@@ -272,12 +308,23 @@ export class ApiKeyModel extends BaseClass {
     });
   }
 
+  // Scoping fields without a scopedRole are passed through so validation rejects them.
   public async createUserPersonalAccessApiKey({
     userId,
     description,
+    scopedRole,
+    limitAccessByEnvironment,
+    environments,
+    additionalRoles,
+    projectRoles,
   }: {
     userId: string;
     description: string;
+    scopedRole?: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    additionalRoles?: ApiKeyInterface["additionalRoles"];
+    projectRoles?: ApiKeyInterface["projectRoles"];
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       userId,
@@ -286,7 +333,12 @@ export class ApiKeyModel extends BaseClass {
       project: "",
       encryptSDK: false,
       description,
-      role: "user",
+      role: scopedRole || "user",
+      scoped: !!scopedRole,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
     });
   }
 
@@ -336,14 +388,15 @@ export class ApiKeyModel extends BaseClass {
     return { before: doc, after };
   }
 
-  // Admins can edit the permission scope of an existing org secret key in place
-  // (role + environment/project restrictions + description). This lets already
-  // issued tokens pick up new permissions immediately — auth reads the role from
-  // this DB record on every request.
+  // Admins can edit the permission scope of an existing org secret key in place,
+  // and users their own PATs (role + environment/project restrictions +
+  // description). This lets already issued tokens pick up new permissions
+  // immediately — auth reads the role from this DB record on every request.
   public async updateSecretApiKeyPermissions(
     id: string,
     {
       role,
+      scopedRole,
       limitAccessByEnvironment,
       environments,
       additionalRoles,
@@ -354,31 +407,62 @@ export class ApiKeyModel extends BaseClass {
       extendWithRequester,
     }: {
       role?: string;
+      scopedRole?: string;
       limitAccessByEnvironment?: boolean;
       environments?: string[];
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
-      requireRequestedBy: boolean;
-      requesterOnly: boolean;
-      extendWithRequester: boolean;
+      requireRequestedBy?: boolean;
+      requesterOnly?: boolean;
+      extendWithRequester?: boolean;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
 
-    // Only plain organization secret keys are editable here. SDK keys (non
-    // secret) have no role, and PATs (secret + userId) derive their permissions
-    // from the linked member, not the key doc — so both are rejected.
+    // SDK keys (non secret) have no role, so they're rejected.
     if (!doc.secret) {
       this.context.throwBadRequestError(
         "Only secret API keys can have their permissions edited.",
       );
     }
+
     if (doc.userId) {
-      this.context.throwBadRequestError(
-        "Personal Access Tokens inherit permissions from their user and cannot be edited.",
+      // A PAT is only ever editable by its owner, like reveal and delete.
+      if (doc.userId !== this.context.userId) {
+        this.context.throwNotFoundError(`API key not found: ${id}`);
+      }
+      // Rewriting its role would orphan it from getVisualEditorApiKey.
+      if (doc.role === "visualEditor" && !doc.scoped) {
+        this.context.throwBadRequestError(
+          "The visual editor's API key can't be edited.",
+        );
+      }
+      // Mirrors creation: no scopedRole means the token inherits its user's permissions.
+      const after = await this._updateOne(
+        doc,
+        {
+          description,
+          role: scopedRole || "user",
+          scoped: scopedRole ? true : undefined,
+          limitAccessByEnvironment: !!scopedRole && !!limitAccessByEnvironment,
+          environments: scopedRole ? environments : [],
+          additionalRoles: scopedRole ? additionalRoles : undefined,
+          projectRoles: scopedRole ? projectRoles : undefined,
+        },
+        { forceCanUpdate: true },
       );
+      return { before: doc, after };
+    }
+
+    // Editing a key's authority is at least as sensitive as revealing it, so we
+    // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user keys.
+    if (!this.context.permissions.canCreateApiKey()) {
+      this.context.permissions.throwPermissionError();
+    }
+    if (!role) {
+      this.context.throwBadRequestError("A role is required.");
     }
 
     // Permission fields (role/scope/description) are intentionally editable by
@@ -402,9 +486,10 @@ export class ApiKeyModel extends BaseClass {
         additionalRoles,
         projectRoles,
         description,
-        requireRequestedBy,
-        requesterOnly,
-        extendWithRequester,
+        // Omitted flags keep their saved value instead of being cleared.
+        ...(requireRequestedBy !== undefined ? { requireRequestedBy } : {}),
+        ...(requesterOnly !== undefined ? { requesterOnly } : {}),
+        ...(extendWithRequester !== undefined ? { extendWithRequester } : {}),
       },
       { forceCanUpdate: true },
     );
@@ -479,6 +564,8 @@ export class ApiKeyModel extends BaseClass {
       {
         userId,
         role: "visualEditor",
+        // A user's own scoped PAT may carry this role; only the auto-created key counts.
+        scoped: { $ne: true },
       },
       {
         bypassSanitization: true,
@@ -497,6 +584,15 @@ export class ApiKeyModel extends BaseClass {
 
   public async dangerousGetAllApiKeysInOrg() {
     return await this._find({}, { bypassReadPermissionChecks: true });
+  }
+
+  // Deferred actions resolve their armer with no reading user, so a PAT needs this.
+  public async dangerousGetById(id: string): Promise<ApiKeyInterface | null> {
+    const [key] = await this._find(
+      { id },
+      { bypassReadPermissionChecks: true, limit: 1 },
+    );
+    return key ?? null;
   }
 
   private prefixForApiKey({
@@ -546,6 +642,7 @@ export class ApiKeyModel extends BaseClass {
     encryptSDK,
     userId,
     role,
+    scoped,
     limitAccessByEnvironment,
     environments,
     additionalRoles,
@@ -561,6 +658,7 @@ export class ApiKeyModel extends BaseClass {
     encryptSDK: boolean;
     userId?: string;
     role?: string;
+    scoped?: boolean;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
@@ -591,6 +689,7 @@ export class ApiKeyModel extends BaseClass {
       encryptSDK,
       userId,
       role,
+      ...(scoped ? { scoped } : {}),
       encryptionKey: encryptSDK ? await generateEncryptionKey() : undefined,
       limitAccessByEnvironment: limitAccessByEnvironment ?? false,
       environments: environments ?? [],

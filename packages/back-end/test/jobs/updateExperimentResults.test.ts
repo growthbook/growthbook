@@ -129,3 +129,40 @@ describe("scheduled experiment updates", () => {
     expect(getDataSourceById).not.toHaveBeenCalled();
   });
 });
+
+describe("failing scheduled updates", () => {
+  const bandit = {
+    ...running,
+    type: "multi-armed-bandit",
+    banditStage: "exploit",
+  };
+
+  it("turns off auto-updates for a bandit whose datasource is gone", async () => {
+    await experiments().insertOne({
+      ...bandit,
+      id: "exp_orphan",
+      nextSnapshotAttempt: new Date(Date.now() - 1000),
+    });
+
+    await updateSingleExperiment(jobFor("exp_orphan"));
+
+    const doc = await experiments().findOne({ id: "exp_orphan" });
+    expect(doc?.autoSnapshots).toBe(false);
+  });
+
+  it("keeps auto-updates on for a bandit after a recoverable failure", async () => {
+    jest
+      .mocked(getDataSourceById)
+      .mockRejectedValueOnce(new Error("warehouse unavailable"));
+    await experiments().insertOne({
+      ...bandit,
+      id: "exp_flaky",
+      nextSnapshotAttempt: new Date(Date.now() - 1000),
+    });
+
+    await updateSingleExperiment(jobFor("exp_flaky"));
+
+    const doc = await experiments().findOne({ id: "exp_flaky" });
+    expect(doc?.autoSnapshots).toBe(true);
+  });
+});

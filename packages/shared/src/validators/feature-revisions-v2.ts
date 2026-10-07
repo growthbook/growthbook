@@ -21,7 +21,7 @@ import {
 } from "./feature-revisions";
 import { rampStartState } from "./ramp-schedule";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
-import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
+import { apiJSONSchemaDefInput, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
@@ -995,7 +995,7 @@ export const putFeatureRevisionMetadataV2Validator = {
       tags: z.array(z.string()).optional(),
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
-      jsonSchema: JSONSchemaDef.optional(),
+      jsonSchema: apiJSONSchemaDefInput.optional(),
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
