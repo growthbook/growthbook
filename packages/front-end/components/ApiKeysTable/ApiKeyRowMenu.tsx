@@ -42,11 +42,14 @@ export default function ApiKeyRowMenu({
       variant="soft"
     >
       <DropdownMenuGroup>
-        {onEdit && apiKey.secret && (
-          <DropdownMenuItem onClick={() => onEdit(apiKey)}>
-            Edit permissions & description
-          </DropdownMenuItem>
-        )}
+        {/* The auto-created visual editor key is managed by the app, not the user */}
+        {onEdit &&
+          apiKey.secret &&
+          !(apiKey.role === "visualEditor" && !apiKey.scoped) && (
+            <DropdownMenuItem onClick={() => onEdit(apiKey)}>
+              Edit permissions & description
+            </DropdownMenuItem>
+          )}
         {onToggleClick && (
           <DropdownMenuItem onClick={() => onToggleClick(apiKey)}>
             {apiKey.disabled ? "Enable key" : "Disable key"}

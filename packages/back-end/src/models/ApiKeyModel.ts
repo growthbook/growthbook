@@ -402,6 +402,12 @@ export class ApiKeyModel extends BaseClass {
       if (doc.userId !== this.context.userId) {
         this.context.throwNotFoundError(`API key not found: ${id}`);
       }
+      // Rewriting its role would orphan it from getVisualEditorApiKey.
+      if (doc.role === "visualEditor" && !doc.scoped) {
+        this.context.throwBadRequestError(
+          "The visual editor's API key can't be edited.",
+        );
+      }
       // Mirrors creation: no scopedRole means the token inherits its user's permissions.
       const after = await this._updateOne(
         doc,
