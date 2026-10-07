@@ -11,7 +11,6 @@ import {
   exchangeDelegatedToken,
   isDelegatedTokenCurrent,
   exchangeRefreshToken,
-  getContextForOAuthGrant,
   listOrgGrants,
   mintAuthorizationCode,
   OAuthError,
@@ -20,7 +19,6 @@ import {
 } from "back-end/src/services/oauth";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
-import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
 import { assertValidPermissionLimit } from "back-end/src/services/oauth/permissionLimit";
 import {
   getOAuthClientById,
@@ -64,12 +62,6 @@ jest.mock("back-end/src/models/GlobalOAuthClientModel", () => ({
 jest.mock("back-end/src/models/OrgOAuthClientModel", () => ({
   OrgOAuthClientModel: {
     dangerousFindById: jest.fn(),
-  },
-}));
-
-jest.mock("back-end/src/models/OAuthGrantModel", () => ({
-  OAuthGrantModel: {
-    dangerousIsActive: jest.fn(),
   },
 }));
 
@@ -923,61 +915,6 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
       expect.objectContaining({ permissionLimit: READONLY_LIMIT }),
     );
   });
-
-  describe("deferred work armed through an OAuth token", () => {
-    const org = (settings?: Record<string, unknown>) =>
-      ({ id: "org-1", settings }) as never;
-
-    it("runs as the member while the grant, app and policy all allow it", async () => {
-      mockOrgApp();
-      jest.mocked(OAuthGrantModel.dangerousIsActive).mockResolvedValue(true);
-      const { context } = mockOrgContext();
-
-      await expect(
-        getContextForOAuthGrant(org(), "user-1", APP_ID),
-      ).resolves.toBe(context);
-      expect(OAuthGrantModel.dangerousIsActive).toHaveBeenCalledWith(
-        "org-1",
-        APP_ID,
-        "user-1",
-      );
-    });
-
-    it.each([
-      [
-        "the grant was revoked",
-        () => {
-          mockOrgApp();
-          jest
-            .mocked(OAuthGrantModel.dangerousIsActive)
-            .mockResolvedValue(false);
-        },
-        undefined,
-      ],
-      [
-        "the app was deleted",
-        () => {
-          mockFindOrgApp.mockResolvedValue(null);
-          mockGetOAuthClientById.mockResolvedValue(null);
-        },
-        undefined,
-      ],
-      [
-        "the app belongs to another org",
-        () => mockOrgApp("org-other"),
-        undefined,
-      ],
-      ["the policy now blocks it", () => mockOrgApp(), { oauthAccess: "none" }],
-    ])("has nobody to run as once %s", async (_, arrange, settings) => {
-      mockOrgContext();
-      jest.mocked(OAuthGrantModel.dangerousIsActive).mockResolvedValue(true);
-      arrange();
-
-      await expect(
-        getContextForOAuthGrant(org(settings), "user-1", APP_ID),
-      ).resolves.toBeNull();
-    });
-  });
 });
 
 describe("admin view of member grants", () => {
@@ -1111,6 +1048,7 @@ describe("delegated token exchange for org OAuth apps", () => {
         oauthClientId: APP_ID,
         officialClientForOrg: "org-1",
         oauthDelegatedSecretHash: hashToken(APP_SECRET),
+        oauthClientName: "Internal MCP",
       }),
     );
     expect(createRefresh).not.toHaveBeenCalled();
@@ -1244,11 +1182,7 @@ describe("delegated token exchange for org OAuth apps", () => {
       false,
     ],
     ["rejects a delegated token once the app is deleted", null, false],
-  ])("%s", async (_, app, expected) => {
-    mockFindOrgApp.mockResolvedValue(app);
-
-    await expect(
-      isDelegatedTokenCurrent(APP_ID, hashToken(APP_SECRET)),
-    ).resolves.toBe(expected);
+  ])("%s", (_, app, expected) => {
+    expect(isDelegatedTokenCurrent(app, hashToken(APP_SECRET))).toBe(expected);
   });
 });

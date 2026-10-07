@@ -1,6 +1,10 @@
 import crypto from "crypto";
 import { Request } from "express";
-import { OAuthDcrRequest, OAuthPermissionLimit } from "shared/validators";
+import {
+  OAuthDcrRequest,
+  OAuthPermissionLimit,
+  OrgOAuthClientInterface,
+} from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { isOAuthClientAllowed } from "shared/util";
 import {
@@ -11,7 +15,6 @@ import {
 } from "back-end/src/util/secrets";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
-import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
 import {
   createOAuthClient,
   getOAuthClientById,
@@ -299,25 +302,6 @@ export async function listOrgGrants(
     .sort((a, b) => b.lastUsedAt.getTime() - a.lastUsedAt.getTime());
 }
 
-/**
- * Runs deferred work (a scheduled status change) as a member who armed it
- * through an OAuth token, so it's bound by the same grant, app and policy.
- */
-export async function getContextForOAuthGrant(
-  org: OrganizationInterface,
-  userId: string,
-  clientId: string,
-): Promise<ApiReqContext | null> {
-  const client = await findOAuthClient(clientId);
-  if (!client) return null;
-  if (client.organization && client.organization !== org.id) return null;
-  if (!isOAuthClientAllowed(org, client.organization)) return null;
-  if (!(await OAuthGrantModel.dangerousIsActive(org.id, clientId, userId))) {
-    return null;
-  }
-  return getContextForUserIdInOrg(org, userId);
-}
-
 /** Admin revoke of one member's grant; same teardown as the member's own revoke. */
 export async function revokeMemberGrant(
   context: ApiReqContext,
@@ -332,11 +316,13 @@ export async function revokeMemberGrant(
 }
 
 /** Checked per request, so turning delegation off or rotating the secret ends delegated tokens in the same write. */
-export async function isDelegatedTokenCurrent(
-  clientId: string,
+export function isDelegatedTokenCurrent(
+  app: Pick<
+    OrgOAuthClientInterface,
+    "allowDelegation" | "clientSecretHash"
+  > | null,
   mintedWithSecretHash: string,
-): Promise<boolean> {
-  const app = await OrgOAuthClientModel.dangerousFindById(clientId);
+): boolean {
   return (
     !!app?.allowDelegation && app.clientSecretHash === mintedWithSecretHash
   );
@@ -559,6 +545,7 @@ export async function exchangeAuthorizationCode(params: {
   const tokens = await issueTokenPair(context, {
     clientId: authCode.clientId,
     officialClientForOrg: client.organization,
+    clientName: client.clientName,
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
@@ -641,6 +628,7 @@ export async function exchangeRefreshToken(params: {
   return issueTokenPair(context, {
     clientId: existing.clientId,
     officialClientForOrg: client.organization,
+    clientName: client.clientName,
     userId: existing.userId,
     scope: existing.scope,
     resource: existing.resource,
@@ -696,6 +684,7 @@ export async function revokeToken(params: {
 interface IssueParams {
   clientId: string;
   officialClientForOrg: string | null;
+  clientName: string;
   userId: string;
   scope?: string;
   resource?: string;
@@ -735,6 +724,7 @@ async function createAccessToken(
     environments: [],
     expiresAt: new Date(Date.now() + OAUTH_ACCESS_TOKEN_TTL_SECONDS * 1000),
     oauthClientId: params.clientId,
+    oauthClientName: params.clientName,
     officialClientForOrg: params.officialClientForOrg,
     ...(delegatedSecretHash && {
       oauthDelegatedSecretHash: delegatedSecretHash,
@@ -851,6 +841,7 @@ export async function exchangeDelegatedToken(params: {
     {
       clientId: client.clientId,
       officialClientForOrg: org.id,
+      clientName: client.clientName,
       userId: user.id,
     },
     client.clientSecretHash,

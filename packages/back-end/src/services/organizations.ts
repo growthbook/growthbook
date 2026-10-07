@@ -22,6 +22,7 @@ import {
   memberRoleWithProjects,
 } from "shared/validators";
 import { accountFeatures } from "shared/enterprise";
+import { isOAuthClientAllowed } from "shared/util";
 import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_MAX_PERCENT_CHANGE,
@@ -141,6 +142,9 @@ import {
 } from "back-end/src/enterprise";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
+import { OrgOAuthClientModel } from "back-end/src/models/OrgOAuthClientModel";
+import { getOAuthClientById } from "back-end/src/models/GlobalOAuthClientModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
@@ -1882,6 +1886,9 @@ export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   apiKeyId: string,
 ): Promise<ApiReqContext | null> {
+  if (apiKeyId.startsWith(OAUTH_GRANT_ID_PREFIX)) {
+    return getContextForOAuthGrantInOrg(org, apiKeyId);
+  }
   const key =
     apiKeyId === SECRET_API_KEY_ID
       ? secretApiKeyDoc(org)
@@ -1936,9 +1943,65 @@ function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
   });
 }
 
+// OAuth tokens arm deferred work as their grant, since the token expires first.
+const OAUTH_GRANT_ID_PREFIX = "oag_";
+
+// Work armed through an OAuth token runs as its member within the app's and the
+// member's limits, and has nobody to run as once the grant, app or policy is gone.
+async function getContextForOAuthGrantInOrg(
+  org: OrganizationInterface,
+  grantId: string,
+): Promise<ApiReqContext | null> {
+  const grant = await OAuthGrantModel.dangerousGetActiveById(org.id, grantId);
+  if (!grant) return null;
+  const app = await OrgOAuthClientModel.dangerousFindById(grant.clientId);
+  const publicClient = app ? null : await getOAuthClientById(grant.clientId);
+  if (app ? app.organization !== org.id : !publicClient) return null;
+  if (!isOAuthClientAllowed(org, app?.organization ?? null)) return null;
+  const user = await getUserById(grant.userId);
+  if (!user || !org.members.some((m) => m.id === user.id)) return null;
+
+  const limits = [app?.permissionLimit, grant.permissionLimit].filter(
+    (limit): limit is MemberRoleWithProjects => !!limit,
+  );
+  const [teams, restrictedProjects] = await Promise.all([
+    TeamModel.dangerousGetTeamsForOrganization(org.id),
+    ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+  ]);
+  return new ReqContextClass({
+    org,
+    auditUser: {
+      type: "api_key",
+      apiKey: grant.id,
+      id: user.id,
+      name: user.name || "",
+      email: user.email,
+      oauthApp: {
+        id: grant.clientId,
+        name: app?.clientName || publicClient?.clientName || grant.clientId,
+      },
+    },
+    // Super-admin authority bypasses roles, so a limited token never carries it.
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+      superAdmin: !!user.superAdmin && !limits.length,
+    },
+    teams,
+    restrictedProjects,
+    oauth: { grantId: grant.id, limits },
+  });
+}
+
 // An org API key id that can be recorded as an armer and resolved later.
 export function isArmingApiKeyId(id: string | undefined): id is string {
-  return !!id && (id.startsWith("key_") || id === SECRET_API_KEY_ID);
+  return (
+    !!id &&
+    (id.startsWith("key_") ||
+      id === SECRET_API_KEY_ID ||
+      id.startsWith(OAUTH_GRANT_ID_PREFIX))
+  );
 }
 
 // A stored armer id is a user or an org API key; each runs as itself, on the

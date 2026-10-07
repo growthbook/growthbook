@@ -53,8 +53,7 @@ const sameStagedUpdate = (
   a.type === b.type &&
   a.date.getTime() === b.date.getTime() &&
   (a.scheduledBy ?? null) === (b.scheduledBy ?? null) &&
-  (a.scheduledByApiKey ?? null) === (b.scheduledByApiKey ?? null) &&
-  (a.scheduledByOAuthClient ?? null) === (b.scheduledByOAuthClient ?? null);
+  (a.scheduledByApiKey ?? null) === (b.scheduledByApiKey ?? null);
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_STATUS_UPDATES, async () => {

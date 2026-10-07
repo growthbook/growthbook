@@ -3040,11 +3040,6 @@ describe("withScheduledBy", () => {
   const staged = { type: "start" as const, date: new Date(0) };
   it.each([
     ["a user", { userId: "u_1", apiKey: "key_1" }, { scheduledBy: "u_1" }],
-    [
-      "a user through an OAuth app",
-      { userId: "u_1", apiKey: "key_1", oauthClientId: "gbapp_1" },
-      { scheduledBy: "u_1", scheduledByOAuthClient: "gbapp_1" },
-    ],
     ["a key", { apiKey: "key_1" }, { scheduledByApiKey: "key_1" }],
     ["nobody", undefined, staged],
   ])("stamps %s", (_who, by, expected) => {

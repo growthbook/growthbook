@@ -3192,25 +3192,12 @@ export function scheduleStagesStatusChange(
 }
 
 // Stamps who staged a status update so the job can run it on their authority.
-// Through an OAuth token, the app too, so it fires within that token's limits.
 export function withScheduledBy<T extends object>(
   staged: T | null,
-  by?: { userId?: string; apiKey?: string; oauthClientId?: string },
-):
-  | (T & {
-      scheduledBy?: string;
-      scheduledByApiKey?: string;
-      scheduledByOAuthClient?: string;
-    })
-  | null {
+  by?: { userId?: string; apiKey?: string },
+): (T & { scheduledBy?: string; scheduledByApiKey?: string }) | null {
   if (!staged) return null;
-  if (by?.userId) {
-    return {
-      ...staged,
-      scheduledBy: by.userId,
-      ...(by.oauthClientId && { scheduledByOAuthClient: by.oauthClientId }),
-    };
-  }
+  if (by?.userId) return { ...staged, scheduledBy: by.userId };
   if (by?.apiKey) return { ...staged, scheduledByApiKey: by.apiKey };
   return staged;
 }

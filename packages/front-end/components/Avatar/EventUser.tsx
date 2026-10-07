@@ -133,16 +133,28 @@ export default function EventUser({
 
   // Only badge named actors; a nameless key already reads as "API Key" (see
   // getUserLabel), so the badge would just double the "API" signal.
-  const apiBadge =
-    isApi && (name || email) ? (
-      <Badge
-        variant="outline"
-        label="API"
-        size="xs"
-        ml="1"
-        title={email ? "via Personal Access Token" : "via API Key"}
-      />
-    ) : null;
+  const oauthApp = user.type === "api_key" ? user.oauthApp : undefined;
+  const apiBadge = oauthApp ? (
+    <Badge
+      variant="outline"
+      label={`via ${oauthApp.name}`}
+      size="xs"
+      ml="1"
+      title={
+        oauthApp.delegated
+          ? `${oauthApp.name} acted on behalf of this member`
+          : `Through ${oauthApp.name}, an app this member authorized`
+      }
+    />
+  ) : isApi && (name || email) ? (
+    <Badge
+      variant="outline"
+      label="API"
+      size="xs"
+      ml="1"
+      title={email ? "via Personal Access Token" : "via API Key"}
+    />
+  ) : null;
 
   const freshUser = { ...user, name, email } as EventUserType;
 

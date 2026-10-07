@@ -11,6 +11,19 @@ export const eventUserLoggedIn = z
 
 export type EventUserLoggedIn = z.infer<typeof eventUserLoggedIn>;
 
+// The OAuth app a member's token came from, stamped inline so the row
+// outlives the token.
+export const eventUserOAuthApp = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    // The app got the token by acting on behalf of the member.
+    delegated: z.boolean().optional(),
+  })
+  .strict();
+
+export type EventUserOAuthApp = z.infer<typeof eventUserOAuthApp>;
+
 const eventUserApiKey = z
   .object({
     type: z.literal("api_key"),
@@ -18,6 +31,7 @@ const eventUserApiKey = z
     id: z.string().optional(),
     name: z.string().optional(),
     email: z.string().optional(),
+    oauthApp: eventUserOAuthApp.optional(),
   })
   .strict();
 

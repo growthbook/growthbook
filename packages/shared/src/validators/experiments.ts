@@ -464,8 +464,6 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // Who armed it, a user or an org API key; the job fires and audits as them.
   scheduledBy: z.string().optional(),
   scheduledByApiKey: z.string().optional(),
-  // Set with scheduledBy when armed through an OAuth token; fires within its limits.
-  scheduledByOAuthClient: z.string().optional(),
 });
 
 export const experimentInterface = z

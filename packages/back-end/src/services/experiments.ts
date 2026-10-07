@@ -270,7 +270,6 @@ import {
   getMetricDefaultsForOrg,
   getSignificanceSettingsForProject,
 } from "./organizations";
-import { getContextForOAuthGrant } from "./oauth";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -2517,13 +2516,6 @@ export async function getScheduledStatusContext(
   experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate" | "owner">,
 ): Promise<ReqContext | ApiReqContext | null> {
   const staged = experiment.nextScheduledStatusUpdate;
-  if (staged?.scheduledBy && staged.scheduledByOAuthClient) {
-    return getContextForOAuthGrant(
-      context.org,
-      staged.scheduledBy,
-      staged.scheduledByOAuthClient,
-    );
-  }
   if (staged?.scheduledBy) {
     return getContextForUserIdInOrg(context.org, staged.scheduledBy);
   }
@@ -5076,7 +5068,7 @@ function resolveExperimentUpdateVariationsAndPhases(
 export function normalizeStatusUpdateScheduleChanges(
   experiment: ExperimentInterface,
   changes: Changeset,
-  by?: { userId?: string; apiKey?: string; oauthClientId?: string },
+  by?: { userId?: string; apiKey?: string },
 ): void {
   if ("statusUpdateSchedule" in changes) {
     const incoming = changes.statusUpdateSchedule;

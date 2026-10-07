@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { EntityType } from "shared/types/audit";
+import type { EventUserOAuthApp } from "shared/validators";
 import type { Language } from "@/components/SyntaxHighlighting/Code";
 
 export type DiffBadge = { label: string; action: string };
@@ -12,6 +13,7 @@ export interface AuditUserInfo {
   email?: string;
   name?: string;
   apiKey?: string;
+  oauthApp?: EventUserOAuthApp;
 }
 
 /** A single item displayed in the left-column list. May represent 1 or N raw audit entries that were coarsened into a single group (same time bucket + same author). */

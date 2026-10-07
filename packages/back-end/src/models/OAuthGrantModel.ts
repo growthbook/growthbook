@@ -66,18 +66,29 @@ export class OAuthGrantModel extends BaseClass {
   }
 
   /** Per-request check for OAuth access tokens; missing counts as revoked. */
-  public static async dangerousIsActive(
+  public static async dangerousGetActive(
     organization: string,
     clientId: string,
     userId: string,
-  ): Promise<boolean> {
+  ): Promise<Pick<OAuthGrantInterface, "id" | "permissionLimit"> | null> {
     const grant = await getCollection<OAuthGrantInterface>(
       COLLECTION_NAME,
     ).findOne(
       { organization, clientId, userId },
-      { projection: { revoked: 1 } },
+      { projection: { id: 1, revoked: 1, permissionLimit: 1 } },
     );
-    return !!grant && !grant.revoked;
+    return grant && !grant.revoked ? grant : null;
+  }
+
+  /** Work armed through an OAuth token is recorded against its grant. */
+  public static async dangerousGetActiveById(
+    organization: string,
+    id: string,
+  ): Promise<OAuthGrantInterface | null> {
+    const grant = await getCollection<OAuthGrantInterface>(
+      COLLECTION_NAME,
+    ).findOne({ organization, id });
+    return grant && !grant.revoked ? grant : null;
   }
 
   public async getGrant(

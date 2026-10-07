@@ -1,4 +1,5 @@
 import {
+  MemberRoleWithProjects,
   OrganizationInterface,
   UserPermissions,
 } from "shared/types/organization";
@@ -66,28 +67,25 @@ export function getUserPermissions(
   );
 }
 
-// A scoped PAT can never exceed its user: it gets what both the user and the key allow.
+// A token never exceeds its user: it gets what the user and every limit on it
+// allow. Limits are a scoped PAT's own role, or an OAuth app's and its grant's.
 export function getPersonalAccessTokenPermissions(
-  apiKey: ApiKeyInterface,
+  apiKey: ApiKeyInterface | undefined,
   user: { id: string; superAdmin?: boolean },
   org: OrganizationInterface,
   teams: TeamInterface[],
   restrictedProjects?: string[],
+  oauthLimits: MemberRoleWithProjects[] = [],
 ): UserPermissions {
-  const userPermissions = getUserPermissions(
-    user,
-    org,
-    teams,
-    restrictedProjects,
-  );
-  if (!apiKey.scoped) return userPermissions;
-  return intersectUserPermissions(
-    userPermissions,
-    getRolePermissions(
-      { ...apiKey, role: apiKey.role ?? "noaccess" },
-      org,
-      teams,
-      restrictedProjects,
-    ),
+  const limits = apiKey?.scoped
+    ? [{ ...apiKey, role: apiKey.role ?? "noaccess" }, ...oauthLimits]
+    : oauthLimits;
+  return limits.reduce(
+    (permissions, limit) =>
+      intersectUserPermissions(
+        permissions,
+        getRolePermissions(limit, org, teams, restrictedProjects),
+      ),
+    getUserPermissions(user, org, teams, restrictedProjects),
   );
 }

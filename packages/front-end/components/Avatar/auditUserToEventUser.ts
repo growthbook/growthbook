@@ -18,6 +18,7 @@ export function auditUserInfoToEventUser(user: AuditUserInfo): EventUser {
       id: user.id,
       name: user.name,
       email: user.email,
+      oauthApp: user.oauthApp,
     };
   }
   return {
@@ -42,6 +43,7 @@ export function auditInterfaceUserToEventUser(
       id: u.id,
       name: u.name,
       email: u.email,
+      oauthApp: u.oauthApp,
     };
   }
   const u = user as AuditUserLoggedIn;
