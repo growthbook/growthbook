@@ -5,6 +5,7 @@ import { DocLink, DocSection } from "@/components/DocLink";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import {
   ConnectSetupKind,
   getDataSourceSetupInstructions,
@@ -49,17 +50,9 @@ function InstructionStepView({ step }: { step: SetupInstructionStep }) {
         </Box>
         {displayCode ? <StepCopyButton code={displayCode} /> : null}
       </Flex>
-      <Box
-        as="p"
-        style={{
-          margin: 0,
-          fontSize: 13,
-          lineHeight: 1.5,
-          color: "var(--color-text-mid)",
-        }}
-      >
+      <Text as="p" color="text-mid" m="0">
         {step.description}
-      </Box>
+      </Text>
       {displayCode ? (
         <Box
           asChild
@@ -120,17 +113,9 @@ export default function DataSourceConnectInstructions({
         <Heading as="h3" size="md" mb="1">
           Setup Instructions
         </Heading>
-        <Box
-          as="p"
-          style={{
-            margin: "0 0 var(--space-4)",
-            fontSize: 13,
-            lineHeight: 1.5,
-            color: "var(--color-text-mid)",
-          }}
-        >
+        <Text as="p" color="text-mid" mb="4">
           Updates as you fill in the form.
-        </Box>
+        </Text>
         <Flex direction="column" gap="5">
           {steps.map((step, i) => (
             <Flex key={`${step.title}-${i}`} gap="3" align="start">
