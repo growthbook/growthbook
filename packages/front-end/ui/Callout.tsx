@@ -9,7 +9,6 @@ import {
 import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiX } from "react-icons/pi";
-import clsx from "clsx";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { radixSize } from "@/ui/sizes";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
@@ -115,7 +114,14 @@ export default forwardRef<
         justify={action ? "between" : undefined}
       >
         {/* Grouped so icon and body align to each other, not to the action. */}
-        <Flex align={align} gap="3" wrap="nowrap" flexGrow="1" minWidth="0">
+        <Flex
+          align={align}
+          gap="3"
+          wrap="nowrap"
+          flexGrow="1"
+          minWidth="0"
+          className={action ? styles.bodyWithAction : undefined}
+        >
           {renderedIcon ? (
             <RadixCallout.Icon style={{ height: lineHeight }}>
               {renderedIcon}
@@ -123,11 +129,7 @@ export default forwardRef<
           ) : null}
           {/* Rendered as a div (not the default <p>) so block-level children
               and nested layout don't produce invalid <div>-inside-<p> nesting. */}
-          <Text
-            as="div"
-            size={radixSize(size)}
-            className={clsx(styles.body, action && styles.bodyWithAction)}
-          >
+          <Text as="div" size={radixSize(size)} className={styles.body}>
             {children}
           </Text>
         </Flex>
