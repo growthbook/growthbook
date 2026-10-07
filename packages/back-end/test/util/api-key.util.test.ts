@@ -8,6 +8,7 @@ import {
   assertNoRequestedByOnUserToken,
   encodeArmingApiKeyId,
   decodeArmingApiKeyId,
+  apiKeyEventUser,
 } from "back-end/src/util/api-key.util";
 
 describe("api key utils", () => {
@@ -250,5 +251,56 @@ describe("arming API key ids", () => {
       apiKeyId: "key_abc",
       requesterId: "u_123",
     });
+  });
+});
+
+describe("apiKeyEventUser", () => {
+  const dana = { id: "u_dana", name: "Dana", email: "dana@example.com" };
+  const key = (extra: Partial<ApiKeyInterface> = {}) => ({
+    description: "CI key",
+    ...extra,
+  });
+
+  it.each([
+    ["no extension", key(), undefined],
+    ["Always", key({ extendWithRequester: true }), true],
+    ["For specific permissions", key({ requesterOnly: true }), true],
+  ])("records an org key naming a member under %s", (_, apiKey, extended) => {
+    expect(
+      apiKeyEventUser({
+        apiKeyId: "key_ci",
+        key: apiKey,
+        owner: null,
+        requester: dana,
+      }),
+    ).toEqual({
+      type: "api_key",
+      apiKey: "key_ci",
+      name: "CI key",
+      requestedBy: dana,
+      ...(extended ? { extendedByRequester: true } : {}),
+    });
+  });
+
+  it("records an org key that names no one under its own name", () => {
+    expect(
+      apiKeyEventUser({
+        apiKeyId: "key_ci",
+        key: key({ extendWithRequester: true }),
+        owner: null,
+        requester: null,
+      }),
+    ).toEqual({ type: "api_key", apiKey: "key_ci", name: "CI key" });
+  });
+
+  it("records a personal access token as its owner", () => {
+    expect(
+      apiKeyEventUser({
+        apiKeyId: "key_pat",
+        key: key(),
+        owner: dana,
+        requester: null,
+      }),
+    ).toEqual({ type: "api_key", apiKey: "key_pat", ...dana });
   });
 });

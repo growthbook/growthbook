@@ -94,7 +94,6 @@ import {
   EventUser,
   HoldoutInterface,
   resolveSavedGroupsInput,
-  eventUserPerson,
   reviewerKeyForEventUser,
   RevisionRampAction,
   SdkConnectionCacheAuditContext,
@@ -2508,15 +2507,14 @@ export async function encrypt(
   );
 }
 
-// Legacy string actor: the person's name when there is one, else API or SYSTEM.
+// v1's frozen string actor; v2 returns the structured actor instead.
 function eventUserToString(
   user: FeatureRevisionInterface["createdBy"] | null | undefined,
 ): string | undefined {
   if (!user) return undefined;
+  if (user.type === "api_key") return "API";
   if (user.type === "system") return "SYSTEM";
-  return (
-    eventUserPerson(user)?.name || (user.type === "api_key" ? "API" : undefined)
-  );
+  return user.name || undefined;
 }
 
 // API-safe projection of the internal EventUser union. Deliberately never
