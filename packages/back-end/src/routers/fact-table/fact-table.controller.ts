@@ -31,6 +31,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createFactTable,
+  buildColumnInterface,
   mergeUpsertColumns,
   getAllFactTablesForOrganization,
   getFactTable,
@@ -176,8 +177,16 @@ export async function refreshColumns(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "id" | "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
-  >,
+    | "sql"
+    | "eventName"
+    | "columns"
+    | "userIdTypes"
+    | "userIdColumns"
+    | "timestampColumn"
+  > & {
+    // null only when the fact table hasn't been created yet
+    id: string | null;
+  },
   forceColumnRefresh?: boolean,
 ): Promise<RefreshColumnsResult> {
   if (!context.permissions.canRunFactQueries(datasource)) {
@@ -205,6 +214,7 @@ export async function refreshColumns(
       sql,
       [timestampColumn],
       "factTableValidation",
+      factTable.id,
     );
 
     if (!result.columns?.length) {
@@ -245,7 +255,16 @@ export const postFactTable = async (
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
-      data as FactTableInterface,
+      {
+        // createFactTable generates the id when the request doesn't supply one
+        id: data.id || null,
+        sql: data.sql,
+        eventName: data.eventName,
+        userIdTypes: data.userIdTypes,
+        userIdColumns: data.userIdColumns,
+        timestampColumn: data.timestampColumn,
+        columns: [],
+      },
     );
 
     if (!columns.length) {
@@ -330,7 +349,12 @@ export const putFactTable = async (
   > | null = null;
 
   if (forceColumnRefresh || needsColumnRefresh(factTable, data)) {
-    const updatedFactTable = { ...factTable, ...data } as FactTableInterface;
+    const updatedFactTable = {
+      ...factTable,
+      ...data,
+      // Request columns are input-shaped; normalize them like createFactTable does
+      columns: data.columns?.map(buildColumnInterface) ?? factTable.columns,
+    };
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,

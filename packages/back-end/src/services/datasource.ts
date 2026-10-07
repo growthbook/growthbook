@@ -229,6 +229,7 @@ export async function runFreeFormQuery(
       sql,
       ["timestamp"],
       FREE_FORM_QUERY_TYPE,
+      null,
     );
 
     // Build a type map from SQL engine metadata
@@ -399,6 +400,7 @@ export async function testQuery(
       sql,
       timestampCols,
       queryType,
+      null,
     );
 
     return {
@@ -481,6 +483,7 @@ export async function testQueryValidity(
       sql,
       undefined,
       "exposureQueryValidation",
+      null,
     );
     return findMissingRequiredColumns(
       results,
@@ -514,6 +517,7 @@ export async function testFeatureUsageQueryValidity(
       sql,
       undefined,
       "featureUsageQueryValidation",
+      null,
     );
     return findMissingRequiredColumns(
       results,

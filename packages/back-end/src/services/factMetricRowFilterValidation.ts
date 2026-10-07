@@ -4,7 +4,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 
 type FactTableForRowFilterValidation = Pick<
   FactTableInterface,
-  "sql" | "eventName" | "timestampColumn"
+  "id" | "sql" | "eventName" | "timestampColumn"
 >;
 
 function getNormalizedSqlExpr(rowFilter: RowFilter): string | null {
@@ -102,7 +102,12 @@ WHERE ${riskyFilterExpressions.join(" AND ")}`;
   );
 
   try {
-    await integration.runTestQuery(sql, undefined, "factTableValidation");
+    await integration.runTestQuery(
+      sql,
+      undefined,
+      "factTableValidation",
+      factTable.id,
+    );
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     throw new Error(`${errorPrefix}${message}`);

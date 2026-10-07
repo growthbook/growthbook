@@ -240,7 +240,9 @@ export async function runColumnDetectionQuery(
   factTable: Pick<
     FactTableInterface,
     "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
-  >,
+  > & {
+    id: string | null;
+  },
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -270,6 +272,7 @@ export async function runColumnDetectionQuery(
     sql,
     [timestampColumn],
     "factTableValidation",
+    factTable.id,
   );
 
   const { jsonMap, warehouseTypeMap, datatypes } = buildColumnTypeMaps(result);
@@ -377,13 +380,10 @@ export async function refreshColumnTopValues(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    | "id"
-    | "sql"
-    | "eventName"
-    | "userIdTypes"
-    | "userIdColumns"
-    | "timestampColumn"
-  >,
+    "sql" | "eventName" | "userIdTypes" | "userIdColumns" | "timestampColumn"
+  > & {
+    id: string | null;
+  },
   columns: ColumnInterface[],
 ): Promise<ColumnInterface[]> {
   const refreshedColumns: ColumnInterface[] = [];

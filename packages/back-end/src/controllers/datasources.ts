@@ -1141,6 +1141,7 @@ export async function postValidatePipelineSettings(
       }),
       undefined,
       "pipelineValidation",
+      null,
     );
     results.create.result = "success";
   } catch (e) {
@@ -1166,6 +1167,7 @@ export async function postValidatePipelineSettings(
           }),
           undefined,
           "pipelineValidation",
+          null,
         );
         results.insert = { result: "success" };
       } catch (e) {
@@ -1197,6 +1199,7 @@ export async function postValidatePipelineSettings(
           }),
           undefined,
           "pipelineValidation",
+          null,
         );
         results.drop = { result: "success" };
       } catch (e) {

@@ -65,6 +65,7 @@ describe("testQueryValidity", () => {
         "SELECT * FROM experiments",
         undefined,
         "exposureQueryValidation",
+        null,
       );
     });
 
@@ -104,6 +105,7 @@ describe("testQueryValidity", () => {
         "SELECT * FROM experiments",
         undefined,
         "exposureQueryValidation",
+        null,
       );
     });
 
@@ -145,6 +147,7 @@ describe("testQueryValidity", () => {
         "SELECT * FROM experiments",
         undefined,
         "exposureQueryValidation",
+        null,
       );
     });
   });
@@ -357,6 +360,7 @@ describe("testQueryValidity", () => {
       "SELECT * FROM experiments",
       undefined,
       "exposureQueryValidation",
+      null,
     );
   });
 });
