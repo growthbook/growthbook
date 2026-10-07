@@ -254,7 +254,7 @@ export async function sandboxEval(
     const message = err.message || err || "";
     return {
       ok: false,
-      error: message ? `Custom hook: ${message}` : "Custom hook error",
+      error: message ? String(message) : "Custom hook error",
       log: logs.join("\n"),
       warnings,
     };

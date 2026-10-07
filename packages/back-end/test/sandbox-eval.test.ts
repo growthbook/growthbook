@@ -20,7 +20,7 @@ describe("sandboxEval", () => {
     const result = await sandboxEval("throw new Error('Test error')", {});
     expect(result).toEqual({
       ok: false,
-      error: expect.stringContaining("Test error"),
+      error: "Test error",
       log: "",
       warnings: [],
     });
