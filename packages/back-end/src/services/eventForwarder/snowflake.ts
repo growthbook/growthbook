@@ -49,10 +49,21 @@ export function buildSnowflakeEventForwarderCreateTableSql(
 
 // Snowpipe Streaming writes through each table's default pipe and never
 // creates tables, so the app does before provisioning.
+// Runs as the forwarder's role (the user's default role, which streaming uses),
+// so the created tables are owned by the role that has to INSERT into them.
 export async function ensureEventForwarderSnowflakeTables(
-  params: SnowflakeConnectionParams,
-  destination: { database: string; schema: string; tablePrefix: string },
+  datasourceParams: SnowflakeConnectionParams,
+  destination: {
+    database: string;
+    schema: string;
+    tablePrefix: string;
+    role?: string;
+  },
 ): Promise<void> {
+  const params = {
+    ...datasourceParams,
+    role: destination.role?.trim() || datasourceParams.role,
+  };
   const tableNames = resolveSnowflakeEventForwarderTableNames(
     destination.tablePrefix,
   );
