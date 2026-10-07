@@ -1,5 +1,6 @@
 import { DataSourceParams, DataSourceType } from "shared/types/datasource";
 import { DocSection } from "@/components/docSections";
+import { isCloud } from "@/services/env";
 
 export type ConnectSetupKind = "custom" | "event_forwarder";
 
@@ -15,6 +16,8 @@ export type SetupInstructionStep = {
     label: string;
   };
   code?: string;
+  /** Shown under the code block. Backticks render as inline code. */
+  codeNote?: string;
   /** When true, skip the all-caps transform (e.g. JSON policies, IAM role ids). */
   preserveCase?: boolean;
 };
@@ -66,6 +69,7 @@ function postgresLikeSteps(
     portFallback: string;
     createUserSql: (user: string, database: string, schema: string) => string;
     networkDescription: (port: string) => string;
+    includeEgressIp?: boolean;
   },
 ): SetupInstructionStep[] {
   const user = field(params, "user", opts.userFallback);
@@ -77,14 +81,18 @@ function postgresLikeSteps(
     {
       title: "Create a read-only user",
       description:
-        "Grant SELECT on the schema with assignment and metric events.",
+        "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
       code: opts.createUserSql(user, database, schema || "public"),
+      codeNote:
+        "Replace `public` with your analytics schema if events live elsewhere.",
     },
     {
       title: "Allow network access",
       description: opts.networkDescription(port),
-      code: `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
+      code: opts.includeEgressIp
+        ? `# GrowthBook Cloud egress IP
+${CLOUD_EGRESS_IP}/32`
+        : undefined,
     },
     {
       title: "Enter credentials and test",
@@ -455,12 +463,14 @@ ${CLOUD_EGRESS_IP}/32`,
         },
       ];
 
-    case "postgres":
+    case "postgres": {
+      const cloud = isCloud();
       return postgresLikeSteps(p, {
         userFallback: "growthbook",
         databaseFallback: "your_database",
         schemaFallback: "public",
         portFallback: "5432",
+        includeEgressIp: cloud,
         createUserSql: (user, database, schema) =>
           `CREATE USER ${user} WITH PASSWORD 'use-a-strong-password';
 GRANT CONNECT ON DATABASE ${database} TO ${user};
@@ -468,9 +478,12 @@ GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
   GRANT SELECT ON TABLES TO ${user};`,
-        networkDescription: (port) =>
-          `Allow port ${port} in your firewall, security group, and pg_hba.conf. On Docker, use host.docker.internal instead of localhost.`,
+        networkDescription: () =>
+          cloud
+            ? "If a firewall, security group, or pg_hba.conf is in front of Postgres, allow this IP."
+            : "GrowthBook runs in Docker. Set the host to host.docker.internal instead of localhost.",
       });
+    }
 
     case "mysql": {
       const user = field(p, "user", "growthbook");

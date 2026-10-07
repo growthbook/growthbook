@@ -1,11 +1,11 @@
-import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut, PiCheckBold, PiCopyBold } from "react-icons/pi";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiArrowSquareOut, PiCheck, PiCopy } from "react-icons/pi";
 import { DataSourceParams, DataSourceType } from "shared/types/datasource";
 import { DocLink, DocSection } from "@/components/DocLink";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import {
   ConnectSetupKind,
   getDataSourceSetupInstructions,
@@ -14,24 +14,58 @@ import {
 
 export type { ConnectSetupKind };
 
-function StepCopyButton({ code }: { code: string }) {
+function CommandBlock({ code }: { code: string }) {
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 1500,
   });
-  if (!copySupported) return null;
+  const label = copySuccess ? "Copied" : "Copy command";
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      color="gray"
-      icon={copySuccess ? <PiCheckBold /> : <PiCopyBold />}
-      onClick={() => {
-        performCopy(code);
-      }}
-    >
-      {copySuccess ? "Copied" : "Copy"}
-    </Button>
+    <Box mt="2" style={{ position: "relative" }}>
+      <Box
+        asChild
+        style={{
+          margin: 0,
+          background: "var(--gray-a2)",
+          border: "1px solid var(--gray-a5)",
+          borderRadius: 6,
+          padding: "12px 48px 12px 14px",
+          fontFamily: "var(--font-mono, monospace)",
+          fontSize: 12,
+          lineHeight: 1.75,
+          whiteSpace: "pre",
+          overflowX: "auto",
+          color: "var(--color-text-high)",
+        }}
+      >
+        <pre>{code}</pre>
+      </Box>
+      {copySupported ? (
+        <Tooltip content={label}>
+          <IconButton
+            type="button"
+            variant="ghost"
+            color="gray"
+            size="1"
+            aria-label={label}
+            onClick={() => {
+              performCopy(code);
+            }}
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              // Match the command block, which is gray-a2 painted over the panel.
+              backgroundColor: "var(--color-panel-solid)",
+              backgroundImage:
+                "linear-gradient(var(--gray-a2), var(--gray-a2))",
+            }}
+          >
+            {copySuccess ? <PiCheck /> : <PiCopy />}
+          </IconButton>
+        </Tooltip>
+      ) : null}
+    </Box>
   );
 }
 
@@ -58,6 +92,17 @@ function InstructionDescription({ step }: { step: SetupInstructionStep }) {
   );
 }
 
+function CodeNote({ note }: { note: string }) {
+  const parts = note.split("`");
+  return (
+    <Text as="p" color="text-mid" mt="2" mb="0">
+      {parts.map((part, i) =>
+        i % 2 === 1 ? <code key={i}>{part}</code> : part,
+      )}
+    </Text>
+  );
+}
+
 function InstructionStepView({ step }: { step: SetupInstructionStep }) {
   const displayCode = step.code
     ? step.preserveCase
@@ -67,34 +112,15 @@ function InstructionStepView({ step }: { step: SetupInstructionStep }) {
 
   return (
     <Box>
-      <Flex align="center" gap="3" mb="2">
-        <Box style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>
-          {step.title}
-        </Box>
-        {displayCode ? <StepCopyButton code={displayCode} /> : null}
-      </Flex>
+      <Box mb="2" style={{ fontSize: 14, fontWeight: 500 }}>
+        {step.title}
+      </Box>
       <InstructionDescription step={step} />
       {displayCode ? (
-        <Box
-          asChild
-          mt="2"
-          style={{
-            margin: "8px 0 0",
-            background: "var(--gray-a2)",
-            border: "1px solid var(--gray-a5)",
-            borderRadius: 6,
-            padding: "12px 14px",
-            fontFamily: "var(--font-mono, monospace)",
-            fontSize: 12,
-            lineHeight: 1.75,
-            whiteSpace: "pre",
-            overflowX: "auto",
-            color: "var(--color-text-high)",
-            textTransform: step.preserveCase ? "none" : "uppercase",
-          }}
-        >
-          <pre>{displayCode}</pre>
-        </Box>
+        <>
+          <CommandBlock code={displayCode} />
+          {step.codeNote ? <CodeNote note={step.codeNote} /> : null}
+        </>
       ) : null}
     </Box>
   );
