@@ -197,13 +197,18 @@ export async function testDataSourceConnection(
   await integration.testConnection();
 }
 
-// MSSQL caches connection pools by Data Source id, so an unsaved test runs
-// under a throwaway id rather than replacing a saved Data Source's pool, and
-// closes its pool afterward.
+// MSSQL caches connection pools by Data Source id. An unsaved test uses a
+// throwaway id so it does not replace a saved Data Source's pool, then closes
+// that pool. Other engines open a connection for the test and drop it.
 export async function testUnsavedDataSourceConnection(
   context: ReqContext,
   datasource: DataSourceInterface,
 ) {
+  if (datasource.type !== "mssql") {
+    await testDataSourceConnection(context, datasource);
+    return;
+  }
+
   const id = uniqid("ds_connection_test_");
   try {
     await testDataSourceConnection(context, { ...datasource, id });

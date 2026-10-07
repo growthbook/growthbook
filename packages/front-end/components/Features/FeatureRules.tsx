@@ -196,7 +196,7 @@ export default function FeatureRules({
   const draftAddsHoldoutBase =
     !!feature.holdout?.id && !baseFeature.holdout?.id;
   const { data: addedHoldoutData } = useApi<{ holdout: HoldoutInterface }>(
-    `/holdout/${feature.holdout?.id}`,
+    `/holdout/${feature.holdout?.id}?summary=1`,
     { shouldRun: () => draftAddsHoldoutBase },
   );
   const addedHoldout = draftAddsHoldoutBase

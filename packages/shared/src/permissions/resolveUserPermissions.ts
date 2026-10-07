@@ -26,7 +26,11 @@ import {
 } from "./permissions.constants";
 import { Permissions } from "./permissionsClass";
 import type { RevisionModel } from "./revisionPermissions";
-import { roleSupportsEnvLimit, roleToPermissionMap } from "./permissions.utils";
+import {
+  allowedEnvironments,
+  roleSupportsEnvLimit,
+  roleToPermissionMap,
+} from "./permissions.utils";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: readonly Permission[] = ENV_SCOPED_PERMISSIONS;
@@ -328,6 +332,68 @@ export function getRolePermissions(
   applyProjectAccessRestrictions(permissions, restrictedProjects);
 
   return permissions;
+}
+
+function intersectUserPermission(
+  a: UserPermission,
+  b: UserPermission,
+): UserPermission {
+  const permissions: PermissionsObject = {};
+  const envGrants = new Map<
+    string,
+    NonNullable<UserPermission["envGrants"]>[0]
+  >();
+  for (const p of Object.keys(a.permissions) as Permission[]) {
+    if (!a.permissions[p] || !b.permissions[p]) continue;
+    permissions[p] = true;
+    const envsA = allowedEnvironments(a, p);
+    const envsB = allowedEnvironments(b, p);
+    const envs =
+      envsA === null
+        ? envsB
+        : envsB === null
+          ? envsA
+          : envsA.filter((e) => envsB.includes(e));
+    // Every granted permission gets a grant, so the legacy fallback never applies.
+    const key = envs === null ? "*" : JSON.stringify([...envs].sort());
+    const grant = envGrants.get(key);
+    if (grant) grant.permissions.push(p);
+    else
+      envGrants.set(key, {
+        limitAccessByEnvironment: envs !== null,
+        environments: envs ?? [],
+        permissions: [p],
+      });
+  }
+  const grants = [...envGrants.values()];
+  const unrestricted =
+    !grants.length || grants.some((g) => !g.limitAccessByEnvironment);
+  return {
+    limitAccessByEnvironment: !unrestricted,
+    environments: unrestricted
+      ? []
+      : [...new Set(grants.flatMap((g) => g.environments))],
+    permissions,
+    envGrants: grants,
+  };
+}
+
+// Exact: hasPermission(result, …) === hasPermission(a, …) && hasPermission(b, …).
+export function intersectUserPermissions(
+  a: UserPermissions,
+  b: UserPermissions,
+): UserPermissions {
+  const projects: UserPermissions["projects"] = {};
+  for (const p of new Set([
+    ...Object.keys(a.projects),
+    ...Object.keys(b.projects),
+  ])) {
+    projects[p] = intersectUserPermission(
+      a.projects[p] ?? a.global,
+      b.projects[p] ?? b.global,
+    );
+  }
+  return { global: intersectUserPermission(a.global, b.global), projects };
 }
 
 // Shared so hook props and the required-approver gate agree on "in team X".

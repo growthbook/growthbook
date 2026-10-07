@@ -6,7 +6,13 @@ import {
   useState,
 } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowClockwise, PiArrowLeft } from "react-icons/pi";
+import {
+  PiArrowClockwise,
+  PiArrowLeft,
+  PiCheckBold,
+  PiSpinnerGap,
+  PiXBold,
+} from "react-icons/pi";
 import {
   DataSourceInterfaceWithParams,
   DataSourceType,
@@ -19,6 +25,7 @@ import {
 } from "shared/validators";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import Field from "@/components/Forms/Field";
+import spinnerStyles from "@/components/LoadingSpinner.module.scss";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getInitialSettings } from "@/services/datasources";
@@ -180,7 +187,7 @@ export default function ConnectDataSourceLayout({
         throw new Error(res.message || "Unable to connect to the Data Source");
       }
       setTestStatus("passed");
-      setTestMessage("Connection successful.");
+      setTestMessage(null);
       track("Data Source Connection Test Passed", {
         source,
         mode,
@@ -319,6 +326,7 @@ export default function ConnectDataSourceLayout({
   }
 
   const type = datasource.type as DataSourceType;
+  const readAccessTarget = datasource.name?.trim() || typeInfo.display;
   const testBorderColor =
     testStatus === "failed"
       ? "var(--red-7)"
@@ -463,14 +471,13 @@ export default function ConnectDataSourceLayout({
                     : "Checks that GrowthBook can connect and read your data."}
                 </Text>
               )}
-              {testMessage && (
-                <Callout
-                  status={testStatus === "passed" ? "success" : "error"}
-                  mt="3"
-                >
-                  {testMessage}
-                </Callout>
-              )}
+              {testStatus !== "idle" ? (
+                <ConnectionTestRow
+                  status={testStatus}
+                  name={readAccessTarget}
+                  error={testStatus === "failed" ? testMessage : null}
+                />
+              ) : null}
             </Frame>
           )}
         </Box>
@@ -523,5 +530,81 @@ export default function ConnectDataSourceLayout({
         params={datasource.params}
       />
     </Box>
+  );
+}
+
+function ConnectionTestRow({
+  status,
+  name,
+  error,
+}: {
+  status: Exclude<TestStatus, "idle">;
+  name: string;
+  error: string | null;
+}) {
+  const passed = status === "passed";
+  const failed = status === "failed";
+  const label = passed
+    ? "Confirmed read access to"
+    : failed
+      ? "Could not confirm read access to"
+      : "Checking read access to";
+
+  return (
+    <Flex align="start" gap="3" mt="4">
+      <Flex
+        align="center"
+        justify="center"
+        flexShrink="0"
+        aria-hidden
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: "50%",
+          background: passed
+            ? "var(--green-a3)"
+            : failed
+              ? "var(--red-a3)"
+              : "var(--gray-a3)",
+          color: passed
+            ? "var(--green-11)"
+            : failed
+              ? "var(--red-11)"
+              : "var(--gray-11)",
+        }}
+      >
+        {passed ? <PiCheckBold size={12} /> : null}
+        {failed ? <PiXBold size={12} /> : null}
+        {status === "running" ? (
+          <PiSpinnerGap size={12} className={spinnerStyles.spin} />
+        ) : null}
+      </Flex>
+      <Box style={{ minWidth: 0, lineHeight: "22px" }}>
+        <Text
+          as="span"
+          size="sm"
+          color={status === "running" ? "text-mid" : "text-high"}
+        >
+          {label}{" "}
+          <Text as="span" size="sm" mono>
+            {name}
+          </Text>
+        </Text>
+        {failed && error ? (
+          <Box
+            mt="1"
+            style={{
+              color: "var(--red-11)",
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: 12,
+              lineHeight: 1.5,
+              wordBreak: "break-word",
+            }}
+          >
+            {error}
+          </Box>
+        ) : null}
+      </Box>
+    </Flex>
   );
 }

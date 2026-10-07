@@ -148,6 +148,18 @@ describe("api key utils", () => {
       }
     });
 
+    it("should keep the cap role on a scoped PAT", () => {
+      const migrated = migrateApiKey({
+        userId: "user-abc123",
+        role: "readonly",
+        scoped: true,
+        secret: true,
+        dateCreated: new Date(),
+      });
+
+      expect(migrated.role).toEqual("readonly");
+    });
+
     it("should still default a roleless org secret key to admin", () => {
       const migrated = migrateApiKey({
         role: undefined,

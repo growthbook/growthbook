@@ -49,7 +49,6 @@ export default function ManagedWarehouseModal({
 
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
   const [agree, setAgree] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   // Seeds the starter fact tables and metrics. Failures here shouldn't block
   // the warehouse itself, so they're logged rather than surfaced.
@@ -79,26 +78,21 @@ export default function ManagedWarehouseModal({
   };
 
   const createManagedWarehouse = async () => {
-    setSubmitting(true);
-    try {
-      const res = await apiCall<{
-        status: number;
-        id: string;
-        datasource: DataSourceInterfaceWithParams;
-      }>("/datasources/managed-warehouse", {
-        method: "POST",
-        body: JSON.stringify({ region }),
-      });
-      if (!res.id) {
-        throw new Error("Error creating managed warehouse");
-      }
-
-      await createResources(res.datasource);
-      await mutateDefinitions();
-      await router.push(`/datasources/${res.id}`);
-    } finally {
-      setSubmitting(false);
+    const res = await apiCall<{
+      status: number;
+      id: string;
+      datasource: DataSourceInterfaceWithParams;
+    }>("/datasources/managed-warehouse", {
+      method: "POST",
+      body: JSON.stringify({ region }),
+    });
+    if (!res.id) {
+      throw new Error("Error creating managed warehouse");
     }
+
+    await createResources(res.datasource);
+    await mutateDefinitions();
+    await router.push(`/datasources/${res.id}`);
   };
 
   return (
@@ -109,8 +103,8 @@ export default function ManagedWarehouseModal({
       ctaEnabled={agree}
       submit={createManagedWarehouse}
       close={close}
-      // Closing mid-submit wouldn't stop the create or the redirect after it.
-      dismissible={!submitting}
+      // Dismissible until submit; Root locks escape and outside click while loading.
+      dismissible
       size="lg"
       trackingEventModalType="managed-warehouse"
       trackingEventModalSource={source}

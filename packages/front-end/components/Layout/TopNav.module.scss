@@ -72,6 +72,11 @@ $sidebarwidth: 240px;
   justify-content: flex-start;
   align-items: center;
   width: 100%;
+
+  // A notice slot whose notice renders nothing would otherwise keep its padding.
+  > :global(.nav-link):empty {
+    display: none;
+  }
 }
 
 .dropdownItemIconColor {
