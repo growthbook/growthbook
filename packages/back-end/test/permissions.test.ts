@@ -2888,14 +2888,14 @@ describe("PermissionsUtilClass population checks", () => {
     members: [],
     customRoles: [
       {
-        id: "segmentsOnly",
-        description: "",
-        policies: ["ReadData", "SegmentsFullAccess"],
-      },
-      {
         id: "populationsOnly",
         description: "",
         policies: ["ReadData", "PopulationsFullAccess"],
+      },
+      {
+        id: "readDataOnly",
+        description: "",
+        policies: ["ReadData"],
       },
     ],
     settings: {
@@ -2926,60 +2926,143 @@ describe("PermissionsUtilClass population checks", () => {
     });
   }
 
-  it("denies readonly and collaborator roles", () => {
-    for (const role of ["readonly", "collaborator"]) {
-      const permissions = permissionsFor(role);
-      expect(permissions.canCreatePopulation({ projects: [] })).toEqual(false);
-      expect(permissions.canUpdatePopulation({ projects: [] }, {})).toEqual(
-        false,
-      );
-      expect(permissions.canDeletePopulation({ projects: [] })).toEqual(false);
-    }
+  function canManageAllProjects(permissions: Permissions) {
+    return {
+      create: permissions.canCreatePopulation({ projects: [] }),
+      update: permissions.canUpdatePopulation({ projects: [] }, {}),
+      delete: permissions.canDeletePopulation({ projects: [] }),
+    };
+  }
+
+  it.each([
+    "noaccess",
+    "readonly",
+    "collaborator",
+    "visualEditor",
+    "engineer",
+    "readDataOnly",
+  ])("denies the global %s role", (role) => {
+    expect(canManageAllProjects(permissionsFor(role))).toEqual({
+      create: false,
+      update: false,
+      delete: false,
+    });
   });
 
-  it("allows the built-in roles that manage data", () => {
-    for (const role of ["analyst", "experimenter", "admin"]) {
-      const permissions = permissionsFor(role);
-      expect(permissions.canCreatePopulation({ projects: [] })).toEqual(true);
-      expect(permissions.canUpdatePopulation({ projects: [] }, {})).toEqual(
-        true,
-      );
-      expect(permissions.canDeletePopulation({ projects: [] })).toEqual(true);
-    }
+  it.each([
+    "analyst",
+    "experimenter",
+    "gbDefault_projectAdmin",
+    "admin",
+    "populationsOnly",
+  ])("allows the global %s role", (role) => {
+    expect(canManageAllProjects(permissionsFor(role))).toEqual({
+      create: true,
+      update: true,
+      delete: true,
+    });
   });
 
-  it("is independent of the Segment permission", () => {
-    const segmentsOnly = permissionsFor("segmentsOnly");
-    expect(segmentsOnly.canCreateSegment({ projects: [] })).toEqual(true);
-    expect(segmentsOnly.canCreatePopulation({ projects: [] })).toEqual(false);
-
-    const populationsOnly = permissionsFor("populationsOnly");
-    expect(populationsOnly.canCreatePopulation({ projects: [] })).toEqual(true);
-    expect(populationsOnly.canCreateSegment({ projects: [] })).toEqual(false);
-  });
-
-  it("scopes access to the Projects where the role is granted", () => {
+  describe("with access in a single Project", () => {
     const permissions = permissionsFor("readonly", { ABC123: "analyst" });
 
-    expect(permissions.canCreatePopulation({ projects: [] })).toEqual(false);
-    expect(permissions.canCreatePopulation({ projects: ["ABC123"] })).toEqual(
+    it("allows creating and deleting only in that Project", () => {
+      expect(permissions.canCreatePopulation({ projects: ["ABC123"] })).toBe(
+        true,
+      );
+      expect(permissions.canDeletePopulation({ projects: ["ABC123"] })).toBe(
+        true,
+      );
+      expect(permissions.canCreatePopulation({ projects: ["DEF456"] })).toBe(
+        false,
+      );
+      expect(permissions.canDeletePopulation({ projects: ["DEF456"] })).toBe(
+        false,
+      );
+    });
+
+    it("denies Populations in all Projects", () => {
+      expect(permissions.canCreatePopulation({ projects: [] })).toBe(false);
+      expect(permissions.canDeletePopulation({ projects: [] })).toBe(false);
+    });
+
+    it("requires access in every Project a Population is in", () => {
+      expect(
+        permissions.canCreatePopulation({ projects: ["ABC123", "DEF456"] }),
+      ).toBe(false);
+      expect(
+        permissions.canDeletePopulation({ projects: ["ABC123", "DEF456"] }),
+      ).toBe(false);
+    });
+
+    it("allows updates that keep the Population in that Project", () => {
+      expect(
+        permissions.canUpdatePopulation({ projects: ["ABC123"] }, {}),
+      ).toBe(true);
+      expect(
+        permissions.canUpdatePopulation(
+          { projects: ["ABC123"] },
+          { projects: ["ABC123"] },
+        ),
+      ).toBe(true);
+    });
+
+    it.each([
+      { change: "moving it to another Project", projects: ["DEF456"] },
+      { change: "adding another Project", projects: ["ABC123", "DEF456"] },
+      { change: "moving it to all Projects", projects: [] },
+    ])("denies $change", ({ projects }) => {
+      expect(
+        permissions.canUpdatePopulation({ projects: ["ABC123"] }, { projects }),
+      ).toBe(false);
+    });
+
+    it("denies updating a Population in a Project without access", () => {
+      expect(
+        permissions.canUpdatePopulation({ projects: ["DEF456"] }, {}),
+      ).toBe(false);
+      expect(
+        permissions.canUpdatePopulation(
+          { projects: ["DEF456"] },
+          { projects: ["ABC123"] },
+        ),
+      ).toBe(false);
+    });
+  });
+
+  it("allows Populations in several Projects with access in each", () => {
+    const permissions = permissionsFor("readonly", {
+      ABC123: "analyst",
+      DEF456: "experimenter",
+    });
+    const both = { projects: ["ABC123", "DEF456"] };
+
+    expect(permissions.canCreatePopulation(both)).toBe(true);
+    expect(permissions.canDeletePopulation(both)).toBe(true);
+    expect(
+      permissions.canUpdatePopulation({ projects: ["ABC123"] }, both),
+    ).toBe(true);
+    expect(
+      permissions.canUpdatePopulation(both, { projects: ["DEF456"] }),
+    ).toBe(true);
+  });
+
+  it("lets a Project role remove a global grant", () => {
+    const permissions = permissionsFor("analyst", { ABC123: "readonly" });
+
+    expect(permissions.canCreatePopulation({ projects: [] })).toBe(true);
+    expect(permissions.canCreatePopulation({ projects: ["DEF456"] })).toBe(
       true,
     );
-    expect(permissions.canDeletePopulation({ projects: ["ABC123"] })).toEqual(
-      true,
+    expect(permissions.canCreatePopulation({ projects: ["ABC123"] })).toBe(
+      false,
     );
     expect(
       permissions.canUpdatePopulation(
-        { projects: ["ABC123"] },
-        { projects: ["ABC123"] },
-      ),
-    ).toEqual(true);
-    expect(
-      permissions.canUpdatePopulation(
-        { projects: ["ABC123"] },
         { projects: ["DEF456"] },
+        { projects: ["DEF456", "ABC123"] },
       ),
-    ).toEqual(false);
+    ).toBe(false);
   });
 });
 

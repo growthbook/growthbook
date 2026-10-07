@@ -1,7 +1,7 @@
 /**
  * Aggregate filters limit a unit's total of a fact table column, such as
  * ">=3" or ">=3,<10": comma-separated comparisons against a number, with
- * whitespace ignored. Shared by Fact Metrics and Populations.
+ * whitespace ignored.
  */
 export type AggregateFilterCondition = { operator: string; value: string };
 
