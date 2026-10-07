@@ -23,6 +23,7 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Sparkline from "@/components/EventLogs/Sparkline";
+import { isEventLogsOn } from "@/components/EventLogs/prototypeEventLogsFlag";
 import EventSummaryFilterBar from "@/components/EventLogs/EventSummaryFilterBar";
 import StreamSearchField from "@/components/Diagnostics/StreamSearchField";
 import summaryTableStyles from "@/components/EventLogs/EventSummaryTable.module.scss";
@@ -89,7 +90,8 @@ export default function EventLogsPage() {
   // the same interaction that existed before the stream was extracted.
   const [streamSearch, setStreamSearch] = useState("");
 
-  const eventLogsEnabled = !!gb?.isOn("event-logs");
+  // PROTOTYPE ONLY: forced on in development — see prototypeEventLogsFlag.ts.
+  const eventLogsEnabled = isEventLogsOn(!!gb?.isOn("event-logs"));
   const hasFeature = hasCommercialFeature("event-logs");
 
   // Summary query

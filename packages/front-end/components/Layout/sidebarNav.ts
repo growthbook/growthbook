@@ -6,6 +6,7 @@ import {
   GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
+import { isEventLogsOn } from "@/components/EventLogs/prototypeEventLogsFlag";
 import type { SidebarLinkFilterProps, SidebarLinkProps } from "./SidebarLink";
 import styles from "./Layout.module.scss";
 
@@ -133,7 +134,8 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/event-logs",
         path: /^event-logs/,
         beta: true,
-        filter: ({ gb }) => !!gb?.isOn("event-logs"),
+        // PROTOTYPE ONLY: forced on in development — see prototypeEventLogsFlag.ts.
+        filter: ({ gb }) => isEventLogsOn(!!gb?.isOn("event-logs")),
       },
     ],
   },
