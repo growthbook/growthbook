@@ -46,6 +46,7 @@ const BaseClass = MakeModelClass({
   },
   globallyUniquePrimaryKeys: false,
   readonlyFields: ["datasource"],
+  additionalIndexes: [{ fields: { organization: 1 } }],
   apiConfig: {
     modelKey: "populations",
     openApiSpec: populationApiSpec,
