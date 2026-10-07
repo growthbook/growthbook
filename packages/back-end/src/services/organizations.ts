@@ -15,6 +15,7 @@ import {
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
+  requesterExtension,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -77,7 +78,7 @@ import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import { TeamInterface } from "shared/types/team";
-import type { ApiKeyInterface } from "shared/types/apikey";
+import type { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import {
   acceptOrganizationInvite,
   addOrganizationInviteIfSeatAvailable,
@@ -124,7 +125,11 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { PaymentRequiredError } from "back-end/src/util/errors";
-import { migrateApiKey } from "back-end/src/util/api-key.util";
+import {
+  decodeArmingApiKeyId,
+  migrateApiKey,
+} from "back-end/src/util/api-key.util";
+import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -1880,8 +1885,9 @@ export async function getContextForAgendaJobByOrgId(
 // user and never arrive here; a scoped one runs as its user under its cap.
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
-  apiKeyId: string,
+  armingId: string,
 ): Promise<ApiReqContext | null> {
+  const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
   const key =
     apiKeyId === SECRET_API_KEY_ID
       ? secretApiKeyDoc(org)
@@ -1898,6 +1904,18 @@ export async function getContextForApiKeyIdInOrg(
   if (user && !superAdmin && !org.members.some((m) => m.id === user.id)) {
     return null;
   }
+  // Like a user who armed it and left, a requester who left fires nothing.
+  const requester = requesterId ? await getUserById(requesterId) : null;
+  if (
+    requesterId &&
+    (key.userId || !requester || !org.members.some((m) => m.id === requesterId))
+  ) {
+    return null;
+  }
+  const [teams, restrictedProjects] = await Promise.all([
+    TeamModel.dangerousGetTeamsForOrganization(org.id),
+    ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+  ]);
   return new ReqContextClass({
     org,
     auditUser: user
@@ -1908,17 +1926,38 @@ export async function getContextForApiKeyIdInOrg(
           name: user.name || "",
           email: user.email,
         }
-      : { type: "api_key", apiKey: apiKeyId, name: key.description || "" },
+      : {
+          type: "api_key",
+          apiKey: apiKeyId,
+          name: key.description || "",
+          ...(requester && {
+            requestedBy: {
+              id: requester.id,
+              name: requester.name || "",
+              email: requester.email,
+            },
+            ...(requesterExtension(key) !== "none" && {
+              extendedByRequester: true,
+            }),
+          }),
+        },
     user: user
       ? { id: user.id, email: user.email, name: user.name || "", superAdmin }
       : undefined,
     role: key.role,
     apiKey: apiKeyId,
     apiKeyData: key,
-    teams: await TeamModel.dangerousGetTeamsForOrganization(org.id),
-    restrictedProjects: await ProjectModel.dangerousGetRestrictedProjectIds(
-      org.id,
-    ),
+    teams,
+    restrictedProjects,
+    userPermissions: key.userId
+      ? undefined
+      : getKeyPermissionsForRequest({
+          apiKey: key as ApiKeyWithRole,
+          requesterId,
+          org,
+          teams,
+          restrictedProjects,
+        }),
   });
 }
 
@@ -1938,7 +1977,9 @@ function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
 
 // An org API key id that can be recorded as an armer and resolved later.
 export function isArmingApiKeyId(id: string | undefined): id is string {
-  return !!id && (id.startsWith("key_") || id === SECRET_API_KEY_ID);
+  if (!id) return false;
+  const { apiKeyId } = decodeArmingApiKeyId(id);
+  return apiKeyId.startsWith("key_") || apiKeyId === SECRET_API_KEY_ID;
 }
 
 // A stored armer id is a user or an org API key; each runs as itself, on the

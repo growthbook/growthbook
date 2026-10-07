@@ -63,6 +63,8 @@ export const postApiKeyValidator = z.strictObject({
   requesterOnly: z.boolean().optional(),
   requireRequestedBy: z.boolean().optional(),
   extendWithRequester: z.boolean().optional(),
+  // ISO string; null or absent means no expiration, subject to the org policy.
+  expiresAt: z.string().nullable().optional(),
 });
 
 export const putApiKeyValidator = z.strictObject({
@@ -79,6 +81,8 @@ export const putApiKeyValidator = z.strictObject({
   requesterOnly: z.boolean().optional(),
   requireRequestedBy: z.boolean().optional(),
   extendWithRequester: z.boolean().optional(),
+  // Omitted leaves the expiry unchanged; null removes it where the policy allows.
+  expiresAt: z.string().nullable().optional(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({

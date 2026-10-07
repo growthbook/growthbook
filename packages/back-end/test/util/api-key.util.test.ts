@@ -6,6 +6,8 @@ import {
   roleForApiKey,
   resolveRequestedBy,
   assertNoRequestedByOnUserToken,
+  encodeArmingApiKeyId,
+  decodeArmingApiKeyId,
 } from "back-end/src/util/api-key.util";
 
 describe("api key utils", () => {
@@ -229,5 +231,24 @@ describe("assertNoRequestedByOnUserToken", () => {
     expect(() => assertNoRequestedByOnUserToken("alice@example.com")).toThrow(
       "only for organization API keys",
     );
+  });
+});
+
+describe("arming API key ids", () => {
+  it("leaves a key without a requester as its bare id", () => {
+    expect(encodeArmingApiKeyId("key_abc", undefined)).toBe("key_abc");
+    expect(decodeArmingApiKeyId("key_abc")).toEqual({
+      apiKeyId: "key_abc",
+      requesterId: null,
+    });
+  });
+
+  it("round-trips the requester alongside the key", () => {
+    const id = encodeArmingApiKeyId("key_abc", "u_123");
+    expect(id).toBe("key_abc:u_123");
+    expect(decodeArmingApiKeyId(id)).toEqual({
+      apiKeyId: "key_abc",
+      requesterId: "u_123",
+    });
   });
 });

@@ -3,18 +3,24 @@ import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
 import { EventUserRequestedBy } from "shared/types/events/event-types";
 import { ApiKeyInterface } from "shared/types/apikey";
+import { isExpired } from "shared/api-key-expiration";
 import {
+  APP_ORIGIN,
   IS_MULTI_ORG,
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { BadRequestError } from "back-end/src/util/errors";
 import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
-import { COLLECTION_NAME as API_KEY_COLLECTION } from "back-end/src/models/ApiKeyModel";
+import {
+  ApiKeyModel,
+  COLLECTION_NAME as API_KEY_COLLECTION,
+} from "back-end/src/models/ApiKeyModel";
 import {
   hashToken,
   OAUTH_ACCESS_TOKEN_PREFIX,
@@ -119,8 +125,26 @@ export async function dangerousLookupOrganizationByApiKey(
 
   const migrated = migrateApiKey(removeMongooseFields(doc));
 
-  if (migrated.expiresAt && migrated.expiresAt.getTime() <= Date.now()) {
-    throw new Error("This API key has expired");
+  // The one expiry check for every caller. The attempt is recorded first so a
+  // lapsed key's `lastUsed` shows whether something still depends on it.
+  if (isExpired(migrated.expiresAt)) {
+    await ApiKeyModel.dangerousRecordUsageByKey(
+      lookupKey,
+      migrated.organization,
+    ).catch((err) =>
+      logger.warn(
+        { err, apiKeyId: migrated.id },
+        "Failed to record API key usage",
+      ),
+    );
+    // OAuth clients refresh on their own; anything else needs a person to replace it.
+    throw new Error(
+      migrated.oauthClientId
+        ? "This API key has expired"
+        : migrated.userId
+          ? `This personal access token has expired. Create a new one at ${APP_ORIGIN}/account/personal-access-tokens`
+          : `This API key has expired. An admin can create a new one at ${APP_ORIGIN}/settings/keys`,
+    );
   }
 
   return migrated;
@@ -163,6 +187,27 @@ export async function resolveRequestedBy(
     );
   }
   return { id: user.id, name: user.name || "", email: user.email };
+}
+
+// An org key that armed deferred work for a requester is stored as
+// `<keyId>:<memberId>`, so the work later runs with that request's permissions.
+const ARMING_REQUESTER_SEPARATOR = ":";
+
+export function encodeArmingApiKeyId(
+  apiKeyId: string,
+  requesterId: string | undefined,
+): string {
+  return requesterId
+    ? `${apiKeyId}${ARMING_REQUESTER_SEPARATOR}${requesterId}`
+    : apiKeyId;
+}
+
+export function decodeArmingApiKeyId(id: string): {
+  apiKeyId: string;
+  requesterId: string | null;
+} {
+  const [apiKeyId, requesterId] = id.split(ARMING_REQUESTER_SEPARATOR, 2);
+  return { apiKeyId, requesterId: requesterId || null };
 }
 
 // Personal access and OAuth tokens already act as their owner.

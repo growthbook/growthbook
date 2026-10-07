@@ -49,6 +49,7 @@ import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { addTags, getAllTags } from "back-end/src/models/TagModel";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
+import { encodeArmingApiKeyId } from "back-end/src/util/api-key.util";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {
@@ -453,10 +454,19 @@ export class ReqContextClass {
   protected userPermissions: UserPermissions;
 
   // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
-  // with the work), a user as themselves, an org key as itself.
+  // with the work), a user as themselves, an org key as itself with its requester.
   public get armer(): { userId?: string; apiKey?: string } {
     if (this.scopedApiKey) return { apiKey: this.apiKey };
-    return this.userId ? { userId: this.userId } : { apiKey: this.apiKey };
+    if (this.userId) return { userId: this.userId };
+    if (!this.apiKey) return {};
+    return {
+      apiKey: encodeArmingApiKeyId(
+        this.apiKey,
+        this.auditUser?.type === "api_key"
+          ? this.auditUser.requestedBy?.id
+          : undefined,
+      ),
+    };
   }
 
   public get armerId(): string | null {
