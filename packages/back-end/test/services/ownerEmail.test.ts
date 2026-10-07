@@ -246,7 +246,7 @@ describe("resolveOwnerForCreate", () => {
     expect(await resolveOwnerForCreate("", context)).toBe("u_pat");
   });
 
-  it("falls back to the X-Requested-By member when an org key names one", async () => {
+  it("falls back to the X-GrowthBook-Requested-By member when an org key names one", async () => {
     const context = makeOwnerContext({
       members: [],
       userId: "",

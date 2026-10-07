@@ -318,7 +318,7 @@ export const revisionScheduleResponseFields = {
     .string()
     .optional()
     .describe(
-      "User or API key the deferred publish will run as. Its authority is re-checked when the publish fires. An organization API key that named a member with `X-Requested-By` is recorded as `<keyId>:<memberId>`, and runs with that member as its requester.",
+      "User or API key the deferred publish will run as. Its authority is re-checked when the publish fires. An organization API key that named a member with `X-GrowthBook-Requested-By` is recorded as `<keyId>:<memberId>`, and runs with that member as its requester.",
     ),
   scheduledPublishAt: z
     .string()

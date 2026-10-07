@@ -422,7 +422,7 @@ export class ReqContextClass {
   public superAdmin = false;
 
   // The person a request acts for: the signed-in user, a personal token's
-  // owner, or the member an org key names with X-Requested-By. Use it for
+  // owner, or the member an org key names with X-GrowthBook-Requested-By. Use it for
   // attribution, draft targeting and review verdicts, which are the person's.
   // Authority that comes from being a person (author-only edit rights, who a
   // deferred publish fires as) stays on `userId`; what a review may touch

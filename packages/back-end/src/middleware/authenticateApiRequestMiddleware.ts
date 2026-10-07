@@ -324,7 +324,7 @@ function authenticateWithApiKey(
         throw new Error("Could not find user attached to this API key");
       }
 
-      // `X-Requested-By` names the member who asked an org key to act.
+      // `X-GrowthBook-Requested-By` names the member who asked an org key to act.
       let requestedBy: EventUserRequestedBy | null = null;
       try {
         if (userId) {
@@ -337,7 +337,7 @@ function authenticateWithApiKey(
           );
           if (!requestedBy && apiKeyDoc.requireRequestedBy) {
             throw new BadRequestError(
-              "This API key requires an X-Requested-By header naming an organization member",
+              "This API key requires an X-GrowthBook-Requested-By header naming an organization member",
             );
           }
         }

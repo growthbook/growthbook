@@ -39,7 +39,7 @@ export const putMemberProjectRoleValidator = z
   .strict();
 
 // Org API keys only: any rule can apply only as far as the member named in
-// X-Requested-By has the same permissions.
+// X-GrowthBook-Requested-By has the same permissions.
 const apiKeyRoleRuleValidator = roleRuleValidator
   .extend({ requesterOnly: z.boolean().optional() })
   .strict();

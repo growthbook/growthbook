@@ -41,7 +41,7 @@ const SCOPE_FIELDS = [
   "projectRoles",
 ] as const;
 
-// The X-Requested-By flags a caller sent; an omitted one keeps its saved value.
+// The X-GrowthBook-Requested-By flags a caller sent; an omitted one keeps its saved value.
 const sentRequesterFlags = (
   flags: Pick<
     ApiKeyInterface,
@@ -211,7 +211,7 @@ export class ApiKeyModel extends BaseClass {
         hasRequesterOnlyRules(doc)
       ) {
         this.context.throwBadRequestError(
-          "PATs already act as a user and cannot take X-Requested-By.",
+          "PATs already act as a user and cannot take X-GrowthBook-Requested-By.",
         );
       }
       // Creation only — existing tokens are already rejected at authentication,

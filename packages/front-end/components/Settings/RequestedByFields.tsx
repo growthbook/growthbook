@@ -18,11 +18,12 @@ const RequestedByFields: FC<{
 }> = ({ required, setRequired, extension, setExtension }) => (
   <Box mt="6">
     <Heading as="h4" size="sm" mb="1">
-      X-Requested-By
+      X-GrowthBook-Requested-By
     </Heading>
     <Text as="p" color="text-mid" mb="3">
-      Requests can send a <code>X-Requested-By: userid || email</code> header to
-      show the requester next to this key in history.
+      Requests can send an{" "}
+      <code>X-GrowthBook-Requested-By: userid || email</code> header to show the
+      requester next to this key in history.
     </Text>
     <Frame py="1" px="4">
       <Grid

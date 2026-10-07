@@ -13,7 +13,7 @@ export const eventUserLoggedIn = z
 export type EventUserLoggedIn = z.infer<typeof eventUserLoggedIn>;
 
 // The member who asked an organization API key to make a request
-// (`X-Requested-By`).
+// (`X-GrowthBook-Requested-By`).
 export const eventUserRequestedBy = z
   .object({
     id: z.string(),

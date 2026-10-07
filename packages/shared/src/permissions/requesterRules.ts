@@ -2,7 +2,7 @@ import type { MemberRoleWithProjects } from "shared/types/organization";
 import type { ApiKeyWithRole } from "shared/types/apikey";
 
 // An org API key's role rules, any of which can apply only as far as the
-// member named in `X-Requested-By` has the same permissions.
+// member named in `X-GrowthBook-Requested-By` has the same permissions.
 export type RequesterRules = Pick<
   ApiKeyWithRole,
   | "role"

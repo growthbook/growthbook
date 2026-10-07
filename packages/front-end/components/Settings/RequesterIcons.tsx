@@ -46,7 +46,7 @@ function RequesterBadge() {
   );
 }
 
-// X-Requested-By states of an API key, shown inline before what they affect.
+// X-GrowthBook-Requested-By states of an API key, shown inline before what they affect.
 
 export function RequesterOnlyIcon() {
   return (
@@ -70,7 +70,7 @@ export function RequiresRequesterIcon() {
   return (
     <IconWithTooltip
       icon={<PiIdentificationCardBold />}
-      content="Every request must name a requester with X-Requested-By"
+      content="Every request must name a requester with X-GrowthBook-Requested-By"
     />
   );
 }

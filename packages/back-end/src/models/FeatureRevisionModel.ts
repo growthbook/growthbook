@@ -456,7 +456,7 @@ export function revisionToInterfaceWithFeature(
 }
 
 // Matches who created a revision, directly or as the member an org key named
-// with X-Requested-By, and for `involvedUserId` anyone who contributed.
+// with X-GrowthBook-Requested-By, and for `involvedUserId` anyone who contributed.
 function revisionPersonFilter({
   author,
   involvedUserId,

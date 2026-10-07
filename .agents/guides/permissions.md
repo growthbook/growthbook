@@ -244,7 +244,7 @@ context.permissions.throwPermissionError("Custom error message");
 
 ### The Acting User vs the Credential
 
-An org API key can name a member with `X-Requested-By`. `context.actingUserId` is that member, the signed-in user, or a personal token's owner; `context.userId` stays empty for org keys.
+An org API key can name a member with `X-GrowthBook-Requested-By`. `context.actingUserId` is that member, the signed-in user, or a personal token's owner; `context.userId` stays empty for org keys.
 
 - Use `actingUserId` for attribution, owners, contributors, draft targeting (`mine`) and review verdicts.
 - Keep `userId` for authority that comes from being a person: author-only edit rights, retracting a verdict as its owner, and who deferred work runs as. The header isn't verified, so it must not widen what a key may do beyond the key's own extension settings.

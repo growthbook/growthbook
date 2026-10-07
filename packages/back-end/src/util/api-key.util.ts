@@ -150,7 +150,7 @@ export async function dangerousLookupOrganizationByApiKey(
   return migrated;
 }
 
-export const REQUESTED_BY_HEADER = "x-requested-by";
+export const REQUESTED_BY_HEADER = "x-growthbook-requested-by";
 
 type MemberLookup = {
   byId: (
@@ -166,7 +166,7 @@ function headerValue(value: string | string[] | undefined): string | null {
   return first || null;
 }
 
-// Resolves `X-Requested-By` to an organization member by user id, then email.
+// Resolves `X-GrowthBook-Requested-By` to an organization member by user id, then email.
 // Null when the header is absent. Throws when it names nobody in the
 // organization, so attribution never silently falls back to the key alone.
 export async function resolveRequestedBy(
@@ -183,7 +183,7 @@ export async function resolveRequestedBy(
     : await lookup.byEmail(named);
   if (!user || !memberIds.has(user.id)) {
     throw new BadRequestError(
-      `X-Requested-By does not match a member of this organization: ${named}`,
+      `X-GrowthBook-Requested-By does not match a member of this organization: ${named}`,
     );
   }
   return { id: user.id, name: user.name || "", email: user.email };
@@ -216,7 +216,7 @@ export function assertNoRequestedByOnUserToken(
 ): void {
   if (headerValue(value)) {
     throw new BadRequestError(
-      "X-Requested-By is only for organization API keys. Personal access tokens already act as their owner.",
+      "X-GrowthBook-Requested-By is only for organization API keys. Personal access tokens already act as their owner.",
     );
   }
 }

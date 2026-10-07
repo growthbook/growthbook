@@ -577,12 +577,12 @@ curl https://api.growthbook.io/api/v1/features \\
 
 ### Naming who asked
 
-Requests made with an organization API key may add an \`X-Requested-By\` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks then show that member next to the key. The key's own permissions decide what is allowed, unless the key extends them: by adding all of the named member's permissions to its own, or by adding specific permissions that apply only as far as the member has them. Both rely on the service holding the key to name the right member. A key can require the header on every request. An unknown member is rejected with a 400. Reviews and approvals need a named member and count as theirs, and since the header isn't verified, whoever holds the key can review as any member. Personal access tokens already act as their owner and reject the header.
+Requests made with an organization API key may add an \`X-GrowthBook-Requested-By\` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks then show that member next to the key. The key's own permissions decide what is allowed, unless the key extends them: by adding all of the named member's permissions to its own, or by adding specific permissions that apply only as far as the member has them. Both rely on the service holding the key to name the right member. A key can require the header on every request. An unknown member is rejected with a 400. Reviews and approvals need a named member and count as theirs, and since the header isn't verified, whoever holds the key can review as any member. Personal access tokens already act as their owner and reject the header.
 
 \`\`\`bash
 curl https://api.growthbook.io/api/v1/features \\
 -H "Authorization: Bearer secret_abc123DEF456" \\
--H "X-Requested-By: alice@example.com"
+-H "X-GrowthBook-Requested-By: alice@example.com"
 \`\`\`
 
 ## Errors

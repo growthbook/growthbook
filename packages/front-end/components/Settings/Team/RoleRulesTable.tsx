@@ -63,7 +63,7 @@ export default function RoleRulesTable({
   setValue: (value: RoleRulesValue) => void;
   teams?: TeamRuleSource[];
   // API keys only: choose per rule whether it always applies or only if the
-  // requester named in X-Requested-By has it.
+  // requester named in X-GrowthBook-Requested-By has it.
   showAppliesColumn?: boolean;
 }) {
   const { organization, hasCommercialFeature } = useUser();
