@@ -189,6 +189,27 @@ export async function resolveRequestedBy(
   return { id: user.id, name: user.name || "", email: user.email };
 }
 
+// An org key that armed deferred work for a requester is stored as
+// `<keyId>:<memberId>`, so the work later runs with that request's permissions.
+const ARMING_REQUESTER_SEPARATOR = ":";
+
+export function encodeArmingApiKeyId(
+  apiKeyId: string,
+  requesterId: string | undefined,
+): string {
+  return requesterId
+    ? `${apiKeyId}${ARMING_REQUESTER_SEPARATOR}${requesterId}`
+    : apiKeyId;
+}
+
+export function decodeArmingApiKeyId(id: string): {
+  apiKeyId: string;
+  requesterId: string | null;
+} {
+  const [apiKeyId, requesterId] = id.split(ARMING_REQUESTER_SEPARATOR, 2);
+  return { apiKeyId, requesterId: requesterId || null };
+}
+
 // Personal access and OAuth tokens already act as their owner.
 export function assertNoRequestedByOnUserToken(
   value: string | string[] | undefined,
