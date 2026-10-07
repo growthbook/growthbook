@@ -26,7 +26,7 @@ import {
   validateCustomFields,
   resolveOrCreateRevision,
 } from "./validations";
-import { assertValidProjectIds } from "./v2Shared";
+import { assertConfigSchemaCompat, assertValidProjectIds } from "./v2Shared";
 
 export type RevisionMetadataBody = {
   comment?: string;
@@ -99,6 +99,18 @@ export async function setRevisionMetadata(
   }
 
   if (metadataFields.jsonSchema) {
+    if (
+      metadataFields.jsonSchema.enabled &&
+      !context.hasPremiumFeature("json-validation")
+    ) {
+      context.throwPlanDoesNotAllowError(
+        "JSON schema validation requires a premium plan.",
+      );
+    }
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: metadataFields.jsonSchema.enabled,
+      baseConfig: feature.baseConfig,
+    });
     metadataFields.jsonSchema = stampApiJsonSchema(
       metadataFields.jsonSchema,
       feature.valueType,
