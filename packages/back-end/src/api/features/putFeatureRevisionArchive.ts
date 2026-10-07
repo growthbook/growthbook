@@ -1,5 +1,8 @@
 import type { OrganizationInterface } from "shared/types/organization";
-import { putFeatureRevisionArchiveValidator } from "shared/validators";
+import {
+  eventUserPersonId,
+  putFeatureRevisionArchiveValidator,
+} from "shared/validators";
 import {
   canWriteArchiveIntoDraft,
   canStageArchiveDraft,
@@ -58,10 +61,7 @@ export async function archiveRevision(
       model: "feature",
       entity: feature,
       revision: {
-        authorId:
-          revision.createdBy && "id" in revision.createdBy
-            ? revision.createdBy.id
-            : undefined,
+        authorId: eventUserPersonId(revision.createdBy) ?? undefined,
         contributors: revision.contributors,
       },
       userId: context.userId,

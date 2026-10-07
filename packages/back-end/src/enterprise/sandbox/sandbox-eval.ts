@@ -107,7 +107,7 @@ async function withHookRevisionContext<
     | {
         reviews?: { userId: string }[];
         contributors?: string[];
-        createdBy?: { id?: string } | null;
+        createdBy?: { id?: string; requestedBy?: { id: string } } | null;
       }
     | null
     | undefined,
@@ -115,7 +115,7 @@ async function withHookRevisionContext<
   if (!revision) return revision;
   const authorship = await hookAuthorship(
     context,
-    revision.createdBy?.id,
+    revision.createdBy?.requestedBy?.id ?? revision.createdBy?.id,
     revision.contributors,
   );
   return {

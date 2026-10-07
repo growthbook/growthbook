@@ -15,6 +15,9 @@ import {
 } from "back-end/src/revisions/revisionActions";
 import { getAdapter } from "back-end/src/revisions";
 
+export const REVIEW_NEEDS_A_MEMBER =
+  "Submitting a review requires a user identity. Name the member with X-Requested-By, or use a Personal Access Token.";
+
 // Identityless API keys cannot claim authorship of authorless revisions.
 export function isRevisionAuthor(
   authorId: string | undefined,

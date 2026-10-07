@@ -55,9 +55,8 @@ export function getFeaturePageDefaultVersion({
       ? revisionList.find(
           (r) =>
             isOpenUserDraft(r) &&
-            // A draft an org key made on your behalf never opens as yours
-            r.createdBy?.requestedBy?.id !== userId &&
-            (r.createdBy?.id === userId ||
+            // Made by you, or by an org key that named you
+            ((r.createdBy?.requestedBy?.id ?? r.createdBy?.id) === userId ||
               (r.contributors ?? []).includes(userId)),
         )
       : undefined;

@@ -422,9 +422,10 @@ export class ReqContextClass {
 
   // The person a request acts for: the signed-in user, a personal token's
   // owner, or the member an org key names with X-Requested-By. Use it for
-  // attribution and draft targeting only. Authority that comes from being a
-  // person (author-only edit rights, review verdicts, who a deferred publish
-  // fires as) stays on `userId`, so the header never widens what a key may do.
+  // attribution, draft targeting and review verdicts, which are the person's.
+  // Authority that comes from being a person (author-only edit rights, who a
+  // deferred publish fires as) stays on `userId`; what a review may touch
+  // stays on the key's permissions.
   public get actingUserId(): string {
     if (this.userId) return this.userId;
     return this.auditUser?.type === "api_key"

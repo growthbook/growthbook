@@ -1,4 +1,7 @@
-import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
+import {
+  eventUserPersonId,
+  postFeatureRevisionSubmitReviewValidator,
+} from "shared/validators";
 import { featureReviewCandidateProjects, getReviewSetting } from "shared/util";
 import { canCommentOnRevisionEntity } from "shared/permissions";
 import {
@@ -11,7 +14,10 @@ import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisi
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { mayBeRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
+import {
+  mayBeRevisionAuthor,
+  REVIEW_NEEDS_A_MEMBER,
+} from "back-end/src/revisions/revisionAuthority";
 import {
   getRevision,
   ReviewSubmittedType,
@@ -90,18 +96,13 @@ export async function submitRevisionReview(
   }
 
   // Identityless principals may be the author and cannot submit a verdict.
-  const creatorId =
-    revision.createdBy != null && "id" in revision.createdBy
-      ? revision.createdBy.id
-      : "";
-  if (action !== "comment" && !req.context.userId) {
-    throw new BadRequestError(
-      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
-    );
+  const creatorId = eventUserPersonId(revision.createdBy) ?? "";
+  if (action !== "comment" && !req.context.actingUserId) {
+    throw new BadRequestError(REVIEW_NEEDS_A_MEMBER);
   }
   if (
     action !== "comment" &&
-    mayBeRevisionAuthor(creatorId, req.context.userId)
+    mayBeRevisionAuthor(creatorId, req.context.actingUserId)
   ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
@@ -115,7 +116,7 @@ export async function submitRevisionReview(
   // Rechecked inside the verdict CAS against the row it writes.
   if (action === "approve" && blockSelfApproval) {
     const isSelfApproval = (revision.contributors ?? []).some(
-      (id) => id === req.context.userId,
+      (id) => id === req.context.actingUserId,
     );
     if (isSelfApproval) {
       throw new BadRequestError(

@@ -10,6 +10,7 @@ import {
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { FeatureMetaInfo } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { eventUserPersonId } from "shared/validators";
 import {
   EventUserLoggedIn,
   EventUserApiKey,
@@ -123,9 +124,8 @@ const NeedingAttention = (): React.ReactElement | null => {
           (item.status === "changes-requested" ||
             item.status === "approved" ||
             item.status === "draft") &&
-          item.createdBy != null &&
-          "id" in item.createdBy &&
-          item.createdBy.id === user?.id;
+          !!user?.id &&
+          eventUserPersonId(item.createdBy) === user.id;
         const isArchived = item.featureMeta?.archived;
         const safeRolloutRequiresAttention =
           safeRolloutDecisionStatus?.status === "unhealthy" || !hasDaysLeft;

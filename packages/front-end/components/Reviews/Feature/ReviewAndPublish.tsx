@@ -1,5 +1,6 @@
 import {
   eventUserPerson,
+  eventUserPersonId,
   RampScheduleInterface,
   ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
@@ -46,10 +47,6 @@ import {
   findPublishLockingScheduledRevision,
   isInReviewCycle,
 } from "shared/enterprise";
-import {
-  EventUserLoggedIn,
-  EventUserApiKey,
-} from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import {
@@ -862,10 +859,6 @@ export default function ReviewAndPublish({
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
 
-  const createdBy = revision?.createdBy as
-    | EventUserLoggedIn
-    | EventUserApiKey
-    | undefined;
   const requireReviewSettings = settings?.requireReviews;
   const reviewSetting = Array.isArray(requireReviewSettings)
     ? getReviewSetting(requireReviewSettings, feature)
@@ -878,7 +871,7 @@ export default function ReviewAndPublish({
   // not lock out the one that would.
   const canReview =
     isInReviewCycle(revision?.status) &&
-    createdBy?.id !== user?.id &&
+    eventUserPersonId(revision?.createdBy ?? null) !== user?.id &&
     permissionsUtil.canReviewFeatureDrafts(
       feature,
       reviewFootprint,
@@ -898,11 +891,9 @@ export default function ReviewAndPublish({
     NO_ENVIRONMENT_BINDING,
   );
   const authoredDraft =
-    (!!userId &&
-      !!revision?.createdBy &&
-      "id" in revision.createdBy &&
-      revision.createdBy.id === userId) ||
-    (!!userId && (revision?.contributors ?? []).includes(userId));
+    !!userId &&
+    (eventUserPersonId(revision?.createdBy ?? null) === userId ||
+      (revision?.contributors ?? []).includes(userId));
   // The same predicates the server enforces, so the client can't offer an
   // action the server then refuses.
   const revertedFrom = pastRevisions.get(revision?.revertedFromVersion);

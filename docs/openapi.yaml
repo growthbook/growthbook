@@ -87,8 +87,8 @@ info:
     with specific permissions that apply only as far as the member has them.
     Both rely on the service holding the key to name the right member. A key can
     require the header on every request. An unknown member is rejected with a
-    400. Approvals still need a personal access token. Personal access tokens
-    already act as their owner and reject the header.
+    400. Reviews and approvals need a named member and count as theirs. Personal
+    access tokens already act as their owner and reject the header.
 
 
     ```bash

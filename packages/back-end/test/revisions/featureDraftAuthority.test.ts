@@ -113,6 +113,21 @@ describe("authoredFeatureDraft", () => {
     ).toBe(true);
   });
 
+  it("counts the member an org key named", () => {
+    const madeForAsker = draft({
+      createdBy: {
+        type: "api_key",
+        apiKey: "key_org",
+        requestedBy: { id: "u_asker", name: "", email: "" },
+      },
+    });
+    expect(authoredFeatureDraft(contextWith({}, "u_asker"), madeForAsker)).toBe(
+      true,
+    );
+    const keyContext = { permissions: {} } as unknown as ReqContext;
+    expect(authoredFeatureDraft(keyContext, madeForAsker)).toBe(false);
+  });
+
   it("counts nobody else, and no API key", () => {
     expect(authoredFeatureDraft(contextWith({}, "u_other"), draft())).toBe(
       false,

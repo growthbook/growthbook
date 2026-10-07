@@ -30,6 +30,7 @@ import {
   mayBeRevisionAuthor,
   liveMatchesRevisionBase,
   reviewAuthorityOnRow,
+  REVIEW_NEEDS_A_MEMBER,
 } from "back-end/src/revisions/revisionAuthority";
 import { getAdapter } from "back-end/src/revisions";
 import type { ApplyChangesResult } from "back-end/src/revisions/EntityRevisionAdapter";
@@ -574,14 +575,12 @@ export async function approveRevision(
     context.permissions.throwPermissionError();
   }
 
-  // An approval is attributed to a member; an org key has none, so its
-  // approval could never satisfy coverage — refuse it instead of storing it.
-  if (!context.userId) {
-    throw new BadRequestError(
-      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
-    );
+  // An approval is attributed to a member; without one it could never satisfy
+  // coverage — refuse it instead of storing it.
+  if (!context.actingUserId) {
+    throw new BadRequestError(REVIEW_NEEDS_A_MEMBER);
   }
-  if (mayBeRevisionAuthor(revision.authorId, context.userId)) {
+  if (mayBeRevisionAuthor(revision.authorId, context.actingUserId)) {
     throw new BadRequestError("Cannot approve your own revision");
   }
 
@@ -591,7 +590,7 @@ export async function approveRevision(
       settings: context.org.settings,
       entityType: revision.target.type,
       revision,
-      userId: context.userId,
+      userId: context.actingUserId,
     })
   ) {
     throw new BadRequestError(
@@ -611,7 +610,7 @@ export async function approveRevision(
 
   const updated = await context.models.revisions.addReview(
     revision.id,
-    context.userId,
+    context.actingUserId,
     "approve",
     comment ?? "",
     reviewAuthorityOnRow(context),
@@ -624,7 +623,7 @@ export async function approveRevision(
     {
       type: "reviewed",
       decision: "approve",
-      userId: context.userId,
+      userId: context.actingUserId,
       ...(comment ? { comment } : {}),
     },
   );
@@ -1493,16 +1492,17 @@ export async function submitRevisionReview({
     context.permissions.throwPermissionError();
   }
 
-  // A verdict is attributed to a member; an org key has none, so its approval
-  // could never satisfy coverage — refuse it instead of storing it.
-  if (!isComment && !context.userId) {
-    throw new BadRequestError(
-      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
-    );
+  // A verdict is attributed to a member; without one it could never satisfy
+  // coverage — refuse it instead of storing it.
+  if (!isComment && !context.actingUserId) {
+    throw new BadRequestError(REVIEW_NEEDS_A_MEMBER);
   }
 
   // The author may comment on their own draft, but not rule on it.
-  if (mayBeRevisionAuthor(revision.authorId, context.userId) && !isComment) {
+  if (
+    mayBeRevisionAuthor(revision.authorId, context.actingUserId) &&
+    !isComment
+  ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 
@@ -1514,7 +1514,7 @@ export async function submitRevisionReview({
       settings: context.org.settings,
       entityType,
       revision,
-      userId: context.userId,
+      userId: context.actingUserId,
     })
   ) {
     throw new BadRequestError("You cannot approve a draft you contributed to.");

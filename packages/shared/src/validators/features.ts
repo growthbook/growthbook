@@ -673,13 +673,15 @@ export function eventUserPersonId(
 
 // Stable identifier for a reviewer across review lifecycle events, or null if
 // the event user can't hold a review verdict (system/anonymous users). The
-// member an org key names with X-Requested-By isn't the reviewer: the key is.
+// member an org key names with X-Requested-By is the reviewer, not the key.
 export function reviewerKeyForEventUser(
   user: z.infer<typeof eventUser>,
 ): string | null {
   if (!user) return null;
   if (user.type === "dashboard") return user.id;
-  if (user.type === "api_key") return user.id || user.apiKey || null;
+  if (user.type === "api_key") {
+    return eventUserPersonId(user) || user.apiKey || null;
+  }
   return null;
 }
 

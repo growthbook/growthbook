@@ -16,7 +16,7 @@ import {
 } from "shared/permissions";
 import type { TargetingScoped } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/validators";
+import { eventUserPersonId, FeatureRevisionInterface } from "shared/validators";
 import {
   assertCanLandRevision,
   canAdvanceDraftWithNarrowAtom,
@@ -69,9 +69,7 @@ export function authoredFeatureDraft(
 ): boolean {
   const userId = context.userId;
   if (!userId) return false;
-  if (draft.createdBy && "id" in draft.createdBy) {
-    if (draft.createdBy.id === userId) return true;
-  }
+  if (eventUserPersonId(draft.createdBy) === userId) return true;
   return (draft.contributors ?? []).includes(userId);
 }
 
