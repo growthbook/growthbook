@@ -280,8 +280,6 @@ export const getSlackWorkspaceChannels = async (
     context.permissions.throwPermissionError();
   }
 
-  // Stop paging Slack (and sleeping out its rate limits) once the picker
-  // that asked has gone away.
   const disconnected = new AbortController();
   res.on("close", () => disconnected.abort());
 

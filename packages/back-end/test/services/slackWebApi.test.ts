@@ -207,6 +207,20 @@ describe("Slack Web API", () => {
     });
   });
 
+  it("requests full channel pages with room for the whole response", async () => {
+    cancellableFetch.mockResolvedValueOnce(
+      slackResponse({ ok: true, channels: [] }),
+    );
+
+    await listSlackConversations({ token: "xoxb-token" });
+
+    const [url, , fetchOpts] = cancellableFetch.mock.calls[0];
+    const limit = Number(new URL(url).searchParams.get("limit"));
+    expect(limit).toBe(999);
+    // A truncated body fails to parse, so the cap must fit ~2KB per channel.
+    expect(fetchOpts.maxContentSize).toBeGreaterThanOrEqual(limit * 2 * 1024);
+  });
+
   it("surfaces logical Slack API errors when joining", async () => {
     cancellableFetch.mockResolvedValueOnce(
       slackResponse({ ok: false, error: "method_not_supported" }),

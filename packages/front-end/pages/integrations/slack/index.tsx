@@ -18,6 +18,7 @@ import { FaSlack } from "react-icons/fa";
 import { PiArrowClockwise } from "react-icons/pi";
 import SlackWorkspacePanel from "@/components/SlackIntegrations/SlackWorkspacePanel";
 import useSlackNavigationGuard from "@/components/SlackIntegrations/useSlackNavigationGuard";
+import useSlackChannels from "@/components/SlackIntegrations/useSlackChannels";
 import { SlackIntegrationsListViewContainer } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView";
 import SelectField from "@/components/Forms/SelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -45,22 +46,11 @@ type SlackOAuthConnectionResponse = {
   slackIntegration: SlackOAuthIntegrationInterface | null;
 };
 
-type SlackChannelOption = {
-  id: string;
-  name: string;
-  isPrivate: boolean;
-  isMember: boolean;
-  alreadyConnected: boolean;
-};
-
 type WorkspaceGroup = {
   teamId: string;
   workspace: SlackWorkspaceConnectionFrontEndInterface;
   channels: SlackOAuthIntegrationInterface[];
 };
-
-const byName = (a: SlackChannelOption, b: SlackChannelOption) =>
-  a.name.localeCompare(b.name);
 
 const getQueryStringValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
@@ -80,64 +70,13 @@ function AddChannelModal({
   onAdded: (integration: SlackOAuthIntegrationInterface) => Promise<void>;
 }) {
   const { apiCall } = useAuth();
-  const [channels, setChannels] = useState<SlackChannelOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadedCount, setLoadedCount] = useState(0);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const {
+    channels,
+    loading,
+    error: loadError,
+    refresh,
+  } = useSlackChannels(teamId);
   const [selected, setSelected] = useState("");
-  const channelsFetch = useRef<AbortController | null>(null);
-
-  // Large workspaces take minutes to page through under Slack's rate limits,
-  // so show each page as it arrives and stop paging once the modal closes.
-  const fetchChannels = useCallback(async () => {
-    const controller = new AbortController();
-    channelsFetch.current = controller;
-    setLoading(true);
-    setLoadedCount(0);
-    setLoadError(null);
-    try {
-      const fresh = new Map<string, SlackChannelOption>();
-      let cursor: string | null = null;
-      do {
-        const response = await apiCall<{
-          channels: SlackChannelOption[];
-          nextCursor: string | null;
-        }>(
-          `/integrations/slack/channels?teamId=${encodeURIComponent(teamId)}${
-            cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
-          }`,
-          { signal: controller.signal },
-        );
-        if (controller.signal.aborted) return;
-        response.channels.forEach((channel) => fresh.set(channel.id, channel));
-        setLoadedCount(fresh.size);
-        // On refresh, keep earlier results until the walk completes so the
-        // list (and the selection) doesn't shrink to the first page.
-        setChannels((prev) =>
-          [
-            ...prev.filter((channel) => !fresh.has(channel.id)),
-            ...fresh.values(),
-          ].sort(byName),
-        );
-        cursor = response.nextCursor;
-      } while (cursor);
-      setChannels([...fresh.values()].sort(byName));
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      setLoadError(
-        error instanceof Error
-          ? error.message
-          : "Failed to load Slack channels.",
-      );
-    } finally {
-      if (!controller.signal.aborted) setLoading(false);
-    }
-  }, [apiCall, teamId]);
-
-  useEffect(() => {
-    fetchChannels();
-    return () => channelsFetch.current?.abort();
-  }, [fetchChannels]);
 
   const connectedIds = useMemo(
     () =>
@@ -185,9 +124,18 @@ function AddChannelModal({
             id="slack-channel"
             containerStyle={{ marginBottom: 0 }}
             placeholder={
-              loading && channels.length === 0
-                ? "Loading channels…"
-                : "Search for a channel…"
+              !loading
+                ? "Search for a channel…"
+                : channels.length === 0
+                  ? "Loading channels…"
+                  : `Search ${channels.length.toLocaleString()} ${
+                      channels.length === 1 ? "channel" : "channels"
+                    }, still loading…`
+            }
+            noOptionsMessage={() =>
+              loading
+                ? "No matches yet, still loading channels…"
+                : "No matching channels"
             }
             value={selected}
             options={channels.map((channel) => ({
@@ -211,18 +159,11 @@ function AddChannelModal({
           title="Refresh channels"
           loading={loading}
           style={{ flexShrink: 0, alignSelf: "stretch", height: "auto" }}
-          onClick={() => fetchChannels()}
+          onClick={refresh}
         >
           <PiArrowClockwise size={16} aria-hidden />
         </Button>
       </Flex>
-      {loading && channels.length > 0 && (
-        <Text as="p" size="sm" color="text-mid" mt="1" mb="0">
-          {loadedCount > 0
-            ? `Loaded ${loadedCount} channels, loading more…`
-            : "Refreshing channels…"}
-        </Text>
-      )}
       <Text as="p" size="sm" color="text-mid" mt="1" mb="0">
         For private channels, invite the GrowthBook app in Slack, then refresh.
       </Text>

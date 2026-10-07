@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { cancellableFetch, fetch } from "back-end/src/util/http.util";
+import {
+  cancellableFetch,
+  fetch,
+  type CancellableFetchCriteria,
+} from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
 const SLACK_API_URL = "https://slack.com/api";
@@ -37,6 +41,15 @@ const SLACK_FETCH_OPTS = { maxTimeMs: 15000, maxContentSize: 1024 * 256 };
 const SLACK_MAX_RATE_LIMIT_RETRIES = 3;
 const SLACK_MAX_RATE_LIMIT_WAIT_MS = 60_000;
 
+// Slack's maximum page size: fewer pages means fewer rate-limited requests.
+const SLACK_CHANNEL_PAGE_SIZE = 999;
+// For the channel list, if we get 999 results back, we need more than the default maxContentSize.
+// so we increase it here to account for that
+const SLACK_CHANNEL_LIST_FETCH_OPTS = {
+  ...SLACK_FETCH_OPTS,
+  maxContentSize: SLACK_CHANNEL_PAGE_SIZE * 4 * 1024,
+};
+
 export class SlackRateLimitError extends Error {
   constructor(method: string) {
     super(`Slack API ${method} rate limit retry budget exhausted`);
@@ -69,7 +82,10 @@ async function slackApiRequest<T extends SlackApiResponse>(
   method: string,
   url: string,
   options: FetchInit,
-  signal?: AbortSignal,
+  {
+    signal,
+    fetchOpts = SLACK_FETCH_OPTS,
+  }: { signal?: AbortSignal; fetchOpts?: CancellableFetchCriteria } = {},
 ): Promise<T | null> {
   try {
     let waitedMs = 0;
@@ -78,7 +94,7 @@ async function slackApiRequest<T extends SlackApiResponse>(
       const { stringBody, responseWithoutBody } = await cancellableFetch(
         url,
         options,
-        SLACK_FETCH_OPTS,
+        fetchOpts,
       );
       if (signal?.aborted) return null;
       if (responseWithoutBody.status !== 429) {
@@ -108,7 +124,7 @@ async function slackApiRequest<T extends SlackApiResponse>(
         { method, retry: retry + 1, delayMs },
         "Slack API rate limited; retrying after cooldown",
       );
-      // Wake early if the caller gave up, rather than sleeping out the cooldown.
+
       await new Promise<void>((resolve) => {
         const finish = () => {
           clearTimeout(timer);
@@ -118,7 +134,11 @@ async function slackApiRequest<T extends SlackApiResponse>(
         const timer = setTimeout(finish, delayMs);
         signal?.addEventListener("abort", finish, { once: true });
       });
-      if (signal?.aborted) return null;
+
+      if (signal?.aborted) {
+        return null;
+      }
+
       waitedMs += delayMs;
     }
   } catch (e) {
@@ -147,7 +167,7 @@ function slackApiGet<T extends SlackApiResponse>(
   token: string,
   method: string,
   params: Record<string, string>,
-  signal?: AbortSignal,
+  requestOpts?: Parameters<typeof slackApiRequest>[3],
 ): Promise<T | null> {
   const qs = new URLSearchParams(params).toString();
   return slackApiRequest<T>(
@@ -157,7 +177,7 @@ function slackApiGet<T extends SlackApiResponse>(
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     },
-    signal,
+    requestOpts,
   );
 }
 
@@ -433,10 +453,10 @@ export async function listSlackConversations({
     {
       types: "public_channel,private_channel",
       exclude_archived: "true",
-      limit: "200",
+      limit: String(SLACK_CHANNEL_PAGE_SIZE),
       ...(cursor ? { cursor } : {}),
     },
-    signal,
+    { signal, fetchOpts: SLACK_CHANNEL_LIST_FETCH_OPTS },
   );
   if (!res?.ok) return null;
   const channels = (res.channels || [])
