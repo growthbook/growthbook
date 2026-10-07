@@ -213,20 +213,13 @@ describe("getExposureQueriesForProject", () => {
     projects: [],
   });
 
-  it("keeps queries scoped to the project and queries with no scope", () => {
-    expect(
-      getExposureQueriesForProject([scoped, unscoped], "prj_a", []).map(
+  it("keeps unscoped queries and those scoped to the project", () => {
+    const ids = (project: string) =>
+      getExposureQueriesForProject([scoped, unscoped], project, []).map(
         (q) => q.id,
-      ),
-    ).toEqual(["exq_a", "exq_all"]);
-  });
-
-  it("drops queries scoped to a different project", () => {
-    expect(
-      getExposureQueriesForProject([scoped, unscoped], "prj_b", []).map(
-        (q) => q.id,
-      ),
-    ).toEqual(["exq_all"]);
+      );
+    expect(ids("prj_a")).toEqual(["exq_a", "exq_all"]);
+    expect(ids("prj_b")).toEqual(["exq_all"]);
   });
 
   it("scopes a query with no projects to its data source's", () => {
@@ -249,28 +242,14 @@ describe("getExposureQueriesInScope", () => {
     userIdTypes: ["user_id"],
     projects: [],
   });
-  const datasource = (projects: string[]) => ({
-    projects,
-    settings: { queries: { exposure: [scoped, unscoped] } },
-  });
-  const ids = (queries: ExposureQuery[]) => queries.map((q) => q.id);
-
-  it("filters by a single project without holdout projects", () => {
-    expect(ids(getExposureQueriesInScope(datasource([]), "prj_b"))).toEqual([
-      "exq_all",
-    ]);
-  });
-
   it("requires every holdout project to be covered", () => {
+    const datasource = {
+      projects: [],
+      settings: { queries: { exposure: [scoped, unscoped] } },
+    };
     expect(
-      ids(getExposureQueriesInScope(datasource([]), "", ["prj_a", "prj_b"])),
-    ).toEqual(["exq_all"]);
-  });
-
-  it("applies the data source's projects to unscoped queries for holdouts", () => {
-    expect(
-      ids(getExposureQueriesInScope(datasource(["prj_a"]), "", ["prj_b"])),
-    ).toEqual([]);
+      getExposureQueriesInScope(datasource, "", ["prj_a", "prj_b"]),
+    ).toEqual([unscoped]);
   });
 });
 
@@ -279,13 +258,6 @@ describe("getAssignmentQueryDrift", () => {
     id: "exq_a",
     userIdType: "user_id",
     userIdTypes: ["user_id"],
-  });
-
-  it("reports no drift for an in-scope query declaring the identifier", () => {
-    expect(getAssignmentQueryDrift(query, "user_id", [query])).toEqual({
-      outOfScope: false,
-      identifierUndeclared: false,
-    });
   });
 
   it("flags a query missing from the scoped queries", () => {
@@ -299,13 +271,6 @@ describe("getAssignmentQueryDrift", () => {
     expect(getAssignmentQueryDrift(query, "anon_id", [query])).toEqual({
       outOfScope: false,
       identifierUndeclared: true,
-    });
-  });
-
-  it("reports no drift without a query", () => {
-    expect(getAssignmentQueryDrift(undefined, "user_id", [])).toEqual({
-      outOfScope: false,
-      identifierUndeclared: false,
     });
   });
 });

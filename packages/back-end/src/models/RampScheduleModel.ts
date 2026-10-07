@@ -444,12 +444,15 @@ export class RampScheduleModel extends BaseClass {
     doc: RampScheduleInterface,
     previousDoc?: RampScheduleInterface,
   ) {
+    const project = this.getProject(doc);
+    // Re-check the query when the ramp is first anchored to a feature or moves
+    // to another feature's project. No anchoring feature skips the check.
+    const sameProject = previousDoc && this.getProject(previousDoc) === project;
     await assertValidMonitoringConfigChange(
       this.context,
-      previousDoc?.monitoringConfig,
+      sameProject ? previousDoc.monitoringConfig : null,
       doc.monitoringConfig,
-      // Undefined (no anchoring feature) skips the scope check.
-      () => ({ project: this.getProject(doc) }),
+      () => ({ project }),
     );
   }
   protected override async beforeUpdate(

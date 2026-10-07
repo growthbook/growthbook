@@ -26,7 +26,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getDefaultIdentifierType,
-  getExposureQueriesForProject,
+  getExposureQueriesInScope,
   getExposureQuery,
   getHashAttributeIdentifierTypeMap,
   getSelectableIdentifierTypes,
@@ -168,11 +168,13 @@ const AnalysisForm: FC<{
       )
     : getDefaultIdentifierType({
         identifierTypes: getSelectableIdentifierTypes(
-          getExposureQueriesForProject(
-            initialDatasourceSettings?.queries?.exposure ?? [],
-            experiment.project,
-            initialDatasource?.projects,
-          ),
+          initialDatasource
+            ? getExposureQueriesInScope(
+                initialDatasource,
+                experiment.project,
+                holdoutProjects,
+              )
+            : [],
         ),
         hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
           initialDatasourceSettings?.userIdTypes,
@@ -660,11 +662,13 @@ const AnalysisForm: FC<{
                     "exposureQueryIdentifierType",
                     getDefaultIdentifierType({
                       identifierTypes: getSelectableIdentifierTypes(
-                        getExposureQueriesForProject(
-                          ds?.settings?.queries?.exposure ?? [],
-                          experiment.project,
-                          ds?.projects,
-                        ),
+                        ds
+                          ? getExposureQueriesInScope(
+                              ds,
+                              experiment.project,
+                              holdoutProjects,
+                            )
+                          : [],
                       ),
                       hashAttributeIdentifierTypeMap:
                         getHashAttributeIdentifierTypeMap(

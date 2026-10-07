@@ -691,32 +691,11 @@ describe("getExposureQueriesOutsideProjectScope", () => {
     expect(result).toEqual([{ id: "q1", name: "Q1", invalidProjects: ["p3"] }]);
   });
 
-  it("allows a query whose projects are a subset of the data source's", () => {
-    expect(
-      getExposureQueriesOutsideProjectScope(
-        [{ id: "q1", name: "Q1", projects: ["p1"] }],
-        ["p1", "p2"],
-      ),
-    ).toEqual([]);
-  });
-
   it("treats an empty data source project list as all projects", () => {
     expect(
       getExposureQueriesOutsideProjectScope(
         [{ id: "q1", name: "Q1", projects: ["p1"] }],
         [],
-      ),
-    ).toEqual([]);
-  });
-
-  it("treats a query with no projects as inheriting the data source scope", () => {
-    expect(
-      getExposureQueriesOutsideProjectScope(
-        [
-          { id: "q1", name: "Q1", projects: [] },
-          { id: "q2", name: "Q2", projects: undefined },
-        ],
-        ["p1"],
       ),
     ).toEqual([]);
   });

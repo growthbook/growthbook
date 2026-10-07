@@ -239,8 +239,6 @@ const TemplateForm: FC<Props> = ({
     ? permissionsUtils.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
-  // ExperimentRefNewFields owns repairing the assignment query / identifier
-  // selection, since only it knows the project scope and identifier filtering.
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
   let header = isNewTemplate

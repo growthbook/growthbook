@@ -868,8 +868,6 @@ export class HoldoutModel extends BaseClass {
     );
   }
 
-  // Bypasses read scope: the Holdout reference is already committed on the
-  // Feature Flag, so linkage must not depend on the publisher seeing its Projects.
   // Bypasses read scope: validates a holdout experiment edit against the
   // holdout's full project scope, even ones the editor can't read.
   public async getByExperimentId(
@@ -882,6 +880,8 @@ export class HoldoutModel extends BaseClass {
     return holdout ?? null;
   }
 
+  // Bypasses read scope: the Holdout reference is already committed on the
+  // Feature Flag, so linkage must not depend on the publisher seeing its Projects.
   public async getByIdForLinkage(
     holdoutId: string,
   ): Promise<HoldoutInterface | null> {

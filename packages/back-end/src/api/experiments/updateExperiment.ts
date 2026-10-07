@@ -139,8 +139,8 @@ export const updateExperiment = createApiRequestHandler(
         },
         onOmitted: "requireUnambiguous",
         field: "assignmentQuery",
-        // A project change alone that strands the current query is left to
-        // drift (outdated reason); only choosing a query is rejected.
+        // Only a newly chosen query is checked. Moving an experiment to another
+        // project keeps its query, which then shows as out of scope.
         scope: {
           project: payload.project ?? experiment.project ?? "",
           datasourceProjects: datasource.projects,

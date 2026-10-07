@@ -146,7 +146,7 @@ export type AssignmentQueryScope = {
   datasourceProjects?: string[];
 };
 
-function getAssignmentQueryScopeError(
+export function getAssignmentQueryScopeError(
   query: Pick<ExposureQuery, "id" | "name" | "projects">,
   { project, projects, datasourceProjects }: AssignmentQueryScope,
 ): string | null {
@@ -381,12 +381,6 @@ export function resolveAssignmentQuerySelectionChange(
     : parsed;
 }
 
-/**
- * For resources spanning several projects (holdouts): the query must be usable
- * by every one of them. A query with no projects inherits its data source's,
- * and no projects on either means all. A holdout with no projects covers all
- * projects, so only an unrestricted query qualifies.
- */
 /** A query's own projects, else its data source's. Empty means all projects. */
 export function getExposureQueryProjects(
   query: Pick<ExposureQuery, "projects">,
@@ -395,6 +389,11 @@ export function getExposureQueryProjects(
   return query.projects?.length ? query.projects : (datasourceProjects ?? []);
 }
 
+/**
+ * For resources spanning several projects (holdouts): the query must be usable
+ * by every one of them. A holdout with no projects covers all projects, so only
+ * a query unrestricted on both itself and its data source qualifies.
+ */
 export function isExposureQueryAvailableForProjects(
   query: Pick<ExposureQuery, "projects">,
   projects: string[],

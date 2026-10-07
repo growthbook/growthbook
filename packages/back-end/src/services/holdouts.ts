@@ -11,7 +11,7 @@ import {
   holdoutSizeToCoverage,
   HoldoutStage,
   validateCondition,
-  isExposureQueryAvailableForProjects,
+  getAssignmentQueryScopeError,
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
@@ -361,8 +361,8 @@ export async function resolveHoldoutExperimentToLink({
   }
 }
 
-// A project change must keep the holdout's current assignment query usable by
-// every project it now covers.
+// A project change must keep the holdout's assignment query usable by every
+// project it now covers.
 export async function assertHoldoutAssignmentQueryCoversProjects(
   context: ReqContext | ApiReqContext,
   experiment: Pick<ExperimentInterface, "datasource" | "exposureQueryId">,
@@ -377,20 +377,12 @@ export async function assertHoldoutAssignmentQueryCoversProjects(
     (q) => q.id === experiment.exposureQueryId,
   );
   // A query that no longer exists is surfaced when analysis runs.
-  if (
-    !query ||
-    isExposureQueryAvailableForProjects(query, projects, datasource?.projects)
-  ) {
-    return;
-  }
-  const scopeSource = query.projects?.length
-    ? "the query's"
-    : "its data source's";
-  throw new BadRequestError(
-    projects.length
-      ? `This holdout's assignment query "${query.name || query.id}" isn't available for every selected project because of ${scopeSource} project scope. Widen that scope or choose another query first.`
-      : `This holdout's assignment query "${query.name || query.id}" is limited by ${scopeSource} project scope, so the holdout can't cover all projects. Widen that scope or choose another query first.`,
-  );
+  if (!query) return;
+  const error = getAssignmentQueryScopeError(query, {
+    projects,
+    datasourceProjects: datasource?.projects,
+  });
+  if (error) throw new BadRequestError(error);
 }
 
 export async function createHoldoutWithExperiment(
@@ -640,6 +632,12 @@ export async function updateHoldoutWithExperiment(
     body: ApiUpdateHoldoutBody;
   },
 ): Promise<{ holdout: HoldoutInterface; experiment: ExperimentInterface }> {
+  const assignmentQueryInput = parseAssignmentQueryInput(
+    body.assignmentQuery,
+    body.assignmentQueryId,
+    "assignmentQuery",
+  );
+  const assignmentQueryId = assignmentQueryInput.id;
   assertValidHoldoutEnvironments(
     context,
     body.environments,
@@ -655,18 +653,15 @@ export async function updateHoldoutWithExperiment(
     }
     // Narrowing the project scope must not strand linked entities
     await assertHoldoutScopeCoversLinked(context, holdout, body.projects);
-    // A query changed in the same request is checked against these projects below.
-    const changesAssignmentQuery =
-      body.datasourceId !== undefined ||
-      body.assignmentQuery !== undefined ||
-      body.assignmentQueryId !== undefined;
-    if (!changesAssignmentQuery) {
-      await assertHoldoutAssignmentQueryCoversProjects(
-        context,
-        experiment,
-        body.projects,
-      );
-    }
+    // The query the holdout ends up with, even if the body re-sends it.
+    await assertHoldoutAssignmentQueryCoversProjects(
+      context,
+      {
+        datasource: body.datasourceId ?? experiment.datasource,
+        exposureQueryId: assignmentQueryId ?? experiment.exposureQueryId,
+      },
+      body.projects,
+    );
   }
 
   const experimentChanges: Partial<ExperimentInterface> = {};
@@ -739,12 +734,6 @@ export async function updateHoldoutWithExperiment(
   if (body.owner !== undefined) {
     experimentChanges.owner = await resolveOwnerToUserId(body.owner, context);
   }
-  const assignmentQueryInput = parseAssignmentQueryInput(
-    body.assignmentQuery,
-    body.assignmentQueryId,
-    "assignmentQuery",
-  );
-  const assignmentQueryId = assignmentQueryInput.id;
   // Validate against the post-update values, so a metric or exposure query left
   // stale by a datasource-only change is rejected here, not at query time.
   if (
