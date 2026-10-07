@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { apiEventUser, REQUIRES_PERSON_NOTE } from "./event-user";
 import {
   apiPaginationFieldsValidator,
   savedGroupTargeting,
@@ -13,7 +14,7 @@ import {
 } from "./shared";
 import {
   ownerInputField,
-  requiredUnlessPatOwnerInputField,
+  requiredUnlessPersonOwnerInputField,
 } from "./owner-field";
 import {
   apiFeatureBaseRuleValidator,
@@ -27,7 +28,6 @@ import {
   revisionStatusFilterSchema,
   apiRevisionRampAction,
 } from "./features";
-import { apiEventUser } from "./event-user";
 import { namedSchema } from "./openapi-helpers";
 
 // ---- V2 scope extension ----
@@ -331,7 +331,7 @@ export const apiFeatureRevisionV2Validator = namedSchema(
               userId: z
                 .string()
                 .describe(
-                  "Stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts",
+                  "The reviewer's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Older verdicts from organization API keys carry the key ID",
                 ),
               user: apiEventUser.optional(),
               status: z.enum([
@@ -681,7 +681,7 @@ export const postFeatureBodyV2 = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: requiredUnlessPatOwnerInputField,
+    owner: requiredUnlessPersonOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     targetingAllProjects: z
       .boolean()
@@ -1021,7 +1021,7 @@ export const getFeatureRevisionsV2Validator = {
       status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
-        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+        `If true, return only revisions authored by or contributed to by the calling user. ${REQUIRES_PERSON_NOTE} Mutually exclusive with \`author\`.`,
       ),
     })
     .strict(),

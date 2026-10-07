@@ -45,18 +45,18 @@ If a key has an expiration date, every response includes it in the `X-GrowthBook
 
 ## Naming who asked
 
-Requests made with a Secret Key may add an `X-GrowthBook-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks then show that requester next to the key. Unless the key extends its permissions as described below, the header doesn't change what the key can do.
+Requests made with a Secret Key may add an `X-GrowthBook-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks then show that requester next to the key. The header adds no permissions unless the key extends them as described below, but it does decide whose name drafts, owners, `mine` filters and reviews carry.
 
 Each key's X-GrowthBook-Requested-By settings under `Settings -> API Keys`:
 
-- **Require it on every request.** Requests without the header are rejected with a 400.
-- **Extend permissions.** Off by default.
+- **Require on all requests.** Requests without the header are rejected with a 400.
+- **Extend permissions** (**No** by default).
   - **Always** gives a request that names a member everything that member can do, on top of the key's own permissions. The header isn't verified, so whoever holds the key can act with any member's permissions.
   - **For specific permissions** adds an **Applies** column to the key's permissions, where each rule can apply **Always** or **If the requester has it**. A request that names a member gets the second kind of rule only as far as that member has the same permissions. This relies on the service holding the key to name the right member, so the key's real reach is all of its rules.
 
   A request that names no one gets only the permissions that always apply.
 
-A value that does not match a member of the organization is rejected with a 400. Reviews and approvals need a named member and count as theirs, so a key can't approve a draft created in that member's name. Because the header isn't verified, whoever holds the key can review as any member. Personal Access Tokens already act as their owner and reject the header.
+A value that does not match a member of the organization is rejected with a 400. Approving or requesting changes needs a named member, and the verdict counts as theirs, so a key can't approve a draft created in that member's name; comments don't need one. Because the header isn't verified, whoever holds the key can review as any member. A create request that omits `owner` defaults it to the named member. Scheduled and auto-publishes armed by such a request later run with the same member's permissions, and don't run if that member has left the organization. Personal Access Tokens and OAuth tokens already act as their user and reject the header.
 
 ```bash
 curl https://api.growthbook.io/api/v1/features \
@@ -73,10 +73,23 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
-- **422** - Soft Warning - The request failed, but can be re-submitted with `?ignoreWarnings=true` to proceed anyway.
+- **422** - Unprocessable Entity - The request is valid, but a warning, validation rule, approval requirement, or another publishing gate blocked it. Do not assume that `ignoreWarnings` clears every 422 response.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
 The response body will be a JSON object with the following properties:
 
 - **message** - Information about the error
+
+### Publishing gates
+
+Publish responses include a `gates` array that explains every blocker:
+
+- `type`, `severity`, and `messages` identify the problem.
+- `override` names the request-body field that can bypass it. This is `ignoreWarnings` for warnings, `skipSchemaValidation` for schema and invariant failures, or `skipHooks` for Custom Hook rejections. A value of `null` means there is no request-body override.
+- `requiresPermission` identifies any additional permission needed to use the override.
+- `resolution` provides an API action, method, and path when the blocker must be resolved another way.
+
+For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in `resolution`.
+
+When a successful publish bypasses a gate, the response includes `bypassedGates`. Each entry reports the gate `type` and how it was bypassed in `via`, which is one of `ignoreWarnings`, `skipSchemaValidation`, `skipHooks`, `bypassApprovalPermission`, `restApiBypassesReviews`, or `revertsBypassApproval` (reverts only). This field is omitted when no gates were bypassed.

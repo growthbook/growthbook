@@ -127,6 +127,11 @@ jobs:
           pnpm generate-openapi
           [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-openapi" && git status --porcelain && exit 1 || true
 
+      - name: Check event webhook docs
+        run: |
+          pnpm doc-gen
+          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm doc-gen" && git status --porcelain && exit 1 || true
+
   type-check:
     runs-on: depot-ubuntu-24.04
     steps:

@@ -231,8 +231,9 @@ context.permissions.canRunExperiment(experiment, environments);
 // A scheduled experiment status change is checked twice: arming checks
 // runExperiments across the reach and publishFeatures on each pending draft
 // (assertCanPublishPendingFeatureDrafts), and the fire runs as the armer
-// (`context.armer`: a user, an org API key, or a scoped PAT recorded as its
-// key so the cap travels with the work; `scheduledBy` / `scheduledByApiKey`,
+// (`context.armer`: a user, an org API key with the member it named as
+// `<keyId>:<memberId>`, or a scoped PAT recorded as its key, so the cap travels
+// with the work; `scheduledBy` / `scheduledByApiKey`,
 // getScheduledStatusContext), so the draft publish is judged as it is then.
 // Never the job's own authority; only a stop staged before armers were
 // recorded still runs as the owner.
@@ -244,11 +245,11 @@ context.permissions.throwPermissionError("Custom error message");
 
 ### The Acting User vs the Credential
 
-An org API key can name a member with `X-GrowthBook-Requested-By`. `context.actingUserId` is that member, the signed-in user, or a personal token's owner; `context.userId` stays empty for org keys.
+An org API key can name a member with `X-GrowthBook-Requested-By`. `context.actingPerson` (and `actingUserId`, `actingUserName`, `actingUserEmail`) is that member, the signed-in user, or a personal token's owner; `context.userId` stays empty for org keys.
 
-- Use `actingUserId` for attribution, owners, contributors, draft targeting (`mine`) and review verdicts.
-- Keep `userId` for authority that comes from being a person: author-only edit rights, retracting a verdict as its owner, and who deferred work runs as. The header isn't verified, so it must not widen what a key may do beyond the key's own extension settings.
-- Compare a feature draft's author with `eventUserPersonId(createdBy)`, not `createdBy.id`: a draft an org key made for a member has no `createdBy.id`.
+- Use the acting person for attribution, owners, contributors, draft targeting (`mine`), review verdicts and anything a notification or log credits.
+- Keep `userId` for authority that comes from being a person: author-only edit rights, and retracting a verdict as its owner without review permission. Deferred work runs as `context.armer`. The header isn't verified, so it must not widen what a key may do beyond the key's own extension settings.
+- Read who is behind a stored actor through the helpers in `shared/src/validators/event-user.ts`, never its raw fields: `eventUserPersonId` / `eventUserPerson` for the person, `eventUserLabel` for one line of text, `eventUserCredit` for "the person, or the key's name", and `reviewerKeyForEventUser` to pair verdicts. A draft an org key made for a member has no `createdBy.id`. In the app, render actors with the `EventUser` component.
 
 ### In Models
 

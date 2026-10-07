@@ -22,8 +22,8 @@ const RequestedByFields: FC<{
     </Heading>
     <Text as="p" color="text-mid" mb="3">
       Requests can send an{" "}
-      <code>X-GrowthBook-Requested-By: userid || email</code> header to show the
-      requester next to this key in history.
+      <code>X-GrowthBook-Requested-By: userid || email</code> header to act for
+      that member: history, drafts and reviews show them next to this key.
     </Text>
     <Frame py="1" px="4">
       <Grid
@@ -50,7 +50,7 @@ const RequestedByFields: FC<{
           <Text as="label" weight="semibold" mb="0">
             Extend permissions
           </Text>
-          <Tooltip content="Gives a request the permissions of the member it names, on top of this key's own. “For specific permissions” adds an Applies column below to choose which.">
+          <Tooltip content="“Always” adds the named member's permissions to this key's own. “For specific permissions” adds an Applies column below, so chosen rules apply only as far as the member has them.">
             <span style={{ display: "inline-flex" }}>
               <PiInfo color="var(--color-text-low)" />
             </span>

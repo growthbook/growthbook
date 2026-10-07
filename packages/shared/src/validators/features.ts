@@ -18,7 +18,7 @@ import {
   ownerEmailField,
   ownerField,
   ownerInputField,
-  requiredUnlessPatOwnerInputField,
+  requiredUnlessPersonOwnerInputField,
 } from "./owner-field";
 import {
   featureRulePatch,
@@ -622,9 +622,8 @@ export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 // the REST API, and reviewer-scoped queries — don't have to replay the log.
 export const revisionReviewSchema = z
   .object({
-    // Stable reviewer identifier used for upserts/queries: the user id for
-    // dashboard users; the key id (or apiKey identifier) for API keys.
-    // See `reviewerKeyForEventUser`.
+    // Stable reviewer identifier used for upserts/queries: the person behind
+    // the verdict, or a key id on legacy verdicts. See `reviewerKeyForEventUser`.
     userId: z.string(),
     // Full event user who submitted the verdict — lets policy hooks match on
     // type ("dashboard" vs "api_key"), apiKey, email, etc.
@@ -1640,7 +1639,7 @@ const postFeatureBody = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: requiredUnlessPatOwnerInputField,
+    owner: requiredUnlessPersonOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     targetingAllProjects: z
       .boolean()

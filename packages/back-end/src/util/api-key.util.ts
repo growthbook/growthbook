@@ -260,7 +260,7 @@ export function assertNoRequestedByOnUserToken(
 ): void {
   if (headerValue(value)) {
     throw new BadRequestError(
-      "X-GrowthBook-Requested-By is only for organization API keys. Personal access tokens already act as their owner.",
+      "X-GrowthBook-Requested-By is only for organization API keys. Personal access and OAuth tokens already act as their user.",
     );
   }
 }

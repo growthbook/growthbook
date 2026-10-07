@@ -40,14 +40,9 @@ export async function resolveOwnerToUserId(
 }
 
 /**
- * Resolves the owner for a create request, falling back to the authenticated
- * user when no owner is provided in the request body.
- *
- * The `owner` field is optional on create endpoints, but the created resource
- * must always have an owner. When the body omits it we fall back to
- * `context.userId`, which is only populated for Personal Access Tokens (PATs).
- * Regular organization API keys have no associated user, so in that case the
- * caller must provide an explicit owner — otherwise we throw.
+ * Resolves the owner for a create request, falling back to the person behind
+ * it: a Personal Access Token's owner, or the member an org key names. A key
+ * that names no one must send an owner, or this throws.
  */
 export async function resolveOwnerForCreate(
   ownerInput: string | undefined,
