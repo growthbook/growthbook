@@ -8,6 +8,7 @@ import {
 import {
   EventUserApiKey,
   EventUserLoggedIn,
+  EventUserRequestedBy,
 } from "shared/types/events/event-types";
 import {
   OrganizationInterface,
@@ -28,7 +29,6 @@ import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
   REQUESTED_BY_HEADER,
-  RequestedByMember,
   assertNoRequestedByOnUserToken,
   resolveRequestedBy,
 } from "back-end/src/util/api-key.util";
@@ -317,7 +317,7 @@ function authenticateWithApiKey(
       }
 
       // `X-Requested-By` names the member who asked an org key to act.
-      let requestedBy: RequestedByMember | null = null;
+      let requestedBy: EventUserRequestedBy | null = null;
       try {
         if (userId) {
           assertNoRequestedByOnUserToken(req.headers[REQUESTED_BY_HEADER]);

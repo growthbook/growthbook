@@ -80,7 +80,7 @@ export const putConstantRevisionArchive = createApiRequestHandler(
         model: "constant",
         entity: constant,
         revision,
-        userId: req.context.actingUserId,
+        userId: req.context.userId,
       })
     ) {
       req.context.permissions.throwPermissionError();

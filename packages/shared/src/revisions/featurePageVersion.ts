@@ -11,7 +11,12 @@ const ACTIVE_DRAFT_STATUSES = new Set<string>([
 export type FeaturePageRevisionSummary = {
   version: number;
   status: string;
-  createdBy?: { type?: string; subtype?: string; id?: string } | null;
+  createdBy?: {
+    type?: string;
+    subtype?: string;
+    id?: string;
+    requestedBy?: { id: string };
+  } | null;
   contributors?: string[];
 };
 
@@ -50,8 +55,8 @@ export function getFeaturePageDefaultVersion({
       ? revisionList.find(
           (r) =>
             isOpenUserDraft(r) &&
-            // A draft an API key made, even on your behalf, never opens as yours
-            r.createdBy?.type !== "api_key" &&
+            // A draft an org key made on your behalf never opens as yours
+            r.createdBy?.requestedBy?.id !== userId &&
             (r.createdBy?.id === userId ||
               (r.contributors ?? []).includes(userId)),
         )

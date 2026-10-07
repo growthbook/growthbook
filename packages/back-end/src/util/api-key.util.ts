@@ -1,6 +1,7 @@
 import { webcrypto } from "node:crypto";
 import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
+import { EventUserRequestedBy } from "shared/types/events/event-types";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
   IS_MULTI_ORG,
@@ -127,8 +128,6 @@ export async function dangerousLookupOrganizationByApiKey(
 
 export const REQUESTED_BY_HEADER = "x-requested-by";
 
-export type RequestedByMember = { id: string; name: string; email: string };
-
 type MemberLookup = {
   byId: (
     id: string,
@@ -150,7 +149,7 @@ export async function resolveRequestedBy(
   value: string | string[] | undefined,
   organization: Pick<OrganizationInterface, "members">,
   lookup: MemberLookup,
-): Promise<RequestedByMember | null> {
+): Promise<EventUserRequestedBy | null> {
   const named = headerValue(value);
   if (!named) return null;
 
