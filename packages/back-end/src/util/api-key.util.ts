@@ -11,6 +11,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { BadRequestError } from "back-end/src/util/errors";
 import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
 import { COLLECTION_NAME as API_KEY_COLLECTION } from "back-end/src/models/ApiKeyModel";
 import {
@@ -137,16 +138,6 @@ type MemberLookup = {
   ) => Promise<{ id: string; name?: string; email: string } | null>;
 };
 
-// Carries the status the auth middleware answers with.
-export class RequestedByError extends Error {
-  constructor(
-    public readonly status: 400 | 403,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
 function headerValue(value: string | string[] | undefined): string | null {
   const first = (Array.isArray(value) ? value[0] : value)?.trim();
   return first || null;
@@ -168,8 +159,7 @@ export async function resolveRequestedBy(
     ? await lookup.byId(named)
     : await lookup.byEmail(named);
   if (!user || !memberIds.has(user.id)) {
-    throw new RequestedByError(
-      400,
+    throw new BadRequestError(
       `X-Requested-By does not match a member of this organization: ${named}`,
     );
   }
@@ -181,8 +171,7 @@ export function assertNoRequestedByOnUserToken(
   value: string | string[] | undefined,
 ): void {
   if (headerValue(value)) {
-    throw new RequestedByError(
-      400,
+    throw new BadRequestError(
       "X-Requested-By is only for organization API keys. Personal access tokens already act as their owner.",
     );
   }

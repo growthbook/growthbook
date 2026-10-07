@@ -475,7 +475,7 @@ export class ReqContextClass {
     auditUser: EventUser;
     req?: Request;
     restrictedProjects?: string[];
-    // Used as-is: an org key limited to the member who requested the call.
+    // Used as-is: an org key's permissions when they depend on its requester.
     userPermissions?: UserPermissions;
   }) {
     this.org = org;

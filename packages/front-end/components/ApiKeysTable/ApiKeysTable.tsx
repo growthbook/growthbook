@@ -79,7 +79,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     ml="2"
                     variant="soft"
                     label="Extends with requester"
-                    title="Some of this key's permissions apply only as far as the member a request names has them"
+                    title="Some of this key's rules apply only if the requester has them"
                   />
                 ) : key.requireRequestedBy ? (
                   <Badge

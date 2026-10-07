@@ -23,11 +23,11 @@ import {
   getOrganizationById,
 } from "back-end/src/services/organizations";
 import { getCustomLogProps } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
   REQUESTED_BY_HEADER,
-  RequestedByError,
   RequestedByMember,
   assertNoRequestedByOnUserToken,
   resolveRequestedBy,
@@ -325,14 +325,14 @@ function authenticateWithApiKey(
             { byId: getUserById, byEmail: getUserByEmail },
           );
           if (!requestedBy && apiKeyDoc.requireRequestedBy) {
-            throw new RequestedByError(
-              400,
+            throw new BadRequestError(
               "This API key requires an X-Requested-By header naming an organization member",
             );
           }
         }
       } catch (e) {
-        return res.status(e.status ?? 400).json({ message: e.message });
+        if (!(e instanceof BadRequestError)) throw e;
+        return res.status(400).json({ message: e.message });
       }
 
       const [teams, restrictedProjects] = await Promise.all([
@@ -395,21 +395,6 @@ function authenticateWithApiKey(
         }
 
         for (const p of checkProjects) {
-          if (extendedPermissions) {
-            if (
-              !hasPermission(
-                extendedPermissions,
-                permission,
-                p,
-                envs ? [...envs] : undefined,
-              )
-            ) {
-              throw new Error(
-                "API key user does not have this level of access",
-              );
-            }
-            continue;
-          }
           verifyApiKeyPermission({
             apiKey: apiKeyDoc,
             permission,
@@ -419,6 +404,7 @@ function authenticateWithApiKey(
             teams,
             superAdmin: req.user?.superAdmin,
             restrictedProjects,
+            keyPermissions: extendedPermissions,
           });
         }
       };
@@ -486,6 +472,8 @@ type VerifyApiKeyPermissionOptions = {
   teams: TeamInterface[];
   superAdmin: boolean | undefined;
   restrictedProjects?: string[];
+  // An org key's permissions for this request, when they depend on its requester.
+  keyPermissions?: UserPermissions;
 };
 
 /**
@@ -504,6 +492,7 @@ export function verifyApiKeyPermission({
   teams,
   superAdmin,
   restrictedProjects,
+  keyPermissions,
 }: VerifyApiKeyPermissionOptions) {
   if (apiKey.userId) {
     if (
@@ -525,12 +514,14 @@ export function verifyApiKeyPermission({
       throw new Error("API key does not have this level of access");
     }
   } else if (apiKey.secret && apiKey.role) {
-    const apiKeyPermissions = getRolePermissions(
-      apiKey as ApiKeyWithRole,
-      organization,
-      teams,
-      restrictedProjects,
-    );
+    const apiKeyPermissions =
+      keyPermissions ??
+      getRolePermissions(
+        apiKey as ApiKeyWithRole,
+        organization,
+        teams,
+        restrictedProjects,
+      );
 
     if (!hasPermission(apiKeyPermissions, permission, project, environments)) {
       throw new Error("API key user does not have this level of access");

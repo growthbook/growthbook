@@ -441,7 +441,7 @@ function intersectUserPermission(
 
 // What both principals may do: a permission survives in a project only where
 // both allow it, and an environment-scoped one keeps only the environments
-// both allow. Limits an API key to the member who requested the call.
+// both allow. Caps an API key's requester-only rules at its requester's access.
 export function intersectUserPermissions(
   a: UserPermissions,
   b: UserPermissions,

@@ -15,11 +15,6 @@ import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
 
-type RoleConfig = Pick<
-  ApiKeyInterface,
-  "role" | "limitAccessByEnvironment" | "additionalRoles" | "projectRoles"
-> & { environments?: string[] };
-
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
   collectionName: COLLECTION_NAME,
@@ -154,64 +149,57 @@ export class ApiKeyModel extends BaseClass {
       }
     } else {
       // Org API keys — validate role, environments, project roles, and commercial features
-      await this.validateRoleConfig(doc, previousDoc);
-    }
-  }
-
-  private async validateRoleConfig(
-    config: RoleConfig,
-    previous: RoleConfig | undefined,
-  ) {
-    this.validateRole(config.role);
-    // Only gate a role change so existing keys keep working
-    if (
-      config.role &&
-      config.role !== previous?.role &&
-      config.role !== "admin" &&
-      !this.context.limits.orgSupportsRoles()
-    ) {
-      this.context.throwPaymentRequiredError(
-        "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
-      );
-    }
-    if (
-      config.limitAccessByEnvironment &&
-      !this.context.hasPremiumFeature("advanced-permissions")
-    ) {
-      this.context.throwPlanDoesNotAllowError(
-        "Your plan does not support restricting API key permissions by environment.",
-      );
-    }
-    this.validateEnvironments(config.environments ?? []);
-    for (const rule of config.additionalRoles ?? []) {
-      this.validateRole(rule.role);
-      this.validateEnvironments(rule.environments);
-    }
-    if (config.projectRoles?.length) {
-      if (!this.context.hasPremiumFeature("advanced-permissions")) {
+      this.validateRole(doc.role);
+      // Only gate a role change so existing keys keep working
+      if (
+        doc.role &&
+        doc.role !== previousDoc?.role &&
+        doc.role !== "admin" &&
+        !this.context.limits.orgSupportsRoles()
+      ) {
+        this.context.throwPaymentRequiredError(
+          "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+        );
+      }
+      if (
+        doc.limitAccessByEnvironment &&
+        !this.context.hasPremiumFeature("advanced-permissions")
+      ) {
         this.context.throwPlanDoesNotAllowError(
-          "Your plan does not support project-level permissions on API keys.",
+          "Your plan does not support restricting API key permissions by environment.",
         );
       }
-      for (const pr of config.projectRoles) {
-        this.validateRole(pr.role);
-        this.validateEnvironments(pr.environments);
-        for (const rule of pr.additionalRoles ?? []) {
-          this.validateRole(rule.role);
-          this.validateEnvironments(rule.environments);
+      this.validateEnvironments(doc.environments);
+      for (const rule of doc.additionalRoles ?? []) {
+        this.validateRole(rule.role);
+        this.validateEnvironments(rule.environments);
+      }
+      if (doc.projectRoles?.length) {
+        if (!this.context.hasPremiumFeature("advanced-permissions")) {
+          this.context.throwPlanDoesNotAllowError(
+            "Your plan does not support project-level permissions on API keys.",
+          );
         }
-      }
-      // Only rules this write adds or changes are checked (same as members and
-      // teams), so a key still pointing at a since-deleted project stays
-      // editable and can be disabled.
-      try {
-        await assertProjectRulesReferenceProjects(
-          this.context,
-          previous?.projectRoles,
-          config.projectRoles,
-        );
-      } catch (e) {
-        this.context.throwBadRequestError(e.message);
+        for (const pr of doc.projectRoles) {
+          this.validateRole(pr.role);
+          this.validateEnvironments(pr.environments);
+          for (const rule of pr.additionalRoles ?? []) {
+            this.validateRole(rule.role);
+            this.validateEnvironments(rule.environments);
+          }
+        }
+        // Only rules this write adds or changes are checked (same as members and
+        // teams), so a key still pointing at a since-deleted project stays
+        // editable and can be disabled.
+        try {
+          await assertProjectRulesReferenceProjects(
+            this.context,
+            previousDoc?.projectRoles,
+            doc.projectRoles,
+          );
+        } catch (e) {
+          this.context.throwBadRequestError(e.message);
+        }
       }
     }
   }
@@ -357,8 +345,8 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
-      requireRequestedBy?: boolean;
-      requesterOnly?: boolean;
+      requireRequestedBy: boolean;
+      requesterOnly: boolean;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });

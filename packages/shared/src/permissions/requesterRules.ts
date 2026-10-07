@@ -17,8 +17,10 @@ export type RequesterRules = Rule & {
 const NOTHING = { role: "noaccess", limitAccessByEnvironment: false };
 
 export function hasRequesterOnlyRules(
-  rules: Partial<Pick<RequesterRules, "requesterOnly">> &
-    Pick<RequesterRules, "additionalRoles" | "projectRoles">,
+  rules: Pick<
+    RequesterRules,
+    "requesterOnly" | "additionalRoles" | "projectRoles"
+  >,
 ): boolean {
   return (
     !!rules.requesterOnly ||
