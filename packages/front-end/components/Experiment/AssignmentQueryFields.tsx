@@ -42,16 +42,16 @@ export type AssignmentQueryScopeKind =
   | "holdoutAllProjects";
 
 export function getAssignmentQueryScopeKind(
-  projects: string[] | undefined,
+  holdoutProjects: string[] | undefined,
 ): AssignmentQueryScopeKind {
-  if (!projects) return "project";
-  return projects.length ? "holdoutProjects" : "holdoutAllProjects";
+  if (!holdoutProjects) return "project";
+  return holdoutProjects.length ? "holdoutProjects" : "holdoutAllProjects";
 }
 
 export function useAssignmentQuerySelection({
   datasource,
   project,
-  projects,
+  holdoutProjects,
   hashAttribute,
   exposureQueryId,
   identifierType,
@@ -64,9 +64,8 @@ export function useAssignmentQuerySelection({
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
   project: string | undefined;
-  // Multi-project owners (holdouts): only queries covering all of them. Takes
-  // precedence over `project`.
-  projects?: string[];
+  /** A holdout's Projects, which the query must all cover. Overrides `project`. */
+  holdoutProjects?: string[];
   hashAttribute: string | undefined;
   exposureQueryId: string | undefined;
   identifierType: string | undefined;
@@ -95,9 +94,9 @@ export function useAssignmentQuerySelection({
   const scopedQueries = useMemo(
     () =>
       datasource
-        ? getExposureQueriesInScope(datasource, project, projects)
+        ? getExposureQueriesInScope(datasource, project, holdoutProjects)
         : [],
-    [datasource, project, projects],
+    [datasource, project, holdoutProjects],
   );
   const keptQuery = keptQueryId
     ? datasource?.settings?.queries?.exposure?.find((q) => q.id === keptQueryId)
@@ -264,7 +263,7 @@ export function useAssignmentQuerySelection({
     exposureQueryOptions,
     outOfScope,
     identifierUndeclared,
-    scopeKind: getAssignmentQueryScopeKind(projects),
+    scopeKind: getAssignmentQueryScopeKind(holdoutProjects),
     hasExposureQueries: !!datasource?.settings?.queries?.exposure?.length,
     setExposureQueryId: selectExposureQueryId,
     changeIdentifierType,

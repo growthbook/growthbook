@@ -1676,8 +1676,10 @@ describe("assignment query permissions", () => {
   });
 
   it("allows adding a query when some project can hold it", () => {
-    expect(p.canCreateExposureQuery(datasource)).toBe(true);
-    expect(p.canCreateExposureQuery({ projects: [] })).toBe(true);
-    expect(p.canCreateExposureQuery({ projects: ["prj_a"] })).toBe(false);
+    expect(p.canCreateExposureQueryInSomeProject(datasource)).toBe(true);
+    expect(p.canCreateExposureQueryInSomeProject({ projects: [] })).toBe(true);
+    expect(p.canCreateExposureQueryInSomeProject({ projects: ["prj_a"] })).toBe(
+      false,
+    );
   });
 });

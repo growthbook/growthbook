@@ -23,36 +23,24 @@ import type { ExperimentInterface } from "shared/types/experiment";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
-// Where a new or changed selection is used, checked against the query's
-// projects. Computed lazily since some scopes need a lookup (holdouts).
-export type GetAssignmentQueryScope = (
-  datasource: DataSourceInterface,
-) => AssignmentQueryScope | Promise<AssignmentQueryScope>;
-
-// An experiment's selection is scoped to its project. A holdout's must cover
-// every project the holdout does, and a query without its own projects
-// inherits its data source's.
-export function getExperimentAssignmentQueryScope(
+// An experiment's query must be usable in its project. A holdout's experiment
+// has no project, so its query must cover every project the holdout does.
+export async function getExperimentAssignmentQueryScope(
   context: ReqContext | ApiReqContext,
   experiment: Pick<ExperimentInterface, "id" | "type" | "project">,
-  project: string = experiment.project ?? "",
-): GetAssignmentQueryScope {
-  return async (datasource) =>
-    experiment.type === "holdout"
-      ? {
-          projects:
-            (await context.models.holdout.getByExperimentId(experiment.id))
-              ?.projects ?? [],
-          datasourceProjects: datasource.projects,
-        }
-      : { project };
+): Promise<AssignmentQueryScope> {
+  if (experiment.type !== "holdout") {
+    return { project: experiment.project ?? "" };
+  }
+  const holdout = await context.models.holdout.getByExperimentId(experiment.id);
+  return { projects: holdout?.projects ?? [] };
 }
 
-async function getScopeFor(
+// Queries without their own projects inherit the data source's.
+function withDatasourceProjects(
+  scope: AssignmentQueryScope | undefined,
   datasource: DataSourceInterface,
-  getScope: GetAssignmentQueryScope | undefined,
-): Promise<AssignmentQueryScope | undefined> {
-  const scope = await getScope?.(datasource);
+): AssignmentQueryScope | undefined {
   return scope && { datasourceProjects: datasource.projects, ...scope };
 }
 
@@ -108,13 +96,14 @@ export async function resolveAssignmentQueryIdentifier(
     next,
     onOmitted,
     field,
-    getScope,
+    scope,
   }: {
     previous: AssignmentQuerySelection | null;
     next: AssignmentQuerySelection;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     field?: "assignmentQuery" | "exposureQuery";
-    getScope?: GetAssignmentQueryScope;
+    /** Where the record uses the query. Omit to skip the project check. */
+    scope?: AssignmentQueryScope;
   },
 ): Promise<{ identifierType: string | undefined; changed: boolean }> {
   const kept = withKeptIdentifierType(previous, next);
@@ -139,7 +128,7 @@ export async function resolveAssignmentQueryIdentifier(
       next: kept,
       onOmitted,
       field,
-      scope: await getScopeFor(selection.datasource, getScope),
+      scope: withDatasourceProjects(scope, selection.datasource),
     },
   );
   if (!result.ok) throw new Error(result.error);
@@ -154,7 +143,8 @@ export async function assertValidAssignmentQuerySelectionChange(
   context: ReqContext | ApiReqContext,
   previous: AssignmentQuerySelection | null,
   next: AssignmentQuerySelection,
-  getScope?: GetAssignmentQueryScope,
+  /** Where the record uses the query. Omit to skip the project check. */
+  scope?: AssignmentQueryScope,
 ): Promise<void> {
   const selection = await loadChangedAssignmentQuerySelection(
     context,
@@ -168,7 +158,7 @@ export async function assertValidAssignmentQuerySelectionChange(
       exposureQueryId: next.exposureQueryId,
       identifierType: next.identifierType,
       onOmitted: "defaultToFirst",
-      scope: await getScopeFor(selection.datasource, getScope),
+      scope: withDatasourceProjects(scope, selection.datasource),
     },
   );
   if (!parsed.ok) throw new Error(parsed.error);

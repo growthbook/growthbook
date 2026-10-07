@@ -307,7 +307,7 @@ import {
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
 import {
@@ -3418,14 +3418,14 @@ export async function postFeatureRule(
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
   let validatedSafeRolloutFields: Awaited<
-    ReturnType<typeof validateCreateSafeRolloutFields>
+    ReturnType<typeof validateSafeRolloutFields>
   > | null = null;
   if (rule.type === "safe-rollout") {
     if (!context.hasPremiumFeature("safe-rollout")) {
       throw new Error(`Safe Rollout rules is a premium feature.`);
     }
 
-    validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+    validatedSafeRolloutFields = await validateSafeRolloutFields(
       omit(safeRolloutFields, "rampUpSchedule"),
       context,
       { project: feature.project ?? "" },

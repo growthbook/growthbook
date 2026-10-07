@@ -207,7 +207,7 @@ export default function ConfigureLegacyReport({
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
     project: experiment?.project,
-    projects: isHoldout ? holdoutData?.holdout.projects : undefined,
+    holdoutProjects: isHoldout ? holdoutData?.holdout.projects : undefined,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
     identifierType: resolveAnalysisIdentifierType(

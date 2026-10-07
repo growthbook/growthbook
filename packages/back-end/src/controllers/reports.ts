@@ -457,10 +457,18 @@ type ReportAssignmentQuerySelection = {
  */
 async function applyReportAssignmentQuery(
   context: ReqContext,
-  previous: ReportAssignmentQuerySelection,
-  next: ReportAssignmentQuerySelection,
-  experiment: ExperimentInterface | null,
-  requestedIdentifierType: string | undefined,
+  {
+    previous,
+    next,
+    experiment,
+    requestedIdentifierType,
+  }: {
+    previous: ReportAssignmentQuerySelection;
+    next: ReportAssignmentQuerySelection;
+    /** The report's experiment, whose project the query must fit. */
+    experiment: ExperimentInterface | null;
+    requestedIdentifierType: string | undefined;
+  },
 ) {
   const toSelection = (s: ReportAssignmentQuerySelection) => ({
     datasource: s.datasource,
@@ -471,9 +479,9 @@ async function applyReportAssignmentQuery(
     previous: toSelection(previous),
     next: { ...toSelection(next), identifierType: requestedIdentifierType },
     onOmitted: "defaultToFirst",
-    getScope: experiment
-      ? getExperimentAssignmentQueryScope(context, experiment)
-      : () => ({ project: "" }),
+    scope: experiment
+      ? await getExperimentAssignmentQueryScope(context, experiment)
+      : { project: "" },
   });
   // `next` is saved whole: an absent key clears the stored identifier, where an
   // undefined one would persist as null.
@@ -581,13 +589,13 @@ export async function putReport(
     }
 
     if (updates.experimentAnalysisSettings) {
-      await applyReportAssignmentQuery(
-        context,
-        report.experimentAnalysisSettings,
-        updates.experimentAnalysisSettings,
+      await applyReportAssignmentQuery(context, {
+        previous: report.experimentAnalysisSettings,
+        next: updates.experimentAnalysisSettings,
         experiment,
-        data.experimentAnalysisSettings?.exposureQueryIdentifierType,
-      );
+        requestedIdentifierType:
+          data.experimentAnalysisSettings?.exposureQueryIdentifierType,
+      });
     }
 
     updates.dateUpdated = new Date();
@@ -635,13 +643,12 @@ export async function putReport(
       updates.args.settingsForSnapshotMetrics =
         updates.args?.settingsForSnapshotMetrics || [];
 
-      await applyReportAssignmentQuery(
-        context,
-        report.args,
-        updates.args,
+      await applyReportAssignmentQuery(context, {
+        previous: report.args,
+        next: updates.args,
         experiment,
-        req.body.args?.exposureQueryIdentifierType,
-      );
+        requestedIdentifierType: req.body.args?.exposureQueryIdentifierType,
+      });
 
       needsRun = true;
     }

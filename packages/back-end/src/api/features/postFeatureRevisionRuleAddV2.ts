@@ -33,7 +33,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { generateId } from "back-end/src/util/uuid";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   BadRequestError,
   InternalServerError,
@@ -265,7 +265,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
 
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
-      const validatedFields = await validateCreateSafeRolloutFields(
+      const validatedFields = await validateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),
         req.context,
         {

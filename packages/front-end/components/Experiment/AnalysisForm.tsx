@@ -355,7 +355,7 @@ const AnalysisForm: FC<{
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
     project: experiment.project,
-    projects: holdoutProjects,
+    holdoutProjects,
     hashAttribute: experiment.hashAttribute,
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,

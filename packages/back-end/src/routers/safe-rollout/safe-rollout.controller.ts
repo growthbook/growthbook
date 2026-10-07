@@ -12,7 +12,7 @@ import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnap
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   runLockedRampScheduleAction,
   setRampMonitoringMode,
@@ -220,7 +220,7 @@ export async function putSafeRollout(
   // The resolver only scope-checks a changed selection, so a rollout whose
   // query later fell out of scope can still be edited.
   const feature = await getFeature(context, safeRollout.featureId);
-  const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+  const validatedSafeRolloutFields = await validateSafeRolloutFields(
     safeRolloutFields,
     context,
     { previous: safeRollout, project: feature?.project ?? "" },

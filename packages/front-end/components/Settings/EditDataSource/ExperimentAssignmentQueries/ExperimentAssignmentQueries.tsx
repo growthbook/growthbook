@@ -42,7 +42,8 @@ export const ExperimentAssignmentQueries: FC<
   const [openIndexes, setOpenIndexes] = useState<boolean[]>(initialOpenIndexes);
 
   const permissionsUtil = usePermissionsUtil();
-  const canAdd = canEdit && permissionsUtil.canCreateExposureQuery(dataSource);
+  const canAdd =
+    canEdit && permissionsUtil.canCreateExposureQueryInSomeProject(dataSource);
   const canEditQuery = (query: ExposureQuery) =>
     canEdit && permissionsUtil.canUpdateExposureQuery(query, dataSource);
 

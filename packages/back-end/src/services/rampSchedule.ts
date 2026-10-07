@@ -43,6 +43,7 @@ import {
   validateFeatureValue,
   isSameAssignmentQuerySelection,
   resolveAnalysisIdentifierType,
+  AssignmentQueryScope,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -70,7 +71,6 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   assertValidAssignmentQuerySelectionChange,
   getExposureQueriesForDatasource,
-  GetAssignmentQueryScope,
 } from "back-end/src/services/assignmentQuerySelection";
 import {
   resolveRampTargets,
@@ -1553,14 +1553,14 @@ export async function assertValidMonitoringConfigChange(
   ctx: ReqContext | ApiReqContext,
   previous: RampMonitoringConfig | null | undefined,
   next: RampMonitoringConfig | null | undefined,
-  getScope?: GetAssignmentQueryScope,
+  scope?: AssignmentQueryScope,
 ): Promise<void> {
   if (!next) return;
   await assertValidAssignmentQuerySelectionChange(
     ctx,
     previous ? toMonitoringSelection(previous) : null,
     toMonitoringSelection(next),
-    getScope,
+    scope,
   );
 }
 

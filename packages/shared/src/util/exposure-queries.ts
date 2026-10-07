@@ -146,14 +146,17 @@ export type AssignmentQueryScope = {
   datasourceProjects?: string[];
 };
 
-export function getAssignmentQueryScopeError(
+function getAssignmentQueryScopeError(
   query: Pick<ExposureQuery, "id" | "name" | "projects">,
   { project, projects, datasourceProjects }: AssignmentQueryScope,
 ): string | null {
   const name = query.name || query.id;
   if (projects) {
     if (
-      isExposureQueryAvailableForProjects(query, projects, datasourceProjects)
+      isExposureQueryAvailableForProjects(query, {
+        holdoutProjects: projects,
+        datasourceProjects,
+      })
     ) {
       return null;
     }
@@ -396,13 +399,15 @@ export function getExposureQueryProjects(
  */
 export function isExposureQueryAvailableForProjects(
   query: Pick<ExposureQuery, "projects">,
-  projects: string[],
-  datasourceProjects: string[] | undefined,
+  {
+    holdoutProjects,
+    datasourceProjects,
+  }: { holdoutProjects: string[]; datasourceProjects: string[] | undefined },
 ): boolean {
   const scope = getExposureQueryProjects(query, datasourceProjects);
   if (!scope.length) return true;
-  if (!projects.length) return false;
-  return projects.every((project) => scope.includes(project));
+  if (!holdoutProjects.length) return false;
+  return holdoutProjects.every((project) => scope.includes(project));
 }
 
 /**

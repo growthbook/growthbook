@@ -12,7 +12,7 @@ import { ReqContext } from "back-end/types/request";
 
 // This functions needs to stay in the back-end because it uses models, and can't be shared like the
 // other validators in shared/validators.ts
-export async function validateCreateSafeRolloutFields(
+export async function validateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
   context: ReqContext | ApiReqContext,
   {

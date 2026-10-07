@@ -1033,6 +1033,7 @@ export function isIdentifierUndeclared(
   );
 }
 
+/** Of `exposureQueries`, those usable by a record in `project`. */
 export function getExposureQueriesForProject(
   exposureQueries: ExposureQuery[],
   project: string | undefined,
@@ -1046,16 +1047,22 @@ export function getExposureQueriesForProject(
   );
 }
 
-/** Queries usable by a single Project, or by every one of a holdout's Projects. */
+/**
+ * A data source's queries usable by a record in `project`, or, for a holdout,
+ * by every one of `holdoutProjects` (which takes precedence).
+ */
 export function getExposureQueriesInScope(
   datasource: Pick<DataSourceInterfaceWithParams, "settings" | "projects">,
   project: string | undefined,
-  projects?: string[],
+  holdoutProjects?: string[],
 ): ExposureQuery[] {
   const all = datasource.settings?.queries?.exposure ?? [];
-  return projects
+  return holdoutProjects
     ? all.filter((q) =>
-        isExposureQueryAvailableForProjects(q, projects, datasource.projects),
+        isExposureQueryAvailableForProjects(q, {
+          holdoutProjects,
+          datasourceProjects: datasource.projects,
+        }),
       )
     : getExposureQueriesForProject(all, project, datasource.projects);
 }

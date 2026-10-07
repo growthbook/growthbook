@@ -413,7 +413,7 @@ function assertCanUpdateDataSource(
     if (!permissions.canUpdateDataSourceSettings(datasource)) {
       permissions.throwPermissionError();
     }
-  } else if (!permissions.canCreateExposureQuery(datasource)) {
+  } else if (!permissions.canCreateExposureQueryInSomeProject(datasource)) {
     permissions.throwPermissionError();
   }
 
