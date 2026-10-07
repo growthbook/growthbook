@@ -1,6 +1,10 @@
 import type { PopulationStep } from "shared/validators";
 import type { FactTableInterface } from "shared/types/fact-table";
 import { getSelectedColumnDatatype } from "./experiments/experiments";
+import {
+  type AggregateFilterCondition,
+  parseAggregateFilter,
+} from "./aggregate-filters";
 
 export const MAX_POPULATION_STEPS = 20;
 /** Distinct fact tables a population's steps may read from. */
@@ -11,31 +15,21 @@ export type PopulationRuleFactTable = Pick<
   "id" | "datasource" | "userIdTypes" | "columns"
 >;
 
-export type PopulationAggregateCondition = { operator: string; value: string };
-
-// Same grammar as fact metric aggregate filters: comma-separated comparisons.
-const AGGREGATE_CONDITION_REGEX = /^(=|!=|<>|<=|<|>=|>)(\d+(\.\d+)?)$/;
-
-function splitAggregateFilter(aggregateFilter: string): string[] {
-  return aggregateFilter.replace(/\s*/g, "").split(",").filter(Boolean);
-}
-
 export function parsePopulationAggregateFilter(
   aggregateFilter: string,
-): PopulationAggregateCondition[] {
-  return splitAggregateFilter(aggregateFilter).map((part) => {
-    const match = part.match(AGGREGATE_CONDITION_REGEX);
-    if (!match) throw new Error(`Invalid aggregate filter: ${part}`);
-    return { operator: match[1], value: match[2] };
-  });
+): AggregateFilterCondition[] {
+  const { conditions, invalid } = parseAggregateFilter(aggregateFilter);
+  if (invalid.length) {
+    throw new Error(`Invalid aggregate filter: ${invalid[0]}`);
+  }
+  return conditions;
 }
 
+// Unlike fact metrics, a filter with no comparisons (such as ",") is invalid:
+// it would silently drop the step's threshold.
 function isValidAggregateFilter(aggregateFilter: string): boolean {
-  const parts = splitAggregateFilter(aggregateFilter);
-  return (
-    parts.length > 0 &&
-    parts.every((part) => AGGREGATE_CONDITION_REGEX.test(part))
-  );
+  const { conditions, invalid } = parseAggregateFilter(aggregateFilter);
+  return conditions.length > 0 && !invalid.length;
 }
 
 export type PopulationRuleInput = {
