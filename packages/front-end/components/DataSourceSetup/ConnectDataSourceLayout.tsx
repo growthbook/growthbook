@@ -42,26 +42,9 @@ import Text from "@/ui/Text";
 import DataSourceConnectInstructions, {
   ConnectSetupKind,
 } from "./DataSourceConnectInstructions";
+import { DATA_SOURCE_TYPE_AVATAR } from "./dataSourceTypeAvatar";
 
 type TestStatus = "idle" | "running" | "passed" | "failed";
-
-const DATA_SOURCE_TYPE_ABBR: Record<DataSourceType, string> = {
-  bigquery: "BQ",
-  snowflake: "SF",
-  databricks: "DB",
-  redshift: "RS",
-  athena: "AT",
-  presto: "PT",
-  clickhouse: "CH",
-  postgres: "PG",
-  mysql: "MY",
-  vertica: "VE",
-  mssql: "MS",
-  adobe_experience_platform_query_service: "AE",
-  mixpanel: "MP",
-  google_analytics: "GA",
-  growthbook_clickhouse: "GB",
-};
 
 export type ConnectDataSourceLayoutProps = {
   mode: "create" | "edit";
@@ -384,8 +367,13 @@ export default function ConnectDataSourceLayout({
           }}
         >
           <Flex align="center" gap="3" wrap="wrap" mb="2">
-            <Avatar size="lg" variant="soft" radius="small" color="violet">
-              {DATA_SOURCE_TYPE_ABBR[type]}
+            <Avatar
+              size="lg"
+              variant="soft"
+              radius="small"
+              color={DATA_SOURCE_TYPE_AVATAR[type].color}
+            >
+              {DATA_SOURCE_TYPE_AVATAR[type].abbr}
             </Avatar>
             <Heading as="h1" size="xl" mb="0">
               {existing
