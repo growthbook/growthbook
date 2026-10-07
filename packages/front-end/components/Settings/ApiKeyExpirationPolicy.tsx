@@ -5,20 +5,20 @@ import {
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
 import { date } from "shared/dates";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { hasFileConfig } from "@/services/env";
 import TextField from "@/ui/TextField";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
+import Text from "@/ui/Text";
+import Metadata from "@/ui/Metadata";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
-type Kind = "pat" | "secret";
+export type Kind = "pat" | "secret";
 
 const COPY: Record<Kind, { noun: string; nounPlural: string; short: string }> =
   {
@@ -34,63 +34,55 @@ const COPY: Record<Kind, { noun: string; nounPlural: string; short: string }> =
     },
   };
 
-const FILE_CONFIG_REASON =
-  "Organization settings are managed by your config.yml file";
-
-const settingField = (kind: Kind) =>
+export const settingField = (kind: Kind) =>
   kind === "pat" ? "maxPatLifetimeDays" : "maxApiKeyLifetimeDays";
 
 const countKeys = (count: number, kind: Kind) =>
   `${count} ${count === 1 ? COPY[kind].noun : COPY[kind].nounPlural}`;
 
-const ExpirationPolicyModal: FC<{
+/** A draft of the policy: `null` is off, otherwise the typed day count. */
+export function parseLifetimeDraft(draft: string | null) {
+  if (draft === null) return { value: null, invalid: false };
+  const value = Number(draft.trim());
+  return { value, invalid: !Number.isInteger(value) || value < 1 };
+}
+
+/** The policy's control in an edit modal: a checkbox revealing the day count. */
+export const ExpirationPolicyField: FC<{
   kind: Kind;
-  saved: number | null;
-  close: () => void;
-}> = ({ kind, saved, close }) => {
-  const { apiCall } = useAuth();
-  const { refreshOrganization } = useUser();
-  // Turning the policy on is what opens this, so a blank one starts at 90 days.
-  const [draft, setDraft] = useState(String(saved ?? 90));
-
-  const maxDays = Number(draft.trim());
-  const invalid = !Number.isInteger(maxDays) || maxDays < 1;
-
+  draft: string | null;
+  setDraft: (draft: string | null) => void;
+}> = ({ kind, draft, setDraft }) => {
+  const { invalid } = parseLifetimeDraft(draft);
   return (
-    <ModalStandard
-      open
-      trackingEventModalType=""
-      header="Expiration Policy"
-      close={close}
-      cta="Save"
-      ctaEnabled={!invalid}
-      submit={async () => {
-        await apiCall("/organization", {
-          method: "PUT",
-          body: JSON.stringify({ settings: { [settingField(kind)]: maxDays } }),
-        });
-        await refreshOrganization();
-      }}
-    >
-      <TextField
-        inputMode="numeric"
-        label="Maximum lifetime (days)"
-        helpText={`How long a newly created ${COPY[kind].noun} can last.`}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        error={
-          invalid ? "Enter a whole number of days, at least 1." : undefined
-        }
-        disabled={hasFileConfig()}
+    <>
+      <Checkbox
+        label={`Require ${COPY[kind].nounPlural} to expire`}
+        description={`New ${COPY[kind].short} must have an expiration date within a maximum lifetime.`}
+        value={draft !== null}
+        setValue={(on) => setDraft(on ? "90" : null)}
       />
-    </ModalStandard>
+      {draft !== null && (
+        // Indented past the checkbox and gap, under its description.
+        <Box mt="3" style={{ paddingLeft: 24 }}>
+          <TextField
+            inputMode="numeric"
+            label="Maximum lifetime (days)"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            error={
+              invalid ? "Enter a whole number of days, at least 1." : undefined
+            }
+          />
+        </Box>
+      )}
+    </>
   );
 };
 
 /**
- * One Checkbox row in an "Organization Policies" card. The two kinds stay
- * separate because a lapsed personal access token inconveniences one member
- * while a lapsed secret key takes down an integration.
+ * The policy's read-only row in an "Organization Policies" card, plus the one
+ * action it carries: applying the limit to existing keys from the count.
  */
 const ApiKeyExpirationPolicy: FC<{
   kind: Kind;
@@ -98,18 +90,10 @@ const ApiKeyExpirationPolicy: FC<{
   mutate: () => void;
 }> = ({ kind, keys, mutate }) => {
   const { apiCall } = useAuth();
-  const { settings, refreshOrganization } = useUser();
-  // Stamping dates onto other people's tokens is key management, not general
-  // org configuration, so this is gated tighter than the page around it.
-  const canManage = usePermissionsUtil().canDeleteApiKey();
-  const [editing, setEditing] = useState(false);
+  const { settings } = useUser();
   const [applying, setApplying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const saved = settings?.[settingField(kind)] ?? null;
-
-  if (!canManage) return null;
-
   const nonCompliant = keys.filter((k) =>
     violatesExpirationPolicy(k.expiresAt, saved),
   );
@@ -123,78 +107,33 @@ const ApiKeyExpirationPolicy: FC<{
     />
   );
 
-  // Loosening needs no confirmation, like unchecking the sibling kill switch.
-  const clear = async () => {
-    setError(null);
-    try {
-      await apiCall("/organization", {
-        method: "PUT",
-        body: JSON.stringify({ settings: { [settingField(kind)]: null } }),
-      });
-      await refreshOrganization();
-    } catch (e) {
-      setError(e.message);
-    }
-  };
-
   return (
     <>
-      <Checkbox
+      <Metadata
         label={`Require ${COPY[kind].nounPlural} to expire`}
-        value={saved !== null}
-        disabled={locked}
-        disabledMessage={FILE_CONFIG_REASON}
-        setValue={(value) => (value ? setEditing(true) : void clear())}
-        description={
+        value={
           saved === null ? (
-            `New ${COPY[kind].short} can be created without an expiration date.`
+            "Off"
           ) : (
-            <Flex align="center" gap="2" wrap="wrap" asChild>
-              <span>
-                {`New ${COPY[kind].short} must expire within ${saved} day${saved === 1 ? "" : "s"}.`}
-                {!locked && (
-                  <Link
-                    onClick={(e) => {
-                      // Inside the Checkbox's label, so a click would also toggle it off.
-                      e.preventDefault();
-                      setEditing(true);
-                    }}
-                  >
-                    Change
-                  </Link>
-                )}
-                {nonCompliant.length > 0 && (
-                  <Tooltip
-                    content={`${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than the maximum, marked in the Expires column.${locked ? "" : " Click to apply the limit to them."}`}
-                  >
-                    {locked ? (
-                      <span>{badge}</span>
-                    ) : (
-                      <Link
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setApplying(true);
-                        }}
-                      >
-                        {badge}
-                      </Link>
-                    )}
-                  </Tooltip>
-                )}
-              </span>
+            <Flex align="center" gap="2">
+              <Text color="text-mid">
+                {`Within ${saved} day${saved === 1 ? "" : "s"}`}
+              </Text>
+              {nonCompliant.length > 0 && (
+                <Tooltip
+                  content={`${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than the maximum, marked in the Expires column.${locked ? "" : " Click to apply the limit to them."}`}
+                >
+                  {locked ? (
+                    <span>{badge}</span>
+                  ) : (
+                    <Link onClick={() => setApplying(true)}>{badge}</Link>
+                  )}
+                </Tooltip>
+              )}
             </Flex>
           )
         }
-        error={error ?? undefined}
       />
-
-      {editing && (
-        <ExpirationPolicyModal
-          kind={kind}
-          saved={saved}
-          close={() => setEditing(false)}
-        />
-      )}
       {applying && saved !== null && (
         <ConfirmDialog
           title={`Apply the ${saved}-day limit to existing ${COPY[kind].short}?`}
