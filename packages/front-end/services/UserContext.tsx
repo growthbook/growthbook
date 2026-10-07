@@ -147,6 +147,7 @@ export interface UserContextValue {
   freeSeats: number;
   usage?: OrganizationUsage;
   sdkPayloadSizeAlerts: SdkPayloadSizeAlert[];
+  expiringPersonalAccessTokens: GetOrganizationResponse["expiringPersonalAccessTokens"];
 }
 
 interface UserResponse {
@@ -202,6 +203,7 @@ export const UserContext = createContext<UserContextValue>({
   canSubscribe: false,
   freeSeats: 3,
   sdkPayloadSizeAlerts: [],
+  expiringPersonalAccessTokens: [],
   orgSuspended: false,
 });
 
@@ -620,6 +622,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         freeSeats: organization?.freeSeats || 3,
         usage: currentOrg?.usage,
         sdkPayloadSizeAlerts: currentOrg?.sdkPayloadSizeAlerts ?? [],
+        expiringPersonalAccessTokens:
+          currentOrg?.expiringPersonalAccessTokens ?? [],
       }}
     >
       {children}

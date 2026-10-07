@@ -1090,14 +1090,6 @@
       "count": 5
     }
   },
-  "packages/front-end/components/InitialSetup/ManagedWarehouseModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Layout/ProjectSelector.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -1453,11 +1445,6 @@
     },
     "no-restricted-syntax": {
       "count": 5
-    }
-  },
-  "packages/front-end/components/Settings/ApiKeysModal.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "packages/front-end/components/Settings/AthenaForm.tsx": {

@@ -45,6 +45,7 @@ export * from "./webhooks";
 export * from "./experiment-exposures";
 export * from "./event-forwarder-config";
 export * from "./event-forwarder-access-test";
+export * from "./datasource-test-connection";
 export * from "./event-forwarder-status";
 export * from "./event-webhook";
 export * from "./notification-card";

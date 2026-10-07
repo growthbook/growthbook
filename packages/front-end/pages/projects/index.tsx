@@ -26,6 +26,8 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import HistoryTable from "@/components/HistoryTable";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -36,6 +38,7 @@ const ProjectsPage: FC = () => {
     null,
   );
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [auditLogOpen, setAuditLogOpen] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
   const canCreateProjects = permissionsUtil.canCreateProjects();
@@ -96,6 +99,17 @@ const ProjectsPage: FC = () => {
           commercialFeature={null}
         />
       )}
+      {auditLogOpen && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header="Project Audit Log"
+          close={() => setAuditLogOpen(false)}
+          size="lg"
+        >
+          <HistoryTable type="project" showName />
+        </ModalStandard>
+      )}
 
       <Box mt="4" mb="5">
         <div className="row align-items-center mb-1">
@@ -103,6 +117,9 @@ const ProjectsPage: FC = () => {
             <h2 className="mb-0">Projects</h2>
           </div>
           <div className="flex-1" />
+          <div className="col-auto">
+            <Link onClick={() => setAuditLogOpen(true)}>Audit log</Link>
+          </div>
           <div className="col-auto">
             <Tooltip
               body={
