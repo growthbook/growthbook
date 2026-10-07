@@ -4,6 +4,7 @@ import {
 } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
+import { assertUserScopedKeyForMine } from "back-end/src/api/revisionValidations";
 import { toApiRevision } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -33,11 +34,7 @@ export async function loadLatestDraft(
       "`mine` and `author` are mutually exclusive. Pass one or the other.",
     );
   }
-  if (mine && !context.userId) {
-    throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
-    );
-  }
+  assertUserScopedKeyForMine(context, mine);
 
   const revision = await getLatestActiveDraftForFeature(
     context,

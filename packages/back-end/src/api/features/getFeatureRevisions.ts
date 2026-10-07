@@ -5,6 +5,7 @@ import {
 import { stringToBoolean } from "shared/util";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import type { ApiReqContext } from "back-end/types/api";
+import { assertUserScopedKeyForMine } from "back-end/src/api/revisionValidations";
 import {
   getFeatureRevisionsByStatus,
   countDocuments,
@@ -44,11 +45,7 @@ export async function loadFeatureRevisionsPage(
       "`mine` and `author` are mutually exclusive. Pass one or the other.",
     );
   }
-  if (mine && !context.actingUserId) {
-    throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key or an X-Requested-By header (the caller must be identifiable as a user).",
-    );
-  }
+  assertUserScopedKeyForMine(context, mine);
   const involvedUserId = mine ? context.actingUserId : undefined;
 
   const skipPagination = stringToBoolean(query.skipPagination?.toString());

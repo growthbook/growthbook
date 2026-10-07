@@ -14,7 +14,7 @@ export function isDraftStatus(status: string): boolean {
 
 /**
  * `mine=true` filters by the calling user, so it needs a caller who IS a user.
- * An org-scoped API key has no identity to filter on.
+ * An org API key has none unless the request names one with X-Requested-By.
  */
 export function assertUserScopedKeyForMine(
   context: ApiReqContext,
