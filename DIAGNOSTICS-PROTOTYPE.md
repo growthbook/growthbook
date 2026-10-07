@@ -23,6 +23,35 @@ have no real data behind them yet, and in dummy mode they are populated.
 
 ---
 
+## The standalone stream page: `/event-logs`
+
+The Event Logs page, with the event summary on top and the log stream below,
+is at **`/event-logs`**. It is also reachable from the sidebar (Event Logs,
+beta) and from **View all** on the Diagnostics tab.
+
+**Two prototype-only switches make it work locally. Both should be removed
+before merge.**
+
+- **The `event-logs` flag is forced on in development builds.** The page and
+  its sidebar entry are behind the `event-logs` feature, which isn't in
+  GrowthBook's dev SDK payload (or the prod one), so the page renders a 404
+  for everyone. `components/EventLogs/prototypeEventLogsFlag.ts` forces it on
+  when `NODE_ENV` is `development` (`next dev`) only. Production builds,
+  including PR previews, still follow the flag, so **the page 404s on a
+  preview.** To drop it, delete that file and restore
+  `!!gb?.isOn("event-logs")` at its two call sites (the commit message lists
+  them).
+- **Fixture data via `EVENT_LOGS_FIXTURES=1`.** Locally there is no managed
+  warehouse, so the summary and records endpoints return nothing. With
+  `EVENT_LOGS_FIXTURES=1` in `packages/back-end/.env.local`, they serve the
+  generated corpus in `back-end/src/services/eventLogFixtures.ts` instead.
+  Restart the back-end after setting it. `.env.local` is git-ignored, so
+  **this doesn't come with the branch: everyone has to set it themselves**,
+  and without it the page loads but is empty. It defaults to off and must
+  never be enabled outside local development.
+
+---
+
 ## What is fake, and why
 
 ### User identity and attributes do not exist in `feature_usage`
