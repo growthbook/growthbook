@@ -153,28 +153,24 @@ export class ApiKeyModel extends BaseClass {
     previousDoc?: ApiKeyInterface,
   ) {
     const maxDays = this.maxLifetimeDaysFor(doc);
-    if (!previousDoc) {
-      if (violatesExpirationPolicy(doc.expiresAt, maxDays)) {
-        this.context.throwBadRequestError(
-          `This organization requires an expiration date within ${maxDays} days.`,
-        );
-      }
-    } else if (
+    if (
       doc.secret &&
       !doc.oauthClientId &&
-      toTime(doc.expiresAt) !== toTime(previousDoc.expiresAt)
+      (!previousDoc || toTime(doc.expiresAt) !== toTime(previousDoc.expiresAt))
     ) {
       // Reviving a lapsed key is what creating a replacement is for.
-      if (isExpired(previousDoc.expiresAt)) {
+      if (previousDoc && isExpired(previousDoc.expiresAt)) {
         this.context.throwBadRequestError(
           "An expired key's expiration date can't be changed. Create a new key instead.",
         );
       }
-      const latest = latestEditedExpiration(
-        previousDoc.expiresAt,
-        previousDoc.dateCreated,
-        maxDays,
-      );
+      const latest = previousDoc
+        ? latestEditedExpiration(
+            previousDoc.expiresAt,
+            previousDoc.dateCreated,
+            maxDays,
+          )
+        : maxExpirationDate(maxDays);
       const problem = getExpirationProblem(
         doc.expiresAt,
         maxDays,
@@ -546,6 +542,7 @@ export class ApiKeyModel extends BaseClass {
           environments: scopedRole ? environments : [],
           additionalRoles: scopedRole ? additionalRoles : undefined,
           projectRoles: scopedRole ? projectRoles : undefined,
+          ...(expiresAt !== undefined && { expiresAt }),
         },
         { forceCanUpdate: true },
       );
@@ -741,6 +738,8 @@ export class ApiKeyModel extends BaseClass {
       oauthClientId: { $exists: false },
       disabled: { $ne: true },
       expiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) },
+      // The app mints and replaces its own Visual Editor key; the member never made it.
+      $nor: [{ role: "visualEditor", scoped: { $ne: true } }],
     });
     return tokens
       .filter(

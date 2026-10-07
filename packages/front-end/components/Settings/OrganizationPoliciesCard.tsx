@@ -101,10 +101,12 @@ const OrganizationPoliciesCard: FC<{
 }> = ({ kind, keys, mutate }) => {
   const { settings } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const canDisable = kind === "pat" && permissionsUtil.canManageOrgSettings();
-  // Stamping dates onto other people's tokens is key management, not general
-  // org configuration, so this is gated tighter than the page around it.
-  const canExpire = permissionsUtil.canDeleteApiKey();
+  const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
+  const canDisable = kind === "pat" && canManageOrgSettings;
+  // Key managers see the policy and can apply it to keys; changing it is also
+  // an org setting, which is what saving it checks.
+  const canSeeExpiry = permissionsUtil.canDeleteApiKey();
+  const canExpire = canSeeExpiry && canManageOrgSettings;
   const [editing, setEditing] = useState(false);
   const locked = hasFileConfig();
 
@@ -115,8 +117,12 @@ const OrganizationPoliciesCard: FC<{
           Organization Policies
         </Heading>
         <Tooltip
-          content="Organization settings are managed by your config.yml file"
-          enabled={locked}
+          content={
+            locked
+              ? "Organization settings are managed by your config.yml file"
+              : "Changing these policies requires permission to manage organization settings"
+          }
+          enabled={locked || (!canDisable && !canExpire)}
         >
           <span>
             <Button
@@ -136,7 +142,7 @@ const OrganizationPoliciesCard: FC<{
             value={settings?.disablePersonalAccessTokens ? "On" : "Off"}
           />
         )}
-        {canExpire && (
+        {canSeeExpiry && (
           <ApiKeyExpirationPolicy kind={kind} keys={keys} mutate={mutate} />
         )}
       </Flex>
