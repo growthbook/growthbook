@@ -1,18 +1,22 @@
 import type { MemberRoleWithProjects } from "shared/types/organization";
-
-type Rule = {
-  role: string;
-  limitAccessByEnvironment?: boolean;
-  environments?: string[];
-  requesterOnly?: boolean;
-};
+import type { ApiKeyWithRole } from "shared/types/apikey";
 
 // An org API key's role rules, any of which can apply only as far as the
 // member named in `X-Requested-By` has the same permissions.
-export type RequesterRules = Rule & {
-  additionalRoles?: Rule[];
-  projectRoles?: (Rule & { project: string; additionalRoles?: Rule[] })[];
-};
+export type RequesterRules = Pick<
+  ApiKeyWithRole,
+  | "role"
+  | "limitAccessByEnvironment"
+  | "environments"
+  | "requesterOnly"
+  | "additionalRoles"
+  | "projectRoles"
+>;
+
+type Rule = Pick<
+  RequesterRules,
+  "role" | "limitAccessByEnvironment" | "environments" | "requesterOnly"
+>;
 
 const NOTHING = { role: "noaccess", limitAccessByEnvironment: false };
 

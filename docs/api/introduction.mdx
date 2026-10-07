@@ -54,7 +54,7 @@ Each key's X-Requested-By settings under `Settings -> API Keys`:
 
   A request that names no one gets only the permissions that always apply.
 
-A value that does not match a member of the organization is rejected with a 400. Reviews and approvals need a named member and count as theirs, so a key can't approve a draft created in that member's name. Personal Access Tokens already act as their owner and reject the header.
+A value that does not match a member of the organization is rejected with a 400. Reviews and approvals need a named member and count as theirs, so a key can't approve a draft created in that member's name. Because the header isn't verified, whoever holds the key can review as any member. Personal Access Tokens already act as their owner and reject the header.
 
 ```bash
 curl https://api.growthbook.io/api/v1/features \

@@ -124,6 +124,7 @@ export class ApiKeyModel extends BaseClass {
       scoped: doc.scoped,
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
       environments: doc.environments,
+      additionalRoles: doc.additionalRoles,
       projectRoles: doc.projectRoles,
       requesterOnly: doc.requesterOnly,
       requireRequestedBy: doc.requireRequestedBy,

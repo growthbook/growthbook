@@ -68,6 +68,26 @@ describe("getContextForApiKeyIdInOrg", () => {
     ).toBe(false);
   });
 
+  it("leaves out rules that apply only through a requester", async () => {
+    await keys().insertOne(
+      key({
+        role: "readonly",
+        additionalRoles: [
+          {
+            role: "experimenter",
+            limitAccessByEnvironment: false,
+            environments: [],
+            requesterOnly: true,
+          },
+        ],
+      }),
+    );
+    const context = await getContextForApiKeyIdInOrg(org, "key_ci");
+    expect(
+      context?.permissions.canRunExperiment({ project: "" }, ["dev"]),
+    ).toBe(false);
+  });
+
   it("runs a scoped PAT as its user under the key's cap, never as a super admin", async () => {
     await seedUser({ superAdmin: true });
     await keys().insertOne(

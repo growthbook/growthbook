@@ -3,6 +3,7 @@ import {
   featureReviewCandidateProjects,
 } from "shared/util";
 import type { OrganizationSettings } from "shared/types/organization";
+import { eventUserPerson } from "shared/validators";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
@@ -220,13 +221,9 @@ function featureRevisionToRow(
   revision: FeatureRevisionWithMeta,
   settings: OrganizationSettings,
 ): ApprovalRow | null {
-  // Only show revisions with an identifiable logged-in author (matches the
-  // shape expected by the "Requested by" column).
-  const createdBy = revision.createdBy;
-  const authorId =
-    createdBy && createdBy.type === "dashboard" ? createdBy.id : "";
-  const authorDisplay =
-    createdBy && createdBy.type === "dashboard" ? createdBy.name : "";
+  const author = eventUserPerson(revision.createdBy ?? null);
+  const authorId = author?.id ?? "";
+  const authorDisplay = author?.name ?? "";
 
   // `pending-parent` revisions are held child revisions managed by ramp
   // schedules and are not user-actionable, so they should not appear in the
