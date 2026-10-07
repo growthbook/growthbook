@@ -1,3 +1,5 @@
+import isEqual from "lodash/isEqual";
+import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
 import { getRoleById } from "shared/permissions";
@@ -14,6 +16,14 @@ import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
+
+const SCOPE_FIELDS = [
+  "role",
+  "limitAccessByEnvironment",
+  "environments",
+  "additionalRoles",
+  "projectRoles",
+] as const;
 
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
@@ -149,6 +159,13 @@ export class ApiKeyModel extends BaseClass {
         );
       }
     } else {
+      // Only a write that changes the scope is checked, so a key stays disableable after its plan, roles or environments lapse.
+      if (
+        previousDoc &&
+        isEqual(pick(doc, SCOPE_FIELDS), pick(previousDoc, SCOPE_FIELDS))
+      ) {
+        return;
+      }
       this.assertPlanAllowsScope(doc, previousDoc);
       await this.validateScope(doc, previousDoc);
     }
