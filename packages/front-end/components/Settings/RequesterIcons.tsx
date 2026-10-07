@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
 import { PiIdentificationCardBold, PiUserBold } from "react-icons/pi";
-import Avatar from "@/ui/Avatar";
 import Tooltip from "@/ui/Tooltip";
 
 function IconWithTooltip({
@@ -26,12 +25,24 @@ function IconWithTooltip({
   );
 }
 
-// The member a request names, for permissions that come from them.
-function RequesterAvatar() {
+// The member a request names, for permissions that come from them. Styled like
+// a soft gray avatar, but smaller than Avatar's smallest size.
+function RequesterBadge() {
   return (
-    <Avatar size="sm" color="gray" variant="soft" radius="small">
-      <PiUserBold size={14} />
-    </Avatar>
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 20,
+        height: 20,
+        borderRadius: "var(--radius-2)",
+        background: "var(--gray-a3)",
+        color: "var(--gray-a11)",
+      }}
+    >
+      <PiUserBold size={15} />
+    </span>
   );
 }
 
@@ -40,7 +51,7 @@ function RequesterAvatar() {
 export function RequesterOnlyIcon() {
   return (
     <IconWithTooltip
-      icon={<RequesterAvatar />}
+      icon={<RequesterBadge />}
       content="Applies only if the requester has it"
     />
   );
@@ -49,7 +60,7 @@ export function RequesterOnlyIcon() {
 export function ExtendsWithRequesterIcon() {
   return (
     <IconWithTooltip
-      icon={<RequesterAvatar />}
+      icon={<RequesterBadge />}
       content="Requests that name a member also get that member's permissions"
     />
   );
