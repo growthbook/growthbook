@@ -35,6 +35,29 @@ function StepCopyButton({ code }: { code: string }) {
   );
 }
 
+function InstructionDescription({ step }: { step: SetupInstructionStep }) {
+  const link = step.docLink;
+  const placeholder = "{link}";
+  if (!link || !step.description.includes(placeholder)) {
+    return (
+      <Text as="p" color="text-mid" m="0">
+        {step.description}
+      </Text>
+    );
+  }
+
+  const [before, after] = step.description.split(placeholder);
+  return (
+    <Text as="p" color="text-mid" m="0">
+      {before}
+      <DocLink docSection={link.section} useRadix>
+        {link.label}
+      </DocLink>
+      {after}
+    </Text>
+  );
+}
+
 function InstructionStepView({ step }: { step: SetupInstructionStep }) {
   const displayCode = step.code
     ? step.preserveCase
@@ -50,9 +73,7 @@ function InstructionStepView({ step }: { step: SetupInstructionStep }) {
         </Box>
         {displayCode ? <StepCopyButton code={displayCode} /> : null}
       </Flex>
-      <Text as="p" color="text-mid" m="0">
-        {step.description}
-      </Text>
+      <InstructionDescription step={step} />
       {displayCode ? (
         <Box
           asChild

@@ -1,12 +1,21 @@
 import { DataSourceParams, DataSourceType } from "shared/types/datasource";
+import { DocSection } from "@/components/docSections";
 
 export type ConnectSetupKind = "custom" | "event_forwarder";
 
 export type SetupInstructionStep = {
   title: string;
   description: string;
+  /**
+   * When set, `{link}` in `description` is replaced with a docs link.
+   * `label` is the linked text.
+   */
+  docLink?: {
+    section: DocSection;
+    label: string;
+  };
   code?: string;
-  /** When true, skip the all-caps transform (e.g. JSON policies). */
+  /** When true, skip the all-caps transform (e.g. JSON policies, IAM role ids). */
   preserveCase?: boolean;
 };
 
@@ -46,9 +55,10 @@ function withEventForwarderWrite(
   return [...steps, writeStep];
 }
 
+const TEST_CONNECTION = "Enter the fields, then run the connection test.";
+
 function postgresLikeSteps(
   params: ParamsBag,
-  setup: ConnectSetupKind,
   opts: {
     userFallback: string;
     databaseFallback: string;
@@ -63,11 +73,11 @@ function postgresLikeSteps(
   const schema = field(params, "defaultSchema", opts.schemaFallback);
   const port = field(params, "port", opts.portFallback);
 
-  const steps: SetupInstructionStep[] = [
+  return [
     {
       title: "Create a read-only user",
       description:
-        "Grant SELECT only on the schemas that hold experiment assignment and metric events.",
+        "Grant SELECT on the schema with assignment and metric events.",
       code: opts.createUserSql(user, database, schema || "public"),
     },
     {
@@ -78,20 +88,9 @@ ${CLOUD_EGRESS_IP}/32`,
     },
     {
       title: "Enter credentials and test",
-      description:
-        "Fill in the connection fields on the left, then run the connection test before saving.",
+      description: TEST_CONNECTION,
     },
   ];
-
-  if (setup !== "event_forwarder") return steps;
-
-  return withEventForwarderWrite(steps, {
-    title: "Grant write access for Event Forwarder",
-    description:
-      "Event Forwarder needs a destination schema where GrowthBook can create tables and write events.",
-    code: `CREATE SCHEMA ${schema || "growthbook_events"} AUTHORIZATION ${user};
-GRANT ALL ON SCHEMA ${schema || "growthbook_events"} TO ${user};`,
-  });
 }
 
 export function getDataSourceSetupInstructions(
@@ -105,40 +104,41 @@ export function getDataSourceSetupInstructions(
   switch (type) {
     case "bigquery": {
       const projectId = field(p, "projectId", "YOUR_PROJECT");
-      const dataset = field(p, "defaultDataset", "YOUR_DATASET");
       const location = field(p, "location", "US");
       const sa = `growthbook@${projectId}.iam.gserviceaccount.com`;
+      const member = `--member="serviceAccount:${sa}"`;
 
       const steps: SetupInstructionStep[] = [
         {
           title: "Create a service account",
           description:
-            "In Google Cloud IAM, create a service account and grant BigQuery Job User. Then download a JSON key.",
+            "Grant BigQuery Data Viewer, Metadata Viewer, and Job User. Console steps are in the {link}.",
+          docLink: { section: "bigquery", label: "BigQuery guide" },
+          // Role ids such as roles/bigquery.jobUser are case-sensitive.
+          preserveCase: true,
           code: `gcloud iam service-accounts create growthbook \\
   --project=${projectId}
 gcloud projects add-iam-policy-binding ${projectId} \\
-  --member="serviceAccount:${sa}" \\
-  --role="roles/bigquery.jobUser"
-gcloud iam service-accounts keys create \\
+  ${member} \\
+  --role="roles/bigquery.dataViewer"
+gcloud projects add-iam-policy-binding ${projectId} \\
+  ${member} \\
+  --role="roles/bigquery.metadataViewer"
+gcloud projects add-iam-policy-binding ${projectId} \\
+  ${member} \\
+  --role="roles/bigquery.jobUser"`,
+        },
+        {
+          title: "Create a JSON key",
+          description: "In the console: Manage keys → Add key → JSON.",
+          preserveCase: true,
+          code: `gcloud iam service-accounts keys create \\
   growthbook-sa.json \\
   --iam-account=${sa}`,
         },
         {
-          title: "Grant dataset access",
-          description:
-            "Give the service account BigQuery Data Viewer and Metadata Viewer on the datasets you analyze.",
-          code: `-- Read access for analysis
-GRANT \`roles/bigquery.dataViewer\`
-  ON SCHEMA \`${projectId}.${dataset}\`
-  TO "serviceAccount:${sa}";
-GRANT \`roles/bigquery.metadataViewer\`
-  ON SCHEMA \`${projectId}.${dataset}\`
-  TO "serviceAccount:${sa}";`,
-        },
-        {
           title: "Enter credentials and test",
-          description:
-            "Upload the service account JSON key on the left, then run the connection test before saving.",
+          description: "Upload the JSON key, then run the connection test.",
         },
       ];
 
@@ -146,12 +146,12 @@ GRANT \`roles/bigquery.metadataViewer\`
 
       return withEventForwarderWrite(steps, {
         title: "Grant write access for Event Forwarder",
-        description:
-          "Event Forwarder needs BigQuery Data Editor on the destination dataset so it can create and write event tables.",
-        code: `CREATE SCHEMA \`${projectId}.growthbook_events\`
+        description: "Grant BigQuery Data Editor on the destination dataset.",
+        preserveCase: true,
+        code: `CREATE SCHEMA \`${projectId}\`.growthbook_events
   OPTIONS (location = "${location}");
 GRANT \`roles/bigquery.dataEditor\`
-  ON SCHEMA \`${projectId}.growthbook_events\`
+  ON SCHEMA \`${projectId}\`.growthbook_events
   TO "serviceAccount:${sa}";`,
       });
     }
@@ -164,17 +164,11 @@ GRANT \`roles/bigquery.dataEditor\`
       const efSchema = field(p, "schema", "GROWTHBOOK_EVENTS");
       const authMethod =
         typeof p.authMethod === "string" ? p.authMethod : "key-pair";
-      const authLine =
-        authMethod === "password"
-          ? "PASSWORD = '<password>'"
-          : "RSA_PUBLIC_KEY = '<from rsa_key.pub>'";
-
-      let createUserCode = `CREATE ROLE ${role};
-CREATE USER ${user}
-  DEFAULT_ROLE = ${role}
-  ${authLine};
-GRANT ROLE ${role} TO USER ${user};
-GRANT USAGE ON WAREHOUSE ${warehouse}
+      const workloadProvider =
+        typeof p.workloadIdentityProvider === "string"
+          ? p.workloadIdentityProvider
+          : "AWS";
+      const readGrants = `GRANT USAGE ON WAREHOUSE ${warehouse}
   TO ROLE ${role};
 
 -- Read access for analysis
@@ -187,83 +181,173 @@ GRANT SELECT ON ALL TABLES
   IN DATABASE ${database}
   TO ROLE ${role};`;
 
-      if (isEventForwarder) {
+      let createUserCode: string;
+      let preserveUserSqlCase = false;
+      if (authMethod === "workload-identity") {
+        // ARNs, issuer URLs, and subjects are case-sensitive.
+        preserveUserSqlCase = true;
+        const identityBinding =
+          workloadProvider === "AZURE"
+            ? `CREATE USER ${user}
+  WORKLOAD_IDENTITY = (
+    TYPE = AZURE
+    ISSUER = 'https://login.microsoftonline.com/<tenant_id>/v2.0'
+    SUBJECT = '<managed_identity_object_id>'
+  )
+  TYPE = SERVICE;`
+            : workloadProvider === "GCP"
+              ? `CREATE USER ${user}
+  WORKLOAD_IDENTITY = (
+    TYPE = GCP
+    SUBJECT = '<service_account_unique_id>'
+  )
+  TYPE = SERVICE;`
+              : `CREATE USER ${user} TYPE = SERVICE;
+ALTER USER ${user} SET WORKLOAD_IDENTITY = (
+  TYPE = AWS
+  ARN = 'arn:aws:iam::<account-id>:role/<growthbook-task-role>'
+);`;
+        createUserCode = `CREATE ROLE ${role};
+${identityBinding}
+GRANT ROLE ${role} TO USER ${user};
+${readGrants}`;
+      } else {
+        const authLine =
+          authMethod === "password"
+            ? "PASSWORD = '<password>'"
+            : "RSA_PUBLIC_KEY = '<from rsa_key.pub>'";
+        createUserCode = `CREATE ROLE ${role};
+CREATE USER ${user}
+  DEFAULT_ROLE = ${role}
+  ${authLine};
+GRANT ROLE ${role} TO USER ${user};
+${readGrants}`;
+      }
+
+      if (isEventForwarder && authMethod !== "workload-identity") {
         createUserCode += `
 
 -- Write access for Event Forwarder
+GRANT CREATE SCHEMA ON DATABASE ${database} TO ROLE ${role};
 CREATE SCHEMA ${database}.${efSchema};
-GRANT USAGE ON DATABASE ${database} TO ROLE ${role};
 GRANT USAGE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
 GRANT CREATE TABLE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
-GRANT INSERT ON ALL TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};`;
+GRANT INSERT ON ALL TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
+GRANT INSERT ON FUTURE TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};`;
       }
+
+      const userStepDescription =
+        authMethod === "workload-identity"
+          ? isEventForwarder
+            ? "Self-hosted only. The Event Forwarder requires key-pair authentication."
+            : "Self-hosted only. Run as ACCOUNTADMIN."
+          : isEventForwarder
+            ? "Run as ACCOUNTADMIN. The Event Forwarder requires key-pair authentication."
+            : "Run as ACCOUNTADMIN.";
 
       return [
         {
           title: "Create a user and grant access",
-          description:
-            "Run this as a role that can create users, like ACCOUNTADMIN. Event Forwarder requires key-pair auth.",
+          description: userStepDescription,
           code: createUserCode,
+          preserveCase: preserveUserSqlCase,
         },
         {
           title: "Allow network access",
-          description:
-            "Only needed if your account restricts IP addresses with a network policy.",
-          code: `CREATE NETWORK POLICY GROWTHBOOK_POLICY
+          description: isEventForwarder
+            ? "If a network policy restricts IPs, allow GrowthBook Cloud and the Event Forwarder addresses in the {link}."
+            : "Only if a network policy restricts IPs.",
+          code: isEventForwarder
+            ? undefined
+            : `CREATE NETWORK POLICY GROWTHBOOK_POLICY
   ALLOWED_IP_LIST = ('${CLOUD_EGRESS_IP}');
 ALTER USER ${user}
   SET NETWORK_POLICY = GROWTHBOOK_POLICY;`,
+          docLink: isEventForwarder
+            ? { section: "ipAddresses", label: "IP addresses guide" }
+            : undefined,
         },
         {
           title: "Enter credentials and test",
           description:
-            "Fill in the account, warehouse, database, and credentials on the left, then run the connection test.",
+            authMethod === "workload-identity"
+              ? "Select Workload Identity Federation and the cloud GrowthBook runs on, then test."
+              : "Enter the account, warehouse, database, and credentials, then test.",
         },
       ];
     }
 
     case "databricks": {
       const catalog = field(p, "catalog", "main");
-      const schema = field(p, "schema", "default");
-      const principal = "growthbook";
+      // Match DatabricksForm: connections saved before authType existed are PAT.
+      const authType = typeof p.authType === "string" ? p.authType : "pat";
+      const usingOauth = isEventForwarder || authType === "oauth-m2m";
+      const principal = "`<service-principal-application-id>`";
 
       let grantCode = `-- Read access for analysis
 GRANT USE CATALOG ON CATALOG ${catalog}
-  TO \`${principal}\`;
-GRANT USE SCHEMA, SELECT ON SCHEMA ${catalog}.${schema}
-  TO \`${principal}\`;`;
+  TO ${principal};
+GRANT USE SCHEMA, SELECT ON SCHEMA ${catalog}.<schema>
+  TO ${principal};`;
 
       if (isEventForwarder) {
         grantCode += `
 
 -- Write access for Event Forwarder (Unity Catalog)
 GRANT USE SCHEMA, CREATE TABLE
-  ON SCHEMA ${catalog}.growthbook_events
-  TO \`${principal}\`;`;
+  ON SCHEMA ${catalog}.growthbook
+  TO ${principal};`;
       }
 
-      return [
+      const steps: SetupInstructionStep[] = [
         {
-          title: "Create a service principal",
-          description:
-            "In Workspace settings, create a service principal and generate an OAuth secret (Client ID and Secret). OAuth is required for Event Forwarder.",
+          title: "Find connection details",
+          description: "Copy the server hostname, port, and HTTP path.",
         },
+        usingOauth
+          ? {
+              title: "Create a service principal",
+              description: isEventForwarder
+                ? "Copy the Client ID and OAuth secret. Required for the Event Forwarder."
+                : "Copy the Client ID and OAuth secret.",
+            }
+          : {
+              title: "Create a personal access token",
+              description:
+                "Create a token for a user or service principal. OAuth is recommended.",
+            },
         {
           title: "Grant access",
-          description:
-            "Run in a SQL editor as a catalog admin. Use the service principal application ID.",
+          description: isEventForwarder
+            ? "Replace the application ID and schema. Unity Catalog only. Use a schema such as growthbook for Event Forwarder tables."
+            : "Replace the application ID and schema.",
           code: grantCode,
-        },
-        {
-          title: "Allow network access",
-          description: `Only needed if your workspace uses IP access lists. Allow ${CLOUD_EGRESS_IP}/32.`,
-        },
-        {
-          title: "Enter credentials and test",
-          description:
-            "Enter the server hostname, HTTP path, and OAuth credentials on the left, then run the connection test.",
+          preserveCase: true,
         },
       ];
+
+      steps.push({
+        title: "Allow network access",
+        description: isEventForwarder
+          ? "If IP access lists are on, allow GrowthBook Cloud and the Event Forwarder addresses in the {link}."
+          : "Only if IP access lists are on.",
+        code: isEventForwarder
+          ? undefined
+          : `# GrowthBook Cloud egress IP
+${CLOUD_EGRESS_IP}/32`,
+        docLink: isEventForwarder
+          ? { section: "ipAddresses", label: "IP addresses guide" }
+          : undefined,
+      });
+
+      steps.push({
+        title: "Enter credentials and test",
+        description: usingOauth
+          ? "Enter the hostname, port, HTTP path, Client ID, and OAuth secret, then test."
+          : "Enter the hostname, port, HTTP path, and token, then test.",
+      });
+
+      return steps;
     }
 
     case "redshift": {
@@ -275,11 +359,11 @@ GRANT USE SCHEMA, CREATE TABLE
         {
           title: "Find connection details",
           description:
-            "In Amazon Redshift Serverless, open your workgroup and copy the endpoint. It splits into host, port, and database name.",
+            "Copy the workgroup endpoint. It splits into host, port, and database.",
         },
         {
           title: "Configure security settings",
-          description: `Turn on publicly accessible if needed, then allow inbound TCP ${port} from GrowthBook Cloud's egress IP.`,
+          description: `Turn on publicly accessible. Allow inbound TCP ${port} from this IP.`,
           code: `# Security group inbound rule
 Protocol: TCP
 Port: ${port}
@@ -287,8 +371,7 @@ Source: ${CLOUD_EGRESS_IP}/32`,
         },
         {
           title: "Create a read-only user",
-          description:
-            "Run in the Query Editor. Replace the schema if your events are not in public.",
+          description: "Run in the query editor.",
           code: `CREATE USER ${user} WITH PASSWORD 'securepassword';
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
@@ -297,7 +380,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
         {
           title: "Enter credentials and test",
           description:
-            "Fill in host, port, database, and the read-only user on the left, then run the connection test.",
+            "Enter the host, port, database, and user, then test. Require SSL is recommended.",
         },
       ];
     }
@@ -307,7 +390,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
         {
           title: "Create an IAM user",
           description:
-            "Create a read-only IAM user. Start from AWSQuicksightAthenaAccess, then narrow S3 read access to the buckets that hold your event data.",
+            "Start from AWSQuicksightAthenaAccess, then limit S3 read to your event buckets.",
           code: `{
   "Version": "2012-10-17",
   "Statement": [
@@ -330,12 +413,12 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
         {
           title: "Create an access key",
           description:
-            "In IAM → Security credentials → Create access key → Third-party service. Copy the Access Key and Secret Access Key.",
+            "IAM → Security credentials → Create access key → Third-party service.",
         },
         {
           title: "Enter credentials and test",
           description:
-            "Enter the access keys, region, workgroup, catalog, database, and S3 results URL on the left, then run the connection test.",
+            "Enter the keys, region, workgroup, catalog, database, and S3 results URL, then test. Self-hosted GrowthBook can use auto-discovery or an IAM role.",
         },
       ];
 
@@ -344,17 +427,12 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
         {
           title: "Choose engine and auth",
           description:
-            "Select Presto or Trino, then Basic auth (username and password), Custom auth (Authorization header), or None for trusted networks.",
+            "Presto or Trino. Basic, Custom, or None. None sets the user to growthbook and is not recommended on GrowthBook Cloud.",
         },
         {
           title: "Enter connection details",
           description:
-            "Host must include http:// or https://. Set the default catalog and schema used in generated queries.",
-        },
-        {
-          title: "Enter credentials and test",
-          description:
-            "Fill in the fields on the left, then run the connection test before saving.",
+            "Host includes http:// or https://. Port defaults to 8080. Set catalog and schema. Source defaults to GrowthBook. Then test.",
         },
       ];
 
@@ -363,24 +441,22 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
         {
           title: "Create read-only credentials",
           description:
-            "In ClickHouse Cloud, copy the connection string and create credentials with read-only access for GrowthBook.",
+            "In ClickHouse Cloud, copy the connection string. Use read-only credentials.",
         },
         {
           title: "Allow network access",
-          description:
-            "Only needed if ClickHouse is behind a firewall. Allow GrowthBook Cloud's egress IP.",
+          description: "If ClickHouse is behind a firewall, allow this IP.",
           code: `# GrowthBook Cloud egress IP
 ${CLOUD_EGRESS_IP}/32`,
         },
         {
           title: "Enter credentials and test",
-          description:
-            "Fill in the connection fields on the left, then run the connection test before saving.",
+          description: TEST_CONNECTION,
         },
       ];
 
     case "postgres":
-      return postgresLikeSteps(p, setup, {
+      return postgresLikeSteps(p, {
         userFallback: "growthbook",
         databaseFallback: "your_database",
         schemaFallback: "public",
@@ -393,7 +469,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
   GRANT SELECT ON TABLES TO ${user};`,
         networkDescription: (port) =>
-          `Allow inbound traffic from GrowthBook Cloud on port ${port}. Update your firewall, security group, and pg_hba.conf as needed.`,
+          `Allow port ${port} in your firewall, security group, and pg_hba.conf. On Docker, use host.docker.internal instead of localhost.`,
       });
 
     case "mysql": {
@@ -404,21 +480,20 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
         {
           title: "Create a read-only user",
           description:
-            "Grant SELECT on the database that holds assignment and metric events. Tighten the host from '%' when you can.",
+            "Grant SELECT on the database. Restrict the host from '%' when you can.",
           code: `CREATE USER '${user}'@'%' IDENTIFIED BY 'use-a-strong-password';
 GRANT SELECT ON ${database}.* TO '${user}'@'%';
 FLUSH PRIVILEGES;`,
         },
         {
           title: "Allow network access",
-          description: `Allow inbound traffic from GrowthBook Cloud on port ${port}.`,
+          description: `Allow port ${port} from this IP. On Docker, use host.docker.internal instead of localhost.`,
           code: `# GrowthBook Cloud egress IP
 ${CLOUD_EGRESS_IP}/32`,
         },
         {
           title: "Enter credentials and test",
-          description:
-            "Fill in the connection fields on the left, then run the connection test before saving.",
+          description: TEST_CONNECTION,
         },
       ];
     }
@@ -430,22 +505,21 @@ ${CLOUD_EGRESS_IP}/32`,
       return [
         {
           title: "Create a read-only login",
-          description:
-            "Grant SELECT on the schema that holds assignment and metric events. Replace dbo if needed.",
+          description: "Grant SELECT on the schema.",
           code: `CREATE LOGIN ${user} WITH PASSWORD = 'use-a-strong-password';
 CREATE USER ${user} FOR LOGIN ${user};
 GRANT SELECT ON SCHEMA::${schema} TO ${user};`,
         },
         {
           title: "Allow network access",
-          description: `Allow inbound traffic from GrowthBook Cloud on port ${port}.`,
+          description: `Allow port ${port} from this IP. On Docker, use host.docker.internal as the server instead of localhost.`,
           code: `# GrowthBook Cloud egress IP
 ${CLOUD_EGRESS_IP}/32`,
         },
         {
           title: "Enter credentials and test",
           description:
-            "Fill in server, port, database, and the SQL login on the left, then run the connection test.",
+            "Enter the server, port, database, and login, then test. Encryption defaults to on.",
         },
       ];
     }
@@ -455,18 +529,17 @@ ${CLOUD_EGRESS_IP}/32`,
         {
           title: "Create a dedicated user",
           description:
-            "Recommended. Grant SELECT on the schema with assignment and metric data, and allow HOST authentication with the password method from GrowthBook Cloud.",
+            "Optional. Grant SELECT, and allow HOST password auth from GrowthBook Cloud.",
         },
         {
           title: "Allow network access",
-          description: `Allow inbound traffic from GrowthBook Cloud (${CLOUD_EGRESS_IP}/32) if Vertica is firewalled.`,
+          description: "If Vertica is firewalled, allow this IP.",
           code: `# GrowthBook Cloud egress IP
 ${CLOUD_EGRESS_IP}/32`,
         },
         {
           title: "Enter credentials and test",
-          description:
-            "Fill in host, port, database, and credentials on the left, then run the connection test.",
+          description: TEST_CONNECTION,
         },
       ];
 
@@ -475,28 +548,49 @@ ${CLOUD_EGRESS_IP}/32`,
         {
           title: "Generate a non-expiring credential",
           description:
-            "In Adobe Experience Platform: Queries → Credentials → Non-expiring Credentials → Generate credentials. Download and store the configuration JSON; Adobe does not keep a copy.",
+            "Queries → Credentials → Non-expiring Credentials → Generate credentials. Store the JSON. Adobe does not keep a copy.",
         },
         {
           title: "Map fields from the credential",
           description:
-            "Host comes from Expiring Credentials (same host for non-expiring). Port is usually 80 (or 5432). Database looks like prod:all. Username includes the @AdobeOrg suffix. Technical account ID and Credential come from the JSON.",
+            "Host: Expiring Credentials. Port: 80 or 5432. Database: like prod:all. Username: includes @AdobeOrg. Technical account ID and credential: from the JSON.",
         },
         {
           title: "Enter credentials and test",
-          description:
-            "Fill in the fields on the left from the Adobe configuration JSON, then run the connection test.",
+          description: TEST_CONNECTION,
         },
       ];
 
     case "mixpanel":
+      return [
+        {
+          title: "Use a warehouse export",
+          description:
+            "Direct Mixpanel is no longer supported. Export to a warehouse, then connect that. See the {link}.",
+          docLink: { section: "mixpanel", label: "Mixpanel guide" },
+        },
+      ];
+
     case "google_analytics":
+      return [
+        {
+          title: "Connect GA4 through BigQuery",
+          description:
+            "GrowthBook reads GA4 from BigQuery. Steps are in the {link}.",
+          docLink: { section: "google_analytics", label: "GA4 guide" },
+        },
+      ];
+
     case "growthbook_clickhouse":
       return [
         {
-          title: "Enter credentials and test",
+          title: "Provision the Managed Warehouse",
           description:
-            "Fill in the connection fields on the left, then run the connection test before saving.",
+            "Create the Managed Warehouse. There are no credentials to enter. See the {link}.",
+          docLink: {
+            section: "growthbook_clickhouse",
+            label: "Managed Warehouse guide",
+          },
         },
       ];
   }
