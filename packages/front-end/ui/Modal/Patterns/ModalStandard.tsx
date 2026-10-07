@@ -59,6 +59,8 @@ export type Props = TrackingEventModalProps & {
   // Optional button rendered on the left side of the footer. Use for
   // destructive or out-of-flow actions that shouldn't be the primary CTA.
   secondaryAction?: ReactNode;
+  // Overrides the body's default inner padding (CSS padding).
+  bodyPadding?: string;
   close: () => void;
   closeCta?: string;
   children: ReactNode;
@@ -79,6 +81,7 @@ export default function ModalStandard({
   size = "md",
   submit,
   secondaryAction,
+  bodyPadding,
   close,
   closeCta = "Cancel",
   children,
@@ -95,7 +98,7 @@ export default function ModalStandard({
         {headerAction ? <Box>{headerAction}</Box> : null}
       </Modal.Header>
       {subheader && <Modal.Description>{subheader}</Modal.Description>}
-      <Modal.Body>{children}</Modal.Body>
+      <Modal.Body padding={bodyPadding}>{children}</Modal.Body>
       <Modal.Footer justify={secondaryAction ? "between" : "end"}>
         {secondaryAction ? <Box>{secondaryAction}</Box> : null}
         <Flex gap="3" align="center">
