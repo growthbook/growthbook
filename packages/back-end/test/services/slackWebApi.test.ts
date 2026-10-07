@@ -363,6 +363,19 @@ describe("Slack rate limits", () => {
     );
   });
 
+  it("stops waiting out Retry-After once the caller aborts", async () => {
+    cancellableFetch.mockResolvedValueOnce(rateLimitedResponse("30"));
+    const abort = new AbortController();
+    const result = listSlackConversations({
+      token: "xoxb-token",
+      signal: abort.signal,
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    abort.abort();
+    await expect(result).resolves.toBeNull();
+    expect(cancellableFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("fails explicitly after three rate-limit retries", async () => {
     cancellableFetch.mockResolvedValue(rateLimitedResponse("1"));
     const result = expect(

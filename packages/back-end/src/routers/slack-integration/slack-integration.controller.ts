@@ -280,11 +280,18 @@ export const getSlackWorkspaceChannels = async (
     context.permissions.throwPermissionError();
   }
 
+  // Stop paging Slack (and sleeping out its rate limits) once the picker
+  // that asked has gone away.
+  const disconnected = new AbortController();
+  res.on("close", () => disconnected.abort());
+
   const result = await listSlackWorkspaceChannels({
     context,
     teamId: req.query.teamId,
     cursor: req.query.cursor,
+    signal: disconnected.signal,
   });
+  if (disconnected.signal.aborted) return;
 
   return res.json(result);
 };

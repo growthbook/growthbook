@@ -765,10 +765,12 @@ export const listSlackWorkspaceChannels = async ({
   context,
   teamId,
   cursor,
+  signal,
 }: {
   context: ReqContext;
   teamId?: string;
   cursor?: string;
+  signal?: AbortSignal;
 }): Promise<{
   channels: SlackChannelOption[];
   nextCursor: string | null;
@@ -789,10 +791,13 @@ export const listSlackWorkspaceChannels = async ({
   const channels: SlackChannelOption[] = [];
   let nextCursor: string | null = cursor || null;
   for (let page = 0; page < 5; page++) {
+    if (signal?.aborted) break;
     const res = await listSlackConversations({
       token,
       cursor: nextCursor || undefined,
+      signal,
     });
+    if (signal?.aborted) break;
     if (!res) throw new Error("Failed to list Slack channels");
     channels.push(
       ...res.channels.map((c) => ({

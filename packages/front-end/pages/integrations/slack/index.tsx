@@ -59,6 +59,9 @@ type WorkspaceGroup = {
   channels: SlackOAuthIntegrationInterface[];
 };
 
+const byName = (a: SlackChannelOption, b: SlackChannelOption) =>
+  a.name.localeCompare(b.name);
+
 const getQueryStringValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
@@ -79,6 +82,7 @@ function AddChannelModal({
   const { apiCall } = useAuth();
   const [channels, setChannels] = useState<SlackChannelOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedCount, setLoadedCount] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState("");
   const channelsFetch = useRef<AbortController | null>(null);
@@ -86,13 +90,13 @@ function AddChannelModal({
   // Large workspaces take minutes to page through under Slack's rate limits,
   // so show each page as it arrives and stop paging once the modal closes.
   const fetchChannels = useCallback(async () => {
-    channelsFetch.current?.abort();
     const controller = new AbortController();
     channelsFetch.current = controller;
     setLoading(true);
+    setLoadedCount(0);
     setLoadError(null);
     try {
-      const allChannels: SlackChannelOption[] = [];
+      const fresh = new Map<string, SlackChannelOption>();
       let cursor: string | null = null;
       do {
         const response = await apiCall<{
@@ -105,12 +109,19 @@ function AddChannelModal({
           { signal: controller.signal },
         );
         if (controller.signal.aborted) return;
-        allChannels.push(...response.channels);
-        setChannels(
-          [...allChannels].sort((a, b) => a.name.localeCompare(b.name)),
+        response.channels.forEach((channel) => fresh.set(channel.id, channel));
+        setLoadedCount(fresh.size);
+        // On refresh, keep earlier results until the walk completes so the
+        // list (and the selection) doesn't shrink to the first page.
+        setChannels((prev) =>
+          [
+            ...prev.filter((channel) => !fresh.has(channel.id)),
+            ...fresh.values(),
+          ].sort(byName),
         );
         cursor = response.nextCursor;
       } while (cursor);
+      setChannels([...fresh.values()].sort(byName));
     } catch (error) {
       if (controller.signal.aborted) return;
       setLoadError(
@@ -207,7 +218,9 @@ function AddChannelModal({
       </Flex>
       {loading && channels.length > 0 && (
         <Text as="p" size="sm" color="text-mid" mt="1" mb="0">
-          Loaded {channels.length} channels, loading more…
+          {loadedCount > 0
+            ? `Loaded ${loadedCount} channels, loading more…`
+            : "Refreshing channels…"}
         </Text>
       )}
       <Text as="p" size="sm" color="text-mid" mt="1" mb="0">

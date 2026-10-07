@@ -69,6 +69,7 @@ async function slackApiRequest<T extends SlackApiResponse>(
   method: string,
   url: string,
   options: FetchInit,
+  signal?: AbortSignal,
 ): Promise<T | null> {
   try {
     let waitedMs = 0;
@@ -105,7 +106,19 @@ async function slackApiRequest<T extends SlackApiResponse>(
         { method, retry: retry + 1, delayMs },
         "Slack API rate limited; retrying after cooldown",
       );
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      // Wake early if the caller gave up, rather than sleeping out the cooldown.
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, delayMs);
+        signal?.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(timer);
+            resolve();
+          },
+          { once: true },
+        );
+      });
+      if (signal?.aborted) return null;
       waitedMs += delayMs;
     }
   } catch (e) {
@@ -134,12 +147,18 @@ function slackApiGet<T extends SlackApiResponse>(
   token: string,
   method: string,
   params: Record<string, string>,
+  signal?: AbortSignal,
 ): Promise<T | null> {
   const qs = new URLSearchParams(params).toString();
-  return slackApiRequest<T>(method, `${SLACK_API_URL}/${method}?${qs}`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  return slackApiRequest<T>(
+    method,
+    `${SLACK_API_URL}/${method}?${qs}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    signal,
+  );
 }
 
 export async function setSlackSuggestedPrompts({
@@ -388,9 +407,11 @@ export async function getSlackConversation({
 export async function listSlackConversations({
   token,
   cursor,
+  signal,
 }: {
   token: string;
   cursor?: string;
+  signal?: AbortSignal;
 }): Promise<{
   channels: SlackConversation[];
   nextCursor: string | null;
@@ -406,12 +427,17 @@ export async function listSlackConversations({
       }[];
       response_metadata?: { next_cursor?: string };
     }
-  >(token, "conversations.list", {
-    types: "public_channel,private_channel",
-    exclude_archived: "true",
-    limit: "200",
-    ...(cursor ? { cursor } : {}),
-  });
+  >(
+    token,
+    "conversations.list",
+    {
+      types: "public_channel,private_channel",
+      exclude_archived: "true",
+      limit: "200",
+      ...(cursor ? { cursor } : {}),
+    },
+    signal,
+  );
   if (!res?.ok) return null;
   const channels = (res.channels || [])
     .filter((c) => c.id && c.name && !c.is_archived)
