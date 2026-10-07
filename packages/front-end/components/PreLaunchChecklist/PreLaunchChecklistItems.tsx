@@ -10,6 +10,10 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
+import {
+  BuiltInChecklistItemKey,
+  getHiddenBuiltInChecklistItems,
+} from "shared/validators";
 import track from "@/services/track";
 import Link from "@/ui/Link";
 
@@ -116,12 +120,16 @@ export function getChecklistItems({
     return manualChecklistStatus[index].status === "complete";
   }
   const items: CheckListItem[] = [];
+  const hidden = getHiddenBuiltInChecklistItems(checklist, experiment);
+  const pushBuiltIn = (key: BuiltInChecklistItemKey, item: CheckListItem) => {
+    if (!hidden.has(key)) items.push(item);
+  };
 
   if (!isBandit) {
     const hasDatasource = !!experiment.datasource;
     const hasAssignmentTable = !!experiment.exposureQueryId;
 
-    items.push({
+    pushBuiltIn("datasource", {
       type: "auto",
       key: "datasource",
       required: true,
@@ -138,7 +146,7 @@ export function getChecklistItems({
       ),
     });
 
-    items.push({
+    pushBuiltIn("exposureQuery", {
       type: "auto",
       key: "exposureQuery",
       required: true,
@@ -156,7 +164,7 @@ export function getChecklistItems({
     });
 
     if (hasDatasource && hasAssignmentTable) {
-      items.push({
+      pushBuiltIn("goalMetric", {
         type: "auto",
         key: "goalMetric",
         required: true,
@@ -185,7 +193,7 @@ export function getChecklistItems({
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
       experiment.hasURLRedirects;
-    items.push({
+    pushBuiltIn("linkedChanges", {
       display: (
         <>
           Add at least one{isBandit && " live"}{" "}
@@ -426,7 +434,7 @@ export function getChecklistItems({
 
   // Experiment has phases
   const hasPhases = experiment.phases.length > 0;
-  items.push({
+  pushBuiltIn("targeting", {
     display: (
       <>
         {editTargeting ? (
@@ -450,7 +458,7 @@ export function getChecklistItems({
   });
 
   const verifiedConnections = connections.some((c) => c.connected);
-  items.push({
+  pushBuiltIn("sdkConnection", {
     type: "auto",
     key: "has-connection",
     status: connections.length ? "complete" : "incomplete",

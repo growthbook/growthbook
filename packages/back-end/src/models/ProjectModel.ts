@@ -57,6 +57,7 @@ const BaseClass = MakeModelClass({
   defaultValues: {
     description: "",
     settings: {},
+    owner: "",
   },
 });
 
@@ -339,6 +340,7 @@ export class ProjectModel extends BaseClass {
       publicId: project.publicId,
       restrictAccess: project.restrictAccess,
       allowTargeting: project.allowTargeting ?? true,
+      owner: project.owner ?? "",
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {

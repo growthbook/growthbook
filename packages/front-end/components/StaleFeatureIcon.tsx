@@ -149,15 +149,17 @@ export default function StaleFeatureIcon({
         >
           Stale detection off
         </Badge>
-        <Modal
-          open={open}
-          close={() => setOpen(false)}
-          header="Stale Status"
-          trackingEventModalType="stale-feature-status"
-          closeCta="Close"
-        >
-          {neverStaleContent}
-        </Modal>
+        {open && (
+          <Modal
+            open={open}
+            close={() => setOpen(false)}
+            header="Stale Status"
+            trackingEventModalType="stale-feature-status"
+            closeCta="Close"
+          >
+            {neverStaleContent}
+          </Modal>
+        )}
       </>
     );
   }
@@ -189,15 +191,17 @@ export default function StaleFeatureIcon({
         >
           —
         </Badge>
-        <Modal
-          open={open}
-          close={() => setOpen(false)}
-          header="Stale Status"
-          trackingEventModalType="stale-feature-status"
-          closeCta="Close"
-        >
-          {loadingContent}
-        </Modal>
+        {open && (
+          <Modal
+            open={open}
+            close={() => setOpen(false)}
+            header="Stale Status"
+            trackingEventModalType="stale-feature-status"
+            closeCta="Close"
+          >
+            {loadingContent}
+          </Modal>
+        )}
       </>
     );
   }
@@ -437,16 +441,18 @@ export default function StaleFeatureIcon({
       >
         {label}
       </Badge>
-      <Modal
-        open={open}
-        close={() => setOpen(false)}
-        header="Stale Status"
-        trackingEventModalType="stale-feature-status"
-        closeCta="Close"
-        size="lg"
-      >
-        {body}
-      </Modal>
+      {open && (
+        <Modal
+          open={open}
+          close={() => setOpen(false)}
+          header="Stale Status"
+          trackingEventModalType="stale-feature-status"
+          closeCta="Close"
+          size="lg"
+        >
+          {body}
+        </Modal>
+      )}
     </>
   );
 }

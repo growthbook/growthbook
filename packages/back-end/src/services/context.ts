@@ -40,6 +40,7 @@ import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
+  getPersonalAccessTokenPermissions,
   getUserPermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
@@ -428,11 +429,23 @@ export class ReqContextClass {
   public environments: string[];
   public auditUser: EventUser;
   public apiKey?: string;
+  private scopedApiKey = false;
   public req?: Request;
   public logger: pino.BaseLogger;
   public permissions: Permissions;
 
   protected userPermissions: UserPermissions;
+
+  // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
+  // with the work), a user as themselves, an org key as itself.
+  public get armer(): { userId?: string; apiKey?: string } {
+    if (this.scopedApiKey) return { apiKey: this.apiKey };
+    return this.userId ? { userId: this.userId } : { apiKey: this.apiKey };
+  }
+
+  public get armerId(): string | null {
+    return this.armer.userId || this.armer.apiKey || null;
+  }
 
   public constructor({
     org,
@@ -483,12 +496,16 @@ export class ReqContextClass {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(
-        user,
-        org,
-        teams || [],
-        restrictedProjects,
-      );
+      this.scopedApiKey = !!apiKeyData?.scoped;
+      this.userPermissions = apiKeyData?.userId
+        ? getPersonalAccessTokenPermissions(
+            apiKeyData,
+            user,
+            org,
+            teams || [],
+            restrictedProjects,
+          )
+        : getUserPermissions(user, org, teams || [], restrictedProjects);
     }
     // If an API key or background job is making this request
     else {

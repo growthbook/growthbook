@@ -7,5 +7,6 @@ export * from "./revisionPermissions";
 export * from "./moveAuthority";
 export * from "./targetingAuthority";
 export * from "./controlAuthority";
+export * from "./apiKeyAuthority";
 export * from "./publishFootprint";
 export * from "./createScope";

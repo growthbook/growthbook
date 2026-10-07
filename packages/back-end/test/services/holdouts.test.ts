@@ -556,6 +556,43 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
       expect(changes.phases[0].name).toBe("Holdout");
       expect(changes.phases[1].name).toBe("Analysis");
     });
+
+    it("checks $savedGroups in the condition against the Saved Groups it names", async () => {
+      const experiment = makeExperiment({
+        phases: [
+          { condition: "{}" },
+        ] as unknown as ExperimentInterface["phases"],
+      });
+      mockUpdateExperiment.mockResolvedValue(experiment);
+      const context = {
+        org: { id: "org", settings: {} },
+        models: {
+          holdout: { update: jest.fn() },
+          savedGroups: {
+            getAllWithoutValues: jest.fn(async (ids: string[]) =>
+              ids.includes("grp_vip")
+                ? [{ id: "grp_vip", type: "condition", condition: "{}" }]
+                : [],
+            ),
+          },
+        },
+      } as unknown as ReqContext;
+      const updateCondition = (targetingCondition: string) =>
+        updateHoldoutWithExperiment(context, {
+          holdout: makeRollbackHoldout(),
+          experiment,
+          body: { targetingCondition } as ApiUpdateHoldoutBody,
+        });
+
+      await expect(
+        updateCondition('{"$savedGroups":["grp_vip"]}'),
+      ).resolves.toBeDefined();
+      await expect(
+        updateCondition('{"$savedGroups":["grp_gone"]}'),
+      ).rejects.toThrow(
+        'Invalid targeting condition: Saved Group "grp_gone" does not exist',
+      );
+    });
   });
 
   describe("assignment query updates", () => {
