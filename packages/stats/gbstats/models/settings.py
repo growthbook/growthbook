@@ -82,6 +82,7 @@ class MetricSettingsForStatsEngine:
     quantile_value: Optional[float] = None
     business_metric_type: Optional[List[BusinessMetricType]] = None
     target_mde: float = 0.01
+    scaled_impact_days: Optional[float] = None
     compute_uncapped_metric: bool = False
 
 

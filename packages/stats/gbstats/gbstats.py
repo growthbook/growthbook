@@ -331,7 +331,11 @@ def get_configured_test(
     base_config = {
         "total_users": total_users,
         "traffic_percentage": analysis.traffic_percentage,
-        "phase_length_days": analysis.phase_length_days,
+        "phase_length_days": (
+            metric.scaled_impact_days
+            if metric.scaled_impact_days is not None
+            else analysis.phase_length_days
+        ),
         "difference_type": analysis.difference_type,
         "post_stratify": post_stratify,
     }

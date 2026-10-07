@@ -7,8 +7,12 @@ import type { ExperimentReportVariation } from "shared/types/report";
 import {
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
+  getMetricSettingsForStatsEngine,
+  getScaledImpactDays,
   parseStatsEngineResult,
 } from "back-end/src/services/stats";
+import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
+import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 
 const analysisSettings: ExperimentSnapshotAnalysisSettings = {
   dimensions: [""],
@@ -26,6 +30,128 @@ const variations: SnapshotSettingsVariation[] = [
   { id: "control", weight: 0.5 },
   { id: "treatment", weight: 0.5 },
 ];
+
+describe("getScaledImpactDays", () => {
+  const phase = {
+    startDate: new Date("2026-01-01T00:00:00Z"),
+    endDate: new Date("2026-01-31T00:00:00Z"),
+  };
+
+  it("uses the lookback window when it is shorter than the phase", () => {
+    expect(
+      getScaledImpactDays(
+        {
+          windowSettings: {
+            type: "lookback",
+            windowValue: 7,
+            windowUnit: "days",
+            delayValue: 0,
+            delayUnit: "hours",
+          },
+        },
+        phase,
+      ),
+    ).toBe(7);
+  });
+
+  it("normalizes negative lookback windows", () => {
+    expect(
+      getScaledImpactDays(
+        {
+          windowSettings: {
+            type: "lookback",
+            windowValue: -7,
+            windowUnit: "days",
+            delayValue: 0,
+            delayUnit: "hours",
+          },
+        },
+        phase,
+      ),
+    ).toBe(7);
+  });
+
+  it("uses the phase length when it is shorter than the lookback window", () => {
+    expect(
+      getScaledImpactDays(
+        {
+          windowSettings: {
+            type: "lookback",
+            windowValue: 60,
+            windowUnit: "days",
+            delayValue: 0,
+            delayUnit: "hours",
+          },
+        },
+        phase,
+      ),
+    ).toBe(30);
+  });
+
+  it("uses the phase length for non-lookback metrics", () => {
+    expect(
+      getScaledImpactDays(
+        {
+          windowSettings: {
+            type: "conversion",
+            windowValue: 7,
+            windowUnit: "days",
+            delayValue: 0,
+            delayUnit: "hours",
+          },
+        },
+        phase,
+      ),
+    ).toBe(30);
+  });
+
+  it("uses the effective snapshotted window in the stats payload", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_metric",
+      windowSettings: {
+        type: "lookback",
+        windowValue: 60,
+        windowUnit: "days",
+        delayValue: 0,
+        delayUnit: "hours",
+      },
+    });
+    const settings = {
+      ...snapshotFactory.build().settings,
+      ...phase,
+      goalMetrics: [metric.id],
+      metricSettings: [
+        {
+          id: metric.id,
+          computedSettings: {
+            regressionAdjustmentEnabled: false,
+            regressionAdjustmentAvailable: false,
+            regressionAdjustmentDays: 0,
+            regressionAdjustmentReason: "",
+            properPrior: false,
+            properPriorMean: 0,
+            properPriorStdDev: 1,
+            windowSettings: {
+              type: "lookback" as const,
+              windowValue: 7,
+              windowUnit: "days" as const,
+              delayValue: 0,
+              delayUnit: "hours" as const,
+            },
+          },
+        },
+      ],
+    };
+
+    expect(
+      getMetricSettingsForStatsEngine(
+        metric,
+        new Map([[metric.id, metric]]),
+        settings,
+      ).scaled_impact_days,
+    ).toBe(7);
+  });
+});
 
 const survivorResult: ExperimentMetricAnalysis[number] = {
   metric: "survivor",
