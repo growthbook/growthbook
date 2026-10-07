@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import isEqual from "lodash/isEqual";
 import {
   OAuthAppInterface,
   OAuthAppProps,
@@ -73,11 +74,11 @@ export class OrgOAuthClientModel extends BaseClass {
     doc: OrgOAuthClientInterface,
     previousDoc?: OrgOAuthClientInterface,
   ) {
-    await assertValidPermissionLimit(
-      this.context,
-      doc.permissionLimit ?? null,
-      previousDoc?.permissionLimit ?? null,
-    );
+    const limit = doc.permissionLimit ?? null;
+    const previous = previousDoc?.permissionLimit ?? null;
+    // Only a changed limit is checked, so a stale one never blocks turning delegation off or rotating the secret.
+    if (previousDoc && isEqual(limit, previous)) return;
+    await assertValidPermissionLimit(this.context, limit, previous);
   }
 
   /** Cross-org lookup for the public token endpoints, which only know the client_id. */
