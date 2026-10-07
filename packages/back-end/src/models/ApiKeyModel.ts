@@ -171,7 +171,8 @@ export class ApiKeyModel extends BaseClass {
       );
     }
     if (
-      doc.limitAccessByEnvironment &&
+      (doc.limitAccessByEnvironment ||
+        doc.additionalRoles?.some((r) => r.limitAccessByEnvironment)) &&
       !this.context.hasPremiumFeature("advanced-permissions")
     ) {
       this.context.throwPlanDoesNotAllowError(
