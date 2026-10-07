@@ -7,6 +7,10 @@ name: Redeploy
 on:
   workflow_dispatch:
 
+# Read-only token by default; a job that needs more declares it itself.
+permissions:
+  contents: read
+
 jobs:
   redeploy:
     runs-on: ubuntu-latest
@@ -19,7 +23,7 @@ jobs:
           - { service: prod-api-python, container: api-python }
     steps:
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -42,14 +46,14 @@ jobs:
 
       - name: Render task definition (latest base + current image)
         id: taskdef
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        uses: aws-actions/amazon-ecs-render-task-definition@138c24f321fdbdf7edee4a685519d253cae2cdea # v1.9.0
         with:
           task-definition-family: ${{ matrix.service }}
           container-name: ${{ matrix.container }}
           image: ${{ steps.current.outputs.image }}
 
       - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        uses: aws-actions/amazon-ecs-deploy-task-definition@c465972ecbd160473f22e683363b422a5412a3de # v2.6.3
         with:
           task-definition: ${{ steps.taskdef.outputs.task-definition }}
           service: ${{ matrix.service }}
