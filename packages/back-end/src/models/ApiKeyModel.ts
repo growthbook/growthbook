@@ -1,6 +1,6 @@
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
-import { getRoleById } from "shared/permissions";
+import { getRoleById, isApiKeyOnlyRole } from "shared/permissions";
 import {
   generateEncryptionKey,
   generateSigningKey,
@@ -143,6 +143,35 @@ export class ApiKeyModel extends BaseClass {
     } else {
       // Org API keys — validate role, environments, project roles, and commercial features
       this.validateRole(doc.role);
+      if (previousDoc) {
+        // An API-key-only key (e.g. traceIngest) is pasted into many service
+        // configs and is the only kind the license server shares with the
+        // ingestor. Converting one to or from another role would widen a
+        // widely-distributed key or start sharing a broad one, so rotate instead.
+        const wasKeyOnly = isApiKeyOnlyRole(previousDoc.role || "");
+        const isKeyOnly = isApiKeyOnlyRole(doc.role || "");
+        if (wasKeyOnly !== isKeyOnly) {
+          this.context.throwBadRequestError(
+            "This key's role can't be changed to or from that role. Create a new key instead.",
+          );
+        }
+      }
+      if (doc.role && isApiKeyOnlyRole(doc.role)) {
+        // Single-purpose keys carry no scoping or extra grants.
+        if (
+          doc.limitAccessByEnvironment ||
+          doc.environments?.length ||
+          doc.additionalRoles?.length ||
+          doc.projectRoles?.length
+        ) {
+          this.context.throwBadRequestError(
+            `The ${doc.role} role can't have environment limits, additional roles, or project roles.`,
+          );
+        }
+        // Grants nothing on the REST API, so plans limited to the admin role
+        // can still create one (narrower than the admin key they'd use instead).
+        return;
+      }
       // Only gate a role change so existing keys keep working
       if (
         doc.role &&
@@ -164,7 +193,7 @@ export class ApiKeyModel extends BaseClass {
       }
       this.validateEnvironments(doc.environments);
       for (const rule of doc.additionalRoles ?? []) {
-        this.validateRole(rule.role);
+        this.validateRole(rule.role, { extraRule: true });
         this.validateEnvironments(rule.environments);
       }
       if (doc.projectRoles?.length) {
@@ -174,10 +203,10 @@ export class ApiKeyModel extends BaseClass {
           );
         }
         for (const pr of doc.projectRoles) {
-          this.validateRole(pr.role);
+          this.validateRole(pr.role, { extraRule: true });
           this.validateEnvironments(pr.environments);
           for (const rule of pr.additionalRoles ?? []) {
-            this.validateRole(rule.role);
+            this.validateRole(rule.role, { extraRule: true });
             this.validateEnvironments(rule.environments);
           }
         }
@@ -197,8 +226,18 @@ export class ApiKeyModel extends BaseClass {
     }
   }
 
-  private validateRole(role: string | undefined) {
+  // `extraRule`: an additional or project-scoped rule, where API-key-only
+  // roles aren't allowed (they're only meaningful as the key's base role).
+  private validateRole(
+    role: string | undefined,
+    { extraRule = false }: { extraRule?: boolean } = {},
+  ) {
     if (role === undefined) return;
+    if (extraRule && isApiKeyOnlyRole(role)) {
+      this.context.throwBadRequestError(
+        `The ${role} role can only be a key's base role.`,
+      );
+    }
     if (this.context.org.deactivatedRoles?.includes(role)) {
       this.context.throwBadRequestError(`Role has been deactivated: ${role}`);
     }

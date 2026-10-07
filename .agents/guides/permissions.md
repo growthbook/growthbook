@@ -348,10 +348,16 @@ export async function createArchetype(req: AuthRequest, res: Response) {
 | `readonly`     | Read-only access              |
 | `collaborator` | Read + comments + ideas       |
 | `visualEditor` | Visual editor access          |
+| `traceIngest`  | API keys only; no permissions |
 | `engineer`     | Features + SDK + environments |
 | `analyst`      | Analytics + metrics + SQL     |
 | `experimenter` | Engineer + analyst combined   |
 | `admin`        | Full access                   |
+
+`traceIngest` is API-key-only (`API_KEY_ONLY_ROLE_IDS`): `isRoleValid` rejects it
+for members, invites, teams, SCIM, and the default role; role pickers hide it; and
+the REST API refuses keys that have it. It exists for keys that send AI traces
+to the ingestor.
 
 ### How Permissions Resolve
 

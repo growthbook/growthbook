@@ -10,6 +10,9 @@
  * GrowthBook's own account (Pricing Phase 1, P0). JSON flags are typed as
  * Record<string, unknown> here; the pricing config is schema-validated with
  * zod at the read site (back-end services/plan-limits.ts).
+ *
+ * Exception: "ai-trace-ingest" is added ahead of the flag's creation. It shows
+ * the "AI trace ingest key" option when creating an org secret key.
  */
 export type AppFeatures = {
   "papercups-config": Record<string, unknown>;
@@ -144,4 +147,5 @@ export type AppFeatures = {
   "definitions-etag-304": boolean;
   "pricing-phase-1-limits": Record<string, unknown>;
   "eu-data-region": boolean;
+  "ai-trace-ingest": boolean;
 };

@@ -1,9 +1,10 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { getRoles } from "shared/permissions";
+import { getRoles, TRACE_INGEST_ROLE_ID } from "shared/permissions";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { Box } from "@radix-ui/themes";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
@@ -11,6 +12,11 @@ import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
+import RadioGroup from "@/ui/RadioGroup";
+import Text from "@/ui/Text";
+
+const TRACE_INGEST_HELP =
+  "Only sends AI traces to GrowthBook. It can't access the GrowthBook API.";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -31,6 +37,13 @@ const ApiKeysModal: FC<{
   // When an existing key is passed in, the modal edits that key in place
   // instead of creating a new one. Only org secret keys can be edited.
   const editMode = !!existingKey;
+
+  // A trace ingest key has a fixed, single-purpose role: it's chosen as a key
+  // type when creating, and its role can't be edited afterwards.
+  const traceIngestFlag = useFeatureIsOn("ai-trace-ingest");
+  const [traceIngest, setTraceIngest] = useState(
+    existingKey?.role === TRACE_INGEST_ROLE_ID,
+  );
 
   const defaultRole = useMemo(() => {
     const deactivated = new Set(organization.deactivatedRoles ?? []);
@@ -71,11 +84,15 @@ const ApiKeysModal: FC<{
     if (existingKey) {
       await apiCall(`/keys/${existingKey.id}`, {
         method: "PUT",
-        body: JSON.stringify({
-          description: value.description,
-          role,
-          ...roleStateData,
-        }),
+        body: JSON.stringify(
+          traceIngest
+            ? { description: value.description, role: TRACE_INGEST_ROLE_ID }
+            : {
+                description: value.description,
+                role,
+                ...roleStateData,
+              },
+        ),
       });
       track("Edit API Key");
       onCreate();
@@ -87,17 +104,23 @@ const ApiKeysModal: FC<{
           description: value.description,
           type: "user",
         }
-      : {
-          description: value.description,
-          type: role,
-          ...roleStateData,
-        };
+      : traceIngest
+        ? {
+            description: value.description,
+            type: TRACE_INGEST_ROLE_ID,
+          }
+        : {
+            description: value.description,
+            type: role,
+            ...roleStateData,
+          };
     await apiCall("/keys", {
       method: "POST",
       body: JSON.stringify(key),
     });
     track("Create API Key", {
       isSecret: !personalAccessToken,
+      ...(traceIngest && { role: TRACE_INGEST_ROLE_ID }),
     });
     onCreate();
   });
@@ -120,7 +143,31 @@ const ApiKeysModal: FC<{
       />
       {!personalAccessToken && (
         <>
-          {editMode && (
+          {!editMode && traceIngestFlag && (
+            <RadioGroup
+              mb="3"
+              value={traceIngest ? "traceIngest" : "api"}
+              setValue={(v) => setTraceIngest(v === "traceIngest")}
+              options={[
+                {
+                  value: "api",
+                  label: "REST API key",
+                  description: "Access the GrowthBook API with a role.",
+                },
+                {
+                  value: "traceIngest",
+                  label: "AI trace ingest key",
+                  description: TRACE_INGEST_HELP,
+                },
+              ]}
+            />
+          )}
+          {editMode && traceIngest && (
+            <Text as="p" color="text-mid">
+              {TRACE_INGEST_HELP}
+            </Text>
+          )}
+          {editMode && !traceIngest && (
             <Callout status="info" mb="3">
               <Box mb="2">
                 Editing permissions keeps the same key value, so existing
@@ -134,7 +181,9 @@ const ApiKeysModal: FC<{
               </Box>
             </Callout>
           )}
-          <RoleRulesTable value={roleState} setValue={setRoleState} />
+          {!traceIngest && (
+            <RoleRulesTable value={roleState} setValue={setRoleState} />
+          )}
         </>
       )}
     </ModalStandard>

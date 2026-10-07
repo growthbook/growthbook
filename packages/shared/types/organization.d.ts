@@ -120,6 +120,7 @@ export type DefaultMemberRole =
   | "readonly"
   | "collaborator"
   | "visualEditor"
+  | "traceIngest"
   | "analyst"
   | "engineer"
   | "experimenter"

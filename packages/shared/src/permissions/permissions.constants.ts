@@ -817,6 +817,15 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
     description: "Make visual changes for an experiment",
     policies: ["ReadData", "VisualEditorFullAccess"],
   },
+  // API keys only (see API_KEY_ONLY_ROLE_IDS). No policies, so the key can't do
+  // anything on the REST API; the ingestor accepts it for sending AI traces.
+  traceIngest: {
+    id: "traceIngest",
+    displayName: "AI Trace Ingest",
+    description:
+      "Send AI traces to GrowthBook. No access to the GrowthBook API. For API keys only.",
+    policies: [],
+  },
   engineer: {
     id: "engineer",
     displayName: "Engineer",
@@ -948,6 +957,14 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
     policies: [...POLICIES],
   },
 };
+
+// Role for org secret keys that send AI traces (OTLP) to the ingestor.
+export const TRACE_INGEST_ROLE_ID = "traceIngest";
+
+// Default roles that exist only for org secret API keys. They can't be given to
+// members, invites, teams, SCIM users/groups, or used as the org default role,
+// and the REST API rejects keys that have them.
+export const API_KEY_ONLY_ROLE_IDS: readonly string[] = [TRACE_INGEST_ROLE_ID];
 
 // Reserved role IDs that cannot be used by custom roles
 // There are 2 legacy roles (designer/developer) that we also need to reserve

@@ -1,7 +1,11 @@
 import { teamSchema, ApiDeleteTeamReturn } from "shared/validators";
 import { ApiTeamInterface, TeamInterface } from "shared/types/team";
 import { UpdateProps } from "shared/types/base-model";
-import { areProjectRolesValid, isRoleValid } from "shared/permissions";
+import {
+  areProjectRolesValid,
+  isApiKeyOnlyRole,
+  isRoleValid,
+} from "shared/permissions";
 import { stringToBoolean } from "shared/util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -130,6 +134,7 @@ export class TeamModel extends BaseClass {
   ) {
     if (
       !isRoleValid(doc.role, this.context.org) ||
+      (doc.additionalRoles ?? []).some((r) => isApiKeyOnlyRole(r.role)) ||
       !areProjectRolesValid(doc.projectRoles, this.context.org)
     ) {
       return this.context.throwBadRequestError("Invalid role");
