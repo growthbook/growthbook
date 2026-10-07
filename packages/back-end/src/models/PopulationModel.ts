@@ -123,7 +123,7 @@ export class PopulationModel extends BaseClass {
       id: doc.id,
       dateCreated: doc.dateCreated.toISOString(),
       dateUpdated: doc.dateUpdated.toISOString(),
-      projects: doc.projects,
+      projects: doc.projects ?? [],
       owner: doc.owner,
       name: doc.name,
       description: doc.description,

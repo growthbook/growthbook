@@ -62087,8 +62087,15 @@ paths:
                             - operator
                           additionalProperties: false
                       aggregateFilter:
+                        description: >-
+                          Conditions on each unit's total within the window,
+                          such as ">=3" or ">=3,<10". Requires
+                          aggregateFilterColumn
                         type: string
                       aggregateFilterColumn:
+                        description: >-
+                          Numeric column to total, or "$$count" to count rows.
+                          Requires aggregateFilter
                         type: string
                       windowSettings:
                         description: >-
@@ -62285,8 +62292,15 @@ paths:
                             - operator
                           additionalProperties: false
                       aggregateFilter:
+                        description: >-
+                          Conditions on each unit's total within the window,
+                          such as ">=3" or ">=3,<10". Requires
+                          aggregateFilterColumn
                         type: string
                       aggregateFilterColumn:
+                        description: >-
+                          Numeric column to total, or "$$count" to count rows.
+                          Requires aggregateFilter
                         type: string
                       windowSettings:
                         description: >-
@@ -81764,8 +81778,14 @@ components:
                     - operator
                   additionalProperties: false
               aggregateFilter:
+                description: >-
+                  Conditions on each unit's total within the window, such as
+                  ">=3" or ">=3,<10". Requires aggregateFilterColumn
                 type: string
               aggregateFilterColumn:
+                description: >-
+                  Numeric column to total, or "$$count" to count rows. Requires
+                  aggregateFilter
                 type: string
               windowSettings:
                 type: object

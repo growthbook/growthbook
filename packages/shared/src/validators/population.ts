@@ -25,14 +25,24 @@ export const populationStepSourceValidator = z.discriminatedUnion("type", [
 export const populationStepValidator = z.strictObject({
   source: populationStepSourceValidator,
   rowFilters: z.array(rowFilterValidator),
-  aggregateFilter: z.string().optional(),
-  aggregateFilterColumn: z.string().optional(),
+  aggregateFilter: z
+    .string()
+    .optional()
+    .describe(
+      'Conditions on each unit\'s total within the window, such as ">=3" or ">=3,<10". Requires aggregateFilterColumn',
+    ),
+  aggregateFilterColumn: z
+    .string()
+    .optional()
+    .describe(
+      'Numeric column to total, or "$$count" to count rows. Requires aggregateFilter',
+    ),
   windowSettings: windowSettingsValidator,
 });
 
 export const populationValidator = baseSchema
   .extend({
-    projects: z.array(z.string()),
+    projects: z.array(z.string()).optional(),
     owner: ownerField,
     name: z.string().min(1),
     description: z.string(),
