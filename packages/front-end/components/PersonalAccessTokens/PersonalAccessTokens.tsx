@@ -31,6 +31,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<ApiKeyInterface | null>(null);
+  const [copyFrom, setCopyFrom] = useState<ApiKeyInterface | null>(null);
   const { settings } = useUser();
   const tokensDisabled = !!settings?.disablePersonalAccessTokens;
   const permissionsUtils = usePermissionsUtil();
@@ -42,11 +43,16 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
 
   return (
     <div>
-      {open && (
+      {(open || copyFrom) && (
         <ApiKeysModal
-          close={() => setOpen(false)}
+          close={() => {
+            setOpen(false);
+            setCopyFrom(null);
+          }}
           onCreate={onCreate}
           personalAccessToken
+          copyFrom={copyFrom ?? undefined}
+          onDeleteCopySource={copyFrom ? onDelete(copyFrom.id) : undefined}
         />
       )}
 
@@ -78,6 +84,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             onReveal={onReveal}
             onToggleDisabled={onToggleDisabled}
             onEdit={(key) => setEditingKey(key)}
+            onCopy={tokensDisabled ? undefined : setCopyFrom}
           />
         )}
         {tokensDisabled ? (

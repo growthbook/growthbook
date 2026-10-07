@@ -7,6 +7,7 @@ import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";
+import OrganizationPoliciesCard from "./OrganizationPoliciesCard";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -25,7 +26,15 @@ const ApiKeys: FC = () => {
 
   return (
     <>
-      <SecretApiKeys keys={data.keys} mutate={mutate} />
+      <SecretApiKeys keys={data.keys} mutate={mutate}>
+        {permissionsUtils.canDeleteApiKey() && (
+          <OrganizationPoliciesCard
+            kind="secret"
+            keys={data.keys.filter((k) => k.secret && !k.userId)}
+            mutate={mutate}
+          />
+        )}
+      </SecretApiKeys>
 
       {(!settings?.disablePersonalAccessTokens || canManageTokens) && (
         <Callout status="info" mb="4">

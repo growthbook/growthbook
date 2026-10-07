@@ -1,6 +1,7 @@
 import React, { FC, useMemo, useState } from "react";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { ago, datetime } from "shared/dates";
+import { getExpirationStatus } from "shared/api-key-expiration";
 import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -16,6 +17,8 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Tooltip from "@/ui/Tooltip";
+import Switch from "@/ui/Switch";
+import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HistoryTable from "@/components/HistoryTable";
@@ -89,10 +92,29 @@ const MemberPersonalAccessTokens: FC = () => {
           // Sorted separately from display so "Never" and the pre-tracking
           // "Unknown" both land at the bottom instead of sorting as equal.
           lastUsedSort: token.lastUsed ? new Date(token.lastUsed).getTime() : 0,
+          // No expiry sorts last rather than first, next to the keys with the
+          // longest left to run.
+          expiresAtSort: token.expiresAt
+            ? new Date(token.expiresAt).getTime()
+            : Number.MAX_SAFE_INTEGER,
           token,
         };
       }),
     [data?.keys, users],
+  );
+
+  const [showExpired, setShowExpired] = useState(false);
+  const expiredCount = rows.filter(
+    (r) => getExpirationStatus(r.token.expiresAt) === "expired",
+  ).length;
+  const visibleRows = useMemo(
+    () =>
+      showExpired
+        ? rows
+        : rows.filter(
+            (r) => getExpirationStatus(r.token.expiresAt) !== "expired",
+          ),
+    [rows, showExpired],
   );
 
   const {
@@ -102,7 +124,7 @@ const MemberPersonalAccessTokens: FC = () => {
     SortableTableColumnHeader,
     pagination,
   } = useSearch({
-    items: rows,
+    items: visibleRows,
     localStorageKey: "memberPersonalAccessTokens",
     defaultSortField: "memberName",
     searchFields: ["memberName", "memberEmail", "description"],
@@ -152,7 +174,7 @@ const MemberPersonalAccessTokens: FC = () => {
             </Callout>
           )}
           <Flex align="center" gap="3" mb="2">
-            <Text weight="medium">{`${rows.length} token${rows.length === 1 ? "" : "s"}`}</Text>
+            <Text weight="medium">{`${visibleRows.length} token${visibleRows.length === 1 ? "" : "s"}`}</Text>
             <Box width="250px" flexShrink="0">
               <TextField
                 type="search"
@@ -160,6 +182,14 @@ const MemberPersonalAccessTokens: FC = () => {
                 {...searchInputProps}
               />
             </Box>
+            {expiredCount > 0 && (
+              <Switch
+                size="sm"
+                label={`Show expired tokens (${expiredCount})`}
+                value={showExpired}
+                onChange={setShowExpired}
+              />
+            )}
           </Flex>
           <Table variant="surface">
             <TableHeader>
@@ -172,6 +202,9 @@ const MemberPersonalAccessTokens: FC = () => {
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="lastUsedSort">
                   Last used
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="expiresAtSort">
+                  Expires
                 </SortableTableColumnHeader>
                 <TableColumnHeader>
                   <span className="sr-only">Actions</span>
@@ -209,28 +242,38 @@ const MemberPersonalAccessTokens: FC = () => {
                         {token.description || <Text color="text-low">—</Text>}
                       </span>
                       {token.disabled && (
-                        <Badge
-                          ml="2"
-                          color="red"
-                          variant="soft"
-                          label={
-                            !token.disabledBy
-                              ? "Disabled"
-                              : token.disabledBy === token.userId
-                                ? "Disabled by member"
-                                : "Disabled by admin"
-                          }
-                          title={
-                            token.disabledBy &&
+                        <Tooltip
+                          content={`Disabled by ${users.get(token.disabledBy ?? "")?.name || users.get(token.disabledBy ?? "")?.email || "a former member"}`}
+                          enabled={
+                            !!token.disabledBy &&
                             token.disabledBy !== token.userId
-                              ? `Disabled by ${users.get(token.disabledBy)?.name || users.get(token.disabledBy)?.email || "a former member"}`
-                              : undefined
                           }
-                        />
+                        >
+                          <span>
+                            <Badge
+                              ml="2"
+                              color="red"
+                              variant="soft"
+                              label={
+                                !token.disabledBy
+                                  ? "Disabled"
+                                  : token.disabledBy === token.userId
+                                    ? "Disabled by member"
+                                    : "Disabled by admin"
+                              }
+                            />
+                          </span>
+                        </Tooltip>
                       )}
                     </TableCell>
                     <TableCell style={dimmed}>
                       <LastUsed token={token} />
+                    </TableCell>
+                    <TableCell style={dimmed}>
+                      <ExpiresCell
+                        expiresAt={token.expiresAt}
+                        maxLifetimeDays={settings?.maxPatLifetimeDays}
+                      />
                     </TableCell>
                     <TableCell>
                       <Flex gap="4">
@@ -254,10 +297,12 @@ const MemberPersonalAccessTokens: FC = () => {
                   </TableRow>
                 );
               })}
-              {!items.length && isFiltered && (
+              {!items.length && (
                 <TableRow>
-                  <TableCell colSpan={4} style={{ textAlign: "center" }}>
-                    No matching tokens found.
+                  <TableCell colSpan={5} style={{ textAlign: "center" }}>
+                    {isFiltered
+                      ? "No matching tokens found."
+                      : "All of these tokens have expired."}
                   </TableCell>
                 </TableRow>
               )}
