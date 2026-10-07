@@ -51,7 +51,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onShowAuditLog,
   onCopy,
 }) => {
-  const { organization, userId, users } = useUser();
+  const { organization, userId, users, settings } = useUser();
   const canManageTokens = usePermissionsUtil().canDeleteApiKey();
   const { projects } = useDefinitions();
   const environments = useEnvironments();
@@ -127,23 +127,29 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 <td style={dimStyle(key)}>
                   {key.description}
                   {key.disabled && (
-                    <Badge
-                      ml="2"
-                      color="red"
-                      variant="soft"
-                      label={
-                        isDisabledByAdmin(key)
-                          ? "Disabled by admin"
-                          : "Disabled"
-                      }
-                      title={
+                    <Tooltip
+                      content={
                         isAdminLocked(key)
                           ? ADMIN_LOCKED_REASON
-                          : !key.userId && key.disabledBy
-                            ? disabledByTitle(key)
-                            : undefined
+                          : disabledByTitle(key)
                       }
-                    />
+                      enabled={
+                        isAdminLocked(key) || (!key.userId && !!key.disabledBy)
+                      }
+                    >
+                      <span>
+                        <Badge
+                          ml="2"
+                          color="red"
+                          variant="soft"
+                          label={
+                            isDisabledByAdmin(key)
+                              ? "Disabled by admin"
+                              : "Disabled"
+                          }
+                        />
+                      </span>
+                    </Tooltip>
                   )}
                 </td>
                 <td style={{ minWidth: 270, ...dimStyle(key) }}>
@@ -209,7 +215,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   )}
                 </td>
                 <td style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
-                  <ExpiresCell expiresAt={key.expiresAt} />
+                  <ExpiresCell
+                    expiresAt={key.expiresAt}
+                    maxLifetimeDays={
+                      key.userId
+                        ? settings?.maxPatLifetimeDays
+                        : settings?.maxApiKeyLifetimeDays
+                    }
+                  />
                 </td>
                 {environments.map((env) => {
                   const access = !key.role

@@ -13,6 +13,7 @@ import { hasFileConfig } from "@/services/env";
 import TextField from "@/ui/TextField";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
+import Tooltip from "@/ui/Tooltip";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -118,7 +119,6 @@ const ApiKeyExpirationPolicy: FC<{
       color="amber"
       variant="soft"
       label={`${nonCompliant.length} non-compliant`}
-      title={`${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than the maximum.`}
       style={locked ? undefined : { cursor: "pointer" }}
     />
   );
@@ -163,19 +163,24 @@ const ApiKeyExpirationPolicy: FC<{
                     Change
                   </Link>
                 )}
-                {nonCompliant.length > 0 &&
-                  (locked ? (
-                    badge
-                  ) : (
-                    <Link
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setApplying(true);
-                      }}
-                    >
-                      {badge}
-                    </Link>
-                  ))}
+                {nonCompliant.length > 0 && (
+                  <Tooltip
+                    content={`${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than the maximum, marked in the Expires column.${locked ? "" : " Click to apply the limit to them."}`}
+                  >
+                    {locked ? (
+                      <span>{badge}</span>
+                    ) : (
+                      <Link
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setApplying(true);
+                        }}
+                      >
+                        {badge}
+                      </Link>
+                    )}
+                  </Tooltip>
+                )}
               </span>
             </Flex>
           )

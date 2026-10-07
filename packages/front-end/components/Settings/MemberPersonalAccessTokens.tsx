@@ -242,31 +242,38 @@ const MemberPersonalAccessTokens: FC = () => {
                         {token.description || <Text color="text-low">—</Text>}
                       </span>
                       {token.disabled && (
-                        <Badge
-                          ml="2"
-                          color="red"
-                          variant="soft"
-                          label={
-                            !token.disabledBy
-                              ? "Disabled"
-                              : token.disabledBy === token.userId
-                                ? "Disabled by member"
-                                : "Disabled by admin"
-                          }
-                          title={
-                            token.disabledBy &&
+                        <Tooltip
+                          content={`Disabled by ${users.get(token.disabledBy ?? "")?.name || users.get(token.disabledBy ?? "")?.email || "a former member"}`}
+                          enabled={
+                            !!token.disabledBy &&
                             token.disabledBy !== token.userId
-                              ? `Disabled by ${users.get(token.disabledBy)?.name || users.get(token.disabledBy)?.email || "a former member"}`
-                              : undefined
                           }
-                        />
+                        >
+                          <span>
+                            <Badge
+                              ml="2"
+                              color="red"
+                              variant="soft"
+                              label={
+                                !token.disabledBy
+                                  ? "Disabled"
+                                  : token.disabledBy === token.userId
+                                    ? "Disabled by member"
+                                    : "Disabled by admin"
+                              }
+                            />
+                          </span>
+                        </Tooltip>
                       )}
                     </TableCell>
                     <TableCell style={dimmed}>
                       <LastUsed token={token} />
                     </TableCell>
                     <TableCell style={dimmed}>
-                      <ExpiresCell expiresAt={token.expiresAt} />
+                      <ExpiresCell
+                        expiresAt={token.expiresAt}
+                        maxLifetimeDays={settings?.maxPatLifetimeDays}
+                      />
                     </TableCell>
                     <TableCell>
                       <Flex gap="4">
