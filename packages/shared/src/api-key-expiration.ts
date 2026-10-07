@@ -90,13 +90,32 @@ export function getExpirationProblem(
   expiresAt: ExpiresAt,
   maxLifetimeDays: MaxLifetimeDays,
   now: Date = new Date(),
+  latest: Date | null = maxExpirationDate(maxLifetimeDays, now),
 ): ExpirationProblem | null {
   const date = toDate(expiresAt);
   if (!date) return (maxLifetimeDays ?? null) === null ? null : "required";
   if (date.getTime() <= now.getTime()) return "past";
-  const max = maxExpirationDate(maxLifetimeDays, now);
-  if (max && date.getTime() > max.getTime()) return "too-late";
+  if (latest && date.getTime() > latest.getTime()) return "too-late";
   return null;
+}
+
+/**
+ * The latest expiry an edit may set, or `null` when there's no policy. The
+ * maximum runs from creation so an edit can't stretch a key past the policy,
+ * but shortening is always allowed, even for a key that is already over it.
+ */
+export function latestEditedExpiration(
+  current: ExpiresAt,
+  dateCreated: ExpiresAt,
+  maxLifetimeDays: MaxLifetimeDays,
+  now: Date = new Date(),
+): Date | null {
+  if ((maxLifetimeDays ?? null) === null) return null;
+  const max = maxLifetimeDays as number;
+  const fromCreation = addDays(toDate(dateCreated) ?? now, max);
+  // A key with no expiry gets the same grace the policy backfill would stamp.
+  const kept = toDate(current) ?? addDays(now, max);
+  return fromCreation > kept ? fromCreation : kept;
 }
 
 /** Preset durations the policy still allows, longest last. */

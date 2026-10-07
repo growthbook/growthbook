@@ -1990,6 +1990,7 @@ export async function putApiKey(
       environments?: string[];
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ProjectMemberRole[];
+      expiresAt?: string | null;
     },
     { id: string }
   >,
@@ -2005,6 +2006,7 @@ export async function putApiKey(
     environments,
     additionalRoles,
     projectRoles,
+    expiresAt,
   } = req.body;
 
   // The model returns both the pre- and post-update docs from a single read so
@@ -2019,6 +2021,8 @@ export async function putApiKey(
       environments,
       additionalRoles,
       projectRoles,
+      expiresAt:
+        expiresAt === undefined ? undefined : parseExpiresAt(expiresAt),
     });
 
   await req.audit({

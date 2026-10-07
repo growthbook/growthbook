@@ -6,10 +6,14 @@ import { apiKeyToggleRequiresAdmin, getRoleById } from "shared/permissions";
 import {
   addDays,
   EXPIRING_SOON_DAYS,
+  ExpiresAt,
+  getExpirationProblem,
   isExpired,
+  latestEditedExpiration,
   maxExpirationDate,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
+import { date } from "shared/dates";
 import {
   generateEncryptionKey,
   generateSigningKey,
@@ -55,6 +59,8 @@ const BaseClass = MakeModelClass({
     lastUsed: null,
   },
 });
+
+const toTime = (d: ExpiresAt) => (d ? new Date(d).getTime() : null);
 
 export class ApiKeyModel extends BaseClass {
   protected canCreate(apiKey: ApiKeyInterface): boolean {
@@ -146,13 +152,42 @@ export class ApiKeyModel extends BaseClass {
     doc: ApiKeyInterface,
     previousDoc?: ApiKeyInterface,
   ) {
-    // Creation only. Keys predating a policy are brought into line by the
-    // backfill, and blocking edits would strand them mid-remediation.
+    const maxDays = this.maxLifetimeDaysFor(doc);
     if (!previousDoc) {
-      const maxDays = this.maxLifetimeDaysFor(doc);
       if (violatesExpirationPolicy(doc.expiresAt, maxDays)) {
         this.context.throwBadRequestError(
           `This organization requires an expiration date within ${maxDays} days.`,
+        );
+      }
+    } else if (
+      doc.secret &&
+      !doc.oauthClientId &&
+      toTime(doc.expiresAt) !== toTime(previousDoc.expiresAt)
+    ) {
+      // Reviving a lapsed key is what creating a replacement is for.
+      if (isExpired(previousDoc.expiresAt)) {
+        this.context.throwBadRequestError(
+          "An expired key's expiration date can't be changed. Create a new key instead.",
+        );
+      }
+      const latest = latestEditedExpiration(
+        previousDoc.expiresAt,
+        previousDoc.dateCreated,
+        maxDays,
+      );
+      const problem = getExpirationProblem(
+        doc.expiresAt,
+        maxDays,
+        new Date(),
+        latest,
+      );
+      if (problem) {
+        this.context.throwBadRequestError(
+          problem === "past"
+            ? "The expiration date must be in the future."
+            : problem === "required"
+              ? "This organization requires an expiration date."
+              : `This organization's ${maxDays}-day maximum lifetime allows this key an expiration date no later than ${date(latest as Date)}.`,
         );
       }
     }
@@ -466,6 +501,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       description,
+      expiresAt,
     }: {
       role?: string;
       scopedRole?: string;
@@ -474,6 +510,8 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
+      // Omitted leaves it unchanged; `customValidation` enforces the edit rules.
+      expiresAt?: Date | null;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
@@ -524,8 +562,8 @@ export class ApiKeyModel extends BaseClass {
     }
 
     // Permission fields (role/scope/description) are intentionally editable by
-    // admins, while the token's value and identity fields (key, secret, userId)
-    // stay immutable. `canUpdate` blocks every field except `disabled`, so we
+    // admins, as is the expiry, while the token's value and identity fields
+    // (key, secret, userId) stay immutable. `canUpdate` blocks these fields, so we
     // bypass it for this specific permission-only update via `forceCanUpdate`;
     // the update object below is limited to permission fields, so identity
     // fields can never be changed through this path. `customValidation` still
@@ -544,6 +582,7 @@ export class ApiKeyModel extends BaseClass {
         additionalRoles,
         projectRoles,
         description,
+        ...(expiresAt !== undefined && { expiresAt }),
       },
       { forceCanUpdate: true },
     );

@@ -61,6 +61,8 @@ export const putApiKeyValidator = z.strictObject({
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
   additionalRoles: z.array(roleRuleValidator).optional(),
+  // Omitted leaves the expiry unchanged; null removes it where the policy allows.
+  expiresAt: z.string().nullable().optional(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({

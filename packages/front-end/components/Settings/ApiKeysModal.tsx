@@ -3,7 +3,10 @@ import { useForm } from "react-hook-form";
 import { getRoles } from "shared/permissions";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
-import { getExpirationProblem } from "shared/api-key-expiration";
+import {
+  getExpirationProblem,
+  latestEditedExpiration,
+} from "shared/api-key-expiration";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -42,9 +45,27 @@ const ApiKeysModal: FC<{
   const maxLifetimeDays = personalAccessToken
     ? settings?.maxPatLifetimeDays
     : settings?.maxApiKeyLifetimeDays;
-  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
-  // The field explains each of these inline, so Create just stays out of reach.
-  const expirationProblem = getExpirationProblem(expiresAt, maxLifetimeDays);
+  const [expiresAt, setExpiresAt] = useState<Date | null>(() =>
+    existingKey?.expiresAt ? new Date(existingKey.expiresAt) : null,
+  );
+  // An edit sends the expiry only when it moved, so a permissions-only save
+  // never trips over a key that predates the policy.
+  const expirationChanged =
+    (expiresAt?.getTime() ?? null) !==
+    (existingKey?.expiresAt ? new Date(existingKey.expiresAt).getTime() : null);
+  // The field explains each of these inline, so Save just stays out of reach.
+  const expirationProblem = getExpirationProblem(
+    expiresAt,
+    maxLifetimeDays,
+    new Date(),
+    existingKey
+      ? latestEditedExpiration(
+          existingKey.expiresAt,
+          existingKey.dateCreated,
+          maxLifetimeDays,
+        )
+      : undefined,
+  );
 
   // When an existing key is passed in, the modal edits that key in place
   // instead of creating a new one.
@@ -106,6 +127,9 @@ const ApiKeysModal: FC<{
         body: JSON.stringify({
           description: value.description,
           ...(personalAccessToken ? patScope : { role, ...roleStateData }),
+          ...(expirationChanged && {
+            expiresAt: expiresAt?.toISOString() ?? null,
+          }),
         }),
       });
       track("Edit API Key", {
@@ -161,7 +185,7 @@ const ApiKeysModal: FC<{
       open={true}
       submit={onSubmit}
       cta={editMode ? "Save" : "Create"}
-      ctaEnabled={editMode || !expirationProblem}
+      ctaEnabled={!expirationProblem || (editMode && !expirationChanged)}
     >
       <TextField
         label="Description"
@@ -169,13 +193,12 @@ const ApiKeysModal: FC<{
         mb="3"
         {...form.register("description")}
       />
-      {!editMode && (
-        <ApiKeyExpirationField
-          maxLifetimeDays={maxLifetimeDays}
-          value={expiresAt}
-          setValue={setExpiresAt}
-        />
-      )}
+      <ApiKeyExpirationField
+        maxLifetimeDays={maxLifetimeDays}
+        value={expiresAt}
+        setValue={setExpiresAt}
+        existing={existingKey}
+      />
       {canDeleteSource && (
         <Box mb="3">
           <Checkbox

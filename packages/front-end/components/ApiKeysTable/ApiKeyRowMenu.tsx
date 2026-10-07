@@ -52,7 +52,7 @@ export default function ApiKeyRowMenu({
           apiKey.secret &&
           !(apiKey.role === "visualEditor" && !apiKey.scoped) && (
             <DropdownMenuItem onClick={() => onEdit(apiKey)}>
-              Edit permissions & description
+              Edit key
             </DropdownMenuItem>
           )}
         {onCopy && (

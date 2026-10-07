@@ -4,6 +4,7 @@ import {
   getExpirationProblem,
   getExpirationStatus,
   isExpired,
+  latestEditedExpiration,
   maxExpirationDate,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
@@ -133,5 +134,41 @@ describe("getExpirationProblem", () => {
 
   it("reports the past before the policy, since the date is unusable either way", () => {
     expect(getExpirationProblem(addDays(NOW, -1), 30, NOW)).toBe("past");
+  });
+});
+
+describe("latestEditedExpiration", () => {
+  const created = addDays(NOW, -10);
+
+  it("has no cap without a policy", () => {
+    expect(latestEditedExpiration(addDays(NOW, 5), created, null, NOW)).toBe(
+      null,
+    );
+  });
+
+  it("measures the maximum from creation, not from the edit", () => {
+    expect(latestEditedExpiration(addDays(NOW, 5), created, 30, NOW)).toEqual(
+      addDays(created, 30),
+    );
+  });
+
+  it("never caps below the current expiry, so shortening always works", () => {
+    const current = addDays(NOW, 60);
+    expect(latestEditedExpiration(current, created, 30, NOW)).toEqual(current);
+  });
+
+  it("gives a key with no expiry the backfill's grace from today", () => {
+    const old = addDays(NOW, -400);
+    expect(latestEditedExpiration(null, old, 30, NOW)).toEqual(
+      addDays(NOW, 30),
+    );
+  });
+
+  it("feeds getExpirationProblem as the edit's upper bound", () => {
+    const latest = latestEditedExpiration(addDays(NOW, 5), created, 30, NOW);
+    expect(getExpirationProblem(addDays(NOW, 20), 30, NOW, latest)).toBeNull();
+    expect(getExpirationProblem(addDays(NOW, 21), 30, NOW, latest)).toBe(
+      "too-late",
+    );
   });
 });
