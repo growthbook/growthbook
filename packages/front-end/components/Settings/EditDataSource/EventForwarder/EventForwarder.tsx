@@ -537,11 +537,7 @@ function EventForwarderModal({
                 }}
                 disabled={isEditingEventForwarder}
                 options={dataRegionOptions}
-                helpText={
-                  eventForwarderConfig.sinkType === "snowflake"
-                    ? "Where the forwarder's Kafka/Confluent resources are provisioned. This cannot be changed later."
-                    : "Where GrowthBook processes event data before writing to your warehouse. This cannot be changed later."
-                }
+                helpText="Where GrowthBook processes event data before writing to your warehouse. This cannot be changed later."
               />
             ) : null}
             <Callout status="info" mb="0" mt="3" icon={null}>

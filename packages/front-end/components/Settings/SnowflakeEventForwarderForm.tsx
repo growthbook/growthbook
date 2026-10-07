@@ -81,7 +81,7 @@ const SnowflakeEventForwarderForm: FC<{
         value={snowflakeEventForwarderConfig.config.role || ""}
         onChange={(e) => updateConfig({ role: e.target.value })}
         placeholder=""
-        helpText="Required. Snowflake role for the Confluent Snowflake Sink (Snowpipe Streaming + schema evolution). Defaults from the datasource connection."
+        helpText="Required. Must be the default role of the Snowflake user on the connection: Snowpipe Streaming runs as that user. Defaults from the datasource connection."
       />
       <Field
         label={

@@ -37,18 +37,18 @@ You can grant this at the dataset level in the BigQuery console or via the `role
 
 ### Snowflake
 
-The Snowflake connection **must use key-pair authentication** — password authentication is not supported for the Event Forwarder. The Snowflake role you provide must have the following privileges:
+The Snowflake connection **must use key-pair authentication** — password authentication is not supported for the Event Forwarder. GrowthBook creates the three destination tables itself during setup, then streams events into them through [Snowpipe Streaming](https://docs.snowflake.com/en/user-guide/snowpipe-streaming/data-load-snowpipe-streaming-overview) as the connection's user.
 
-| Privilege       | Object                   |
-| --------------- | ------------------------ |
-| `USAGE`         | Database                 |
-| `USAGE`         | Schema                   |
-| `USAGE`         | Warehouse (if specified) |
-| `CREATE SCHEMA` | Database                 |
-| `CREATE TABLE`  | Schema                   |
-| `INSERT`        | Tables                   |
+Snowpipe Streaming runs under the user's **default role**, so the role you enter in the Event Forwarder must be that user's default role (`ALTER USER <user> SET DEFAULT_ROLE = <role>`). It needs the following privileges:
 
-`CREATE TABLE` and `CREATE SCHEMA` are required because the Confluent Snowflake Sink uses Snowpipe Streaming with schema evolution, which may create or alter tables and schemas as your event schema changes.
+| Privilege      | Object   |
+| -------------- | -------- |
+| `USAGE`        | Database |
+| `USAGE`        | Schema   |
+| `CREATE TABLE` | Schema   |
+| `INSERT`       | Tables   |
+
+`CREATE TABLE` is only used during setup. The tables are created with a fixed schema, and existing tables with the same names must match it; drop them or choose another table prefix if setup reports a mismatch.
 
 Key-pair authentication must be configured on the Snowflake datasource connection itself — it is not set in the Event Forwarder UI. Update your datasource's connection settings to use key-pair auth before enabling the Event Forwarder.
 
