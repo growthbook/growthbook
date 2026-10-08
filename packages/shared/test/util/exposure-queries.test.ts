@@ -9,7 +9,7 @@ import {
   parseAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   flattenExposureQueryInput,
-  getExposureQueriesOutsideProjectScope,
+  assertExposureQueriesWithinProjectScope,
   isExposureQueryAvailableForProjects,
   getIdentifierTypeForSettingsHash,
   getPreferredIdentifierType,
@@ -682,22 +682,23 @@ describe("getPreferredIdentifierType", () => {
   });
 });
 
-describe("getExposureQueriesOutsideProjectScope", () => {
-  it("flags a query scoped to a project the data source is not", () => {
-    const result = getExposureQueriesOutsideProjectScope(
-      [{ id: "q1", name: "Q1", projects: ["p1", "p3"] }],
-      ["p1", "p2"],
-    );
-    expect(result).toEqual([{ id: "q1", name: "Q1", invalidProjects: ["p3"] }]);
+describe("assertExposureQueriesWithinProjectScope", () => {
+  it("rejects a query scoped to a project the data source is not", () => {
+    expect(() =>
+      assertExposureQueriesWithinProjectScope(
+        [{ name: "Q1", projects: ["p1", "p3"] }],
+        ["p1", "p2"],
+      ),
+    ).toThrow('"Q1" (p3)');
   });
 
   it("treats an empty data source project list as all projects", () => {
-    expect(
-      getExposureQueriesOutsideProjectScope(
-        [{ id: "q1", name: "Q1", projects: ["p1"] }],
+    expect(() =>
+      assertExposureQueriesWithinProjectScope(
+        [{ name: "Q1", projects: ["p1"] }],
         [],
       ),
-    ).toEqual([]);
+    ).not.toThrow();
   });
 });
 

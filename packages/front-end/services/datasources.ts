@@ -1067,18 +1067,6 @@ export function getExposureQueriesInScope(
     : getExposureQueriesForProject(all, project, datasource.projects);
 }
 
-/** How a saved selection drifted from what its scope and query now allow. */
-export function getAssignmentQueryDrift(
-  query: ExposureQuery | undefined,
-  identifierType: string | undefined,
-  scopedQueries: ExposureQuery[],
-): { outOfScope: boolean; identifierUndeclared: boolean } {
-  return {
-    outOfScope: !!query && !scopedQueries.some((q) => q.id === query.id),
-    identifierUndeclared: isIdentifierUndeclared(query, identifierType),
-  };
-}
-
 /**
  * The record a new one copies its assignment selection from: a duplicated
  * experiment or holdout, or a template.

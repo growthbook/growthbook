@@ -19,8 +19,8 @@ import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Exp
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import {
-  getAssignmentQueryDrift,
   getExposureQueriesInScope,
+  isIdentifierUndeclared,
 } from "@/services/datasources";
 import {
   AssignmentQueryDriftIcon,
@@ -73,17 +73,9 @@ export default function AnalysisSettings({
     assignmentQuery,
     experiment.exposureQueryIdentifierType,
   );
-  const assignmentQueryDrift = getAssignmentQueryDrift(
-    assignmentQuery,
-    identifierType,
-    datasource
-      ? getExposureQueriesInScope(
-          datasource,
-          experiment.project,
-          holdoutProjects,
-        )
-      : [],
-  );
+  const scopedQueries = datasource
+    ? getExposureQueriesInScope(datasource, experiment.project, holdoutProjects)
+    : [];
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {
@@ -216,7 +208,13 @@ export default function AnalysisSettings({
                 </Text>{" "}
                 <AssignmentQueryDriftIcon
                   selection={{
-                    ...assignmentQueryDrift,
+                    outOfScope:
+                      !!assignmentQuery &&
+                      !scopedQueries.some((q) => q.id === assignmentQuery.id),
+                    identifierUndeclared: isIdentifierUndeclared(
+                      assignmentQuery,
+                      identifierType,
+                    ),
                     identifierType,
                     scopeKind: getAssignmentQueryScopeKind(holdoutProjects),
                   }}

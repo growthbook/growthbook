@@ -5,7 +5,7 @@ import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
-  getExposureQueriesOutsideProjectScope,
+  assertExposureQueriesWithinProjectScope,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
@@ -442,25 +442,6 @@ function assertUniqueUserIdTypeNames(
   }
 }
 
-// Enforces EAQ.projects ⊆ datasource.projects. Narrowing a data source's
-// projects to strand an existing query is a hard block, not an auto-fix.
-function assertExposureQueriesWithinProjectScope(
-  settings: DataSourceSettings | undefined,
-  datasourceProjects: string[],
-): void {
-  const violations = getExposureQueriesOutsideProjectScope(
-    settings?.queries?.exposure ?? [],
-    datasourceProjects,
-  );
-  if (!violations.length) return;
-  const detail = violations
-    .map((v) => `"${v.name}" (${v.invalidProjects.join(", ")})`)
-    .join("; ");
-  throw new Error(
-    `These experiment assignment queries are scoped to projects the data source is not: ${detail}. Update the assignment query projects to be within the data source's projects.`,
-  );
-}
-
 // Managed records have no Edit or Delete in the UI; this is what holds the line
 // for direct API calls and stale browser tabs.
 function assertEventForwarderManagedRecordsIntact(
@@ -569,7 +550,10 @@ export async function createDataSource(
   datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
-  assertExposureQueriesWithinProjectScope(settings, projects);
+  assertExposureQueriesWithinProjectScope(
+    settings.queries?.exposure ?? [],
+    projects,
+  );
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
   let model: DataSourceDocument;
@@ -822,7 +806,7 @@ export async function updateDataSource(
   // Check the resulting state, since narrowing projects alone can strand a query.
   if (updates.projects !== undefined || updates.settings?.queries?.exposure) {
     assertExposureQueriesWithinProjectScope(
-      updates.settings ?? datasource.settings,
+      (updates.settings ?? datasource.settings)?.queries?.exposure ?? [],
       updates.projects ?? datasource.projects ?? [],
     );
   }

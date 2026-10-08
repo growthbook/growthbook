@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getDefaultIdentifierType,
   getIdentifierTypeForHashAttribute,
-  getAssignmentQueryDrift,
+  isIdentifierUndeclared,
   getCopiedAssignmentQueryNotice,
   getExposureQueriesForProject,
   getExposureQueriesInScope,
@@ -253,25 +253,23 @@ describe("getExposureQueriesInScope", () => {
   });
 });
 
-describe("getAssignmentQueryDrift", () => {
+describe("isIdentifierUndeclared", () => {
   const query = makeExposureQuery({
     id: "exq_a",
     userIdType: "user_id",
     userIdTypes: ["user_id"],
   });
 
-  it("flags a query missing from the scoped queries", () => {
-    expect(getAssignmentQueryDrift(query, "user_id", [])).toEqual({
-      outOfScope: true,
-      identifierUndeclared: false,
-    });
+  it("is false for a query declaring the identifier", () => {
+    expect(isIdentifierUndeclared(query, "user_id")).toBe(false);
   });
 
   it("flags an identifier the query no longer declares", () => {
-    expect(getAssignmentQueryDrift(query, "anon_id", [query])).toEqual({
-      outOfScope: false,
-      identifierUndeclared: true,
-    });
+    expect(isIdentifierUndeclared(query, "anon_id")).toBe(true);
+  });
+
+  it("is false without a query", () => {
+    expect(isIdentifierUndeclared(undefined, "user_id")).toBe(false);
   });
 });
 

@@ -411,27 +411,24 @@ export function isExposureQueryAvailableForProjects(
 }
 
 /**
- * Queries that violate `EAQ.projects ⊆ datasource.projects`. Empty
- * `datasourceProjects` means all projects (nothing out of scope); a query with no
- * projects inherits the data source scope.
+ * Each query's own projects must be a subset of the data source's. Empty
+ * data source projects means all projects; a query with none inherits them.
  */
-export function getExposureQueriesOutsideProjectScope(
-  exposureQueries: Pick<ExposureQuery, "id" | "name" | "projects">[],
+export function assertExposureQueriesWithinProjectScope(
+  exposureQueries: Pick<ExposureQuery, "name" | "projects">[],
   datasourceProjects: string[],
-): { id: string; name: string; invalidProjects: string[] }[] {
-  if (!datasourceProjects.length) return [];
-  const allowed = new Set(datasourceProjects);
-  const violations: { id: string; name: string; invalidProjects: string[] }[] =
-    [];
-  for (const query of exposureQueries) {
-    const invalidProjects = (query.projects ?? []).filter(
-      (project) => !allowed.has(project),
+): void {
+  if (!datasourceProjects.length) return;
+  const violations = exposureQueries.flatMap((query) => {
+    const outside = (query.projects ?? []).filter(
+      (project) => !datasourceProjects.includes(project),
     );
-    if (invalidProjects.length) {
-      violations.push({ id: query.id, name: query.name, invalidProjects });
-    }
-  }
-  return violations;
+    return outside.length ? [`"${query.name}" (${outside.join(", ")})`] : [];
+  });
+  if (!violations.length) return;
+  throw new Error(
+    `These experiment assignment queries are scoped to projects the data source is not: ${violations.join("; ")}. Update the assignment query projects to be within the data source's projects.`,
+  );
 }
 
 /**

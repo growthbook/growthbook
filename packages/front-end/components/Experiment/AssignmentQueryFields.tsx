@@ -4,13 +4,13 @@ import { getExposureQueryIdentifierTypes } from "shared/util";
 import { PiInfoFill, PiWarningFill } from "react-icons/pi";
 import {
   AssignmentQueryNotice,
-  getAssignmentQueryDrift,
   getDefaultIdentifierType,
   getExposureQueriesInScope,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getIdentifierTypeForHashAttribute,
   getSelectableIdentifierTypes,
+  isIdentifierUndeclared,
 } from "@/services/datasources";
 import SelectField, {
   GroupedValue,
@@ -101,10 +101,11 @@ export function useAssignmentQuerySelection({
   const keptQuery = keptQueryId
     ? datasource?.settings?.queries?.exposure?.find((q) => q.id === keptQueryId)
     : undefined;
-  const { outOfScope, identifierUndeclared } = getAssignmentQueryDrift(
+  const outOfScope =
+    !!keptQuery && !scopedQueries.some((q) => q.id === keptQuery.id);
+  const identifierUndeclared = isIdentifierUndeclared(
     keptQuery,
     identifierType,
-    scopedQueries,
   );
   const exposureQueries = useMemo(
     () =>
