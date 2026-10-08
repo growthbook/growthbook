@@ -143,7 +143,8 @@ export class ApiKeyModel extends BaseClass {
       environments: doc.environments,
       additionalRoles: doc.additionalRoles,
       projectRoles: doc.projectRoles,
-      requireRequestedBy: doc.requireRequestedBy,
+      requesterHeader: doc.requesterHeader,
+      requesterPermissions: doc.requesterPermissions,
       disabled: doc.disabled,
       disabledBy: doc.disabledBy,
       expiresAt: doc.expiresAt,
@@ -190,7 +191,7 @@ export class ApiKeyModel extends BaseClass {
       }
     }
     if (doc.userId) {
-      if (doc.requireRequestedBy) {
+      if (doc.requesterHeader || doc.requesterPermissions) {
         this.context.throwBadRequestError(
           "PATs already act as a user and cannot take X-GrowthBook-Requested-By.",
         );
@@ -376,7 +377,8 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
-    requireRequestedBy,
+    requesterHeader,
+    requesterPermissions,
     expiresAt,
   }: {
     description: string;
@@ -385,7 +387,8 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requireRequestedBy?: boolean;
+    requesterHeader?: ApiKeyInterface["requesterHeader"];
+    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: Date | null;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
@@ -399,7 +402,8 @@ export class ApiKeyModel extends BaseClass {
       environments,
       additionalRoles,
       projectRoles,
-      requireRequestedBy,
+      requesterHeader,
+      requesterPermissions,
       expiresAt,
     });
   }
@@ -507,7 +511,8 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       description,
-      requireRequestedBy,
+      requesterHeader,
+      requesterPermissions,
       expiresAt,
     }: {
       role?: string;
@@ -517,7 +522,8 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
-      requireRequestedBy?: boolean;
+      requesterHeader?: ApiKeyInterface["requesterHeader"];
+      requesterPermissions?: ApiKeyInterface["requesterPermissions"];
       // Omitted leaves it unchanged; `customValidation` enforces the edit rules.
       expiresAt?: Date | null;
     },
@@ -591,7 +597,8 @@ export class ApiKeyModel extends BaseClass {
         additionalRoles,
         projectRoles,
         description,
-        ...(requireRequestedBy !== undefined && { requireRequestedBy }),
+        ...(requesterHeader !== undefined && { requesterHeader }),
+        ...(requesterPermissions !== undefined && { requesterPermissions }),
         ...(expiresAt !== undefined && { expiresAt }),
       },
       { forceCanUpdate: true },
@@ -844,7 +851,8 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
-    requireRequestedBy,
+    requesterHeader,
+    requesterPermissions,
     expiresAt,
   }: {
     environment: string;
@@ -859,7 +867,8 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requireRequestedBy?: boolean;
+    requesterHeader?: ApiKeyInterface["requesterHeader"];
+    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: Date | null;
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
@@ -890,7 +899,8 @@ export class ApiKeyModel extends BaseClass {
       environments: environments ?? [],
       additionalRoles,
       projectRoles,
-      ...(requireRequestedBy !== undefined && { requireRequestedBy }),
+      ...(requesterHeader !== undefined && { requesterHeader }),
+      ...(requesterPermissions !== undefined && { requesterPermissions }),
       expiresAt,
     });
   }

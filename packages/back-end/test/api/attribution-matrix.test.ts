@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import request from "supertest";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
+import type { ApiKeyWithRole } from "shared/types/apikey";
 import { ReqContextClass } from "back-end/src/services/context";
 import { apiKeyEventUser } from "back-end/src/util/api-key.util";
 import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
@@ -38,6 +39,8 @@ const KEY = {
   secret: true,
   description: "CI key",
   role: "admin",
+  limitAccessByEnvironment: false,
+  environments: [],
   dateCreated: new Date(),
   dateUpdated: new Date(),
 };
@@ -88,7 +91,7 @@ const EXPECT: Record<
 function contextFor(
   actor: Actor,
   person: Person = dana,
-  key: typeof KEY = KEY,
+  key: ApiKeyWithRole = KEY,
 ) {
   const base = {
     org,
@@ -142,7 +145,11 @@ describe("attribution across callers", () => {
     await collection("apikeys").insertOne({ ...KEY });
   });
 
-  const as = (actor: Actor, person: Person = dana, key: typeof KEY = KEY) => {
+  const as = (
+    actor: Actor,
+    person: Person = dana,
+    key: ApiKeyWithRole = KEY,
+  ) => {
     setReqContext(contextFor(actor, person, key));
     return {
       get: (path: string) =>
@@ -536,6 +543,20 @@ describe("attribution across callers", () => {
           })
         ).status,
       ).toBe(403);
+      // Keeping its own role, the key only records who asked.
+      expect(
+        (
+          await as("a key naming the member", bob, {
+            ...KEY,
+            requesterPermissions: "key",
+          }).post("/api/v1/constants", {
+            key: "logged-for-bob",
+            name: "Logged for Bob",
+            type: "json",
+            value: "{}",
+          })
+        ).status,
+      ).toBe(200);
     } finally {
       member.role = "admin";
     }
@@ -543,9 +564,15 @@ describe("attribution across callers", () => {
 
   describe("author rights through a key", () => {
     const READONLY_KEY = { ...KEY, id: "key_readonly", role: "readonly" };
+    const OWN_ROLE_KEY = {
+      ...READONLY_KEY,
+      id: "key_own_role",
+      requesterPermissions: "key" as const,
+    };
     const NAMED = [
-      ["the draft's author", dana, 200],
-      ["someone else", bob, 403],
+      ["naming the draft's author", dana, READONLY_KEY, 200],
+      ["naming someone else", bob, READONLY_KEY, 403],
+      ["that keeps its own role, naming the author", dana, OWN_ROLE_KEY, 403],
     ] as const;
 
     // Dana writes a draft, then loses draft permissions, so only her author
@@ -561,8 +588,8 @@ describe("attribution across callers", () => {
     };
 
     it.each(NAMED)(
-      "lets a read-only key naming %s discard a constant draft",
-      async (_, person, status) => {
+      "lets a read-only key %s discard a constant draft",
+      async (_, person, key, status) => {
         const create = await as("a personal token").post("/api/v1/constants", {
           key: "timeout",
           name: "Timeout",
@@ -577,19 +604,17 @@ describe("attribution across callers", () => {
         const version = draft.body.revision.version;
 
         await asDemotedAuthor(async () => {
-          const res = await as(
-            "a key naming the member",
-            person,
-            READONLY_KEY,
-          ).post(`/api/v1/constants-revisions/timeout/${version}/discard`);
+          const res = await as("a key naming the member", person, key).post(
+            `/api/v1/constants-revisions/timeout/${version}/discard`,
+          );
           expect(res.status).toBe(status);
         });
       },
     );
 
     it.each(NAMED)(
-      "lets a read-only key naming %s discard a feature draft",
-      async (_, person, status) => {
+      "lets a read-only key %s discard a feature draft",
+      async (_, person, key, status) => {
         const create = await as("a personal token").post("/api/v2/features", {
           id: "checkout-flow",
           valueType: "boolean",
@@ -603,11 +628,9 @@ describe("attribution across callers", () => {
         const version = draft.body.revision.version;
 
         await asDemotedAuthor(async () => {
-          const res = await as(
-            "a key naming the member",
-            person,
-            READONLY_KEY,
-          ).post(`/api/v2/features/checkout-flow/revisions/${version}/discard`);
+          const res = await as("a key naming the member", person, key).post(
+            `/api/v2/features/checkout-flow/revisions/${version}/discard`,
+          );
           expect(res.status).toBe(status);
         });
       },

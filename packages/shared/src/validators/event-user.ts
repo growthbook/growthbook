@@ -45,8 +45,14 @@ export const REQUIRES_PERSON_NOTE =
   "Requires a Personal Access Token, or an organization API key that names a member with `X-GrowthBook-Requested-By`.";
 
 const requestedByField = eventUserRequestedBy.describe(
-  "The member an organization API key named with `X-GrowthBook-Requested-By`. When present, this member is the person behind the action, and the request had only the permissions both the key and this member hold.",
+  "The member an organization API key named with `X-GrowthBook-Requested-By`. When present, this member is the person behind the action.",
 );
+
+const assumedRoleField = z
+  .boolean()
+  .describe(
+    "True when the request assumed the named member's role, with only the permissions both the key and the member hold. Absent when the key kept its own role.",
+  );
 
 // Actor shape the REST API returns: the event user without the API key id.
 // For an organization API key, `name` is the key's name.
@@ -78,6 +84,7 @@ export const apiEventUser = namedSchema(
         )
         .optional(),
       requestedBy: requestedByField.optional(),
+      assumedRole: assumedRoleField.optional(),
     })
     .strict()
     .describe(
@@ -95,6 +102,7 @@ const eventUserApiKey = z
     name: z.string().optional(),
     email: z.string().optional(),
     requestedBy: requestedByField.optional(),
+    assumedRole: assumedRoleField.optional(),
   })
   .strict();
 
@@ -216,6 +224,7 @@ export function auditUserToEventUser(
       name: user.name,
       email: user.email,
       requestedBy: user.requestedBy,
+      assumedRole: user.assumedRole,
     };
   }
   const u = user as AuditUserLoggedIn;

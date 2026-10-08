@@ -27,6 +27,7 @@ const auditSchema = new mongoose.Schema({
       name: String,
       email: String,
     },
+    assumedRole: Boolean,
   },
   reason: String,
   event: String,

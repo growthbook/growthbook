@@ -45,11 +45,14 @@ If a key has an expiration date, every response includes it in the `X-GrowthBook
 
 ## Naming who asked
 
-Requests made with a Secret Key may add an `X-GrowthBook-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. The request then acts for that member with only the permissions both the key and the member hold, so the header can narrow what a key does but never widen it. History, revision logs and webhooks show that member next to the key, and drafts, owners, `mine` filters and reviews carry their name. The member's rights over their own drafts, comments and review verdicts come along too.
+Requests made with a Secret Key may add an `X-GrowthBook-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks show that member next to the key, and drafts, owners, `mine` filters and reviews carry their name.
 
-A key can require the header on every request under `Settings -> API Keys`; requests without it are then rejected with a 400.
+Each key's settings under `Settings -> API Keys`:
 
-A value that does not match a member of the organization is rejected with a 400. Approving or requesting changes needs a named member, and the verdict counts as theirs, so a key can't approve a draft created in that member's name; comments don't need one. Because the header isn't verified, whoever holds the key can review as any member. A create request that omits `owner` defaults it to the named member. Scheduled and auto-publishes armed by such a request later run with the same member's permissions, and don't run if that member has left the organization. Personal Access Tokens and OAuth tokens already act as their user and reject the header.
+- **Header**: **Optional** (the default) uses the header when it's sent, **Required** rejects requests without it, and **Rejected** rejects requests that send it, each with a 400.
+- **Permissions**, when a member is named: **Assume the member's role** (the default) gives the request only what both the key and the member can do, so the header can narrow a key but never widen it, and the member's rights over their own drafts, comments and review verdicts come along. **Use this key's role** keeps the key's own permissions, and the header only records who asked.
+
+A value that does not match a member of the organization is rejected with a 400. Approving or requesting changes needs a named member, and the verdict counts as theirs, so a key can't approve a draft created in that member's name; comments don't need one. Because the header isn't verified, whoever holds the key can review as any member. A create request that omits `owner` defaults it to the named member. Scheduled and auto-publishes armed by such a request later run with the same permissions, and don't run if that member has left the organization. Personal Access Tokens and OAuth tokens already act as their user and reject the header.
 
 ```bash
 curl https://api.growthbook.io/api/v1/features \

@@ -68,6 +68,18 @@ describe("getKeyPermissionsForRequest", () => {
     ).toBeUndefined();
   });
 
+  it("keeps the key's own role when it doesn't assume the member's", () => {
+    expect(
+      getKeyPermissionsForRequest({
+        apiKey: key({ ...rule("engineer"), requesterPermissions: "key" }),
+        requesterId: "u_reader",
+        org,
+        teams,
+        restrictedProjects: [],
+      }),
+    ).toBeUndefined();
+  });
+
   it.each([
     ["a member whose team grants it", "u_team_engineer", true],
     ["a member with it", "u_engineer", true],

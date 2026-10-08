@@ -22,6 +22,7 @@ export interface AuditUserApiKey {
   name?: string;
   email?: string;
   requestedBy?: EventUserRequestedBy;
+  assumedRole?: boolean;
 }
 
 export interface AuditUserSystem {

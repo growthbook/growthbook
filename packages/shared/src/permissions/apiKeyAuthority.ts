@@ -13,3 +13,16 @@ export function apiKeyToggleRequiresAdmin(
     (!!key.disabled && !!key.disabledBy && key.disabledBy !== actorId)
   );
 }
+
+// An org key's X-GrowthBook-Requested-By settings, with their defaults.
+export function requesterHeaderPolicy(
+  key: Pick<ApiKeyInterface, "requesterHeader">,
+): NonNullable<ApiKeyInterface["requesterHeader"]> {
+  return key.requesterHeader ?? "optional";
+}
+
+export function assumesRequesterRole(
+  key: Pick<ApiKeyInterface, "requesterPermissions">,
+): boolean {
+  return (key.requesterPermissions ?? "assume") === "assume";
+}

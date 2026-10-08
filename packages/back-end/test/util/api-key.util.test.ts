@@ -5,7 +5,7 @@ import {
   migrateApiKey,
   roleForApiKey,
   resolveRequestedBy,
-  assertNoRequestedByOnUserToken,
+  resolveRequestedByFor,
   encodeArmingApiKeyId,
   decodeArmingApiKeyId,
   apiKeyEventUser,
@@ -224,15 +224,29 @@ describe("resolveRequestedBy", () => {
       ).rejects.toMatchObject({ status: 400 });
     },
   );
-});
 
-describe("assertNoRequestedByOnUserToken", () => {
-  it("allows a request without the header and refuses one with it", () => {
-    expect(() => assertNoRequestedByOnUserToken(undefined)).not.toThrow();
-    expect(() => assertNoRequestedByOnUserToken("alice@example.com")).toThrow(
-      "only for organization API keys",
-    );
-  });
+  it.each([
+    ["a token", null, undefined, null],
+    ["a token", null, "u_alice", "only for organization API keys"],
+    ["an optional key", {}, undefined, null],
+    ["an optional key", {}, "u_alice", "u_alice"],
+    ["a required key", { requesterHeader: "required" }, undefined, "requires"],
+    ["a required key", { requesterHeader: "required" }, "u_alice", "u_alice"],
+    ["a rejecting key", { requesterHeader: "rejected" }, undefined, null],
+    ["a rejecting key", { requesterHeader: "rejected" }, "u_alice", "accept"],
+  ] as const)(
+    "applies %s's rules to the header %s",
+    async (_, orgKey, value, expected) => {
+      const result = resolveRequestedByFor(value, orgKey, org, lookup);
+      if (expected === null) {
+        await expect(result).resolves.toBeNull();
+      } else if (expected.startsWith("u_")) {
+        await expect(result).resolves.toMatchObject({ id: expected });
+      } else {
+        await expect(result).rejects.toThrow(expected);
+      }
+    },
+  );
 });
 
 describe("arming API key ids", () => {
@@ -258,11 +272,18 @@ describe("apiKeyEventUser", () => {
   const dana = { id: "u_dana", name: "Dana", email: "dana@example.com" };
   const key = { description: "CI key" };
 
-  it("records an org key naming a member under its own name, with the member", () => {
+  it.each([
+    ["assumes their role", key, true],
+    [
+      "keeps its own role",
+      { ...key, requesterPermissions: "key" as const },
+      false,
+    ],
+  ])("records an org key naming a member that %s", (_, apiKey, assumed) => {
     expect(
       apiKeyEventUser({
         apiKeyId: "key_ci",
-        key,
+        key: apiKey,
         owner: null,
         requester: dana,
       }),
@@ -271,6 +292,7 @@ describe("apiKeyEventUser", () => {
       apiKey: "key_ci",
       name: "CI key",
       requestedBy: dana,
+      ...(assumed ? { assumedRole: true } : {}),
     });
   });
 

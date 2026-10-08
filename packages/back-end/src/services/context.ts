@@ -424,10 +424,9 @@ export class ReqContextClass {
 
   // The person a request acts for: the signed-in user, a personal token's
   // owner, or the member an org key names with X-GrowthBook-Requested-By. Use
-  // it for attribution, draft targeting, review verdicts and author rights,
-  // which are the person's. Author rights follow the named member too: once a
-  // key acts as someone on an unverified header, their author rights add
-  // little. Deferred work runs as `armer`.
+  // it for attribution, draft targeting and review verdicts, which are the
+  // person's. Author rights follow `authorUserId`, and deferred work runs as
+  // `armer`.
   public get actingPerson(): {
     id: string;
     name: string;
@@ -440,6 +439,17 @@ export class ReqContextClass {
     return person?.id
       ? { id: person.id, name: person.name || "", email: person.email || "" }
       : null;
+  }
+
+  // Who this request counts as for author rights on drafts, comments and
+  // verdicts: the person, unless a key keeps its own role and its header only
+  // records who asked. Once a key assumes a member's role on an unverified
+  // header, their author rights add little.
+  public get authorUserId(): string {
+    if (this.userId) return this.userId;
+    return this.auditUser?.type === "api_key" && this.auditUser.assumedRole
+      ? this.actingUserId
+      : "";
   }
 
   public get actingUserId(): string {
@@ -752,6 +762,7 @@ export class ReqContextClass {
           name: apiKeyUser?.name,
           email: apiKeyUser?.email,
           requestedBy: apiKeyUser?.requestedBy,
+          assumedRole: apiKeyUser?.assumedRole,
         }
       : this.userId
         ? {

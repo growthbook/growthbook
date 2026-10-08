@@ -67,7 +67,7 @@ export function authoredFeatureDraft(
   context: ReqContext | ApiReqContext,
   draft: Pick<FeatureRevisionInterface, "createdBy" | "contributors">,
 ): boolean {
-  const userId = context.actingUserId;
+  const userId = context.authorUserId;
   if (!userId) return false;
   if (eventUserPersonId(draft.createdBy) === userId) return true;
   return (draft.contributors ?? []).includes(userId);

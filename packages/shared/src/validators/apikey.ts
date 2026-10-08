@@ -2,6 +2,13 @@ import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 import { projectMemberRole, roleRule } from "./organization";
 
+export const requesterHeaderValidator = z.enum([
+  "optional",
+  "required",
+  "rejected",
+]);
+export const requesterPermissionsValidator = z.enum(["assume", "key"]);
+
 export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   key: z.string(),
 }).safeExtend({
@@ -57,11 +64,15 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Org API keys and scoped PATs. Project-specific role overrides, same shape as member projectRoles",
     ),
-  requireRequestedBy: z
-    .boolean()
+  requesterHeader: requesterHeaderValidator
     .optional()
     .describe(
-      "Org API keys only. When true, every request must name the member who asked in an `X-GrowthBook-Requested-By` header",
+      "Org API keys only. Whether requests may (`optional`, the default), must (`required`) or must not (`rejected`) name a member in `X-GrowthBook-Requested-By`",
+    ),
+  requesterPermissions: requesterPermissionsValidator
+    .optional()
+    .describe(
+      "Org API keys only. With a named member, `assume` (the default) gives the request only what both the key and the member can do; `key` keeps the key's own role and only records who asked",
     ),
   disabled: z
     .boolean()

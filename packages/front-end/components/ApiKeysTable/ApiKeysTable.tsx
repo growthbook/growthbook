@@ -143,7 +143,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           {sortedKeys.map(({ key }) => (
             <TableRow key={key.id}>
               <TableCell style={dimStyle(key)}>
-                {key.requireRequestedBy && <RequiresRequesterIcon />}
+                {key.requesterHeader === "required" && (
+                  <RequiresRequesterIcon />
+                )}
                 {key.description}
                 {key.disabled && (
                   <Tooltip

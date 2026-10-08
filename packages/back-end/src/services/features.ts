@@ -2538,6 +2538,7 @@ export function eventUserToApiEventUser(
         name: user.name,
         email: user.email,
         ...(user.requestedBy ? { requestedBy: user.requestedBy } : {}),
+        ...(user.assumedRole ? { assumedRole: true } : {}),
       };
     case "system":
       return {
@@ -4237,7 +4238,7 @@ export async function getFeatureReviewFootprint({
 // the way the review panel judges it.
 // Who may retract a verdict on a draft: anyone who could review it now, or the
 // verdict's own author even after the draft or their role moved them out of
-// its reviewer set, including a key that names them.
+// its reviewer set, including a key that assumes their role.
 export async function assertCanUndoFeatureReview({
   context,
   feature,
@@ -4250,7 +4251,7 @@ export async function assertCanUndoFeatureReview({
   user: EventUser;
 }): Promise<void> {
   const ownVerdict =
-    !!context.actingUserId &&
+    !!context.authorUserId &&
     (revision.reviews ?? []).some(
       (r) => r.userId === reviewerKeyForEventUser(user),
     );

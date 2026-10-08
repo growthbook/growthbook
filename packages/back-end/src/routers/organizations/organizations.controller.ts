@@ -1913,7 +1913,8 @@ export async function postApiKey(
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requireRequestedBy?: boolean;
+    requesterHeader?: ApiKeyInterface["requesterHeader"];
+    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: string | null;
   }>,
   res: Response,
@@ -1928,7 +1929,8 @@ export async function postApiKey(
     environments,
     additionalRoles,
     projectRoles,
-    requireRequestedBy,
+    requesterHeader,
+    requesterPermissions,
     expiresAt: expiresAtInput,
   } = req.body;
 
@@ -1962,7 +1964,8 @@ export async function postApiKey(
       environments,
       additionalRoles,
       projectRoles,
-      requireRequestedBy,
+      requesterHeader,
+      requesterPermissions,
       expiresAt,
     });
   }
@@ -1993,7 +1996,8 @@ export async function putApiKey(
       environments?: string[];
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
-      requireRequestedBy?: boolean;
+      requesterHeader?: ApiKeyInterface["requesterHeader"];
+      requesterPermissions?: ApiKeyInterface["requesterPermissions"];
       expiresAt?: string | null;
     },
     { id: string }
@@ -2010,7 +2014,8 @@ export async function putApiKey(
     environments,
     additionalRoles,
     projectRoles,
-    requireRequestedBy,
+    requesterHeader,
+    requesterPermissions,
     expiresAt,
   } = req.body;
 
@@ -2026,7 +2031,8 @@ export async function putApiKey(
       environments,
       additionalRoles,
       projectRoles,
-      requireRequestedBy,
+      requesterHeader,
+      requesterPermissions,
       expiresAt:
         expiresAt === undefined ? undefined : parseExpiresAt(expiresAt),
     });

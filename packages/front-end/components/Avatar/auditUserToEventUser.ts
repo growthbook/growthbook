@@ -13,6 +13,7 @@ export function auditUserInfoToEventUser(user: AuditUserInfo): EventUser {
       name: user.name,
       email: user.email,
       requestedBy: user.requestedBy,
+      assumedRole: user.assumedRole,
     };
   }
   return {

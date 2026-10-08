@@ -25,8 +25,7 @@ import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
   REQUESTED_BY_HEADER,
-  assertNoRequestedByOnUserToken,
-  resolveRequestedBy,
+  resolveRequestedByFor,
 } from "back-end/src/util/api-key.util";
 import {
   getKeyPermissionsForRequest,
@@ -323,20 +322,12 @@ function authenticateWithApiKey(
       // `X-GrowthBook-Requested-By` names the member who asked an org key to act.
       let requestedBy: EventUserRequestedBy | null = null;
       try {
-        if (userId) {
-          assertNoRequestedByOnUserToken(req.headers[REQUESTED_BY_HEADER]);
-        } else {
-          requestedBy = await resolveRequestedBy(
-            req.headers[REQUESTED_BY_HEADER],
-            org,
-            { byId: getUserById, byEmail: getUserByEmail },
-          );
-          if (!requestedBy && apiKeyDoc.requireRequestedBy) {
-            throw new BadRequestError(
-              "This API key requires an X-GrowthBook-Requested-By header naming an organization member",
-            );
-          }
-        }
+        requestedBy = await resolveRequestedByFor(
+          req.headers[REQUESTED_BY_HEADER],
+          userId ? null : apiKeyDoc,
+          org,
+          { byId: getUserById, byEmail: getUserByEmail },
+        );
       } catch (e) {
         if (!(e instanceof BadRequestError)) throw e;
         return res.status(400).json({ message: e.message });

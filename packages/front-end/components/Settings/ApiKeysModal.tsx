@@ -1,6 +1,10 @@
 import { FC, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { getRoles } from "shared/permissions";
+import {
+  assumesRequesterRole,
+  getRoles,
+  requesterHeaderPolicy,
+} from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import {
@@ -113,9 +117,12 @@ const ApiKeysModal: FC<{
     additionalRoles: source?.additionalRoles,
     projectRoles: source?.projectRoles,
   });
-  const [requireRequestedBy, setRequireRequestedBy] = useState(
-    !!source?.requireRequestedBy,
+  const [requesterHeader, setRequesterHeader] = useState(
+    requesterHeaderPolicy(source ?? {}),
   );
+  const [requesterPermissions, setRequesterPermissions] = useState<
+    NonNullable<ApiKeyInterface["requesterPermissions"]>
+  >(assumesRequesterRole(source ?? {}) ? "assume" : "key");
   const [scoped, setScoped] = useState(!!source?.scoped);
   // Gated like org-key roles; with only the admin role there is nothing to narrow to.
   // An already-scoped token stays visible after a downgrade so the scope isn't silently dropped.
@@ -125,7 +132,7 @@ const ApiKeysModal: FC<{
   const onSubmit = form.handleSubmit(async (value) => {
     const { role, ...rest } = roleState;
     const patScope = scoped ? { scopedRole: role, ...rest } : {};
-    const orgKeyFields = { ...rest, requireRequestedBy };
+    const orgKeyFields = { ...rest, requesterHeader, requesterPermissions };
 
     if (existingKey) {
       await apiCall(`/keys/${existingKey.id}`, {
@@ -239,8 +246,10 @@ const ApiKeysModal: FC<{
       {!personalAccessToken && (
         <>
           <RequestedByFields
-            required={requireRequestedBy}
-            setRequired={setRequireRequestedBy}
+            header={requesterHeader}
+            setHeader={setRequesterHeader}
+            permissions={requesterPermissions}
+            setPermissions={setRequesterPermissions}
           />
           <Box mt="6">
             <Heading as="h4" size="sm" mb="1">

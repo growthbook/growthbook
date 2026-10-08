@@ -6,6 +6,10 @@ import {
   EventUserRequestedBy,
 } from "shared/types/events/event-types";
 import { ApiKeyInterface } from "shared/types/apikey";
+import {
+  assumesRequesterRole,
+  requesterHeaderPolicy,
+} from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import {
   APP_ORIGIN,
@@ -222,7 +226,7 @@ export function apiKeyEventUser({
   requester,
 }: {
   apiKeyId: string;
-  key: Pick<ApiKeyInterface, "description">;
+  key: Pick<ApiKeyInterface, "description" | "requesterPermissions">;
   owner: { id: string; name?: string; email: string } | null;
   requester: EventUserRequestedBy | null;
 }): EventUserApiKey {
@@ -239,17 +243,37 @@ export function apiKeyEventUser({
     type: "api_key",
     apiKey: apiKeyId,
     name: key.description || "",
-    ...(requester && { requestedBy: requester }),
+    ...(requester && {
+      requestedBy: requester,
+      ...(assumesRequesterRole(key) && { assumedRole: true }),
+    }),
   };
 }
 
-// Personal access and OAuth tokens already act as their owner.
-export function assertNoRequestedByOnUserToken(
+// Applies a credential's rules to X-GrowthBook-Requested-By: personal and OAuth
+// tokens already act as their user, and an org key may require or reject it.
+export async function resolveRequestedByFor(
   value: string | string[] | undefined,
-): void {
-  if (headerValue(value)) {
+  orgKey: Pick<ApiKeyInterface, "requesterHeader"> | null,
+  organization: Pick<OrganizationInterface, "members">,
+  lookup: MemberLookup,
+): Promise<EventUserRequestedBy | null> {
+  const policy = orgKey ? requesterHeaderPolicy(orgKey) : null;
+  if (!policy || policy === "rejected") {
+    if (headerValue(value)) {
+      throw new BadRequestError(
+        policy
+          ? "This API key doesn't accept X-GrowthBook-Requested-By."
+          : "X-GrowthBook-Requested-By is only for organization API keys. Personal access and OAuth tokens already act as their user.",
+      );
+    }
+    return null;
+  }
+  const requestedBy = await resolveRequestedBy(value, organization, lookup);
+  if (!requestedBy && policy === "required") {
     throw new BadRequestError(
-      "X-GrowthBook-Requested-By is only for organization API keys. Personal access and OAuth tokens already act as their user.",
+      "This API key requires an X-GrowthBook-Requested-By header naming an organization member",
     );
   }
+  return requestedBy;
 }
