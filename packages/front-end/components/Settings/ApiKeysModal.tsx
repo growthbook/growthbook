@@ -213,7 +213,7 @@ const ApiKeysModal: FC<{
         existing={existingKey}
       />
       {canDeleteSource && (
-        <Box mb="3">
+        <Box mt="3">
           <Checkbox
             value={deleteSource}
             setValue={setDeleteSource}
