@@ -51792,6 +51792,9 @@ paths:
                   type: integer
                   exclusiveMinimum: 0
                   maximum: 12
+                priorSampleSize:
+                  type: integer
+                  minimum: 0
                 scheduleValue:
                   type: number
                 scheduleUnit:
@@ -51951,6 +51954,9 @@ paths:
                   type: integer
                   exclusiveMinimum: 0
                   maximum: 12
+                priorSampleSize:
+                  type: integer
+                  minimum: 0
                 scheduleValue:
                   type: number
                 scheduleUnit:
@@ -77908,6 +77914,9 @@ components:
         maxLeaves:
           type: integer
           exclusiveMinimum: 0
+        priorSampleSize:
+          type: integer
+          minimum: 0
         holdoutPercent:
           type: number
           minimum: 0
@@ -77974,6 +77983,7 @@ components:
         - contextualAttributes
         - minUsersPerLeaf
         - maxLeaves
+        - priorSampleSize
         - holdoutPercent
         - banditModelVersion
       additionalProperties: false

@@ -6,7 +6,74 @@ sidebarTitle: Contextual Bandit
 
 Here we document the technical details behind GrowthBook's contextual bandit variation weight updates. For a product-level introduction, see [Contextual Bandits](/bandits/contextual); to run one, see [Setting up a Contextual Bandit](/bandits/contextual-config).
 
+GrowthBook fits a contextual bandit in two stages. First it partitions users into **leaves** by greedily growing a decision tree over the context attributes. Then it runs **Thompson sampling** _within each leaf_ to set that leaf's variation weights. The sections below describe the two stages in that order.
+
+## Growing the Context Tree (BIC / EBIC)
+
+GrowthBook defines the leaves by greedily growing a binary decision tree over the context attributes, using an Extended Bayesian Information Criterion (EBIC) to decide when to stop splitting so the tree does not overfit the context.
+
+### Model and notation
+
+Within each leaf, a variation's metric values are modeled as independent Gaussian draws around a leaf-and-variation-specific mean. Index the variations with sufficient data by $v = 1, \dots, K$. Let $n_v$ be variation $v$'s total sample size across the tree and $N = \sum_{v} n_v$.
+
+For a given tree, let $\mathrm{SSE}_v$ be variation $v$'s residual sum of squares, pooled across all current leaves (each leaf's residuals taken around that leaf's sample mean for the arm). We leverage EBIC to minimize $\mathrm{SSE}_v$ while controlling for the number of model parameters. Our approach does not require the raw data to be Gaussian, only the sample means, as we describe in [Appendix: Deriving the Profile Log-Likelihood](#appendix-deriving-the-profile-log-likelihood).
+
+The profiled Gaussian log-likelihood for arm $v$ (maximized over the variance) is
+
+$$
+\ell_v = -\frac{n_v}{2}\left[\ln(2\pi) + \ln\!\left(\frac{\mathrm{SSE}_v}{n_v}\right) + 1\right].
+$$
+
+### A single split
+
+Each binary split of a leaf gives every arm its own mean in each of the two children, adding $K$ parameters (one mean per arm). Let $\mathrm{SSE}_v^{\text{before}}$ be the arm's pooled SSE before the split and $\mathrm{SSE}_v^{\text{after}}$ the pooled SSE afterward (the sum of the two children's SSE). Because the per-arm sample sizes are unchanged by a split, the deviance (likelihood-ratio) improvement reduces to
+
+$$
+G^2 = \sum_{v=1}^{K} n_v \left[\ln \mathrm{SSE}_v^{\text{before}} - \ln \mathrm{SSE}_v^{\text{after}}\right] = \sum_{v=1}^{K} n_v \ln\!\frac{\mathrm{SSE}_v^{\text{before}}}{\mathrm{SSE}_v^{\text{after}}},
+$$
+
+which equals twice the increase in the maximized log-likelihood.
+
+### BIC stopping gate
+
+BIC adds a complexity penalty $p \ln N$ for a model with $p$ parameters. A split adds $K$ parameters, so its BIC change is
+
+$$
+\Delta \mathrm{BIC} = K \ln N - G^2.
+$$
+
+GrowthBook accepts a split only when it lowers BIC — that is, when $\Delta\mathrm{BIC} < 0$, equivalently when the deviance improvement clears the penalty:
+
+$$
+G^2 > K \ln N.
+$$
+
+### EBIC multiplicity correction
+
+At each growth step GrowthBook does not test a single pre-specified split. It searches every candidate split across all current leaves and their attributes and keeps the best one. Taking the arg-max over many candidates inflates the apparent improvement, so plain BIC under-penalizes. The Extended BIC ([Chen & Chen, 2008](https://doi.org/10.1093/biomet/asn034)) adds a term for the size of the searched model space. GrowthBook adds $2\gamma \ln M$ to the penalty:
+
+$$
+\mathrm{penalty} = K \ln N + 2\gamma \ln M, \qquad \Delta\mathrm{BIC} = \mathrm{penalty} - G^2,
+$$
+
+where
+
+- $M$ is the number of candidate binary splits searched at that step, summed over all current leaves and their attributes (an attribute with $c \ge 2$ distinct values in a leaf contributes $c$ candidates), floored at $1$.
+- $\gamma \in [0, 1]$ is the EBIC parameter. $\gamma = 0$ recovers plain BIC; $\gamma = 1$ is a Bonferroni-style correction across the candidates searched. The default is $\gamma = 1$.
+
+### Growth algorithm
+
+Starting from the root (a single leaf), at each step GrowthBook:
+
+1. finds, for every current leaf, the candidate split that most reduces total SSE, then takes the global best across leaves;
+2. stops if no valid split remains or the best split does not strictly reduce SSE;
+3. computes $\Delta\mathrm{BIC}$ for that split using the EBIC penalty above, stops if $\Delta\mathrm{BIC} \ge 0$, and otherwise accepts the split and continues.
+
+Growth also stops once the tree reaches its maximum number of leaves. Because the penalty scales with $K \ln N$ (plus $2\gamma \ln M$), larger experiments must clear a proportionally larger deviance improvement to justify each additional split, which keeps the tree conservative as data accrue.
+
 ## Thompson Sampling
+
+Once the tree is built, GrowthBook sets the variation weights _within each leaf_ by Thompson sampling, using the posteriors formed from that leaf's data.
 
 Suppose we have $K$ variations, and we want to update the variation weights for a given context.  
 For the $k$-th variation, define its mean as $\mu_k$, k = 1, ..., K.
@@ -55,3 +122,85 @@ Letting $u = t / \sqrt(2)$ places the integral in the standard form for the Gaus
 $$
 \int_{-\infty}^{\infty} \exp^{-u^2} g(u) du.
 $$
+
+### Prior Sample Size and Exploration
+
+By default each arm's posterior is formed from its own data under a diffuse conjugate prior, and the arms' posteriors are independent — which is exactly what the best-arm probability above assumes. The optional **prior sample size** parameter $n_0$ (seen in the "Increase Bandit Exploration" setting) replaces that with a hierarchical model that partially pools the arms toward a shared mean, trading some exploitation for extra exploration.
+
+Within a leaf, let arm $k$ have sample size $n_k$, sample mean $\bar y_k$, and distributional variance $\sigma_k^2$. The hierarchical model is
+
+$$
+\bar\mu \sim \mathcal N(\mu_0, \sigma_0^2), \qquad
+\mu_k \mid \bar\mu \sim \mathcal N\!\left(\bar\mu,\, \frac{\sigma_k^2}{n_0}\right), \qquad
+\bar y_k \mid \mu_k \sim \mathcal N\!\left(\mu_k,\, \frac{\sigma_k^2}{n_k}\right),
+$$
+
+where $\mu_0$ and $\sigma_0^2$ are the diffuse hyperprior mean and variance. The middle line says the common-mean prior for each arm is worth $n_0$ pseudo-observations, which is the sense in which $n_0$ is a "prior sample size."
+
+Writing the data precision as $\rho_k = n_k / \sigma_k^2$ and the shrinkage factor as
+
+$$
+B_k = \frac{n_0}{n_k + n_0},
+$$
+
+the shared mean has posterior
+
+$$
+\hat{\bar\mu} = \frac{\sigma_0^{-2}\mu_0 + \sum_k \rho_k B_k\, \bar y_k}{\sigma_0^{-2} + \sum_k \rho_k B_k}, \qquad
+\operatorname{Var}(\hat{\bar\mu}) = \left(\sigma_0^{-2} + \sum_k \rho_k B_k\right)^{-1},
+$$
+
+and each arm's posterior mean and variance (the $m_k$ and $s_k^2$ fed into the Thompson weights) are
+
+$$
+m_k = (1 - B_k)\,\bar y_k + B_k\,\hat{\bar\mu}, \qquad
+s_k^2 = \frac{\sigma_k^2}{n_k + n_0} + B_k^2 \operatorname{Var}(\hat{\bar\mu}).
+$$
+
+Larger $n_0$ increases $B_k$, pulling every arm's posterior mean toward the common mean and flattening the resulting weights, which increases exploration. Setting $n_0 = 0$ gives $B_k = 0$, so $m_k = \bar y_k$ and the arms decouple, recovering the independent-arm setup above.
+
+**Approximation when $n_0 > 0$.** The best-arm probability formula treats the posterior arm means as independent (it integrates a product of marginal normal CDFs). This is exact only when $n_0 = 0$. When $n_0 > 0$, every arm is shrunk toward the same estimated common mean $\hat{\bar\mu}$, which makes the posterior arm means **positively dependent** through that shared term. GrowthBook still computes the weights by plugging the marginal posterior means $m_k$ and standard deviations $s_k$ into the independent-arm quadrature, so **the Thompson probabilities are approximate** — they do not account for the dependence among the means. Because the shared-mean uncertainty is common to all arms, ignoring it overstates the variance of the pairwise differences $\mu_k - \mu_j$, which nudges the probabilities slightly toward uniform (a small additional amount of exploration beyond the shrinkage itself).
+
+## Appendix: Deriving the Profile Log-Likelihood
+
+The [tree-growing criterion](#growing-the-context-tree-bic--ebic) scores each arm with the profiled Gaussian log-likelihood
+
+$$
+\ell_v = -\frac{n_v}{2}\left[\ln(2\pi) + \ln\!\left(\frac{\mathrm{SSE}_v}{n_v}\right) + 1\right].
+$$
+
+Here is where that comes from. Fix an arm $v$. Under the Gaussian model each observation $y_{v,j}$ ($j = 1, \dots, n_v$) is drawn around the mean of whichever leaf $\ell(j)$ it falls in, with a common within-arm variance $\sigma_v^2$, so that $y_{v,j} \sim \mathcal{N}(\mu_{v,\ell(j)}, \sigma_v^2)$. The log-likelihood over the leaf means $\{\mu_{v,\ell}\}$ and the variance $\sigma_v^2$ is
+
+$$
+\ell_v(\{\mu_{v,\ell}\}, \sigma_v^2) = -\frac{n_v}{2}\ln(2\pi) - \frac{n_v}{2}\ln\sigma_v^2 - \frac{1}{2\sigma_v^2}\sum_{j=1}^{n_v}\bigl(y_{v,j} - \mu_{v,\ell(j)}\bigr)^2.
+$$
+
+**Step 1 — profile out the means.** Only the final term depends on the means, and it is minimized leaf-by-leaf by the within-leaf sample mean, $\hat\mu_{v,\ell} = \bar y_{v,\ell}$. Substituting these, the residual sum of squares is
+
+$$
+\sum_{j=1}^{n_v}\bigl(y_{v,j} - \hat\mu_{v,\ell(j)}\bigr)^2 = \mathrm{SSE}_v.
+$$
+
+**Step 2 — profile out the variance.** Differentiating the concentrated log-likelihood with respect to $\sigma_v^2$ and setting it to zero,
+
+$$
+\frac{\partial \ell_v}{\partial \sigma_v^2} = -\frac{n_v}{2\sigma_v^2} + \frac{\mathrm{SSE}_v}{2\sigma_v^4} = 0 \quad\Longrightarrow\quad \hat\sigma_v^2 = \frac{\mathrm{SSE}_v}{n_v}.
+$$
+
+**Step 3 — substitute back.** The quadratic term collapses to a constant, $\dfrac{\mathrm{SSE}_v}{2\hat\sigma_v^2} = \dfrac{n_v}{2}$, which yields the profiled form above.
+
+The split statistic follows immediately: comparing a tree to the same tree with one additional split, $n_v$ and the $\ln(2\pi) + 1$ constants are identical before and after, so
+
+$$
+G^2 = 2\sum_v\bigl(\ell_v^{\text{after}} - \ell_v^{\text{before}}\bigr) = \sum_v n_v\left[\ln\mathrm{SSE}_v^{\text{before}} - \ln\mathrm{SSE}_v^{\text{after}}\right].
+$$
+
+### Why only the means need to be normal
+
+The derivation above assumes the individual observations are i.i.d. normal, which is what makes $\ell_v$ the exact MLE. But the procedure needs much less than that. The criterion only ever touches the data through **group means and sums of squares**, so maximizing $\ell_v$ is identical to minimizing $\mathrm{SSE}_v$ — a least-squares (Gaussian quasi-likelihood) score that is sensible for any outcome with finite variance. What actually justifies the downstream inference — $G^2$ behaving like a likelihood ratio, and BIC's $\ln N$ penalty being the right scale — is the asymptotic normality of the **estimated means**, not of the raw outcomes.
+
+So the operative requirement is simply that the **sample means are approximately Gaussian**, which the Central Limit Theorem delivers whenever each leaf has enough units and the metric has finite variance. This is the same assumption the Thompson-sampling stage makes (normal posteriors on the $\mu_k$), so both stages rest on one consistent approximation. Consequently:
+
+- **The raw data need not be Gaussian.** Skewed, bounded, or binary metrics are fine as long as leaves are large enough for their means to be near-normal.
+- **This is why the per-leaf minimum-units requirement matters** — it keeps each leaf mean in the regime where the normal approximation (and hence both the BIC score and the Thompson weights) is trustworthy.
+- **The pooled variance assumes homoscedasticity.** Profiling to a single $\hat\sigma_v^2 = \mathrm{SSE}_v / n_v$ per arm treats the within-arm variance as roughly constant across leaves; if context-level variances differ substantially, plain SSE is a (usually mild) approximation of a variance-weighted criterion.

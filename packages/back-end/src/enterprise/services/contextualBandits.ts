@@ -2042,5 +2042,6 @@ export function getContextualBanditSettingsForStatsEngine(
     contextualAttributes,
     maxLeaves: cb.maxLeaves,
     minUsersPerLeaf: cb.minUsersPerLeaf,
+    priorSampleSize: cb.priorSampleSize ?? 0,
   };
 }

@@ -73,6 +73,7 @@ const BaseClass = MakeModelClass({
     archived: false,
     minUsersPerLeaf: 100,
     maxLeaves: 12,
+    priorSampleSize: 0,
     banditModelVersion: 1,
     currentLeafWeights: [],
     banditVersion: 0,
@@ -267,6 +268,7 @@ export function toApiContextualBandit(
     decisionMetric: doc.decisionMetric,
     minUsersPerLeaf: doc.minUsersPerLeaf,
     maxLeaves: doc.maxLeaves,
+    priorSampleSize: doc.priorSampleSize,
     holdoutPercent: doc.holdoutPercent,
     banditModelVersion: doc.banditModelVersion,
     banditVersion: doc.banditVersion ?? 0,
@@ -409,6 +411,7 @@ export class ContextualBanditModel extends BaseClass {
       banditModelVersion: 1,
       minUsersPerLeaf: body.minUsersPerLeaf ?? 100,
       maxLeaves: body.maxLeaves ?? 12,
+      priorSampleSize: body.priorSampleSize ?? 0,
       hashAttribute: body.hashAttribute ?? "id",
       variations: body.variations.map((v) => ({
         ...v,

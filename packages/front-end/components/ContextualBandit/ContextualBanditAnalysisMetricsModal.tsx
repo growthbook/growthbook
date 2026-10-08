@@ -7,7 +7,7 @@ import {
   getEligibleContextualAttributes,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -16,9 +16,12 @@ import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
+import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/ui/MultiSelectField";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
+import Switch from "@/ui/Switch";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import ContextualBanditDecisionMetricSettings, {
   conversionWindowFormValuesFromMetricWindow,
@@ -36,6 +39,8 @@ type FormValues = {
   banditBurnInUnit: "hours" | "days";
   banditConversionWindowValue?: number;
   banditConversionWindowUnit: "hours" | "days";
+  increaseBanditExploration: boolean;
+  priorSampleSize: number;
 };
 
 /**
@@ -105,8 +110,12 @@ export default function ContextualBanditAnalysisMetricsModal({
       banditBurnInUnit: cb.burnInUnit ?? scopedSettings.banditBurnInUnit.value,
       banditConversionWindowValue: initialConversionWindow.value,
       banditConversionWindowUnit: initialConversionWindow.unit,
+      increaseBanditExploration: (cb.priorSampleSize ?? 0) > 0,
+      priorSampleSize: cb.priorSampleSize ?? 0,
     },
   });
+
+  const increaseBanditExploration = form.watch("increaseBanditExploration");
 
   const watchedDatasource = form.watch("datasource");
   const watchedQueryId = form.watch("exposureQueryId");
@@ -223,6 +232,9 @@ export default function ContextualBanditAnalysisMetricsModal({
               conversionWindowUnit: includeConversionWindow
                 ? data.banditConversionWindowUnit
                 : null,
+              priorSampleSize: data.increaseBanditExploration
+                ? Number(data.priorSampleSize) || 0
+                : 0,
             },
           });
           mutate();
@@ -327,6 +339,44 @@ export default function ContextualBanditAnalysisMetricsModal({
           project={cb.project}
           autoApplyDefaults={false}
         />
+
+        <hr className="my-4" />
+
+        <Box mb="2">
+          <Switch
+            label={
+              <Text weight="medium" color="text-high">
+                Increase Bandit Exploration
+              </Text>
+            }
+            description="Shrink arm estimates toward a shared mean to facilitate model exploration."
+            value={increaseBanditExploration}
+            onChange={(v) => {
+              form.setValue("increaseBanditExploration", v);
+              if (!v) {
+                form.setValue("priorSampleSize", 0);
+              }
+            }}
+          />
+        </Box>
+
+        {increaseBanditExploration ? (
+          <Box mb="3">
+            <Flex align="center" gap="1" mb="1">
+              <Text weight="medium" size="md">
+                Prior arm sample size
+              </Text>
+              <Tooltip body="The number of prior (pseudo) observations used to shrink each arm toward a shared mean. The larger the prior sample size, the stronger the exploration." />
+            </Flex>
+            <Field
+              {...form.register("priorSampleSize", { valueAsNumber: true })}
+              type="number"
+              min={0}
+              step={1}
+              style={{ width: 90 }}
+            />
+          </Box>
+        ) : null}
       </ModalStandard>
     </FormProvider>
   );

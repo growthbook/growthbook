@@ -168,4 +168,57 @@ describe("updateVariationWeights", () => {
       "requires at least 2 variations with sufficient units to update weights",
     );
   });
+
+  describe("hierarchical pooling (priorSampleSize > 0)", () => {
+    const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0);
+
+    it("defaults (priorSampleSize = 0) match the no-argument behavior", () => {
+      const stats = [arm(200, 1), arm(200, 2), arm(200, 3)];
+      const withDefault = updateVariationWeights(
+        stats,
+        [1, 1, 1].map((x) => x / 3),
+      );
+      const explicitZero = updateVariationWeights(
+        stats,
+        [1, 1, 1].map((x) => x / 3),
+        false,
+        0,
+      );
+      expect(explicitZero.updatedWeights).toEqual(withDefault.updatedWeights);
+    });
+
+    it("shrinks weights toward uniform relative to no pooling", () => {
+      const stats = [arm(200, 1), arm(200, 2), arm(200, 3)];
+      const initial = [1, 1, 1].map((x) => x / 3);
+
+      const noPool = updateVariationWeights(stats, initial, false, 0);
+      const pooled = updateVariationWeights(stats, initial, false, 500);
+
+      // Both still sum to 1 and rank arms the same way.
+      expect(sum(pooled.updatedWeights)).toBeCloseTo(1, 6);
+      expect(pooled.updatedWeights[2]).toBeGreaterThan(
+        pooled.updatedWeights[0],
+      );
+
+      // Pooling pulls the best arm's weight down and the worst arm's weight up
+      // (flatter => more exploration).
+      expect(pooled.updatedWeights[2]).toBeLessThan(noPool.updatedWeights[2]);
+      expect(pooled.updatedWeights[0]).toBeGreaterThan(
+        noPool.updatedWeights[0],
+      );
+    });
+
+    it("stronger priors produce flatter weights", () => {
+      const stats = [arm(200, 1), arm(200, 3)];
+      const initial = [0.5, 0.5];
+
+      const weak = updateVariationWeights(stats, initial, false, 50);
+      const strong = updateVariationWeights(stats, initial, false, 2000);
+
+      const spread = (w: number[]): number => Math.abs(w[1] - w[0]);
+      expect(spread(strong.updatedWeights)).toBeLessThan(
+        spread(weak.updatedWeights),
+      );
+    });
+  });
 });

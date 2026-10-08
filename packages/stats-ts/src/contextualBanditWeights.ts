@@ -93,6 +93,7 @@ export type ContextualBanditWeightsInput = {
    * Bonferroni-style correction across the searched candidates. Defaults to 1.
    */
   ebicGamma?: number;
+  priorSampleSize?: number;
   metricSettings: MetricSettingsForStatsEngine;
   analysisWeights: number[];
   observations: ContextualBanditObservation[];
@@ -192,11 +193,17 @@ function computeLeafWeights(
   armsByVariation: ContextualBanditArm[],
   metric: MetricSettingsForStatsEngine,
   currentWeights: number[],
+  priorSampleSize: number = 0,
 ): VariationWeightResult {
   const stats = armsByVariation.map((arm) =>
     armMomentStatForBandit(arm, metric),
   );
-  return updateVariationWeights(stats, currentWeights, metric.inverse);
+  return updateVariationWeights(
+    stats,
+    currentWeights,
+    metric.inverse,
+    priorSampleSize,
+  );
 }
 
 type ContextEntry = {
@@ -1134,11 +1141,14 @@ export function computeContextualBanditWeights(
     analysisWeights,
     observations,
     ebicGamma: ebicGammaInput,
+    priorSampleSize: priorSampleSizeInput,
   } = input;
 
   // EBIC multiplicity penalty weight; defaults to a Bonferroni-style gamma = 1.
   // Set to 0 to recover plain BIC.
   const ebicGamma = ebicGammaInput ?? 1;
+
+  const priorSampleSize = priorSampleSizeInput ?? 0;
 
   // Only the first MAX_ATTRIBUTES attributes are included in the analysis.
   const attributes = attributesInput.slice(0, MAX_ATTRIBUTES);
@@ -1195,7 +1205,7 @@ export function computeContextualBanditWeights(
   for (const [leafId, arms] of leafArms) {
     leafWeights.set(
       leafId,
-      computeLeafWeights(arms, metricSettings, defaultWeights),
+      computeLeafWeights(arms, metricSettings, defaultWeights, priorSampleSize),
     );
   }
 
