@@ -22,10 +22,7 @@ import {
   getExposureQueriesInScope,
   isIdentifierUndeclared,
 } from "@/services/datasources";
-import {
-  AssignmentQueryDriftIcon,
-  getAssignmentQueryScopeKind,
-} from "@/components/Experiment/AssignmentQueryFields";
+import { AssignmentQueryDriftIcon } from "@/components/Experiment/AssignmentQueryFields";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -216,7 +213,7 @@ export default function AnalysisSettings({
                       identifierType,
                     ),
                     identifierType,
-                    scopeKind: getAssignmentQueryScopeKind(holdoutProjects),
+                    holdoutProjects,
                   }}
                 />
               </div>

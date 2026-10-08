@@ -29,24 +29,12 @@ type Selection = {
   outOfScope: boolean;
   /** A kept selection whose query no longer declares its identifier. */
   identifierUndeclared: boolean;
-  scopeKind: AssignmentQueryScopeKind;
+  /** A Holdout's Projects; empty means it covers all Projects. */
+  holdoutProjects: string[] | undefined;
   hasExposureQueries: boolean;
   setExposureQueryId: (exposureQueryId: string) => void;
   changeIdentifierType: (identifierType: string) => void;
 };
-
-/** One Project, a Holdout's Projects, or a Holdout covering all Projects. */
-export type AssignmentQueryScopeKind =
-  | "project"
-  | "holdoutProjects"
-  | "holdoutAllProjects";
-
-export function getAssignmentQueryScopeKind(
-  holdoutProjects: string[] | undefined,
-): AssignmentQueryScopeKind {
-  if (!holdoutProjects) return "project";
-  return holdoutProjects.length ? "holdoutProjects" : "holdoutAllProjects";
-}
 
 export function useAssignmentQuerySelection({
   datasource,
@@ -264,7 +252,7 @@ export function useAssignmentQuerySelection({
     exposureQueryOptions,
     outOfScope,
     identifierUndeclared,
-    scopeKind: getAssignmentQueryScopeKind(holdoutProjects),
+    holdoutProjects,
     hasExposureQueries: !!datasource?.settings?.queries?.exposure?.length,
     setExposureQueryId: selectExposureQueryId,
     changeIdentifierType,
@@ -273,24 +261,14 @@ export function useAssignmentQuerySelection({
 
 type DriftState = Pick<
   Selection,
-  "outOfScope" | "identifierUndeclared" | "identifierType" | "scopeKind"
+  "outOfScope" | "identifierUndeclared" | "identifierType" | "holdoutProjects"
 >;
-
-const HOLDOUT_OUT_OF_SCOPE_MESSAGE =
-  "The selected assignment query isn't available to every Project this Holdout covers. Results will still update, but you may want to switch to one that is.";
-
-const OUT_OF_SCOPE_MESSAGES: Record<AssignmentQueryScopeKind, string> = {
-  project:
-    "The selected assignment query isn't scoped to this Project. Results will still update, but you may want to switch to one that is.",
-  holdoutProjects: HOLDOUT_OUT_OF_SCOPE_MESSAGE,
-  holdoutAllProjects: HOLDOUT_OUT_OF_SCOPE_MESSAGE,
-};
 
 function getDriftNotice({
   outOfScope,
   identifierUndeclared,
   identifierType,
-  scopeKind,
+  holdoutProjects,
 }: DriftState): { status: "warning" | "info"; message: string } | null {
   if (identifierUndeclared) {
     return {
@@ -299,7 +277,12 @@ function getDriftNotice({
     };
   }
   if (outOfScope) {
-    return { status: "info", message: OUT_OF_SCOPE_MESSAGES[scopeKind] };
+    return {
+      status: "info",
+      message: holdoutProjects
+        ? "The selected assignment query isn't available to every Project this Holdout covers. Results will still update, but you may want to switch to one that is."
+        : "The selected assignment query isn't scoped to this Project. Results will still update, but you may want to switch to one that is.",
+    };
   }
   return null;
 }
@@ -307,19 +290,19 @@ function getDriftNotice({
 /** Why no identifier type can be chosen. */
 export function getNoAssignmentQueriesMessage({
   hasExposureQueries,
-  scopeKind,
-}: Pick<Selection, "hasExposureQueries" | "scopeKind">): string {
+  holdoutProjects,
+}: Pick<Selection, "hasExposureQueries" | "holdoutProjects">): string {
   if (!hasExposureQueries) {
     return "This Data Source has no assignment queries. Add one in the Data Source settings.";
   }
-  switch (scopeKind) {
-    case "holdoutProjects":
-      return "No assignment queries cover every Project this Holdout includes. Add one in the Data Source settings.";
-    case "holdoutAllProjects":
-      return "No assignment queries are available to a Holdout that covers all Projects. Add one that isn't limited to specific Projects.";
-    case "project":
-      return "No assignment queries are scoped to this Project. Add one in the Data Source settings.";
+  if (!holdoutProjects) {
+    return "No assignment queries are scoped to this Project. Add one in the Data Source settings.";
   }
+  // Only a query with no Project limit, its own or its Data Source's, fits.
+  if (!holdoutProjects.length) {
+    return "No assignment queries are available to a Holdout that covers all Projects. Add one that isn't limited to specific Projects.";
+  }
+  return "No assignment queries cover every Project this Holdout includes. Add one in the Data Source settings.";
 }
 
 export function AssignmentQueryDriftWarning({
