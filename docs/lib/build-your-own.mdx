@@ -4,7 +4,7 @@ description: Spec for library authors building a GrowthBook SDK in an unsupporte
 sidebarTitle: Build Your Own
 ---
 
-**Latest spec version: 0.7.1 [View Changelog](#changelog)**
+**Latest spec version: 0.10.0 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -440,7 +440,7 @@ The return value will be a JSON-encoded string. If an error occurs, you can thro
 
 In addition to the helper functions above, there are a number of methods related to evaluating targeting conditions.
 
-There is only one public method `evalCondition` and everything else is a private helper function.
+The public methods are `evalCondition`, `pruneCondition`, and `reducePayload`, and everything else is a private helper function.
 
 ### public evalCondition(attributes: Attributes, condition: Condition): boolean
 
@@ -471,6 +471,67 @@ If none of the entries failed their checks, `evalCondition` returns true
 1. Loop through conditions
    1. If `evalCondition(attributes, conditions[i])` is false, break out of the loop and return false
 2. Return true
+
+### public pruneCondition(attributes: Attributes, condition: Condition): Condition|boolean
+
+Partially evaluates a condition when only some attributes are known, for example on a server that knows the user's id and nothing else. An attribute is known when its top-level key is present in `attributes`, even with a `null` value, and every path under that key is known too. All other attributes are unknown.
+
+It returns `true` or `false` once the result no longer depends on unknown attributes, and otherwise the condition with every decided branch removed. For any full set of attributes that agrees with the known ones, `evalCondition` must return the same result for the pruned condition as for the original.
+
+Loop through the condition key/value pairs and get a result for each entry, which is either true, false, or undecided with a remaining value:
+
+1. If key is `$or` or `$nor`, use `pruneList(attributes, value, true)`. If key is `$and`, use `pruneList(attributes, value, false)`. An array result is undecided, and the array is the remaining value
+2. If key is `$not`, use `pruneCondition(attributes, value)`. A condition result is undecided, and the condition is the remaining value
+3. If key is `$savedGroup`, resolve the reference the same way `evalCondition` does, except that a `list` entry is undecided while its attribute is unknown, and a `condition` entry is undecided unless `pruneCondition` on its condition returns a boolean. An undecided reference stays exactly as written. Never inline the group
+4. Otherwise, if the attribute for the key is known, use `evalConditionValue(value, getPath(attributes, key))`. If it is unknown, or evaluating it runs into an operator this SDK doesn't support, the entry is undecided and stays exactly as written. The client's SDK may be newer and support that operator
+5. For `$not` and `$nor`, flip a true/false result
+6. If the result is false, break out of the loop and return false. If it is true, drop the entry. If it is undecided, keep the key with its remaining value
+
+After the loop:
+
+1. If no entries are left, return true
+2. Otherwise, return the remaining entries as a condition
+
+### private pruneList(attributes: Attributes, conditions: Condition[], or: boolean): Condition[]|boolean
+
+`or` is true for an `$or` list and false for an `$and` list
+
+1. Loop through conditions
+   1. If `pruneCondition(attributes, conditions[i])` equals `or`, return `or`. One passing condition decides an `$or`, and one failing condition decides an `$and`
+   2. If it is not a boolean, add it to a list of remaining conditions
+2. If any conditions remain, return them
+3. Otherwise, return true for an `$and`. For an `$or`, return true if `conditions` is empty and false if not, the same as `evalOr`
+
+### public reducePayload(payload, attributes, filters): Payload
+
+Shrinks a payload for one user whose attributes are only partly known, for example on a server that bootstraps a browser. In the JavaScript SDK it is a method of `GrowthBookClient`, which takes a user context, and of the user-scoped instance. The attributes are merged the same way as for evaluation: global attributes, then the user's attributes, then attribute overrides.
+
+`filters` is optional and can have `projects`, `tags`, and `customFields` (an object of field id -> array of values). Each filter is an array, and any one of its values is enough. A feature or auto experiment has to pass every filter given:
+
+- `projects`: `metadata.projects` contains one of the values. An absent `metadata.projects` means all projects, so it passes
+- `tags`: `metadata.tags` contains one of the values
+- `customFields`: for each field, `metadata.customFields[field]` is one of the values, or contains one if it is an array
+
+`projects` also applies to rules. In a feature whose own `metadata.projects` passes, remove each rule whose `metadata.projects` doesn't contain one of the values, before reducing its rules. A feature that is only added as another feature's prerequisite, because its own projects don't pass, keeps all of its rules.
+
+`parentConditions` are never evaluated, and every one stays as written. Evaluating a prerequisite records usage for the parent feature, so the client has to run each check for that usage to be counted.
+
+To reduce a rule or auto experiment:
+
+1. Use `pruneCondition(attributes, condition, savedGroups)` on the `condition`:
+   - `true`: remove the `condition` key
+   - `false`: an experiment, either a rule with `variations` or an auto experiment, stays with the condition `{"$not": {}}`, which never passes. Sticky bucketing and forced variations skip an experiment's condition, so removing it would change what those users see. An auto experiment that never matches also loses its `parentConditions`, since they are only checked after the condition
+   - a condition: use it as the new `condition`
+2. A rule that never returns a value keeps only its `parentConditions`, so the client still checks them, or is removed if it has none. That is the case when it has no `force`, `variations`, or `contextualVariations`, or when it is a `force` rule whose condition never passes
+
+To reduce a feature, reduce its rules in order, and stop after a rule that applies to everyone, since nothing after it runs. That is a `force` rule left with no `condition`, `parentConditions`, `filters`, `range`, or `coverage`.
+
+Steps:
+
+1. Add each feature that passes the filters, reduced. Then add each feature named in the `parentConditions` of a remaining rule, and so on for that feature's rules, whether or not it passes the filters
+2. Keep the auto experiments that pass the filters, reduced. Add the features named in their remaining `parentConditions` the same way
+3. Keep the saved groups that are still referenced: each `$savedGroup` id, `$inGroup` value, and `$notInGroup` value anywhere in the remaining features, auto experiments, and contextual bandits. For a `condition` entry, store the result of `pruneCondition` on its condition (with its own id already visited) if that is a condition. Look for references in each stored condition too. Drop all other saved groups
+4. Return the payload with `features`, `experiments`, and `savedGroups` replaced. Other keys stay as they are
 
 ### private isOperatorObject(obj): boolean
 
@@ -1122,6 +1183,16 @@ The cases.json file is an object. The keys are the function being tested, and th
   - attributes
   - expected return value (boolean)
   - definitions for Saved Groups referenced in the test case (object of keys: ID of group -> values: array of members, or a typed entry in the `savedGroupReferencesV2` cases)
+- **pruneCondition**: for SDKs that have `pruneCondition`, which also needs `$savedGroup` support. Skip the key if yours does not yet
+  - name of the test case (string)
+  - condition
+  - known attributes
+  - expected return value (boolean, or the pruned condition)
+  - definitions for Saved Groups referenced in the test case, if any (array of members, or a typed entry)
+- **reducePayload**: for SDKs that have `reducePayload`, which builds on `pruneCondition`. Skip the key if yours does not yet
+  - name of the test case (string)
+  - input object with `payload`, plus `globalAttributes`, `attributes`, and `filters` when the case uses them
+  - expected reduced payload
 - **hash**
   - seed (string)
   - value to hash (string)
@@ -1271,3 +1342,7 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - `$inGroup` and `$notInGroup` also read typed `list` entries
   - Saved Groups are passed into prerequisite conditions (`parentConditions`)
   - New `savedGroupReferencesV2` key in the test cases, with `evalCondition`, `feature`, and `run` sub-suites. SDKs that do not support it yet can skip the whole key
+- **v0.10.0** 2026-10-04
+  - New public `pruneCondition` method that partially evaluates a condition when only some attributes are known. It returns `true`, `false`, or the condition with every decided branch removed
+  - New public `reducePayload` method that shrinks a payload for one user: it filters features and auto experiments by project, tag, or custom field, reduces their conditions with `pruneCondition`, and drops the saved groups nothing references any more
+  - New `pruneCondition` and `reducePayload` keys in the test cases

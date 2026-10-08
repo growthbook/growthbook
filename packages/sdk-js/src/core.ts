@@ -18,9 +18,21 @@ import {
   ClientOptions,
   TrackingUserContext,
   UserContext,
+  FeatureDefinitions,
+  SavedGroupsPayload,
+  PayloadFilters,
+  PayloadMetadata,
+  FeatureRule,
+  AutoExperiment,
+  SavedGroupPayloadEntry,
 } from "./types/growthbook";
-import { evalCondition } from "./mongrule";
-import { ConditionInterface } from "./types/mongrule";
+import {
+  evalCondition,
+  evalSavedGroup,
+  isIn,
+  pruneCondition,
+} from "./mongrule";
+import { ConditionInterface, ParentConditionInterface } from "./types/mongrule";
 import {
   chooseVariation,
   decrypt,
@@ -34,6 +46,7 @@ import {
   isIncluded,
   isURLTargeted,
   toString,
+  hasOwn,
 } from "./util";
 import { StickyBucketService } from "./sticky-bucket-service";
 
@@ -1354,6 +1367,168 @@ export async function decryptPayload(
     delete data.encryptedContextualBandits;
   }
   return data;
+}
+
+// Shrinks a payload for a user whose attributes are only partly known, e.g. on
+// a server bootstrapping a browser. It evaluates the same as the full payload
+// for anyone who agrees with the known attributes.
+export function reducePayload(
+  ctx: EvalContext,
+  filters?: PayloadFilters,
+): FeatureApiResponse {
+  const attributes = getAttributes(ctx.user);
+  const savedGroups = ctx.global.savedGroups || {};
+  const allFeatures = ctx.global.features || {};
+  // Without a prototype, keys like `constructor` or `__proto__` are plain keys
+  const features: FeatureDefinitions = Object.create(null);
+  const groups: SavedGroupsPayload = Object.create(null);
+
+  const { projects, tags, customFields = {} } = filters || {};
+
+  // Only an array counts, as with `$in`, and any one of its values is enough
+  const has = (actual: unknown, want: unknown) =>
+    Array.isArray(want) && isIn(actual, want);
+
+  // An absent `projects` means all projects, unlike absent tags or custom fields
+  const inProjects = (meta?: PayloadMetadata) =>
+    !projects || !meta || !meta.projects || has(meta.projects, projects);
+  const matches = (meta?: PayloadMetadata) => {
+    const m = meta || {};
+    return (
+      inProjects(m) &&
+      (!tags || has(m.tags, tags)) &&
+      Object.keys(customFields).every((k) =>
+        has((m.customFields || {})[k], customFields[k]),
+      )
+    );
+  };
+
+  // Reduces a rule, or an auto experiment when `rule` is false. Returns null
+  // when nothing of it runs.
+  const prune = <
+    T extends {
+      condition?: ConditionInterface;
+      parentConditions?: ParentConditionInterface[];
+      variations?: unknown[];
+      contextualVariations?: unknown[];
+    },
+  >(
+    item: T,
+    rule?: boolean,
+  ): T | null => {
+    const condition = item.condition
+      ? pruneCondition(attributes, item.condition, savedGroups)
+      : null;
+    // A rule that never applies keeps only its prerequisite checks, so the
+    // parents' usage is still tracked. An experiment rule stays, since sticky
+    // buckets skip its condition.
+    if (
+      rule &&
+      (!("force" in item || item.variations || item.contextualVariations) ||
+        (condition === false && "force" in item))
+    )
+      return item.parentConditions && item.parentConditions.length
+        ? ({ parentConditions: item.parentConditions } as T)
+        : null;
+    item = { ...item };
+    // An auto experiment checks its prerequisites after its condition
+    if (condition === false && !rule) delete item.parentConditions;
+    if (condition === true) delete item.condition;
+    else if (condition === false) item.condition = { $not: {} };
+    else if (condition) item.condition = condition;
+    return item;
+  };
+
+  function reduce(feature: FeatureDefinition): FeatureDefinition {
+    if (!feature.rules) return feature;
+    // Rules scoped to other projects aren't served. A prerequisite carried
+    // from another project keeps its own, as on the server.
+    const scoped = inProjects(feature.metadata);
+    const rules: FeatureRule[] = [];
+    for (const rule of feature.rules) {
+      if (scoped && !inProjects(rule.metadata)) continue;
+      const r = prune(rule, true);
+      if (!r) continue;
+      rules.push(r);
+      // Nothing after a rule that applies to everyone runs
+      if (
+        "force" in r &&
+        !r.condition &&
+        !r.parentConditions &&
+        !r.filters &&
+        !r.range &&
+        r.coverage === undefined
+      )
+        break;
+    }
+    return { ...feature, rules };
+  }
+
+  // Prerequisites travel with what needs them, as on the server
+  const addParents = (item: {
+    parentConditions?: ParentConditionInterface[];
+  }) => (item.parentConditions || []).forEach((p) => add(p.id));
+  function add(id: string) {
+    const feature = hasOwn(allFeatures, id) && allFeatures[id];
+    if (feature && !features[id]) {
+      // Added before its parents, so a prerequisite cycle ends
+      features[id] = reduce(feature);
+      (features[id].rules || []).forEach(addParents);
+    }
+  }
+
+  for (const id in allFeatures) {
+    if (matches(allFeatures[id]?.metadata)) add(id);
+  }
+  const experiments = (ctx.global.experiments || [])
+    .filter((e) => matches(e.metadata))
+    .map((e) => prune(e)) as AutoExperiment[];
+  experiments.forEach(addParents);
+
+  // Keep only the saved groups still referenced, with condition groups reduced
+  const walk = (x: unknown) => {
+    if (!x || typeof x !== "object") return;
+    for (const [k, v] of Object.entries(x)) {
+      const id =
+        k === "$savedGroup"
+          ? v && v.id
+          : k === "$inGroup" || k === "$notInGroup"
+            ? v
+            : 0;
+      if (
+        typeof id === "string" &&
+        hasOwn(savedGroups, id) &&
+        !(id in groups)
+      ) {
+        const condition = evalSavedGroup(
+          attributes,
+          { id },
+          savedGroups,
+          new Set(),
+          true,
+        );
+        groups[id] =
+          condition && typeof condition === "object"
+            ? ({ ...savedGroups[id], condition } as SavedGroupPayloadEntry)
+            : savedGroups[id];
+        walk((groups[id] as { condition?: unknown }).condition);
+      }
+      walk(v);
+    }
+  };
+  walk([features, experiments, ctx.global.contextualBandits]);
+
+  // Back to plain objects. Object spread can compile to assignments, which
+  // would set the prototype instead of keeping a `__proto__` key.
+  const plain = <T>(o: Record<string, T>) =>
+    Object.fromEntries(Object.entries(o));
+  return {
+    features: plain(features),
+    experiments,
+    savedGroups: plain(groups),
+    // From the same context as the rest, like the saved groups
+    contextualBandits: ctx.global.contextualBandits,
+  };
 }
 
 export function getApiHosts(options: Options | ClientOptions): {

@@ -304,6 +304,11 @@ export async function decrypt(
   }
 }
 
+// Own keys only, since keys like `toString` are inherited by every object
+export function hasOwn(obj: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toString(input: any): string {
   if (typeof input === "string") return input;

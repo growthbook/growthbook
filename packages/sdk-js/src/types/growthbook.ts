@@ -50,6 +50,7 @@ export type FeatureRule<T = any> = {
   }>;
   contextualBanditRef?: string;
   contextualVariations?: T[];
+  metadata?: PayloadMetadata;
 };
 
 export type ContextualBanditDefinition = {
@@ -69,7 +70,15 @@ export type ContextualBanditDefinitions = Record<
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
   rules?: FeatureRule<T>[];
+  metadata?: PayloadMetadata;
 }
+
+/** Sent when the SDK Connection opts in. An absent `projects` means all projects. */
+export type PayloadMetadata = {
+  projects?: string[];
+  tags?: string[];
+  customFields?: Record<string, unknown>;
+};
 
 export type FeatureResultSource =
   | "unknownFeature"
@@ -142,6 +151,7 @@ export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
+  metadata?: PayloadMetadata;
 };
 
 export type ExperimentOverride = {
@@ -504,6 +514,18 @@ export type FeatureApiResponse = {
 
 // Alias
 export type GrowthBookPayload = FeatureApiResponse;
+
+/** Each filter is an array, and any one of its values is enough */
+export type PayloadFilters = {
+  projects?: string[];
+  tags?: string[];
+  customFields?: Record<string, unknown[]>;
+};
+
+export type ReducePayloadOptions = {
+  userContext?: UserContext;
+  filters?: PayloadFilters;
+};
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types

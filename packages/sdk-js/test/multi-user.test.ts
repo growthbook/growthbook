@@ -478,6 +478,86 @@ describe("GrowthBookClient", () => {
       gb.destroy();
     });
   });
+
+  describe("reducePayload", () => {
+    // `key` for `user`, from the full payload and from one reduced with `known`
+    const compare = (
+      payload: FeatureApiResponse,
+      known: UserContext,
+      user: UserContext,
+      key = "child",
+    ) => {
+      const full = new GrowthBookClient().initSync({ payload });
+      const reduced = new GrowthBookClient().initSync({
+        payload: full.reducePayload({ userContext: known }),
+      });
+      const values = [full, reduced].map(
+        (gb) => gb.evalFeature(key, user).value,
+      );
+      full.destroy();
+      reduced.destroy();
+      return values;
+    };
+    it("Keeps experiments that no longer match, for sticky buckets", () => {
+      const user: UserContext = {
+        attributes: { id: "u", country: "US" },
+        saveStickyBucketAssignmentDoc: async () => {},
+        stickyBucketAssignmentDocs: {
+          "id||u": {
+            attributeName: "id",
+            attributeValue: "u",
+            assignments: { exp__0: "b" },
+          },
+        },
+      };
+      const rule = {
+        key: "exp",
+        variations: ["A", "B"],
+        meta: [{ key: "a" }, { key: "b" }],
+        condition: { country: "CA" },
+      };
+      const [full, reduced] = compare(
+        { features: { child: { defaultValue: "default", rules: [rule] } } },
+        user,
+        user,
+      );
+      expect(full).toEqual("B");
+      expect(reduced).toEqual(full);
+    });
+
+    it("Reduces payloads with the saved groups and bandits it evaluates with", () => {
+      // Passed as options, not in the payload
+      const savedGroups = {
+        grp: { type: "list" as const, attributeKey: "id", values: ["123"] },
+      };
+      const contextualBandits = {
+        cb: { contexts: [{ leafId: 1, condition: {}, weights: [0, 1] }] },
+      };
+      const gb = new GrowthBookClient({
+        savedGroups,
+        contextualBandits,
+      }).initSync({
+        payload: {
+          features: {
+            feature: {
+              defaultValue: "off",
+              rules: [
+                { condition: { $savedGroup: { id: "grp" } }, force: "on" },
+              ],
+            },
+          },
+        },
+      });
+
+      const payload = gb.reducePayload({
+        userContext: { attributes: { id: "123" } },
+      });
+      expect(payload.features?.feature.rules).toEqual([{ force: "on" }]);
+      expect(payload.contextualBandits).toEqual(contextualBandits);
+
+      gb.destroy();
+    });
+  });
 });
 
 describe("UserScopedGrowthBook", () => {

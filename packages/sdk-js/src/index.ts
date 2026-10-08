@@ -56,6 +56,9 @@ export type {
   InitSyncOptions,
   Helpers,
   GrowthBookPayload,
+  PayloadMetadata,
+  PayloadFilters,
+  ReducePayloadOptions,
   SavedGroupsValues,
   SavedGroupsPayload,
   SavedGroupPayloadEntry,
@@ -106,7 +109,7 @@ export type {
   ResponseCompat,
 } from "./sticky-bucket-service";
 
-export { evalCondition } from "./mongrule";
+export { evalCondition, pruneCondition } from "./mongrule";
 
 export {
   isURLTargeted,
