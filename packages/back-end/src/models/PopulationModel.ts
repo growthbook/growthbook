@@ -15,7 +15,10 @@ import {
 } from "shared/populations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
-import { resolveOwnerForCreate } from "back-end/src/services/owner";
+import {
+  resolveOwnerForCreate,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 import { MakeModelClass } from "./BaseModel";
 
 function withStepDefaults(
@@ -112,9 +115,19 @@ export class PopulationModel extends BaseClass {
   protected async processApiUpdateBody(
     rawBody: unknown,
   ): Promise<UpdateProps<PopulationInterface>> {
-    const { steps, ...body } = apiUpdatePopulationBody.parse(rawBody);
+    const { owner, steps, ...body } = apiUpdatePopulationBody.parse(rawBody);
+    let resolvedOwner: string | undefined;
+    if (owner !== undefined) {
+      resolvedOwner = await resolveOwnerToUserId(owner, this.context, {
+        strict: true,
+      });
+      if (!resolvedOwner) {
+        this.context.throwBadRequestError("`owner` cannot be empty.");
+      }
+    }
     return {
       ...body,
+      ...(resolvedOwner && { owner: resolvedOwner }),
       ...(steps && { steps: withStepDefaults(steps) }),
     };
   }
