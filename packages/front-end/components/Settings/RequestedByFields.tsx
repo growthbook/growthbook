@@ -10,17 +10,6 @@ import Text from "@/ui/Text";
 type HeaderPolicy = NonNullable<ApiKeyInterface["requesterHeader"]>;
 type PermissionsMode = NonNullable<ApiKeyInterface["requesterPermissions"]>;
 
-const HEADER_HELP: Record<HeaderPolicy, string | null> = {
-  optional: null,
-  required: "Requests without it are rejected.",
-  rejected: "Requests that send it are rejected.",
-};
-
-const PERMISSIONS_HELP: Record<PermissionsMode, string> = {
-  assume: "Only what both this key and the member can do.",
-  key: "The header only records who asked.",
-};
-
 const RequestedByFields: FC<{
   header: HeaderPolicy;
   setHeader: (header: HeaderPolicy) => void;
@@ -54,13 +43,7 @@ const RequestedByFields: FC<{
           <SelectItem value="required">Required</SelectItem>
           <SelectItem value="rejected">Rejected</SelectItem>
         </Select>
-        <Box>
-          {HEADER_HELP[header] && (
-            <HelperText status="info" size="sm">
-              {HEADER_HELP[header]}
-            </HelperText>
-          )}
-        </Box>
+        <Box />
         {header !== "rejected" && (
           <>
             <Text as="label" weight="semibold" mb="0">
@@ -70,15 +53,15 @@ const RequestedByFields: FC<{
               value={permissions}
               setValue={(value) => setPermissions(value as PermissionsMode)}
             >
-              <SelectItem value="assume">
-                Assume the member&apos;s role
-              </SelectItem>
-              <SelectItem value="key">Use this key&apos;s role</SelectItem>
+              <SelectItem value="assume">Assume role</SelectItem>
+              <SelectItem value="key">Use key&apos;s role</SelectItem>
             </Select>
             <Box>
-              <HelperText status="info" size="sm">
-                {PERMISSIONS_HELP[permissions]}
-              </HelperText>
+              {permissions === "assume" && (
+                <HelperText status="info" size="sm">
+                  Only what both this key and the member can do.
+                </HelperText>
+              )}
             </Box>
           </>
         )}
