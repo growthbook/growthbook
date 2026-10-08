@@ -413,25 +413,78 @@ export function isExposureQueryAvailableForProjects(
   return holdoutProjects.every((project) => scope.includes(project));
 }
 
+export type ExposureQueryProjectScopeViolation = {
+  name: string;
+  /** The query's projects that the data source doesn't cover. */
+  projects: string[];
+};
+
 /**
  * Each query's own projects must be a subset of the data source's. Empty
  * data source projects means all projects; a query with none inherits them.
  */
-export function assertExposureQueriesWithinProjectScope(
+export function getExposureQueryProjectScopeViolations(
   exposureQueries: Pick<ExposureQuery, "name" | "projects">[],
   datasourceProjects: string[],
-): void {
-  if (!datasourceProjects.length) return;
-  const violations = exposureQueries.flatMap((query) => {
-    const outside = (query.projects ?? []).filter(
+): ExposureQueryProjectScopeViolation[] {
+  if (!datasourceProjects.length) return [];
+  return exposureQueries.flatMap((query) => {
+    const projects = (query.projects ?? []).filter(
       (project) => !datasourceProjects.includes(project),
     );
-    return outside.length ? [`"${query.name}" (${outside.join(", ")})`] : [];
+    return projects.length ? [{ name: query.name, projects }] : [];
   });
-  if (!violations.length) return;
-  throw new Error(
-    `These experiment assignment queries are scoped to projects the data source is not: ${violations.join("; ")}. Update the assignment query projects to be within the data source's projects.`,
-  );
+}
+
+/**
+ * Explains the violations from the side the user acted on: Projects removed
+ * from the data source, or a query scoped beyond it. `previousDatasourceProjects`
+ * is set only when the save changes the data source's projects.
+ */
+export function getExposureQueryProjectScopeError(
+  violations: ExposureQueryProjectScopeViolation[],
+  {
+    projectNames,
+    previousDatasourceProjects,
+  }: {
+    projectNames: Map<string, string>;
+    previousDatasourceProjects?: string[];
+  },
+): string {
+  const nameOf = (id: string) => projectNames.get(id) ?? id;
+  const wasDropped = (id: string) =>
+    previousDatasourceProjects !== undefined &&
+    (!previousDatasourceProjects.length ||
+      previousDatasourceProjects.includes(id));
+  const quoted = (names: string[]) => names.map((n) => `"${n}"`).join(", ");
+  const queriesUsing = (id: string) =>
+    violations.filter((v) => v.projects.includes(id)).map((v) => v.name);
+
+  const messages: string[] = [];
+  const dropped = [
+    ...new Set(violations.flatMap((v) => v.projects).filter(wasDropped)),
+  ];
+  if (dropped.length === 1) {
+    const name = nameOf(dropped[0]);
+    messages.push(
+      `Can't remove ${name} from this Data Source while assignment queries are scoped to it: ${quoted(queriesUsing(dropped[0]))}. Remove ${name} from those queries first.`,
+    );
+  } else if (dropped.length > 1) {
+    const list = dropped
+      .map((id) => `${nameOf(id)} (${quoted(queriesUsing(id))})`)
+      .join("; ");
+    messages.push(
+      `Can't remove these Projects from this Data Source while assignment queries are scoped to them: ${list}. Remove those Projects from the queries first.`,
+    );
+  }
+  for (const violation of violations) {
+    const outside = violation.projects.filter((id) => !wasDropped(id));
+    if (!outside.length) continue;
+    messages.push(
+      `Assignment query "${violation.name}" is scoped to ${outside.map(nameOf).join(", ")}, which ${outside.length === 1 ? "isn't one of" : "aren't among"} this Data Source's Projects.`,
+    );
+  }
+  return messages.join(" ");
 }
 
 /**

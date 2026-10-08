@@ -5,7 +5,8 @@ import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
-  assertExposureQueriesWithinProjectScope,
+  getExposureQueryProjectScopeError,
+  getExposureQueryProjectScopeViolations,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
@@ -473,6 +474,30 @@ function assertEventForwarderManagedRecordsIntact(
   }
 }
 
+// Project names are only looked up once a save is rejected.
+async function assertExposureQueriesWithinProjectScope(
+  context: ReqContext | ApiReqContext,
+  exposureQueries: ExposureQuery[],
+  datasourceProjects: string[],
+  /** The data source's projects before this save, when it changes them. */
+  previousDatasourceProjects?: string[],
+) {
+  const violations = getExposureQueryProjectScopeViolations(
+    exposureQueries,
+    datasourceProjects,
+  );
+  if (!violations.length) return;
+  const projects = await context.models.projects.getByIds([
+    ...new Set(violations.flatMap((v) => v.projects)),
+  ]);
+  throw new Error(
+    getExposureQueryProjectScopeError(violations, {
+      projectNames: new Map(projects.map((p) => [p.id, p.name])),
+      previousDatasourceProjects,
+    }),
+  );
+}
+
 export async function createDataSource(
   context: ReqContext,
   name: string,
@@ -550,9 +575,10 @@ export async function createDataSource(
   datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
-  assertExposureQueriesWithinProjectScope(
+  await assertExposureQueriesWithinProjectScope(
+    context,
     settings.queries?.exposure ?? [],
-    projects,
+    projects ?? [],
   );
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
@@ -781,6 +807,17 @@ export async function updateDataSource(
     throw new Error("Cannot update. Data sources managed by config.yml");
   }
 
+  // Check the resulting state, since narrowing projects alone can strand a
+  // query. Before validation, which can run every query against the warehouse.
+  if (updates.projects !== undefined || updates.settings?.queries?.exposure) {
+    await assertExposureQueriesWithinProjectScope(
+      context,
+      (updates.settings ?? datasource.settings)?.queries?.exposure ?? [],
+      updates.projects ?? datasource.projects ?? [],
+      updates.projects !== undefined ? (datasource.projects ?? []) : undefined,
+    );
+  }
+
   if (updates.settings) {
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
@@ -801,14 +838,6 @@ export async function updateDataSource(
       );
     }
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
-  }
-
-  // Check the resulting state, since narrowing projects alone can strand a query.
-  if (updates.projects !== undefined || updates.settings?.queries?.exposure) {
-    assertExposureQueriesWithinProjectScope(
-      (updates.settings ?? datasource.settings)?.queries?.exposure ?? [],
-      updates.projects ?? datasource.projects ?? [],
-    );
   }
 
   if (!hasActualChanges(datasource, updates)) {

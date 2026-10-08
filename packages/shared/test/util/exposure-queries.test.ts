@@ -10,7 +10,8 @@ import {
   parseAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   flattenExposureQueryInput,
-  assertExposureQueriesWithinProjectScope,
+  getExposureQueryProjectScopeViolations,
+  getExposureQueryProjectScopeError,
   isExposureQueryAvailableForProjects,
   getIdentifierTypeForSettingsHash,
   getPreferredIdentifierType,
@@ -683,23 +684,69 @@ describe("getPreferredIdentifierType", () => {
   });
 });
 
-describe("assertExposureQueriesWithinProjectScope", () => {
-  it("rejects a query scoped to a project the data source is not", () => {
-    expect(() =>
-      assertExposureQueriesWithinProjectScope(
-        [{ name: "Q1", projects: ["p1", "p3"] }],
+describe("getExposureQueryProjectScopeViolations", () => {
+  it("lists each query's projects outside the data source's", () => {
+    expect(
+      getExposureQueryProjectScopeViolations(
+        [
+          { name: "Q1", projects: ["p1", "p3"] },
+          { name: "Q2", projects: ["p1"] },
+        ],
         ["p1", "p2"],
       ),
-    ).toThrow('"Q1" (p3)');
+    ).toEqual([{ name: "Q1", projects: ["p3"] }]);
   });
 
   it("treats an empty data source project list as all projects", () => {
-    expect(() =>
-      assertExposureQueriesWithinProjectScope(
+    expect(
+      getExposureQueryProjectScopeViolations(
         [{ name: "Q1", projects: ["p1"] }],
         [],
       ),
-    ).not.toThrow();
+    ).toEqual([]);
+  });
+});
+
+describe("getExposureQueryProjectScopeError", () => {
+  const projectNames = new Map([
+    ["prj_a", "Mobile"],
+    ["prj_b", "Web"],
+  ]);
+
+  it("explains a removed Project with the queries scoped to it", () => {
+    expect(
+      getExposureQueryProjectScopeError(
+        [
+          { name: "Q1", projects: ["prj_a"] },
+          { name: "Q2", projects: ["prj_a"] },
+        ],
+        { projectNames, previousDatasourceProjects: ["prj_a", "prj_b"] },
+      ),
+    ).toBe(
+      'Can\'t remove Mobile from this Data Source while assignment queries are scoped to it: "Q1", "Q2". Remove Mobile from those queries first.',
+    );
+  });
+
+  it("treats narrowing from all Projects as removing them", () => {
+    expect(
+      getExposureQueryProjectScopeError(
+        [{ name: "Q1", projects: ["prj_a", "prj_b"] }],
+        { projectNames, previousDatasourceProjects: [] },
+      ),
+    ).toBe(
+      'Can\'t remove these Projects from this Data Source while assignment queries are scoped to them: Mobile ("Q1"); Web ("Q1"). Remove those Projects from the queries first.',
+    );
+  });
+
+  it("explains a query scoped beyond the data source, falling back to ids", () => {
+    expect(
+      getExposureQueryProjectScopeError(
+        [{ name: "Q1", projects: ["prj_a", "prj_gone"] }],
+        { projectNames },
+      ),
+    ).toBe(
+      "Assignment query \"Q1\" is scoped to Mobile, prj_gone, which aren't among this Data Source's Projects.",
+    );
   });
 });
 
