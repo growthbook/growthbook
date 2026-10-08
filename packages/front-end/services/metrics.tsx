@@ -94,6 +94,7 @@ export function getDefaultFactMetricProps({
   project,
   datasources,
   initialFactTable,
+  initialDatasource,
   managedBy,
 }: {
   metricDefaults: MetricDefaults;
@@ -102,6 +103,9 @@ export function getDefaultFactMetricProps({
   datasources: DataSourceInterfaceWithParams[];
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableDefinition;
+  // Starting data source when no fact table is chosen yet (e.g. "Add" from a
+  // data source's page) - otherwise the org default wins.
+  initialDatasource?: string;
   managedBy?: "" | "api" | "admin";
 }): CreateFactMetricFormProps & { targetMDE: number } {
   const existingMetricType = existing?.metricType;
@@ -126,9 +130,9 @@ export function getDefaultFactMetricProps({
         datasources,
         settings,
         project,
-        initialValue: initialFactTable
-          ? { datasource: initialFactTable?.datasource }
-          : {},
+        initialValue: {
+          datasource: initialFactTable?.datasource ?? initialDatasource,
+        },
       }).datasource,
     inverse: existing?.inverse || false,
     cappingSettings: existing?.cappingSettings || {
@@ -312,10 +316,6 @@ export function fromFactMetricFormValues(
   return result;
 }
 
-// Save-time checks for values the editor's inputs can't stop on their own
-// (Save doesn't go through a native form submit). Runs on the output of
-// fromFactMetricFormValues, so percents are already fractions. Kept separate
-// so the live preview can still run on a half-filled draft.
 // Anonymized telemetry props for creating or editing a fact metric - which
 // settings people use. Shared by the old modal and the full-page editor so
 // the new-metric-creation-flow experiment compares like with like.
@@ -361,6 +361,10 @@ export function getFactMetricTrackProps(
   };
 }
 
+// Save-time checks for values the editor's inputs can't stop on their own
+// (Save doesn't go through a native form submit). Runs on the output of
+// fromFactMetricFormValues, so percents are already fractions. Kept separate
+// so the live preview can still run on a half-filled draft.
 export function validateFactMetricFormValues(
   values: CreateFactMetricFormProps,
 ): void {

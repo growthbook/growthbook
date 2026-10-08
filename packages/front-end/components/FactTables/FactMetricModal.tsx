@@ -1524,6 +1524,7 @@ function StandardFactMetricModal({
     initialFactTable: initialFactTable
       ? getFactTableById(initialFactTable) || undefined
       : undefined,
+    initialDatasource: datasource,
     managedBy: existing?.managedBy,
   });
 
