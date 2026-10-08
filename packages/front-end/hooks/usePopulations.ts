@@ -1,17 +1,44 @@
 import { populationEndpoints } from "shared/api-endpoints";
 import { useMemo } from "react";
+import { ApiPopulation } from "shared/validators";
 import { isProjectListValidForProject } from "shared/util";
-import { useRestApi } from "@/services/restApi";
+import useSWR from "swr";
+import { useAuth } from "@/services/auth";
+import { useRestApi, useRestApiCall } from "@/services/restApi";
+
+// The list endpoint defaults to 10 and rejects a limit above 100. Ask for the
+// maximum page and follow nextOffset so this hook still returns every
+// population the caller can read.
+const POPULATION_PAGE_LIMIT = 100;
 
 export function usePopulations(project?: string) {
-  const { data, error, mutate } = useRestApi(
-    populationEndpoints.listPopulations,
-    {},
+  const { orgId } = useAuth();
+  const restApiCall = useRestApiCall();
+  const { data, error, mutate } = useSWR<ApiPopulation[], Error>(
+    orgId ? `${orgId}::/api/v1/populations` : null,
+    async () => {
+      const populations: ApiPopulation[] = [];
+      let offset = 0;
+      for (;;) {
+        const page = await restApiCall(populationEndpoints.listPopulations, {
+          query: { limit: POPULATION_PAGE_LIMIT, offset },
+        });
+        populations.push(...page.populations);
+        if (
+          !page.hasMore ||
+          page.nextOffset == null ||
+          page.nextOffset <= offset
+        ) {
+          return populations;
+        }
+        offset = page.nextOffset;
+      }
+    },
   );
 
   const populations = useMemo(
     () =>
-      (data?.populations ?? []).filter((p) =>
+      (data ?? []).filter((p) =>
         isProjectListValidForProject(p.projects, project),
       ),
     [data, project],

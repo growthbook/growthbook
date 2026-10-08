@@ -16,9 +16,11 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
 import {
+  resolveOwnerEmails,
   resolveOwnerForCreate,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
+import { applyPagination } from "back-end/src/util/handler";
 import { MakeModelClass } from "./BaseModel";
 
 function withStepDefaults(
@@ -57,6 +59,28 @@ const BaseClass = MakeModelClass({
 });
 
 export class PopulationModel extends BaseClass {
+  public override async handleApiList(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
+  ) {
+    // Sort before slicing so a page boundary doesn't move between requests.
+    const populations = (await this.getAll()).sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
+    const { filtered, returnFields } = applyPagination(populations, req.query);
+    // The list response schema replaces the default `{ populations: T[] }`
+    // wrapper, so this returns the whole body. The base method's type still
+    // describes the unwrapped array.
+    return {
+      populations: await resolveOwnerEmails(
+        filtered.map((doc) => this.toApiInterface(doc)),
+        this.context,
+      ),
+      ...returnFields,
+    } as unknown as Awaited<
+      ReturnType<InstanceType<typeof BaseClass>["handleApiList"]>
+    >;
+  }
+
   protected canRead(doc: PopulationInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }

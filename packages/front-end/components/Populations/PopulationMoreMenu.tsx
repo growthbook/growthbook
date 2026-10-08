@@ -3,6 +3,7 @@ import { populationEndpoints } from "shared/api-endpoints";
 import { ApiPopulation } from "shared/validators";
 import { IconButton } from "@radix-ui/themes";
 import { PiDotsThreeVertical } from "react-icons/pi";
+import { radixSize } from "@/ui/sizes";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -37,7 +38,7 @@ export default function PopulationMoreMenu({
           variant="ghost"
           color="gray"
           radius="full"
-          size="2"
+          size={radixSize("md")}
           highContrast
           aria-label="Population actions"
         >
