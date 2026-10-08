@@ -424,9 +424,7 @@ export class ReqContextClass {
 
   // The person a request acts for: the signed-in user, a personal token's
   // owner, or the member an org key names with X-GrowthBook-Requested-By. Use
-  // it for attribution, draft targeting and review verdicts, which are the
-  // person's. Author rights follow `authorUserId`, and deferred work runs as
-  // `armer`.
+  // it for attribution, draft targeting and review verdicts.
   public get actingPerson(): {
     id: string;
     name: string;
@@ -460,10 +458,6 @@ export class ReqContextClass {
     return this.actingPerson?.name ?? "";
   }
 
-  public get actingUserEmail(): string {
-    return this.actingPerson?.email ?? "";
-  }
-
   public teams: TeamInterface[] = [];
   public role?: string;
   public isApiRequest = false;
@@ -484,12 +478,7 @@ export class ReqContextClass {
     if (this.userId) return { userId: this.userId };
     if (!this.apiKey) return {};
     return {
-      apiKey: encodeArmingApiKeyId(
-        this.apiKey,
-        this.auditUser?.type === "api_key"
-          ? this.auditUser.requestedBy?.id
-          : undefined,
-      ),
+      apiKey: encodeArmingApiKeyId(this.apiKey, this.actingPerson?.id),
     };
   }
 

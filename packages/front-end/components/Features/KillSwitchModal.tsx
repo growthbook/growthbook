@@ -280,7 +280,7 @@ export default function KillSwitchModal({
     if (activeDrafts.find((r) => r.version === currentVersion))
       return currentVersion;
     const byMe = activeDrafts.find(
-      (r) => !!userId && eventUserPersonId(r.createdBy ?? null) === userId,
+      (r) => eventUserPersonId(r.createdBy ?? null) === userId,
     );
     if (byMe) return byMe.version;
     return activeDrafts[0]?.version ?? null;

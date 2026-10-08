@@ -4789,14 +4789,14 @@ Triggered when a new draft revision is created for a saved group
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -4839,7 +4839,7 @@ Triggered when a new draft revision is created for a saved group
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -4942,14 +4942,14 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -4992,7 +4992,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -5096,14 +5096,14 @@ Triggered when a draft revision is submitted for review
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -5146,7 +5146,7 @@ Triggered when a draft revision is submitted for review
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -5249,14 +5249,14 @@ Triggered when a draft revision is approved by a reviewer
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -5299,7 +5299,7 @@ Triggered when a draft revision is approved by a reviewer
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -5411,14 +5411,14 @@ Triggered when a reviewer requests changes on a draft revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -5461,7 +5461,7 @@ Triggered when a reviewer requests changes on a draft revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -5573,14 +5573,14 @@ Triggered when a comment is added to a draft revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -5623,7 +5623,7 @@ Triggered when a comment is added to a draft revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -5735,14 +5735,14 @@ Triggered when a draft revision is discarded
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -5785,7 +5785,7 @@ Triggered when a draft revision is discarded
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -5888,14 +5888,14 @@ Triggered when a draft revision is rebased onto the latest live state
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -5938,7 +5938,7 @@ Triggered when a draft revision is rebased onto the latest live state
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -6041,14 +6041,14 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -6091,7 +6091,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -6195,14 +6195,14 @@ Triggered when a saved group is reverted to a previous published revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -6245,7 +6245,7 @@ Triggered when a saved group is reverted to a previous published revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -6350,14 +6350,14 @@ Triggered when a discarded revision is reopened
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -6400,7 +6400,7 @@ Triggered when a discarded revision is reopened
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -6503,14 +6503,14 @@ Triggered when the author (or an editor) recalls a review request, returning the
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -6553,7 +6553,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -6656,14 +6656,14 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -6706,7 +6706,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -6809,14 +6809,14 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -6859,7 +6859,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -6962,14 +6962,14 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -7012,7 +7012,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -7345,14 +7345,14 @@ Triggered when a new draft revision is created for a constant
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -7395,7 +7395,7 @@ Triggered when a new draft revision is created for a constant
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -7498,14 +7498,14 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -7548,7 +7548,7 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -7652,14 +7652,14 @@ Triggered when a draft revision is submitted for review
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -7702,7 +7702,7 @@ Triggered when a draft revision is submitted for review
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -7805,14 +7805,14 @@ Triggered when a draft revision is approved by a reviewer
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -7855,7 +7855,7 @@ Triggered when a draft revision is approved by a reviewer
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -7967,14 +7967,14 @@ Triggered when a reviewer requests changes on a draft revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -8017,7 +8017,7 @@ Triggered when a reviewer requests changes on a draft revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -8129,14 +8129,14 @@ Triggered when a comment is added to a draft revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -8179,7 +8179,7 @@ Triggered when a comment is added to a draft revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -8291,14 +8291,14 @@ Triggered when a draft revision is discarded
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -8341,7 +8341,7 @@ Triggered when a draft revision is discarded
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -8444,14 +8444,14 @@ Triggered when a draft revision is rebased onto the latest live state
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -8494,7 +8494,7 @@ Triggered when a draft revision is rebased onto the latest live state
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -8597,14 +8597,14 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -8647,7 +8647,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -8751,14 +8751,14 @@ Triggered when a constant is reverted to a previous published revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -8801,7 +8801,7 @@ Triggered when a constant is reverted to a previous published revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -8906,14 +8906,14 @@ Triggered when a discarded revision is reopened
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -8956,7 +8956,7 @@ Triggered when a discarded revision is reopened
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -9059,14 +9059,14 @@ Triggered when the author (or an editor) recalls a review request, returning the
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -9109,7 +9109,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -9212,14 +9212,14 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -9262,7 +9262,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -9365,14 +9365,14 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -9415,7 +9415,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -9518,14 +9518,14 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -9568,7 +9568,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -10097,14 +10097,14 @@ Triggered when a new draft revision is created for a config
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -10147,7 +10147,7 @@ Triggered when a new draft revision is created for a config
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -10348,14 +10348,14 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -10398,7 +10398,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -10600,14 +10600,14 @@ Triggered when a draft revision is submitted for review
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -10650,7 +10650,7 @@ Triggered when a draft revision is submitted for review
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -10851,14 +10851,14 @@ Triggered when a draft revision is approved by a reviewer
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -10901,7 +10901,7 @@ Triggered when a draft revision is approved by a reviewer
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -11111,14 +11111,14 @@ Triggered when a reviewer requests changes on a draft revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -11161,7 +11161,7 @@ Triggered when a reviewer requests changes on a draft revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -11371,14 +11371,14 @@ Triggered when a comment is added to a draft revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -11421,7 +11421,7 @@ Triggered when a comment is added to a draft revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -11631,14 +11631,14 @@ Triggered when a draft revision is discarded
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -11681,7 +11681,7 @@ Triggered when a draft revision is discarded
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -11882,14 +11882,14 @@ Triggered when a draft revision is rebased onto the latest live state
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -11932,7 +11932,7 @@ Triggered when a draft revision is rebased onto the latest live state
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -12133,14 +12133,14 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -12183,7 +12183,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -12385,14 +12385,14 @@ Triggered when a config is reverted to a previous published revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -12435,7 +12435,7 @@ Triggered when a config is reverted to a previous published revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -12638,14 +12638,14 @@ Triggered when a discarded revision is reopened
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -12688,7 +12688,7 @@ Triggered when a discarded revision is reopened
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -12889,14 +12889,14 @@ Triggered when the author (or an editor) recalls a review request, returning the
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -12939,7 +12939,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -13140,14 +13140,14 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -13190,7 +13190,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -13391,14 +13391,14 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -13441,7 +13441,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;
@@ -13642,14 +13642,14 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             version?: number | undefined;
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
-            /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+            /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
             authorId: string;
             authorEmail?: string | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
                 id: string;
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
@@ -13692,7 +13692,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
-                /** The person's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
+                /** The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one */
                 userId: string;
                 dateCreated: string;
             } | undefined;

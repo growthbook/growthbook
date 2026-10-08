@@ -106,8 +106,6 @@ export async function dispatchSavedGroupRevisionEvent(
         await emit("revision.reviewRequested", apiRevision);
         break;
       case "reviewed": {
-        // Resolve the reviewer's name/email (best-effort) so Slack/webhook
-        // payloads aren't just an opaque id.
         const reviewer = eventUserCredit(context.auditUser);
         if (action.decision === "approve") {
           await emit("revision.approved", {

@@ -48,7 +48,6 @@ export type FeatureRevisionReviewRequestedPayload = z.infer<
   typeof featureRevisionReviewRequestedPayload
 >;
 
-// Reviewer identity, shared by approve/request-changes/comment events.
 export const featureRevisionReviewApprovedPayload =
   featureRevisionWebhookPayload
     .extend({

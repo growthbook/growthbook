@@ -338,15 +338,13 @@ function authenticateWithApiKey(
         ProjectModel.dangerousGetRestrictedProjectIds(org.id),
       ]);
 
-      const extendedPermissions: UserPermissions | undefined = userId
-        ? undefined
-        : getKeyPermissionsForRequest({
-            apiKey: apiKeyDoc as ApiKeyWithRole,
-            requesterId: requestedBy?.id ?? null,
-            org,
-            teams,
-            restrictedProjects,
-          });
+      const keyPermissions = getKeyPermissionsForRequest({
+        apiKey: apiKeyDoc,
+        requesterId: requestedBy?.id ?? null,
+        org,
+        teams,
+        restrictedProjects,
+      });
       const eventAudit = apiKeyEventUser({
         apiKeyId: id || "unknown",
         key: apiKeyDoc,
@@ -364,7 +362,7 @@ function authenticateWithApiKey(
         apiKeyData: apiKeyDoc,
         req,
         restrictedProjects,
-        userPermissions: extendedPermissions,
+        userPermissions: keyPermissions,
       });
 
       // Check permissions for user API keys
@@ -390,7 +388,7 @@ function authenticateWithApiKey(
             teams,
             superAdmin: req.user?.superAdmin,
             restrictedProjects,
-            keyPermissions: extendedPermissions,
+            keyPermissions,
           });
         }
       };

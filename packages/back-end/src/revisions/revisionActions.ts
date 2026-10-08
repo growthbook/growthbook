@@ -623,7 +623,6 @@ export async function approveRevision(
     {
       type: "reviewed",
       decision: "approve",
-      userId: context.actingUserId,
       ...(comment ? { comment } : {}),
     },
   );
@@ -1541,7 +1540,6 @@ export async function submitRevisionReview({
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
     type: "reviewed",
     decision,
-    userId: context.actingUserId,
     ...(comment ? { comment } : {}),
   });
 

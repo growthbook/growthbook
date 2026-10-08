@@ -4475,7 +4475,7 @@ paths:
         Returns the most recently updated draft revision for the feature.
         Returns 404 if there is no active draft. Pass `mine=true` to return the
         most recent draft authored by or contributed to by the calling user.
-        Requires a Personal Access Token, or an organization API key that names
+        Requires a personal access token, or an organization API key that names
         a member with `X-GrowthBook-Requested-By`.
       deprecated: true
       tags:
@@ -4491,14 +4491,14 @@ paths:
           in: query
           description: >-
             If true, return only the most recent active draft authored by or
-            contributed to by the calling user. Requires a Personal Access
-            Token, or an organization API key that names a member with
+            contributed to by the calling user. Requires a personal access
+            token, or an organization API key that names a member with
             `X-GrowthBook-Requested-By`.
           schema:
             description: >-
               If true, return only the most recent active draft authored by or
-              contributed to by the calling user. Requires a Personal Access
-              Token, or an organization API key that names a member with
+              contributed to by the calling user. Requires a personal access
+              token, or an organization API key that names a member with
               `X-GrowthBook-Requested-By`.
             anyOf:
               - type: string
@@ -7743,7 +7743,7 @@ paths:
 
         Submits an `approve`, `request-changes`, or `comment` review on the
         draft. A verdict (`approve` or `request-changes`) belongs to the person
-        behind the request: the signed-in member, a Personal Access Token's
+        behind the request: the signed-in member, a personal access token's
         owner, or the member an organization API key names with
         `X-GrowthBook-Requested-By`. An organization API key that names no one
         can only comment, and no one can rule on a draft created in their own
@@ -13956,7 +13956,7 @@ paths:
       description: >-
         Submits an `approve`, `request-changes`, or `comment` review on the
         draft. A verdict (`approve` or `request-changes`) belongs to the person
-        behind the request: the signed-in member, a Personal Access Token's
+        behind the request: the signed-in member, a personal access token's
         owner, or the member an organization API key names with
         `X-GrowthBook-Requested-By`. An organization API key that names no one
         can only comment, and no one can rule on a draft created in their own
@@ -14076,7 +14076,7 @@ paths:
       description: >-
         Reviewer retracts their own verdict. A verdict (`approve` or
         `request-changes`) belongs to the person behind the request: the
-        signed-in member, a Personal Access Token's owner, or the member an
+        signed-in member, a personal access token's owner, or the member an
         organization API key names with `X-GrowthBook-Requested-By`. An
         organization API key that names no one can only comment, and no one can
         rule on a draft created in their own name. The revision status rewinds
@@ -17432,7 +17432,7 @@ paths:
       summary: Post a comment on an experiment
       description: >-
         Adds a new comment to an experiment's discussion thread, credited to the
-        person behind the request. Requires a Personal Access Token, or an
+        person behind the request. Requires a personal access token, or an
         organization API key that names a member with
         `X-GrowthBook-Requested-By`.
       tags:
@@ -22025,13 +22025,13 @@ paths:
           in: query
           description: >-
             If true, return only revisions authored by the calling user.
-            Requires a Personal Access Token, or an organization API key that
+            Requires a personal access token, or an organization API key that
             names a member with `X-GrowthBook-Requested-By`. Mutually exclusive
             with `author`.
           schema:
             description: >-
               If true, return only revisions authored by the calling user.
-              Requires a Personal Access Token, or an organization API key that
+              Requires a personal access token, or an organization API key that
               names a member with `X-GrowthBook-Requested-By`. Mutually
               exclusive with `author`.
             anyOf:
@@ -22417,13 +22417,13 @@ paths:
           in: query
           description: >-
             If true, return only revisions authored by the calling user.
-            Requires a Personal Access Token, or an organization API key that
+            Requires a personal access token, or an organization API key that
             names a member with `X-GrowthBook-Requested-By`. Mutually exclusive
             with `author`.
           schema:
             description: >-
               If true, return only revisions authored by the calling user.
-              Requires a Personal Access Token, or an organization API key that
+              Requires a personal access token, or an organization API key that
               names a member with `X-GrowthBook-Requested-By`. Mutually
               exclusive with `author`.
             anyOf:
@@ -22534,7 +22534,7 @@ paths:
         Returns the most recently updated open (non-merged, non-discarded)
         revision for the saved group. Returns 404 if there is no active draft.
         Pass `mine=true` to restrict to drafts authored by the calling user.
-        Requires a Personal Access Token, or an organization API key that names
+        Requires a personal access token, or an organization API key that names
         a member with `X-GrowthBook-Requested-By`.
       tags:
         - saved-group-revisions
@@ -22549,12 +22549,12 @@ paths:
           in: query
           description: >-
             If true, return only the most recent active draft authored by the
-            calling user. Requires a Personal Access Token, or an organization
+            calling user. Requires a personal access token, or an organization
             API key that names a member with `X-GrowthBook-Requested-By`.
           schema:
             description: >-
               If true, return only the most recent active draft authored by the
-              calling user. Requires a Personal Access Token, or an organization
+              calling user. Requires a personal access token, or an organization
               API key that names a member with `X-GrowthBook-Requested-By`.
             anyOf:
               - type: string
@@ -23097,8 +23097,8 @@ paths:
       description: >-
         Submits an `approve`, `request-changes`, or `comment` review on the
         revision. A verdict (`approve` or `request-changes`) belongs to the
-        person behind the request: the signed-in member, a Personal Access
-        Token's owner, or the member an organization API key names with
+        person behind the request: the signed-in member, a personal access
+        token's owner, or the member an organization API key names with
         `X-GrowthBook-Requested-By`. An organization API key that names no one
         can only comment, and no one can rule on a draft created in their own
         name. Submitting `approve` or `request-changes` needs Review access. A
@@ -23343,7 +23343,7 @@ paths:
         stay in the log. Retracting a `request-changes` can leave the revision
         approved by someone else, in which case an armed auto-publish fires. A
         verdict (`approve` or `request-changes`) belongs to the person behind
-        the request: the signed-in member, a Personal Access Token's owner, or
+        the request: the signed-in member, a personal access token's owner, or
         the member an organization API key names with
         `X-GrowthBook-Requested-By`. An organization API key that names no one
         can only comment, and no one can rule on a draft created in their own
@@ -23869,13 +23869,13 @@ paths:
           in: query
           description: >-
             If true, return only revisions authored by the calling user.
-            Requires a Personal Access Token, or an organization API key that
+            Requires a personal access token, or an organization API key that
             names a member with `X-GrowthBook-Requested-By`. Mutually exclusive
             with `author`.
           schema:
             description: >-
               If true, return only revisions authored by the calling user.
-              Requires a Personal Access Token, or an organization API key that
+              Requires a personal access token, or an organization API key that
               names a member with `X-GrowthBook-Requested-By`. Mutually
               exclusive with `author`.
             anyOf:
@@ -24360,13 +24360,13 @@ paths:
           in: query
           description: >-
             If true, return only revisions authored by the calling user.
-            Requires a Personal Access Token, or an organization API key that
+            Requires a personal access token, or an organization API key that
             names a member with `X-GrowthBook-Requested-By`. Mutually exclusive
             with `author`.
           schema:
             description: >-
               If true, return only revisions authored by the calling user.
-              Requires a Personal Access Token, or an organization API key that
+              Requires a personal access token, or an organization API key that
               names a member with `X-GrowthBook-Requested-By`. Mutually
               exclusive with `author`.
             anyOf:
@@ -24476,7 +24476,7 @@ paths:
         Returns the most recently updated open (non-merged, non-discarded)
         revision for the constant. Returns 404 if there is no active draft. Pass
         `mine=true` to restrict to drafts authored by the calling user. Requires
-        a Personal Access Token, or an organization API key that names a member
+        a personal access token, or an organization API key that names a member
         with `X-GrowthBook-Requested-By`.
       tags:
         - constant-revisions
@@ -24491,12 +24491,12 @@ paths:
           in: query
           description: >-
             If true, return only the most recent active draft authored by the
-            calling user. Requires a Personal Access Token, or an organization
+            calling user. Requires a personal access token, or an organization
             API key that names a member with `X-GrowthBook-Requested-By`.
           schema:
             description: >-
               If true, return only the most recent active draft authored by the
-              calling user. Requires a Personal Access Token, or an organization
+              calling user. Requires a personal access token, or an organization
               API key that names a member with `X-GrowthBook-Requested-By`.
             anyOf:
               - type: string
@@ -24890,8 +24890,8 @@ paths:
       description: >-
         Submits an `approve`, `request-changes`, or `comment` review on the
         revision. A verdict (`approve` or `request-changes`) belongs to the
-        person behind the request: the signed-in member, a Personal Access
-        Token's owner, or the member an organization API key names with
+        person behind the request: the signed-in member, a personal access
+        token's owner, or the member an organization API key names with
         `X-GrowthBook-Requested-By`. An organization API key that names no one
         can only comment, and no one can rule on a draft created in their own
         name. Submitting `approve` or `request-changes` needs Review access. A
@@ -25155,7 +25155,7 @@ paths:
         stay in the log. Retracting a `request-changes` can leave the revision
         approved by someone else, in which case an armed auto-publish fires. A
         verdict (`approve` or `request-changes`) belongs to the person behind
-        the request: the signed-in member, a Personal Access Token's owner, or
+        the request: the signed-in member, a personal access token's owner, or
         the member an organization API key names with
         `X-GrowthBook-Requested-By`. An organization API key that names no one
         can only comment, and no one can rule on a draft created in their own
@@ -25860,13 +25860,13 @@ paths:
           in: query
           description: >-
             If true, return only revisions authored by the calling user.
-            Requires a Personal Access Token, or an organization API key that
+            Requires a personal access token, or an organization API key that
             names a member with `X-GrowthBook-Requested-By`. Mutually exclusive
             with `author`.
           schema:
             description: >-
               If true, return only revisions authored by the calling user.
-              Requires a Personal Access Token, or an organization API key that
+              Requires a personal access token, or an organization API key that
               names a member with `X-GrowthBook-Requested-By`. Mutually
               exclusive with `author`.
             anyOf:
@@ -26842,13 +26842,13 @@ paths:
           in: query
           description: >-
             If true, return only revisions authored by the calling user.
-            Requires a Personal Access Token, or an organization API key that
+            Requires a personal access token, or an organization API key that
             names a member with `X-GrowthBook-Requested-By`. Mutually exclusive
             with `author`.
           schema:
             description: >-
               If true, return only revisions authored by the calling user.
-              Requires a Personal Access Token, or an organization API key that
+              Requires a personal access token, or an organization API key that
               names a member with `X-GrowthBook-Requested-By`. Mutually
               exclusive with `author`.
             anyOf:
@@ -26957,7 +26957,7 @@ paths:
         Returns the most recently updated open (non-merged, non-discarded)
         revision for the config. Returns 404 if there is no active draft. Pass
         `mine=true` to restrict to drafts authored by the calling user. Requires
-        a Personal Access Token, or an organization API key that names a member
+        a personal access token, or an organization API key that names a member
         with `X-GrowthBook-Requested-By`.
       tags:
         - config-revisions
@@ -26972,12 +26972,12 @@ paths:
           in: query
           description: >-
             If true, return only the most recent active draft authored by the
-            calling user. Requires a Personal Access Token, or an organization
+            calling user. Requires a personal access token, or an organization
             API key that names a member with `X-GrowthBook-Requested-By`.
           schema:
             description: >-
               If true, return only the most recent active draft authored by the
-              calling user. Requires a Personal Access Token, or an organization
+              calling user. Requires a personal access token, or an organization
               API key that names a member with `X-GrowthBook-Requested-By`.
             anyOf:
               - type: string
@@ -27926,8 +27926,8 @@ paths:
       description: >-
         Submits an `approve`, `request-changes`, or `comment` review on the
         revision. A verdict (`approve` or `request-changes`) belongs to the
-        person behind the request: the signed-in member, a Personal Access
-        Token's owner, or the member an organization API key names with
+        person behind the request: the signed-in member, a personal access
+        token's owner, or the member an organization API key names with
         `X-GrowthBook-Requested-By`. An organization API key that names no one
         can only comment, and no one can rule on a draft created in their own
         name. Submitting `approve` or `request-changes` needs Review access. A
@@ -28004,7 +28004,7 @@ paths:
         stay in the log. Retracting a `request-changes` can leave the revision
         approved by someone else, in which case an armed auto-publish fires. A
         verdict (`approve` or `request-changes`) belongs to the person behind
-        the request: the signed-in member, a Personal Access Token's owner, or
+        the request: the signed-in member, a personal access token's owner, or
         the member an organization API key names with
         `X-GrowthBook-Requested-By`. An organization API key that names no one
         can only comment, and no one can rule on a draft created in their own
@@ -62239,13 +62239,13 @@ components:
       in: query
       description: >-
         If true, return only revisions authored by or contributed to by the
-        calling user. Requires a Personal Access Token, or an organization API
+        calling user. Requires a personal access token, or an organization API
         key that names a member with `X-GrowthBook-Requested-By`. Mutually
         exclusive with `author`.
       schema:
         description: >-
           If true, return only revisions authored by or contributed to by the
-          calling user. Requires a Personal Access Token, or an organization API
+          calling user. Requires a personal access token, or an organization API
           key that names a member with `X-GrowthBook-Requested-By`. Mutually
           exclusive with `author`.
         anyOf:
@@ -69522,8 +69522,8 @@ components:
             - discarded
         authorId:
           description: >-
-            The person's user ID: the signed-in member, a Personal Access
-            Token's owner, or the member an organization API key named with
+            The person's user ID: the signed-in member, a personal access
+            token's owner, or the member an organization API key named with
             `X-GrowthBook-Requested-By`. Empty when an organization API key
             named no one
           type: string
@@ -69596,8 +69596,8 @@ components:
                 - discarded
             userId:
               description: >-
-                The person's user ID: the signed-in member, a Personal Access
-                Token's owner, or the member an organization API key named with
+                The person's user ID: the signed-in member, a personal access
+                token's owner, or the member an organization API key named with
                 `X-GrowthBook-Requested-By`. Empty when an organization API key
                 named no one
               type: string
@@ -69728,8 +69728,8 @@ components:
           type: string
         userId:
           description: >-
-            The person's user ID: the signed-in member, a Personal Access
-            Token's owner, or the member an organization API key named with
+            The person's user ID: the signed-in member, a personal access
+            token's owner, or the member an organization API key named with
             `X-GrowthBook-Requested-By`. Empty when an organization API key
             named no one
           type: string
@@ -69766,8 +69766,8 @@ components:
           type: string
         userId:
           description: >-
-            The person's user ID: the signed-in member, a Personal Access
-            Token's owner, or the member an organization API key named with
+            The person's user ID: the signed-in member, a personal access
+            token's owner, or the member an organization API key named with
             `X-GrowthBook-Requested-By`. Empty when an organization API key
             named no one
           type: string
@@ -69987,8 +69987,8 @@ components:
             - discarded
         authorId:
           description: >-
-            The person's user ID: the signed-in member, a Personal Access
-            Token's owner, or the member an organization API key named with
+            The person's user ID: the signed-in member, a personal access
+            token's owner, or the member an organization API key named with
             `X-GrowthBook-Requested-By`. Empty when an organization API key
             named no one
           type: string
@@ -70061,8 +70061,8 @@ components:
                 - discarded
             userId:
               description: >-
-                The person's user ID: the signed-in member, a Personal Access
-                Token's owner, or the member an organization API key named with
+                The person's user ID: the signed-in member, a personal access
+                token's owner, or the member an organization API key named with
                 `X-GrowthBook-Requested-By`. Empty when an organization API key
                 named no one
               type: string
@@ -70193,8 +70193,8 @@ components:
           type: string
         userId:
           description: >-
-            The person's user ID: the signed-in member, a Personal Access
-            Token's owner, or the member an organization API key named with
+            The person's user ID: the signed-in member, a personal access
+            token's owner, or the member an organization API key named with
             `X-GrowthBook-Requested-By`. Empty when an organization API key
             named no one
           type: string
@@ -70231,8 +70231,8 @@ components:
           type: string
         userId:
           description: >-
-            The person's user ID: the signed-in member, a Personal Access
-            Token's owner, or the member an organization API key named with
+            The person's user ID: the signed-in member, a personal access
+            token's owner, or the member an organization API key named with
             `X-GrowthBook-Requested-By`. Empty when an organization API key
             named no one
           type: string
@@ -70708,8 +70708,8 @@ components:
             - discarded
         authorId:
           description: >-
-            The person's user ID: the signed-in member, a Personal Access
-            Token's owner, or the member an organization API key named with
+            The person's user ID: the signed-in member, a personal access
+            token's owner, or the member an organization API key named with
             `X-GrowthBook-Requested-By`. Empty when an organization API key
             named no one
           type: string
@@ -70782,8 +70782,8 @@ components:
                 - discarded
             userId:
               description: >-
-                The person's user ID: the signed-in member, a Personal Access
-                Token's owner, or the member an organization API key named with
+                The person's user ID: the signed-in member, a personal access
+                token's owner, or the member an organization API key named with
                 `X-GrowthBook-Requested-By`. Empty when an organization API key
                 named no one
               type: string
@@ -70914,8 +70914,8 @@ components:
           type: string
         userId:
           description: >-
-            The person's user ID: the signed-in member, a Personal Access
-            Token's owner, or the member an organization API key named with
+            The person's user ID: the signed-in member, a personal access
+            token's owner, or the member an organization API key named with
             `X-GrowthBook-Requested-By`. Empty when an organization API key
             named no one
           type: string
@@ -70952,8 +70952,8 @@ components:
           type: string
         userId:
           description: >-
-            The person's user ID: the signed-in member, a Personal Access
-            Token's owner, or the member an organization API key named with
+            The person's user ID: the signed-in member, a personal access
+            token's owner, or the member an organization API key named with
             `X-GrowthBook-Requested-By`. Empty when an organization API key
             named no one
           type: string

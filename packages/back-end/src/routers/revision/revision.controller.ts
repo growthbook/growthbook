@@ -722,7 +722,6 @@ export const postReview = async (
     {
       type: "reviewed",
       decision,
-      userId,
       ...(comment ? { comment } : {}),
     },
   );

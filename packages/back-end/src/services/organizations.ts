@@ -77,7 +77,7 @@ import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import { TeamInterface } from "shared/types/team";
-import type { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   acceptOrganizationInvite,
   addOrganizationInviteIfSeatAvailable,
@@ -1936,15 +1936,13 @@ export async function getContextForApiKeyIdInOrg(
     apiKeyData: key,
     teams,
     restrictedProjects,
-    userPermissions: key.userId
-      ? undefined
-      : getKeyPermissionsForRequest({
-          apiKey: key as ApiKeyWithRole,
-          requesterId,
-          org,
-          teams,
-          restrictedProjects,
-        }),
+    userPermissions: getKeyPermissionsForRequest({
+      apiKey: key,
+      requesterId,
+      org,
+      teams,
+      restrictedProjects,
+    }),
   });
 }
 

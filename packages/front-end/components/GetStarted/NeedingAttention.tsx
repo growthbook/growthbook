@@ -119,8 +119,7 @@ const NeedingAttention = (): React.ReactElement | null => {
           (item.status === "changes-requested" ||
             item.status === "approved" ||
             item.status === "draft") &&
-          !!user?.id &&
-          eventUserPersonId(item.createdBy) === user.id;
+          eventUserPersonId(item.createdBy) === user?.id;
         const isArchived = item.featureMeta?.archived;
         const safeRolloutRequiresAttention =
           safeRolloutDecisionStatus?.status === "unhealthy" || !hasDaysLeft;

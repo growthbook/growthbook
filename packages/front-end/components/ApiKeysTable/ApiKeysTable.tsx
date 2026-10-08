@@ -2,7 +2,10 @@ import React, { FC, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiIdentificationCardBold } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
-import { apiKeyToggleRequiresAdmin } from "shared/permissions";
+import {
+  apiKeyToggleRequiresAdmin,
+  requesterHeaderPolicy,
+} from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
@@ -189,7 +192,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 ) : (
                   "-"
                 )}
-                {key.requesterHeader === "required" && (
+                {requesterHeaderPolicy(key) === "required" && (
                   <Tooltip content="Every request must name a member with X-GrowthBook-Requested-By">
                     <Flex align="center" gap="1" mt="1" width="fit-content">
                       <PiIdentificationCardBold color="var(--color-text-low)" />

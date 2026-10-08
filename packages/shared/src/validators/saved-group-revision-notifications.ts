@@ -14,7 +14,6 @@ import {
   revisionPublishFailedExtension,
 } from "./revision-publish-failed";
 
-// Reviewer identity, shared by approve/request-changes/comment events.
 // Doc-friendly replacements for the JSON-Patch–typed fields. `.passthrough()`
 // keeps them as supersets so the real (strictly-typed) values still validate.
 const webhookProposedChanges = z.array(

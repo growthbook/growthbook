@@ -3,6 +3,7 @@ import { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { ApiKeyInterface } from "shared/types/apikey";
+import { eventUserPerson } from "shared/validators";
 import EventUser from "@/components/Avatar/EventUser";
 import Link from "@/ui/Link";
 import { getEventText } from "@/components/Events/EventsPage/utils";
@@ -49,7 +50,7 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
           <span className="py-1 d-block nowrap">
             {user?.type === "dashboard" ? (
               <span title={user.email}>{user.name}</span>
-            ) : user?.type === "api_key" && (user.requestedBy || user.email) ? (
+            ) : user?.type === "api_key" && eventUserPerson(user) ? (
               <EventUser user={user} display="name" />
             ) : user?.type === "api_key" ? (
               <span title={user.apiKey}>
