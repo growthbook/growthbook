@@ -1,4 +1,5 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   PastExperiment,
   PastExperimentsInterface,
@@ -27,8 +28,6 @@ import { isCloud } from "@/services/env";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
@@ -38,7 +37,18 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Callout from "@/ui/Callout";
+import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import TextField from "@/ui/TextField";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -100,9 +110,9 @@ const ImportExperimentList: FC<{
   );
   const [alreadyImportedFilter, setAlreadyImportedFilter] = useState(true);
   const [dedupeFilter, setDedupeFilter] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<"" | "running" | "stopped">(
-    "",
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "running" | "stopped"
+  >("all");
 
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
   const [runError, setRunError] = useState<string | null>(null);
@@ -183,7 +193,7 @@ const ImportExperimentList: FC<{
         }
         const status =
           daysBetween(e.endDate, new Date()) < 2 ? "running" : "stopped";
-        if (statusFilter && statusFilter !== status) {
+        if (statusFilter !== "all" && statusFilter !== status) {
           return false;
         }
 
@@ -235,7 +245,7 @@ const ImportExperimentList: FC<{
     items,
     searchInputProps,
     clear: clearSearch,
-    SortableTH,
+    SortableTableColumnHeader,
   } = useSearch({
     items: pastExpArr,
     searchFields: ["trackingKey", "experimentName", "exposureQueryName"],
@@ -268,7 +278,7 @@ const ImportExperimentList: FC<{
     setMinUsersFilter("0");
     setMinLengthFilter("0");
     setMinVariationsFilter("0");
-    setStatusFilter("");
+    setStatusFilter("all");
     clearSearch();
   }
 
@@ -326,51 +336,49 @@ const ImportExperimentList: FC<{
 
   return (
     <>
-      <div className="row align-items-center mb-4">
-        <div className="col-auto">
+      <Flex align="end" gap="3" wrap="wrap" mb="4">
+        <Box>
           {changeDatasource && supportedDatasources.length > 1 ? (
-            <SelectField
-              size="legacy"
+            <Select
+              label="Data Source"
+              labelSize="sm"
+              size="sm"
               value={data.experiments.datasource}
-              options={supportedDatasources.map((d) => {
-                const isDefaultDataSource = d.id === defaultDataSource;
-                return {
-                  value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  } ${isDefaultDataSource ? " (default)" : ""}`,
-                };
-              })}
-              className="portal-overflow-ellipsis"
-              onChange={changeDatasource}
-            />
+              setValue={changeDatasource}
+            >
+              {supportedDatasources.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                  {d.description ? ` — ${d.description}` : ""}
+                  {d.id === defaultDataSource ? " (default)" : ""}
+                </SelectItem>
+              ))}
+            </Select>
           ) : (
             <>
-              <div>
-                <strong>{datasource?.name}</strong>
-              </div>
-              <div className="text-gray font-weight-normal small text-ellipsis">
+              <Text as="div" weight="semibold">
+                {datasource?.name}
+              </Text>
+              <Text as="div" size="sm" color="text-mid" truncate>
                 {datasource?.description}
-              </div>
+              </Text>
             </>
           )}
-        </div>
-        {hasStarted && (
-          <div className="col-auto ml-auto">
-            <div
-              className="text-muted"
-              style={{ fontSize: "0.8em" }}
+        </Box>
+        <Flex align="center" gap="3" ml="auto">
+          {hasStarted && (
+            <Text
+              size="sm"
+              color="text-low"
               title={datetime(data.experiments.runStarted ?? "")}
             >
               last updated {ago(data.experiments.runStarted ?? "")}
-            </div>
-          </div>
-        )}
-        {datasource &&
-          permissionsUtil.canRunPastExperimentQueries(datasource) && (
-            <div className="col-auto">
+            </Text>
+          )}
+          {datasource &&
+            permissionsUtil.canRunPastExperimentQueries(datasource) && (
               <RunQueriesButton
-                cta={data.experiments.latestData ? "Get New Data" : "Run Query"}
+                cta={data.experiments.latestData ? "Get new data" : "Run query"}
                 cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
                 mutate={mutate}
                 model={data.experiments}
@@ -387,9 +395,9 @@ const ImportExperimentList: FC<{
                   await mutate();
                 }}
               />
-            </div>
-          )}
-      </div>
+            )}
+        </Flex>
+      </Flex>
       {(runError || importFailed) && (
         <Callout status="error" my="3">
           {runError && <p>Could not start a new import: {runError}</p>}
@@ -401,24 +409,24 @@ const ImportExperimentList: FC<{
                   {!!datasource?.dateUpdated &&
                   datasource?.dateUpdated > data?.experiments?.dateUpdated ? (
                     <p>
-                      Your datasource&apos;s{" "}
+                      Your Data Source&apos;s{" "}
                       <em>Experiment Assignment Queries</em> may have been
-                      misconfigured. The datasource has been modified since the
-                      last data refresh, so use the &apos;Get New Data&apos;
+                      misconfigured. The Data Source has been modified since the
+                      last data refresh, so use the &apos;Get new data&apos;
                       button above to check if the issue has been resolved.
                       Otherwise,{" "}
                       <Link href={`/datasources/${datasource.id}?openAll=1`}>
-                        edit the datasource
+                        edit the Data Source
                       </Link>
                       .
                     </p>
                   ) : (
                     <p>
-                      Your datasource&apos;s{" "}
+                      Your Data Source&apos;s{" "}
                       <em>Experiment Assignment Queries</em> may be
                       misconfigured.{" "}
                       <Link href={`/datasources/${datasource.id}?openAll=1`}>
-                        Edit the datasource
+                        Edit the Data Source
                       </Link>
                       .
                     </p>
@@ -468,7 +476,7 @@ const ImportExperimentList: FC<{
         </Callout>
       )}
       {identifiersWithRows.size === 0 && (
-        <div>
+        <Box>
           {status === "running" ? (
             <LoadingSpinner />
           ) : !hasStarted ? (
@@ -491,9 +499,11 @@ const ImportExperimentList: FC<{
             </>
           ) : (
             <>
-              <h4>No experiments found</h4>
+              <Heading as="h4" size="sm" mb="2">
+                No Experiments Found
+              </Heading>
               <p>
-                No past experiments were returned from this data source. If you
+                No past experiments were returned from this Data Source. If you
                 are expecting past experiments, check the following:
               </p>
               <ul>
@@ -513,13 +523,15 @@ const ImportExperimentList: FC<{
               </ul>
             </>
           )}
-        </div>
+        </Box>
       )}
       {identifiersWithRows.size > 0 && (
-        <div>
-          <h4>Experiments</h4>
+        <Box>
+          <Heading as="h4" size="sm" mb="2">
+            Experiments
+          </Heading>
           <p>
-            These are all of the experiments we found in your datasource{" "}
+            These are all of the experiments we found in your Data Source{" "}
             {data.experiments.config && (
               <>
                 from{" "}
@@ -541,148 +553,142 @@ const ImportExperimentList: FC<{
             )}
             .
           </p>
-          <div className="row mb-3 text-align-center bg-light border-top border-bottom">
+          <Flex align="end" gap="3" wrap="wrap" mb="3">
             {identifierType !== null && identifierTypes.length > 1 && (
-              <div className="col-auto">
-                <SelectField
-                  label="Identifier"
-                  labelClassName="small mb-0"
-                  value={identifierType}
-                  onChange={setSelectedIdentifierType}
-                  options={identifierTypes.map((t) => ({ label: t, value: t }))}
-                />
-              </div>
+              <Select
+                label="Identifier"
+                labelSize="sm"
+                size="sm"
+                value={identifierType}
+                setValue={setSelectedIdentifierType}
+              >
+                {identifierTypes.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </Select>
             )}
-            <div className="col-auto">
-              <label className="small mb-0">Filter</label>
-              <Field
-                size="legacy"
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
-              />
-            </div>
-            <div className="col-auto">
-              <Field
-                size="legacy"
-                label="# Units"
-                labelClassName="small mb-0"
-                type="number"
-                min={0}
-                step={1}
-                prepend={<>&ge;</>}
-                style={{ width: 80 }}
-                value={minUsersFilter}
-                onChange={(e) => {
-                  setMinUsersFilter(e.target.value || "");
-                }}
-              />
-            </div>
-            <div className="col-auto">
-              <Field
-                size="legacy"
-                label="Test Duration"
-                labelClassName="small mb-0"
-                type="number"
-                min={0}
-                step={1}
-                style={{ width: 60 }}
-                value={minLengthFilter}
-                onChange={(e) => {
-                  setMinLengthFilter(e.target.value || "");
-                }}
-                prepend={<>&ge;</>}
-                append="days"
-              />
-            </div>
-            <div className="col-auto">
-              <Field
-                size="legacy"
-                label="# Variations"
-                labelClassName="small mb-0"
-                type="number"
-                min={1}
-                step={1}
-                style={{ width: 60 }}
-                prepend={<>&ge;</>}
-                value={minVariationsFilter}
-                onChange={(e) => {
-                  setMinVariationsFilter(e.target.value);
-                }}
-              />
-            </div>
-            <div className="col-auto">
-              <SelectField
-                size="legacy"
-                label="Status"
-                labelClassName="small mb-0"
-                options={[
-                  { label: "All", value: "" },
-                  { label: "Running", value: "running" },
-                  { label: "Stopped", value: "stopped" },
-                ]}
-                value={statusFilter}
-                onChange={(value) =>
-                  setStatusFilter((value as "" | "stopped" | "running") || "")
-                }
-              />
-            </div>
-            <div className="col-auto align-self-center">
+            <TextField
+              label="Search"
+              labelSize="sm"
+              size="sm"
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+            <TextField
+              label="Units"
+              labelSize="sm"
+              size="sm"
+              type="number"
+              min={0}
+              step={1}
+              prepend={<>&ge;</>}
+              style={{ width: 110 }}
+              value={minUsersFilter}
+              onChange={(e) => {
+                setMinUsersFilter(e.target.value || "");
+              }}
+            />
+            <TextField
+              label="Test duration"
+              labelSize="sm"
+              size="sm"
+              type="number"
+              min={0}
+              step={1}
+              prepend={<>&ge;</>}
+              append="days"
+              style={{ width: 120 }}
+              value={minLengthFilter}
+              onChange={(e) => {
+                setMinLengthFilter(e.target.value || "");
+              }}
+            />
+            <TextField
+              label="Variations"
+              labelSize="sm"
+              size="sm"
+              type="number"
+              min={1}
+              step={1}
+              prepend={<>&ge;</>}
+              style={{ width: 80 }}
+              value={minVariationsFilter}
+              onChange={(e) => {
+                setMinVariationsFilter(e.target.value);
+              }}
+            />
+            <Select
+              label="Status"
+              labelSize="sm"
+              size="sm"
+              value={statusFilter}
+              setValue={(value) =>
+                setStatusFilter(value as "all" | "running" | "stopped")
+              }
+            >
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="running">Running</SelectItem>
+              <SelectItem value="stopped">Stopped</SelectItem>
+            </Select>
+            <Box pb="1">
               <Switch
                 id="hide-imported"
-                label="Hide Imported"
+                label="Hide imported"
                 value={alreadyImportedFilter}
                 onChange={setAlreadyImportedFilter}
               />
-            </div>
-            <div className="col-auto align-self-center">
+            </Box>
+            <Box pb="1">
               <Switch
                 id="dedupe-experiments"
                 label={
                   <>
-                    <span>Group by Experiment Id</span>{" "}
+                    <span>Group by experiment ID</span>{" "}
                     <Tooltip body="How to handle experiments that appear in multiple Assignment Queries. If toggled ON, collapse them into a single row. If OFF, show each one in a separate row." />
                   </>
                 }
                 value={dedupeFilter}
                 onChange={setDedupeFilter}
               />
-            </div>
-          </div>
-          <small>
+            </Box>
+          </Flex>
+          <Text as="div" size="sm" mb="2">
             Showing <strong>{items.length}</strong> of{" "}
             <strong>{totalRows}</strong> experiments.{" "}
             {items.length < totalRows && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  clearFilters();
-                }}
-              >
-                Clear all filters
-              </a>
+              <Link onClick={clearFilters}>Clear all filters</Link>
             )}
-          </small>
-          <table className="table appbox">
-            <thead>
-              <tr>
-                <SortableTH field="exposureQueryName">
-                  Assignment Query
-                </SortableTH>
-                <SortableTH field="experimentName">Experiment Id</SortableTH>
-                <SortableTH field="startDate">Date Started</SortableTH>
-                <SortableTH field="endDate">Date Ended</SortableTH>
-                <SortableTH field="numVariations">Variations</SortableTH>
-                <SortableTH field="users">
-                  Approx Units{" "}
+          </Text>
+          <Table variant="surface">
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeader field="exposureQueryName">
+                  Assignment query
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="experimentName">
+                  Experiment ID
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="startDate">
+                  Date started
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="endDate">
+                  Date ended
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="numVariations">
+                  Variations
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="users">
+                  Approx units{" "}
                   <Tooltip body="This count is approximate and does not de-duplicate units across days; therefore it is likely inflated. Once imported, the unit counts will be accurate." />
-                </SortableTH>
-                <th>Traffic Split</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+                </SortableTableColumnHeader>
+                <TableColumnHeader>Traffic split</TableColumnHeader>
+                <TableColumnHeader />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((e) => {
                 const key = dedupeFilter
                   ? e.trackingKey
@@ -690,14 +696,14 @@ const ImportExperimentList: FC<{
                 const existingId = data?.existing?.[key];
 
                 return (
-                  <tr key={key}>
-                    <td style={{ wordBreak: "break-word" }}>
+                  <TableRow key={key}>
+                    <TableCell style={{ wordBreak: "break-word" }}>
                       {e.exposureQueryName}
-                    </td>
-                    <td style={{ wordBreak: "break-word" }}>
+                    </TableCell>
+                    <TableCell style={{ wordBreak: "break-word" }}>
                       {e.experimentName || e.trackingKey}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <Tooltip
                         body={
                           e.startOfRange
@@ -708,14 +714,14 @@ const ImportExperimentList: FC<{
                         {date(e.startDate)}
                         {e.startOfRange ? "*" : ""}
                       </Tooltip>
-                    </td>
-                    <td>{date(e.endDate)}</td>
-                    <td>{e.numVariations}</td>
-                    <td>{numberFormatter.format(e.users)}</td>
-                    <td style={{ maxWidth: 180 }}>
+                    </TableCell>
+                    <TableCell>{date(e.endDate)}</TableCell>
+                    <TableCell>{e.numVariations}</TableCell>
+                    <TableCell>{numberFormatter.format(e.users)}</TableCell>
+                    <TableCell style={{ maxWidth: 180 }}>
                       {e.weights.map((w) => Math.round(w * 100)).join(" / ")}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {existingId ? (
                         <Link href={`/experiment/${existingId}`}>imported</Link>
                       ) : existingId === null ? (
@@ -723,10 +729,9 @@ const ImportExperimentList: FC<{
                           <Text color="text-mid">imported</Text>
                         </Tooltip>
                       ) : (
-                        <button
-                          className={`btn btn-primary`}
-                          onClick={(ev) => {
-                            ev.preventDefault();
+                        <Button
+                          size="sm"
+                          onClick={() => {
                             const variations = e.variationKeys.map(
                               (vKey, i) => {
                                 let vName = e.variationNames?.[i] || vKey;
@@ -791,57 +796,44 @@ const ImportExperimentList: FC<{
                           }}
                         >
                           Import
-                        </button>
+                        </Button>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
               {items.length <= 0 && (
-                <tr>
-                  <td colSpan={8}>
+                <TableRow>
+                  <TableCell colSpan={8}>
                     <Callout status="info">
-                      <em>
-                        No experiments match your current filters.{" "}
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            clearFilters();
-                          }}
-                        >
-                          Clear all filters
-                        </a>
-                      </em>
+                      No experiments match your current filters.{" "}
+                      <Link onClick={clearFilters}>Clear all filters</Link>
                     </Callout>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Box>
       )}
 
       {datasource &&
         permissionsUtil.canRunPastExperimentQueries(datasource) &&
         data.experiments.latestData &&
         status !== "running" && (
-          <div className="float-right">
+          <Flex justify="end" mt="3">
             <Tooltip
               body={
                 <>
                   This will wipe the above table and query the past{" "}
                   <strong>{data.lookbackDays} days</strong> of data from
-                  scratch. Use the &apos;Get New Data&apos; button above to
+                  scratch. Use the &apos;Get new data&apos; button above to
                   perform a more efficient incremental query.
                 </>
               }
             >
-              <a
-                href="#"
-                className="ml-2 btn btn-link"
-                onClick={async (e) => {
-                  e.preventDefault();
+              <Link
+                onClick={async () => {
                   await apiCall<{ id: string }>("/experiments/import", {
                     method: "POST",
                     body: JSON.stringify({
@@ -853,14 +845,14 @@ const ImportExperimentList: FC<{
                   await mutate();
                 }}
               >
-                Full Refresh
-              </a>
+                Full refresh
+              </Link>
             </Tooltip>
-          </div>
+          </Flex>
         )}
 
       {showQueries && hasStarted && (
-        <div>
+        <Box>
           <ViewAsyncQueriesButton
             queries={
               data.experiments.queries?.length > 0
@@ -870,7 +862,7 @@ const ImportExperimentList: FC<{
             error={data.experiments.error}
             inline={true}
           />
-        </div>
+        </Box>
       )}
     </>
   );
