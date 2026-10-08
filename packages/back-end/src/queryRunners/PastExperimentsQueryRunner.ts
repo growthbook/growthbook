@@ -1,5 +1,9 @@
 import { getValidDate } from "shared/dates";
-import { getExposureQueryIdentifierTypes } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  getPreferredIdentifierType,
+} from "shared/util";
+import { ExposureQuery } from "shared/types/datasource";
 import {
   PastExperimentParams,
   PastExperimentResponseRows,
@@ -107,6 +111,24 @@ export function mergePastExperimentResults({
       current.has(r.exposureQueryId),
     ),
   };
+}
+
+/**
+ * Rows discovered before every identifier was counted don't record theirs.
+ * Discovery counted on the query's legacy `userIdType` while it was declared,
+ * else its first declared identifier.
+ */
+export function withCountedIdentifierTypes(
+  experiments: PastExperiment[],
+  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
+): PastExperiment[] {
+  return experiments.map((e) => {
+    if (e.identifierType) return e;
+    const query = exposureQueries.find((q) => q.id === e.exposureQueryId);
+    return query
+      ? { ...e, identifierType: getPreferredIdentifierType(query) }
+      : e;
+  });
 }
 
 function getMergeReadyWeights(exp: PastExperiment): number[] {

@@ -96,14 +96,7 @@ const ImportExperimentList: FC<{
   const [selectedIdentifierType, setSelectedIdentifierType] = useState<
     string | null
   >(null);
-  // Rows discovered before every identifier was counted have none, so there's
-  // nothing to filter on until the next refresh.
-  const countsByIdentifier = !!data?.experiments?.experiments?.some(
-    (e) => e.identifierType,
-  );
-  const identifierType = countsByIdentifier
-    ? (selectedIdentifierType ?? initialIdentifierType)
-    : null;
+  const identifierType = selectedIdentifierType ?? initialIdentifierType;
 
   // Searching
   const filterResults = useCallback(

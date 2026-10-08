@@ -145,7 +145,10 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
-import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
+import {
+  PastExperimentsQueryRunner,
+  withCountedIdentifierTypes,
+} from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -3922,6 +3925,10 @@ export async function getPastExperimentsList(
     context,
     pastExperiments.datasource,
   );
+  const datasource = await getDataSourceById(
+    context,
+    pastExperiments.datasource,
+  );
 
   const experimentMap = new Map<string, string>();
   (experiments || []).forEach((e) => {
@@ -3942,7 +3949,13 @@ export async function getPastExperimentsList(
 
   res.status(200).json({
     status: 200,
-    experiments: pastExperiments,
+    experiments: {
+      ...pastExperiments,
+      experiments: withCountedIdentifierTypes(
+        pastExperiments.experiments ?? [],
+        datasource?.settings?.queries?.exposure ?? [],
+      ),
+    },
     existing: trackingKeyMap,
     lookbackDays: IMPORT_LIMIT_DAYS,
   });

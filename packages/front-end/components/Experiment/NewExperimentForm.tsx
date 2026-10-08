@@ -224,8 +224,7 @@ export function getNewExperimentDatasourceDefaults({
   const importedQueryIdentifierTypes = importedQuery
     ? getExposureQueryIdentifierTypes(importedQuery)
     : [];
-  // The identifier the imported units were counted on. Rows discovered before
-  // every identifier was counted have none.
+  // The identifier the imported units were counted on.
   const importedIdentifierType = importedQueryIdentifierTypes.find(
     (t) => t === initialValue?.exposureQueryIdentifierType,
   );
