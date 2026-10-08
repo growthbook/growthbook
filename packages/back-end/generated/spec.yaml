@@ -69248,6 +69248,7 @@ components:
           enum:
             - condition
             - list
+            - remote
         dateCreated:
           format: date-time
           type: string
@@ -69270,7 +69271,9 @@ components:
             group
           type: string
         attributeKey:
-          description: When type = 'list', this is the attribute key the group is based on
+          description: >-
+            When type = 'list' or 'remote', this is the attribute key the group
+            is based on
           type: string
         values:
           description: When type = 'list', this is the list of values for the attribute key

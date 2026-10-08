@@ -221,6 +221,9 @@ export const attributeDataTypes = [
   "secureString[]",
 ] as const;
 
+/** Reserved attribute that SDKs set to the user's remote saved group IDs. */
+export const REMOTE_GROUP_IDS_ATTRIBUTE = "__remoteGroupIds";
+
 // Runtime allow-list for discussion parents. Kept here (rather than only as a
 // type) so request handlers can validate an incoming parentType.
 export const DISCUSSION_PARENT_TYPES = [

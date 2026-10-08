@@ -7,10 +7,7 @@ import {
   savedGroupTypeValidator,
 } from "shared/validators";
 
-/**
- * Which kind of saved group this is. Today that is "list" or "condition". More
- * kinds could be added later.
- */
+/** Which kind of saved group this is. */
 export type SavedGroupType = z.infer<typeof savedGroupTypeValidator>;
 
 /**
@@ -61,7 +58,8 @@ export type SavedGroupsValues = Record<string, (string | number)[]>;
  */
 export type SavedGroupPayloadEntry =
   | { type: "list"; attributeKey: string; values: (string | number)[] }
-  | { type: "condition"; condition: ConditionInterface };
+  | { type: "condition"; condition: ConditionInterface }
+  | { type: "remote"; attributeKey: string };
 
 /** The `savedGroups` field of a savedGroupReferencesV2 payload: ID to entry. */
 export type SavedGroupPayloadMap = Record<string, SavedGroupPayloadEntry>;

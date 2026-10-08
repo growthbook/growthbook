@@ -32,6 +32,7 @@ export const SAVED_GROUP_TYPE_CAPABILITY: Record<
 > = {
   list: "savedGroupReferencesV2",
   condition: "savedGroupReferencesV2",
+  remote: "savedGroupReferencesRemote",
 };
 
 /**
@@ -253,6 +254,10 @@ function buildV2PayloadEntry(
       } catch (e) {
         return null;
       }
+    }
+    case "remote": {
+      if (!group.attributeKey) return null;
+      return { type: "remote", attributeKey: group.attributeKey };
     }
   }
 }

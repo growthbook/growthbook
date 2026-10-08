@@ -15,7 +15,41 @@ import {
 
 import { namedSchema } from "./openapi-helpers";
 
-export const savedGroupTypeValidator = z.enum(["condition", "list"]);
+export const savedGroupTypeValidator = z.enum(["condition", "list", "remote"]);
+
+// Empty values or condition count as unset.
+function refineRemoteSavedGroupBody(
+  body: {
+    type?: z.infer<typeof savedGroupTypeValidator>;
+    attributeKey?: string;
+    values?: string[];
+    condition?: string;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  if (body.type !== "remote") return;
+  if (!body.attributeKey) {
+    ctx.addIssue({
+      code: "custom",
+      message: "attributeKey is required for remote Saved Groups",
+      path: ["attributeKey"],
+    });
+  }
+  if (body.values?.length) {
+    ctx.addIssue({
+      code: "custom",
+      message: "values are not allowed for remote Saved Groups",
+      path: ["values"],
+    });
+  }
+  if (body.condition) {
+    ctx.addIssue({
+      code: "custom",
+      message: "condition is not allowed for remote Saved Groups",
+      path: ["condition"],
+    });
+  }
+}
 
 export const savedGroupValidator = z
   .object({
@@ -51,16 +85,18 @@ export const savedGroupUpdatableFieldsSchema = savedGroupValidator.pick({
   archived: true,
 });
 
-export const postSavedGroupBodyValidator = z.object({
-  groupName: z.string(),
-  owner: ownerInputField,
-  type: savedGroupTypeValidator,
-  condition: z.string().optional(),
-  attributeKey: z.string().optional(),
-  values: z.string().array().optional(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  projects: z.string().array().optional(),
-});
+export const postSavedGroupBodyValidator = z
+  .object({
+    groupName: z.string(),
+    owner: ownerInputField,
+    type: savedGroupTypeValidator,
+    condition: z.string().optional(),
+    attributeKey: z.string().optional(),
+    values: z.string().array().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    projects: z.string().array().optional(),
+  })
+  .superRefine(refineRemoteSavedGroupBody);
 
 export const putSavedGroupBodyValidator = z.object({
   groupName: z.string().optional(),
@@ -94,7 +130,7 @@ export const apiSavedGroupValidator = namedSchema(
   z
     .object({
       id: z.string(),
-      type: z.enum(["condition", "list"]),
+      type: savedGroupTypeValidator,
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
       name: z.string(),
@@ -109,7 +145,7 @@ export const apiSavedGroupValidator = namedSchema(
       attributeKey: z
         .string()
         .describe(
-          "When type = 'list', this is the attribute key the group is based on",
+          "When type = 'list' or 'remote', this is the attribute key the group is based on",
         )
         .optional(),
       values: z
@@ -132,6 +168,7 @@ export type ApiSavedGroup = z.infer<typeof apiSavedGroupValidator>;
 const postSavedGroupBody = z
   .object({
     name: z.string().describe("The display name of the Saved Group"),
+    // TODO(remote-saved-groups): accept "remote" once the handler supports it.
     type: z
       .enum(["condition", "list"])
       .describe(

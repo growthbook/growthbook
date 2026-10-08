@@ -47,6 +47,19 @@ export function isIdListSupportedAttribute(
   return !!datatype && ID_LIST_DATATYPES.includes(datatype);
 }
 
+// Remote groups are matched by a lookup outside the SDK, which can't hash values.
+export const REMOTE_GROUP_DATATYPES: SDKAttributeType[] = [
+  "number",
+  "string",
+] as const;
+export function isRemoteGroupSupportedAttribute(
+  attribute?: Pick<SDKAttribute, "datatype" | "disableEqualityConditions">,
+): boolean {
+  if (attribute?.disableEqualityConditions) return false;
+  const datatype = attribute?.datatype;
+  return !!datatype && REMOTE_GROUP_DATATYPES.includes(datatype);
+}
+
 export function getSavedGroupsValuesFromGroupMap(
   groupMap: GroupMap,
 ): SavedGroupsValues {

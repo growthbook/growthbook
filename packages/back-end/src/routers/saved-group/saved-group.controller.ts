@@ -141,6 +141,9 @@ export const postSavedGroup = async (
       org.settings?.savedGroupSizeLimit,
       context.permissions.canBypassSavedGroupSizeLimit(projects),
     );
+  } else if (type === "remote") {
+    // TODO(remote-saved-groups): allow once the back end supports them.
+    throw new Error("Remote Saved Groups are not supported yet");
   }
   if (typeof description === "string" && description.length > 100) {
     throw new Error("Description must be at most 100 characters");
