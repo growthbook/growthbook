@@ -12,7 +12,7 @@
  * zod at the read site (back-end services/plan-limits.ts).
  *
  * Exception: "new-metric-creation-flow" is added ahead of the flag's creation
- * for the metric editor experiment (front-end hooks/useFactMetricCreation.tsx).
+ * for the metric editor experiment (front-end hooks/useFactMetricFlow.tsx).
  */
 export type AppFeatures = {
   "papercups-config": Record<string, unknown>;
