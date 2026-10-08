@@ -202,6 +202,7 @@ const ApiKeysModal: FC<{
     >
       <TextField
         label="Description"
+        labelSize="lg"
         required
         mb="3"
         {...form.register("description")}
