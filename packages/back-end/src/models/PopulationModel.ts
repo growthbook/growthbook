@@ -65,10 +65,9 @@ export class PopulationModel extends BaseClass {
   }
   protected canUpdate(
     existing: PopulationInterface,
-    _updates: UpdateProps<PopulationInterface>,
-    newDoc: PopulationInterface,
+    updates: UpdateProps<PopulationInterface>,
   ): boolean {
-    return this.context.permissions.canUpdatePopulation(existing, newDoc);
+    return this.context.permissions.canUpdatePopulation(existing, updates);
   }
   protected canDelete(doc: PopulationInterface): boolean {
     return this.context.permissions.canDeletePopulation(doc);
