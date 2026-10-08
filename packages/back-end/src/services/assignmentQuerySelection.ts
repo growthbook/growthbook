@@ -19,22 +19,8 @@ import {
   toMonitoringSelection,
   withKeptIdentifierType,
 } from "shared/util";
-import type { ExperimentInterface } from "shared/types/experiment";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
-
-// An experiment's query must be usable in its project. A holdout's experiment
-// has no project, so its query must cover every project the holdout does.
-export async function getExperimentAssignmentQueryScope(
-  context: ReqContext | ApiReqContext,
-  experiment: Pick<ExperimentInterface, "id" | "type" | "project">,
-): Promise<AssignmentQueryScope> {
-  if (experiment.type !== "holdout") {
-    return { project: experiment.project ?? "" };
-  }
-  const holdout = await context.models.holdout.getByExperimentId(experiment.id);
-  return { projects: holdout?.projects ?? [] };
-}
 
 // Queries without their own projects inherit the data source's.
 function withDatasourceProjects(

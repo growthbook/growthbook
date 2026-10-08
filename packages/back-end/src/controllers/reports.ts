@@ -36,10 +36,7 @@ import {
 } from "back-end/src/models/ReportModel";
 import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/ExperimentReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import {
-  getExperimentAssignmentQueryScope,
-  resolveAssignmentQueryIdentifier,
-} from "back-end/src/services/assignmentQuerySelection";
+import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
   getContextForAgendaJobByOrgId,
@@ -479,9 +476,15 @@ async function applyReportAssignmentQuery(
     previous: toSelection(previous),
     next: { ...toSelection(next), identifierType: requestedIdentifierType },
     onOmitted: "defaultToFirst",
-    scope: experiment
-      ? await getExperimentAssignmentQueryScope(context, experiment)
-      : { project: "" },
+    // A holdout's experiment has no project; its query must cover the holdout's.
+    scope:
+      experiment?.type === "holdout"
+        ? {
+            projects:
+              (await context.models.holdout.getByExperimentId(experiment.id))
+                ?.projects ?? [],
+          }
+        : { project: experiment?.project ?? "" },
   });
   // `next` is saved whole: an absent key clears the stored identifier, where an
   // undefined one would persist as null.

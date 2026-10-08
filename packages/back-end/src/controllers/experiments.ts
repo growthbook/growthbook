@@ -115,10 +115,7 @@ import {
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import {
-  getExperimentAssignmentQueryScope,
-  resolveAssignmentQueryIdentifier,
-} from "back-end/src/services/assignmentQuerySelection";
+import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
@@ -2031,18 +2028,22 @@ export async function postExperiment(
     next: {
       datasource: changes.datasource ?? experiment.datasource ?? "",
       exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
-      /**
-       * The body's, not `changes`: re-sending the stored value on a new query
-       * leaves it out of `changes` but is still an explicit choice.
-       */
+      // Read from the body, not `changes`: the diff drops an identifier equal
+      // to the stored one, but on a newly chosen query it's still an explicit
+      // selection.
       identifierType: data.exposureQueryIdentifierType,
     },
     onOmitted: "defaultToFirst",
-    // A newly chosen query must fit the experiment's project after this edit.
-    scope: await getExperimentAssignmentQueryScope(context, {
-      ...experiment,
-      project: changes.project ?? experiment.project,
-    }),
+    // A newly chosen query must fit the experiment's project after this edit,
+    // or for a holdout's experiment, every project the holdout covers.
+    scope:
+      experiment.type === "holdout"
+        ? {
+            projects:
+              (await context.models.holdout.getByExperimentId(experiment.id))
+                ?.projects ?? [],
+          }
+        : { project: changes.project ?? experiment.project ?? "" },
   });
   // Also overrides an echoed identifier on an unchanged selection, so an
   // implicit experiment stays implicit.
