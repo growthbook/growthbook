@@ -28,7 +28,7 @@ const RequestedByFields: FC<{
     </Text>
     <Frame py="1" px="4">
       <Grid
-        columns="180px 210px 1fr"
+        columns="100px 210px 1fr"
         gapX="4"
         align="center"
         style={{ gridAutoRows: "minmax(48px, auto)" }}
