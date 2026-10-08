@@ -89,6 +89,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredDimensions = form.watch("dimensions");
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
+  // Leaving the scope empty covers every Project the Data Source does.
+  const canCoverAllProjects = permissionsUtil.canUpdateExposureQuery(
+    { projects: [] },
+    dataSource,
+  );
+
   const handleSubmit = form.handleSubmit(async (value) => {
     if (!canCoverAllProjects && !value.projects?.length) {
       throw new Error(
@@ -129,17 +135,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const saveEnabled = userEnteredUserIdTypes.length >= 1 && !!userEnteredQuery;
 
   const userEnteredProjects = form.watch("projects") ?? [];
-  // Enforces EAQ.projects ⊆ datasource.projects.
+  // Only the Data Source's Projects, plus any already selected so they can be
+  // removed.
   const filteredProjects = projects.filter(
     (project) =>
       !dataSource.projects?.length ||
       dataSource.projects.includes(project.id) ||
       userEnteredProjects.includes(project.id),
-  );
-  // Leaving the scope empty covers every Project the Data Source does.
-  const canCoverAllProjects = permissionsUtil.canUpdateExposureQuery(
-    { projects: [] },
-    dataSource,
   );
   const projectOptions = useProjectOptions(
     (project) =>

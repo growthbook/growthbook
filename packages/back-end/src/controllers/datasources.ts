@@ -1,7 +1,5 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
-import isEqual from "lodash/isEqual";
-import omit from "lodash/omit";
 import pick from "lodash/pick";
 import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
@@ -9,7 +7,7 @@ import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
-  getChangedExposureQueries,
+  getDataSourceSaveChanges,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -370,17 +368,6 @@ export async function postManagedWarehouse(
   });
 }
 
-// Settings with the assignment queries left out, normalized as JSON so values
-// round-tripped through the client compare equal.
-function withoutExposureQueries(settings: DataSourceSettings | undefined) {
-  return JSON.parse(
-    JSON.stringify({
-      ...settings,
-      queries: omit(settings?.queries ?? {}, "exposure"),
-    }),
-  );
-}
-
 type PutDataSourceBody = {
   name?: string;
   description?: string;
@@ -394,37 +381,26 @@ type PutDataSourceBody = {
 
 // Assignment queries are scoped to projects, so editing one needs the
 // permission in the projects it covers rather than in every project of the
-// data source. Anything else in the body, including fields added later, still
-// needs the data source-wide permission.
+// data source. Anything else still needs the data source-wide permission.
 function assertCanUpdateDataSource(
   context: ReqContext,
   datasource: DataSourceInterface,
   body: PutDataSourceBody,
 ) {
   const { permissions } = context;
-  const { settings, ...otherFields } = body;
-  const onlyExposureQueriesChange =
-    !Object.keys(otherFields).length &&
-    (settings === undefined ||
-      isEqual(
-        withoutExposureQueries(settings),
-        withoutExposureQueries(datasource.settings),
-      ));
+  const { changesOtherFields, exposureQueryChanges } = getDataSourceSaveChanges(
+    datasource,
+    body,
+  );
   if (
-    !onlyExposureQueriesChange &&
+    changesOtherFields &&
     !permissions.canUpdateDataSourceSettings(datasource)
   ) {
     permissions.throwPermissionError();
   }
 
   const nextDatasource = { projects: body.projects ?? datasource.projects };
-  const changes = body.settings
-    ? getChangedExposureQueries(
-        datasource.settings?.queries?.exposure ?? [],
-        body.settings.queries?.exposure ?? [],
-      )
-    : [];
-  for (const change of changes) {
+  for (const change of exposureQueryChanges) {
     if (
       (change.previous &&
         !permissions.canUpdateExposureQuery(change.previous, datasource)) ||

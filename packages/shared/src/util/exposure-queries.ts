@@ -1,6 +1,6 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import { ExposureQuery } from "shared/types/datasource";
+import { DataSourceSettings, ExposureQuery } from "shared/types/datasource";
 import { ResolvedExposureQuery } from "shared/types/integrations";
 import type {
   ApiAssignmentQueryRef,
@@ -493,4 +493,50 @@ export function getChangedExposureQueries<
     changes.push({ previous: removed, next: null });
   }
   return changes;
+}
+
+// Settings with the assignment queries left out, normalized as JSON so values
+// round-tripped through the client compare equal.
+function withoutExposureQueries(settings: DataSourceSettings | undefined) {
+  return JSON.parse(
+    JSON.stringify({
+      ...settings,
+      queries: omit(settings?.queries ?? {}, "exposure"),
+    }),
+  );
+}
+
+/**
+ * What a data source save changes, for permission checks. Any body field other
+ * than `settings`, including ones added to the endpoint later, counts as a
+ * change beyond the assignment queries.
+ */
+export function getDataSourceSaveChanges(
+  datasource: { settings?: DataSourceSettings },
+  {
+    settings,
+    ...otherFields
+  }: { settings?: DataSourceSettings; [field: string]: unknown },
+): {
+  changesOtherFields: boolean;
+  exposureQueryChanges: {
+    previous: ExposureQuery | null;
+    next: ExposureQuery | null;
+  }[];
+} {
+  return {
+    changesOtherFields:
+      Object.keys(otherFields).length > 0 ||
+      (settings !== undefined &&
+        !isEqual(
+          withoutExposureQueries(settings),
+          withoutExposureQueries(datasource.settings),
+        )),
+    exposureQueryChanges: settings
+      ? getChangedExposureQueries(
+          datasource.settings?.queries?.exposure ?? [],
+          settings.queries?.exposure ?? [],
+        )
+      : [],
+  };
 }

@@ -1,5 +1,6 @@
 import {
   getChangedExposureQueries,
+  getDataSourceSaveChanges,
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
@@ -848,5 +849,51 @@ describe("getChangedExposureQueries", () => {
       { previous: null, next: added },
       { previous: b, next: null },
     ]);
+  });
+});
+
+describe("getDataSourceSaveChanges", () => {
+  const eq = {
+    id: "eq_a",
+    name: "A",
+    userIdType: "user_id",
+    query: "SELECT 1",
+  };
+  const datasource = {
+    settings: { queries: { exposure: [eq] }, userIdTypes: [] },
+  };
+
+  it("treats an assignment query edit alone as no other change", () => {
+    const edited = { ...eq, query: "SELECT 2" };
+    expect(
+      getDataSourceSaveChanges(datasource, {
+        settings: { ...datasource.settings, queries: { exposure: [edited] } },
+      }),
+    ).toEqual({
+      changesOtherFields: false,
+      exposureQueryChanges: [{ previous: eq, next: edited }],
+    });
+  });
+
+  it("counts any other body field, even an unchanged or unknown one", () => {
+    expect(
+      getDataSourceSaveChanges(datasource, { name: "Same name" })
+        .changesOtherFields,
+    ).toBe(true);
+    expect(
+      getDataSourceSaveChanges(datasource, { someFutureField: 1 })
+        .changesOtherFields,
+    ).toBe(true);
+  });
+
+  it("counts a settings change outside the assignment queries", () => {
+    expect(
+      getDataSourceSaveChanges(datasource, {
+        settings: {
+          ...datasource.settings,
+          userIdTypes: [{ userIdType: "user_id" }],
+        },
+      }).changesOtherFields,
+    ).toBe(true);
   });
 });

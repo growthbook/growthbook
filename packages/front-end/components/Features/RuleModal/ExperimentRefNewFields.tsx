@@ -227,7 +227,7 @@ export default function ExperimentRefNewFields({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
-    project: project,
+    project,
     hashAttribute,
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,
