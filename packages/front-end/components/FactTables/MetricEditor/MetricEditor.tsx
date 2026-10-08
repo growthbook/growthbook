@@ -296,6 +296,7 @@ export default function MetricEditor({
     const dialect = { hasCountDistinctHLL: () => hasCountDistinctHLL };
     denominatorTableOverridden.current = false;
     form.setValue("datasource", newDatasourceId);
+    form.setValue("metricAutoSlices", []);
     form.setValue("numerator", onFactTableChange(numerator, null, dialect));
     if (denominator) {
       form.setValue(
