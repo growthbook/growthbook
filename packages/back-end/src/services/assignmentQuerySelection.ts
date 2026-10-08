@@ -110,8 +110,14 @@ export async function resolveAssignmentQueryIdentifier(
     next: AssignmentQuerySelection;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     field?: "assignmentQuery" | "exposureQuery";
-    /** Where the record uses the query. Omit to skip the project check. */
-    scope?: RecordAssignmentQueryScope;
+    /**
+     * Where the record uses the query. Omit to skip the project check. Pass a
+     * function when finding the scope costs a lookup, so it only runs for a
+     * changed selection.
+     */
+    scope?:
+      | RecordAssignmentQueryScope
+      | (() => Promise<RecordAssignmentQueryScope>);
   },
 ): Promise<{ identifierType: string | undefined; changed: boolean }> {
   const kept = withKeptIdentifierType(previous, next);
@@ -136,7 +142,10 @@ export async function resolveAssignmentQueryIdentifier(
       next: kept,
       onOmitted,
       field,
-      scope: withDatasourceProjects(scope, selection.datasource),
+      scope: withDatasourceProjects(
+        typeof scope === "function" ? await scope() : scope,
+        selection.datasource,
+      ),
     },
   );
   if (!result.ok) throw new Error(result.error);

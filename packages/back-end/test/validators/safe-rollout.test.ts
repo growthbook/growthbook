@@ -88,7 +88,7 @@ describe("validateSafeRolloutFields", () => {
     const validated = await validateSafeRolloutFields(
       { ...fields, exposureQueryId: "eq_multi" },
       context,
-      stored,
+      { previous: stored },
     );
     expect(validated).toHaveProperty("exposureQueryIdentifierType", undefined);
   });
@@ -98,7 +98,7 @@ describe("validateSafeRolloutFields", () => {
       validateSafeRolloutFields(
         { ...fields, exposureQueryId: "eq_dropped" },
         context,
-        stored,
+        { previous: stored },
       ),
     ).rejects.toThrow(
       'no longer declares its default identifier type "user_id"',

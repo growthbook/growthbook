@@ -2038,11 +2038,12 @@ export async function postExperiment(
     },
     onOmitted: "defaultToFirst",
     // A newly chosen query must fit the experiment's project after this edit.
-    scope: await getExperimentAssignmentQueryScope(
-      context,
-      experiment,
-      changes.project ?? experiment.project ?? "",
-    ),
+    scope: () =>
+      getExperimentAssignmentQueryScope(
+        context,
+        experiment,
+        changes.project ?? experiment.project ?? "",
+      ),
   });
   // Also overrides an echoed identifier on an unchanged selection, so an
   // implicit experiment stays implicit.

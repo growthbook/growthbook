@@ -480,11 +480,12 @@ async function applyReportAssignmentQuery(
     next: { ...toSelection(next), identifierType: requestedIdentifierType },
     onOmitted: "defaultToFirst",
     scope: experiment
-      ? await getExperimentAssignmentQueryScope(
-          context,
-          experiment,
-          experiment.project ?? "",
-        )
+      ? () =>
+          getExperimentAssignmentQueryScope(
+            context,
+            experiment,
+            experiment.project ?? "",
+          )
       : { project: "" },
   });
   // `next` is saved whole: an absent key clears the stored identifier, where an
