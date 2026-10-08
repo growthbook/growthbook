@@ -308,19 +308,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/ImportExperimentList.tsx": {
-    "no-restricted-syntax": {
-      "count": 6
-    }
-  },
-  "packages/front-end/components/Experiment/ImportExperimentModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/MetricAnalysisWindowSelector.tsx": {
     "no-restricted-syntax": {
       "count": 3
@@ -1266,11 +1253,6 @@
     },
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Queries/AsyncQueriesModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/Queries/QueriesLastRun.tsx": {
