@@ -587,41 +587,19 @@ const MetricsList = (): React.ReactElement => {
         <Box style={{ flex: 1 }} />
         {envAllowsCreatingMetrics() && !showCreateFactTableButton ? (
           <Flex gap="2" align="center">
-            {/* Equal columns keep Add metric as wide as Discover Metrics.
-                Discover Metrics carries its own right margin, so Add metric
-                gets matching left padding. */}
-            <Box
-              style={{
-                display: "grid",
-                gridAutoFlow: "column",
-                gridAutoColumns: "1fr",
-              }}
+            <AutoGenerateMetricsButton
+              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+            />
+            <Tooltip
+              content="You don't have permission to add metrics in this project."
+              enabled={!canAddFactMetric}
             >
-              <AutoGenerateMetricsButton
-                setShowAutoGenerateMetricsModal={
-                  setShowAutoGenerateMetricsModal
-                }
-              />
-              <Box pl="2">
-                <Tooltip
-                  content="You don't have permission to add metrics in this project."
-                  enabled={!canAddFactMetric}
-                >
-                  {canAddFactMetric ? (
-                    <LinkButton
-                      href="/fact-metrics/new"
-                      style={{ width: "100%" }}
-                    >
-                      Add metric
-                    </LinkButton>
-                  ) : (
-                    <Button disabled style={{ width: "100%" }}>
-                      Add metric
-                    </Button>
-                  )}
-                </Tooltip>
-              </Box>
-            </Box>
+              {canAddFactMetric ? (
+                <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
+              ) : (
+                <Button disabled>Add metric</Button>
+              )}
+            </Tooltip>
             {showLegacyOption && (
               // Legacy creation stays possible for orgs that already use
               // it, tucked behind this menu and a confirmation.
