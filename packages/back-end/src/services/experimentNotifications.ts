@@ -57,7 +57,8 @@ import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 // Holdout backing experiments announce themselves through the holdout.*
 // events, so every experiment alert skips them here.
 const isNotifiableExperiment = (experiment: ExperimentInterface): boolean =>
-  experiment.type !== "holdout";
+  experiment.type !== "holdout" &&
+  experiment.type !== "contextualBanditMeasurementArm";
 
 // This ensures that the two types remain equal.
 const dispatchEvent = async <T extends ResourceEvents<"experiment">>({

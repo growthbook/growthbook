@@ -8,6 +8,7 @@ import {
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 
 const deleteVariationScreenshotValidator = {
   paramsSchema: z
@@ -53,6 +54,7 @@ export const deleteVariationScreenshot = createApiRequestHandler(
   if (experiment.type === "holdout") {
     throw new Error("Holdouts are not supported via this API");
   }
+  assertNotMeasurementArmExperiment(experiment, "edit variations");
 
   if (experiment.organization !== context.org.id) {
     throw new Error("You do not have access to this experiment");

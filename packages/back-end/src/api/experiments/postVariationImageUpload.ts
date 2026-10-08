@@ -10,6 +10,7 @@ import { validateExperimentChange } from "back-end/src/services/experimentChange
 import { uploadFile } from "back-end/src/services/files";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 
 const MIMETYPES: Record<string, string> = {
   "image/png": "png",
@@ -88,6 +89,7 @@ export const postVariationImageUpload = createApiRequestHandler(
   if (experiment.type === "holdout") {
     throw new Error("Holdouts are not supported via this API");
   }
+  assertNotMeasurementArmExperiment(experiment, "edit variations");
 
   if (experiment.organization !== context.org.id) {
     throw new Error("You do not have access to this experiment");

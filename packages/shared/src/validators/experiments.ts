@@ -208,6 +208,7 @@ export const experimentType = [
   "standard",
   "multi-armed-bandit",
   "holdout",
+  "contextualBanditMeasurementArm",
 ] as const;
 export type ExperimentType = (typeof experimentType)[number];
 
@@ -536,6 +537,7 @@ export const experimentInterface = z
     analysisSummary: experimentAnalysisSummary.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
+    contextualBanditId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
     statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
@@ -956,7 +958,12 @@ const apiExperimentShape = z.object({
   dateCreated: z.string().meta({ format: "date-time" }),
   dateUpdated: z.string().meta({ format: "date-time" }),
   name: z.string(),
-  type: z.enum(["standard", "multi-armed-bandit", "holdout"]),
+  type: z.enum([
+    "standard",
+    "multi-armed-bandit",
+    "holdout",
+    "contextualBanditMeasurementArm",
+  ]),
   project: z.string(),
   hypothesis: z.string(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH),

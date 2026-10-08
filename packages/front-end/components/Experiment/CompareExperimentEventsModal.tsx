@@ -247,6 +247,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   analysisSummary: false,
   dismissedWarnings: false,
   holdoutId: false,
+  contextualBanditId: false,
   defaultDashboardId: false,
 };
 

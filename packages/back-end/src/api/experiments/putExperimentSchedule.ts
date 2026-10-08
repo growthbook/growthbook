@@ -8,6 +8,7 @@ import { setExperimentSchedule } from "back-end/src/services/experimentSchedulin
 import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 
 export const putExperimentSchedule = createApiRequestHandler(
@@ -18,6 +19,7 @@ export const putExperimentSchedule = createApiRequestHandler(
   if (experiment.type === "holdout") {
     throw new Error("Holdouts are not supported via this API");
   }
+  assertNotMeasurementArmExperiment(experiment, "schedule via this API");
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }

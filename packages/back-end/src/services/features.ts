@@ -60,6 +60,12 @@ import {
 import {
   getActiveVariations,
   getLatestPhaseVariations,
+  getContextualBanditMeasurementArmFeatureDefId,
+  measurementArmWeights,
+  CONTEXTUAL_BANDIT_MEASUREMENT_ARM_DEF_PREFIX,
+  MEASUREMENT_ARM_BANDIT_VALUE,
+  MEASUREMENT_ARM_CONTROL_VALUE,
+  MEASUREMENT_ARM_GENPOP_VALUE,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -425,6 +431,58 @@ export function generateHoldoutsPayload({
     };
   });
   return holdoutDefs;
+}
+
+/**
+ * One pseudo-feature per running contextual bandit with an enabled measurement
+ * arm. Linked features gate their control force rule and their CB rule on this
+ * feature's value, so the wrapper carries the CB's targeting, coverage and hash
+ * attribute, and its own seed. Same shape as the holdout pseudo-feature.
+ */
+export function generateContextualBanditMeasurementArmsPayload({
+  cbMap,
+  savedGroupStrategy,
+}: {
+  cbMap: Map<string, ContextualBanditInterface> | undefined;
+  savedGroupStrategy: SavedGroupPayloadStrategy;
+}): Record<string, FeatureDefinition> {
+  const defs: Record<string, FeatureDefinition> = {};
+  if (!cbMap) return defs;
+  cbMap.forEach((cb) => {
+    const arm = cb.measurementArm;
+    if (cb.status !== "running" || !arm?.enabled || !arm.experimentId) return;
+
+    const id = getContextualBanditMeasurementArmFeatureDefId(cb.id);
+    const rule: FeatureDefinitionRule = {
+      id,
+      coverage: cb.coverage ?? 1,
+      hashAttribute: cb.hashAttribute || "id",
+      seed: arm.seed,
+      hashVersion: 2,
+      disableStickyBucketing: true,
+      variations: [MEASUREMENT_ARM_CONTROL_VALUE, MEASUREMENT_ARM_BANDIT_VALUE],
+      weights: measurementArmWeights(arm.percent),
+      key: arm.trackingKey ?? `${cb.trackingKey}__measurement_arm`,
+      phase: "0",
+      meta: [{ key: "0" }, { key: "1" }],
+    };
+
+    const condition = mergeConditionAndSavedGroups({
+      savedGroupStrategy,
+      condition: cb.condition,
+      savedGroups: cb.savedGroups,
+    });
+    if (condition) {
+      savedGroupStrategy.finalizeCondition(condition);
+      rule.condition = condition;
+    }
+
+    defs[id] = {
+      defaultValue: MEASUREMENT_ARM_GENPOP_VALUE,
+      rules: [rule],
+    };
+  });
+  return defs;
 }
 
 export type VisualExperiment = {
@@ -1566,8 +1624,14 @@ function pruneUnreferencedHoldouts(
   const referenced = new Set<string>();
   for (const k in features) {
     for (const rule of features[k]?.rules ?? []) {
-      const pcId = rule.parentConditions?.[0]?.id;
-      if (pcId?.startsWith("$holdout:")) referenced.add(pcId);
+      for (const pc of rule.parentConditions ?? []) {
+        if (
+          pc.id?.startsWith("$holdout:") ||
+          pc.id?.startsWith(CONTEXTUAL_BANDIT_MEASUREMENT_ARM_DEF_PREFIX)
+        ) {
+          referenced.add(pc.id);
+        }
+      }
     }
   }
   return Object.fromEntries(
@@ -1755,8 +1819,14 @@ export async function buildSDKPayloadForConnection(
     projectsMap,
   });
 
+  const measurementArmFeatureDefinitions =
+    generateContextualBanditMeasurementArmsPayload({
+      cbMap,
+      savedGroupStrategy,
+    });
+
   const holdoutsInUse = pruneUnreferencedHoldouts(
-    holdoutFeatureDefinitions,
+    { ...holdoutFeatureDefinitions, ...measurementArmFeatureDefinitions },
     featureDefinitions,
   );
 

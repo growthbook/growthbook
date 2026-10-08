@@ -30,6 +30,9 @@ import {
 import {
   getActiveVariations,
   getLatestPhaseVariations,
+  getContextualBanditMeasurementArmFeatureDefId,
+  MEASUREMENT_ARM_BANDIT_VALUE,
+  MEASUREMENT_ARM_CONTROL_VALUE,
 } from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
 import { GroupMap } from "shared/types/saved-group";
@@ -1196,6 +1199,13 @@ export function getFeatureDefinition({
     rule: FeatureDefinitionRule | null,
   ): rule is FeatureDefinitionRule => !!rule;
 
+  // Contextual-bandit rules wrapped by a measurement arm emit a companion
+  // force rule (the held-back control) immediately before the CB rule.
+  const measurementArmControlRules = new Map<
+    FeatureDefinitionRule,
+    FeatureDefinitionRule
+  >();
+
   const defRules = [
     ...holdoutRule,
     ...prerequisiteRules,
@@ -1366,15 +1376,36 @@ export function getFeatureDefinition({
 
           if (cb.status === "draft") return null;
 
-          const phaseCondition = mergeConditionAndSavedGroups({
-            savedGroupStrategy,
-            condition: cb.condition,
-          });
-          if (phaseCondition) {
-            rule.condition = phaseCondition;
-          }
+          // A running measurement arm wraps this rule: the wrapper carries the
+          // CB's targeting and coverage, and the CB rule only sees users the
+          // wrapper bucketed into "bandit". Requires the prerequisites
+          // capability; without it the CB rule ships un-wrapped.
+          const measurementArm =
+            hasPrerequisites &&
+            cb.status === "running" &&
+            cb.measurementArm?.enabled &&
+            cb.measurementArm.experimentId
+              ? cb.measurementArm
+              : null;
 
-          rule.coverage = cb.coverage;
+          if (measurementArm) {
+            rule.parentConditions = [
+              {
+                id: getContextualBanditMeasurementArmFeatureDefId(cb.id),
+                condition: { value: MEASUREMENT_ARM_BANDIT_VALUE },
+              },
+            ];
+            rule.coverage = 1;
+          } else {
+            const phaseCondition = mergeConditionAndSavedGroups({
+              savedGroupStrategy,
+              condition: cb.condition,
+            });
+            if (phaseCondition) {
+              rule.condition = phaseCondition;
+            }
+            rule.coverage = cb.coverage;
+          }
 
           if (cb.hashAttribute) {
             rule.hashAttribute = cb.hashAttribute;
@@ -1435,6 +1466,23 @@ export function getFeatureDefinition({
 
           if (rule.condition)
             savedGroupStrategy.finalizeCondition(rule.condition);
+          if (rule.parentConditions)
+            savedGroupStrategy.finalizeCondition(rule.parentConditions);
+          if (measurementArm) {
+            const controlRule: FeatureDefinitionRule = {
+              ...(includeRuleIds
+                ? { id: `cbma_${md5(feature.id + cb.id)}` }
+                : {}),
+              parentConditions: [
+                {
+                  id: getContextualBanditMeasurementArmFeatureDefId(cb.id),
+                  condition: { value: MEASUREMENT_ARM_CONTROL_VALUE },
+                },
+              ],
+              force: valueForSDK(defaultValue),
+            };
+            measurementArmControlRules.set(rule, controlRule);
+          }
           if (metadataOptions) {
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
@@ -1461,6 +1509,17 @@ export function getFeatureDefinition({
             ) as FeatureDefinitionRule;
             if (includeRuleIds && r.id != null) {
               (picked as Record<string, unknown>).id = stemRuleId(r.id);
+            }
+            const companion = measurementArmControlRules.get(rule);
+            if (companion) {
+              measurementArmControlRules.delete(rule);
+              measurementArmControlRules.set(
+                picked,
+                pick(
+                  companion,
+                  allowedKeys.featureRuleKeys,
+                ) as FeatureDefinitionRule,
+              );
             }
             return picked;
           }
@@ -1704,7 +1763,11 @@ export function getFeatureDefinition({
         }
         return rule;
       })
-      ?.filter(isRule) ?? []),
+      ?.filter(isRule)
+      ?.flatMap((rule) => {
+        const control = measurementArmControlRules.get(rule);
+        return control ? [control, rule] : [rule];
+      }) ?? []),
   ];
 
   let def: FeatureDefinition = {

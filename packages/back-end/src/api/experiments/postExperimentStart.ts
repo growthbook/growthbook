@@ -12,6 +12,7 @@ import {
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 
 function formatScheduledStartUtc(date: Date): string {
@@ -42,6 +43,7 @@ export const postExperimentStart = createApiRequestHandler(
   if (existing.type === "holdout") {
     throw new Error("Holdouts are not supported via this API");
   }
+  assertNotMeasurementArmExperiment(existing, "start via this API");
 
   // Bandits manage their own update cadence; they don't use statusUpdateSchedule.
   const isBandit = existing.type === "multi-armed-bandit";

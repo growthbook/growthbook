@@ -530,7 +530,6 @@ describe("SDK payload generation (scenario-specific)", () => {
       environment: "production",
       projects: [],
       experimentId: "exp1",
-      holdoutPercent: 0.1,
       dateCreated: new Date(),
       dateUpdated: new Date(),
       environmentSettings: {
@@ -684,7 +683,6 @@ describe("SDK payload generation (scenario-specific)", () => {
       environment: "production",
       projects: [],
       experimentId: "exp1",
-      holdoutPercent: 0.1,
       dateCreated: new Date(),
       dateUpdated: new Date(),
       environmentSettings: {
@@ -1338,7 +1336,6 @@ describe("SDK payload generation (scenario-specific)", () => {
         environment: "production",
         projects: [],
         experimentId: "exp1",
-        holdoutPercent: 0.1,
         dateCreated: new Date(),
         dateUpdated: new Date(),
         environmentSettings: {
@@ -1433,7 +1430,6 @@ describe("SDK payload generation (scenario-specific)", () => {
         environment: "production",
         projects: ["p1"],
         experimentId: "exp1",
-        holdoutPercent: 0.1,
         dateCreated: new Date(),
         dateUpdated: new Date(),
         environmentSettings: {
@@ -1864,6 +1860,101 @@ describe("SDK payload generation (scenario-specific)", () => {
       expect(rules[0].hashVersion).toBe(2);
       expect(rules[0].disableStickyBucketing).toBe(true);
       expect(rules[0].variations).toBeUndefined();
+    });
+
+    describe("measurement arm", () => {
+      const armDoc = {
+        ...cbDoc,
+        condition: JSON.stringify({ country: "US" }),
+        coverage: 0.8,
+        measurementArm: {
+          enabled: true,
+          percent: 0.05,
+          experimentId: "exp-ma",
+          trackingKey: "cb-track__measurement_arm",
+          seed: "ma-seed",
+        },
+      } as unknown as ContextualBanditInterface;
+
+      function armContext(doc: ContextualBanditInterface): ApiReqContext {
+        const ctx = minimalContext();
+        ctx.models = {
+          contextualBandits: {
+            getById: async (id: string) => (id === "cb1" ? doc : null),
+          },
+        } as unknown as ApiReqContext["models"];
+        return ctx;
+      }
+
+      it("emits the $cbma pseudo-feature, a control force rule and a gated CB rule", async () => {
+        const out = await buildSDKPayloadForConnection({
+          context: armContext(armDoc),
+          connection: connectionForVersion("1.7.0"),
+          data: cbData(),
+        });
+        const wrapper = out.features["$cbma:cb1"] as Record<string, unknown>;
+        expect(wrapper).toBeDefined();
+        expect(wrapper.defaultValue).toBe("genpop");
+        const wrapperRule = (wrapper.rules as Record<string, unknown>[])[0];
+        expect(wrapperRule).toMatchObject({
+          key: "cb-track__measurement_arm",
+          seed: "ma-seed",
+          hashAttribute: "id",
+          hashVersion: 2,
+          coverage: 0.8,
+          condition: { country: "US" },
+          variations: ["control", "bandit"],
+          weights: [0.05, 0.95],
+          disableStickyBucketing: true,
+        });
+
+        const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+        expect(rules?.length).toBe(2);
+        expect(rules[0]).toEqual({
+          parentConditions: [
+            { id: "$cbma:cb1", condition: { value: "control" } },
+          ],
+          force: "x",
+        });
+        expect(rules[1].contextualBanditRef).toBe("cb1");
+        expect(rules[1].coverage).toBe(1);
+        expect(rules[1].condition).toBeUndefined();
+        expect(rules[1].parentConditions).toEqual([
+          { id: "$cbma:cb1", condition: { value: "bandit" } },
+        ]);
+      });
+
+      it("ships the CB rule un-wrapped when the arm is disabled", async () => {
+        const doc = {
+          ...armDoc,
+          measurementArm: { ...armDoc.measurementArm, enabled: false },
+        } as unknown as ContextualBanditInterface;
+        const out = await buildSDKPayloadForConnection({
+          context: armContext(doc),
+          connection: connectionForVersion("1.7.0"),
+          data: cbData(),
+        });
+        expect(out.features["$cbma:cb1"]).toBeUndefined();
+        const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+        expect(rules?.length).toBe(1);
+        expect(rules[0].coverage).toBe(0.8);
+        expect(rules[0].condition).toEqual({ country: "US" });
+        expect(rules[0].parentConditions).toBeUndefined();
+      });
+
+      it("drops the wrapper while the CB is stopped", async () => {
+        const doc = {
+          ...armDoc,
+          status: "stopped",
+        } as unknown as ContextualBanditInterface;
+        const out = await buildSDKPayloadForConnection({
+          context: armContext(doc),
+          connection: connectionForVersion("1.7.0"),
+          data: cbData(),
+        });
+        expect(out.features["$cbma:cb1"]).toBeUndefined();
+        expect(out.features["f-cb"]?.rules ?? []).toHaveLength(0);
+      });
     });
   });
 

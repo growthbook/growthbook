@@ -36,7 +36,9 @@ export default function StoppedExperimentBanner({
     linkedFeatures.map((f) => f.feature),
   );
 
-  const isHoldout = experiment.type === "holdout";
+  const isHoldout =
+    experiment.type === "holdout" ||
+    experiment.type === "contextualBanditMeasurementArm";
 
   if (experiment.status !== "stopped") return null;
 
@@ -61,7 +63,11 @@ export default function StoppedExperimentBanner({
       >
         <div className="mr-2">
           <h3 className="mb-0">
-            {isHoldout ? "Holdout Stopped" : "Experiment Stopped"}
+            {experiment.type === "holdout"
+              ? "Holdout Stopped"
+              : experiment.type === "contextualBanditMeasurementArm"
+                ? "Measurement Arm Stopped"
+                : "Experiment Stopped"}
           </h3>
         </div>
         {experiment.results && (

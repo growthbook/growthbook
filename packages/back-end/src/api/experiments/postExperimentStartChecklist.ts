@@ -7,6 +7,7 @@ import {
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { ReqContext } from "back-end/types/request";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 
 export const postExperimentStartChecklistManualComplete =
   createApiRequestHandler(postExperimentStartChecklistManualCompleteValidator)(
@@ -19,6 +20,7 @@ export const postExperimentStartChecklistManualComplete =
       if (experiment.type === "holdout") {
         throw new Error("Holdouts are not supported via this API");
       }
+      assertNotMeasurementArmExperiment(experiment, "use the launch checklist");
 
       const updated = await completeExperimentStartChecklistItems({
         context,

@@ -181,6 +181,10 @@ import {
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
 import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
+import {
+  assertMeasurementArmExperimentEditable,
+  assertNotMeasurementArmExperiment,
+} from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 
@@ -1234,6 +1238,14 @@ export async function postExperiments(
   }
 
   const experimentType = data.type ?? "standard";
+  if (experimentType === "contextualBanditMeasurementArm") {
+    res.status(400).json({
+      status: 400,
+      message:
+        "Measurement arm experiments are created from a contextual bandit, not directly",
+    });
+    return;
+  }
   const holdoutId = data.holdoutId;
 
   // TODO: Added as a hotfix. Remove when issue #5316 is fixed.
@@ -1570,6 +1582,7 @@ export async function postExperiment(
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
   }
+  assertMeasurementArmExperimentEditable(experiment, data);
 
   const attributeScope = lazyAttributeScope(() =>
     getExperimentAttributeScopeProjects(context, {
@@ -2188,6 +2201,7 @@ export async function postExperimentArchive(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  assertNotMeasurementArmExperiment(experiment, "archive");
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
@@ -2265,6 +2279,7 @@ export async function postExperimentUnarchive(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  assertNotMeasurementArmExperiment(experiment, "unarchive");
 
   changes.archived = false;
 
@@ -2658,6 +2673,7 @@ export async function deleteExperimentPhase(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  assertNotMeasurementArmExperiment(experiment, "edit phases");
 
   if (experiment.phases.length === 1) {
     res.status(400).json({
@@ -2778,6 +2794,7 @@ export async function putExperimentPhase(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  assertNotMeasurementArmExperiment(experiment, "edit phases");
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
   const linkedFeatures = await getFeaturesByIds(
@@ -2899,6 +2916,7 @@ export async function postExperimentTargeting(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  assertNotMeasurementArmExperiment(experiment, "edit targeting");
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
   const linkedFeatures = await getFeaturesByIds(
@@ -3073,6 +3091,7 @@ export async function postExperimentPhase(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  assertNotMeasurementArmExperiment(experiment, "add a phase");
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
   const linkedFeatures = await getFeaturesByIds(
@@ -3213,6 +3232,7 @@ export async function deleteExperiment(
   if (!context.permissions.canDeleteExperiment(experiment)) {
     context.permissions.throwPermissionError();
   }
+  assertNotMeasurementArmExperiment(experiment, "delete");
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 

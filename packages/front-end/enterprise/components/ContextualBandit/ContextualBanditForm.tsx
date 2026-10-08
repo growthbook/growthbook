@@ -10,6 +10,9 @@ import {
   ApiContextualBanditInterface,
   ApiCreateContextualBanditBody,
   getEligibleContextualAttributes,
+  DEFAULT_MEASUREMENT_ARM_PERCENT,
+  MAX_MEASUREMENT_ARM_PERCENT,
+  MIN_MEASUREMENT_ARM_PERCENT,
 } from "shared/validators";
 import { useRouter } from "next/router";
 import { datetime, getValidDate } from "shared/dates";
@@ -23,6 +26,7 @@ import {
 import { kebabCase } from "lodash";
 import { Separator } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -72,6 +76,8 @@ type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
   > & {
     decisionMetric?: string;
     contextualAttributes?: string[];
+    measurementArmEnabled?: boolean;
+    measurementArmPercent?: number;
   };
 
 export type ContextualBanditFormProps = {
@@ -146,9 +152,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     initialValue?.variations ?? getDefaultVariations(initialNumVariations);
   const toEqualWeights = (vars: Variation[]) => getEqualWeights(vars.length);
 
-  // TODO(holdout-v1.5): wire up holdout configuration UI when back-end is ready.
   const form = useForm<ContextualBanditFormValues>({
     defaultValues: {
+      measurementArmEnabled: initialValue?.measurementArmEnabled ?? true,
+      measurementArmPercent:
+        initialValue?.measurementArmPercent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
       ...getNewExperimentDatasourceDefaults({
@@ -447,6 +455,10 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       conversionWindowUnit: banditConversionWindowUnit,
 
       contextualAttributes: submitContextualAttributes,
+
+      measurementArmEnabled: !!data.measurementArmEnabled,
+      measurementArmPercent:
+        data.measurementArmPercent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
     };
 
     const res = await apiCall<{
@@ -594,6 +606,38 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                   variations={variationsForInput}
                   setVariations={setCombinedVariations}
                 />
+
+                <Separator size="4" my="5" />
+                <Checkbox
+                  label="Hold back a measurement arm"
+                  description="A small share of eligible users gets the linked feature's default value instead of the bandit, so you can measure the bandit's overall lift on the Results tab. Can only be changed while the bandit is a draft."
+                  value={!!form.watch("measurementArmEnabled")}
+                  setValue={(v) => form.setValue("measurementArmEnabled", v)}
+                />
+                {form.watch("measurementArmEnabled") ? (
+                  <Field
+                    label="Measurement arm traffic"
+                    type="number"
+                    step="1"
+                    min={MIN_MEASUREMENT_ARM_PERCENT * 100}
+                    max={MAX_MEASUREMENT_ARM_PERCENT * 100}
+                    append="%"
+                    containerClassName="mt-3"
+                    helpText={`Percent of eligible users held back. Default ${
+                      DEFAULT_MEASUREMENT_ARM_PERCENT * 100
+                    }%.`}
+                    value={Math.round(
+                      (form.watch("measurementArmPercent") ??
+                        DEFAULT_MEASUREMENT_ARM_PERCENT) * 100,
+                    )}
+                    onChange={(e) => {
+                      const pct = parseFloat(e.target.value);
+                      if (!isNaN(pct)) {
+                        form.setValue("measurementArmPercent", pct / 100);
+                      }
+                    }}
+                  />
+                ) : null}
               </>
             )}
 

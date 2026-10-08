@@ -79,7 +79,6 @@ function makeCb(
     contextualAttributes: ["country", "device"],
     minUsersPerLeaf: 100,
     maxLeaves: 8,
-    holdoutPercent: 0,
     banditModelVersion: 1,
     decisionMetric: "met_g1",
     variations: [

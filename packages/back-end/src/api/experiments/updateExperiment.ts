@@ -41,6 +41,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -56,6 +57,7 @@ export const updateExperiment = createApiRequestHandler(
   if (experiment.type === "holdout") {
     throw new Error("Holdouts are not supported via this API");
   }
+  assertNotMeasurementArmExperiment(experiment, "update via this API");
 
   // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
   if (req.body.project) {

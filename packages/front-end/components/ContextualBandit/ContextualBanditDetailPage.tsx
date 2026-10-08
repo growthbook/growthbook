@@ -47,6 +47,8 @@ import {
 } from "@/ui/DropdownMenu";
 import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
+import ContextualBanditMeasurementArmSummary from "@/components/ContextualBandit/ContextualBanditMeasurementArmSummary";
+import { useContextualBanditResults } from "@/hooks/useContextualBandits";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
@@ -147,6 +149,9 @@ export default function ContextualBanditDetailPage({
   const showResultsTab = cb.status !== "draft";
 
   const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
+  const { measurementArm: measurementArmResults } = useContextualBanditResults(
+    cb.status !== "draft" ? cb.id : undefined,
+  );
 
   const formatConversionWindow = (value: number, unit: string): string =>
     `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
@@ -587,6 +592,27 @@ export default function ContextualBanditDetailPage({
                 <DetailSectionColumn label="Traffic">
                   {coveragePct}% included
                 </DetailSectionColumn>
+                <DetailSectionColumn label="Measurement Arm">
+                  {cb.measurementArm?.enabled ? (
+                    <>
+                      {Math.round(cb.measurementArm.percent * 100)}% held back
+                      {cb.measurementArm.experimentId ? (
+                        <>
+                          {" · "}
+                          <Link
+                            href={`/experiment/${cb.measurementArm.experimentId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            View results
+                          </Link>
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    <Text color="text-mid">Off</Text>
+                  )}
+                </DetailSectionColumn>
                 <DetailSectionColumn label="Assignment Attribute">
                   <Flex align="center" gap="1" wrap="wrap">
                     <AttributeBadge attributeId={cb.hashAttribute || "id"} />
@@ -722,6 +748,10 @@ export default function ContextualBanditDetailPage({
         {showResultsTab ? (
           <TabsContent value="results">
             <Box pt="4">
+              <ContextualBanditMeasurementArmSummary
+                cb={cb}
+                measurementArm={measurementArmResults}
+              />
               <Frame>
                 <ContextualBanditResultsTable cb={cb} mutate={mutate} />
               </Frame>

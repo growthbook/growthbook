@@ -145,7 +145,7 @@ export default function AnalysisSettings({
           experiment={experiment}
           mutate={mutate}
           phase={experiment.phases.length - 1}
-          editDates={true}
+          editDates={experiment.type !== "contextualBanditMeasurementArm"}
           editVariationIds={false}
           editMetrics={true}
           source={"analysis-settings"}

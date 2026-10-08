@@ -111,17 +111,22 @@ const ExperimentPage = (): ReactElement => {
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
-  const canEditExperiment =
-    permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
+  // A measurement-arm experiment is owned by its contextual bandit: only the
+  // analysis settings are editable here; everything else is managed from the CB.
+  const isMeasurementArm = experiment.type === "contextualBanditMeasurementArm";
 
-  let canRunExperiment = !experiment.archived;
+  const canEditAnalysisSettings =
+    permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
+  const canEditExperiment = canEditAnalysisSettings && !isMeasurementArm;
+
+  let canRunExperiment = !experiment.archived && !isMeasurementArm;
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;
     }
   }
 
-  const editMetrics = canEditExperiment
+  const editMetrics = canEditAnalysisSettings
     ? () => setMetricsModalOpen(true)
     : null;
   const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;

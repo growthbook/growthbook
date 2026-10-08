@@ -244,10 +244,17 @@ export default function ExperimentHeader({
   const hasUpdatePermissions = !holdout
     ? permissionsUtil.canUpdateExperiment(experiment, {})
     : permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
-  const canDeleteExperiment = !holdout
-    ? permissionsUtil.canDeleteExperiment(experiment)
-    : permissionsUtil.canDeleteHoldout(holdout);
-  const canEditExperiment = !experiment.archived && hasUpdatePermissions;
+  // A measurement-arm experiment is managed from its contextual bandit: no
+  // info/status/phase/duplicate/archive/delete here (analysis settings stay
+  // editable on the Overview tab).
+  const isMeasurementArm = experiment.type === "contextualBanditMeasurementArm";
+  const canDeleteExperiment =
+    !isMeasurementArm &&
+    (!holdout
+      ? permissionsUtil.canDeleteExperiment(experiment)
+      : permissionsUtil.canDeleteHoldout(holdout));
+  const canEditExperiment =
+    !experiment.archived && hasUpdatePermissions && !isMeasurementArm;
 
   let hasRunExperimentsPermission = true;
   if (envs.length > 0) {

@@ -1988,8 +1988,6 @@ export function buildContextualBanditSnapshotSettings(
     endDate: cb.dateStopped ?? null,
     reweight: true,
     banditWeightsSeed: 0,
-
-    // TODO(holdout-v1.5): thread `holdoutPercent` + seed so SQL can split train_id=0/1 and stats can compute holdout-vs-bandit lift.
   };
 }
 

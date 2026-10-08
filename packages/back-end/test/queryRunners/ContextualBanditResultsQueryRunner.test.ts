@@ -112,7 +112,6 @@ function makeCb(
     ],
     minUsersPerLeaf: 100,
     maxLeaves: 8,
-    holdoutPercent: 0,
     stickyBucketing: false,
     banditModelVersion: 1,
     dateStarted: new Date("2025-01-02T00:00:00Z"),

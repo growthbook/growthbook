@@ -334,6 +334,10 @@ const AnalysisForm: FC<{
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
+  const isMeasurementArm = type === "contextualBanditMeasurementArm";
+  // Data source, tracking key and the goal metric are owned by the contextual
+  // bandit on a measurement-arm experiment.
+  const lockCbGovernedFields = isMeasurementArm;
 
   const isExperimentIncludedInIncrementalRefresh =
     getIsExperimentIncludedInIncrementalRefresh(
@@ -588,7 +592,10 @@ const AnalysisForm: FC<{
             <SelectField
               label="Data Source"
               value={datasource?.id || ""}
-              disabled={isBandit && experiment.status !== "draft"}
+              disabled={
+                (isBandit && experiment.status !== "draft") ||
+                lockCbGovernedFields
+              }
               onChange={(newDatasource) => {
                 form.setValue("datasource", newDatasource);
 
@@ -728,7 +735,8 @@ const AnalysisForm: FC<{
                 }
                 disabled={
                   !canRunExperiment ||
-                  (isBandit && experiment.status !== "draft")
+                  (isBandit && experiment.status !== "draft") ||
+                  lockCbGovernedFields
                 }
               />
             )}
@@ -989,7 +997,7 @@ const AnalysisForm: FC<{
               secondaryMetrics={form.watch("secondaryMetrics")}
               guardrailMetrics={form.watch("guardrailMetrics")}
               setGoalMetrics={
-                !isBandit
+                !isBandit && !lockCbGovernedFields
                   ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
                   : undefined
               }
@@ -1005,7 +1013,10 @@ const AnalysisForm: FC<{
               forceSingleGoalMetric={isBandit}
               noQuantileGoalMetrics={isBandit}
               filterConversionWindowMetrics={isHoldout}
-              goalDisabled={isBandit && experiment.status !== "draft"}
+              goalDisabled={
+                (isBandit && experiment.status !== "draft") ||
+                lockCbGovernedFields
+              }
               experimentId={experiment.id}
               experimentType={experiment.type}
             />

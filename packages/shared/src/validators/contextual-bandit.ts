@@ -47,6 +47,33 @@ export type ContextualBanditVariation = z.infer<
   typeof contextualBanditVariation
 >;
 
+export const DEFAULT_MEASUREMENT_ARM_PERCENT = 0.05;
+export const MIN_MEASUREMENT_ARM_PERCENT = 0.01;
+export const MAX_MEASUREMENT_ARM_PERCENT = 0.5;
+
+export const contextualBanditMeasurementArmValidator = z
+  .object({
+    enabled: z.boolean(),
+    percent: z
+      .number()
+      .min(MIN_MEASUREMENT_ARM_PERCENT)
+      .max(MAX_MEASUREMENT_ARM_PERCENT),
+    experimentId: z.string().optional(),
+    trackingKey: z.string().optional(),
+    seed: z.string(),
+  })
+  .strict();
+export type ContextualBanditMeasurementArm = z.infer<
+  typeof contextualBanditMeasurementArmValidator
+>;
+
+const apiContextualBanditMeasurementArm = z.object({
+  enabled: z.boolean(),
+  percent: z.number(),
+  experimentId: z.string().optional(),
+  trackingKey: z.string().optional(),
+});
+
 export const contextualBanditValidator = baseSchema
   .extend({
     name: z.string(),
@@ -83,9 +110,7 @@ export const contextualBanditValidator = baseSchema
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
 
-    // TODO(holdout-v1.5): preserved on the doc but NOT wired through — the orchestrator,
-    // SQL runner, stats engine, SDK callback, and results UI all ignore non-zero values.
-    holdoutPercent: z.number().min(0).max(0.5),
+    measurementArm: contextualBanditMeasurementArmValidator.optional(),
 
     banditModelVersion: z.number().int().nonnegative(),
 
@@ -163,7 +188,7 @@ export const apiContextualBanditValidator = namedSchema(
     decisionMetric: z.string().optional(),
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
-    holdoutPercent: z.number().min(0).max(0.5),
+    measurementArm: apiContextualBanditMeasurementArm.optional(),
     banditModelVersion: z.number().int().nonnegative(),
     scheduleValue: z.number().optional(),
     scheduleUnit: z.enum(["days", "hours"]).optional(),
@@ -230,6 +255,13 @@ export const apiCreateContextualBanditBody = z.strictObject({
   burnInUnit: z.enum(["days", "hours"]).optional(),
   conversionWindowValue: z.number().optional(),
   conversionWindowUnit: z.enum(["hours", "days"]).optional(),
+
+  measurementArmEnabled: z.boolean().optional(),
+  measurementArmPercent: z
+    .number()
+    .min(MIN_MEASUREMENT_ARM_PERCENT)
+    .max(MAX_MEASUREMENT_ARM_PERCENT)
+    .optional(),
 });
 
 export type ApiCreateContextualBanditBody = z.infer<
@@ -273,6 +305,13 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
   seed: z.string().optional(),
+
+  measurementArmEnabled: z.boolean().optional(),
+  measurementArmPercent: z
+    .number()
+    .min(MIN_MEASUREMENT_ARM_PERCENT)
+    .max(MAX_MEASUREMENT_ARM_PERCENT)
+    .optional(),
 });
 
 export type ApiUpdateContextualBanditBody = z.infer<
@@ -307,6 +346,8 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "savedGroups",
   "prerequisites",
   "seed",
+  "measurementArmEnabled",
+  "measurementArmPercent",
 ] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];
 
 export const apiContextualBanditStartValidator = {
@@ -653,6 +694,37 @@ export const getContextualBanditResultsValidator = {
               statistic: z.number(),
               pValue: z.number(),
               degreesOfFreedom: z.number().int().nonnegative(),
+            })
+            .nullable(),
+        })
+        .nullable(),
+      measurementArm: z
+        .object({
+          experimentId: z.string(),
+          trackingKey: z.string(),
+          percent: z.number(),
+          status: z.string(),
+          latestSnapshot: z
+            .object({
+              id: z.string(),
+              dateCreated: z.string(),
+              status: z.enum(["running", "success", "error"]),
+              error: z.string().optional(),
+            })
+            .nullable(),
+          decisionMetricResult: z
+            .object({
+              metricId: z.string(),
+              controlMean: z.number().nullable(),
+              banditMean: z.number().nullable(),
+              controlUsers: z.number().nullable(),
+              banditUsers: z.number().nullable(),
+              lift: z.number().nullable(),
+              ci: z
+                .tuple([z.number().nullable(), z.number().nullable()])
+                .nullable(),
+              chanceToWin: z.number().nullable(),
+              pValue: z.number().nullable(),
             })
             .nullable(),
         })

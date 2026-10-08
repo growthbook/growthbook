@@ -51,6 +51,7 @@ import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
+import MeasurementArmBanner from "./MeasurementArmBanner";
 import HealthTab from "./HealthTab";
 
 const experimentTabs = [
@@ -545,7 +546,13 @@ export default function TabbedPage({
           showDashboardView && "pt-0",
         )}
       >
+        {experiment.type === "contextualBanditMeasurementArm" && (
+          <div className="pt-3">
+            <MeasurementArmBanner experiment={experiment} />
+          </div>
+        )}
         {experiment.type !== "holdout" &&
+          experiment.type !== "contextualBanditMeasurementArm" &&
           tab !== "dashboards" &&
           !showDashboardView && (
             <CustomMarkdown page={"experiment"} variables={variables} />

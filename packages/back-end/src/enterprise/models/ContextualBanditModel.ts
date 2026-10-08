@@ -26,7 +26,10 @@ import {
 import type { FeatureInterface } from "shared/types/feature";
 import { isFactMetricId } from "shared/experiments";
 import { NotFoundError } from "back-end/src/util/errors";
-import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+} from "back-end/src/services/owner";
 import {
   cancelContextualBanditEndpoint,
   contextualBanditApiSpec,
@@ -53,6 +56,13 @@ import {
   MakeModelClass,
 } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import {
+  assertMeasurementArmChangeAllowed,
+  buildMeasurementArmSubdoc,
+  deleteMeasurementArmExperiment,
+  reconcileMeasurementArmExperiment,
+  syncMeasurementArmExperiment,
+} from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 
 const COLLECTION = "contextualbandits";
 
@@ -68,7 +78,6 @@ const BaseClass = MakeModelClass({
   skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
   skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
   defaultValues: {
-    holdoutPercent: 0,
     archived: false,
     minUsersPerLeaf: 100,
     maxLeaves: 12,
@@ -266,7 +275,14 @@ export function toApiContextualBandit(
     decisionMetric: doc.decisionMetric,
     minUsersPerLeaf: doc.minUsersPerLeaf,
     maxLeaves: doc.maxLeaves,
-    holdoutPercent: doc.holdoutPercent,
+    measurementArm: doc.measurementArm
+      ? {
+          enabled: doc.measurementArm.enabled,
+          percent: doc.measurementArm.percent,
+          experimentId: doc.measurementArm.experimentId,
+          trackingKey: doc.measurementArm.trackingKey,
+        }
+      : undefined,
     banditModelVersion: doc.banditModelVersion,
     banditVersion: doc.banditVersion ?? 0,
     scheduleValue: doc.scheduleValue,
@@ -297,6 +313,11 @@ export class ContextualBanditModel extends BaseClass {
     doc: ContextualBanditInterface,
     previousDoc?: ContextualBanditInterface,
   ): Promise<void> {
+    if (previousDoc) {
+      assertMeasurementArmChangeAllowed(previousDoc, {
+        measurementArm: doc.measurementArm,
+      });
+    }
     // Only re-validate the decision metric when it (or the datasource) changes
     // so that CBs whose metric was deleted after the fact can still be
     // updated (e.g. unlinked).
@@ -369,9 +390,15 @@ export class ContextualBanditModel extends BaseClass {
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateContextualBanditBody.parse(rawBody);
     const orgSettings = this.context.org.settings;
+    const { measurementArmEnabled, measurementArmPercent, ...rest } = body;
 
     return {
-      ...body,
+      ...rest,
+      measurementArm: buildMeasurementArmSubdoc({
+        enabled: measurementArmEnabled,
+        percent: measurementArmPercent,
+        cbTrackingKey: body.trackingKey,
+      }),
       scheduleValue:
         body.scheduleValue ?? orgSettings?.banditScheduleValue ?? 1,
       scheduleUnit:
@@ -381,7 +408,6 @@ export class ContextualBanditModel extends BaseClass {
       tags: body.tags ?? [],
       owner: body.owner ?? "",
       archived: false,
-      holdoutPercent: 0,
       banditModelVersion: 1,
       minUsersPerLeaf: body.minUsersPerLeaf ?? 100,
       maxLeaves: body.maxLeaves ?? 12,
@@ -403,11 +429,100 @@ export class ContextualBanditModel extends BaseClass {
     const body = apiUpdateContextualBanditBody.parse(rawBody);
     const out: Partial<ContextualBanditInterface> = {};
     for (const field of CONTEXTUAL_BANDIT_API_UPDATE_FIELDS) {
+      if (
+        field === "measurementArmEnabled" ||
+        field === "measurementArmPercent"
+      ) {
+        continue;
+      }
       if (body[field] !== undefined) {
         (out as Record<string, unknown>)[field] = body[field];
       }
     }
+    if (
+      body.measurementArmEnabled !== undefined ||
+      body.measurementArmPercent !== undefined
+    ) {
+      // Resolved against the stored doc in handleApiUpdate; stash the raw
+      // fields so the sub-doc can be merged there.
+      (out as Record<string, unknown>).__measurementArmInput = {
+        enabled: body.measurementArmEnabled,
+        percent: body.measurementArmPercent,
+      };
+    }
     return out as Parameters<typeof this.updateById>[1];
+  }
+
+  public override async handleApiCreate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
+  ): Promise<ApiContextualBanditInterface> {
+    const toCreate = await this.processApiCreateBody(req.body);
+    let created = await this.create(toCreate);
+    const patch = await reconcileMeasurementArmExperiment(
+      this.context,
+      created,
+    );
+    if (patch) {
+      created = await this.update(created, patch);
+    }
+    return resolveOwnerEmail(this.toApiInterface(created), this.context);
+  }
+
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ): Promise<ApiContextualBanditInterface> {
+    const { id } = req.params as { id: string };
+    const existing = await this.getById(id);
+    if (!existing) {
+      return this.context.throwNotFoundError(
+        `Contextual Bandit ${id} not found or not accessible`,
+      );
+    }
+    const toUpdate = (await this.processApiUpdateBody(req.body)) as Record<
+      string,
+      unknown
+    >;
+    const armInput = toUpdate.__measurementArmInput as
+      | { enabled?: boolean; percent?: number }
+      | undefined;
+    delete toUpdate.__measurementArmInput;
+    if (armInput) {
+      const measurementArm = buildMeasurementArmSubdoc({
+        enabled: armInput.enabled,
+        percent: armInput.percent,
+        existing: existing.measurementArm,
+        cbTrackingKey:
+          (toUpdate.trackingKey as string | undefined) ?? existing.trackingKey,
+      });
+      assertMeasurementArmChangeAllowed(existing, { measurementArm });
+      toUpdate.measurementArm = measurementArm;
+    }
+    let updated = await this.update(
+      existing,
+      toUpdate as Parameters<typeof this.update>[1],
+    );
+    const patch = await reconcileMeasurementArmExperiment(
+      this.context,
+      updated,
+    );
+    if (patch) {
+      updated = await this.update(updated, patch);
+    }
+    return resolveOwnerEmail(this.toApiInterface(updated), this.context);
+  }
+
+  protected override async afterUpdate(
+    existing: ContextualBanditInterface,
+    _updates: Partial<ContextualBanditInterface>,
+    newDoc: ContextualBanditInterface,
+  ) {
+    // Keep the measurement-arm experiment in step with CB-governed fields
+    // (status, targeting, metric, naming). Sub-doc create/delete is handled by
+    // the API handlers so the experiment id can be written back.
+    if (!newDoc.measurementArm?.experimentId) return;
+    if (!isEqual(existing, newDoc)) {
+      await syncMeasurementArmExperiment(this.context, newDoc);
+    }
   }
 
   protected canRead(doc: ContextualBanditInterface): boolean {
@@ -446,6 +561,12 @@ export class ContextualBanditModel extends BaseClass {
   }
 
   protected async afterDelete(doc: ContextualBanditInterface) {
+    if (doc.measurementArm?.experimentId) {
+      await deleteMeasurementArmExperiment(
+        this.context,
+        doc.measurementArm.experimentId,
+      );
+    }
     await this.context.models.contextualBanditSnapshots.deleteForContextualBandit(
       doc.id,
     );

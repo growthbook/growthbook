@@ -213,7 +213,8 @@ const EditMetricsForm: FC<{
         secondaryMetrics={form.watch("secondaryMetrics")}
         guardrailMetrics={form.watch("guardrailMetrics")}
         setGoalMetrics={
-          !(isBandit && experiment.status === "running")
+          !(isBandit && experiment.status === "running") &&
+          experiment.type !== "contextualBanditMeasurementArm"
             ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
             : undefined
         }

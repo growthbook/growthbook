@@ -91,6 +91,19 @@ import { getFeaturesByIds } from "./FeatureModel";
 
 const COLLECTION = "experiments";
 
+// Experiment types that never appear in the experiments list by default and
+// are created/managed by another object (a holdout or a contextual bandit).
+const NON_STANDARD_EXPERIMENT_TYPES = [
+  "holdout",
+  "contextualBanditMeasurementArm",
+] as const;
+
+function isCbOwnedExperiment(exp: { type?: string | null }): boolean {
+  return (
+    exp.type === "holdout" || exp.type === "contextualBanditMeasurementArm"
+  );
+}
+
 type FindOrganizationOptions = {
   experimentId: string;
   context: ReqContext | ApiReqContext;
@@ -575,8 +588,10 @@ export async function getAllExperiments(
     query.type = { $in: ["standard", null] };
   } else if (type === "holdout") {
     query.type = "holdout";
+  } else if (type === "contextualBanditMeasurementArm") {
+    query.type = "contextualBanditMeasurementArm";
   } else if (!type) {
-    query.type = { $ne: "holdout" };
+    query.type = { $nin: NON_STANDARD_EXPERIMENT_TYPES };
   }
 
   return await findExperiments(context, query, limit, sortBy);
@@ -613,7 +628,7 @@ export async function countActiveExperimentsUsingNamespace(
       {
         organization: context.org.id,
         archived: { $ne: true },
-        type: { $ne: "holdout" },
+        type: { $nin: NON_STANDARD_EXPERIMENT_TYPES },
         "phases.namespace.name": namespaceId,
       },
       {
@@ -679,7 +694,7 @@ export async function getAllExperimentsForStaleGraph(
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
-    type: { $ne: "holdout" },
+    type: { $nin: NON_STANDARD_EXPERIMENT_TYPES },
   };
   if (!includeArchived) {
     query.archived = { $ne: true };
@@ -855,7 +870,7 @@ export async function createExperiment({
     nextSnapshotAttempt: nextUpdate ?? undefined,
   } satisfies Partial<ExperimentInterface> as ExperimentInterface;
 
-  if (experimentToCreate.type !== "holdout") {
+  if (!isCbOwnedExperiment(experimentToCreate)) {
     await runValidateExperimentHooks({
       context,
       experiment: experimentToCreate,
@@ -1115,7 +1130,7 @@ export async function* dangerousGetExperimentsForLifecycleReminders(): AsyncGene
       status: "running",
       archived: { $ne: true },
       // Holdouts have their own lifecycle notifications.
-      type: { $ne: "holdout" },
+      type: { $nin: NON_STANDARD_EXPERIMENT_TYPES },
     })
     .project<Pick<ExperimentInterface, "id" | "organization">>({
       id: 1,
@@ -1440,7 +1455,7 @@ export const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  if (experiment.type === "holdout") return;
+  if (isCbOwnedExperiment(experiment)) return;
 
   const apiExperiment = await toExperimentEventPayload(context, experiment);
 
@@ -1479,7 +1494,7 @@ export const logExperimentUpdated = async ({
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }) => {
-  if (current.type === "holdout") return;
+  if (isCbOwnedExperiment(current)) return;
 
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
     toExperimentEventPayload(context, previous),

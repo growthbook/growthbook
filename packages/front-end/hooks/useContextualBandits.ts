@@ -61,12 +61,37 @@ export function useContextualBandit(cbId: string | undefined) {
   };
 }
 
+export type ContextualBanditMeasurementArmResults = {
+  experimentId: string;
+  trackingKey: string;
+  percent: number;
+  status: string;
+  latestSnapshot: {
+    id: string;
+    dateCreated: string;
+    status: "running" | "success" | "error";
+    error?: string;
+  } | null;
+  decisionMetricResult: {
+    metricId: string;
+    controlMean: number | null;
+    banditMean: number | null;
+    controlUsers: number | null;
+    banditUsers: number | null;
+    lift: number | null;
+    ci: [number | null, number | null] | null;
+    chanceToWin: number | null;
+    pValue: number | null;
+  } | null;
+};
+
 export type ContextualBanditResultsResponse = {
   status: number;
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
   overallWeights: { variationId: string; weight: number | null }[] | null;
   results: ContextualBanditResultsView | null;
   latest: SnapshotStatusSummary | null;
+  measurementArm: ContextualBanditMeasurementArmResults | null;
 };
 
 /**
@@ -118,6 +143,7 @@ export function useContextualBanditResults(cbId: string | undefined) {
     contextualBanditSnapshot: data?.contextualBanditSnapshot ?? null,
     results: data?.results ?? null,
     latest,
+    measurementArm: data?.measurementArm ?? null,
     error,
     mutate,
     refresh,

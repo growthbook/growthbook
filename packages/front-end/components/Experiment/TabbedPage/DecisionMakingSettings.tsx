@@ -109,7 +109,9 @@ export default function DecisionMakingSettings({
   });
 
   const isBandit = experiment.type === "multi-armed-bandit";
-  const isHoldout = experiment.type === "holdout";
+  const isHoldout =
+    experiment.type === "holdout" ||
+    experiment.type === "contextualBanditMeasurementArm";
 
   if (!hasDecisionFramework || isBandit || isHoldout) {
     return null;

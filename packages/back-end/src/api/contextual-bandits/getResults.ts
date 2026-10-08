@@ -6,6 +6,7 @@ import {
 } from "shared/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getContextualBanditResultsForUi } from "back-end/src/enterprise/services/contextualBandits";
+import { getMeasurementArmResultsSummary } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import { loadContextualBanditForRead } from "./_shared";
 
 export const getContextualBanditResults = createApiRequestHandler(
@@ -21,6 +22,10 @@ export const getContextualBanditResults = createApiRequestHandler(
     snapshotVariationIds,
     srm,
   } = await getContextualBanditResultsForUi(req.context, contextualBandit);
+  const measurementArm = await getMeasurementArmResultsSummary(
+    req.context,
+    contextualBandit,
+  );
 
   const snapshotVariations = resolveSnapshotVariations(
     snapshotVariationIds ?? [],
@@ -79,5 +84,6 @@ export const getContextualBanditResults = createApiRequestHandler(
             : null,
         }
       : null,
+    measurementArm,
   };
 });
