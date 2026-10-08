@@ -130,9 +130,7 @@ export class InterleavingModel extends BaseClass {
         Object.keys(previousDoc.environmentSettings).sort(),
       )
     ) {
-      const orgEnvs = new Set(
-        (this.context.org.settings?.environments ?? []).map((e) => e.id),
-      );
+      const orgEnvs = new Set(this.context.environments);
       const unknown = Object.keys(doc.environmentSettings).filter(
         (env) => !orgEnvs.has(env),
       );
