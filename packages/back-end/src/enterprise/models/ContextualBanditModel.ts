@@ -268,7 +268,7 @@ export function toApiContextualBandit(
     decisionMetric: doc.decisionMetric,
     minUsersPerLeaf: doc.minUsersPerLeaf,
     maxLeaves: doc.maxLeaves,
-    priorSampleSize: doc.priorSampleSize,
+    priorSampleSize: doc.priorSampleSize ?? 0,
     holdoutPercent: doc.holdoutPercent,
     banditModelVersion: doc.banditModelVersion,
     banditVersion: doc.banditVersion ?? 0,
@@ -286,6 +286,14 @@ export function toApiContextualBandit(
 }
 
 export class ContextualBanditModel extends BaseClass {
+  protected migrate(legacyDoc: unknown): ContextualBanditInterface {
+    const doc = legacyDoc as ContextualBanditInterface;
+    return {
+      ...doc,
+      priorSampleSize: doc.priorSampleSize ?? 0,
+    };
+  }
+
   protected toApiInterface(
     doc: ContextualBanditInterface,
   ): ApiContextualBanditInterface {
