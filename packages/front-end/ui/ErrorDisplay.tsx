@@ -17,7 +17,9 @@ export default function ErrorDisplay({
   details?: string | null;
   maxLines?: number;
 } & MarginProps) {
-  const [showDetails, setShowDetails] = useState(false);
+  // Keyed to the details text so a new error starts collapsed.
+  const [openDetails, setOpenDetails] = useState<string | null>(null);
+  const showDetails = !!details && openDetails === details;
 
   if (!error || !error.trim()) return null;
 
@@ -53,7 +55,7 @@ export default function ErrorDisplay({
               <Link
                 size="sm"
                 color="red"
-                onClick={() => setShowDetails(!showDetails)}
+                onClick={() => setOpenDetails(showDetails ? null : details)}
               >
                 {showDetails ? "Hide details" : "Show details"}
               </Link>

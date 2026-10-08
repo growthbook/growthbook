@@ -186,6 +186,26 @@ export async function sandboxEval(
     // Minimal console/fetch/addWarning shims — good enough for copy/pasted code.
     const shimCode = `
       (function() {
+        // Engine-raised errors bypass these globals, so wrapping them marks the hook's own \`new TypeError(...)\` as deliberate.
+        const NativeTypeError = TypeError;
+        const engineErrorTypes = [TypeError, ReferenceError, SyntaxError, RangeError, EvalError, URIError, AggregateError];
+        const authored = new WeakSet();
+        const record = (e) => (authored.add(e), e);
+        for (const T of engineErrorTypes) {
+          globalThis[T.name] = new Proxy(T, {
+            construct: (target, args, newTarget) => record(Reflect.construct(target, args, newTarget)),
+            apply: (target, thisArg, args) => record(Reflect.apply(target, thisArg, args)),
+          });
+        }
+        Object.defineProperty(globalThis, "__rejectionMessage", {
+          value: (e) => {
+            if (typeof e === "string") return e;
+            if (!(e instanceof Error)) return "";
+            const crashed = engineErrorTypes.some((T) => e instanceof T) && !authored.has(e);
+            return crashed ? "" : e.message;
+          },
+        });
+
         const stringifyLogArgs = (args) => args.map(arg => {
           if (typeof arg === "string") return arg;
           try {
@@ -206,7 +226,7 @@ export async function sandboxEval(
             result: { copy: true, promise: true },
           });
           if (_error) {
-            throw new TypeError(_error);
+            throw new NativeTypeError(_error);
           }
           return {
             ...rest,
@@ -240,8 +260,7 @@ globalThis.__user_func = async function(args) {
   try {
     return await hook(args);
   } catch (e) {
-    const engineError = [TypeError, ReferenceError, SyntaxError, RangeError, EvalError, URIError].some((T) => e instanceof T);
-    const message = typeof e === "string" ? e : e instanceof Error && !engineError ? e.message : "";
+    const message = __rejectionMessage(e);
     if (message) return { ${REJECTION_KEY}: message };
     throw e;
   }

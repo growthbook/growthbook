@@ -52,6 +52,37 @@ describe("sandboxEval", () => {
     );
   });
 
+  it.each([
+    ["new TypeError", "throw new TypeError('Key must be lowercase')"],
+    ["TypeError without new", "throw TypeError('Key must be lowercase')"],
+    [
+      "RangeError subclass",
+      "class KeyError extends RangeError {}; throw new KeyError('Key must be lowercase')",
+    ],
+  ])("treats a hook's own %s as a rejection", async (_, code) => {
+    expect(await sandboxEval(code, {})).toMatchObject({
+      rejected: true,
+      error: "Key must be lowercase",
+    });
+  });
+
+  it("still recognizes engine errors with instanceof", async () => {
+    const result = await sandboxEval(
+      "try { null.x } catch (e) { return e instanceof TypeError }",
+      {},
+    );
+    expect(result.returnVal).toBe(true);
+  });
+
+  it("treats an engine-raised AggregateError as a failure", async () => {
+    const result = await sandboxEval(
+      "await Promise.any([Promise.reject(new Error('a'))])",
+      {},
+    );
+    expect(result.ok).toBe(false);
+    expect(result.rejected).toBeUndefined();
+  });
+
   it("treats fetch failures as failures", async () => {
     const result = await sandboxEval("await fetch('not-a-url')", {});
     expect(result.ok).toBe(false);

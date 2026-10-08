@@ -60,9 +60,9 @@ A hook may execute **multiple times for a single save**. GrowthBook runs hooks e
 
 ### Debugging
 
-To reject a change, throw an `Error` (or a string). Its message is shown to the person editing the Feature Flag, Config, or Experiment exactly as written, with no prefix, so write it for them.
+To reject a change, throw an error you create (`new Error(...)`, `new TypeError(...)`, a custom subclass) or a string. Its message is shown to the person editing the Feature Flag, Config, or Experiment exactly as written, with no prefix, so write it for them.
 
-If the hook itself fails (a runtime error such as `TypeError` or `SyntaxError`, a failed `fetch`, or a timeout), users see a generic message asking them to retry or contact their admins instead. The hook's name, stack trace, and console output are available under **Show details** so they can share them with you. Console output from a rejecting hook is also shown there, never in the main message.
+If the hook itself fails (an error raised by the JavaScript engine, such as reading a property of `undefined`, a failed `fetch`, or a timeout), users see a generic message asking them to retry or contact their admins instead. The hook's name, stack trace, and console output are available under **Show details** so they can share them with you. Console output from a rejecting hook is also shown there, never in the main message.
 
 When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, warnings, console messages, and the return value (if any).
 

@@ -105,6 +105,8 @@ import {
 } from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
+import ErrorDisplay from "@/ui/ErrorDisplay";
+import { getErrorDetails } from "@/services/apiCallError";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -513,6 +515,13 @@ export default function ReviewAndPublish({
   const [experimentsStep, setExperimentsStep] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitErrorDetails, setSubmitErrorDetails] = useState<string | null>(
+    null,
+  );
+  const failSubmit = (e: unknown, fallback: string) => {
+    setSubmitError((e as Error).message || fallback);
+    setSubmitErrorDetails(getErrorDetails(e));
+  };
   const [secondaryLoading, setSecondaryLoading] = useState<
     "recall" | "undo" | null
   >(null);
@@ -1273,7 +1282,7 @@ export default function ReviewAndPublish({
       await mutate();
     } catch (e) {
       await mutate();
-      setSubmitError(e.message || "Failed to update from live");
+      failSubmit(e, "Failed to update from live");
     } finally {
       setRebasing(false);
     }
@@ -1968,7 +1977,7 @@ export default function ReviewAndPublish({
       }
     } catch (e) {
       await mutate();
-      setSubmitError(e.message || "Something went wrong");
+      failSubmit(e, "Something went wrong");
     } finally {
       setSubmitting(false);
     }
@@ -3328,9 +3337,10 @@ export default function ReviewAndPublish({
                   {(submitError || secondaryError) && (
                     <Flex direction="column" gap="2" mt="3">
                       {submitError && (
-                        <Callout status="error" size="sm">
-                          <MarkdownLinks text={submitError} />
-                        </Callout>
+                        <ErrorDisplay
+                          error={submitError}
+                          details={submitErrorDetails}
+                        />
                       )}
                       {secondaryError && (
                         <Callout status="error" size="sm">

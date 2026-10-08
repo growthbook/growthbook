@@ -25,6 +25,7 @@ import { ConfigInterface } from "shared/types/config";
 import { ExperimentInterface } from "shared/types/experiment";
 import { CustomHookError, SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -843,6 +844,18 @@ async function _runCustomHook(
     context.models.customHooks.logSuccess(hook);
   } else {
     context.models.customHooks.logFailure(hook);
+    // Users only see a generic message for crashes, so keep the real error in the server logs.
+    if (!res.rejected) {
+      logger.warn(
+        {
+          hookId: hook.id,
+          hookName: hook.name,
+          error: res.error,
+          stack: res.stack,
+        },
+        "Custom hook failed to run",
+      );
+    }
   }
 
   // Only worth a second sandbox run when there's an outcome to suppress.
