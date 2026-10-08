@@ -11,6 +11,7 @@ import {
   getDefaultIdentifierTypeForQuery,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
+  getImportIdentifierTypes,
   getInitialSettings,
   getSelectableIdentifierTypes,
   validateSQL,
@@ -590,6 +591,34 @@ describe("getIdentifierTypeForHashAttribute", () => {
         }),
       ).toBeNull();
     }
+  });
+});
+
+describe("getImportIdentifierTypes", () => {
+  it("starts on the identifier most queries list first", () => {
+    expect(
+      getImportIdentifierTypes([
+        { userIdType: "user_id", userIdTypes: ["user_id"] },
+        {
+          userIdType: "anonymous_id",
+          userIdTypes: ["anonymous_id", "user_id"],
+        },
+        { userIdType: "anonymous_id", userIdTypes: ["anonymous_id"] },
+        { userIdType: "company_id", userIdTypes: ["company_id"] },
+      ]),
+    ).toEqual({
+      identifierTypes: ["user_id", "anonymous_id", "company_id"],
+      initialIdentifierType: "anonymous_id",
+    });
+  });
+
+  it("breaks a tie with the earlier query", () => {
+    expect(
+      getImportIdentifierTypes([
+        { userIdType: "user_id", userIdTypes: ["user_id"] },
+        { userIdType: "anonymous_id", userIdTypes: ["anonymous_id"] },
+      ]).initialIdentifierType,
+    ).toBe("user_id");
   });
 });
 

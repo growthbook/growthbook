@@ -13,7 +13,6 @@ import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
   getExposureQueryIdentifierTypes,
   getExposureQueryProjects,
-  getPreferredIdentifierType,
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -222,25 +221,33 @@ export function getNewExperimentDatasourceDefaults({
     exposureQuery.id === initialValue?.exposureQueryId
       ? exposureQuery
       : null;
-  // Several identifiers: leave the choice blank so the metrics step can require
-  // one. A single-type import takes the identifier discovery counted on.
+  const importedQueryIdentifierTypes = importedQuery
+    ? getExposureQueryIdentifierTypes(importedQuery)
+    : [];
+  // The identifier the imported units were counted on. Rows discovered before
+  // every identifier was counted have none.
+  const importedIdentifierType = importedQueryIdentifierTypes.find(
+    (t) => t === initialValue?.exposureQueryIdentifierType,
+  );
+  // Several identifiers and none counted: leave the choice blank so the
+  // metrics step can require one.
   const requireImportedIdentifierChoice =
     !!importedQuery &&
-    getExposureQueryIdentifierTypes(importedQuery).length > 1;
+    !importedIdentifierType &&
+    importedQueryIdentifierTypes.length > 1;
 
   /**
    * Copies (duplicate, from template) keep what the source analyzes on, even
    * if the query dropped it: the form then looks for another query declaring
    * it before falling back, and explains the change.
    */
-  const sourceIdentifierType =
-    exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
-      ? isImport
-        ? getPreferredIdentifierType(exposureQuery)
-        : resolveAnalysisIdentifierType(
-            exposureQuery,
-            initialValue.exposureQueryIdentifierType,
-          )
+  const sourceIdentifierType = importedQuery
+    ? (importedIdentifierType ?? importedQueryIdentifierTypes[0])
+    : exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
+      ? resolveAnalysisIdentifierType(
+          exposureQuery,
+          initialValue.exposureQueryIdentifierType,
+        )
       : undefined;
 
   return {

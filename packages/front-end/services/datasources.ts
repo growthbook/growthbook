@@ -1033,6 +1033,37 @@ export function isIdentifierUndeclared(
   );
 }
 
+/**
+ * The identifiers the experiment import table can be filtered on, and the one
+ * it starts on: listed first by the most queries, ties going to the earlier
+ * query. That's what a new experiment on those queries would pick.
+ */
+export function getImportIdentifierTypes(
+  exposureQueries: Pick<ExposureQuery, "userIdType" | "userIdTypes">[],
+): { identifierTypes: string[]; initialIdentifierType: string | null } {
+  const identifierTypes: string[] = [];
+  const firstCounts = new Map<string, number>();
+  exposureQueries.forEach((q) => {
+    const declared = getExposureQueryIdentifierTypes(q);
+    declared.forEach((t) => {
+      if (!identifierTypes.includes(t)) identifierTypes.push(t);
+    });
+    if (declared[0]) {
+      firstCounts.set(declared[0], (firstCounts.get(declared[0]) ?? 0) + 1);
+    }
+  });
+  let initialIdentifierType: string | null = null;
+  firstCounts.forEach((count, t) => {
+    if (
+      initialIdentifierType === null ||
+      count > (firstCounts.get(initialIdentifierType) ?? 0)
+    ) {
+      initialIdentifierType = t;
+    }
+  });
+  return { identifierTypes, initialIdentifierType };
+}
+
 /** Of `exposureQueries`, those usable by a record in `project`. */
 export function getExposureQueriesForProject(
   exposureQueries: ExposureQuery[],

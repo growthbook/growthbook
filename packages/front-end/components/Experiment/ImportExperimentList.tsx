@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { FC, useCallback, useMemo, useState } from "react";
 import { PastExperimentsInterface } from "shared/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
@@ -12,7 +12,10 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  getExposureQuery,
+  getImportIdentifierTypes,
+} from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { isCloud } from "@/services/env";
 import RunQueriesButton, {
@@ -29,6 +32,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Callout from "@/ui/Callout";
+import { Select, SelectItem } from "@/ui/Select";
+import Text from "@/ui/Text";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -83,10 +88,30 @@ const ImportExperimentList: FC<{
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
   const [runError, setRunError] = useState<string | null>(null);
 
+  const { identifierTypes, initialIdentifierType } = useMemo(
+    () =>
+      getImportIdentifierTypes(datasource?.settings?.queries?.exposure ?? []),
+    [datasource],
+  );
+  const [selectedIdentifierType, setSelectedIdentifierType] = useState<
+    string | null
+  >(null);
+  // Rows discovered before every identifier was counted have none, so there's
+  // nothing to filter on until the next refresh.
+  const countsByIdentifier = !!data?.experiments?.experiments?.some(
+    (e) => e.identifierType,
+  );
+  const identifierType = countsByIdentifier
+    ? (selectedIdentifierType ?? initialIdentifierType)
+    : null;
+
   // Searching
   const filterResults = useCallback(
     (items: typeof pastExpArr) => {
       const rows = items.filter((e) => {
+        if (identifierType !== null && e.identifierType !== identifierType) {
+          return false;
+        }
         if (
           minUsersFilter &&
           e.users < parseIntWithDefault(minUsersFilter, 0)
@@ -144,6 +169,7 @@ const ImportExperimentList: FC<{
       alreadyImportedFilter,
       dedupeFilter,
       data?.existing,
+      identifierType,
       minLengthFilter,
       minUsersFilter,
       minVariationsFilter,
@@ -194,9 +220,12 @@ const ImportExperimentList: FC<{
   const hasStarted = data.experiments.queries.length > 0;
   const importFailed = hasStarted && status === "failed";
 
+  const identifierRows = pastExpArr.filter(
+    (e) => identifierType === null || e.identifierType === identifierType,
+  );
   const totalRows = dedupeFilter
-    ? new Set(pastExpArr.map((e) => e.trackingKey)).size
-    : pastExpArr.length;
+    ? new Set(identifierRows.map((e) => e.trackingKey)).size
+    : identifierRows.length;
 
   return (
     <>
@@ -228,6 +257,27 @@ const ImportExperimentList: FC<{
               </div>
             </>
           )}
+          {identifierType !== null &&
+            (identifierTypes.length > 1 ? (
+              <Select
+                label="Identifier"
+                labelSize="sm"
+                size="sm"
+                mt="2"
+                value={identifierType}
+                setValue={setSelectedIdentifierType}
+              >
+                {identifierTypes.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </Select>
+            ) : (
+              <Text as="div" size="sm" color="text-mid">
+                Identifier: <Text mono>{identifierType}</Text>
+              </Text>
+            ))}
         </div>
         {hasStarted && (
           <div className="col-auto ml-auto">
@@ -508,7 +558,8 @@ const ImportExperimentList: FC<{
                 <SortableTH field="endDate">Date Ended</SortableTH>
                 <SortableTH field="numVariations">Variations</SortableTH>
                 <SortableTH field="users">
-                  Approx Units{" "}
+                  Approx Units
+                  {identifierType !== null && ` (${identifierType})`}{" "}
                   <Tooltip body="This count is approximate and does not de-duplicate units across days; therefore it is likely inflated. Once imported, the unit counts will be accurate." />
                 </SortableTH>
                 <th>Traffic Split</th>
@@ -581,6 +632,7 @@ const ImportExperimentList: FC<{
                                 trackingKey: e.trackingKey,
                                 datasource: data?.experiments?.datasource,
                                 exposureQueryId: e.exposureQueryId || "",
+                                exposureQueryIdentifierType: e.identifierType,
                                 variations,
                                 phases: [
                                   {
