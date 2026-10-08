@@ -586,7 +586,7 @@ const MetricsList = (): React.ReactElement => {
         </Flex>
         <Box style={{ flex: 1 }} />
         {envAllowsCreatingMetrics() && !showCreateFactTableButton ? (
-          <Flex gap="2">
+          <Flex gap="2" align="center">
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
