@@ -214,7 +214,6 @@ export class InterleavingModel extends BaseClass {
     return this.context.permissions.canDeleteInterleaving(doc);
   }
 
-  /** All interleaving experiments that read from a given Interleaving Query. */
   public getByInterleavingQueryId(
     interleavingQueryId: string,
   ): Promise<InterleavingInterface[]> {
