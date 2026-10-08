@@ -36,6 +36,11 @@ import {
 } from "back-end/src/services/features";
 import { getFeatureDefinition } from "back-end/src/util/features";
 
+jest.mock("back-end/src/models/VisualChangesetModel", () => ({
+  getAllCbVisualExperiments: jest.fn().mockResolvedValue([]),
+  getContextualBanditsWithVisualChangesets: jest.fn().mockResolvedValue([]),
+}));
+
 function minimalContext(
   orgOverrides?: Partial<OrganizationInterface>,
 ): ApiReqContext {

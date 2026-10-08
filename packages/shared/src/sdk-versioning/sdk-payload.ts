@@ -46,6 +46,10 @@ export const CONTEXTUAL_BANDIT_RULE_KEYS = [
   "contextualVariations",
 ] as const;
 
+export const CONTEXTUAL_BANDIT_AUTO_EXPERIMENT_KEYS = [
+  "contextualBanditRef",
+] as const;
+
 export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {
   featureKeys: readonly string[];
   featureRuleKeys: readonly string[];
@@ -63,9 +67,12 @@ export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {
       ? CONTEXTUAL_BANDIT_RULE_KEYS
       : []),
   ];
-  const removedExperimentKeys = capabilities.includes("prerequisites")
-    ? []
-    : [...PREREQUISITE_RULE_KEYS];
+  const removedExperimentKeys = [
+    ...(capabilities.includes("prerequisites") ? [] : PREREQUISITE_RULE_KEYS),
+    ...(capabilities.includes("contextualBanditsAuto")
+      ? []
+      : CONTEXTUAL_BANDIT_AUTO_EXPERIMENT_KEYS),
+  ];
   return {
     featureKeys: [...STRICT_FEATURE_KEYS],
     featureRuleKeys,
