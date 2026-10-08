@@ -385,6 +385,66 @@ describe("a scheduled status change is checked when armed and fires as the armer
     expect((await lastStatusAudit())?.user).toMatchObject({ apiKey: "key_ci" });
   });
 
+  // The admin owner, capped at experimenter by their own token.
+  function asScopedPat(apiKeyData: ApiKeyInterface) {
+    const owner = { id: "u_owner", email: "u_owner@test.com", name: "u_owner" };
+    const context = new ReqContextClass({
+      org,
+      auditUser: { type: "api_key", apiKey: apiKeyData.id, ...owner },
+      user: owner,
+      apiKey: apiKeyData.id,
+      apiKeyData,
+      teams: [],
+    });
+    context.hasPremiumFeature = () => true;
+    return context;
+  }
+
+  it("fires a scoped PAT's start as the key, and gives up once the key's cap is narrowed", async () => {
+    await seed("draft");
+    const pat = {
+      ...keyDoc("experimenter"),
+      id: "key_pat",
+      key: "secret_pat",
+      userId: "u_owner",
+      scoped: true,
+      limitAccessByEnvironment: false,
+      environments: [],
+    };
+    await mongoose.connection.collection("apikeys").insertOne({ ...pat });
+    const armed = await armStart(
+      asScopedPat(pat as unknown as ApiKeyInterface),
+    );
+    expect(armed.status).toBe(200);
+    expect(await staged()).toMatchObject({
+      type: "start",
+      scheduledByApiKey: "key_pat",
+    });
+
+    await fireNow();
+    await updateSingleExperimentStatus(job);
+
+    expect(await status()).toBe("running");
+    expect((await lastStatusAudit())?.user).toMatchObject({
+      apiKey: "key_pat",
+      id: "u_owner",
+    });
+    expect(await staged()).toMatchObject({
+      type: "stop",
+      scheduledByApiKey: "key_pat",
+    });
+
+    // The owner is still an admin; only the token's cap shrank.
+    await mongoose.connection
+      .collection("apikeys")
+      .updateOne({ id: "key_pat" }, { $set: { role: "collaborator" } });
+    await fireNow();
+    await updateSingleExperimentStatus(job);
+
+    expect(await status()).toBe("running");
+    expect(await staged()).toBeNull();
+  });
+
   it("gives up when the key that armed a start has since been narrowed", async () => {
     await seed("draft");
     await seedPendingDraft();

@@ -146,6 +146,10 @@ export const createEventWithPayload = async <
     savedEventId = event.id;
 
     if (notify) await new EventNotifier(event.id).perform();
+
+    // Returned so callers that record having announced something can tell a
+    // swallowed failure from a delivered event.
+    return event.id;
   } catch (e) {
     logger.error(e);
   }

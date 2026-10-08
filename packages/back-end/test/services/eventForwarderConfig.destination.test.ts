@@ -39,6 +39,11 @@ describe("event forwarder qualified destinations", () => {
       projectId: "event-project",
       dataset: "analytics_123",
       tablePrefix: "gb",
+      tables: {
+        events: "gb_events",
+        experiment_viewed: "gb_experiment_viewed",
+        feature_usage: "gb_feature_usage",
+      },
     });
   });
 
