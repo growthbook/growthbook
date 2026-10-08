@@ -673,7 +673,6 @@ describe("org OAuth apps: client authentication, org binding, access policy", ()
     expect(createApiKey).toHaveBeenCalledWith(
       expect.objectContaining({
         oauthClientId: APP_ID,
-        officialClientForOrg: "org-1",
       }),
     );
   });
@@ -1046,7 +1045,6 @@ describe("delegated token exchange for org OAuth apps", () => {
         key: hashToken(res.access_token),
         userId: "user-1",
         oauthClientId: APP_ID,
-        officialClientForOrg: "org-1",
         oauthDelegatedSecretHash: hashToken(APP_SECRET),
       }),
     );

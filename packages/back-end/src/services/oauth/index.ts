@@ -664,6 +664,7 @@ export async function revokeToken(params: {
 
 interface IssueParams {
   clientId: string;
+  // The registering org; null for a DCR client, whose row must be touched to stay alive.
   officialClientForOrg: string | null;
   userId: string;
   scope?: string;
@@ -704,7 +705,6 @@ async function createAccessToken(
     environments: [],
     expiresAt: new Date(Date.now() + OAUTH_ACCESS_TOKEN_TTL_SECONDS * 1000),
     oauthClientId: params.clientId,
-    officialClientForOrg: params.officialClientForOrg,
     ...(params.delegatedSecretHash && {
       oauthDelegatedSecretHash: params.delegatedSecretHash,
     }),
