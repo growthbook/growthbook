@@ -54,7 +54,7 @@ const RequestedByFields: FC<{
               value={permissions}
               setValue={(value) => setPermissions(value as PermissionsMode)}
             >
-              <SelectItem value="assume">Assume role</SelectItem>
+              <SelectItem value="assume">Assume member&apos;s role</SelectItem>
               <SelectItem value="key">Use key&apos;s role</SelectItem>
             </Select>
             <Box>

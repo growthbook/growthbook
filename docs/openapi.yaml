@@ -106,9 +106,9 @@ info:
     **Required** rejects requests without it, and **Rejected** rejects requests
     that send it, each with a 400.
 
-    - **Permissions**, when a member is named: **Assume role** (the default)
-    gives the request only what both the key and the member can do, so the
-    header can narrow a key but never widen it, and the member's rights over
+    - **Permissions**, when a member is named: **Assume member's role** (the
+    default) gives the request only what both the key and the member can do, so
+    the header can narrow a key but never widen it, and the member's rights over
     their own drafts, comments and review verdicts come along. **Use key's
     role** keeps the key's own permissions, and the header only records who
     asked.
