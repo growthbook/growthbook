@@ -1340,7 +1340,7 @@ export class Permissions {
   };
 
   /** Whether some project scope exists that the user could add a query in. */
-  public canCreateExposureQueryInSomeProject = (
+  public canAddExposureQuery = (
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     const projects = datasource.projects?.length
