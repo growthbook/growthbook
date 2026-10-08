@@ -506,6 +506,8 @@ export const experimentInterface = z
     lastSnapshotAttempt: z.date().optional(),
     nextSnapshotAttempt: z.date().optional(),
     autoSnapshots: z.boolean(),
+    // Consecutive failed scheduled auto-updates since the last finished one.
+    autoUpdateFailures: z.number().int().nonnegative().optional(),
     disableAutoSnapshots: z.boolean().optional(),
     ideaSource: z.string().optional(),
     hasVisualChangesets: z.boolean().optional(),

@@ -5,6 +5,8 @@ import {
   getExperimentById,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
+  recordAutoUpdateFailure,
+  resetAutoUpdateFailures,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -24,6 +26,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
+import { getAutoUpdateFailureOutcome } from "back-end/src/util/autoUpdateRetry";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 // Time between experiment result updates (default 6 hours)
@@ -220,6 +223,10 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
         changes,
       });
     }
+
+    if (experiment.autoUpdateFailures) {
+      await resetAutoUpdateFailures(context, experiment.id);
+    }
   } catch (e) {
     // Lock contention is transient so we don't disable auto-updates
     if (e instanceof ConcurrentIncrementalRefreshError) {
@@ -232,19 +239,28 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     }
 
     logger.error(e, "Failed to update experiment: " + experimentId);
-    // Turn off auto-updating for the future (bandits keep retrying unless the failure is deterministic)
-    if (
-      experiment.type === "multi-armed-bandit" &&
-      !(e instanceof UnrecoverableSnapshotError)
-    ) {
-      return;
+    if (!(e instanceof UnrecoverableSnapshotError)) {
+      const failures = (experiment.autoUpdateFailures ?? 0) + 1;
+      const outcome = getAutoUpdateFailureOutcome(failures, new Date());
+      if (outcome.action === "retry") {
+        await recordAutoUpdateFailure(
+          context,
+          experiment.id,
+          failures,
+          outcome.retryAt,
+        );
+        return;
+      }
     }
+    // Turn off auto-updates after repeated failures, or at once for a deterministic one.
+    // The count resets so a re-enabled experiment gets fresh attempts.
     try {
       await updateExperiment({
         context,
         experiment,
         changes: {
           autoSnapshots: false,
+          autoUpdateFailures: 0,
         },
       });
 
