@@ -608,6 +608,7 @@ function UrlCard({
   vc,
   owner,
   canEdit,
+  canRemove,
   envStatesArray,
   onEditTargeting,
   onDeleteChangeset,
@@ -619,6 +620,7 @@ function UrlCard({
   vc: VisualChangesetInterface;
   owner: VisualChangesetOwnerView;
   canEdit: boolean;
+  canRemove: boolean;
   envStatesArray: Array<{
     env: string;
     state: string;
@@ -694,7 +696,7 @@ function UrlCard({
           </Box>
         </Flex>
         <Box>
-          {canEdit && (
+          {canRemove && (
             <DeleteButton
               className="btn-sm ml-4"
               text="Remove"
@@ -779,6 +781,7 @@ type Props = {
   visualChangesets: VisualChangesetInterface[];
   mutate?: () => void;
   canEditVisualChangesets: boolean;
+  canRemoveVisualChangesets?: boolean;
   environmentStates?: LinkedChangeEnvStates;
 };
 
@@ -787,6 +790,7 @@ export const VisualChangesetTable: FC<Props> = ({
   visualChangesets = [],
   mutate,
   canEditVisualChangesets,
+  canRemoveVisualChangesets = canEditVisualChangesets,
   environmentStates,
 }: Props) => {
   const { apiCall } = useAuth();
@@ -984,6 +988,7 @@ export const VisualChangesetTable: FC<Props> = ({
             vc={vc}
             owner={owner}
             canEdit={canEditVisualChangesets}
+            canRemove={canRemoveVisualChangesets}
             envStatesArray={envStatesArray}
             onEditTargeting={() => {
               setEditingVisualChangeset(vc);
