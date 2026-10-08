@@ -22,7 +22,8 @@ import { setupApp } from "./api.setup";
  * Who gets credited, for every kind of API caller, across every revisioned
  * entity and its lifecycle: drafting, `mine`, comments, review requests,
  * verdicts, undo, scheduled publishes that fire later, direct publishes, owner
- * defaults and emitted events.
+ * defaults and emitted events. Plus, through the real auth middleware, each
+ * key's header policy and whether naming a member narrows the key.
  *
  * The rule under test: the person behind a request is a personal token's
  * owner, or the member an org key names with X-GrowthBook-Requested-By. A key
@@ -295,9 +296,10 @@ describe("attribution across callers", () => {
       expect(approvedEvent?.data?.data?.object?.reviewer?.id).toBe(bob.id);
       expect(approvedEvent?.data?.user?.requestedBy?.id).toBe(bob.id);
 
+      // Bob withdraws it with his own token; the history keeps the key as the
+      // approval's source.
       expect(
-        (await as("a key naming the member", bob).post(`${path}/undo-review`))
-          .status,
+        (await as("a personal token", bob).post(`${path}/undo-review`)).status,
       ).toBe(200);
       const undone = await stored(id);
       expect(
@@ -306,6 +308,13 @@ describe("attribution across callers", () => {
             r.userId === bob.id && r.decision === "approve" && !r.stale,
         ),
       ).toBe(false);
+      const retraction = undone?.activityLog.find(
+        (a: { action: string }) => a.action === "review-retracted",
+      );
+      expect(retraction?.user?.apiKey).toBe("key_pat");
+      expect(
+        JSON.parse(retraction?.description ?? "{}").user?.requestedBy?.id,
+      ).toBe(bob.id);
 
       expect((await as(actor).post(`${path}/publish`)).status).toBe(200);
       expect((await stored(id))?.resolution?.userId).toBe(personId);
@@ -562,6 +571,78 @@ describe("attribution across callers", () => {
     }
   });
 
+  describe("a member who loses permissions", () => {
+    const withBobReadOnly = async (work: () => Promise<void>) => {
+      const member = org.members.find((m) => m.id === bob.id)!;
+      member.role = "readonly";
+      try {
+        await work();
+      } finally {
+        member.role = "admin";
+      }
+    };
+    const draftConstant = async () => {
+      await as("a personal token").post("/api/v1/constants", {
+        key: "timeout",
+        name: "Timeout",
+        type: "json",
+        value: '{"t":1}',
+      });
+      const draft = await as("a personal token").put(
+        "/api/v1/constants-revisions/timeout/new/value",
+        { value: '{"t":2}' },
+      );
+      expect(draft.status).toBe(200);
+      return draft.body.revision as { id: string; version: number };
+    };
+
+    it("can't approve through a key that names them", async () => {
+      const { version } = await draftConstant();
+      const path = `/api/v1/constants-revisions/timeout/${version}`;
+      expect(
+        (await as("a personal token").post(`${path}/request-review`)).status,
+      ).toBe(200);
+      const approve = () =>
+        as("a key naming the member", bob).post(`${path}/submit-review`, {
+          decision: "approve",
+          skipAutoPublish: true,
+        });
+      await withBobReadOnly(async () => {
+        expect((await approve()).status).toBe(403);
+      });
+      expect((await approve()).status).toBe(200);
+    });
+
+    it("stops a publish a key scheduled for them", async () => {
+      const { id, version } = await draftConstant();
+      const schedule = await as("a key naming the member", bob).post(
+        `/api/v1/constants-revisions/timeout/${version}/schedule-publish`,
+        { scheduledPublishAt: new Date(Date.now() + 3_600_000).toISOString() },
+      );
+      expect(schedule.status).toBe(200);
+      await collection("revisions").updateOne(
+        { id },
+        { $set: { scheduledPublishAt: new Date(Date.now() - 1000) } },
+      );
+
+      await withBobReadOnly(async () => {
+        const job = getContextForAgendaJobByOrgObject(org);
+        const revision = await job.models.revisions.getById(id);
+        const target = await getAdapter(revision!.target.type)
+          .getModel(job)!
+          .getById(revision!.target.id);
+        await maybePublishScheduledRevision(
+          job,
+          revision!,
+          target as Record<string, unknown>,
+        );
+      });
+      expect((await collection("revisions").findOne({ id }))?.status).not.toBe(
+        "merged",
+      );
+    });
+  });
+
   describe("author rights through a key", () => {
     const READONLY_KEY = { ...KEY, id: "key_readonly", role: "readonly" };
     const OWN_ROLE_KEY = {
@@ -635,6 +716,127 @@ describe("attribution across callers", () => {
         });
       },
     );
+  });
+
+  describe("through the auth middleware", () => {
+    const MIDDLEWARE =
+      "back-end/src/middleware/authenticateApiRequestMiddleware";
+    const auth = () => jest.requireMock(MIDDLEWARE).default as jest.Mock;
+    const realAuth = jest.requireActual(MIDDLEWARE).default;
+    const KEYS = {
+      optional: KEY,
+      required: {
+        ...KEY,
+        id: "key_required",
+        key: "secret_required",
+        requesterHeader: "required",
+      },
+      rejected: {
+        ...KEY,
+        id: "key_rejected",
+        key: "secret_rejected",
+        requesterHeader: "rejected",
+      },
+      ownRole: {
+        ...KEY,
+        id: "key_own_role",
+        key: "secret_own_role",
+        requesterPermissions: "key",
+      },
+      token: { ...KEY, id: "key_pat", key: "secret_pat", userId: dana.id },
+    };
+    let mocked: ((...args: unknown[]) => unknown) | undefined;
+
+    beforeEach(async () => {
+      mocked = auth().getMockImplementation();
+      auth().mockImplementation(realAuth);
+      await collection("organizations").insertOne({
+        ...org,
+        members: org.members.map((m) =>
+          m.id === bob.id ? { ...m, role: "readonly" } : m,
+        ),
+      });
+      await collection("apikeys").insertMany(
+        [KEYS.required, KEYS.rejected, KEYS.ownRole, KEYS.token].map((k) => ({
+          ...k,
+        })),
+      );
+    });
+    afterEach(() => {
+      auth().mockImplementation(mocked);
+    });
+
+    const createProject = (
+      key: keyof typeof KEYS,
+      requestedBy: string | null,
+      name = "Web",
+    ) => {
+      const req = request(app)
+        .post("/api/v1/projects")
+        .set("Authorization", `Bearer ${KEYS[key].key}`);
+      return (
+        requestedBy ? req.set("X-GrowthBook-Requested-By", requestedBy) : req
+      ).send({ name });
+    };
+
+    it.each([
+      ["an optional key naming a member", 200, "optional", dana.email],
+      ["an optional key naming no one", 200, "optional", null],
+      [
+        "a key naming someone outside the org",
+        400,
+        "optional",
+        "nobody@example.com",
+      ],
+      ["a required key naming no one", 400, "required", null],
+      ["a required key naming a member by id", 200, "required", dana.id],
+      ["a rejected key naming a member", 400, "rejected", dana.email],
+      ["a rejected key naming no one", 200, "rejected", null],
+      ["a personal token naming a member", 400, "token", bob.email],
+      [
+        "a key naming a member who can't create projects",
+        403,
+        "optional",
+        bob.email,
+      ],
+      [
+        "a key keeping its own role, naming that member",
+        200,
+        "ownRole",
+        bob.email,
+      ],
+    ] as const)("answers %s with %i", async (_, status, key, header) => {
+      const res = await createProject(key, header);
+      expect(res.status).toBe(status);
+      if (status === 400) expect(res.body.message).toMatch(/Requested-By/);
+    });
+
+    it("records the named member and whether the request assumed their role", async () => {
+      expect((await createProject("optional", dana.email, "Web")).status).toBe(
+        200,
+      );
+      expect((await createProject("ownRole", bob.email, "App")).status).toBe(
+        200,
+      );
+      const audits = await collection("audits")
+        .find({ organization: ORG_ID, event: "project.create" })
+        .toArray();
+      expect(
+        audits.map((a) => [
+          a.user?.requestedBy?.id,
+          a.user?.assumedRole ?? false,
+        ]),
+      ).toEqual(
+        expect.arrayContaining([
+          [dana.id, true],
+          [bob.id, false],
+        ]),
+      );
+      const owners = await collection("projects")
+        .find({ organization: ORG_ID })
+        .toArray();
+      expect(owners.map((p) => p.owner).sort()).toEqual([bob.id, dana.id]);
+    });
   });
 
   describe("owners and other records", () => {
