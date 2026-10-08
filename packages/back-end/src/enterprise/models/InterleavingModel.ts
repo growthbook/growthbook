@@ -128,9 +128,7 @@ export class InterleavingModel extends BaseClass {
         Object.keys(previousDoc.environmentSettings).sort(),
       )
     ) {
-      const orgEnvs = new Set(
-        (this.context.org.settings?.environments ?? []).map((e) => e.id),
-      );
+      const orgEnvs = new Set(this.context.environments);
       const unknown = Object.keys(doc.environmentSettings).filter(
         (env) => !orgEnvs.has(env),
       );
@@ -212,7 +210,6 @@ export class InterleavingModel extends BaseClass {
     return this.context.permissions.canDeleteInterleaving(doc);
   }
 
-  /** All interleaving experiments that read from a given Interleaving Query. */
   public getByInterleavingQueryId(
     interleavingQueryId: string,
   ): Promise<InterleavingInterface[]> {
