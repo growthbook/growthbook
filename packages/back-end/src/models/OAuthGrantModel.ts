@@ -1,4 +1,8 @@
-import { OAuthGrantInterface, oauthGrantValidator } from "shared/validators";
+import {
+  OAuthGrantInterface,
+  oauthGrantValidator,
+  OAuthPermissionLimit,
+} from "shared/validators";
 import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
 import {
   getCollection,
@@ -20,10 +24,13 @@ function grantExpiry(now: Date = new Date()): Date {
   );
 }
 
+// Also how a stored armer id is recognised as a grant.
+export const OAUTH_GRANT_ID_PREFIX = "oag_";
+
 const BaseClass = MakeModelClass({
   schema: oauthGrantValidator,
   collectionName: COLLECTION_NAME,
-  idPrefix: "oag_",
+  idPrefix: OAUTH_GRANT_ID_PREFIX,
   auditLog: {
     entity: "oauthGrant",
     createEvent: "oauthGrant.create",
@@ -62,18 +69,32 @@ export class OAuthGrantModel extends BaseClass {
   }
 
   /** Per-request check for OAuth access tokens; missing counts as revoked. */
-  public static async dangerousIsActive(
+  public static async dangerousGetActive(
     organization: string,
     clientId: string,
     userId: string,
-  ): Promise<boolean> {
+  ): Promise<Pick<
+    OAuthGrantInterface,
+    "id" | "clientId" | "permissionLimit"
+  > | null> {
     const grant = await getCollection<OAuthGrantInterface>(
       COLLECTION_NAME,
     ).findOne(
       { organization, clientId, userId },
-      { projection: { revoked: 1 } },
+      { projection: { id: 1, clientId: 1, revoked: 1, permissionLimit: 1 } },
     );
-    return !!grant && !grant.revoked;
+    return grant && !grant.revoked ? grant : null;
+  }
+
+  /** Work armed through an OAuth token is recorded against its grant. */
+  public static async dangerousGetActiveById(
+    organization: string,
+    id: string,
+  ): Promise<OAuthGrantInterface | null> {
+    const grant = await getCollection<OAuthGrantInterface>(
+      COLLECTION_NAME,
+    ).findOne({ organization, id });
+    return grant && !grant.revoked ? grant : null;
   }
 
   public async getGrant(
@@ -120,6 +141,7 @@ export class OAuthGrantModel extends BaseClass {
     userId: string;
     scope?: string;
     resource?: string;
+    permissionLimit?: OAuthPermissionLimit;
     revoked: boolean;
     revokedAt?: Date;
     expiresAt: Date;
@@ -137,7 +159,7 @@ export class OAuthGrantModel extends BaseClass {
   }
 
   /**
-   * Consent: create, or clear `revoked` and refresh scope on re-consent.
+   * Consent: create, or clear `revoked` and refresh scope and limit on re-consent.
    * Returns null when the grant was revoked after this consent was given, so
    * a code minted before an admin revoke can't undo it.
    */
@@ -146,6 +168,7 @@ export class OAuthGrantModel extends BaseClass {
     userId: string;
     scope?: string;
     resource?: string;
+    permissionLimit: OAuthPermissionLimit;
     consentedAt: Date;
   }): Promise<OAuthGrantInterface | null> {
     const { grant, created } = await this.getOrCreateGrant({
@@ -153,6 +176,7 @@ export class OAuthGrantModel extends BaseClass {
       userId: params.userId,
       scope: params.scope,
       resource: params.resource,
+      permissionLimit: params.permissionLimit,
       revoked: false,
       expiresAt: grantExpiry(),
     });
@@ -169,6 +193,7 @@ export class OAuthGrantModel extends BaseClass {
       revokedAt: null,
       scope: params.scope,
       resource: params.resource,
+      permissionLimit: params.permissionLimit,
       expiresAt: grantExpiry(),
     });
   }
@@ -193,6 +218,13 @@ export class OAuthGrantModel extends BaseClass {
       expiresAt: grantExpiry(),
     });
     if (created || grant.revoked) return grant;
+    return this.extend(grant);
+  }
+
+  /** Delegation: keep an active grant alive while in use; never creates or re-arms one. */
+  public async extend(
+    grant: OAuthGrantInterface,
+  ): Promise<OAuthGrantInterface> {
     return this.update(grant, { expiresAt: grantExpiry() });
   }
 

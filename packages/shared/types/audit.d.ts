@@ -1,4 +1,5 @@
 import { entityEvents, entityTypes } from "shared/constants";
+import type { EventUserOAuthApp } from "shared/validators";
 
 export type EntityEvents = typeof entityEvents;
 
@@ -20,6 +21,7 @@ export interface AuditUserApiKey {
   id?: string;
   name?: string;
   email?: string;
+  oauthApp?: EventUserOAuthApp;
 }
 
 export interface AuditUserSystem {

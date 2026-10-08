@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import isEqual from "lodash/isEqual";
 import {
   OAuthAppInterface,
   OAuthAppProps,
@@ -8,6 +9,7 @@ import {
 import { ORG_OAUTH_APP_CLIENT_ID_PREFIX } from "shared/util";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { hashToken } from "back-end/src/util/oauth-token.util";
+import { assertValidPermissionLimit } from "back-end/src/services/oauth/permissionLimit";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "orgoauthclients";
@@ -35,6 +37,8 @@ const BaseClass = MakeModelClass({
       "clientName",
       "redirectUris",
       "clientUri",
+      "allowDelegation",
+      "permissionLimit",
       "createdBy",
       "dateCreated",
       "dateUpdated",
@@ -66,6 +70,17 @@ export class OrgOAuthClientModel extends BaseClass {
     return this.context.hasPremiumFeature("oauth-apps");
   }
 
+  protected async customValidation(
+    doc: OrgOAuthClientInterface,
+    previousDoc?: OrgOAuthClientInterface,
+  ) {
+    const limit = doc.permissionLimit ?? null;
+    const previous = previousDoc?.permissionLimit ?? null;
+    // Only a changed limit is checked, so a stale one never blocks turning delegation off or rotating the secret.
+    if (previousDoc && isEqual(limit, previous)) return;
+    await assertValidPermissionLimit(this.context, limit, previous);
+  }
+
   /** Cross-org lookup for the public token endpoints, which only know the client_id. */
   public static async dangerousFindById(
     clientId: string,
@@ -82,6 +97,8 @@ export class OrgOAuthClientModel extends BaseClass {
       clientName: doc.clientName,
       redirectUris: doc.redirectUris,
       clientUri: doc.clientUri,
+      allowDelegation: doc.allowDelegation,
+      permissionLimit: doc.permissionLimit ?? null,
       createdBy: doc.createdBy,
       dateCreated: doc.dateCreated,
       dateUpdated: doc.dateUpdated,
@@ -97,6 +114,8 @@ export class OrgOAuthClientModel extends BaseClass {
       clientName: props.clientName,
       redirectUris: props.redirectUris,
       clientUri: props.clientUri || "",
+      allowDelegation: props.allowDelegation ?? false,
+      permissionLimit: props.permissionLimit ?? null,
       clientSecretHash: hashToken(clientSecret),
       createdBy: this.context.userId,
     });
@@ -111,6 +130,11 @@ export class OrgOAuthClientModel extends BaseClass {
       clientName: props.clientName,
       redirectUris: props.redirectUris,
       clientUri: props.clientUri || "",
+      allowDelegation: props.allowDelegation ?? existing.allowDelegation,
+      permissionLimit:
+        props.permissionLimit === undefined
+          ? (existing.permissionLimit ?? null)
+          : props.permissionLimit,
     });
     return OrgOAuthClientModel.toPublic(doc);
   }

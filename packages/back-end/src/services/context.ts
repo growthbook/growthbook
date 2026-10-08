@@ -11,6 +11,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { CommercialFeature, OrgLimitsAccessor } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
 import {
+  MemberRoleWithProjects,
   OrganizationInterface,
   Permission,
   UserPermissions,
@@ -40,8 +41,8 @@ import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
-  getPersonalAccessTokenPermissions,
-  getUserPermissions,
+  getApiKeyLimits,
+  getTokenPermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
@@ -430,15 +431,18 @@ export class ReqContextClass {
   public auditUser: EventUser;
   public apiKey?: string;
   private scopedApiKey = false;
+  private oauthGrantId?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
   public permissions: Permissions;
 
   protected userPermissions: UserPermissions;
 
-  // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
-  // with the work), a user as themselves, an org key as itself.
+  // Who a deferred action runs as: a scoped PAT as the key and an OAuth token
+  // as its grant (so their caps travel with the work), a user as themselves,
+  // an org key as itself.
   public get armer(): { userId?: string; apiKey?: string } {
+    if (this.oauthGrantId) return { apiKey: this.oauthGrantId };
     if (this.scopedApiKey) return { apiKey: this.apiKey };
     return this.userId ? { userId: this.userId } : { apiKey: this.apiKey };
   }
@@ -457,6 +461,7 @@ export class ReqContextClass {
     apiKeyData,
     req,
     restrictedProjects = [],
+    oauth,
   }: {
     org: OrganizationInterface;
     user?: {
@@ -472,6 +477,8 @@ export class ReqContextClass {
     auditUser: EventUser;
     req?: Request;
     restrictedProjects?: string[];
+    // An OAuth token's grant, and the app's and member's limits on it.
+    oauth?: { grantId: string; limits: MemberRoleWithProjects[] };
   }) {
     this.org = org;
     this.auditUser = auditUser;
@@ -480,6 +487,7 @@ export class ReqContextClass {
     this.isApiRequest = auditUser?.type === "api_key";
     this.role = role;
     this.apiKey = apiKey;
+    this.oauthGrantId = oauth?.grantId;
     this.req = req;
 
     if (this.req && this.req.log) {
@@ -497,15 +505,16 @@ export class ReqContextClass {
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
       this.scopedApiKey = !!apiKeyData?.scoped;
-      this.userPermissions = apiKeyData?.userId
-        ? getPersonalAccessTokenPermissions(
-            apiKeyData,
-            user,
-            org,
-            teams || [],
-            restrictedProjects,
-          )
-        : getUserPermissions(user, org, teams || [], restrictedProjects);
+      this.userPermissions = getTokenPermissions(
+        user,
+        org,
+        teams || [],
+        restrictedProjects,
+        [
+          ...(apiKeyData ? getApiKeyLimits(apiKeyData) : []),
+          ...(oauth?.limits ?? []),
+        ],
+      );
     }
     // If an API key or background job is making this request
     else {
@@ -706,6 +715,7 @@ export class ReqContextClass {
           id: apiKeyUser?.id,
           name: apiKeyUser?.name,
           email: apiKeyUser?.email,
+          ...(apiKeyUser?.oauthApp && { oauthApp: apiKeyUser.oauthApp }),
         }
       : this.userId
         ? {

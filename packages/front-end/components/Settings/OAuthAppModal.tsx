@@ -1,9 +1,13 @@
 import React, { FC, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { OAuthAppInterface } from "shared/validators";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
+import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import StringArrayField from "@/ui/StringArrayField";
 import Text from "@/ui/Text";
@@ -12,6 +16,9 @@ import TextField from "@/ui/TextField";
 export type OAuthApp = OAuthAppInterface & { authorizedUsers: number };
 
 export type OAuthAppCredentials = { clientId: string; clientSecret: string };
+
+export const DELEGATION_DESCRIPTION =
+  "The app can use its client secret to get a short-lived token for any member who has authorized it, without storing refresh tokens. Anyone holding the secret can act as those members.";
 
 export const OAuthAppModal: FC<{
   existing: OAuthApp | null;
@@ -25,59 +32,119 @@ export const OAuthAppModal: FC<{
     existing?.redirectUris ?? [],
   );
   const [clientUri, setClientUri] = useState(existing?.clientUri ?? "");
+  const [allowDelegation, setAllowDelegation] = useState(
+    existing?.allowDelegation ?? false,
+  );
+  const [confirmingDelegationOff, setConfirmingDelegationOff] = useState(false);
+  const [limited, setLimited] = useState(!!existing?.permissionLimit);
+  const [limit, setLimit] = useState<MemberRoleWithProjects>(
+    existing?.permissionLimit ?? {
+      role: "readonly",
+      limitAccessByEnvironment: false,
+      environments: [],
+    },
+  );
 
   return (
-    <ModalStandard
-      trackingEventModalType=""
-      open={true}
-      header={existing ? "Edit OAuth App" : "New OAuth App"}
-      cta={existing ? "Save" : "Create"}
-      ctaEnabled={!!clientName.trim() && redirectUris.length > 0}
-      close={close}
-      submit={async () => {
-        const body = JSON.stringify({ clientName, redirectUris, clientUri });
-        if (existing) {
-          await apiCall(`/oauth-apps/${existing.clientId}`, {
-            method: "PUT",
-            body,
+    <>
+      <ModalStandard
+        trackingEventModalType=""
+        size={limited ? "xl" : "md"}
+        open={true}
+        header={existing ? "Edit OAuth App" : "New OAuth App"}
+        cta={existing ? "Save" : "Create"}
+        ctaEnabled={!!clientName.trim() && redirectUris.length > 0}
+        close={close}
+        submit={async () => {
+          const body = JSON.stringify({
+            clientName,
+            redirectUris,
+            clientUri,
+            allowDelegation,
+            permissionLimit: limited
+              ? {
+                  role: limit.role,
+                  limitAccessByEnvironment: limit.limitAccessByEnvironment,
+                  environments: limit.environments,
+                  additionalRoles: limit.additionalRoles,
+                  projectRoles: limit.projectRoles,
+                }
+              : null,
           });
-          onSaved(null);
-        } else {
-          const res = await apiCall<{
-            app: { clientId: string };
-            clientSecret: string;
-          }>("/oauth-apps", { method: "POST", body });
-          onSaved({
-            clientId: res.app.clientId,
-            clientSecret: res.clientSecret,
-          });
-        }
-      }}
-    >
-      <Flex direction="column" gap="4">
-        <TextField
-          label="Name"
-          helpText="Shown to members on the authorization screen."
-          value={clientName}
-          onChange={(e) => setClientName(e.target.value)}
-          placeholder="Internal MCP server"
+          if (existing) {
+            await apiCall(`/oauth-apps/${existing.clientId}`, {
+              method: "PUT",
+              body,
+            });
+            onSaved(null);
+          } else {
+            const res = await apiCall<{
+              app: { clientId: string };
+              clientSecret: string;
+            }>("/oauth-apps", { method: "POST", body });
+            onSaved({
+              clientId: res.app.clientId,
+              clientSecret: res.clientSecret,
+            });
+          }
+        }}
+      >
+        <Flex direction="column" gap="4">
+          <TextField
+            label="Name"
+            helpText="Shown to members on the authorization screen."
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+            placeholder="Internal MCP server"
+          />
+          <StringArrayField
+            label="Redirect URIs"
+            helpText="Where authorization codes are sent. Must use https, except for localhost."
+            value={redirectUris}
+            onChange={setRedirectUris}
+            delimiters={["Enter", "Tab", " "]}
+            placeholder="https://mcp.example.com/oauth/callback"
+          />
+          <TextField
+            label="Homepage URL (optional)"
+            value={clientUri}
+            onChange={(e) => setClientUri(e.target.value)}
+            placeholder="https://mcp.example.com"
+          />
+          <Checkbox
+            label="Allow acting on behalf of members"
+            description={DELEGATION_DESCRIPTION}
+            value={allowDelegation}
+            setValue={(value) => {
+              if (!value && existing?.allowDelegation) {
+                setConfirmingDelegationOff(true);
+              } else {
+                setAllowDelegation(value);
+              }
+            }}
+          />
+          <Checkbox
+            label="Limit what the app can do"
+            description="The app's tokens can't go beyond these permissions, even for members who have more. Members can limit it further when they authorize it."
+            value={limited}
+            setValue={setLimited}
+          />
+          {limited && <RoleRulesTable value={limit} setValue={setLimit} />}
+        </Flex>
+      </ModalStandard>
+      {confirmingDelegationOff && (
+        <ConfirmDialog
+          title="Stop acting on behalf of members?"
+          content="When you save, tokens this app got by acting on behalf of members stop working immediately. Members stay authorized, and tokens from their own sign-in keep working."
+          yesText="Turn off"
+          onConfirm={() => {
+            setAllowDelegation(false);
+            setConfirmingDelegationOff(false);
+          }}
+          onCancel={() => setConfirmingDelegationOff(false)}
         />
-        <StringArrayField
-          label="Redirect URIs"
-          helpText="Where authorization codes are sent. Must use https, except for localhost."
-          value={redirectUris}
-          onChange={setRedirectUris}
-          delimiters={["Enter", "Tab", " "]}
-          placeholder="https://mcp.example.com/oauth/callback"
-        />
-        <TextField
-          label="Homepage URL (optional)"
-          value={clientUri}
-          onChange={(e) => setClientUri(e.target.value)}
-          placeholder="https://mcp.example.com"
-        />
-      </Flex>
-    </ModalStandard>
+      )}
+    </>
   );
 };
 

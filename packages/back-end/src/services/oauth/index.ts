@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Request } from "express";
-import { OAuthDcrRequest } from "shared/validators";
+import { OAuthDcrRequest, OAuthPermissionLimit } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { isOAuthClientAllowed } from "shared/util";
 import {
@@ -32,6 +32,7 @@ import {
   timingSafeEqualStrings,
   verifyPkceS256,
 } from "back-end/src/util/oauth-token.util";
+import { assertValidPermissionLimit } from "./permissionLimit";
 
 export {
   OAUTH_ACCESS_TOKEN_PREFIX,
@@ -41,6 +42,11 @@ export {
 };
 
 const AUTH_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+export const TOKEN_EXCHANGE_GRANT_TYPE =
+  "urn:ietf:params:oauth:grant-type:token-exchange";
+export const EMAIL_SUBJECT_TOKEN_TYPE =
+  "urn:growthbook:params:oauth:token-type:email";
 
 function randomUrlSafe(bytes = 32): string {
   return crypto.randomBytes(bytes).toString("base64url");
@@ -65,6 +71,7 @@ interface ResolvedOAuthClient {
   // The registering org for org apps; null for public DCR clients.
   organization: string | null;
   clientSecretHash: string | null;
+  allowDelegation: boolean;
 }
 
 /** The token endpoints only know a client_id, so look in both collections. */
@@ -80,6 +87,7 @@ async function findOAuthClient(
       redirectUris: app.redirectUris,
       organization: app.organization,
       clientSecretHash: app.clientSecretHash,
+      allowDelegation: app.allowDelegation,
     };
   }
   const client = await getOAuthClientById(clientId);
@@ -91,6 +99,7 @@ async function findOAuthClient(
     redirectUris: client.redirectUris,
     organization: null,
     clientSecretHash: null,
+    allowDelegation: false,
   };
 }
 
@@ -334,7 +343,11 @@ export function getAuthorizationServerMetadata(req?: Request) {
     registration_endpoint: `${issuer}/oauth/register`,
     revocation_endpoint: `${issuer}/oauth/revoke`,
     response_types_supported: ["code"],
-    grant_types_supported: ["authorization_code", "refresh_token"],
+    grant_types_supported: [
+      "authorization_code",
+      "refresh_token",
+      TOKEN_EXCHANGE_GRANT_TYPE,
+    ],
     code_challenge_methods_supported: ["S256"],
     token_endpoint_auth_methods_supported: [
       "none",
@@ -407,6 +420,7 @@ export async function mintAuthorizationCode(params: {
   scope?: string;
   resource?: string;
   state?: string;
+  permissionLimit: OAuthPermissionLimit;
 }): Promise<{ redirectTo: string }> {
   if (params.codeChallengeMethod !== "S256") {
     throw new OAuthError(
@@ -432,6 +446,7 @@ export async function mintAuthorizationCode(params: {
     );
   }
   assertClientAllowedInOrg(info, org, "access_denied");
+  await assertValidPermissionLimit(context, params.permissionLimit);
   const code = randomUrlSafe(32);
   const now = new Date();
   await context.models.oauthAuthCodes.create({
@@ -443,6 +458,7 @@ export async function mintAuthorizationCode(params: {
     codeChallengeMethod: "S256",
     scope: params.scope,
     resource: params.resource,
+    permissionLimit: params.permissionLimit,
     used: false,
     expiresAt: new Date(now.getTime() + AUTH_CODE_TTL_MS),
   });
@@ -499,6 +515,7 @@ export async function exchangeAuthorizationCode(params: {
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
+    permissionLimit: authCode.permissionLimit ?? null,
     consentedAt: authCode.dateCreated,
   });
   if (!grant) {
@@ -647,10 +664,13 @@ export async function revokeToken(params: {
 
 interface IssueParams {
   clientId: string;
+  // The registering org; null for a DCR client, whose row must be touched to stay alive.
   officialClientForOrg: string | null;
   userId: string;
   scope?: string;
   resource?: string;
+  // The minting app's secret hash, set only on delegated tokens.
+  delegatedSecretHash?: string;
 }
 
 export interface TokenResponse {
@@ -661,20 +681,12 @@ export interface TokenResponse {
   scope?: string;
 }
 
-async function issueTokenPair(
+/** Mints an access-token API key for the grant; the plaintext is returned once. */
+async function createAccessToken(
   context: ApiReqContext,
   params: IssueParams,
-): Promise<TokenResponse> {
+): Promise<string> {
   const accessToken = OAUTH_ACCESS_TOKEN_PREFIX + randomUrlSafe(32);
-  const refreshToken = OAUTH_REFRESH_TOKEN_PREFIX + randomUrlSafe(32);
-  const now = new Date();
-  const accessExpires = new Date(
-    now.getTime() + OAUTH_ACCESS_TOKEN_TTL_SECONDS * 1000,
-  );
-  const refreshExpires = new Date(
-    now.getTime() + OAUTH_REFRESH_TOKEN_TTL_SECONDS * 1000,
-  );
-
   // The context is always user-attributed (issuance requires a member
   // context), so this passes the PAT canCreate rule
   // (`doc.userId === context.userId`) and gets full validation + audit log.
@@ -683,39 +695,57 @@ async function issueTokenPair(
     secret: true,
     userId: params.userId,
     role: "user",
-    description: `OAuth access token (${params.clientId})`,
+    description: params.delegatedSecretHash
+      ? `OAuth delegated access token (${params.clientId})`
+      : `OAuth access token (${params.clientId})`,
     environment: "",
     project: "",
     encryptSDK: false,
     limitAccessByEnvironment: false,
     environments: [],
-    expiresAt: accessExpires,
+    expiresAt: new Date(Date.now() + OAUTH_ACCESS_TOKEN_TTL_SECONDS * 1000),
     oauthClientId: params.clientId,
-    officialClientForOrg: params.officialClientForOrg,
+    ...(params.delegatedSecretHash && {
+      oauthDelegatedSecretHash: params.delegatedSecretHash,
+    }),
     scopes: params.scope ? params.scope.split(/\s+/).filter(Boolean) : [],
     lastUsed: null,
   });
+  return accessToken;
+}
 
+/**
+ * Race guard: re-read after writing. tearDownGrant marks revoked before
+ * deleting tokens, so an interleaved revoke shows up here and we clean up
+ * the tokens we just wrote.
+ */
+async function assertGrantStillActive(
+  context: ApiReqContext,
+  clientId: string,
+  userId: string,
+): Promise<void> {
+  const grant = await context.models.oauthGrants.getGrant(clientId, userId);
+  if (!grant || grant.revoked) {
+    await tearDownGrant(context, clientId, userId);
+    throw new OAuthError("invalid_grant", "Grant has been revoked");
+  }
+}
+
+async function issueTokenPair(
+  context: ApiReqContext,
+  params: IssueParams,
+): Promise<TokenResponse> {
+  const accessToken = await createAccessToken(context, params);
+  const refreshToken = OAUTH_REFRESH_TOKEN_PREFIX + randomUrlSafe(32);
   await context.models.oauthRefreshTokens.create({
     tokenHash: hashToken(refreshToken),
     clientId: params.clientId,
     userId: params.userId,
     scope: params.scope,
     resource: params.resource,
-    expiresAt: refreshExpires,
+    expiresAt: new Date(Date.now() + OAUTH_REFRESH_TOKEN_TTL_SECONDS * 1000),
   });
-
-  // Race guard: re-read after writing. tearDownGrant marks revoked before
-  // deleting tokens, so an interleaved revoke shows up here and we clean up
-  // the pair we just wrote.
-  const grant = await context.models.oauthGrants.getGrant(
-    params.clientId,
-    params.userId,
-  );
-  if (!grant || grant.revoked) {
-    await tearDownGrant(context, params.clientId, params.userId);
-    throw new OAuthError("invalid_grant", "Grant has been revoked");
-  }
+  await assertGrantStillActive(context, params.clientId, params.userId);
 
   // Keep the DCR client row alive while in use; org apps have no TTL.
   if (!params.officialClientForOrg) await touchOAuthClient(params.clientId);
@@ -726,6 +756,78 @@ async function issueTokenPair(
     expires_in: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
     refresh_token: refreshToken,
     scope: params.scope,
+  };
+}
+
+export interface DelegatedTokenResponse {
+  access_token: string;
+  issued_token_type: "urn:ietf:params:oauth:token-type:access_token";
+  token_type: "Bearer";
+  expires_in: number;
+}
+
+/**
+ * RFC 8693 token exchange for org OAuth apps with delegation allowed: the app
+ * authenticates with its secret and names a member by email, and gets a
+ * short-lived access token for them only if they've authorized the app.
+ * No refresh token, so the app never has to store one.
+ */
+export async function exchangeDelegatedToken(params: {
+  clientId: string;
+  clientSecret?: string;
+  subjectToken: string;
+  subjectTokenType: string;
+}): Promise<DelegatedTokenResponse> {
+  if (params.subjectTokenType !== EMAIL_SUBJECT_TOKEN_TYPE) {
+    throw new OAuthError(
+      "invalid_request",
+      `subject_token_type must be ${EMAIL_SUBJECT_TOKEN_TYPE}`,
+    );
+  }
+  const client = await authenticateClient(params.clientId, params.clientSecret);
+  if (
+    !client.organization ||
+    !client.allowDelegation ||
+    !client.clientSecretHash
+  ) {
+    throw new OAuthError(
+      "unauthorized_client",
+      "This application is not allowed to act on behalf of members",
+    );
+  }
+  const org = await getOrgForGrant(client.organization);
+  assertClientAllowedInOrg(client, org, "invalid_grant");
+
+  // One error for every miss, so the endpoint can't be used to probe membership.
+  const notAuthorized = new OAuthError(
+    "invalid_grant",
+    "No member with that email has authorized this application",
+  );
+  const user = await getContextForAgendaJobByOrgObject(org).getUserByEmail(
+    params.subjectToken,
+  );
+  const context = user ? await getContextForUserIdInOrg(org, user.id) : null;
+  if (!user || !context) throw notAuthorized;
+  const grant = await context.models.oauthGrants.getGrant(
+    client.clientId,
+    user.id,
+  );
+  if (!grant || grant.revoked) throw notAuthorized;
+
+  await context.models.oauthGrants.extend(grant);
+  const accessToken = await createAccessToken(context, {
+    clientId: client.clientId,
+    officialClientForOrg: org.id,
+    userId: user.id,
+    delegatedSecretHash: client.clientSecretHash,
+  });
+  await assertGrantStillActive(context, client.clientId, user.id);
+
+  return {
+    access_token: accessToken,
+    issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
+    token_type: "Bearer",
+    expires_in: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
   };
 }
 

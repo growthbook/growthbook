@@ -128,6 +128,7 @@ export type {
   EventUser,
   EventUserLoggedIn,
   EventUserApiKey,
+  EventUserOAuthApp,
 } from "./event-user";
 
 import { eventUser, eventUserLoggedIn } from "./event-user";

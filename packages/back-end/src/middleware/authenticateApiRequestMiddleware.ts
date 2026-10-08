@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
 import { getRolePermissions, hasPermission } from "shared/permissions";
-import { isOAuthClientAllowed } from "shared/util";
 import {
   EventUserApiKey,
   EventUserLoggedIn,
@@ -21,7 +20,8 @@ import {
   dangerousLookupOrganizationByApiKey,
 } from "back-end/src/util/api-key.util";
 import {
-  getPersonalAccessTokenPermissions,
+  getApiKeyLimits,
+  getTokenPermissions,
   getUserPermissions,
 } from "back-end/src/util/organization.util";
 import { getUserById } from "back-end/src/models/UserModel";
@@ -34,6 +34,10 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
+import {
+  OAuthAccess,
+  resolveOAuthAccess,
+} from "back-end/src/services/oauth/access";
 import { getAuthConnection, processJWT } from "back-end/src/services/auth";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 
@@ -288,24 +292,27 @@ function authenticateWithApiKey(
       req.organization = org;
 
       // Both settings revoke matching tokens immediately, without touching the stored docs.
+      let oauth: OAuthAccess | null = null;
       if (apiKeyDoc.oauthClientId) {
-        if (
-          !isOAuthClientAllowed(org, apiKeyDoc.officialClientForOrg ?? null)
-        ) {
-          throw new Error(
-            "This organization does not allow this OAuth application",
-          );
-        }
         // Teardown marks the grant revoked before disabling tokens, so a token orphaned midway still fails here.
-        if (
-          !userId ||
-          !(await OAuthGrantModel.dangerousIsActive(
-            organization,
-            apiKeyDoc.oauthClientId,
-            userId,
-          ))
-        ) {
+        const grant = userId
+          ? await OAuthGrantModel.dangerousGetActive(
+              organization,
+              apiKeyDoc.oauthClientId,
+              userId,
+            )
+          : null;
+        if (!grant) {
           throw new Error("This OAuth authorization has been revoked");
+        }
+        oauth = await resolveOAuthAccess(
+          org,
+          grant,
+          apiKeyDoc.oauthDelegatedSecretHash ?? null,
+        );
+        // Super-admin authority bypasses roles, so a limited token never carries it.
+        if (oauth.limits.length && req.user) {
+          req.user = { ...req.user, superAdmin: false };
         }
       } else if (userId && org.settings?.disablePersonalAccessTokens) {
         throw new Error(
@@ -347,6 +354,7 @@ function authenticateWithApiKey(
           : {
               name: apiKeyDoc.description || "",
             }),
+        ...(oauth && { oauthApp: oauth.app }),
       };
 
       req.context = new ReqContextClass({
@@ -359,6 +367,7 @@ function authenticateWithApiKey(
         apiKeyData: apiKeyDoc,
         req,
         restrictedProjects,
+        oauth: oauth ?? undefined,
       });
 
       // Check permissions for user API keys
@@ -384,6 +393,7 @@ function authenticateWithApiKey(
             teams,
             superAdmin: req.user?.superAdmin,
             restrictedProjects,
+            oauthLimits: oauth?.limits,
           });
         }
       };
@@ -411,33 +421,29 @@ function authenticateWithApiKey(
     });
 }
 
-function doesUserHavePermission(
-  org: OrganizationInterface,
-  permission: Permission,
-  apiKeyDoc: ApiKeyInterface,
-  teams: TeamInterface[],
-  superAdmin: boolean | undefined,
-  restrictedProjects: string[],
-  project?: string,
-  envs?: string[],
-): boolean {
+function doesUserHavePermission({
+  apiKey,
+  permission,
+  organization,
+  environments,
+  project,
+  teams,
+  superAdmin,
+  restrictedProjects,
+  oauthLimits = [],
+}: VerifyApiKeyPermissionOptions): boolean {
   try {
-    const userId = apiKeyDoc.userId;
-    if (!userId) {
+    if (!apiKey.userId) {
       return false;
     }
-
-    // Generate full list of permissions for the user, capped by a scoped PAT
-    const userPermissions = getPersonalAccessTokenPermissions(
-      apiKeyDoc,
-      { id: userId, superAdmin },
-      org,
+    const userPermissions = getTokenPermissions(
+      { id: apiKey.userId, superAdmin },
+      organization,
       teams,
       restrictedProjects,
+      [...getApiKeyLimits(apiKey), ...oauthLimits],
     );
-
-    // Check if the user has the permission
-    return hasPermission(userPermissions, permission, project, envs);
+    return hasPermission(userPermissions, permission, project, environments);
   } catch (e) {
     return false;
   }
@@ -452,6 +458,8 @@ type VerifyApiKeyPermissionOptions = {
   teams: TeamInterface[];
   superAdmin: boolean | undefined;
   restrictedProjects?: string[];
+  // An OAuth token's app and member limits, read for this request.
+  oauthLimits?: OAuthAccess["limits"];
 };
 
 /**
@@ -461,29 +469,18 @@ type VerifyApiKeyPermissionOptions = {
  * @param project
  * @throws an error if there are no permissions
  */
-export function verifyApiKeyPermission({
-  apiKey,
-  permission,
-  organization,
-  environments,
-  project,
-  teams,
-  superAdmin,
-  restrictedProjects,
-}: VerifyApiKeyPermissionOptions) {
+export function verifyApiKeyPermission(options: VerifyApiKeyPermissionOptions) {
+  const {
+    apiKey,
+    permission,
+    organization,
+    environments,
+    project,
+    teams,
+    restrictedProjects,
+  } = options;
   if (apiKey.userId) {
-    if (
-      !doesUserHavePermission(
-        organization,
-        permission,
-        apiKey,
-        teams,
-        superAdmin,
-        restrictedProjects || [],
-        project,
-        environments,
-      )
-    ) {
+    if (!doesUserHavePermission(options)) {
       throw new Error("API key user does not have this level of access");
     }
 

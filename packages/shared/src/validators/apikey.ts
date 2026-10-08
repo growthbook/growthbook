@@ -97,12 +97,11 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "OAuth client that was issued this access token. Absent for classic API keys and PATs.",
     ),
-  officialClientForOrg: z
+  oauthDelegatedSecretHash: z
     .string()
-    .nullable()
     .optional()
     .describe(
-      "Stamped at issuance: the org that registered the OAuth client, or null for public (DCR) clients. The OAuth access policy trusts this, not the client ID.",
+      "Set on OAuth access tokens an org app minted by token exchange: the app's client secret hash at the time. The token stops working once the app's secret rotates or delegation is turned off.",
     ),
   scopes: z
     .array(z.string())

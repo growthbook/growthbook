@@ -43,7 +43,14 @@ function toAuditUserInfo(user: AuditInterface["user"]): AuditUserInfo {
     return { type: "system" };
   }
   if ("apiKey" in user) {
-    return { type: "apikey", apiKey: (user as AuditUserApiKey).apiKey };
+    const key = user as AuditUserApiKey;
+    return {
+      type: "apikey",
+      apiKey: key.apiKey,
+      name: key.name,
+      email: key.email,
+      oauthApp: key.oauthApp,
+    };
   }
   const u = user as AuditUserLoggedIn;
   return { type: "user", id: u.id, email: u.email, name: u.name };

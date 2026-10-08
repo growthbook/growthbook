@@ -1,11 +1,16 @@
 import { Request, Response } from "express";
-import { oauthDcrRequestValidator } from "shared/validators";
+import {
+  oauthDcrRequestValidator,
+  oauthPermissionLimitValidator,
+} from "shared/validators";
 import { isOAuthClientAllowed } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { getConsentRoleOptions } from "back-end/src/services/oauth/permissionLimit";
 import {
   exchangeAuthorizationCode,
+  exchangeDelegatedToken,
   exchangeRefreshToken,
   getAuthorizationServerMetadata,
   getAuthorizeInfo,
@@ -15,6 +20,7 @@ import {
   registerPublicClient,
   revokeConnectedApp,
   revokeToken,
+  TOKEN_EXCHANGE_GRANT_TYPE,
 } from "back-end/src/services/oauth";
 
 function sendOAuthError(res: Response, err: unknown) {
@@ -124,10 +130,19 @@ export async function postToken(req: Request, res: Response) {
       return res.status(200).json(result);
     }
 
+    if (grantType === TOKEN_EXCHANGE_GRANT_TYPE) {
+      const result = await exchangeDelegatedToken({
+        clientId,
+        clientSecret,
+        subjectToken: String(body.subject_token || ""),
+        subjectTokenType: String(body.subject_token_type || ""),
+      });
+      return res.status(200).json(result);
+    }
+
     return res.status(400).json({
       error: "unsupported_grant_type",
-      error_description:
-        "Supported grant_types: authorization_code, refresh_token",
+      error_description: `Supported grant_types: authorization_code, refresh_token, ${TOKEN_EXCHANGE_GRANT_TYPE}`,
     });
   } catch (e) {
     return sendOAuthError(res, e);
@@ -215,7 +230,11 @@ export async function getAuthorizeInfoHandler(
           : undefined,
       },
       redirectUri: info.redirectUri,
-      organizations: orgs.map((o) => ({ id: o.id, name: o.name })),
+      organizations: orgs.map((o) => ({
+        id: o.id,
+        name: o.name,
+        roles: getConsentRoleOptions(o),
+      })),
       user: {
         id: req.userId,
         email: req.email,
@@ -247,6 +266,7 @@ export async function postAuthorize(
     scope?: string;
     resource?: string;
     organization?: string;
+    permissionLimit?: unknown;
   }>,
   res: Response,
 ) {
@@ -279,6 +299,16 @@ export async function postAuthorize(
       });
     }
 
+    const permissionLimit = oauthPermissionLimitValidator
+      .optional()
+      .safeParse(body.permissionLimit);
+    if (!permissionLimit.success) {
+      return res.status(400).json({
+        status: 400,
+        message: "Invalid permission limit",
+      });
+    }
+
     const { redirectTo } = await mintAuthorizationCode({
       clientId: String(body.client_id || ""),
       redirectUri: String(body.redirect_uri || ""),
@@ -289,6 +319,7 @@ export async function postAuthorize(
       scope: body.scope ? String(body.scope) : undefined,
       resource: body.resource ? String(body.resource) : undefined,
       state: body.state ? String(body.state) : undefined,
+      permissionLimit: permissionLimit.data ?? null,
     });
 
     return res.status(200).json({ status: 200, redirectTo });
