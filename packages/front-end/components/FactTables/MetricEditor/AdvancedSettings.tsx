@@ -2,10 +2,7 @@ import { UseFormReturn } from "react-hook-form";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { Flex, Grid } from "@radix-ui/themes";
 import { PiCaretDown } from "react-icons/pi";
-import {
-  FactTableDefinition,
-  MetricCappingSettings,
-} from "shared/types/fact-table";
+import { MetricCappingSettings } from "shared/types/fact-table";
 import { getCappingTailState } from "shared/validators";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -19,8 +16,6 @@ import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import { Select, SelectItem } from "@/ui/Select";
-import MultiSelectField from "@/ui/MultiSelectField";
 import { DataListItem } from "@/ui/DataList";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -84,12 +79,10 @@ function Summary({ subtitle }: { subtitle: string }) {
 export default function AdvancedSettings({
   form,
   formType,
-  factTable,
   canEdit,
 }: {
   form: UseFormReturn<CreateFactMetricFormProps>;
   formType: FormMetricType;
-  factTable: FactTableDefinition | null;
   canEdit: boolean;
 }) {
   const { getDatasourceById } = useDefinitions();
@@ -103,9 +96,6 @@ export default function AdvancedSettings({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
-  const showsGoalAndSlices = formType !== "funnel";
-  const showsAutoSlices =
-    showsGoalAndSlices && hasCommercialFeature("metric-slices") && !!factTable;
   const priorSettings = form.watch("priorSettings");
   const cappingItems = cappingSummary(
     form.watch("cappingSettings"),
@@ -139,21 +129,6 @@ export default function AdvancedSettings({
       ? form.watch("regressionAdjustmentDays")
       : orgSettings.regressionAdjustmentDays;
     const items: DataListItem[] = [
-      ...(showsAutoSlices && factTable
-        ? [
-            {
-              label: "Auto Slices",
-              value:
-                (form.watch("metricAutoSlices") || [])
-                  .map(
-                    (col) =>
-                      factTable.columns.find((c) => c.column === col)?.name ||
-                      col,
-                  )
-                  .join(", ") || "None",
-            },
-          ]
-        : []),
       {
         label: "Target MDE",
         value: `${form.watch("targetMDE") ?? metricDefaults.targetMDE * 100}%`,
@@ -199,16 +174,6 @@ export default function AdvancedSettings({
           ]
         : []),
       ...(cappingOk(formType) ? cappingItems : []),
-      ...(showsGoalAndSlices
-        ? [
-            {
-              label: "Metric goal",
-              value: form.watch("inverse")
-                ? "Decrease the metric value"
-                : "Increase the metric value",
-            },
-          ]
-        : []),
       ...(formType === "ratio" || formType === "dailyParticipation"
         ? [
             {
@@ -359,45 +324,6 @@ export default function AdvancedSettings({
                     )}
                   </>
                 }
-                {showsGoalAndSlices && (
-                  <>
-                    <Select
-                      label="Metric goal"
-                      value={form.watch("inverse") ? "1" : "0"}
-                      setValue={(v) => form.setValue("inverse", v === "1")}
-                    >
-                      <SelectItem value="0">
-                        Increase the metric value
-                      </SelectItem>
-                      <SelectItem value="1">
-                        Decrease the metric value
-                      </SelectItem>
-                    </Select>
-                    {showsAutoSlices && factTable && (
-                      <Flex direction="column" mt="3" mb="4">
-                        <MultiSelectField
-                          label="Auto Slices"
-                          value={form.watch("metricAutoSlices") || []}
-                          onChange={(metricAutoSlices) =>
-                            form.setValue("metricAutoSlices", metricAutoSlices)
-                          }
-                          options={factTable.columns
-                            .filter(
-                              (c) =>
-                                c.isAutoSliceColumn &&
-                                !c.deleted &&
-                                !factTable.userIdTypes.includes(c.column),
-                            )
-                            .map((c) => ({
-                              label: c.name || c.column,
-                              value: c.column,
-                            }))}
-                          placeholder="Select Auto Slice columns..."
-                        />
-                      </Flex>
-                    )}
-                  </>
-                )}
               </Flex>
             </TabsContent>
             <TabsContent value="display" forceMount>
