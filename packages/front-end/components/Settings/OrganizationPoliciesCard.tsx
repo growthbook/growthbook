@@ -70,9 +70,9 @@ const PoliciesModal: FC<{
           />
           {disable && !wasDisabled && (
             <Callout status="error" mt="3">
-              Personal access tokens and Visual Editor keys stop working as
-              soon as you save. OAuth apps follow the OAuth access setting
-              under API Keys. Turning this back off restores the tokens.
+              Personal access tokens and Visual Editor keys stop working as soon
+              as you save. OAuth apps follow the OAuth access setting under API
+              Keys. Turning this back off restores the tokens.
             </Callout>
           )}
         </>
