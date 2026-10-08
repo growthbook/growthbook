@@ -14,6 +14,11 @@ type ExposureQueryIdentity = Pick<
   "id" | "userIdType" | "userIdTypes"
 >;
 
+/** The name of the query experiment discovery runs for an assignment query. */
+export function getPastExperimentQueryName(exposureQueryId: string): string {
+  return `experiments_${exposureQueryId}`;
+}
+
 /** Falls back to `userIdType` for queries saved before `userIdTypes`. */
 export function getExposureQueryIdentifierTypes(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,

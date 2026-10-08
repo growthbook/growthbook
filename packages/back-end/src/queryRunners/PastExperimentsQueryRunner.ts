@@ -1,5 +1,8 @@
 import { getValidDate } from "shared/dates";
-import { getExposureQueryIdentifierTypes } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  getPastExperimentQueryName,
+} from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 import {
   PastExperimentParams,
@@ -264,7 +267,12 @@ export class PastExperimentsQueryRunner extends QueryRunner<
 
   async startQueries(params: PastExperimentParams): Promise<Queries> {
     const queries: Queries = [];
-    for (const exposureQuery of this.getExposureQueries()) {
+    const { datasource } = this.integration;
+    // Queries the user can't run keep their rows and state as they were.
+    const runnable = this.getExposureQueries().filter((q) =>
+      this.context.permissions.canRunPastExperimentQuery(q, datasource),
+    );
+    for (const exposureQuery of runnable) {
       const identifierTypes = getExposureQueryIdentifierTypes(exposureQuery);
       if (!identifierTypes.length) continue;
       const watermark = params.forceRefresh
@@ -277,7 +285,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
       const from = watermark ?? params.from;
       queries.push(
         await this.startQuery({
-          name: `experiments_${exposureQuery.id}`,
+          name: getPastExperimentQueryName(exposureQuery.id),
           query: this.integration.getPastExperimentQuery({
             exposureQuery,
             identifierTypes,

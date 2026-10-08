@@ -1363,10 +1363,29 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
-  public canRunPastExperimentQueries = (
+  /**
+   * Experiment discovery runs an assignment query for users who can run
+   * queries in any Project it covers.
+   */
+  public canRunPastExperimentQuery = (
+    query: Pick<ExposureQuery, "projects">,
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    return this.checkProjectFilterPermission(
+      { projects: getExposureQueryProjects(query, datasource.projects) },
+      "runQueries",
+    );
+  };
+
+  /** A discovery refresh runs only the assignment queries the user can run. */
+  public canRunPastExperimentQueries = (
+    datasource: Pick<DataSourceInterface, "projects" | "settings">,
+  ): boolean => {
+    const queries = datasource.settings?.queries?.exposure ?? [];
+    if (!queries.length) {
+      return this.checkProjectFilterPermission(datasource, "runQueries");
+    }
+    return queries.some((q) => this.canRunPastExperimentQuery(q, datasource));
   };
 
   public canRunFactQueries = (

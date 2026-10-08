@@ -1680,4 +1680,16 @@ describe("assignment query permissions", () => {
     expect(p.canAddExposureQuery({ projects: [] })).toBe(true);
     expect(p.canAddExposureQuery({ projects: ["prj_a"] })).toBe(false);
   });
+
+  it("runs discovery on a query when any project it covers allows it", () => {
+    expect(
+      p.canRunPastExperimentQuery({ projects: ["prj_a", "prj_b"] }, datasource),
+    ).toBe(true);
+    expect(p.canRunPastExperimentQuery({ projects: [] }, datasource)).toBe(
+      true,
+    );
+    expect(
+      p.canRunPastExperimentQuery({ projects: ["prj_a"] }, datasource),
+    ).toBe(false);
+  });
 });

@@ -3,6 +3,7 @@ import { PastExperimentsInterface } from "shared/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
 import {
+  getPastExperimentQueryName,
   isProjectListValidForProject,
   parseIntWithDefault,
   parseOptionalInt,
@@ -13,6 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import {
+  getExposureQueriesInScope,
   getExposureQuery,
   getImportIdentifierTypes,
 } from "@/services/datasources";
@@ -88,10 +90,18 @@ const ImportExperimentList: FC<{
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
   const [runError, setRunError] = useState<string | null>(null);
 
+  // Only rows an experiment in the selected Project could use
+  const inScopeQueries = useMemo(
+    () => (datasource ? getExposureQueriesInScope(datasource, project) : []),
+    [datasource, project],
+  );
+  const inScopeQueryIds = useMemo(
+    () => new Set(inScopeQueries.map((q) => q.id)),
+    [inScopeQueries],
+  );
   const { identifierTypes, initialIdentifierType } = useMemo(
-    () =>
-      getImportIdentifierTypes(datasource?.settings?.queries?.exposure ?? []),
-    [datasource],
+    () => getImportIdentifierTypes(inScopeQueries),
+    [inScopeQueries],
   );
   const [selectedIdentifierType, setSelectedIdentifierType] = useState<
     string | null
@@ -102,6 +112,7 @@ const ImportExperimentList: FC<{
   const filterResults = useCallback(
     (items: typeof pastExpArr) => {
       const rows = items.filter((e) => {
+        if (!inScopeQueryIds.has(e.exposureQueryId)) return false;
         if (identifierType !== null && e.identifierType !== identifierType) {
           return false;
         }
@@ -163,6 +174,7 @@ const ImportExperimentList: FC<{
       dedupeFilter,
       data?.existing,
       identifierType,
+      inScopeQueryIds,
       minLengthFilter,
       minUsersFilter,
       minVariationsFilter,
@@ -214,8 +226,27 @@ const ImportExperimentList: FC<{
   const importFailed = hasStarted && status === "failed";
 
   const identifierRows = pastExpArr.filter(
-    (e) => identifierType === null || e.identifierType === identifierType,
+    (e) =>
+      inScopeQueryIds.has(e.exposureQueryId) &&
+      (identifierType === null || e.identifierType === identifierType),
   );
+
+  // Queries the last refresh didn't run (no permission) or that failed. Records
+  // from before per-query discovery can't tell, so they get no notice.
+  const lastRunQueries = data.experiments.queries;
+  const staleQueries =
+    status === "running" ||
+    !data.experiments.exposureQueryRuns ||
+    !lastRunQueries.length
+      ? []
+      : inScopeQueries.filter(
+          (q) =>
+            !lastRunQueries.some(
+              (r) =>
+                r.name === getPastExperimentQueryName(q.id) &&
+                r.status === "succeeded",
+            ),
+        );
   const totalRows = dedupeFilter
     ? new Set(identifierRows.map((e) => e.trackingKey)).size
     : identifierRows.length;
@@ -355,6 +386,28 @@ const ImportExperimentList: FC<{
               </span>
             </>
           )}
+        </Callout>
+      )}
+      {datasource && staleQueries.length > 0 && (
+        <Callout status="warning" my="3">
+          {staleQueries.length === 1
+            ? "This assignment query wasn't included in the last refresh:"
+            : "These assignment queries weren't included in the last refresh:"}
+          <ul>
+            {staleQueries.map((q) => {
+              const lastRunAt = data.experiments.exposureQueryRuns?.find(
+                (r) => r.exposureQueryId === q.id,
+              )?.lastRunAt;
+              return (
+                <li key={q.id}>
+                  <strong>{q.name}</strong>
+                  {lastRunAt ? `, last refreshed ${date(lastRunAt)}.` : "."}
+                  {!permissionsUtil.canRunPastExperimentQuery(q, datasource) &&
+                    " Refreshing it requires permission to run queries in its Projects."}
+                </li>
+              );
+            })}
+          </ul>
         </Callout>
       )}
       {totalRows === 0 && (

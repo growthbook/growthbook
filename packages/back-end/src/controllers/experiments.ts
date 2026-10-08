@@ -3996,6 +3996,12 @@ export async function postPastExperiments(
 
   let needsRun = false;
   if (force) {
+    // Before touching the shared record; the runner would refuse anyway.
+    if (
+      !context.permissions.canRunPastExperimentQueries(integration.datasource)
+    ) {
+      context.permissions.throwPermissionError();
+    }
     needsRun = true;
     pastExperiments = await updatePastExperiments(pastExperiments, {
       config: {
