@@ -107,7 +107,9 @@ export default function ExperimentList({
                     {...tagLinkProps("experiments")}
                   />
                 </td>
-                <td title={datetime(test.date)}>{date(test.date)}</td>
+                <td title={test.date ? datetime(test.date) : undefined}>
+                  {test.date ? date(test.date) : <em>no end date</em>}
+                </td>
                 <td>{test.ownerName}</td>
                 <td className="text-nowrap">
                   {phaseSummary(
