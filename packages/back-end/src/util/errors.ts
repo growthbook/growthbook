@@ -28,6 +28,16 @@ export class ChecklistIncompleteError extends ApiError<"checklist_incomplete"> {
   }
 }
 
+export class CustomHookError extends ApiError<"custom_hook_error"> {
+  constructor(
+    message: string,
+    hooks: ApiErrorDetails<"custom_hook_error">["hooks"],
+  ) {
+    super("custom_hook_error", message, { hooks });
+    this.name = "CustomHookError";
+  }
+}
+
 // Message is supplied by the caller (typically via formatPendingDraftFailureMessage
 // in services/experiment-feature) to keep this module free of back-end imports
 // — errors.ts is loaded by licenseUtil and other low-level modules.

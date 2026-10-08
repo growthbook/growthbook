@@ -87,6 +87,9 @@ export type SavedGroupForPayload = Pick<
  */
 export type SavedGroupMetadata = SavedGroupWithoutValues & {
   hasValues: boolean;
+  // The ID list is longer than SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES, so
+  // clients leave it opaque instead of loading its values.
+  largeValues: boolean;
 };
 
 /**

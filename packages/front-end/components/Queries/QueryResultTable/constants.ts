@@ -10,7 +10,7 @@ export const COLUMN_WIDTH_BUFFER = 3;
 export const MIN_COLUMN_WIDTH = 24;
 export const MAX_COLUMN_WIDTH = 600;
 
-// For the virtualizaed table, defines how many rows
+// For the virtualized table, defines how many rows
 // are sampled when sizing columns to content
 export const WIDTH_SAMPLE_ROWS = 30;
 

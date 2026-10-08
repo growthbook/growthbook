@@ -1,9 +1,6 @@
 import { useMemo } from "react";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  FeatureRevisionInterface,
-  MinimalFeatureRevisionInterface,
-} from "shared/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import {
   getDraftAffectedEnvironments,
@@ -18,9 +15,9 @@ import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import AffectedEnvironmentsBadges from "@/components/Features/AffectedEnvironmentsBadges";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useApi from "@/hooks/useApi";
 import { useEnvironments } from "@/services/features";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { DraftMode } from "@/components/DraftSelector";
 import SharedDraftSelectorForChanges from "@/components/DraftSelectorForChanges";
 
@@ -89,18 +86,14 @@ export default function DraftSelectorForChanges({
   const settings = useOrgSettings();
   const maxDrafts = settings?.maxConcurrentDrafts || 0;
 
-  // Use context revisions if available; fetch only when rendered outside FeaturesOverview.
   const ctx = useFeatureRevisionsContext();
-  const draftVersionForFetch =
-    mode === "existing" && !ctx
+  const targetDraftVersion =
+    mode === "existing"
       ? (selectedDraft ?? activeDrafts[0]?.version ?? null)
       : null;
-  const { data: fetchedRevisionsData } = useApi<{
-    status: 200;
-    revisions: FeatureRevisionInterface[];
-  }>(
-    `/feature/${feature.id}/revisions?versions=${feature.version},${draftVersionForFetch ?? 0}`,
-    { shouldRun: () => draftVersionForFetch !== null },
+  const targetRevisions = useFeatureRevisions(
+    feature.id,
+    targetDraftVersion !== null ? [feature.version, targetDraftVersion] : [],
   );
 
   // Org-level approval scope for badge coloring; independent of this action's gating.
@@ -118,14 +111,10 @@ export default function DraftSelectorForChanges({
   const allEnvironments = useEnvironments();
   const affectedEnvs = useMemo<string[] | "all" | null>(() => {
     if (mode !== "existing") return null;
-    const draftVersion = selectedDraft ?? activeDrafts[0]?.version;
-    if (draftVersion == null) return null;
+    if (targetDraftVersion === null) return null;
 
-    const revisions = ctx?.revisions ?? fetchedRevisionsData?.revisions;
-    if (!revisions) return null;
-
-    const liveRevision = revisions.find((r) => r.version === feature.version);
-    const draftRevision = revisions.find((r) => r.version === draftVersion);
+    const liveRevision = targetRevisions.get(feature.version);
+    const draftRevision = targetRevisions.get(targetDraftVersion);
     if (!liveRevision || !draftRevision) return null;
 
     const allEnvIds = filterEnvironmentsByFeature(allEnvironments, feature).map(
@@ -144,10 +133,9 @@ export default function DraftSelectorForChanges({
     return result;
   }, [
     mode,
-    selectedDraft,
-    activeDrafts,
-    ctx,
-    fetchedRevisionsData,
+    targetDraftVersion,
+    targetRevisions,
+    ctx?.baseFeature,
     feature,
     baseFeature,
     allEnvironments,

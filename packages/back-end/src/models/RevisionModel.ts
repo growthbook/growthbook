@@ -1018,12 +1018,9 @@ export class RevisionModel extends BaseClass {
               : armed
                 ? CLEARED_DATED_SCHEDULE
                 : {}),
-            // The auto-publish runs with the arming user's authority. A stale
-            // value from a previous cycle is harmless — `autoPublishOnApproval`
-            // gates everything. `userId` is empty for API-key actors; skip so the
-            // publish falls back to `authorId`.
+            // The auto-publish runs as the armer, a user or an org API key.
             // Replaced, not conditionally set — see setAutoPublishOnApproval.
-            autoPublishEnabledBy: armed && userId ? userId : null,
+            autoPublishEnabledBy: armed ? this.context.armerId : null,
             // Arm-time guard fingerprints: set the new acknowledgments, or clear a
             // stale set from a prior arm (to {}) so a re-arm with no current conflicts
             // can't be covered by an outdated fingerprint.
@@ -1086,13 +1083,12 @@ export class RevisionModel extends BaseClass {
         );
       }
 
-      // Auto-publish runs with the arming user's authority, so the identity is
-      // REPLACED on every transition — left behind, an identityless arm (API
-      // key, system actor) inherits whoever armed last and the deferred publish
-      // runs as that user. `null` clears it.
+      // Auto-publish runs as the armer, so the identity is REPLACED on every
+      // transition — left behind, an identityless arm (system actor) inherits
+      // whoever armed last. `null` clears it.
       return {
         autoPublishOnApproval: enabled,
-        autoPublishEnabledBy: enabled && userId ? userId : null,
+        autoPublishEnabledBy: enabled ? this.context.armerId : null,
         // Arm-time guard fingerprints: set the new acknowledgments, or clear a
         // stale set from a prior arm (to {}) so a re-arm with no current
         // conflicts can't be covered by an outdated fingerprint.

@@ -1,6 +1,9 @@
 import { generateProductAnalyticsSQL } from "shared/enterprise";
 import { format, createLikeStringMatchFn } from "shared/sql";
-import { ExplorationConfig } from "shared/validators";
+import {
+  ExplorationConfig,
+  ProductAnalyticsDimension,
+} from "shared/validators";
 import { SqlDialect } from "shared/types/sql";
 import {
   FactMetricInterface,
@@ -536,131 +539,6 @@ describe("productAnalytics", () => {
     expect(sql).not.toContain("anonymous_id IN");
   });
 
-  it("resolves a static dimension's filter consistently across fact tables for a cross-table ratio metric", () => {
-    // Regression test for a ratio metric whose denominator lives on a
-    // different fact table than the numerator, and that table doesn't
-    // expose the dimension's "props" column at all:
-    //  1. The filter expression must be resolved against factTableGroups[0]
-    //     (the same basis the dimension's SELECT expression uses), not
-    //     against each group's own fact table — otherwise a table that
-    //     doesn't share the numerator's JSON column shape would get a
-    //     broken raw "props.plan" filter instead of a jsonExtract call.
-    //  2. A group whose fact table can't resolve the column at all (like
-    //     this denominator) must be skipped entirely, rather than referencing
-    //     a column the warehouse doesn't have.
-    const jsonFactTableMap = new Map<string, FactTableInterface>([
-      [
-        "orders",
-        {
-          ...factTableMap.get("orders")!,
-          columns: [
-            ...factTableMap.get("orders")!.columns,
-            {
-              column: "props",
-              datatype: "json",
-              dateCreated: new Date(),
-              dateUpdated: new Date(),
-              name: "props",
-              description: "",
-              numberFormat: "",
-              alwaysInlineFilter: false,
-              deleted: false,
-              autoSlices: [],
-              isAutoSliceColumn: false,
-              jsonFields: { plan: { datatype: "string" } },
-            },
-          ],
-        },
-      ],
-      [
-        // Same base shape as "orders", but with no "props" column at all.
-        "other_ft",
-        {
-          ...factTableMap.get("orders")!,
-          id: "other_ft",
-          sql: "SELECT user_id, timestamp, revenue FROM other_events",
-        },
-      ],
-    ]);
-
-    const crossTableRatioMetricMap = new Map<string, FactMetricInterface>([
-      [
-        "cross_table_ratio",
-        {
-          id: "cross_table_ratio",
-          name: "Cross Table Ratio",
-          metricType: "ratio",
-          numerator: {
-            factTableId: "orders",
-            column: "revenue",
-            aggregation: "sum",
-          },
-          denominator: {
-            factTableId: "other_ft",
-            column: "$$count",
-            aggregation: "sum",
-          },
-          cappingSettings: { type: "", value: 0 },
-          windowSettings: {
-            type: "",
-            delayValue: 0,
-            delayUnit: "days",
-            windowValue: 0,
-            windowUnit: "days",
-          },
-          quantileSettings: null,
-        } as FactMetricInterface,
-      ],
-    ]);
-
-    const config: ExplorationConfig = {
-      type: "metric",
-      datasource: "ds_1",
-      chartType: "bar",
-      dateRange: {
-        predefined: "last7Days",
-        startDate: null,
-        endDate: null,
-        lookbackValue: null,
-        lookbackUnit: null,
-      },
-      dimensions: [
-        { dimensionType: "static", column: "props.plan", values: ["free"] },
-      ],
-      dataset: {
-        type: "metric",
-        values: [
-          {
-            name: "ratio",
-            type: "metric",
-            rowFilters: [],
-            metricId: "cross_table_ratio",
-            unit: null,
-            denominatorUnit: null,
-          },
-        ],
-      },
-    };
-
-    const { sql } = generateProductAnalyticsSQL(
-      config,
-      jsonFactTableMap,
-      crossTableRatioMetricMap,
-      helpers,
-      datasource,
-    );
-
-    // Only the numerator's fact-table CTE (which actually has "props" as a
-    // JSON column) gets the pinned-values filter, correctly resolved via
-    // jsonExtract...
-    const matches = sql.match(/props:'plan'::text IN \('free'\)/g) ?? [];
-    expect(matches.length).toBe(1);
-    // ...the denominator's CTE — whose fact table doesn't have "props" at
-    // all — is left unfiltered rather than referencing a nonexistent
-    // column, and there's never a broken raw "props.plan" reference.
-    expect(sql).not.toContain("props.plan IN");
-  });
-
   it("applies a static dimension's filter to every fact table that shares the column", () => {
     // Counterpart to the previous test: when the denominator's fact table
     // *does* have the dimension's column, both CTEs should still get
@@ -747,6 +625,119 @@ describe("productAnalytics", () => {
     const matches = sql.match(/anonymous_id IN \('a1'\)/g) ?? [];
     expect(matches.length).toBe(2);
   });
+
+  it.each<ProductAnalyticsDimension>([
+    { dimensionType: "dynamic", column: "props.plan", maxValues: 5 },
+    { dimensionType: "static", column: "props.plan", values: ["free"] },
+  ])(
+    "throws for a $dimensionType dimension unresolvable on a cross-table ratio metric's denominator",
+    (dimension) => {
+      // Bucketing or filtering only the numerator's rows would split them
+      // from the denominator and silently produce wrong ratios, so this must
+      // fail loudly instead.
+      const jsonFactTableMap = new Map<string, FactTableInterface>([
+        [
+          "orders",
+          {
+            ...factTableMap.get("orders")!,
+            columns: [
+              ...factTableMap.get("orders")!.columns,
+              {
+                column: "props",
+                datatype: "json",
+                dateCreated: new Date(),
+                dateUpdated: new Date(),
+                name: "props",
+                description: "",
+                numberFormat: "",
+                alwaysInlineFilter: false,
+                deleted: false,
+                autoSlices: [],
+                isAutoSliceColumn: false,
+                jsonFields: { plan: { datatype: "string" } },
+              },
+            ],
+          },
+        ],
+        [
+          // Same base shape as "orders", but with no "props" column at all.
+          "other_ft",
+          {
+            ...factTableMap.get("orders")!,
+            id: "other_ft",
+            sql: "SELECT user_id, timestamp, revenue FROM other_events",
+          },
+        ],
+      ]);
+
+      const crossTableRatioMetricMap = new Map<string, FactMetricInterface>([
+        [
+          "cross_table_ratio",
+          {
+            id: "cross_table_ratio",
+            name: "Cross Table Ratio",
+            metricType: "ratio",
+            numerator: {
+              factTableId: "orders",
+              column: "revenue",
+              aggregation: "sum",
+            },
+            denominator: {
+              factTableId: "other_ft",
+              column: "$$count",
+              aggregation: "sum",
+            },
+            cappingSettings: { type: "", value: 0 },
+            windowSettings: {
+              type: "",
+              delayValue: 0,
+              delayUnit: "days",
+              windowValue: 0,
+              windowUnit: "days",
+            },
+            quantileSettings: null,
+          } as FactMetricInterface,
+        ],
+      ]);
+
+      const config: ExplorationConfig = {
+        type: "metric",
+        datasource: "ds_1",
+        chartType: "bar",
+        dateRange: {
+          predefined: "last7Days",
+          startDate: null,
+          endDate: null,
+          lookbackValue: null,
+          lookbackUnit: null,
+        },
+        dimensions: [dimension],
+        dataset: {
+          type: "metric",
+          values: [
+            {
+              name: "ratio",
+              type: "metric",
+              rowFilters: [],
+              metricId: "cross_table_ratio",
+              unit: null,
+              denominatorUnit: null,
+            },
+          ],
+        },
+      };
+
+      expect(() =>
+        generateProductAnalyticsSQL(
+          config,
+          jsonFactTableMap,
+          crossTableRatioMetricMap,
+          helpers,
+          datasource,
+        ),
+      ).toThrow(`Can't break down by "props.plan"`);
+    },
+  );
 
   it("generates SQL for fact tables with mix of filtered and unfiltered values", () => {
     const config: ExplorationConfig = {
@@ -1596,6 +1587,31 @@ describe("productAnalytics", () => {
     // column — a bare `revenue_vc` does not exist in the warehouse.
     expect(sql).toContain("(amount * qty)");
     expect(sql).not.toContain("revenue_vc");
+
+    // Row count as the threshold basis counts rows, not a column named $$count.
+    const numerator = aggregateFilterMetricMap.get("big_spenders")!.numerator;
+    numerator.aggregateFilterColumn = "$$count";
+    const { sql: countSql } = generateProductAnalyticsSQL(
+      config,
+      virtualFactTableMap,
+      aggregateFilterMetricMap,
+      helpers,
+      datasource,
+    );
+    expect(countSql).not.toContain("$$count");
+    expect(countSql).toContain("1 AS m0");
+
+    // Per-unit path: the threshold CASE is aliased once by the caller.
+    config.dataset.values[0].unit = "user_id";
+    const { sql: unitSql } = generateProductAnalyticsSQL(
+      config,
+      virtualFactTableMap,
+      aggregateFilterMetricMap,
+      helpers,
+      datasource,
+    );
+    expect(unitSql).toMatch(/THEN 1\s+ELSE NULL\s+END AS m0/);
+    expect(unitSql).not.toMatch(/as m0 AS m0/i);
   });
 
   it("throws when a data_source dataset has no timestamp column", () => {

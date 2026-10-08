@@ -552,24 +552,6 @@ export function validateCappingSettingsValueEntered(
   }
 }
 
-/**
- * Ratio metrics only support percentile capping.
- */
-export function validateCappingSettingsMetricTypeCompatibility(
-  metricType: string,
-  upper: CappingSettingsTailInput | null | undefined,
-  lower?: CappingSettingsTailInput | null | undefined,
-): void {
-  if (metricType !== "ratio") return;
-
-  const upperType = normalizeCappingTypeForTails(upper?.type);
-  const lowerType = normalizeCappingTypeForTails(lower?.type);
-
-  if (upperType === "absolute" || lowerType === "absolute") {
-    throw new Error("Ratio metrics support only percentile capping.");
-  }
-}
-
 type CappingPair = Pick<
   z.infer<typeof factMetricValidator>,
   "cappingSettings" | "lowerCappingSettings"
@@ -672,13 +654,6 @@ export function validateFactMetricCapping(
     if (enabled && !isCappableFactMetric(metric.metricType)) {
       throw new Error(
         `Capping is not supported for ${metric.metricType} metrics. Disable both tails explicitly.`,
-      );
-    }
-    if (!previous) {
-      validateCappingSettingsMetricTypeCompatibility(
-        metric.metricType ?? "",
-        metric.cappingSettings,
-        metric.lowerCappingSettings,
       );
     }
   }

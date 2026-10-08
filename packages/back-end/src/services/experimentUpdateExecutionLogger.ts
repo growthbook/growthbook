@@ -1,20 +1,30 @@
 import { DataSourceInterface } from "shared/types/datasource";
 import {
+  ExperimentSnapshotInterface,
   SnapshotQueryRunnerKind,
-  SnapshotTriggeredBy,
-  SnapshotType,
 } from "shared/types/experiment-snapshot";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { Context } from "back-end/src/models/BaseModel";
 import type { CovariateInsertPathReason } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
+import type { RecoveryDeclineReason } from "back-end/src/queryRunners/rehydrate";
 
 type ExperimentUpdateLogMeta = {
-  experimentId: string;
-  snapshotId: string;
-  snapshotType: SnapshotType;
-  triggeredBy: SnapshotTriggeredBy;
   datasource: DataSourceInterface;
 };
+
+export type SnapshotReapReason =
+  | "stale-queries"
+  | "orphaned"
+  | "not-finalized"
+  | `recovery-declined:${RecoveryDeclineReason}`
+  | "recovery-failed";
+
+/** Who moved a snapshot out of "running", and for the reaper, why. */
+export type SnapshotConclusion =
+  | { concludedBy: "runner" | "recovery" | "cancel" }
+  | { concludedBy: "reaper"; reason: SnapshotReapReason };
+
+/** A live run, or a stalled-snapshot recovery replaying its persisted results. */
+export type SnapshotRunnerRole = "runner" | "recovery";
 
 export type ExperimentUpdateLogPlan = {
   runnerKind: SnapshotQueryRunnerKind;
@@ -39,19 +49,19 @@ type ExperimentUpdateExecutionLog = {
   covariateSources: ExperimentUpdateCovariateSourceLog[] | null;
 };
 
-type ExperimentUpdateTimingMs = {
-  generateSql: number;
-  runQueries: number;
-  analyze: number;
-  persistSnapshot: number;
-  propagateSnapshot: number;
-  total: number;
-};
+export type ExperimentUpdateTimingPhase =
+  | "generateSql"
+  | "runQueries"
+  | "analyze"
+  | "persistSnapshot"
+  | "propagateSnapshot";
 
-export type ExperimentUpdateTimingPhase = Exclude<
-  keyof ExperimentUpdateTimingMs,
-  "total"
->;
+// A phase this logger never started is null, because it was skipped or ran in
+// a process that died before a recovery took over.
+type ExperimentUpdateTimingMs = Record<
+  ExperimentUpdateTimingPhase,
+  number | null
+> & { total: number };
 
 export class ExperimentUpdateExecutionLogger {
   public execution: ExperimentUpdateExecutionLog = {
@@ -64,14 +74,9 @@ export class ExperimentUpdateExecutionLogger {
   private readonly phaseStartedAtMs: Partial<
     Record<ExperimentUpdateTimingPhase, number>
   > = {};
-  private readonly phaseMs = {
-    generateSql: 0,
-    runQueries: 0,
-    analyze: 0,
-    persistSnapshot: 0,
-    propagateSnapshot: 0,
-  };
-  private logged = false;
+  private readonly phaseMs: Partial<
+    Record<ExperimentUpdateTimingPhase, number>
+  > = {};
 
   constructor(
     public readonly plan: ExperimentUpdateLogPlan,
@@ -95,12 +100,13 @@ export class ExperimentUpdateExecutionLogger {
       return;
     }
     this.phaseStartedAtMs[phase] = Date.now();
+    this.phaseMs[phase] ??= 0;
   }
 
   endPhase(phase: ExperimentUpdateTimingPhase): void {
     const startedAt = this.phaseStartedAtMs[phase];
     if (startedAt !== undefined) {
-      this.phaseMs[phase] += Date.now() - startedAt;
+      this.phaseMs[phase] = (this.phaseMs[phase] ?? 0) + Date.now() - startedAt;
       delete this.phaseStartedAtMs[phase];
     }
 
@@ -118,7 +124,11 @@ export class ExperimentUpdateExecutionLogger {
 
   getTimings(): ExperimentUpdateTimingMs {
     return {
-      ...this.phaseMs,
+      generateSql: this.phaseMs.generateSql ?? null,
+      runQueries: this.phaseMs.runQueries ?? null,
+      analyze: this.phaseMs.analyze ?? null,
+      persistSnapshot: this.phaseMs.persistSnapshot ?? null,
+      propagateSnapshot: this.phaseMs.propagateSnapshot ?? null,
       total: this.totalMs ?? 0,
     };
   }
@@ -127,41 +137,69 @@ export class ExperimentUpdateExecutionLogger {
     (this.execution.covariateSources ??= []).push(entry);
   }
 
-  logUpdateCompleted(
-    context: ReqContext | ApiReqContext,
-    {
-      snapshotStatus,
-      error,
-    }: {
-      snapshotStatus: "running" | "success" | "error";
-      error?: string;
-    },
-  ): void {
-    if (this.logged || snapshotStatus === "running") {
-      return;
-    }
-    this.logged = true;
-    this.freezeTotal();
-    context.logger.info(
-      {
-        event: "experiment_updated",
-        experimentId: this.meta.experimentId,
-        snapshotId: this.meta.snapshotId,
-        snapshotType: this.meta.snapshotType,
-        triggeredBy: this.meta.triggeredBy,
-        snapshotStatus,
-        error: error || null,
-        datasourceId: this.meta.datasource.id,
-        datasourceType: this.meta.datasource.type,
-        runnerKind: this.plan.runnerKind,
-        incrementalFallbackReason: this.plan.incrementalFallbackReason,
-        plannedFullRefresh: this.plan.fullRefresh,
-        fullRefreshReason: this.plan.fullRefreshReason,
-        incrementalRefreshMode: this.execution.incrementalRefreshMode,
-        covariateSources: this.execution.covariateSources,
-        timingsMs: this.getTimings(),
-      },
-      "Experiment update completed",
-    );
+  get datasourceType(): DataSourceInterface["type"] {
+    return this.meta.datasource.type;
   }
+
+  /** Stops the total clock and returns the phase timings. */
+  completedTimings(): ExperimentUpdateTimingMs {
+    this.freezeTotal();
+    return this.getTimings();
+  }
+}
+
+/**
+ * One line per snapshot each time it leaves "running", whoever moved it there.
+ * Run timings exist only when the runner or a recovery measured them.
+ */
+export function logExperimentUpdated(
+  context: Context,
+  {
+    snapshot,
+    snapshotStatus,
+    conclusion,
+    executionLogger,
+  }: {
+    snapshot: ExperimentSnapshotInterface;
+    snapshotStatus: "success" | "error" | "deleted";
+    conclusion: SnapshotConclusion;
+    executionLogger: ExperimentUpdateExecutionLogger | null;
+  },
+): void {
+  const timings = executionLogger?.completedTimings() ?? null;
+  context.logger.info(
+    {
+      event: "experiment_updated",
+      organization: snapshot.organization,
+      experimentId: snapshot.experiment,
+      snapshotId: snapshot.id,
+      snapshotType: snapshot.type,
+      triggeredBy: snapshot.triggeredBy ?? null,
+      snapshotStatus,
+      concludedBy: conclusion.concludedBy,
+      reason: conclusion.concludedBy === "reaper" ? conclusion.reason : null,
+      error: snapshot.error || null,
+      datasourceId: snapshot.settings.datasourceId,
+      datasourceType: executionLogger?.datasourceType ?? null,
+      runnerKind:
+        executionLogger?.plan.runnerKind ?? snapshot.runnerKind ?? null,
+      incrementalFallbackReason:
+        executionLogger?.plan.incrementalFallbackReason ?? null,
+      plannedFullRefresh: executionLogger?.plan.fullRefresh ?? null,
+      fullRefreshReason: executionLogger?.plan.fullRefreshReason ?? null,
+      incrementalRefreshMode:
+        executionLogger?.execution.incrementalRefreshMode ?? null,
+      covariateSources: executionLogger?.execution.covariateSources ?? null,
+      timingsMs: {
+        generateSql: timings?.generateSql ?? null,
+        runQueries: timings?.runQueries ?? null,
+        analyze: timings?.analyze ?? null,
+        persistSnapshot: timings?.persistSnapshot ?? null,
+        propagateSnapshot: timings?.propagateSnapshot ?? null,
+        total: timings?.total ?? null,
+        snapshotAge: Date.now() - snapshot.dateCreated.getTime(),
+      },
+    },
+    "Experiment update completed",
+  );
 }

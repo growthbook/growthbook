@@ -62,14 +62,14 @@ export function getExperimentUnitsQuery(
     datasource.settings,
     {
       objects: [
-        [exposureQuery.userIdType],
+        [exposureQuery.identifierType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
       ],
       from: unitsSettings.startDate,
       to: unitsSettings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
+      forcedBaseIdType: exposureQuery.identifierType,
       experimentId: unitsSettings.experimentId,
     },
   );

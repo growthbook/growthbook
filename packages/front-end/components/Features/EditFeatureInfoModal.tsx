@@ -35,7 +35,7 @@ import DraftSelectorForChanges, {
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 
 const EditFeatureInfoModal: FC<{
   // The feature as viewed (draft changes merged in) and as published.
@@ -141,11 +141,14 @@ const EditFeatureInfoModal: FC<{
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
-  const revisions = useFeatureRevisionsContext()?.revisions ?? [];
-  const targetDraft =
-    mode === "existing"
-      ? revisions.find((r) => r.version === selectedDraft)
-      : undefined;
+  const targetVersion = mode === "existing" ? selectedDraft : null;
+  const targetBaseVersion =
+    revisionList.find((r) => r.version === targetVersion)?.baseVersion ?? null;
+  const targetRevisions = useFeatureRevisions(baseFeature.id, [
+    targetVersion,
+    targetBaseVersion,
+  ]);
+  const targetDraft = targetRevisions.get(targetVersion);
   // Anything the flag reaches live, in the draft being written into (live
   // when a new draft is created), or reached when that draft began stays
   // selectable, so removing it can be put back without the permission it
@@ -153,7 +156,8 @@ const EditFeatureInfoModal: FC<{
   const reached = reachedTargeting(
     withStagedTargeting(baseFeature, targetDraft?.metadata),
     baseFeature,
-    revisions.find((r) => r.version === targetDraft?.baseVersion)?.metadata,
+    targetRevisions.get(targetDraft?.baseVersion ?? targetBaseVersion)
+      ?.metadata,
   );
 
   const conflict = useDraftConflict<Record<string, unknown>>({
