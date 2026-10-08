@@ -23,8 +23,7 @@ const RequestedByFields: FC<{
     <Text as="p" color="text-mid" mb="3">
       Requests can send an{" "}
       <code>X-GrowthBook-Requested-By: &lt;memberId || email&gt;</code> header
-      to name the member who asked. History, drafts and reviews show them next
-      to this key.
+      to name the member who asked.
     </Text>
     <Frame py="1" px="4">
       <Grid
