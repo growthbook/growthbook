@@ -59,7 +59,7 @@ const RequestedByFields: FC<{
             </Select>
             <Box>
               {permissions === "assume" && (
-                <HelperText status="info" size="sm">
+                <HelperText status="info">
                   Only what both this key and the member can do.
                 </HelperText>
               )}
