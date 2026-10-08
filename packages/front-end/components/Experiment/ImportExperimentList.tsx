@@ -124,21 +124,42 @@ const ImportExperimentList: FC<{
     () => getImportIdentifierTypes(inScopeQueries),
     [inScopeQueries],
   );
+  const isRowInScope = useCallback(
+    (e: Pick<PastExperiment, "exposureQueryId" | "identifierType">) =>
+      !!inScopeIdentifierTypes
+        .get(e.exposureQueryId)
+        ?.includes(e.identifierType ?? ""),
+    [inScopeIdentifierTypes],
+  );
+  const identifiersWithRows = useMemo(
+    () =>
+      new Set(
+        (data?.experiments?.experiments ?? [])
+          .filter(isRowInScope)
+          .map((e) => e.identifierType),
+      ),
+    [data?.experiments?.experiments, isRowInScope],
+  );
   const [selectedIdentifierType, setSelectedIdentifierType] = useState<
     string | null
   >(null);
+  // Don't open on an identifier with nothing found when another has results
+  const startingIdentifierType =
+    initialIdentifierType === null ||
+    identifiersWithRows.has(initialIdentifierType)
+      ? initialIdentifierType
+      : (identifierTypes.find((t) => identifiersWithRows.has(t)) ??
+        initialIdentifierType);
   const identifierType =
     selectedIdentifierType !== null &&
     identifierTypes.includes(selectedIdentifierType)
       ? selectedIdentifierType
-      : initialIdentifierType;
+      : startingIdentifierType;
   const isRowAvailable = useCallback(
     (e: Pick<PastExperiment, "exposureQueryId" | "identifierType">) =>
-      !!inScopeIdentifierTypes
-        .get(e.exposureQueryId)
-        ?.includes(e.identifierType ?? "") &&
+      isRowInScope(e) &&
       (identifierType === null || e.identifierType === identifierType),
-    [inScopeIdentifierTypes, identifierType],
+    [isRowInScope, identifierType],
   );
 
   // Searching
@@ -446,7 +467,7 @@ const ImportExperimentList: FC<{
           )}
         </Callout>
       )}
-      {totalRows === 0 && (
+      {identifiersWithRows.size === 0 && (
         <div>
           {status === "running" ? (
             <LoadingSpinner />
@@ -494,7 +515,7 @@ const ImportExperimentList: FC<{
           )}
         </div>
       )}
-      {totalRows > 0 && (
+      {identifiersWithRows.size > 0 && (
         <div>
           <h4>Experiments</h4>
           <p>
@@ -776,7 +797,7 @@ const ImportExperimentList: FC<{
                   </tr>
                 );
               })}
-              {items.length <= 0 && totalRows > 0 && (
+              {items.length <= 0 && (
                 <tr>
                   <td colSpan={8}>
                     <Callout status="info">
