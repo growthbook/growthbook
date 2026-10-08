@@ -1,26 +1,25 @@
 import express from "express";
 import { z } from "zod";
+import { stringRowFilterValidator } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawController from "./experiment-exposures.controller";
 
 const router = express.Router();
 const controller = wrapController(rawController);
-// Mounted bare, so the full path lives here. /experiment is not owned by this
-// router — app.ts still registers the other /experiment/:id routes directly.
-router.get(
+router.post(
   "/experiment/:id/exposures",
   validateRequestMiddleware({
     params: z.object({ id: z.string() }),
-    query: z
+    body: z
       .object({
         startDate: z.string().datetime(),
         endDate: z.string().datetime(),
-        rowFilters: z.string().max(8192).optional(),
+        rowFilters: z.array(stringRowFilterValidator).optional(),
       })
       .strict(),
   }),
-  controller.getExposures,
+  controller.postExposures,
 );
 
 export { router as experimentExposuresRouter };

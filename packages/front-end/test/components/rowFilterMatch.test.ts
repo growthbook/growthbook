@@ -1,6 +1,7 @@
 import { RowFilter } from "shared/types/fact-table";
 import {
   applyRowFilters,
+  compileRowFilter,
   matchesRowFilter,
 } from "@/components/FactTables/rowFilterMatch";
 
@@ -80,17 +81,34 @@ describe("matchesRowFilter", () => {
     ).toBe(false);
   });
 
-  it("is case-sensitive, matching LIKE on BigQuery and Postgres", () => {
+  it("folds case on both sides, as every other client-side filter does", () => {
     expect(
       match(chrome, { column: "browser", operator: "=", values: ["chrome"] }),
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      match(chrome, { column: "browser", operator: "=", values: ["CHROME"] }),
+    ).toBe(true);
     expect(
       match(chrome, {
         column: "browser",
         operator: "contains",
-        values: ["chrome"],
+        values: ["HROM"],
       }),
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      match(chrome, {
+        column: "browser",
+        operator: "in",
+        values: ["safari", "chrome"],
+      }),
+    ).toBe(true);
+    expect(
+      match(chrome, {
+        column: "browser",
+        operator: "matches_pattern",
+        values: ["CHR*"],
+      }),
+    ).toBe(true);
   });
 
   describe("null values", () => {
@@ -227,6 +245,25 @@ describe("matchesRowFilter", () => {
       ).toBe(false);
     });
 
+    it("collapses repeated wildcards rather than compounding backtracking", () => {
+      // `*a*b*` and `**a**b**` select the same rows; the second must not cost
+      // more to evaluate.
+      expect(
+        match(chrome, {
+          column: "user",
+          operator: "matches_pattern",
+          values: ["**usr**0001**"],
+        }),
+      ).toBe(true);
+      expect(
+        match(chrome, {
+          column: "user",
+          operator: "matches_pattern",
+          values: ["**usr**9999**"],
+        }),
+      ).toBe(false);
+    });
+
     it("negates with not_matches_pattern", () => {
       expect(
         match(safari, {
@@ -294,5 +331,23 @@ describe("applyRowFilters", () => {
 
   it("returns the original array when nothing is active", () => {
     expect(applyRowFilters(rows, [], getValue)).toEqual(rows);
+  });
+});
+
+describe("compileRowFilter", () => {
+  it("compiles once and reuses the predicate across rows", () => {
+    // The point of compiling: the pattern's RegExp is built once, not once per
+    // row, which otherwise runs up to the whole loaded buffer per keystroke.
+    let lookups = 0;
+    const counting = (row: Row, column: string) => {
+      lookups++;
+      return getValue(row, column);
+    };
+    const matches = compileRowFilter<Row>(
+      { column: "user", operator: "matches_pattern", values: ["usr_*"] },
+      counting,
+    );
+    expect([chrome, safari, nullBrowser].filter(matches)).toHaveLength(3);
+    expect(lookups).toBe(3);
   });
 });

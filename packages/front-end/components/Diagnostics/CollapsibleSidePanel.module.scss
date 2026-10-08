@@ -3,8 +3,6 @@
   padding-right: var(--space-3);
 }
 
-// Holds the rule the toggle sits on. Narrow, so the button overhangs it on
-// both sides and reads as attached to the divider rather than to either pane.
 .divider {
   position: relative;
   flex: 0 0 1px;
@@ -43,10 +41,40 @@
   }
 }
 
+.desktopIcon,
+.mobileIcon {
+  display: flex;
+}
+
+.mobileIcon {
+  display: none;
+}
+
 @media (max-width: 768px) {
-  // Side by side stops working on a phone; the caller's panel stacks above the
-  // content and the divider has nothing to divide.
+  .container {
+    flex-direction: column;
+  }
+
+  .panel {
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    padding-right: 0;
+    padding-bottom: var(--space-3);
+  }
+
   .divider {
+    width: 100%;
+    height: 1px;
+    flex: 0 0 1px;
+    margin-right: 0;
+    margin-bottom: var(--space-3);
+  }
+
+  .desktopIcon {
     display: none;
+  }
+
+  .mobileIcon {
+    display: flex;
   }
 }

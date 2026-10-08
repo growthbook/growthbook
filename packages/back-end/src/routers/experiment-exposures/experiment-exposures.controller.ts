@@ -1,8 +1,6 @@
 import type { Response } from "express";
-import { z } from "zod";
-import { snapToMinuteStart } from "shared/dates";
+import { snapToMinuteEnd, snapToMinuteStart } from "shared/dates";
 import { SQL_ROW_LIMIT } from "shared/sql";
-import { stringRowFilterValidator } from "shared/validators";
 import type { ExperimentExposureRecord } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
 import { formatQueryExecutionErrorForApi, parseOptionalInt } from "shared/util";
@@ -36,15 +34,14 @@ type ExposuresResponse = {
 
 const BUFFER_SIZE = SQL_ROW_LIMIT;
 
-export async function getExposures(
+export async function postExposures(
   req: AuthRequest<
-    unknown,
-    { id: string },
     {
       startDate: string;
       endDate: string;
-      rowFilters?: string;
-    }
+      rowFilters?: RowFilter[];
+    },
+    { id: string }
   >,
   res: Response<ExposuresResponse>,
 ) {
@@ -87,30 +84,15 @@ export async function getExposures(
     return;
   }
 
-  const startDate = snapToMinuteStart(new Date(req.query.startDate));
-  const endDate = snapToMinuteStart(new Date(req.query.endDate));
+  const startDate = snapToMinuteStart(new Date(req.body.startDate));
+  const endDate = snapToMinuteEnd(new Date(req.body.endDate));
   const windowMs = endDate.getTime() - startDate.getTime();
   if (windowMs <= 0) {
     context.throwBadRequestError("End date must be after start date.");
   }
   const dimensions = exposureQuery.dimensions || [];
 
-  let rowFilters: RowFilter[] = [];
-  if (req.query.rowFilters) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(req.query.rowFilters);
-    } catch {
-      context.throwBadRequestError("Could not parse row filters.");
-      return;
-    }
-    const result = z.array(stringRowFilterValidator).safeParse(parsed);
-    if (!result.success) {
-      context.throwBadRequestError("Could not parse row filters.");
-      return;
-    }
-    rowFilters = result.data;
-  }
+  const rowFilters = req.body.rowFilters ?? [];
 
   const integration = getSourceIntegrationObject(context, datasource);
 

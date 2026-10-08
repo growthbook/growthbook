@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isEqual } from "lodash";
 import { calculateProductAnalyticsDateRange } from "shared/enterprise";
 import type { ExplorationDateRange } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
-import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
 
 /** 24 hours back, matching the window these panels opened on before. */
 export const DEFAULT_RECORDS_DATE_RANGE: ExplorationDateRange = {
@@ -19,9 +19,8 @@ export interface BuildParamsInput {
 }
 
 export interface RecordsQueryConfig<TRow, TResponse> {
-  /** Endpoint without a query string. */
   endpoint: string;
-  buildParams: (input: BuildParamsInput) => Record<string, string | undefined>;
+  buildParams: (input: BuildParamsInput) => Record<string, unknown>;
   selectRows: (data: TResponse) => TRow[];
   /** Datasource present and supported, and the user may run queries. */
   canRun: boolean;
@@ -57,6 +56,7 @@ export interface UseRecordsQueryResult<TRow, TResponse> {
    */
   rowFilters: RowFilter[];
   setRowFilters: (filters: RowFilter[]) => void;
+  submittedRowFilters: RowFilter[];
 }
 
 export default function useRecordsQuery<TRow, TResponse>({
@@ -71,6 +71,7 @@ export default function useRecordsQuery<TRow, TResponse>({
   TRow,
   TResponse
 > {
+  const { apiCall } = useAuth();
   // Every control is staged: what the controls show, vs. what the query
   // actually ran with. Only submit closes the gap, so a customer's warehouse is
   // never billed for a dropdown pick.
@@ -82,71 +83,99 @@ export default function useRecordsQuery<TRow, TResponse>({
   const [submittedRowFilters, setSubmittedRowFilters] = useState<RowFilter[]>(
     [],
   );
+  const [data, setData] = useState<TResponse>();
+  const [error, setError] = useState<Error>();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [stateEndpoint, setStateEndpoint] = useState(endpoint);
-  const [committedQs, setCommittedQs] = useState<string | null>(null);
-  const [commitRequested, setCommitRequested] = useState(false);
+  const requestVersion = useRef(0);
   const endpointIsCurrent = stateEndpoint === endpoint;
 
   useEffect(() => {
     if (endpointIsCurrent) return;
+    requestVersion.current++;
     setStateEndpoint(endpoint);
     setDateRange(defaultDateRange);
     setSubmittedDateRange(defaultDateRange);
     setRowFilters([]);
     setSubmittedRowFilters([]);
-    setCommittedQs(null);
-    setCommitRequested(false);
+    setData(undefined);
+    setError(undefined);
+    setIsRefreshing(false);
   }, [defaultDateRange, endpoint, endpointIsCurrent]);
 
-  // Built only from submitted state, never from staged controls.
-  const submittedQs = useMemo(() => {
-    const resolved = calculateProductAnalyticsDateRange(submittedDateRange);
-    const params = buildParams({
+  const submit = useCallback(() => {
+    if (!canRun || !isActive || !endpointIsCurrent) return;
+
+    const resolved = calculateProductAnalyticsDateRange(dateRange);
+    const window = {
       startDate: resolved.startDate.toISOString(),
       endDate: resolved.endDate.toISOString(),
-      rowFilters: submittedRowFilters,
-    });
-    const qs = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== "") qs.set(key, value);
-    }
-    return qs.toString();
-    // buildParams is typically an inline arrow, so including it would change
-    // the key every render. Everything it reads is in the dep list already.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submittedDateRange, submittedRowFilters]);
+    };
+    const filters = rowFilters;
+    const version = ++requestVersion.current;
 
-  const { data, error, isValidating } = useApi<TResponse>(
-    `${endpoint}?${committedQs}`,
-    {
-      shouldRun: () =>
-        canRun && isActive && endpointIsCurrent && committedQs !== null,
-      // Never re-hit the warehouse just because the window regained focus.
-      autoRevalidate: false,
-    },
-  );
+    setSubmittedDateRange(dateRange);
+    setSubmittedRowFilters(filters);
+    setError(undefined);
+    setIsRefreshing(true);
+
+    apiCall<TResponse>(endpoint, {
+      method: "POST",
+      body: JSON.stringify(
+        buildParams({
+          startDate: window.startDate,
+          endDate: window.endDate,
+          rowFilters: filters,
+        }),
+      ),
+    })
+      .then((response) => {
+        if (requestVersion.current !== version) return;
+        setData(response);
+      })
+      .catch((e: unknown) => {
+        if (requestVersion.current !== version) return;
+        setError(e instanceof Error ? e : new Error("Could not load records."));
+      })
+      .finally(() => {
+        if (requestVersion.current !== version) return;
+        setIsRefreshing(false);
+      });
+  }, [
+    apiCall,
+    buildParams,
+    canRun,
+    dateRange,
+    endpoint,
+    endpointIsCurrent,
+    isActive,
+    rowFilters,
+  ]);
 
   // Only the first load is automatic, and only where compute is ours, so a
-  // customer's warehouse is never hit just by opening the tab.
+  // customer's warehouse is never hit just by opening the tab. Goes through
+  // submit so the window is resolved in exactly one place.
   useEffect(() => {
     if (!canRun || !isActive || !autoRun || !endpointIsCurrent) return;
-    if (committedQs !== null) return;
-    setCommitRequested(true);
-  }, [canRun, isActive, autoRun, endpointIsCurrent, committedQs]);
+    if (data !== undefined || error !== undefined || isRefreshing) return;
+    submit();
+  }, [
+    canRun,
+    isActive,
+    autoRun,
+    endpointIsCurrent,
+    data,
+    error,
+    isRefreshing,
+    submit,
+  ]);
 
-  // Runs after the staged values have landed in submitted state, so the
-  // committed query string is the one the user actually asked for.
-  useEffect(() => {
-    if (!commitRequested || !isActive || !endpointIsCurrent) return;
-    setCommittedQs(submittedQs);
-    setCommitRequested(false);
-  }, [commitRequested, submittedQs, endpointIsCurrent, isActive]);
-
-  const submit = useCallback(() => {
-    setSubmittedDateRange(dateRange);
-    setSubmittedRowFilters(rowFilters);
-    setCommitRequested(true);
-  }, [dateRange, rowFilters]);
+  useEffect(
+    () => () => {
+      requestVersion.current++;
+    },
+    [],
+  );
 
   const rows = useMemo(
     () => (data ? selectRows(data) : []),
@@ -163,8 +192,8 @@ export default function useRecordsQuery<TRow, TResponse>({
     rows,
     data,
     error,
-    isLoading: committedQs !== null && !hasRun,
-    isRefreshing: isValidating || commitRequested,
+    isLoading: isRefreshing && !hasRun,
+    isRefreshing,
     hasRun,
     canRun,
     autoRun,
@@ -175,5 +204,6 @@ export default function useRecordsQuery<TRow, TResponse>({
     setDateRange,
     rowFilters,
     setRowFilters,
+    submittedRowFilters,
   };
 }

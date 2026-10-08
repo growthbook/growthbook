@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { isEqual } from "lodash";
 import { PiArrowsClockwise, PiMagnifyingGlass } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
@@ -12,15 +13,15 @@ import {
 import type { FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import CollapsibleSidePanel from "@/ui/CollapsibleSidePanel";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Pagination from "@/ui/Pagination";
-import RowsPerPageSelect from "@/ui/RowsPerPageSelect";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
+import CollapsibleSidePanel from "./CollapsibleSidePanel";
 import ExpandableTable from "./ExpandableTable";
+import RowsPerPageSelect from "./RowsPerPageSelect";
 import { RecordsColumn } from "./types";
 import { UseRecordsQueryResult } from "./useRecordsQuery";
 
@@ -95,21 +96,33 @@ export default function RecordsPanel<TRow extends object, TResponse>({
     setDateRange,
     rowFilters,
     setRowFilters,
+    submittedRowFilters,
   } = query;
 
   const [search, setSearch] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ROWS_PER_PAGE);
   const [page, setPage] = useState(1);
 
+  const filtersAreServerApplied = isEqual(rowFilters, submittedRowFilters);
+
   // Search and filters narrow what is already loaded, so neither costs a query.
   const visibleRows = useMemo(() => {
-    const filtered = applyRowFilters(rows, rowFilters, getFilterValue);
+    const filtered = filtersAreServerApplied
+      ? rows
+      : applyRowFilters(rows, rowFilters, getFilterValue);
     const term = search.trim().toLowerCase();
     if (!term) return filtered;
     return filtered.filter((row) =>
       getSearchText(row).toLowerCase().includes(term),
     );
-  }, [rows, rowFilters, search, getFilterValue, getSearchText]);
+  }, [
+    rows,
+    rowFilters,
+    filtersAreServerApplied,
+    search,
+    getFilterValue,
+    getSearchText,
+  ]);
 
   // Narrowing the results can leave the current page past the end.
   useEffect(() => setPage(1), [visibleRows.length, rowsPerPage]);
@@ -119,10 +132,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
     [visibleRows, page, rowsPerPage],
   );
 
-  const thinnedBelowAPage = !!truncated && visibleRows.length < rowsPerPage;
-  const filtersCanEscalate = thinnedBelowAPage && rowFilters.length > 0;
-  const searchOnlyThinned =
-    thinnedBelowAPage && !filtersCanEscalate && search.trim().length > 0;
+  const narrowedLocally = !filtersAreServerApplied || search.trim().length > 0;
 
   const filterPanel = (
     <Flex direction="column" gap="4" height="100%">
@@ -195,17 +205,14 @@ export default function RecordsPanel<TRow extends object, TResponse>({
             {error.message}
           </Callout>
         )}
-        {filtersCanEscalate && (
+        {truncated && (
           <Callout status="info" size="sm" mb="3">
-            Only the most recent rows in this range were loaded. Refresh to
-            apply these filters across the whole timeframe.
-          </Callout>
-        )}
-        {searchOnlyThinned && (
-          <Callout status="info" size="sm" mb="3">
-            Only the most recent rows in this range were loaded, and search
-            looks at those rows alone. Narrow the timeframe, or add a filter and
-            refresh, to search the rest.
+            This range holds more rows than were loaded, so counts and pages
+            cover the most recent ones only. Narrow the timeframe to see the
+            rest.
+            {narrowedLocally
+              ? " Search and unapplied filters look at the loaded rows alone — refresh to apply filters across the whole timeframe."
+              : ""}
           </Callout>
         )}
 

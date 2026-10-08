@@ -31,10 +31,9 @@ interface ExposuresResponse {
   ranAt?: string;
 }
 
-/** The warehouse columns a row filter may name, matching the table's columns. */
-const USER_ID_COLUMN = "user_id";
 const VARIATION_COLUMN = "variation_id";
 const TIMESTAMP_COLUMN = "timestamp";
+const DEFAULT_USER_ID_COLUMN = "user_id";
 
 function Empty() {
   return (
@@ -61,6 +60,7 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
     () => exposureQuery?.dimensions ?? [],
     [exposureQuery?.dimensions],
   );
+  const userIdColumn = exposureQuery?.userIdType || DEFAULT_USER_ID_COLUMN;
 
   const canRun =
     !!datasource &&
@@ -83,7 +83,7 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
     buildParams: ({ startDate, endDate, rowFilters }) => ({
       startDate,
       endDate,
-      rowFilters: rowFilters.length ? JSON.stringify(rowFilters) : undefined,
+      rowFilters,
     }),
   });
 
@@ -158,11 +158,11 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
   const getFilterValue = useCallback(
     (row: ExperimentExposureRecord, column: string) => {
       if (column === TIMESTAMP_COLUMN) return row.timestamp;
-      if (column === USER_ID_COLUMN) return row.userId;
+      if (column === userIdColumn) return row.userId;
       if (column === VARIATION_COLUMN) return row.variationId;
       return row.dimensions[column];
     },
-    [],
+    [userIdColumn],
   );
 
   const getSearchText = useCallback(
@@ -176,13 +176,11 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
     [],
   );
 
-  const userIdColumnLabel = exposureQuery?.userIdType || "User ID";
-
   // Dimension values aren't enumerable up front, so offer the ones this buffer
   // actually holds — the same values the table is showing.
   const columnSource: FilterColumnSource = useMemo(() => {
     const columnLabels: [string, string][] = [
-      [USER_ID_COLUMN, userIdColumnLabel],
+      [userIdColumn, userIdColumn],
       [VARIATION_COLUMN, "Variation"],
       ...dimensions.map((d): [string, string] => [d, d]),
     ];
@@ -211,7 +209,7 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
         topValues: (column && topValues.get(column)) || [],
       }),
     };
-  }, [dimensions, experiment, query.rows, userIdColumnLabel]);
+  }, [dimensions, experiment, query.rows, userIdColumn]);
 
   if (!canRun) return null;
 

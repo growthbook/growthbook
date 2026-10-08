@@ -176,6 +176,21 @@ export function snapToMinuteStart(date: Date): Date {
   return snapped;
 }
 
+/**
+ * Round up to the next minute, leaving a value already on a boundary alone.
+ *
+ * The companion to {@link snapToMinuteStart} for an exclusive upper bound. A
+ * calendar range ends at 23:59:59.999, so flooring it would drop that day's
+ * final minute from a `timestamp < end` comparison; ceiling lands on the next
+ * midnight, which is exactly the intended range. Every instant within a minute
+ * still maps to one value, so the query cache keeps hitting.
+ */
+export function snapToMinuteEnd(date: Date): Date {
+  const snapped = snapToMinuteStart(date);
+  if (snapped.getTime() === date.getTime()) return snapped;
+  return new Date(snapped.getTime() + 60 * 1000);
+}
+
 export function precedingUtcDayStart(date: Date): Date {
   const dayStart = snapToUtcDayStart(date);
   return new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);

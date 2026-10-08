@@ -285,12 +285,6 @@ export default function HealthTab({
   const blocker = getSnapshotBlocker();
   const traffic = snapshot?.health?.traffic;
 
-  // Slotted directly under the traffic graph when the snapshot cards render,
-  // and on its own otherwise — it queries the warehouse and needs no snapshot.
-  const exposureLogs = (
-    <ExposureLogsCard experiment={experiment} isTabActive={isTabActive} />
-  );
-
   // No wrapper margin here: the cards bring their own mt-2 and the callouts
   // set mt="3", so a wrapper would stack a second gap on top.
   return (
@@ -312,11 +306,9 @@ export default function HealthTab({
           isHoldout={isHoldout}
           showMultipleExposures={showMultipleExposures}
           decisionFrameworkEnabled={decisionFrameworkEnabled}
-          exposureLogs={exposureLogs}
         />
-      ) : (
-        exposureLogs
-      )}
+      ) : null}
+      <ExposureLogsCard experiment={experiment} isTabActive={isTabActive} />
     </>
   );
 }
@@ -336,7 +328,6 @@ function HealthSnapshotCards({
   isHoldout,
   showMultipleExposures,
   decisionFrameworkEnabled,
-  exposureLogs,
 }: {
   experiment: ExperimentInterfaceStringDates;
   snapshot: ExperimentSnapshotInterface;
@@ -352,7 +343,6 @@ function HealthSnapshotCards({
   isHoldout: boolean;
   showMultipleExposures: boolean;
   decisionFrameworkEnabled?: boolean;
-  exposureLogs: ReactNode;
 }) {
   const totalUsers =
     traffic.overall?.variationUnits?.reduce((acc, a) => acc + a, 0) ?? 0;
@@ -376,7 +366,6 @@ function HealthSnapshotCards({
         variations={variations}
         isBandit={isBandit}
       />
-      {exposureLogs}
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (
           <SRMCard

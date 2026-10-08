@@ -1,14 +1,16 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretLeft,
+  PiCaretRight,
+  PiCaretUp,
+} from "react-icons/pi";
 import { ReactNode, useState } from "react";
 import styles from "./CollapsibleSidePanel.module.scss";
 
 /**
- * A side panel next to its content, with the collapse control sitting on the
- * divider between them. Presentational — the caller owns both sides.
- *
- * Collapsed state is internal unless `collapsed`/`onCollapsedChange` are given,
- * so a caller that needs to persist it can.
+ * A filter panel beside its content on desktop and above it on narrow screens.
+ * The collapse control sits on the divider between the two regions.
  */
 export default function CollapsibleSidePanel({
   panel,
@@ -36,7 +38,13 @@ export default function CollapsibleSidePanel({
   };
 
   return (
-    <Flex align="stretch" gap="0" width="100%" style={{ minWidth: 0 }}>
+    <Flex
+      className={styles.container}
+      align="stretch"
+      gap="0"
+      width="100%"
+      style={{ minWidth: 0 }}
+    >
       {!collapsed && (
         <Box
           className={styles.panel}
@@ -54,14 +62,22 @@ export default function CollapsibleSidePanel({
           aria-expanded={!collapsed}
           aria-label={collapsed ? `Show ${label}` : `Hide ${label}`}
         >
-          {collapsed ? (
-            <PiCaretRight size={12} aria-hidden />
-          ) : (
-            <PiCaretLeft size={12} aria-hidden />
-          )}
+          <span className={styles.desktopIcon}>
+            {collapsed ? (
+              <PiCaretRight size={12} aria-hidden />
+            ) : (
+              <PiCaretLeft size={12} aria-hidden />
+            )}
+          </span>
+          <span className={styles.mobileIcon}>
+            {collapsed ? (
+              <PiCaretDown size={12} aria-hidden />
+            ) : (
+              <PiCaretUp size={12} aria-hidden />
+            )}
+          </span>
         </button>
       </Box>
-      {/* minWidth:0 or a wide table stretches the flex item instead of scrolling. */}
       <Box flexGrow="1" style={{ minWidth: 0 }}>
         {children}
       </Box>

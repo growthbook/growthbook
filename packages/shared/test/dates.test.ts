@@ -4,6 +4,7 @@ import {
   lastMondayString,
   resolveScheduleStopAfter,
   resolveScheduledStop,
+  snapToMinuteEnd,
   snapToMinuteStart,
 } from "../src/dates";
 
@@ -207,5 +208,35 @@ describe("snapToMinuteStart", () => {
     expect(snapToMinuteStart(onTheMinute).getTime()).toBe(
       onTheMinute.getTime(),
     );
+  });
+});
+
+describe("snapToMinuteEnd", () => {
+  it("Rounds up to the next minute without mutating the input", () => {
+    const input = new Date("2026-03-01T12:34:56.789Z");
+    expect(snapToMinuteEnd(input).toISOString()).toBe(
+      "2026-03-01T12:35:00.000Z",
+    );
+    expect(input.toISOString()).toBe("2026-03-01T12:34:56.789Z");
+  });
+
+  it("Leaves a value already on the minute alone", () => {
+    // Otherwise every window would silently grow by a minute.
+    const onTheMinute = new Date("2026-03-01T12:34:00.000Z");
+    expect(snapToMinuteEnd(onTheMinute).getTime()).toBe(onTheMinute.getTime());
+  });
+
+  it("Keeps the last minute of a calendar day inside an exclusive bound", () => {
+    // The bug this exists for: a range ending 23:59:59.999 floored to 23:59:00
+    // dropped that day's final minute from `timestamp < end`.
+    expect(
+      snapToMinuteEnd(new Date("2026-03-01T23:59:59.999Z")).toISOString(),
+    ).toBe("2026-03-02T00:00:00.000Z");
+  });
+
+  it("Still collapses a minute's worth of instants onto one value", () => {
+    const early = snapToMinuteEnd(new Date("2026-03-01T12:34:00.001Z"));
+    const late = snapToMinuteEnd(new Date("2026-03-01T12:34:59.999Z"));
+    expect(early.getTime()).toBe(late.getTime());
   });
 });
