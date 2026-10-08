@@ -424,7 +424,7 @@ tags:
 
 
       Populations define a set of units by the steps they must complete, such as
-      appearing in a fact table.
+      appearing in a fact table. Populations are not yet used in analysis.
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />

@@ -19,6 +19,6 @@ export const populationApiSpec = {
   crudActions: ["list", "get", "create", "update", "delete"],
   navDisplayName: "Populations",
   navDescription:
-    "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nPopulations define a set of units by the steps they must complete, such as appearing in a fact table.",
+    "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nPopulations define a set of units by the steps they must complete, such as appearing in a fact table. Populations are not yet used in analysis.",
 } as const satisfies OpenApiModelSpec;
 export default populationApiSpec;
