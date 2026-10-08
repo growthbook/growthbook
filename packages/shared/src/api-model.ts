@@ -3,7 +3,7 @@ import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import type { apiBaseSchema } from "./validators/base-model";
 import type { ApiErrorCode } from "./validators/api-errors";
 import { capitalizeFirstCharacter } from "./util";
-import { HttpVerb, RequestSchemas } from "./api-spec";
+import { HttpVerb, NoEndpointFields, RequestSchemas } from "./api-spec";
 
 export const crudActions = [
   "get",
@@ -68,7 +68,7 @@ export type CrudValidatorOverrides = Partial<
     CrudAction,
     RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> & {
       responseSchema?: z.ZodType;
-    }
+    } & NoEndpointFields<"responseSchema">
   >
 >;
 
@@ -80,7 +80,8 @@ export type OpenApiEndpointSpec = {
   pathFragment: string;
   verb: HttpVerb;
   operationId: string;
-  validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
+  validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> &
+    NoEndpointFields;
   zodReturnObject: z.ZodTypeAny;
   summary: string;
   description?: string;
@@ -283,7 +284,10 @@ export function crudEndpoint<
   } as CrudEndpoint<S, A>;
 }
 
-export type CustomEndpoint<E extends OpenApiEndpointSpec> = E["validator"] & {
+export type CustomEndpoint<E extends OpenApiEndpointSpec> = Pick<
+  E["validator"],
+  keyof RequestSchemas<unknown, unknown, unknown>
+> & {
   responseSchema: E["zodReturnObject"];
   method: E["verb"];
   path: string;
