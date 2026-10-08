@@ -2931,7 +2931,7 @@ export async function recallReview(
   }
 
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "Recall Review",
@@ -3113,7 +3113,7 @@ export async function undoReview(
   const status = resolved;
 
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "Undo Review",
@@ -3178,7 +3178,7 @@ export async function reopenRevision(
 
   // Fire and forget — callers don't depend on the log entry being there
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "reopen",
@@ -3251,7 +3251,7 @@ export async function discardRevision(
 
   // Fire and forget - no route that discards the revision expects the log to be there immediately
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "discard",

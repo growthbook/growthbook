@@ -69,7 +69,8 @@ export class FeatureRevisionLogModel extends BaseClass {
     // needed, then drops the entry silently when they differ (a reviewer's
     // changes-requested cancels a pending schedule, which is publish-class). Any
     // authority over the flag suffices; environments are unbound because the
-    // record isn't environment-specific.
+    // record isn't environment-specific. Actions an author may take with none of
+    // these (discard, reopen, recall, undo review) record without this check.
     const permissions = this.context.permissions;
     return (
       permissions.canCreateFeature(feature, NO_ENVIRONMENT_BINDING) ||

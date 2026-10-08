@@ -714,6 +714,18 @@ describe("attribution across callers", () => {
           );
           expect(res.status).toBe(status);
         });
+        if (status !== 200) return;
+        // The timeline records it too, though written after the response.
+        const logged = () =>
+          collection("featurerevisionlog").findOne({
+            featureId: "checkout-flow",
+            version,
+            action: "discard",
+          });
+        for (let i = 0; i < 20 && !(await logged()); i++) {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        expect(await logged()).toBeTruthy();
       },
     );
   });
