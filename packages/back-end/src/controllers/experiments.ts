@@ -3934,7 +3934,6 @@ export async function getPastExperimentsList(
     pastExperiments.datasource,
   );
 
-  // Null marks an experiment the user can't read: imported, but no link.
   const experimentMap = new Map<string, string | null>();
   (experiments || []).forEach((e) => {
     [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId].forEach((key) => {

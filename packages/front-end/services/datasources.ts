@@ -1036,9 +1036,8 @@ export function isIdentifierUndeclared(
 }
 
 /**
- * The identifiers the experiment import table can be filtered on, and the one
- * it starts on: listed first by the most queries, ties going to the earlier
- * query. That's what a new experiment on those queries would pick.
+ * Starts on the identifier the most queries list first (ties go to the earlier
+ * query), which is what a new experiment on those queries would pick.
  */
 export function getImportIdentifierTypes(
   exposureQueries: Pick<ExposureQuery, "userIdType" | "userIdTypes">[],

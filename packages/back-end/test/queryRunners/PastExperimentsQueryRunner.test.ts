@@ -180,25 +180,6 @@ describe("mergePastExperimentResults", () => {
       },
     ]);
   });
-
-  it("replaces every query a result from before per-query discovery covers", () => {
-    const legacy = result("eq_1", "new", false);
-    delete legacy.exposureQueryId;
-    delete legacy.identifierTypes;
-
-    const { experiments, exposureQueryRuns } = mergePastExperimentResults({
-      previous: {
-        experiments: [row({ trackingKey: "old", exposureQueryId: "eq_1" })],
-      },
-      results: [legacy],
-      exposureQueries: queries("eq_1"),
-      runStarted,
-    });
-
-    expect(experiments.map((e) => e.trackingKey)).toEqual(["new"]);
-    // No identifiers recorded, so the next run is a full one.
-    expect(exposureQueryRuns).toEqual([]);
-  });
 });
 
 describe("getPastExperimentsWatermark", () => {

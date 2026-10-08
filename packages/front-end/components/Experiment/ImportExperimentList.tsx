@@ -108,7 +108,6 @@ const ImportExperimentList: FC<{
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
   const [runError, setRunError] = useState<string | null>(null);
 
-  // Only rows an experiment in the selected Project could use
   const inScopeQueries = useMemo(
     () => (datasource ? getExposureQueriesInScope(datasource, project) : []),
     [datasource, project],
@@ -129,7 +128,6 @@ const ImportExperimentList: FC<{
   const [selectedIdentifierType, setSelectedIdentifierType] = useState<
     string | null
   >(null);
-  // A selection the queries no longer offer falls back to the starting one.
   const identifierType =
     selectedIdentifierType !== null &&
     identifierTypes.includes(selectedIdentifierType)
@@ -137,10 +135,9 @@ const ImportExperimentList: FC<{
       : initialIdentifierType;
   const isRowAvailable = useCallback(
     (e: Pick<PastExperiment, "exposureQueryId" | "identifierType">) =>
-      !!e.identifierType &&
       !!inScopeIdentifierTypes
         .get(e.exposureQueryId)
-        ?.includes(e.identifierType) &&
+        ?.includes(e.identifierType ?? "") &&
       (identifierType === null || e.identifierType === identifierType),
     [inScopeIdentifierTypes, identifierType],
   );
@@ -256,8 +253,7 @@ const ImportExperimentList: FC<{
   }
 
   const hasStarted = data.experiments.queries.length > 0;
-  // Discovery only fails when every query does; the warning below names
-  // individual failures.
+  // Unlike getQueryStatus, discovery only fails when every query does.
   const importFailed =
     hasStarted &&
     status !== "running" &&
@@ -288,8 +284,7 @@ const ImportExperimentList: FC<{
           (r) => r.exposureQueryId === staleQueries[0].id,
         )?.lastRunAt
       : undefined;
-  // Queries can go back different distances after full reruns; this is how far
-  // back every query in view has data.
+  // How far back every query in view has data
   const lookbackStart = inScopeQueries.reduce<Date | null>((latest, q) => {
     const start = data.experiments.exposureQueryRuns?.find(
       (r) => r.exposureQueryId === q.id,
@@ -446,7 +441,7 @@ const ImportExperimentList: FC<{
           )}
         </Callout>
       )}
-      {datasource && staleQueries.length > 0 && (
+      {staleQueries.length > 0 && (
         <Callout status="warning" my="3">
           <QueryNames queries={staleQueries} />{" "}
           {staleQueries.length === 1 ? (
@@ -466,16 +461,7 @@ const ImportExperimentList: FC<{
           {staleQueriesUserCantRun.length > 0 && (
             <>
               {" "}
-              Refreshing{" "}
-              {staleQueriesUserCantRun.length === staleQueries.length ? (
-                staleQueries.length === 1 ? (
-                  "it"
-                ) : (
-                  "them"
-                )
-              ) : (
-                <QueryNames queries={staleQueriesUserCantRun} />
-              )}{" "}
+              Refreshing <QueryNames queries={staleQueriesUserCantRun} />{" "}
               requires permission to run queries in{" "}
               {staleQueriesUserCantRun.length === 1 ? "its" : "their"} Projects.
             </>

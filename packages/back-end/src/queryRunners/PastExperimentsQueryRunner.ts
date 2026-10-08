@@ -27,10 +27,19 @@ export type PastExperimentsAnalysis = Required<
   Pick<PastExperimentsInterface, "experiments" | "exposureQueryRuns">
 >;
 
+function getLatestData(rows: PastExperiment[]): Date | undefined {
+  let latest: Date | undefined;
+  rows.forEach((e) => {
+    const d = e.latestData || e.endDate;
+    if (!latest || d > latest) latest = d;
+  });
+  return latest;
+}
+
 /**
- * Where an assignment query's discovery continues from, or null for a full
- * lookback: some identifier it declares wasn't counted, or it found nothing.
- * Rows should already be labeled by `withCountedIdentifierTypes`.
+ * Null means a full lookback: some identifier the query declares wasn't
+ * counted, or it found nothing. Expects rows labeled by
+ * `withCountedIdentifierTypes`.
  */
 export function getPastExperimentsWatermark(
   model: Pick<PastExperimentsInterface, "experiments" | "exposureQueryRuns">,
@@ -53,18 +62,12 @@ export function getPastExperimentsWatermark(
   if (!isEqual([...counted].sort(), [...identifierTypes].sort())) {
     return null;
   }
-  let watermark: Date | null = null;
-  rows.forEach((e) => {
-    const d = e.latestData || e.endDate;
-    if (!watermark || d > watermark) watermark = d;
-  });
-  return watermark;
+  return getLatestData(rows) ?? null;
 }
 
 /**
- * Applies a run's results per assignment query. Queries that didn't run (or
- * failed) keep their rows and state; queries no longer on the data source lose
- * both.
+ * Queries that didn't run or failed keep their rows and state; queries no
+ * longer on the data source lose both.
  */
 export function mergePastExperimentResults({
   previous,
@@ -88,19 +91,20 @@ export function mergePastExperimentResults({
     exposureQueries,
   );
 
-  const ran = new Set<string>();
-  const merged: PastExperiment[] = [];
-  results.forEach((result) => {
-    // Results from before per-query discovery cover several queries.
-    const ids = result.exposureQueryId
-      ? [result.exposureQueryId]
-      : [...new Set(result.experiments.map((e) => e.exposureQueryId))];
-    ids.forEach((id) => ran.add(id));
-    const base = result.mergeResults
-      ? previousRows.filter((e) => ids.includes(e.exposureQueryId))
-      : [];
-    merged.push(...aggregatePastExperiments(base, result));
-  });
+  // Results stored before per-query discovery have no assignment query and
+  // are dropped; the next refresh reruns those queries.
+  const perQueryResults = results.filter((r) => r.exposureQueryId);
+  const ran = new Set(perQueryResults.map((r) => r.exposureQueryId));
+  const merged = perQueryResults.flatMap((result) =>
+    aggregatePastExperiments(
+      result.mergeResults
+        ? previousRows.filter(
+            (e) => e.exposureQueryId === result.exposureQueryId,
+          )
+        : [],
+      result,
+    ),
+  );
 
   const experiments = [
     ...previousRows.filter((e) => !ran.has(e.exposureQueryId)),
@@ -111,7 +115,7 @@ export function mergePastExperimentResults({
   (previous.exposureQueryRuns ?? []).forEach((r) =>
     runs.set(r.exposureQueryId, r),
   );
-  results.forEach((result) => {
+  perQueryResults.forEach((result) => {
     if (!result.exposureQueryId || !result.identifierTypes) return;
     // An incremental run keeps the rows' start. Rows from before per-query
     // discovery go back to the record's start.
@@ -149,10 +153,9 @@ export function rollupPastExperimentQueryStatus(queries: Queries): QueryStatus {
 }
 
 /**
- * Rows discovered before every identifier was counted don't record theirs.
- * Discovery counted on the query's legacy `userIdType` while the query declared
- * it. Once it doesn't, the counts may be on an identifier that's gone, so the
- * row stays unlabeled (and out of the import table) until the next refresh.
+ * Rows from before every identifier was counted were counted on the query's
+ * legacy `userIdType`. If the query no longer declares it, the row stays
+ * unlabeled and out of the import table until the next refresh.
  */
 export function withCountedIdentifierTypes(
   experiments: PastExperiment[],
@@ -307,7 +310,6 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   async startQueries(params: PastExperimentParams): Promise<Queries> {
     const queries: Queries = [];
     const { datasource } = this.integration;
-    // Queries the user can't run keep their rows and state as they were.
     const runnable = this.getExposureQueries().filter((q) =>
       this.context.permissions.canRunPastExperimentQuery(q, datasource),
     );
@@ -369,7 +371,6 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   async runAnalysis(queryMap: QueryMap): Promise<PastExperimentsAnalysis> {
     const results: PastExperimentResult[] = [];
     queryMap.forEach((query) => {
-      // Failed queries have no result; their rows are kept as they were.
       if (query.result) results.push(query.result as PastExperimentResult);
     });
 
@@ -408,16 +409,9 @@ export class PastExperimentsQueryRunner extends QueryRunner<
       error,
     };
     if (result) {
-      let latestData: Date | undefined = undefined;
-      result.experiments.forEach((row) => {
-        const d = row.latestData || row.endDate;
-        if (!latestData || d > latestData) {
-          latestData = d;
-        }
-      });
       changes.experiments = result.experiments;
       changes.exposureQueryRuns = result.exposureQueryRuns;
-      changes.latestData = latestData;
+      changes.latestData = getLatestData(result.experiments);
     }
 
     return updatePastExperiments(this.model, changes);
