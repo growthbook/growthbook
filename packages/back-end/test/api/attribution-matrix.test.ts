@@ -84,7 +84,11 @@ const EXPECT: Record<
   "a key naming no one": { personId: "", armer: KEY.id, hasPerson: false },
 };
 
-function contextFor(actor: Actor, person: Person = dana) {
+function contextFor(
+  actor: Actor,
+  person: Person = dana,
+  key: typeof KEY = KEY,
+) {
   const base = {
     org,
     teams: [],
@@ -100,12 +104,12 @@ function contextFor(actor: Actor, person: Person = dana) {
         })
       : new ReqContextClass({
           ...base,
-          role: KEY.role,
-          apiKey: KEY.id,
-          apiKeyData: KEY,
+          role: key.role,
+          apiKey: key.id,
+          apiKeyData: key,
           auditUser: apiKeyEventUser({
-            apiKeyId: KEY.id,
-            key: KEY,
+            apiKeyId: key.id,
+            key,
             owner: null,
             requester: actor === "a key naming the member" ? person : null,
           }),
@@ -129,8 +133,8 @@ describe("attribution across callers", () => {
     await collection("apikeys").insertOne({ ...KEY });
   });
 
-  const as = (actor: Actor, person: Person = dana) => {
-    setReqContext(contextFor(actor, person));
+  const as = (actor: Actor, person: Person = dana, key: typeof KEY = KEY) => {
+    setReqContext(contextFor(actor, person, key));
     return {
       get: (path: string) =>
         request(app).get(path).set("Authorization", "Bearer x"),
@@ -144,6 +148,10 @@ describe("attribution across callers", () => {
   it.each(ACTORS)("gives %s the right acting person", (actor) => {
     const context = contextFor(actor);
     expect(context.actingUserId).toBe(EXPECT[actor].personId);
+    // Author rights reach a named member only on a key that extends.
+    expect(context.authorUserId).toBe(
+      actor === "a personal token" ? dana.id : "",
+    );
     expect(context.actingUserName).toBe(
       EXPECT[actor].hasPerson ? dana.name : "",
     );
@@ -494,6 +502,89 @@ describe("attribution across callers", () => {
         expect(
           fired?.publishedBy?.requestedBy?.id ?? fired?.publishedBy?.id ?? "",
         ).toBe(personId);
+      },
+    );
+  });
+
+  describe("author rights through a key", () => {
+    const READONLY_KEY = { ...KEY, id: "key_readonly", role: "readonly" };
+    const EXTENDING_KEY = {
+      ...READONLY_KEY,
+      id: "key_extending",
+      extendWithRequester: true,
+    };
+    const KEYS = [
+      ["a key that doesn't extend", READONLY_KEY, 403],
+      ["a key that extends", EXTENDING_KEY, 200],
+    ] as const;
+
+    // Dana writes a draft, then loses draft permissions, so only her author
+    // rights can let a read-only key naming her discard it.
+    const asDemotedAuthor = async (work: () => Promise<void>) => {
+      const member = org.members.find((m) => m.id === dana.id)!;
+      member.role = "readonly";
+      try {
+        await work();
+      } finally {
+        member.role = "admin";
+      }
+    };
+
+    it("counts the named member as the author only on a key that extends", () => {
+      expect(
+        contextFor("a key naming the member", dana, READONLY_KEY).authorUserId,
+      ).toBe("");
+      expect(
+        contextFor("a key naming the member", dana, EXTENDING_KEY).authorUserId,
+      ).toBe(dana.id);
+    });
+
+    it.each(KEYS)(
+      "lets %s discard the named member's constant draft",
+      async (_, key, status) => {
+        const create = await as("a personal token").post("/api/v1/constants", {
+          key: "timeout",
+          name: "Timeout",
+          type: "json",
+          value: '{"t":1}',
+        });
+        expect(create.status).toBe(200);
+        const draft = await as("a personal token").put(
+          "/api/v1/constants-revisions/timeout/new/value",
+          { value: '{"t":2}' },
+        );
+        const version = draft.body.revision.version;
+
+        await asDemotedAuthor(async () => {
+          const res = await as("a key naming the member", dana, key).post(
+            `/api/v1/constants-revisions/timeout/${version}/discard`,
+          );
+          expect(res.status).toBe(status);
+        });
+      },
+    );
+
+    it.each(KEYS)(
+      "lets %s discard the named member's feature draft",
+      async (_, key, status) => {
+        const create = await as("a personal token").post("/api/v2/features", {
+          id: "checkout-flow",
+          valueType: "boolean",
+          defaultValue: "false",
+        });
+        expect(create.status).toBe(200);
+        const draft = await as("a personal token").put(
+          "/api/v2/features/checkout-flow/revisions/new/metadata",
+          { description: "Updated" },
+        );
+        const version = draft.body.revision.version;
+
+        await asDemotedAuthor(async () => {
+          const res = await as("a key naming the member", dana, key).post(
+            `/api/v2/features/checkout-flow/revisions/${version}/discard`,
+          );
+          expect(res.status).toBe(status);
+        });
       },
     );
   });

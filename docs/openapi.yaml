@@ -110,7 +110,7 @@ info:
       - **Always** gives a request that names a member everything that member can do, on top of the key's own permissions. The header isn't verified, so whoever holds the key can act with any member's permissions.
       - **For specific permissions** adds an **Applies** column to the key's permissions, where each rule can apply **Always** or **If the requester has it**. A request that names a member gets the second kind of rule only as far as that member has the same permissions. This relies on the service holding the key to name the right member, so the key's real reach is all of its rules.
 
-      A request that names no one gets only the permissions that always apply.
+      A request that names no one gets only the permissions that always apply. A key that extends also gets the named member's rights over their own drafts, comments and review verdicts, since it already acts with that member's permissions.
 
     A value that does not match a member of the organization is rejected with a
     400. Approving or requesting changes needs a named member, and the verdict

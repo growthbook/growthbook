@@ -36,7 +36,7 @@ export async function recallRevisionReview({
   }
 
   if (
-    !isRevisionAuthor(revision.authorId, context.userId) &&
+    !isRevisionAuthor(revision.authorId, context.authorUserId) &&
     !canRevisionOwnedAction(context, revision, "draft")
   ) {
     context.permissions.throwPermissionError();
@@ -68,7 +68,7 @@ export async function reopenRevision({
   }
 
   if (
-    !isRevisionAuthor(revision.authorId, context.userId) &&
+    !isRevisionAuthor(revision.authorId, context.authorUserId) &&
     !canRevisionOwnedAction(context, revision, "draft")
   ) {
     context.permissions.throwPermissionError();

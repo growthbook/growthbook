@@ -369,7 +369,8 @@ export class RevisionModel extends BaseClass {
   ): boolean {
     if (existing.status === "merged") return false;
 
-    if (isRevisionAuthor(existing.authorId, this.context.userId)) return true;
+    if (isRevisionAuthor(existing.authorId, this.context.authorUserId))
+      return true;
 
     return canTouchRevision(
       existing.target.type,
@@ -382,7 +383,7 @@ export class RevisionModel extends BaseClass {
    * Author can delete their own revision. Otherwise, delegate to the adapter.
    */
   protected canDelete(doc: Revision): boolean {
-    if (isRevisionAuthor(doc.authorId, this.context.userId)) return true;
+    if (isRevisionAuthor(doc.authorId, this.context.authorUserId)) return true;
 
     return getAdapter(doc.target.type).canDelete(
       this.context,
@@ -1433,7 +1434,7 @@ export class RevisionModel extends BaseClass {
   // same document the write is conditioned on — a concurrent rebase that moves
   // the target's project can't slip between the check and the write.
   private assertCanWriteCommentOn(existing: Revision): void {
-    if (isRevisionAuthor(existing.authorId, this.context.userId)) return;
+    if (isRevisionAuthor(existing.authorId, this.context.authorUserId)) return;
     if (
       !canCommentOnRevision(
         existing.target.type,

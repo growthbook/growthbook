@@ -44,7 +44,7 @@ export function mayBeRevisionAuthor(
 export function draftAuthorityOnRow(context: Context): CasAuthority<Revision> {
   return {
     check: (existing) => {
-      if (isRevisionAuthor(existing.authorId, context.userId)) return;
+      if (isRevisionAuthor(existing.authorId, context.authorUserId)) return;
       if (!canRevisionOwnedAction(context, existing, "draft")) {
         context.permissions.throwPermissionError();
       }
@@ -113,8 +113,7 @@ export async function canDiscardRevision(
 ): Promise<boolean> {
   return canDiscardOrRecallDraft({
     holdsDraftAuthority: canRevisionOwnedAction(context, revision, "draft"),
-    isAuthor:
-      !!context.userId && isRevisionAuthor(revision.authorId, context.userId),
+    isAuthor: isRevisionAuthor(revision.authorId, context.authorUserId),
   });
 }
 
@@ -138,8 +137,7 @@ export async function canAdvanceRevision(
 
   return canAdvanceDraftWithNarrowAtom({
     holdsDraftAuthority: canRevisionOwnedAction(context, revision, "draft"),
-    isAuthor:
-      !!context.userId && isRevisionAuthor(revision.authorId, context.userId),
+    isAuthor: isRevisionAuthor(revision.authorId, context.authorUserId),
     holdsAnyLandingAtom: hasRevert || hasDelete,
     matchesNarrowAtom: async () => {
       if (

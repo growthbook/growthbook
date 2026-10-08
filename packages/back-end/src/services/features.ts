@@ -4238,7 +4238,8 @@ export async function getFeatureReviewFootprint({
 // the way the review panel judges it.
 // Who may retract a verdict on a draft: anyone who could review it now, or the
 // verdict's own author even after the draft or their role moved them out of
-// its reviewer set. A key naming that author still needs review authority.
+// its reviewer set. A key naming that author counts only when it extends
+// permissions (see `authorUserId`).
 export async function assertCanUndoFeatureReview({
   context,
   feature,
@@ -4251,7 +4252,7 @@ export async function assertCanUndoFeatureReview({
   user: EventUser;
 }): Promise<void> {
   const ownVerdict =
-    !!context.userId &&
+    !!context.authorUserId &&
     (revision.reviews ?? []).some(
       (r) => r.userId === reviewerKeyForEventUser(user),
     );
