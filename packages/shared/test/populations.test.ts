@@ -8,7 +8,6 @@ import {
   getPopulationRuleViolations,
   MAX_POPULATION_FACT_TABLES,
   MAX_POPULATION_STEPS,
-  parsePopulationAggregateFilter,
   type PopulationRuleFactTable,
 } from "shared/populations";
 import type { ColumnInterface } from "shared/types/fact-table";
@@ -349,21 +348,6 @@ describe("getPopulationRuleViolations", () => {
       "Fact table ftb_orders does not support identifier types: anonymous_id.",
       "Fact table ftb_other is not in Data Source ds_main.",
     ]);
-  });
-});
-
-describe("parsePopulationAggregateFilter", () => {
-  it("parses comma-separated comparisons, ignoring whitespace", () => {
-    expect(parsePopulationAggregateFilter(" >= 3, <10.5 ")).toEqual([
-      { operator: ">=", value: "3" },
-      { operator: "<", value: "10.5" },
-    ]);
-  });
-
-  it("throws on an invalid comparison", () => {
-    expect(() => parsePopulationAggregateFilter(">=3,lots")).toThrow(
-      "Invalid aggregate filter: lots",
-    );
   });
 });
 

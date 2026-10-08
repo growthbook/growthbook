@@ -1,10 +1,7 @@
 import type { PopulationStep } from "shared/validators";
 import type { FactTableInterface } from "shared/types/fact-table";
 import { getSelectedColumnDatatype } from "./experiments/experiments";
-import {
-  type AggregateFilterCondition,
-  parseAggregateFilter,
-} from "./aggregate-filters";
+import { parseAggregateFilter } from "./aggregate-filters";
 
 export const MAX_POPULATION_STEPS = 20;
 /** Distinct fact tables a population's steps may read from. */
@@ -14,16 +11,6 @@ export type PopulationRuleFactTable = Pick<
   FactTableInterface,
   "id" | "datasource" | "userIdTypes" | "columns"
 >;
-
-export function parsePopulationAggregateFilter(
-  aggregateFilter: string,
-): AggregateFilterCondition[] {
-  const { conditions, invalid } = parseAggregateFilter(aggregateFilter);
-  if (invalid.length) {
-    throw new Error(`Invalid aggregate filter: ${invalid[0]}`);
-  }
-  return conditions;
-}
 
 // Unlike fact metrics, a filter with no comparisons (such as ",") is invalid:
 // it would silently drop the step's threshold.
