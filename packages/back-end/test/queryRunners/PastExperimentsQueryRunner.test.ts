@@ -36,6 +36,7 @@ function result(
     experiments: [
       {
         exposureQueryId,
+        identifierType: "anonymous_id",
         experiment_id: trackingKey,
         experiment_name: trackingKey,
         variation_id: "1",
@@ -52,6 +53,14 @@ function result(
 
 const runStarted = new Date("2024-01-21");
 
+function queries(...ids: string[]) {
+  return ids.map((id) => ({
+    id,
+    userIdType: "anonymous_id",
+    userIdTypes: ["anonymous_id"],
+  }));
+}
+
 describe("mergePastExperimentResults", () => {
   it("merges normalized stored weights using user counts", () => {
     const { experiments } = mergePastExperimentResults({
@@ -65,7 +74,7 @@ describe("mergePastExperimentResults", () => {
         ],
       },
       results: [result("eq_1", "exp_1", true)],
-      exposureQueryIds: ["eq_1"],
+      exposureQueries: queries("eq_1"),
       runStarted,
     });
 
@@ -74,6 +83,29 @@ describe("mergePastExperimentResults", () => {
     // Existing [0.9, 0.1] over 100 users => [90, 10], then +100 on variation 1
     // gives [90, 110] => [0.45, 0.55] after rounding/normalization.
     expect(experiments[0].weights).toEqual([0.45, 0.55]);
+  });
+
+  it("merges into rows from before identifiers were recorded", () => {
+    const { experiments, exposureQueryRuns } = mergePastExperimentResults({
+      // Counted on the query's legacy identifier, but not labeled
+      previous: {
+        experiments: [row({ trackingKey: "exp_1", exposureQueryId: "eq_1" })],
+      },
+      results: [result("eq_1", "exp_1", true)],
+      exposureQueries: queries("eq_1"),
+      runStarted,
+    });
+
+    expect(
+      experiments.map((e) => [e.trackingKey, e.identifierType, e.users]),
+    ).toEqual([["exp_1", "anonymous_id", 200]]);
+    expect(exposureQueryRuns).toEqual([
+      {
+        exposureQueryId: "eq_1",
+        identifierTypes: ["anonymous_id"],
+        lastRunAt: runStarted,
+      },
+    ]);
   });
 
   it("keeps each identifier's counts in its own row", () => {
@@ -86,7 +118,7 @@ describe("mergePastExperimentResults", () => {
     const { experiments } = mergePastExperimentResults({
       previous: {},
       results: [counted],
-      exposureQueryIds: ["eq_1"],
+      exposureQueries: queries("eq_1"),
       runStarted,
     });
 
@@ -122,7 +154,7 @@ describe("mergePastExperimentResults", () => {
       },
       // A full rerun replaces the query's rows instead of merging into them.
       results: [result("eq_ran", "new", false)],
-      exposureQueryIds: ["eq_ran", "eq_skipped"],
+      exposureQueries: queries("eq_ran", "eq_skipped"),
       runStarted,
     });
 
@@ -150,7 +182,7 @@ describe("mergePastExperimentResults", () => {
         experiments: [row({ trackingKey: "old", exposureQueryId: "eq_1" })],
       },
       results: [legacy],
-      exposureQueryIds: ["eq_1"],
+      exposureQueries: queries("eq_1"),
       runStarted,
     });
 
@@ -203,9 +235,36 @@ describe("getPastExperimentsWatermark", () => {
     expect(getPastExperimentsWatermark(model, "eq_1", ["user_id"])).toBeNull();
   });
 
-  it("reruns fully when the query never ran or found nothing", () => {
-    expect(getPastExperimentsWatermark(model, "eq_2", ["user_id"])).toBeNull();
+  it("reruns fully when the query found nothing", () => {
     expect(getPastExperimentsWatermark(model, "eq_3", ["user_id"])).toBeNull();
+  });
+
+  it("continues rows from before identifiers were recorded when they cover every identifier", () => {
+    const legacy = {
+      experiments: [
+        row({
+          trackingKey: "a",
+          exposureQueryId: "eq_1",
+          identifierType: "user_id",
+          latestData: new Date("2024-01-15"),
+        }),
+      ],
+    };
+    expect(getPastExperimentsWatermark(legacy, "eq_1", ["user_id"])).toEqual(
+      new Date("2024-01-15"),
+    );
+    // The legacy rows never counted anonymous_id
+    expect(
+      getPastExperimentsWatermark(legacy, "eq_1", ["user_id", "anonymous_id"]),
+    ).toBeNull();
+    // Unlabeled: the legacy identifier is gone, so what was counted is unknown
+    expect(
+      getPastExperimentsWatermark(
+        { experiments: [row({ trackingKey: "a", exposureQueryId: "eq_1" })] },
+        "eq_1",
+        ["user_id"],
+      ),
+    ).toBeNull();
   });
 });
 

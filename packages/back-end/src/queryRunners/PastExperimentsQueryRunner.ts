@@ -29,25 +29,32 @@ export type PastExperimentsAnalysis = Required<
 
 /**
  * Where an assignment query's discovery continues from, or null for a full
- * lookback: never run, its identifiers changed since, or it found nothing.
+ * lookback: some identifier it declares wasn't counted, or it found nothing.
+ * Rows should already be labeled by `withCountedIdentifierTypes`.
  */
 export function getPastExperimentsWatermark(
   model: Pick<PastExperimentsInterface, "experiments" | "exposureQueryRuns">,
   exposureQueryId: string,
   identifierTypes: string[],
 ): Date | null {
+  const rows = (model.experiments ?? []).filter(
+    (e) => e.exposureQueryId === exposureQueryId,
+  );
   const run = model.exposureQueryRuns?.find(
     (r) => r.exposureQueryId === exposureQueryId,
   );
-  if (
-    !run ||
-    !isEqual([...run.identifierTypes].sort(), [...identifierTypes].sort())
-  ) {
+  // Before per-query discovery nothing was recorded; the rows' labels say
+  // what was counted, so a query with only its legacy identifier continues.
+  const counted = run
+    ? run.identifierTypes
+    : rows.every((e) => e.identifierType)
+      ? [...new Set(rows.map((e) => e.identifierType as string))]
+      : [];
+  if (!isEqual([...counted].sort(), [...identifierTypes].sort())) {
     return null;
   }
   let watermark: Date | null = null;
-  (model.experiments ?? []).forEach((e) => {
-    if (e.exposureQueryId !== exposureQueryId) return;
+  rows.forEach((e) => {
     const d = e.latestData || e.endDate;
     if (!watermark || d > watermark) watermark = d;
   });
@@ -62,16 +69,21 @@ export function getPastExperimentsWatermark(
 export function mergePastExperimentResults({
   previous,
   results,
-  exposureQueryIds,
+  exposureQueries,
   runStarted,
 }: {
   previous: Pick<PastExperimentsInterface, "experiments" | "exposureQueryRuns">;
   results: PastExperimentResult[];
-  exposureQueryIds: string[];
+  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[];
   runStarted: Date;
 }): PastExperimentsAnalysis {
-  const current = new Set(exposureQueryIds);
-  const previousRows = previous.experiments ?? [];
+  const current = new Set(exposureQueries.map((q) => q.id));
+  // Labeled so an incremental run merges into rows from before identifiers
+  // were recorded instead of keying them separately.
+  const previousRows = withCountedIdentifierTypes(
+    previous.experiments ?? [],
+    exposureQueries,
+  );
 
   const ran = new Set<string>();
   const merged: PastExperiment[] = [];
@@ -272,16 +284,19 @@ export class PastExperimentsQueryRunner extends QueryRunner<
     const runnable = this.getExposureQueries().filter((q) =>
       this.context.permissions.canRunPastExperimentQuery(q, datasource),
     );
+    const model = {
+      ...this.model,
+      experiments: withCountedIdentifierTypes(
+        this.model.experiments ?? [],
+        this.getExposureQueries(),
+      ),
+    };
     for (const exposureQuery of runnable) {
       const identifierTypes = getExposureQueryIdentifierTypes(exposureQuery);
       if (!identifierTypes.length) continue;
       const watermark = params.forceRefresh
         ? null
-        : getPastExperimentsWatermark(
-            this.model,
-            exposureQuery.id,
-            identifierTypes,
-          );
+        : getPastExperimentsWatermark(model, exposureQuery.id, identifierTypes);
       const from = watermark ?? params.from;
       queries.push(
         await this.startQuery({
@@ -322,7 +337,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
     return mergePastExperimentResults({
       previous: this.model,
       results,
-      exposureQueryIds: this.getExposureQueries().map((q) => q.id),
+      exposureQueries: this.getExposureQueries(),
       runStarted: this.model.runStarted ?? new Date(),
     });
   }
