@@ -3,12 +3,10 @@ import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
-import { MetricType } from "shared/types/metric";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaArchive } from "react-icons/fa";
-import { PiCaretDownFill } from "react-icons/pi";
 import { startCase } from "lodash";
 import SortedTags from "@/components/Tags/SortedTags";
 import {
@@ -27,7 +25,6 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
@@ -46,7 +43,7 @@ import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
-import SplitButton from "@/ui/SplitButton";
+import Text from "@/ui/Text";
 import MetricForm from "@/components/Metrics/MetricForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -389,16 +386,9 @@ export function useCombinedMetrics({
   return combinedMetrics;
 }
 
-const LEGACY_METRIC_TYPES: MetricType[] = [
-  "binomial",
-  "count",
-  "duration",
-  "revenue",
-];
-
 const MetricsList = (): React.ReactElement => {
   const [modalData, setModalData] = useState<MetricModalState | null>(null);
-  const [legacyFormType, setLegacyFormType] = useState<MetricType | null>(null);
+  const [showLegacyForm, setShowLegacyForm] = useState(false);
 
   const [showAutoGenerateMetricsModal, setShowAutoGenerateMetricsModal] =
     useState(false);
@@ -468,7 +458,6 @@ const MetricsList = (): React.ReactElement => {
     !disableLegacyMetricCreation &&
     permissionsUtil.canCreateMetric({ projects: project ? [project] : [] });
   const canAddFactMetric = hasFactTables && canCreateFactMetric;
-  const canCreate = canAddFactMetric || canCreateLegacyMetric;
   // Orgs that already have legacy metrics can keep making them, but only as
   // an explicit choice next to the fact metric flow.
   const showLegacyOption = canCreateLegacyMetric && hasLegacyMetrics;
@@ -560,16 +549,13 @@ const MetricsList = (): React.ReactElement => {
       {modalData ? (
         <MetricModal {...modalData} close={closeModal} source="blank-state" />
       ) : null}
-      {legacyFormType && (
+      {showLegacyForm && (
         <MetricForm
-          current={{
-            type: legacyFormType,
-            projects: project ? [project] : [],
-          }}
+          current={{ projects: project ? [project] : [] }}
           edit={false}
           header="New legacy SQL metric"
           source="metrics-list-legacy"
-          onClose={() => setLegacyFormType(null)}
+          onClose={() => setShowLegacyForm(false)}
         />
       )}
       {showAutoGenerateMetricsModal && (
@@ -606,44 +592,60 @@ const MetricsList = (): React.ReactElement => {
             />
             <Tooltip
               content="You don't have permission to add metrics in this project."
-              enabled={!canCreate}
+              enabled={!canAddFactMetric}
             >
               {canAddFactMetric ? (
-                <SplitButton
-                  menu={
-                    showLegacyOption ? (
-                      <DropdownMenu
-                        trigger={
-                          <Button aria-label="More ways to add a metric">
-                            <PiCaretDownFill />
-                          </Button>
-                        }
-                        menuPlacement="end"
-                      >
-                        <DropdownMenuLabel>Legacy SQL metric</DropdownMenuLabel>
-                        {LEGACY_METRIC_TYPES.map((type) => (
-                          <DropdownMenuItem
-                            key={type}
-                            onClick={() => setLegacyFormType(type)}
-                          >
-                            {startCase(type)}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenu>
-                    ) : undefined
-                  }
-                >
-                  <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
-                </SplitButton>
+                <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
               ) : (
-                <Button
-                  disabled={!canCreate}
-                  onClick={() => setLegacyFormType("binomial")}
-                >
-                  Add metric
-                </Button>
+                <Button disabled>Add metric</Button>
               )}
             </Tooltip>
+            {showLegacyOption && (
+              // Deliberately off the Add metric CTA and behind a
+              // confirmation: legacy metrics stay possible for orgs that
+              // already use them, but fact metrics are the default.
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
+                    aria-label="More metric options"
+                  >
+                    <BsThreeDotsVertical size={16} />
+                  </IconButton>
+                }
+                menuPlacement="end"
+              >
+                <DropdownMenuItem
+                  confirmation={{
+                    confirmationTitle: "Create a legacy SQL metric?",
+                    cta: "Continue with legacy SQL metric",
+                    ctaColor: "violet",
+                    submit: () => setShowLegacyForm(true),
+                    getConfirmationContent: async () => (
+                      <Flex direction="column" gap="2">
+                        <Text as="p" mb="0">
+                          Legacy SQL metrics are no longer the recommended way
+                          to define metrics. Fact metrics support more metric
+                          types, reuse shared fact tables, and run faster
+                          queries.
+                        </Text>
+                        <Text as="p" mb="0">
+                          <Link href="/fact-metrics/new">
+                            Create a fact metric instead
+                          </Link>
+                        </Text>
+                      </Flex>
+                    ),
+                  }}
+                >
+                  Add legacy SQL metric…
+                </DropdownMenuItem>
+              </DropdownMenu>
+            )}
           </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
           <Box>

@@ -1,6 +1,5 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
-import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import { CommercialFeature } from "shared/enterprise";
@@ -8,9 +7,6 @@ import { getSafeReturnUrl } from "@/services/returnUrl";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
-import Button from "@/ui/Button";
-import MetricForm from "@/components/Metrics/MetricForm";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -35,12 +31,9 @@ export default function NewFactMetricPage() {
     factMetrics,
     factTables,
     datasources,
-    metrics,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, settings } = useUser();
-  const { demoDataSourceId } = useDemoDataSourceProject();
-  const [showLegacyForm, setShowLegacyForm] = useState(false);
+  const { hasCommercialFeature } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState<null | {
     source: string;
@@ -161,33 +154,12 @@ export default function NewFactMetricPage() {
   const hasFactTable = factTables.some((t) =>
     isProjectListValidForProject(t.projects, project),
   );
-  const showLegacySwitch =
-    !settings.disableLegacyMetricCreation &&
-    permissionsUtil.canCreateMetric({ projects: project ? [project] : [] }) &&
-    metrics.some(
-      (m) =>
-        (!initialFactTable || m.datasource === initialFactTable.datasource) &&
-        isProjectListValidForProject(m.projects, project) &&
-        m.datasource !== demoDataSourceId,
-    );
 
   const nameCollision =
     !!template && factMetrics.some((f) => f.name === template.name);
 
   return (
     <div className="pagecontents container-fluid">
-      {showLegacyForm && (
-        <MetricForm
-          current={{
-            datasource: initialFactTable?.datasource,
-            projects: project ? [project] : [],
-          }}
-          edit={false}
-          source="metric-editor"
-          onClose={() => setShowLegacyForm(false)}
-          switchToFact={() => setShowLegacyForm(false)}
-        />
-      )}
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(null)}
@@ -258,13 +230,6 @@ export default function NewFactMetricPage() {
             onCancel={() => router.push(returnUrl)}
           />
         </>
-      )}
-      {showLegacySwitch && (
-        <Flex mt="3">
-          <Button variant="ghost" onClick={() => setShowLegacyForm(true)}>
-            Use legacy SQL metric form
-          </Button>
-        </Flex>
       )}
     </div>
   );

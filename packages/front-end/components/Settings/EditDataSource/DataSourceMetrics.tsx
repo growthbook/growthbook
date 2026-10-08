@@ -87,7 +87,6 @@ export default function DataSourceMetrics({
           {...modalData}
           close={() => setModalData(null)}
           source="datasource-detail"
-          datasource={dataSource.id}
         />
       ) : null}
       <Flex align="center" justify="between" mb="3">
@@ -113,9 +112,9 @@ export default function DataSourceMetrics({
               datasource={dataSource}
               size="md"
             />
-            <Button onClick={() => setModalData({ mode: "new" })}>
+            <LinkButton href="/fact-metrics/new">
               <FaPlus className="mr-1" /> Add
-            </Button>
+            </LinkButton>
           </>
         ) : permissionsUtil.canCreateFactTable({
             projects: dataSource.projects || [],
