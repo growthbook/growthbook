@@ -1,8 +1,12 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { PastExperimentsInterface } from "shared/types/past-experiments";
+import {
+  PastExperiment,
+  PastExperimentsInterface,
+} from "shared/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
 import {
+  getExposureQueryIdentifierTypes,
   getPastExperimentQueryName,
   isProjectListValidForProject,
   parseIntWithDefault,
@@ -109,8 +113,13 @@ const ImportExperimentList: FC<{
     () => (datasource ? getExposureQueriesInScope(datasource, project) : []),
     [datasource, project],
   );
-  const inScopeQueryIds = useMemo(
-    () => new Set(inScopeQueries.map((q) => q.id)),
+  // Rows counted on an identifier their query no longer declares would import
+  // with a different identifier than their counts, so they're left out.
+  const inScopeIdentifierTypes = useMemo(
+    () =>
+      new Map(
+        inScopeQueries.map((q) => [q.id, getExposureQueryIdentifierTypes(q)]),
+      ),
     [inScopeQueries],
   );
   const { identifierTypes, initialIdentifierType } = useMemo(
@@ -120,16 +129,27 @@ const ImportExperimentList: FC<{
   const [selectedIdentifierType, setSelectedIdentifierType] = useState<
     string | null
   >(null);
-  const identifierType = selectedIdentifierType ?? initialIdentifierType;
+  // A selection the queries no longer offer falls back to the starting one.
+  const identifierType =
+    selectedIdentifierType !== null &&
+    identifierTypes.includes(selectedIdentifierType)
+      ? selectedIdentifierType
+      : initialIdentifierType;
+  const isRowAvailable = useCallback(
+    (e: Pick<PastExperiment, "exposureQueryId" | "identifierType">) =>
+      !!e.identifierType &&
+      !!inScopeIdentifierTypes
+        .get(e.exposureQueryId)
+        ?.includes(e.identifierType) &&
+      (identifierType === null || e.identifierType === identifierType),
+    [inScopeIdentifierTypes, identifierType],
+  );
 
   // Searching
   const filterResults = useCallback(
     (items: typeof pastExpArr) => {
       const rows = items.filter((e) => {
-        if (!inScopeQueryIds.has(e.exposureQueryId)) return false;
-        if (identifierType !== null && e.identifierType !== identifierType) {
-          return false;
-        }
+        if (!isRowAvailable(e)) return false;
         if (
           minUsersFilter &&
           e.users < parseIntWithDefault(minUsersFilter, 0)
@@ -187,8 +207,7 @@ const ImportExperimentList: FC<{
       alreadyImportedFilter,
       dedupeFilter,
       data?.existing,
-      identifierType,
-      inScopeQueryIds,
+      isRowAvailable,
       minLengthFilter,
       minUsersFilter,
       minVariationsFilter,
@@ -237,13 +256,15 @@ const ImportExperimentList: FC<{
   }
 
   const hasStarted = data.experiments.queries.length > 0;
-  const importFailed = hasStarted && status === "failed";
+  // Discovery only fails when every query does; the warning below names
+  // individual failures.
+  const importFailed =
+    hasStarted &&
+    status !== "running" &&
+    (!!data.experiments.error ||
+      data.experiments.queries.every((q) => q.status === "failed"));
 
-  const identifierRows = pastExpArr.filter(
-    (e) =>
-      inScopeQueryIds.has(e.exposureQueryId) &&
-      (identifierType === null || e.identifierType === identifierType),
-  );
+  const identifierRows = pastExpArr.filter(isRowAvailable);
 
   // Queries the last refresh didn't run (no permission) or that failed. Records
   // last refreshed before per-query discovery have no runs and can't tell.
