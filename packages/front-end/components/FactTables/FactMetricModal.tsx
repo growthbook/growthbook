@@ -43,6 +43,7 @@ import {
   CreateFactMetricFormProps,
   formatNumber,
   getDefaultFactMetricProps,
+  getFactMetricTrackProps,
   getInitialInlineFilters,
 } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -1523,6 +1524,7 @@ function StandardFactMetricModal({
     initialFactTable: initialFactTable
       ? getFactTableById(initialFactTable) || undefined
       : undefined,
+    initialDatasource: datasource,
     managedBy: existing?.managedBy,
   });
 
@@ -1578,7 +1580,7 @@ function StandardFactMetricModal({
   const initialType = existing?.metricType;
   useEffect(() => {
     if (isNew) {
-      track("Viewed Create Fact Metric Modal", { source });
+      track("Viewed Create Fact Metric Modal", { source, flow: "modal" });
     } else {
       track("Viewed Edit Fact Metric Modal", {
         type: initialType,
@@ -1722,7 +1724,11 @@ function StandardFactMetricModal({
               metricAutoSlices: [],
             };
 
-            const trackProps = { type: "funnel", source };
+            const trackProps = getFactMetricTrackProps(
+              funnelBody,
+              source,
+              "modal",
+            );
 
             if (!isNew) {
               const updatePayload = omit(funnelBody, [
@@ -1840,39 +1846,7 @@ function StandardFactMetricModal({
             values.targetMDE = values.targetMDE / 100;
           }
 
-          // Anonymized telemetry props
-          // Will help us measure which settings are being used so we can optimize the UI
-          const trackProps = {
-            type: values.metricType,
-            source,
-            capping: values.cappingSettings.type,
-            conversion_window: values.windowSettings.type
-              ? `${values.windowSettings.windowValue} ${values.windowSettings.windowUnit}`
-              : "none",
-            numerator_agg:
-              values.numerator.column === "$$count"
-                ? "count"
-                : values.numerator.column === "$$distinctUsers"
-                  ? "distinct_users"
-                  : values.numerator.column === "$$distinctDates"
-                    ? "distinct_dates"
-                    : values.numerator.aggregation || "sum",
-            numerator_filters: values.numerator.rowFilters?.length || 0,
-            denominator_agg:
-              values.denominator?.column === "$$count"
-                ? "count"
-                : values.denominator?.column === "$$distinctUsers"
-                  ? "distinct_users"
-                  : values.denominator?.column === "$$distinctDates"
-                    ? "distinct_dates"
-                    : values.denominator?.column
-                      ? values.denominator?.aggregation || "sum"
-                      : "none",
-            denominator_filters: values.denominator?.rowFilters?.length || 0,
-            ratio_same_fact_table:
-              values.metricType === "ratio" &&
-              values.numerator.factTableId === values.denominator?.factTableId,
-          };
+          const trackProps = getFactMetricTrackProps(values, source, "modal");
 
           if (!isNew) {
             // Track auto slices changes

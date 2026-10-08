@@ -22,6 +22,7 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
@@ -50,9 +51,12 @@ export default function DataSourceMetrics({
   } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
+  const factMetricFlow = useFactMetricFlow("datasource-detail");
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
     enableRowActions: true,
+    onDuplicateFactMetric: (m) => factMetricFlow.open({ duplicate: m }),
+    onEditFactMetric: (m) => factMetricFlow.edit(m),
   });
   const metrics = combinedMetrics.filter((m) => m.datasource === dataSource.id);
 
@@ -74,6 +78,7 @@ export default function DataSourceMetrics({
 
   return (
     <>
+      {factMetricFlow.modal}
       {showAutoGenerateMetricsModal && (
         <AutoGenerateMetricsModal
           source="datasource-detail-page"
@@ -112,9 +117,19 @@ export default function DataSourceMetrics({
               datasource={dataSource}
               size="md"
             />
-            <LinkButton href="/fact-metrics/new">
-              <FaPlus className="mr-1" /> Add
-            </LinkButton>
+            {factMetricFlow.newFlow ? (
+              <LinkButton href={factMetricFlow.href()}>
+                <FaPlus className="mr-1" /> Add
+              </LinkButton>
+            ) : (
+              <Button
+                onClick={() =>
+                  factMetricFlow.open({ datasource: dataSource.id })
+                }
+              >
+                <FaPlus className="mr-1" /> Add
+              </Button>
+            )}
           </>
         ) : permissionsUtil.canCreateFactTable({
             projects: dataSource.projects || [],
