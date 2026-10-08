@@ -1399,6 +1399,7 @@ export class RevisionModel extends BaseClass {
             ...(retractedVerdict?.comment
               ? { comment: retractedVerdict.comment }
               : {}),
+            ...(retractedVerdict?.user ? { user: retractedVerdict.user } : {}),
           }),
           dateCreated: new Date(),
         };
