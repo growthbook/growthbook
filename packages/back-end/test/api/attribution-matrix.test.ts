@@ -564,7 +564,7 @@ describe("attribution across callers", () => {
       return draft.body.revision.version as number;
     };
 
-    it("can't approve a constant through a key that names them", async () => {
+    it("can't approve a constant through a key that names them, but can withdraw", async () => {
       const { version } = await draftConstant();
       const path = `/api/v1/constants-revisions/timeout/${version}`;
       expect(
@@ -579,6 +579,12 @@ describe("attribution across callers", () => {
         expect((await approve()).status).toBe(403);
       });
       expect((await approve()).status).toBe(200);
+      await withRole(bob, "readonly", async () => {
+        expect(
+          (await as("a key naming the member", bob).post(`${path}/undo-review`))
+            .status,
+        ).toBe(200);
+      });
     });
 
     it("stops a constant publish a key scheduled for them", async () => {

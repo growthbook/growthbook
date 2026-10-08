@@ -17,10 +17,6 @@ export interface RnPStateInput {
   mergeSuccess: boolean;
   // There is something to publish.
   hasChanges: boolean;
-  // Raw `canReviewFeatureDrafts` permission, independent of revision state.
-  // Used to gate retraction of an existing verdict — a reviewer who approved
-  // earlier (status now "approved") must still be allowed to retract.
-  hasReviewPermission: boolean;
   // The current user is the draft author (or co-author) and can manage drafts.
   canManageDraft: boolean;
   // The current user is the one who most recently submitted the review request.
@@ -94,7 +90,6 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     status,
     mergeSuccess,
     hasChanges,
-    hasReviewPermission,
     canManageDraft,
     isReviewRequester,
     isContributor,
@@ -139,13 +134,10 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       (canManageDraft && (isReviewRequester || isContributor))) &&
     recallableStatuses.includes(status);
 
-  // undo-review: only the reviewer who submitted the verdict can retract it.
-  // Uses `hasReviewPermission` (not the state-gated `canReview`) so an
-  // approver can still pull back their verdict after status flipped to
-  // "approved".
+  // undo-review: only the reviewer who submitted the verdict can retract it,
+  // even after status flipped to "approved" or they lost review permission.
   const undoableStatuses = ["approved", "changes-requested"];
-  const canUndoReview =
-    hasReviewPermission && isReviewer && undoableStatuses.includes(status);
+  const canUndoReview = isReviewer && undoableStatuses.includes(status);
 
   // Hard conflicts block publishing (never bypassable), but the review
   // workflow — requesting reviews, submitting verdicts, retracting — stays

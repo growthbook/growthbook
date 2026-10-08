@@ -12,7 +12,6 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     editsResetStatus: true,
     mergeSuccess: true,
     hasChanges: true,
-    hasReviewPermission: false,
     canManageDraft: false,
     isReviewRequester: false,
     isContributor: false,
@@ -175,7 +174,6 @@ describe("getReviewAndPublishState", () => {
         base({
           requireReviews: true,
           status: "pending-review",
-          hasReviewPermission: false,
         }),
       );
       expect(s.hasSubmit).toBe(false);
@@ -187,7 +185,6 @@ describe("getReviewAndPublishState", () => {
         base({
           requireReviews: true,
           status: "pending-review",
-          hasReviewPermission: true,
         }),
       );
       // Review submission now handled by ReviewCommentPopover, not the state machine CTA.
@@ -438,6 +435,16 @@ describe("getReviewAndPublishState", () => {
       expect(s.canRecallReview).toBe(false);
     });
   });
+
+  it.each(["approved", "changes-requested"] as const)(
+    "lets a reviewer withdraw their %s verdict, whatever their permissions",
+    (status) => {
+      const s = getReviewAndPublishState(
+        base({ requireReviews: true, status, isReviewer: true }),
+      );
+      expect(s.canUndoReview).toBe(true);
+    },
+  );
 });
 
 describe("waitingForReview", () => {

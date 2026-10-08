@@ -106,6 +106,23 @@ export function reviewAuthorityOnRow(context: Context): CasAuthority<Revision> {
   };
 }
 
+// Withdrawing your own verdict needs no review permission, as on Feature Flags;
+// `undoReview` refuses a caller with no verdict to withdraw.
+export function retractAuthorityOnRow(
+  context: Context,
+): CasAuthority<Revision> {
+  return {
+    check: (existing) => {
+      const ownVerdict =
+        !!context.authorUserId &&
+        existing.reviews.some((r) => r.userId === context.authorUserId);
+      if (!ownVerdict && !canRevisionOwnedAction(context, existing, "review")) {
+        context.permissions.throwPermissionError();
+      }
+    },
+  };
+}
+
 // Discarding another user's work requires draft authority, not a narrow landing atom.
 export async function canDiscardRevision(
   context: Context,

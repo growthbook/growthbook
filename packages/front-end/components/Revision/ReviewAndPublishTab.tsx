@@ -856,7 +856,6 @@ function ReviewAndPublishRevision<T>({
     status: toBadgeStatus(revision.status),
     mergeSuccess,
     hasChanges,
-    hasReviewPermission: canReviewOrEdit,
     canManageDraft: canAdvanceDraft,
     isReviewRequester: isAuthor,
     isContributor,

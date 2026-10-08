@@ -1423,6 +1423,9 @@ export class RevisionModel extends BaseClass {
           ],
         } as UpdateProps<Revision>;
       },
+      // `authority` decides, rechecked above on every attempt: a reviewer may
+      // withdraw their own verdict without the update backstop's authority.
+      { dangerouslyBypassCanUpdate: true },
     );
     if (!updated) throw new Error("Revision not found");
     return updated;

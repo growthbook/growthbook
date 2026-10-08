@@ -16,8 +16,9 @@ import {
 import {
   draftAuthorityOnRow,
   isRevisionAuthor,
-  reviewAuthorityOnRow,
+  retractAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
+import { assertCasAuthority } from "back-end/src/models/casLoop";
 
 export async function recallRevisionReview({
   context,
@@ -97,14 +98,13 @@ export async function undoRevisionReview({
   revision: Revision;
 }): Promise<Revision> {
   // Verdict authority follows the revision snapshot and is rechecked inside the CAS.
-  if (!canRevisionOwnedAction(context, revision, "review")) {
-    context.permissions.throwPermissionError();
-  }
+  const authority = retractAuthorityOnRow(context);
+  await assertCasAuthority(authority, revision);
 
   const updated = await context.models.revisions.undoReview(
     revision.id,
     context.actingUserId,
-    reviewAuthorityOnRow(context),
+    authority,
     // The cycle this caller was looking at when they asked to retract.
     revision.reviewCycle ?? 0,
   );

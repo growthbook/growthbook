@@ -1886,11 +1886,6 @@ export default function ReviewAndPublish({
     status: revision.status,
     mergeSuccess: mergeResult.success,
     hasChanges: hasChanges || isStranded,
-    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
-      feature,
-      reviewFootprint,
-      approverProjects,
-    ),
     // Recall is derived from this in the state machine, and revert/delete
     // authority may recall a review request on a draft they authored — so pass
     // the widened predicate rather than the bare draft atom.
