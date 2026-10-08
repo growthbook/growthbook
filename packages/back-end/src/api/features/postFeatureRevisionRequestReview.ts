@@ -20,7 +20,7 @@ import {
   canEnableFeatureAutoPublishOnApproval,
   canScheduleFeaturePublish,
   parseScheduledPublishDate,
-  resolveArmedPublishUserId,
+  resolveArmedPublisherId,
 } from "./autoPublishOnApproval";
 
 export async function requestReview(
@@ -112,7 +112,7 @@ export async function requestReview(
   // "enabling user could not be resolved". Mirrors the schedule-publish endpoint.
   if (
     scheduledDate !== null &&
-    !resolveArmedPublishUserId(revision, req.context.userId ?? null)
+    !resolveArmedPublisherId(revision, req.context.armerId)
   ) {
     throw new BadRequestError(
       "Scheduled publishes must run as a user, but this request has no resolvable user actor " +

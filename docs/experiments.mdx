@@ -1,8 +1,7 @@
 ---
 title: Running Experiments on GrowthBook
-description: Run A/B tests with feature flags, the Visual Editor, URL redirects, or your own assignment, then analyze results in GrowthBook.
+description: Run A/B tests with feature flags, the AI Visual Editor, URL redirects, or your own assignment, then analyze results in GrowthBook.
 sidebarTitle: Running Experiments
-slug: experiments
 ---
 
 GrowthBook has a few different ways to run experiments or AB tests depending on your needs. This guide will walk you
@@ -40,7 +39,7 @@ the client, typically in [JavaScript](/lib/js) or [React](/lib/react).
 
 When the client loads your application, our SDK will check to see if the user should be part of any experiments, and if
 so, assign them and the client code will serve that variations treatment to them. GrowthBook's client side SDKs can
-handle all of this for you, and you can also serve client-side A/B test via our feature flags, or using our visual editor.
+handle all of this for you, and you can also serve client-side A/B test via our feature flags, or using our AI Visual Editor.
 
 Client-side A/B tests are great for testing visual changes to your application, but they do have some drawbacks. One of
 the most common issues is caused by the delay in loading the specific variation to a user, which may cause a flash or
@@ -61,10 +60,10 @@ requests, as the experiment conditions and settings can be written directly into
 How you implement in-line experiments depends on the SDK language you're using, you can read more about this from our
 [SDKs pages](/lib).
 
-### Visual Editor (WYSIWYG) Experiments
+### AI Visual Editor (WYSIWYG) Experiments
 
-GrowthBook has a visual editor for running experiments on the front-end of your website without requiring any code
-changes. Our visual editor uses the same client-side SDK used for feature flags and A/B testing.
+GrowthBook has an AI Visual Editor for running experiments on the front-end of your website without requiring any code
+changes. Our AI Visual Editor uses the same client-side SDK used for feature flags and A/B testing.
 
 ## API / ML Experiments
 

@@ -22,7 +22,7 @@ const exposureQuery: ExposureQuery = {
 
 const resolvedExposureQuery = {
   query: exposureQuery.query,
-  userIdType: exposureQuery.userIdType,
+  identifierType: exposureQuery.userIdType,
 };
 
 const eventsFactTable = factTableFactory.build({
@@ -177,7 +177,7 @@ function inlineSql(metrics: FunnelFactMetricInterface[]): string {
       unitsSource: "exposureQuery",
       unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
         query: exposureQuery.query,
-        userIdType: exposureQuery.userIdType,
+        identifierType: exposureQuery.userIdType,
       }),
       activationMetric: null,
       dimensions: [],

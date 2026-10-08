@@ -1,8 +1,16 @@
 # Changelog
 
-## **1.7.1** - Unreleased
+## **1.8.0** - Sep 29, 2026
 
-- Add an option to disable feature usage events in the GrowthBook tracking plugin
+- Add `$savedGroup` operator for referencing any kind of Saved Group, not just ID Lists
+- Fix Saved Groups being ignored in prerequisite conditions
+- Add built-in polling via the `pollingInterval` option
+- Fix a failed streaming setup discarding the features loaded by `init()`
+- Fix `$elemMatch` skipping falsy array elements (`0`, `""`, `false`)
+- Add `enableFeatureUsageEvents` option to the GrowthBook tracking plugin
+- GrowthBook tracking plugin now defaults to `us-east-1.gb-ingest.com`
+- Add `tracing` plugin that tags LLM traces with experiment assignments (`gb.exp:<experiment>=<variation>`)
+- Export more TypeScript types from the JS and React SDKs
 
 ## **1.7.0** - Aug 7, 2026
 

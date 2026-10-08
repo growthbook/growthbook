@@ -1,3 +1,21 @@
+export function getStandardErrorFromLargestSample(
+  samples: {
+    totalUnits: number;
+    standardError: number;
+  }[],
+): number | null {
+  const largestSample = samples.reduce<(typeof samples)[number] | null>(
+    (largest, sample) => {
+      if (sample.standardError <= 0) return largest;
+      if (!largest || sample.totalUnits > largest.totalUnits) return sample;
+      return largest;
+    },
+    null,
+  );
+
+  return largestSample?.standardError ?? null;
+}
+
 export function jamesSteinAdjustment(
   effects: number[],
   se: number,

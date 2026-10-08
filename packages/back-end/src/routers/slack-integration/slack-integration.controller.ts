@@ -280,11 +280,16 @@ export const getSlackWorkspaceChannels = async (
     context.permissions.throwPermissionError();
   }
 
+  const disconnected = new AbortController();
+  res.on("close", () => disconnected.abort());
+
   const result = await listSlackWorkspaceChannels({
     context,
     teamId: req.query.teamId,
     cursor: req.query.cursor,
+    signal: disconnected.signal,
   });
+  if (disconnected.signal.aborted) return;
 
   return res.json(result);
 };

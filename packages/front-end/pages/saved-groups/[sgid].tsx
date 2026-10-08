@@ -159,10 +159,12 @@ export default function EditSavedGroupPage() {
   );
   const referencingFeatures = references?.features ?? [];
   const referencingExperiments = references?.experiments ?? [];
+  const referencingBandits = references?.contextualBandits ?? [];
   const referencingSavedGroups = references?.savedGroups ?? [];
   const totalReferences =
     referencingFeatures.length +
     referencingExperiments.length +
+    referencingBandits.length +
     referencingSavedGroups.length;
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -850,6 +852,7 @@ export default function EditSavedGroupPage() {
           <SavedGroupReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
+            contextualBandits={referencingBandits}
             savedGroups={referencingSavedGroups}
           />
         </Modal>
@@ -1439,7 +1442,7 @@ export default function EditSavedGroupPage() {
                   </Flex>
                   <Flex direction="row" gap="2">
                     <Text weight="medium">IF</Text>
-                    <Box>
+                    <Box flexGrow="1" minWidth="0">
                       <ConditionDisplay
                         condition={displayedSavedGroup?.condition || ""}
                         savedGroups={[]}
