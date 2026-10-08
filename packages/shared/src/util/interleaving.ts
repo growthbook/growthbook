@@ -14,8 +14,6 @@ export function assertUsableRankerSchema(
   }
 }
 
-// Parses a ranker config, requiring a JSON object, and validates it against the
-// experiment's schema when one is enabled.
 export function parseInterleavingRankerConfig(
   config: string,
   jsonSchema?: InterleavingInterface["jsonSchema"],
