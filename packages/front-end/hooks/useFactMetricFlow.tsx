@@ -11,16 +11,17 @@ export type FactMetricCreationTarget = {
   datasource?: string;
 };
 
-// Every "Add metric" / "Duplicate" entry point goes through here, so the
-// new-metric-creation-flow experiment switches all of them at once: the new
-// full-page editor (/fact-metrics/new) or the old FactMetricModal, opened in
-// place with the same props and tracking `source` it had before.
-export default function useFactMetricCreation(source: string) {
+type ModalTarget = FactMetricCreationTarget & { edit?: FactMetricInterface };
+
+// Every fact metric "Add metric", "Duplicate", and "Edit" entry point goes
+// through here, so the new-metric-creation-flow experiment switches all of
+// them at once: the new full-page editor, or the old FactMetricModal opened
+// in place with the same props and tracking `source` it had before.
+export default function useFactMetricFlow(source: string) {
   const newFlow = useFeatureIsOn("new-metric-creation-flow");
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
-  const [modalTarget, setModalTarget] =
-    useState<FactMetricCreationTarget | null>(null);
+  const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
 
   const sourceFor = (target: FactMetricCreationTarget) =>
     target.duplicate ? `${source}-duplicate` : source;
@@ -41,8 +42,19 @@ export default function useFactMetricCreation(source: string) {
     else setModalTarget(target);
   };
 
+  const edit = (metric: FactMetricInterface) => {
+    if (newFlow) router.push(`/fact-metrics/${metric.id}?edit=true`);
+    else setModalTarget({ edit: metric });
+  };
+
   const duplicate = modalTarget?.duplicate;
-  const modal = modalTarget ? (
+  const modal = !modalTarget ? null : modalTarget.edit ? (
+    <FactMetricModal
+      close={() => setModalTarget(null)}
+      existing={modalTarget.edit}
+      source={source}
+    />
+  ) : (
     <FactMetricModal
       close={() => setModalTarget(null)}
       initialFactTable={modalTarget.factTable}
@@ -65,7 +77,7 @@ export default function useFactMetricCreation(source: string) {
       duplicate={!!duplicate}
       source={sourceFor(modalTarget)}
     />
-  ) : null;
+  );
 
-  return { newFlow, href, open, modal };
+  return { newFlow, href, open, edit, modal };
 }
