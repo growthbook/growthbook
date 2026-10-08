@@ -57,7 +57,8 @@ function getMaxWidth(size: Size) {
 
 type ModalContextValue = {
   error: string | null;
-  setError: (error: string | null) => void;
+  errorDetails: string | null;
+  setError: (error: string | null, details?: string | null) => void;
   scrollBodyToTop: () => void;
   bodyRef: React.RefObject<HTMLDivElement>;
   sendTrackingEvent: (
@@ -118,10 +119,19 @@ function Root({
   children,
 }: RootProps) {
   const [modalUuid] = useState(uuidv4());
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorMessage] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const setError = useCallback(
+    (message: string | null, details: string | null = null) => {
+      setErrorMessage(message);
+      setErrorDetails(details);
+    },
+    [],
+  );
 
   const scrollBodyToTop = useCallback(() => {
     setTimeout(() => {
@@ -163,11 +173,12 @@ function Root({
       setError(null);
       setLoading(false);
     }
-  }, [open, sendTrackingEvent]);
+  }, [open, sendTrackingEvent, setError]);
 
   const ctx = useMemo<ModalContextValue>(
     () => ({
       error,
+      errorDetails,
       setError,
       scrollBodyToTop,
       bodyRef,
@@ -175,7 +186,14 @@ function Root({
       loading,
       setLoading,
     }),
-    [error, scrollBodyToTop, sendTrackingEvent, loading],
+    [
+      error,
+      errorDetails,
+      setError,
+      scrollBodyToTop,
+      sendTrackingEvent,
+      loading,
+    ],
   );
 
   const ariaDescribedBy = hasDescription
@@ -268,7 +286,7 @@ function Body({
   children: ReactNode;
   padding?: string;
 }) {
-  const { bodyRef, error } = useModalContext();
+  const { bodyRef, error, errorDetails } = useModalContext();
   return (
     <ScrollArea
       type="auto"
@@ -278,7 +296,7 @@ function Body({
       className={styles.bodyScrollArea}
     >
       <Box className={styles.body} style={{ padding }}>
-        {error && <ErrorDisplay error={error} mb="5" />}
+        {error && <ErrorDisplay error={error} details={errorDetails} mb="5" />}
         {children}
       </Box>
     </ScrollArea>

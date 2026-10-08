@@ -24,7 +24,10 @@ import DatePicker from "@/components/DatePicker";
 import { GBInfo } from "@/components/Icons";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
-import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
+import {
+  getStandardErrorFromLargestSample,
+  jamesSteinAdjustment,
+} from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
 export function NoExperimentsForImpactBanner() {
@@ -168,8 +171,10 @@ export function scaleImpactAndSetMissingExperiments({
   let summaryObj: ExperimentImpactSummary | null = null;
   if (snapshots && exps) {
     // use largest experiment for population sampling variance
-    const maxUnits = 0;
-    let overallSE: number | null = null;
+    const standardErrors: {
+      totalUnits: number;
+      standardError: number;
+    }[] = [];
     const allScaledImpacts: number[] = [];
     exps.forEach((e) => {
       const s = snapshots.find((s) => s.experiment === e.id);
@@ -216,9 +221,7 @@ export function scaleImpactAndSetMissingExperiments({
               allScaledImpacts.push(impact);
 
               const totalUnits = v.users + res.variations[0].users;
-              if (totalUnits > maxUnits && se > 0) {
-                overallSE = se;
-              }
+              standardErrors.push({ totalUnits, standardError: se });
             }
           });
         } else {
@@ -238,6 +241,7 @@ export function scaleImpactAndSetMissingExperiments({
       experimentImpacts.set(e.id, ei);
     });
 
+    const overallSE = getStandardErrorFromLargestSample(standardErrors);
     const adjustment = jamesSteinAdjustment(allScaledImpacts, overallSE ?? 0);
 
     const applyAdjustment = adjusted && nExpsUsedForAdjustment >= 5;
