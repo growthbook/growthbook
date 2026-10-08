@@ -1,4 +1,7 @@
-import { ExposureQuery } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "shared/types/datasource";
 import { describe, expect, it } from "vitest";
 import {
   getDefaultIdentifierType,
@@ -13,6 +16,7 @@ import {
   getHashAttributeIdentifierTypeMap,
   getImportIdentifierTypes,
   getInitialSettings,
+  getNewExperimentDatasourceDefaults,
   getSelectableIdentifierTypes,
   validateSQL,
 } from "@/services/datasources";
@@ -720,5 +724,114 @@ describe("getInitialSettings", () => {
     for (const q of settings.queries.exposure) {
       expect(q.query).not.toContain("project_id = '");
     }
+  });
+});
+
+describe("getNewExperimentDatasourceDefaults", () => {
+  function datasource(
+    exposure: ExposureQuery[],
+    projects: string[] = [],
+  ): DataSourceInterfaceWithParams {
+    return {
+      id: "ds_1",
+      projects,
+      settings: { queries: { exposure } },
+    } as unknown as DataSourceInterfaceWithParams;
+  }
+  const twoIdentifiers = makeExposureQuery({
+    id: "exq_1",
+    userIdType: "user_id",
+    userIdTypes: ["user_id", "anon_id"],
+  });
+  const defaults = (
+    ds: DataSourceInterfaceWithParams,
+    initialValue: Parameters<
+      typeof getNewExperimentDatasourceDefaults
+    >[0]["initialValue"],
+    extra: { isImport?: boolean; project?: string } = {},
+  ) =>
+    getNewExperimentDatasourceDefaults({
+      datasources: [ds],
+      settings: {},
+      initialValue,
+      ...extra,
+    });
+
+  it("keeps the identifier an imported row was counted on", () => {
+    expect(
+      defaults(
+        datasource([twoIdentifiers]),
+        {
+          datasource: "ds_1",
+          exposureQueryId: "exq_1",
+          exposureQueryIdentifierType: "anon_id",
+        },
+        { isImport: true },
+      ).exposureQueryIdentifierType,
+    ).toBe("anon_id");
+  });
+
+  it("leaves the identifier for the user to choose when an import's is no longer declared", () => {
+    const imported = {
+      datasource: "ds_1",
+      exposureQueryId: "exq_1",
+      exposureQueryIdentifierType: "company_id",
+    };
+    expect(
+      defaults(datasource([twoIdentifiers]), imported, { isImport: true })
+        .exposureQueryIdentifierType,
+    ).toBeUndefined();
+    // With only one declared, there's nothing to choose
+    expect(
+      defaults(
+        datasource([
+          makeExposureQuery({
+            id: "exq_1",
+            userIdType: "user_id",
+            userIdTypes: ["user_id"],
+          }),
+        ]),
+        imported,
+        { isImport: true },
+      ).exposureQueryIdentifierType,
+    ).toBe("user_id");
+  });
+
+  it("swaps an out-of-scope query for an in-scope one declaring the same identifier", () => {
+    const ds = datasource([
+      makeExposureQuery({
+        id: "exq_other",
+        userIdType: "anon_id",
+        userIdTypes: ["anon_id"],
+        projects: ["prj_other"],
+      }),
+      makeExposureQuery({
+        id: "exq_first",
+        userIdType: "user_id",
+        userIdTypes: ["user_id"],
+        projects: ["prj_a"],
+      }),
+      makeExposureQuery({
+        id: "exq_same",
+        userIdType: "anon_id",
+        userIdTypes: ["anon_id"],
+        projects: ["prj_a"],
+      }),
+    ]);
+    expect(
+      defaults(
+        ds,
+        {
+          datasource: "ds_1",
+          exposureQueryId: "exq_other",
+          exposureQueryIdentifierType: "anon_id",
+        },
+        { project: "prj_a" },
+      ),
+    ).toEqual({
+      datasource: "ds_1",
+      exposureQueryId: "exq_same",
+      exposureQueryIdentifierType: "anon_id",
+    });
   });
 });
