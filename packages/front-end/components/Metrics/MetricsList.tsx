@@ -3,6 +3,7 @@ import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -43,6 +44,7 @@ import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
+import useFactMetricCreation from "@/hooks/useFactMetricCreation";
 import Text from "@/ui/Text";
 import MetricForm from "@/components/Metrics/MetricForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -195,6 +197,7 @@ export interface MetricTableItem {
 export function useCombinedMetrics({
   setMetricModalProps,
   enableRowActions,
+  onDuplicateFactMetric,
   afterArchive,
 }: {
   // Still the legacy-metric edit/duplicate mechanism (opens MetricForm via
@@ -204,6 +207,8 @@ export function useCombinedMetrics({
   // The real "did this caller opt into row actions" signal, explicit rather
   // than inferred from setMetricModalProps's presence.
   enableRowActions?: boolean;
+  // Opens the caller's fact metric creation flow (useFactMetricCreation).
+  onDuplicateFactMetric?: (metric: FactMetricInterface) => void;
   afterArchive?: (id: string, archived: boolean) => void;
 }): MetricTableItem[] {
   const {
@@ -359,11 +364,8 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && enableRowActions
-            ? () =>
-                router.push(
-                  `/fact-metrics/new?${new URLSearchParams({ duplicate: m.id, returnUrl: router.asPath }).toString()}`,
-                )
+          canDuplicate && enableRowActions && onDuplicateFactMetric
+            ? () => onDuplicateFactMetric(m)
             : undefined,
         onEdit:
           canEdit && enableRowActions
@@ -412,9 +414,11 @@ const MetricsList = (): React.ReactElement => {
   const { disableLegacyMetricCreation } = settings;
 
   const [showArchived, setShowArchived] = useState(false);
+  const createFactMetric = useFactMetricCreation("blank-state");
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
     enableRowActions: true,
+    onDuplicateFactMetric: (m) => createFactMetric.open({ duplicate: m }),
   });
 
   const metrics = useAddComputedFields(
@@ -549,6 +553,7 @@ const MetricsList = (): React.ReactElement => {
       {modalData ? (
         <MetricModal {...modalData} close={closeModal} source="blank-state" />
       ) : null}
+      {createFactMetric.modal}
       {showLegacyForm && (
         <MetricForm
           current={{ projects: project ? [project] : [] }}
@@ -594,10 +599,16 @@ const MetricsList = (): React.ReactElement => {
               content="You don't have permission to add metrics in this project."
               enabled={!canAddFactMetric}
             >
-              {canAddFactMetric ? (
-                <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
-              ) : (
+              {!canAddFactMetric ? (
                 <Button disabled>Add metric</Button>
+              ) : createFactMetric.newFlow ? (
+                <LinkButton href={createFactMetric.href()}>
+                  Add metric
+                </LinkButton>
+              ) : (
+                <Button onClick={() => createFactMetric.open()}>
+                  Add metric
+                </Button>
               )}
             </Tooltip>
             {showLegacyOption && (
@@ -632,11 +643,13 @@ const MetricsList = (): React.ReactElement => {
                           types, reuse shared fact tables, and run faster
                           queries.
                         </Text>
-                        <Text as="p" mb="0">
-                          <Link href="/fact-metrics/new">
-                            Create a fact metric instead
-                          </Link>
-                        </Text>
+                        {createFactMetric.newFlow && (
+                          <Text as="p" mb="0">
+                            <Link href={createFactMetric.href()}>
+                              Create a fact metric instead
+                            </Link>
+                          </Text>
+                        )}
                       </Flex>
                     ),
                   }}

@@ -239,6 +239,13 @@ export default function NewFactMetricPage() {
               router.replace(`/fact-metrics/${metric.id}`)
             }
             onCancel={() => router.push(returnUrl)}
+            source={
+              typeof router.query.source === "string"
+                ? router.query.source
+                : template
+                  ? "querystring"
+                  : "direct"
+            }
           />
         </>
       )}

@@ -32,6 +32,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
+import useFactMetricCreation from "@/hooks/useFactMetricCreation";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -194,7 +195,7 @@ export default function FactMetricList({
     hasCommercialFeature("metric-slices") &&
     factTable.columns.some((col) => col.isAutoSliceColumn && !col.deleted);
 
-  const returnUrl = `/fact-tables/${factTable.id}`;
+  const createFactMetric = useFactMetricCreation("fact-table");
 
   const canEdit = (factMetric: FactMetricInterface) => {
     let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
@@ -310,6 +311,7 @@ export default function FactMetricList({
 
   return (
     <>
+      {createFactMetric.modal}
       {showRecommendedMetricsModal && (
         <RecommendedFactMetricsModal
           factTable={factTable}
@@ -359,14 +361,22 @@ export default function FactMetricList({
             content={`You don't have permission to add metrics to this fact table`}
             enabled={!canCreateMetrics}
           >
-            {canCreateMetrics ? (
+            {!canCreateMetrics ? (
+              <Button disabled>Add metric</Button>
+            ) : createFactMetric.newFlow ? (
               <LinkButton
-                href={`/fact-metrics/new?${new URLSearchParams({ factTable: factTable.id, returnUrl }).toString()}`}
+                href={createFactMetric.href({ factTable: factTable.id })}
               >
                 Add metric
               </LinkButton>
             ) : (
-              <Button disabled>Add metric</Button>
+              <Button
+                onClick={() =>
+                  createFactMetric.open({ factTable: factTable.id })
+                }
+              >
+                Add metric
+              </Button>
             )}
           </Tooltip>
         </Box>
@@ -499,9 +509,7 @@ export default function FactMetricList({
                           : undefined
                       }
                       onDuplicate={() =>
-                        router.push(
-                          `/fact-metrics/new?${new URLSearchParams({ duplicate: metric.id, returnUrl }).toString()}`,
-                        )
+                        createFactMetric.open({ duplicate: metric })
                       }
                     />
                   </td>

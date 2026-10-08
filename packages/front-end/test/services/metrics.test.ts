@@ -3,6 +3,7 @@ import {
   formatDurationMilliseconds,
   formatDurationSeconds,
   fromFactMetricFormValues,
+  getFactMetricTrackProps,
   validateFactMetricFormValues,
 } from "@/services/metrics";
 
@@ -337,5 +338,83 @@ describe("lower-tail capping", () => {
         ),
       ),
     ).toThrow(/capping and a user filter/);
+  });
+});
+
+describe("getFactMetricTrackProps", () => {
+  const base = {
+    cappingSettings: { type: "percentile" as const, value: 0.99 },
+    windowSettings: {
+      type: "conversion" as const,
+      windowValue: 72,
+      windowUnit: "hours" as const,
+      delayValue: 0,
+      delayUnit: "hours" as const,
+    },
+  };
+
+  it("describes a ratio metric the way the old modal did", () => {
+    expect(
+      getFactMetricTrackProps(
+        {
+          ...base,
+          metricType: "ratio",
+          numerator: {
+            factTableId: "ft_1",
+            column: "amount",
+            aggregation: "max",
+            rowFilters: [{ operator: "=", column: "a", values: ["b"] }],
+          },
+          denominator: {
+            factTableId: "ft_1",
+            column: "$$distinctUsers",
+            rowFilters: [],
+          },
+        },
+        "blank-state",
+        "page",
+      ),
+    ).toEqual({
+      type: "ratio",
+      source: "blank-state",
+      flow: "page",
+      capping: "percentile",
+      conversion_window: "72 hours",
+      numerator_agg: "max",
+      numerator_filters: 1,
+      denominator_agg: "distinct_users",
+      denominator_filters: 0,
+      ratio_same_fact_table: true,
+    });
+  });
+
+  it("defaults a column without aggregation to sum and no denominator to none", () => {
+    const props = getFactMetricTrackProps(
+      {
+        ...base,
+        windowSettings: { ...base.windowSettings, type: "" },
+        metricType: "mean",
+        numerator: { factTableId: "ft_1", column: "amount", rowFilters: [] },
+        denominator: null,
+      },
+      "fact-table",
+      "modal",
+    );
+    expect(props).toMatchObject({
+      conversion_window: "none",
+      numerator_agg: "sum",
+      denominator_agg: "none",
+      ratio_same_fact_table: false,
+    });
+  });
+
+  it("only reports type and source for funnels", () => {
+    expect(
+      getFactMetricTrackProps(
+        { ...base, metricType: "funnel", numerator: null, denominator: null },
+        "get-started",
+        "modal",
+      ),
+    ).toEqual({ type: "funnel", source: "get-started", flow: "modal" });
   });
 });

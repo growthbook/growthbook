@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import useFactMetricCreation from "@/hooks/useFactMetricCreation";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
@@ -75,8 +76,11 @@ const ExperimentsGetStarted = (): React.ReactElement => {
     }
   };
 
+  const createFactMetric = useFactMetricCreation("get-started");
+
   return (
     <>
+      {createFactMetric.modal}
       <div>
         {dataSourceOpen && (
           <NewDataSourceForm
@@ -219,7 +223,8 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     }
                     imageLeft={false}
                     onClick={(finished) => {
-                      router.push(finished ? "/metrics" : "/fact-metrics/new");
+                      if (finished) router.push("/metrics");
+                      else createFactMetric.open();
                     }}
                   />
                   <GetStartedStep

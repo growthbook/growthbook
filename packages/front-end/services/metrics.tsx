@@ -316,6 +316,51 @@ export function fromFactMetricFormValues(
 // (Save doesn't go through a native form submit). Runs on the output of
 // fromFactMetricFormValues, so percents are already fractions. Kept separate
 // so the live preview can still run on a half-filled draft.
+// Anonymized telemetry props for creating or editing a fact metric - which
+// settings people use. Shared by the old modal and the full-page editor so
+// the new-metric-creation-flow experiment compares like with like.
+export function getFactMetricTrackProps(
+  values: {
+    metricType: FactMetricInterface["metricType"];
+    numerator: ColumnRef | null;
+    denominator: ColumnRef | null;
+    cappingSettings: FactMetricInterface["cappingSettings"];
+    windowSettings: FactMetricInterface["windowSettings"];
+  },
+  source: string,
+  flow: "modal" | "page",
+) {
+  if (values.metricType === "funnel" || !values.numerator) {
+    return { type: values.metricType, source, flow };
+  }
+  const agg = (ref: ColumnRef | null) =>
+    !ref?.column
+      ? "none"
+      : ref.column === "$$count"
+        ? "count"
+        : ref.column === "$$distinctUsers"
+          ? "distinct_users"
+          : ref.column === "$$distinctDates"
+            ? "distinct_dates"
+            : ref.aggregation || "sum";
+  return {
+    type: values.metricType,
+    source,
+    flow,
+    capping: values.cappingSettings.type,
+    conversion_window: values.windowSettings.type
+      ? `${values.windowSettings.windowValue} ${values.windowSettings.windowUnit}`
+      : "none",
+    numerator_agg: agg(values.numerator),
+    numerator_filters: values.numerator.rowFilters?.length || 0,
+    denominator_agg: agg(values.denominator),
+    denominator_filters: values.denominator?.rowFilters?.length || 0,
+    ratio_same_fact_table:
+      values.metricType === "ratio" &&
+      values.numerator.factTableId === values.denominator?.factTableId,
+  };
+}
+
 export function validateFactMetricFormValues(
   values: CreateFactMetricFormProps,
 ): void {

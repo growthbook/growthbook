@@ -519,6 +519,7 @@ export default function FactMetricPage() {
             isEditing={isEditing}
             setIsEditing={setIsEditing}
             mutate={mutateDefinitions}
+            source="fact-metric"
           />
         </TabsContent>
 
