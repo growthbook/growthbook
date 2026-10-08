@@ -63,7 +63,8 @@ const ImportExperimentList: FC<{
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
     experiments: PastExperimentsInterface;
-    existing: Record<string, string>;
+    // Null: imported into a Project the user can't read
+    existing: Record<string, string | null>;
     lookbackDays: number;
   }>(`/experiments/import/${importId}`);
   const datasource = data?.experiments?.datasource
@@ -139,7 +140,7 @@ const ImportExperimentList: FC<{
           const key = dedupeFilter
             ? e.trackingKey
             : e.trackingKey + "::" + e.exposureQueryId;
-          if (data?.existing?.[key]) {
+          if (data?.existing?.[key] !== undefined) {
             return false;
           }
         }
@@ -701,6 +702,10 @@ const ImportExperimentList: FC<{
                     <td>
                       {existingId ? (
                         <Link href={`/experiment/${existingId}`}>imported</Link>
+                      ) : existingId === null ? (
+                        <Tooltip body="Imported into a Project you don't have access to">
+                          <Text color="text-mid">imported</Text>
+                        </Tooltip>
                       ) : (
                         <button
                           className={`btn btn-primary`}

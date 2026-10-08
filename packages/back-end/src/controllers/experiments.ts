@@ -3921,27 +3921,33 @@ export async function getPastExperimentsList(
     throw new Error("Invalid import id");
   }
 
-  const experiments = await getPastExperimentsByDatasource(
-    context,
-    pastExperiments.datasource,
-  );
   const datasource = await getDataSourceById(
     context,
     pastExperiments.datasource,
   );
+  if (!datasource) {
+    return context.permissions.throwPermissionError();
+  }
 
-  const experimentMap = new Map<string, string>();
+  const experiments = await getPastExperimentsByDatasource(
+    context,
+    pastExperiments.datasource,
+  );
+
+  // Null marks an experiment the user can't read: imported, but no link.
+  const experimentMap = new Map<string, string | null>();
   (experiments || []).forEach((e) => {
-    experimentMap.set(e.trackingKey, e.id);
-    experimentMap.set(e.trackingKey + "::" + e.exposureQueryId, e.id);
+    [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId].forEach((key) => {
+      if (!experimentMap.get(key)) experimentMap.set(key, e.id);
+    });
   });
 
-  const trackingKeyMap: Record<string, string> = {};
+  const trackingKeyMap: Record<string, string | null> = {};
   (pastExperiments.experiments || []).forEach((e) => {
     const keys = [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId];
     keys.forEach((key) => {
       const id = experimentMap.get(key);
-      if (id) {
+      if (id !== undefined) {
         trackingKeyMap[key] = id;
       }
     });
@@ -3953,7 +3959,7 @@ export async function getPastExperimentsList(
       ...pastExperiments,
       experiments: withCountedIdentifierTypes(
         pastExperiments.experiments ?? [],
-        datasource?.settings?.queries?.exposure ?? [],
+        datasource.settings?.queries?.exposure ?? [],
       ),
     },
     existing: trackingKeyMap,
