@@ -3,7 +3,10 @@ import {
   InterleavingInterface,
   interleavingValidator,
 } from "shared/validators";
-import { parseInterleavingRankerConfig } from "shared/util";
+import {
+  assertUsableRankerSchema,
+  parseInterleavingRankerConfig,
+} from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
 import { isFactMetricId } from "shared/experiments";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
@@ -51,18 +54,11 @@ export class InterleavingModel extends BaseClass {
     doc: InterleavingInterface,
     previousDoc?: InterleavingInterface,
   ): Promise<void> {
-    // The tracking key is the pseudo flag key (`$interleave:<trackingKey>`)
-    // and the exposures' experiment_id, so it must be unique in the org.
-    if (doc.trackingKey !== previousDoc?.trackingKey) {
-      if (!doc.trackingKey.trim()) {
-        throw new Error("Interleaving tracking key cannot be empty.");
-      }
-      const clash = await this._findOne({ trackingKey: doc.trackingKey });
-      if (clash && clash.id !== doc.id) {
-        throw new Error(
-          `Another interleaving experiment already uses the tracking key "${doc.trackingKey}".`,
-        );
-      }
+    if (
+      doc.trackingKey !== previousDoc?.trackingKey &&
+      !doc.trackingKey.trim()
+    ) {
+      throw new Error("Interleaving tracking key cannot be empty.");
     }
 
     if (
@@ -77,6 +73,8 @@ export class InterleavingModel extends BaseClass {
       if (a.id === b.id) {
         throw new Error("The two rankers must have different ids.");
       }
+      // Before the loop, so a bad schema isn't reported against a ranker.
+      assertUsableRankerSchema(doc.jsonSchema);
       for (const v of doc.variations) {
         try {
           parseInterleavingRankerConfig(v.config, doc.jsonSchema);
@@ -219,11 +217,5 @@ export class InterleavingModel extends BaseClass {
     interleavingQueryId: string,
   ): Promise<InterleavingInterface[]> {
     return this._find({ interleavingQueryId });
-  }
-
-  public getByTrackingKey(
-    trackingKey: string,
-  ): Promise<InterleavingInterface | null> {
-    return this._findOne({ trackingKey });
   }
 }

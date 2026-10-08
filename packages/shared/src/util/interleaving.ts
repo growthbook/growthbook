@@ -1,5 +1,18 @@
 import type { InterleavingInterface } from "../validators/interleaving";
-import { validateJSONFeatureValue } from "./features";
+import { getValidation, validateJSONFeatureValue } from "./features";
+
+// `getValidation` turns an unparseable schema into "validation disabled", so an
+// enabled schema that doesn't parse would silently accept every config.
+export function assertUsableRankerSchema(
+  jsonSchema?: InterleavingInterface["jsonSchema"],
+): void {
+  if (!jsonSchema?.enabled) return;
+  if (!getValidation({ jsonSchema }).validationEnabled) {
+    throw new Error(
+      "Ranker config schema is invalid, so ranker configs cannot be validated.",
+    );
+  }
+}
 
 // Parses a ranker config, requiring a JSON object, and validates it against the
 // experiment's schema when one is enabled.
@@ -7,6 +20,7 @@ export function parseInterleavingRankerConfig(
   config: string,
   jsonSchema?: InterleavingInterface["jsonSchema"],
 ): Record<string, unknown> {
+  assertUsableRankerSchema(jsonSchema);
   let parsed: unknown;
   try {
     parsed = JSON.parse(config);

@@ -174,4 +174,25 @@ describe("parseInterleavingRankerConfig", () => {
     const disabled = { ...weightSchema, enabled: false };
     expect(parseInterleavingRankerConfig("{}", disabled)).toEqual({});
   });
+
+  // getValidation reports an unparseable schema as "validation disabled", which
+  // would otherwise let every config through an enabled schema.
+  it("rejects an enabled schema that is not valid JSON", () => {
+    expect(() =>
+      parseInterleavingRankerConfig('{"weight":"heavy"}', schema("not json")),
+    ).toThrow(/schema is invalid/);
+  });
+
+  it("rejects an enabled simple schema that cannot be built", () => {
+    const emptySimple = { ...schema("{}"), schemaType: "simple" as const };
+    expect(() => parseInterleavingRankerConfig("{}", emptySimple)).toThrow(
+      /schema is invalid/,
+    );
+  });
+
+  it("still skips a malformed schema when it is disabled", () => {
+    expect(
+      parseInterleavingRankerConfig("{}", schema("not json", false)),
+    ).toEqual({});
+  });
 });
