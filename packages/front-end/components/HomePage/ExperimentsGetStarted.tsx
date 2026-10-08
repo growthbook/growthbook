@@ -6,7 +6,6 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
-import MetricForm from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksSidebar";
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
@@ -28,7 +27,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
-  const [metricsOpen, setMetricsOpen] = useState(false);
   const [importExperimentsOpen, setImportExperimentsOpen] = useState(false);
   const [designExperimentOpen, setDesignExperimentOpen] = useState(false);
 
@@ -92,16 +90,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
           />
         )}
 
-        {metricsOpen && (
-          <MetricForm
-            current={{}}
-            edit={false}
-            source="get-started"
-            onClose={() => {
-              setMetricsOpen(false);
-            }}
-          />
-        )}
         {importExperimentsOpen && (
           <ImportExperimentModal
             onClose={() => setImportExperimentsOpen(false)}
@@ -224,18 +212,14 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     finishedCTA="View metrics"
                     permissionsError={
                       envAllowsCreatingMetrics() &&
-                      !permissionsUtil.canCreateMetric({
+                      !permissionsUtil.canCreateFactMetric({
                         projects: [project],
                       }) &&
                       !hasMetrics
                     }
                     imageLeft={false}
                     onClick={(finished) => {
-                      if (finished) {
-                        router.push("/metrics");
-                      } else {
-                        setMetricsOpen(true);
-                      }
+                      router.push(finished ? "/metrics" : "/fact-metrics/new");
                     }}
                   />
                   <GetStartedStep

@@ -1,7 +1,7 @@
 import { useForm, UseFormReturn } from "react-hook-form";
 import omit from "lodash/omit";
 import { ReactElement, useEffect, useState } from "react";
-import { FaArrowRight, FaTimes } from "react-icons/fa";
+import { FaTimes } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -75,7 +75,6 @@ import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
 import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
@@ -90,7 +89,6 @@ export interface Props {
   fromTemplate?: boolean;
   showAdvancedSettings?: boolean;
   onSave?: () => void;
-  switchToLegacy?: () => void;
   source: string;
   datasource?: string;
 }
@@ -1485,7 +1483,6 @@ function StandardFactMetricModal({
   fromTemplate = false,
   showAdvancedSettings,
   onSave,
-  switchToLegacy,
   source,
   datasource,
 }: Props) {
@@ -1494,7 +1491,6 @@ function StandardFactMetricModal({
   const settings = useOrgSettings();
 
   const { hasCommercialFeature, permissionsUtil } = useUser();
-  const { disableLegacyMetricCreation } = settings;
 
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
@@ -1509,10 +1505,7 @@ function StandardFactMetricModal({
     project,
     getFactTableById,
     mutateDefinitions,
-    metrics,
   } = useDefinitions();
-
-  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
 
@@ -1520,14 +1513,6 @@ function StandardFactMetricModal({
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql")
     .filter((d) => !datasource || d.id === datasource);
-
-  const filteredMetrics = metrics
-    .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project))
-    .filter((f) => f.datasource !== demoDataSourceId); // Don't factor in demo datasource metrics
-
-  const showSwitchToLegacy =
-    filteredMetrics.length > 0 && !disableLegacyMetricCreation;
 
   const defaultValues = getDefaultFactMetricProps({
     datasources,
@@ -1953,20 +1938,6 @@ function StandardFactMetricModal({
       <div className="d-flex">
         <div className="px-3 py-4 flex-1">
           {showSQLPreview ? <h3>Enter Details</h3> : null}
-          {showSwitchToLegacy && switchToLegacy && (
-            <Callout status="info" mb="3">
-              You are creating a Fact Table Metric.{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  switchToLegacy();
-                }}
-              >
-                Switch to legacy SQL <FaArrowRight />
-              </a>
-            </Callout>
-          )}
           <Field
             size="legacy"
             label="Metric Name"

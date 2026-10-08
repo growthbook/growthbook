@@ -10,7 +10,7 @@ import {
   Operator,
 } from "shared/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
-import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
+import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -24,7 +24,6 @@ import {
 } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
 import { isBinomialMetric } from "shared/experiments";
-import Link from "@/ui/Link";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -79,7 +78,6 @@ export type MetricFormProps = {
   cta?: string;
   onSuccess?: () => void;
   secondaryCTA?: ReactElement;
-  switchToFact?: () => void;
   header?: string;
 };
 
@@ -218,7 +216,6 @@ const MetricForm: FC<MetricFormProps> = ({
   cta = "Save",
   onSuccess,
   secondaryCTA,
-  switchToFact,
   header,
 }) => {
   const {
@@ -227,7 +224,6 @@ const MetricForm: FC<MetricFormProps> = ({
     metrics,
     projects,
     project,
-    factTables,
     mutateDefinitions,
   } = useDefinitions();
   const settings = useOrgSettings();
@@ -454,10 +450,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const ignoreNullsSupported = capSupported;
   const conversionWindowSupported = capSupported;
 
-  const hasSQLDataSources = datasources.some(
-    (d) => d.properties?.queryLanguage === "sql",
-  );
-
   const supportsSQL = selectedDataSource?.properties?.queryLanguage === "sql";
   const supportsJS =
     selectedDataSource?.properties?.queryLanguage === "javascript";
@@ -676,26 +668,6 @@ const MetricForm: FC<MetricFormProps> = ({
           {isExclusivelyForDemoDatasourceProject ? (
             <Callout status="warning">
               You are creating a metric under the demo datasource project.
-            </Callout>
-          ) : switchToFact && factTables.length > 0 ? (
-            <Callout status="info" mb="3">
-              You are creating a legacy SQL metric.{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  switchToFact();
-                }}
-              >
-                Switch to use Fact Tables <FaArrowRight />
-              </a>
-            </Callout>
-          ) : switchToFact && hasSQLDataSources ? (
-            <Callout status="info" mb="3">
-              Use Fact Tables for an easier and faster way to create metrics.{" "}
-              <Link href="/fact-tables">
-                Learn More <FaArrowRight />
-              </Link>
             </Callout>
           ) : null}
           <div className="form-group">
