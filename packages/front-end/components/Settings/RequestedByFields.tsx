@@ -25,12 +25,12 @@ const RequestedByFields: FC<{
       <code>X-GrowthBook-Requested-By: &lt;memberId || email&gt;</code> header
       to name the member who asked.
     </Text>
-    <Frame py="1" px="4">
+    <Frame py="1" px="3">
       <Grid
         columns="100px 210px 1fr"
         gapX="4"
         align="center"
-        style={{ gridAutoRows: "minmax(48px, auto)" }}
+        style={{ gridAutoRows: "minmax(40px, auto)" }}
       >
         <Text as="label" weight="semibold" mb="0">
           Header
