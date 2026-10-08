@@ -7,7 +7,7 @@ import {
   getEligibleContextualAttributes,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -50,6 +50,9 @@ type FormValues = {
  * window reuse the same `ContextualBanditDecisionMetricSettings` component as the
  * creation flow, so editing behaves identically to creating.
  */
+/** Prior arm sample size applied the first time a user enables exploration. */
+const DEFAULT_PRIOR_ARM_SAMPLE_SIZE = 25;
+
 export default function ContextualBanditAnalysisMetricsModal({
   cb,
   mutate,
@@ -215,6 +218,18 @@ export default function ContextualBanditAnalysisMetricsModal({
             !!data.banditConversionWindowValue &&
             !!data.banditConversionWindowUnit;
 
+          const priorSampleSize = data.increaseBanditExploration
+            ? Number(data.priorSampleSize)
+            : 0;
+          if (
+            data.increaseBanditExploration &&
+            (!Number.isInteger(priorSampleSize) || priorSampleSize < 1)
+          ) {
+            throw new Error(
+              "Enter a prior arm sample size of at least 1, or turn off Increase Bandit exploration.",
+            );
+          }
+
           await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
             params: { id: cb.id },
             body: {
@@ -232,9 +247,7 @@ export default function ContextualBanditAnalysisMetricsModal({
               conversionWindowUnit: includeConversionWindow
                 ? data.banditConversionWindowUnit
                 : null,
-              priorSampleSize: data.increaseBanditExploration
-                ? Number(data.priorSampleSize) || 0
-                : 0,
+              priorSampleSize,
             },
           });
           mutate();
@@ -340,20 +353,28 @@ export default function ContextualBanditAnalysisMetricsModal({
           autoApplyDefaults={false}
         />
 
-        <hr className="my-4" />
+        <Separator size="4" my="4" />
 
         <Box mb="2">
           <Switch
             label={
               <Text weight="medium" color="text-high">
-                Increase Bandit Exploration
+                Increase Bandit exploration
               </Text>
             }
             description="Shrink arm estimates toward a shared mean to facilitate model exploration."
             value={increaseBanditExploration}
             onChange={(v) => {
               form.setValue("increaseBanditExploration", v);
-              if (!v) {
+              if (v) {
+                const current = Number(form.getValues("priorSampleSize")) || 0;
+                if (current < 1) {
+                  form.setValue(
+                    "priorSampleSize",
+                    DEFAULT_PRIOR_ARM_SAMPLE_SIZE,
+                  );
+                }
+              } else {
                 form.setValue("priorSampleSize", 0);
               }
             }}
@@ -371,7 +392,7 @@ export default function ContextualBanditAnalysisMetricsModal({
             <Field
               {...form.register("priorSampleSize", { valueAsNumber: true })}
               type="number"
-              min={0}
+              min={1}
               step={1}
               style={{ width: 90 }}
             />
