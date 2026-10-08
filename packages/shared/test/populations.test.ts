@@ -6,6 +6,8 @@ import {
 import {
   getPopulationFactTableIds,
   getPopulationRuleViolations,
+  getPopulationStepsLabel,
+  getPopulationStepWindowLabel,
   MAX_POPULATION_FACT_TABLES,
   MAX_POPULATION_STEPS,
   type PopulationRuleFactTable,
@@ -89,6 +91,72 @@ describe("getPopulationFactTableIds", () => {
         step("ftb_orders"),
       ]),
     ).toEqual(["ftb_orders", "ftb_events"]);
+  });
+});
+
+describe("getPopulationStepWindowLabel", () => {
+  const settings = (
+    overrides: Partial<PopulationStep["windowSettings"]>,
+  ): PopulationStep["windowSettings"] => ({
+    ...step("ftb_events").windowSettings,
+    ...overrides,
+  });
+
+  it("returns an empty label when there is no window", () => {
+    expect(getPopulationStepWindowLabel(settings({ type: "" }))).toBe("");
+  });
+
+  it("describes a lookback window", () => {
+    expect(
+      getPopulationStepWindowLabel(
+        settings({ type: "lookback", windowValue: 30, windowUnit: "days" }),
+      ),
+    ).toBe("In the last 30 days");
+  });
+
+  it("describes a conversion window with singular units and a delay", () => {
+    expect(
+      getPopulationStepWindowLabel(
+        settings({
+          type: "conversion",
+          windowValue: 1,
+          windowUnit: "weeks",
+          delayValue: 2,
+          delayUnit: "hours",
+        }),
+      ),
+    ).toBe("Within 1 week of the previous step, after a delay of 2 hours");
+  });
+
+  it("omits a zero delay", () => {
+    expect(
+      getPopulationStepWindowLabel(
+        settings({ type: "conversion", windowValue: 7, windowUnit: "days" }),
+      ),
+    ).toBe("Within 7 days of the previous step");
+  });
+});
+
+describe("getPopulationStepsLabel", () => {
+  const names: Record<string, string> = {
+    ftb_events: "Events",
+    ftb_orders: "Orders",
+  };
+  const getName = (id: string) => names[id];
+
+  it("joins step fact table names in order", () => {
+    expect(
+      getPopulationStepsLabel(
+        [step("ftb_events"), step("ftb_orders"), step("ftb_events")],
+        getName,
+      ),
+    ).toBe("Events → Orders → Events");
+  });
+
+  it("falls back to the fact table id when the name is unknown", () => {
+    expect(
+      getPopulationStepsLabel([step("ftb_events"), step("ftb_gone")], getName),
+    ).toBe("Events → ftb_gone");
   });
 });
 

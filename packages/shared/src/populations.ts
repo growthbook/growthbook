@@ -30,6 +30,44 @@ export function getPopulationFactTableIds(steps: PopulationStep[]): string[] {
   return [...new Set(steps.map((step) => step.source.factTableId))];
 }
 
+// Falls back to the fact table id when the name is unknown, e.g. the fact
+// table was deleted or isn't visible in the current project.
+export function getPopulationStepsLabel(
+  steps: PopulationStep[],
+  getFactTableName: (factTableId: string) => string | undefined,
+): string {
+  return steps
+    .map(
+      (step) =>
+        getFactTableName(step.source.factTableId) || step.source.factTableId,
+    )
+    .join(" → ");
+}
+
+function formatDuration(value: number, unit: string): string {
+  return `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
+}
+
+// Returns "" when the step has no window.
+export function getPopulationStepWindowLabel({
+  type,
+  delayValue,
+  delayUnit,
+  windowValue,
+  windowUnit,
+}: PopulationStep["windowSettings"]): string {
+  if (type === "lookback") {
+    return `In the last ${formatDuration(windowValue, windowUnit)}`;
+  }
+  if (type === "conversion") {
+    const label = `Within ${formatDuration(windowValue, windowUnit)} of the previous step`;
+    return delayValue > 0
+      ? `${label}, after a delay of ${formatDuration(delayValue, delayUnit)}`
+      : label;
+  }
+  return "";
+}
+
 // Returns every violation so an editor can show them all at once.
 export function getPopulationRuleViolations({
   datasource,
