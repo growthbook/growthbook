@@ -178,6 +178,7 @@ export default class Presto extends SqlIntegration {
           [`X-${engineHeaderName}-Client-Info`]: getQueryTagString(
             queryMetadata,
             PRESTO_QUERY_TAG_MAX_LENGTH,
+            encodeURIComponent,
           ),
         },
         state: (_error, queryId) => {
