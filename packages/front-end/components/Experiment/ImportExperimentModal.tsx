@@ -4,9 +4,11 @@ import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
-import SelectField from "@/components/Forms/SelectField";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
+import { Select, SelectItem } from "@/ui/Select";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -90,27 +92,21 @@ const ImportExperimentModal: FC<{
   }
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="import-experiment"
       header="Import Experiment"
       open={true}
-      size="max"
+      size="xl"
       close={() => onClose()}
+      closeCta="Close"
     >
       <Callout status="info" mb="3">
         Don&apos;t see your experiment listed below?{" "}
-        <a
-          role="button"
-          className="link"
-          onClick={(e) => {
-            e.preventDefault();
-            setImportModal(false);
-          }}
-        >
-          Create From Scratch
-        </a>
+        <Link onClick={() => setImportModal(false)}>Create from scratch</Link>
       </Callout>
-      <h2>Import from Data source</h2>
+      <Heading as="h2" size="md" mb="3">
+        Import from Data Source
+      </Heading>
       {importId && (
         <ImportExperimentList
           key={importId}
@@ -126,19 +122,20 @@ const ImportExperimentModal: FC<{
           <Callout status="error" mb="3">
             {error}
           </Callout>
-          <SelectField
-            size="legacy"
+          <Select
             label="Choose a Data Source"
             value={datasourceId}
-            onChange={(value) => setDatasourceId(value)}
-            options={validDatasources.map((d) => ({
-              label: d.name,
-              value: d.id,
-            }))}
-          />
+            setValue={(value) => setDatasourceId(value)}
+          >
+            {validDatasources.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.name}
+              </SelectItem>
+            ))}
+          </Select>
         </>
       ) : null}
-    </Modal>
+    </ModalStandard>
   );
 };
 export default ImportExperimentModal;
