@@ -29,6 +29,7 @@ import MetricTypeSelect, {
   TYPE_LABELS,
 } from "@/components/FactTables/MetricEditor/MetricTypeSelect";
 import AdvancedSettings from "@/components/FactTables/MetricEditor/AdvancedSettings";
+import MetricSlices from "@/components/FactTables/MetricEditor/MetricSlices";
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
 import FunnelStepsDisplay from "@/components/FactTables/MetricEditor/FunnelStepsDisplay";
@@ -221,6 +222,10 @@ export default function MetricEditor({
 
   function changeFactTable(newFactTableId: string) {
     const newFactTable = getFactTableById(newFactTableId) ?? null;
+    // Slices are columns of the old fact table.
+    if (newFactTableId !== numerator.factTableId) {
+      form.setValue("metricAutoSlices", []);
+    }
     form.setValue(
       "numerator",
       onFactTableChange(numerator, newFactTable, {
@@ -468,6 +473,29 @@ export default function MetricEditor({
                 />
               ))}
 
+            {!isFunnel &&
+              (canEdit ? (
+                <Select
+                  label="Metric goal"
+                  value={form.watch("inverse") ? "1" : "0"}
+                  setValue={(v) => form.setValue("inverse", v === "1")}
+                >
+                  <SelectItem value="0">Increase the metric value</SelectItem>
+                  <SelectItem value="1">Decrease the metric value</SelectItem>
+                </Select>
+              ) : (
+                <DataList
+                  data={[
+                    {
+                      label: "Metric goal",
+                      value: form.watch("inverse")
+                        ? "Decrease the metric value"
+                        : "Increase the metric value",
+                    },
+                  ]}
+                />
+              ))}
+
             {windowOk(formType) &&
               (canEdit ? (
                 <MetricWindowSettingsForm
@@ -550,12 +578,10 @@ export default function MetricEditor({
           )}
         </Frame>
 
-        <AdvancedSettings
-          form={form}
-          formType={formType}
-          factTable={factTable}
-          canEdit={canEdit}
-        />
+        {!isFunnel && factTable && hasCommercialFeature("metric-slices") && (
+          <MetricSlices form={form} factTable={factTable} canEdit={canEdit} />
+        )}
+        <AdvancedSettings form={form} formType={formType} canEdit={canEdit} />
       </Flex>
 
       <Flex direction="column" gap="4">
