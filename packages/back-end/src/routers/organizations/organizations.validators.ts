@@ -40,20 +40,29 @@ export const putMemberProjectRoleValidator = z
 
 export const postApiKeyValidator = z.strictObject({
   type: z.string(),
+  // PATs only (type "user"): cap the token at this role and the scoping fields.
+  scopedRole: z.string().optional(),
   description: z.string().optional(),
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
   additionalRoles: z.array(roleRuleValidator).optional(),
+  // ISO string; null or absent means no expiration, subject to the org policy.
+  expiresAt: z.string().nullable().optional(),
 });
 
 export const putApiKeyValidator = z.strictObject({
-  role: z.string(),
+  // Org keys only
+  role: z.string().optional(),
+  // PATs only: same meaning as on create; omit to make the token unscoped.
+  scopedRole: z.string().optional(),
   description: z.string().optional(),
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
   additionalRoles: z.array(roleRuleValidator).optional(),
+  // Omitted leaves the expiry unchanged; null removes it where the policy allows.
+  expiresAt: z.string().nullable().optional(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({

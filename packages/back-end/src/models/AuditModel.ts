@@ -70,6 +70,35 @@ const toInterface: ToInterface<AuditInterface> = (doc) => {
   return audit;
 };
 
+export type AuditHistoryFilters = {
+  auditId?: string;
+  event?: string;
+  before?: Date;
+  excludeIds?: string[];
+};
+
+// Audits of one entity (or every entity of the type), matched as the entity itself or as its parent.
+function historyQuery(
+  organization: string,
+  side: "entity" | "parent",
+  type: EntityType,
+  id: string | undefined,
+  { auditId, event, before, excludeIds }: AuditHistoryFilters = {},
+): FilterQuery<AuditDocument> {
+  const idMatch = {
+    ...(id ? { $eq: id } : {}),
+    ...(excludeIds?.length ? { $nin: excludeIds } : {}),
+  };
+  return {
+    organization,
+    [`${side}.object`]: type,
+    ...(Object.keys(idMatch).length ? { [`${side}.id`]: idMatch } : {}),
+    ...(auditId ? { id: auditId } : {}),
+    ...(event ? { event } : {}),
+    ...(before ? { dateCreated: { $lt: before } } : {}),
+  };
+}
+
 export async function insertAudit(
   data: Omit<AuditInterface, "id">,
 ): Promise<AuditInterface> {
@@ -118,15 +147,10 @@ export async function findAuditByEntity(
   type: EntityType,
   id: string,
   options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
+  filters?: AuditHistoryFilters,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "entity.object": type,
-      "entity.id": id,
-      ...customFilter,
-    },
+    historyQuery(organization, "entity", type, id, filters),
     null,
     options,
   );
@@ -155,102 +179,45 @@ export async function findAuditByEntityList(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
-export async function findAuditByEntityParent(
-  organization: string,
-  type: EntityType,
-  id: string,
-  options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "parent.object": type,
-      "parent.id": id,
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
-
-export async function findAllAuditsByEntityType(
-  organization: string,
-  type: EntityType,
-  options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "entity.object": type,
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
-
-export async function findAllAuditsByEntityTypeParent(
-  organization: string,
-  type: EntityType,
-  options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "parent.object": type,
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
-
 export async function countAuditByEntity(
   organization: string,
   type: EntityType,
   id: string,
+  filters?: AuditHistoryFilters,
 ): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "entity.object": type,
-    "entity.id": id,
-  });
+  return await AuditModel.countDocuments(
+    historyQuery(organization, "entity", type, id, filters),
+  );
 }
 
-export async function countAuditByEntityParent(
+// A page of audits newest first, with the total that matches the filters on any page.
+export async function getAuditHistory(
   organization: string,
   type: EntityType,
-  id: string,
-): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "parent.object": type,
-    "parent.id": id,
-  });
-}
+  id: string | undefined,
+  limit: number,
+  filters: AuditHistoryFilters = {},
+) {
+  const countFilters = { ...filters, before: undefined };
+  const query = (side: "entity" | "parent", f: AuditHistoryFilters) =>
+    historyQuery(organization, side, type, id, f);
+  const page = { limit, sort: { dateCreated: -1 as const } };
 
-export async function countAllAuditsByEntityType(
-  organization: string,
-  type: EntityType,
-): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "entity.object": type,
-  });
-}
+  const [entityCount, parentCount, entityDocs, parentDocs] = await Promise.all([
+    AuditModel.countDocuments(query("entity", countFilters)),
+    AuditModel.countDocuments(query("parent", countFilters)),
+    AuditModel.find(query("entity", filters), null, page),
+    AuditModel.find(query("parent", filters), null, page),
+  ]);
 
-export async function countAllAuditsByEntityTypeParent(
-  organization: string,
-  type: EntityType,
-): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "parent.object": type,
-  });
+  const events = [...entityDocs, ...parentDocs]
+    .map((doc) => toInterface(doc))
+    .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime())
+    .slice(0, limit);
+
+  return {
+    events,
+    total: entityCount + parentCount,
+    nextCursor: events.length ? events[events.length - 1].dateCreated : null,
+  };
 }

@@ -526,7 +526,7 @@ export async function executeExperimentStart(
       // The job fires a start as its armer, so a stop derived here is theirs.
       nextScheduledStatusUpdate: withScheduledBy(
         nextScheduledStatusUpdate,
-        context,
+        context.armer,
       ),
     },
   });
@@ -706,7 +706,7 @@ export async function approveScheduledExperimentStart({
   const changes: Changeset = {
     nextScheduledStatusUpdate: withScheduledBy(
       { type: "start" as const, date: startAt },
-      context,
+      context.armer,
     ),
   };
   await validateExperimentChange({ context, experiment, changes });
