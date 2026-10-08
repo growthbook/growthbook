@@ -1,8 +1,10 @@
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   CreateFactMetricFormProps,
   formatDurationMilliseconds,
   formatDurationSeconds,
   fromFactMetricFormValues,
+  getDefaultFactMetricProps,
   getFactMetricTrackProps,
   validateFactMetricFormValues,
 } from "@/services/metrics";
@@ -416,5 +418,30 @@ describe("getFactMetricTrackProps", () => {
         "modal",
       ),
     ).toEqual({ type: "funnel", source: "get-started", flow: "modal" });
+  });
+});
+
+describe("getDefaultFactMetricProps datasource", () => {
+  const datasources = ["ds_default", "ds_page"].map(
+    (id) => ({ id, projects: [] }) as unknown as DataSourceInterfaceWithParams,
+  );
+  const settings = { defaultDataSource: "ds_default" };
+
+  it("starts on the requested data source instead of the org default", () => {
+    expect(
+      getDefaultFactMetricProps({
+        datasources,
+        settings,
+        metricDefaults: {},
+        initialDatasource: "ds_page",
+      }).datasource,
+    ).toBe("ds_page");
+  });
+
+  it("falls back to the org default when none is requested", () => {
+    expect(
+      getDefaultFactMetricProps({ datasources, settings, metricDefaults: {} })
+        .datasource,
+    ).toBe("ds_default");
   });
 });
