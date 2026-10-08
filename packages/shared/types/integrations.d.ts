@@ -643,7 +643,7 @@ export type PastExperimentParams = {
 
 export type PastExperimentQueryParams = {
   exposureQuery: ExposureQuery;
-  identifierType: string;
+  identifierTypes: string[];
   from: Date;
 };
 
@@ -698,6 +698,8 @@ export type PastExperimentResult = {
   mergeResults: boolean;
   experiments: {
     exposureQueryId: string;
+    /** Unset on results stored before every identifier was counted. */
+    identifierType?: string;
     experiment_id: string;
     experiment_name?: string;
     variation_id: string;
@@ -800,6 +802,7 @@ export type MetricAnalysisQueryResponseRows = MetricAnalysisQueryResponseRow[];
 
 export type PastExperimentResponseRows = {
   exposure_query: string;
+  identifier_type: string;
   experiment_id: string;
   experiment_name?: string;
   variation_id: string;

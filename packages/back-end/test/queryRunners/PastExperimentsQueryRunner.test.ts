@@ -75,6 +75,28 @@ describe("mergePastExperimentResults", () => {
     expect(experiments[0].weights).toEqual([0.45, 0.55]);
   });
 
+  it("keeps each identifier's counts in its own row", () => {
+    const counted = result("eq_1", "exp_1", false);
+    counted.experiments = [
+      { ...counted.experiments[0], identifierType: "anonymous_id", users: 300 },
+      { ...counted.experiments[0], identifierType: "user_id", users: 120 },
+    ];
+
+    const { experiments } = mergePastExperimentResults({
+      previous: {},
+      results: [counted],
+      exposureQueryIds: ["eq_1"],
+      runStarted,
+    });
+
+    expect(
+      experiments.map((e) => [e.trackingKey, e.identifierType, e.users]),
+    ).toEqual([
+      ["exp_1", "anonymous_id", 300],
+      ["exp_1", "user_id", 120],
+    ]);
+  });
+
   it("only changes the assignment queries that ran", () => {
     const skippedRun = {
       exposureQueryId: "eq_skipped",

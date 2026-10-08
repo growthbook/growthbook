@@ -1,5 +1,5 @@
 import { getValidDate } from "shared/dates";
-import { getPreferredIdentifierType } from "shared/util";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import {
   PastExperimentParams,
   PastExperimentResponseRows,
@@ -124,18 +124,22 @@ function aggregatePastExperiments(
   base: PastExperiment[],
   result: PastExperimentResult,
 ): PastExperiment[] {
-  // Group by experiment and exposureQuery
   const experimentMap = new Map<string, PastExperiment>();
+  const getKey = (
+    trackingKey: string,
+    exposureQueryId: string,
+    identifierType: string | undefined,
+  ) => `${trackingKey}::${exposureQueryId}::${identifierType ?? ""}`;
 
   base.forEach((e) => {
-    const key = e.trackingKey + "::" + e.exposureQueryId;
+    const key = getKey(e.trackingKey, e.exposureQueryId, e.identifierType);
     const mergeBase = cloneDeep(e);
     mergeBase.weights = getMergeReadyWeights(e);
     experimentMap.set(key, mergeBase);
   });
 
   result.experiments.forEach((e) => {
-    const key = e.experiment_id + "::" + e.exposureQueryId;
+    const key = getKey(e.experiment_id, e.exposureQueryId, e.identifierType);
     let el = experimentMap.get(key);
     if (!el) {
       el = {
@@ -145,6 +149,7 @@ function aggregatePastExperiments(
         variationKeys: [e.variation_id],
         variationNames: [e.variation_name || ""],
         exposureQueryId: e.exposureQueryId || "",
+        identifierType: e.identifierType,
         trackingKey: e.experiment_id,
         experimentName: e.experiment_name,
         users: e.users,
@@ -239,8 +244,8 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   async startQueries(params: PastExperimentParams): Promise<Queries> {
     const queries: Queries = [];
     for (const exposureQuery of this.getExposureQueries()) {
-      const identifierType = getPreferredIdentifierType(exposureQuery);
-      const identifierTypes = [identifierType];
+      const identifierTypes = getExposureQueryIdentifierTypes(exposureQuery);
+      if (!identifierTypes.length) continue;
       const watermark = params.forceRefresh
         ? null
         : getPastExperimentsWatermark(
@@ -254,7 +259,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
           name: `experiments_${exposureQuery.id}`,
           query: this.integration.getPastExperimentQuery({
             exposureQuery,
-            identifierType,
+            identifierTypes,
             from,
           }),
           dependencies: [],
@@ -367,6 +372,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
         }
         return {
           exposureQueryId: row.exposure_query,
+          identifierType: row.identifier_type,
           users: row.users,
           experiment_id: row.experiment_id,
           experiment_name: row.experiment_name,

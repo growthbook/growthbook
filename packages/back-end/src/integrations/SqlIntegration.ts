@@ -454,7 +454,7 @@ export default abstract class SqlIntegration
     return buildPastExperimentQuerySql(
       this.getSqlDialect(),
       params.exposureQuery,
-      params.identifierType,
+      params.identifierTypes,
       params.from,
       new Date(),
     );
@@ -474,6 +474,7 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         return {
           exposure_query: row.exposure_query,
+          identifier_type: row.identifier_type,
           experiment_id: row.experiment_id,
           experiment_name: row.experiment_name,
           variation_id: row.variation_id ?? "",

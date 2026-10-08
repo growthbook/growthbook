@@ -2,6 +2,8 @@ import { Queries } from "./query";
 
 export interface PastExperiment {
   exposureQueryId: string;
+  /** The identifier `users` and `weights` count. Unset on rows discovered before every identifier was counted. */
+  identifierType?: string;
   trackingKey: string;
   experimentName?: string;
   variationNames?: string[];

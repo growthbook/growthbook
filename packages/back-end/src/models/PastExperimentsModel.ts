@@ -19,6 +19,7 @@ const pastExperimentsSchema = new mongoose.Schema({
     {
       _id: false,
       trackingKey: String,
+      identifierType: String,
       experimentName: String,
       variationNames: [String],
       numVariations: Number,
