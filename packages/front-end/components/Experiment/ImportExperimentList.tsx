@@ -39,6 +39,19 @@ import Text from "@/ui/Text";
 
 const numberFormatter = new Intl.NumberFormat();
 
+function QueryNames({ queries }: { queries: { id: string; name: string }[] }) {
+  return (
+    <>
+      {queries.map((q, i) => (
+        <React.Fragment key={q.id}>
+          {i > 0 && (i === queries.length - 1 ? " and " : ", ")}
+          <strong>{q.name}</strong>
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
+
 const ImportExperimentList: FC<{
   onImport: (obj: Partial<ExperimentInterfaceStringDates>) => void;
   importId: string;
@@ -232,11 +245,11 @@ const ImportExperimentList: FC<{
   );
 
   // Queries the last refresh didn't run (no permission) or that failed. Records
-  // from before per-query discovery can't tell, so they get no notice.
+  // last refreshed before per-query discovery have no runs and can't tell.
   const lastRunQueries = data.experiments.queries;
   const staleQueries =
     status === "running" ||
-    !data.experiments.exposureQueryRuns ||
+    !data.experiments.exposureQueryRuns?.length ||
     !lastRunQueries.length
       ? []
       : inScopeQueries.filter(
@@ -247,6 +260,18 @@ const ImportExperimentList: FC<{
                 r.status === "succeeded",
             ),
         );
+  const staleLastRunAt =
+    staleQueries.length === 1
+      ? data.experiments.exposureQueryRuns?.find(
+          (r) => r.exposureQueryId === staleQueries[0].id,
+        )?.lastRunAt
+      : undefined;
+  const staleQueriesUserCantRun = datasource
+    ? staleQueries.filter(
+        (q) => !permissionsUtil.canRunPastExperimentQuery(q, datasource),
+      )
+    : [];
+
   const totalRows = dedupeFilter
     ? new Set(identifierRows.map((e) => e.trackingKey)).size
     : identifierRows.length;
@@ -390,24 +415,38 @@ const ImportExperimentList: FC<{
       )}
       {datasource && staleQueries.length > 0 && (
         <Callout status="warning" my="3">
-          {staleQueries.length === 1
-            ? "This assignment query wasn't included in the last refresh:"
-            : "These assignment queries weren't included in the last refresh:"}
-          <ul>
-            {staleQueries.map((q) => {
-              const lastRunAt = data.experiments.exposureQueryRuns?.find(
-                (r) => r.exposureQueryId === q.id,
-              )?.lastRunAt;
-              return (
-                <li key={q.id}>
-                  <strong>{q.name}</strong>
-                  {lastRunAt ? `, last refreshed ${date(lastRunAt)}.` : "."}
-                  {!permissionsUtil.canRunPastExperimentQuery(q, datasource) &&
-                    " Refreshing it requires permission to run queries in its Projects."}
-                </li>
-              );
-            })}
-          </ul>
+          <QueryNames queries={staleQueries} />{" "}
+          {staleQueries.length === 1 ? (
+            <>
+              wasn&apos;t included in the last refresh, so its results{" "}
+              {staleLastRunAt
+                ? `are from ${date(staleLastRunAt)}`
+                : "may be out of date"}
+              .
+            </>
+          ) : (
+            <>
+              weren&apos;t included in the last refresh, so their results may be
+              out of date.
+            </>
+          )}
+          {staleQueriesUserCantRun.length > 0 && (
+            <>
+              {" "}
+              Refreshing{" "}
+              {staleQueriesUserCantRun.length === staleQueries.length ? (
+                staleQueries.length === 1 ? (
+                  "it"
+                ) : (
+                  "them"
+                )
+              ) : (
+                <QueryNames queries={staleQueriesUserCantRun} />
+              )}{" "}
+              requires permission to run queries in{" "}
+              {staleQueriesUserCantRun.length === 1 ? "its" : "their"} Projects.
+            </>
+          )}
         </Callout>
       )}
       {totalRows === 0 && (
