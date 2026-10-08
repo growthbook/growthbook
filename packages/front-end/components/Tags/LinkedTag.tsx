@@ -19,8 +19,9 @@ export default function LinkedTag({
   ...tagProps
 }: Props) {
   const { getTagById } = useDefinitions();
-  const description =
-    tagProps.description ?? getTagById(tag)?.description ?? "";
+  const fullTag = getTagById(tag);
+  const description = tagProps.description ?? fullTag?.description ?? "";
+  const tagDisplayName = fullTag?.label ?? tag;
 
   const link = (
     <Link
@@ -30,14 +31,14 @@ export default function LinkedTag({
       onClick={onTagClick ? (e) => onTagClick(tag, e) : undefined}
       style={{ color: "inherit" }}
     >
-      {tag}
+      {tagDisplayName}
     </Link>
   );
 
   const tooltipContent = entity ? (
     <>
       <Box>
-        View other {entity} with the <strong>{tag}</strong> tag
+        View other {entity} with the <strong>{tagDisplayName}</strong> tag
       </Box>
       {description && <Box mt="2">{description}</Box>}
     </>
