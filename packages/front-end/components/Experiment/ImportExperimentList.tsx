@@ -654,8 +654,7 @@ const ImportExperimentList: FC<{
                 <SortableTH field="endDate">Date Ended</SortableTH>
                 <SortableTH field="numVariations">Variations</SortableTH>
                 <SortableTH field="users">
-                  Approx Units
-                  {identifierType !== null && ` (${identifierType})`}{" "}
+                  Approx Units{" "}
                   <Tooltip body="This count is approximate and does not de-duplicate units across days; therefore it is likely inflated. Once imported, the unit counts will be accurate." />
                 </SortableTH>
                 <th>Traffic Split</th>
