@@ -60,7 +60,7 @@ function OrganizationRow({
   current,
   switchTo,
   showExternalId,
-  showVerfiedDomain,
+  showVerifiedDomain,
   onEdit,
   ssoInfo,
   datasources,
@@ -69,7 +69,7 @@ function OrganizationRow({
   switchTo: (organization: OrganizationInterface) => void;
   current: boolean;
   showExternalId: boolean;
-  showVerfiedDomain: boolean;
+  showVerifiedDomain: boolean;
   onEdit: () => void;
   ssoInfo: SSOConnectionInterface | undefined;
   datasources: DataSourceInterface[];
@@ -222,7 +222,7 @@ function OrganizationRow({
         <td>
           <small>{organization.id}</small>
         </td>
-        {showVerfiedDomain && (
+        {showVerifiedDomain && (
           <td>
             <small>{organization.verifiedDomain}</small>
           </td>
@@ -780,7 +780,7 @@ const Admin: FC = () => {
                       (ds) => ds.organization === o.id,
                     )}
                     showExternalId={!isCloud()}
-                    showVerfiedDomain={isCloud()}
+                    showVerifiedDomain={isCloud()}
                     key={o.id}
                     current={o.id === orgId}
                     onEdit={() => {

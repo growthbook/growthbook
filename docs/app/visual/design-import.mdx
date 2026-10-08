@@ -2,7 +2,6 @@
 title: "Design to Variant: Import from Figma or Image"
 description: Turn a Figma frame or a mockup image into a testable A/B variation that GrowthBook rebuilds and injects into the live page.
 sidebarTitle: Figma & image import
-slug: /app/visual/design-import
 ---
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
@@ -10,9 +9,9 @@ import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 <CommercialFeature feature="visual-editor" />
 
 <Info>
-**Beta**
+**Review generated variations**
 
-**Design → Variant** is in beta. Generated results can vary, so always review the variation before you save it. It also needs an up-to-date GrowthBook server and a configured vision-capable AI model — if your instance hasn't enabled it yet, the panel will say so and you can fall back to a mockup image (or ask an admin to update the server).
+Generated results can vary, so always review the variation before you save it. Design → Variant also needs an up-to-date GrowthBook server and a configured vision-capable AI model. If your instance hasn't enabled it yet, the panel will say so and you can fall back to a mockup image (or ask an admin to update the server).
 
 </Info>
 
@@ -28,7 +27,7 @@ This is the fastest way to test a design your team already mocked up — a new h
 
 ## Open the importer
 
-1. Install and connect the [Visual Editor](/app/visual/install-and-connect) and open the side panel on the page you want to test.
+1. Install and connect the [AI Visual Editor](/app/visual/install-and-connect) and open the side panel on the page you want to test.
 2. In **AI mode**, click **Import from Figma or a mockup**. The **Design → Variant** panel opens.
 
 ## 1. Choose a source
@@ -66,7 +65,7 @@ The AI builds the component and previews it live on the page. Review it, then **
 <Tip>
 **Review before you save**
 
-This is the beta caveat in practice: the AI reproduces the design as faithfully as it can, but fonts, spacing, and imagery can differ from the source. Treat the output as a strong first draft, eyeball it on the real page, and tweak with [Manual mode](/app/visual/manual-mode) or [global CSS](/app/visual/manual-mode) if needed before saving.
+The AI reproduces the design as faithfully as it can, but fonts, spacing, and imagery can differ from the source. Treat the output as a strong first draft, eyeball it on the real page, and tweak with [Manual mode](/app/visual/manual-mode) or [global CSS](/app/visual/manual-mode) if needed before saving.
 
 </Tip>
 
@@ -88,8 +87,8 @@ The AI reproduces **layout, typography, spacing, and color** from the design. Fo
 
 - **One component per generation.** Design → Variant produces a single scoped component, not a multi-section page.
 - **Too-large designs are declined.** If the frame is a full page or a large multi-section layout, the AI returns a message explaining it's too large instead of producing a partial result. Target a smaller container.
-- **Results vary (beta).** Always preview and adjust before saving.
-- **Needs a vision-capable AI model.** Your org must have a vision-capable model configured in [AI Settings](/integrations/ai) (e.g. Gemini, GPT-4o/5, or Claude). Admins can set the model used for the Visual Editor there.
+- **Results vary.** Always preview and adjust before saving.
+- **Needs a vision-capable AI model.** Your org must have a vision-capable model configured in [AI Settings](/integrations/ai) (e.g. Gemini, GPT-4o/5, or Claude). Admins can set the model used for the AI Visual Editor there.
 
 ## Next steps
 

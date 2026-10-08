@@ -185,7 +185,8 @@ export type AIChatMention = {
   stale?: boolean;
 };
 
-export type SkillKind = "domain" | "leaf";
+/** `file` is any other text file in a skill's folder: loadable by path, never listed. */
+export type SkillKind = "domain" | "leaf" | "file";
 
 /** Skill index entry for the `/` menu. Omits the prompt body — the agent loads that. */
 export interface SkillSummary {
@@ -194,7 +195,12 @@ export interface SkillSummary {
   kind: SkillKind;
   /** Parent domain for leaf skills; same as `name` for domain routers. */
   group?: string;
+  /** Loaded from a self-hosted install's `AGENT_SKILLS_DIR`. */
+  custom?: boolean;
 }
+
+/** A skill as `GET /agent/skills` returns it, with whether the org has it on. */
+export type OrgSkillSummary = SkillSummary & { enabled: boolean };
 
 export type AIChatUserMessage = {
   role: "user";

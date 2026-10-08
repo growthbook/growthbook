@@ -31,7 +31,9 @@ import {
   parseSliceMetricId,
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
+  isAutoSnapshotScheduled,
   ExperimentMetricInterface,
+  withScheduledBy,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -3006,5 +3008,41 @@ describe("conditional inline filter prompts", () => {
         reconcileInlineFilterPrompts(factTable, [pageView], [pageView]),
       ).toEqual([pageView]);
     });
+  });
+});
+
+describe("isAutoSnapshotScheduled", () => {
+  const on = {
+    autoSnapshots: true,
+    disableAutoSnapshots: false,
+    archived: false,
+  };
+
+  it("is scheduled only when every flag allows it", () => {
+    expect(isAutoSnapshotScheduled(on)).toBe(true);
+    expect(isAutoSnapshotScheduled({ ...on, autoSnapshots: false })).toBe(
+      false,
+    );
+    expect(isAutoSnapshotScheduled({ ...on, disableAutoSnapshots: true })).toBe(
+      false,
+    );
+    expect(isAutoSnapshotScheduled({ ...on, archived: true })).toBe(false);
+  });
+
+  it("treats a missing user override as not disabled", () => {
+    expect(
+      isAutoSnapshotScheduled({ autoSnapshots: true, archived: false }),
+    ).toBe(true);
+  });
+});
+
+describe("withScheduledBy", () => {
+  const staged = { type: "start" as const, date: new Date(0) };
+  it.each([
+    ["a user", { userId: "u_1", apiKey: "key_1" }, { scheduledBy: "u_1" }],
+    ["a key", { apiKey: "key_1" }, { scheduledByApiKey: "key_1" }],
+    ["nobody", undefined, staged],
+  ])("stamps %s", (_who, by, expected) => {
+    expect(withScheduledBy(staged, by)).toEqual({ ...staged, ...expected });
   });
 });

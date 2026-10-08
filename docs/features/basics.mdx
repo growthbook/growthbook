@@ -2,7 +2,6 @@
 title: Feature Flag Fundamentals
 description: "How feature flags work in GrowthBook: keys, values, environments, targeting rules, and default values."
 sidebarTitle: Fundamentals
-slug: /features/basics
 ---
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
@@ -25,6 +24,8 @@ Feature keys must only include letters, numbers, hyphens (-), and underscores (\
 ## Feature State
 
 Feature flags can be enabled or disabled. When a flag is disabled, GrowthBook excludes the feature from the API response. The feature evaluates to `null` and ignores all targeting and rules. In your app, the SDK will render the feature with the fallback value.
+
+You can enable or disable a flag from the feature page, or automate it (for example, from a deploy script) with the [toggle feature endpoint](/api/features-v2/operation/toggleFeatureV2), which switches a flag on or off in one or more environments.
 
 Here's an example from the JavaScript SDK:
 
@@ -52,6 +53,12 @@ Features can be a simple ON/OFF flag or a more complex data type (string, number
 **JSON** flags also support JSON Schema validation, which lets you enforce the structure of the value before it reaches your application.
 
 <CommercialFeature feature="json-validation" />
+
+A **JSON** flag can also be **backed by a [Config](/features/configs)** — a reusable, typed, composable object shape you define once and enforce on every flag that uses it. Reach for one when many flags share the same structured value; changing the config updates them all. See [Configs](/features/configs) for details.
+
+<CommercialFeature feature="feature-configs" />
+
+**Reusable values.** A **string** or **JSON** flag value can reference a [**Constant**](/features/constants) — a named value (with optional per-environment overrides) defined once and resolved into the value when the SDK payload is built. See [Constants](/features/constants).
 
 ## Default Values
 

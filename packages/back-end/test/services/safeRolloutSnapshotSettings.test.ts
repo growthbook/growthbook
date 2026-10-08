@@ -1,7 +1,25 @@
 import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import { DataSourceInterface } from "shared/types/datasource";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { getSafeRolloutSnapshotSettings } from "back-end/src/services/safeRolloutSnapshots";
+import {
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
+} from "shared/types/safe-rollout";
+import { ReqContext } from "back-end/types/request";
+import {
+  _createSafeRolloutSnapshot,
+  getSafeRolloutSnapshotSettings,
+  getSnapshotSettingsFromSafeRolloutArgs,
+} from "back-end/src/services/safeRolloutSnapshots";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+
+jest.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: jest.fn(),
+}));
 
 // Helper to construct a minimal SafeRollout suitable for snapshot-settings
 // generation. The function under test only reads a small slice of the
@@ -128,5 +146,138 @@ describe("getSafeRolloutSnapshotSettings — variation arm mapping", () => {
 
     expect(v1.experimentId).toBe("my-tracking-key");
     expect(v2.experimentId).toBe("ramp_rs_1");
+  });
+});
+
+describe("getSafeRolloutSnapshotSettings — metric joinability", () => {
+  it("scrubs metrics against the chosen identifier, not the query's first", () => {
+    const multiIdDatasource = {
+      id: "ds_1",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_1",
+              name: "Multi",
+              userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id", "user_id"],
+              query: "",
+              dimensions: [],
+            },
+          ],
+        },
+      },
+    } as unknown as DataSourceInterface;
+    const metricMap = new Map(
+      [
+        { id: "met_user", userIdTypes: ["user_id"] },
+        { id: "met_anon", userIdTypes: ["anonymous_id"] },
+      ].map((m) => [
+        m.id,
+        {
+          ...m,
+          datasource: "ds_1",
+          type: "binomial",
+          cappingSettings: { type: "", value: 0 },
+          windowSettings: {},
+        } as never,
+      ]),
+    );
+
+    const settings = getSafeRolloutSnapshotSettings({
+      safeRollout: makeSafeRollout({
+        exposureQueryIdentifierType: "user_id",
+        guardrailMetricIds: ["met_user", "met_anon"],
+      }),
+      trackingKey: "feat_1",
+      settings: defaultAnalysisSettings,
+      orgPriorSettings: undefined,
+      settingsForSnapshotMetrics: [],
+      metricMap,
+      factTableMap: new Map(),
+      metricGroups: [],
+      datasource: multiIdDatasource,
+    });
+
+    expect(settings.guardrailMetrics).toEqual(["met_user"]);
+    expect(settings.exposureQueryIdentifierType).toBe("user_id");
+  });
+});
+
+describe("getSnapshotSettingsFromSafeRolloutArgs", () => {
+  it("passes the stored identifier to the settings the queries run on", () => {
+    const { snapshotSettings } = getSnapshotSettingsFromSafeRolloutArgs({
+      settings: {
+        datasourceId: "ds_1",
+        exposureQueryId: "exposure_1",
+        exposureQueryIdentifierType: "user_id",
+        experimentId: "sr_1",
+        startDate: new Date("2026-01-02T00:00:00Z"),
+        metricSettings: [],
+        guardrailMetrics: [],
+        variations: [],
+      },
+      analyses: [{ settings: {} }],
+    } as unknown as SafeRolloutSnapshotInterface);
+
+    expect(snapshotSettings.exposureQueryIdentifierType).toBe("user_id");
+  });
+});
+
+describe("_createSafeRolloutSnapshot", () => {
+  it("refuses an identifier the query no longer declares without inserting a snapshot", async () => {
+    (getFeature as jest.Mock).mockResolvedValue({
+      id: "feat_1",
+      environmentSettings: {},
+      rules: [],
+    });
+    (getDataSourceById as jest.Mock).mockResolvedValue({
+      id: "ds_1",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_1",
+              name: "Legacy",
+              userIdType: "anonymous_id",
+              userIdTypes: ["user_id"],
+              query: "",
+              dimensions: [],
+            },
+          ],
+        },
+      },
+    });
+    const update = jest.fn();
+    const create = jest.fn();
+    const context = {
+      org: { id: "org_1", settings: {} },
+      models: {
+        metricGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        safeRollout: { update },
+        safeRolloutSnapshots: { create },
+      },
+    } as unknown as ReqContext;
+
+    await expect(
+      _createSafeRolloutSnapshot({
+        context,
+        safeRollout: makeSafeRollout({ trackingKey: "feat_1" }),
+        triggeredBy: "schedule",
+        defaultAnalysisSettings,
+        settingsForSnapshotMetrics: [],
+        metricMap: new Map(),
+        factTableMap: new Map(),
+      }),
+    ).rejects.toThrow(
+      'Assignment query "Legacy" no longer declares the "anonymous_id" identifier type',
+    );
+
+    expect(create).not.toHaveBeenCalled();
+    // The schedule still advances, so the job retries next window, not next minute.
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "sr_1" }),
+      expect.objectContaining({ nextSnapshotAttempt: expect.any(Date) }),
+    );
   });
 });

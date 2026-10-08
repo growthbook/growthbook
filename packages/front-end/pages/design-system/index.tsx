@@ -11,6 +11,9 @@ import BadgeStories from "@/ui/Badge.stories";
 import BreadcrumbsStories from "@/ui/Breadcrumbs.stories";
 import ButtonStories from "@/ui/Button.stories";
 import CalloutStories from "@/ui/Callout.stories";
+import ColumnResizeHandleStories from "@/ui/ColumnResizeHandle.stories";
+import ColumnSettingsStories from "@/ui/ColumnSettings.stories";
+import ColumnSettingsButtonStories from "@/ui/ColumnSettingsButton.stories";
 import CheckboxStories from "@/ui/Checkbox.stories";
 import DataListStories from "@/ui/DataList.stories";
 import DatePickerStories from "@/ui/DatePicker.stories";
@@ -75,6 +78,12 @@ export default function DesignSystemPage() {
     { name: "Breadcrumbs", Stories: BreadcrumbsStories },
     { name: "Button", Stories: ButtonStories },
     { name: "Callout", Stories: CalloutStories },
+    { name: "ColumnResizeHandle", Stories: ColumnResizeHandleStories },
+    { name: "ColumnSettings", Stories: ColumnSettingsStories },
+    {
+      name: "ColumnSettingsButton",
+      Stories: ColumnSettingsButtonStories,
+    },
     { name: "Checkbox", Stories: CheckboxStories },
     { name: "DataList", Stories: DataListStories },
     { name: "DatePicker", Stories: DatePickerStories },

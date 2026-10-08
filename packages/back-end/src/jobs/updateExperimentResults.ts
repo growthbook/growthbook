@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
+import { isAutoSnapshotScheduled } from "shared/experiments";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -77,7 +78,7 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const updateResultsJob = agenda.create(QUEUE_EXPERIMENT_UPDATES, {});
     updateResultsJob.unique({});
-    updateResultsJob.repeatEvery("10 minutes");
+    updateResultsJob.repeatEvery("5 minutes");
     await updateResultsJob.save();
   }
 
@@ -99,7 +100,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
+export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
 
@@ -110,7 +111,8 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const { org: organization } = context;
 
   const experiment = await getExperimentById(context, experimentId);
-  if (!experiment) return;
+  // Check if it is scheduled again because it might have changed between queued and now
+  if (!experiment || !isAutoSnapshotScheduled(experiment)) return;
 
   let project = null;
   if (experiment.project) {
@@ -143,7 +145,9 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       experiment.datasource || "",
     );
     if (!datasource) {
-      throw new Error("Error refreshing experiment, could not find datasource");
+      throw new UnrecoverableSnapshotError(
+        "Error refreshing experiment, could not find datasource",
+      );
     }
 
     const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =

@@ -70,7 +70,11 @@ async function applySnapshotCancel(
     case "none":
       return "unchanged";
     case "delete":
-      if (await deleteSnapshotIfRunning(context, id)) return "deleted";
+      if (
+        await deleteSnapshotIfRunning(context, id, { concludedBy: "cancel" })
+      ) {
+        return "deleted";
+      }
       break;
     case "conclude":
       if (
@@ -79,6 +83,7 @@ async function applySnapshotCancel(
           id,
           { queries, error: SNAPSHOT_CANCELLED_ERROR },
           "cancelled",
+          { concludedBy: "cancel" },
         )
       ) {
         return "concluded";

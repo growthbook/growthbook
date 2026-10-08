@@ -376,6 +376,11 @@ export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 // /v1beta/models to find an ID your account has access to and override.
 export const GEMINI_IMAGE_MODEL =
   process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+
+// Self-hosted only: extra AI Assistant skills, layered over the built-ins.
+export const AGENT_SKILLS_DIR = IS_CLOUD
+  ? ""
+  : process.env.AGENT_SKILLS_DIR || "";
 // Kraken.io credentials — AI-generated images are resized + re-encoded to
 // WebP via the Kraken API instead of any in-process codec (sharp/wasm-vips),
 // which proved unreliable in production. When unset, optimization is skipped

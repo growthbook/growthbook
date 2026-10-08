@@ -6,6 +6,7 @@ import {
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 
 export async function removeTagInAttribute(
   context: ReqContext,
@@ -75,7 +76,7 @@ function getChangedAttributeKeys(
 }
 
 export function assertRegisteredAttributes(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   parts: AttributeParts,
   label: string,
   existingParts?: AttributeParts,

@@ -29,7 +29,11 @@ import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResul
 import Button from "@/ui/Button";
 import { SelectItem } from "@/ui/Select";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { formatSql, canFormatSql } from "@/services/sqlFormatter";
+import {
+  formatSql,
+  canFormatSql,
+  getFormatSqlShortcutLabel,
+} from "@/services/sqlFormatter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   Panel,
@@ -591,8 +595,10 @@ export default function SqlExplorerModal({
     }
   }, [form, runQuery]);
 
-  const handleFormatClick = () => {
-    const result = formatSql(form.watch("sql"), datasource?.type);
+  const handleFormat = () => {
+    const sql = form.watch("sql");
+    if (!sql || !canFormat || readOnlyMode) return;
+    const result = formatSql(sql, datasource?.type);
     if (result.error) {
       setFormatError(result.error);
     } else if (result.formattedSql) {
@@ -973,16 +979,20 @@ export default function SqlExplorerModal({
                                         </span>
                                       </Tooltip>
                                     )}
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={handleFormatClick}
-                                      disabled={
-                                        !form.watch("sql") || !canFormat
-                                      }
+                                    <Tooltip
+                                      body={`Format SQL (${getFormatSqlShortcutLabel()})`}
                                     >
-                                      Format
-                                    </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={handleFormat}
+                                        disabled={
+                                          !form.watch("sql") || !canFormat
+                                        }
+                                      >
+                                        Format
+                                      </Button>
+                                    </Tooltip>
                                     <Tooltip
                                       body="Select a Data Source to run your query"
                                       shouldDisplay={
@@ -1048,6 +1058,7 @@ export default function SqlExplorerModal({
                               fullHeight
                               setCursorData={setCursorData}
                               onCtrlEnter={handleQuery}
+                              onFormatShortcut={handleFormat}
                               disabled={readOnlyMode}
                               completions={autoCompletions}
                             />

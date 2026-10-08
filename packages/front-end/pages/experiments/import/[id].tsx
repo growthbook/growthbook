@@ -26,7 +26,11 @@ const ImportPage: FC = () => {
       )}
       <h2>Import Experiments</h2>
       {importId && (
-        <ImportExperimentList onImport={setCreate} importId={importId} />
+        <ImportExperimentList
+          key={importId}
+          onImport={setCreate}
+          importId={importId}
+        />
       )}
     </div>
   );

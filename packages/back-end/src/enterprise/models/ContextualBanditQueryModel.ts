@@ -2,12 +2,12 @@ import {
   ApiContextualBanditQueryInterface,
   assertExposureQueriesTargetingAttributeColumnsValid,
   ContextualBanditQueryInterface,
+  contextualBanditQueryApiSpec,
   contextualBanditQueryValidator,
 } from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
-import { contextualBanditQueryApiSpec } from "back-end/src/api/specs/contextual-bandit-query.spec";
 
 const BaseClass = MakeModelClass({
   schema: contextualBanditQueryValidator,

@@ -200,6 +200,8 @@ export interface SearchReturn<T> {
     className?: string;
     children: ReactNode;
     style?: React.CSSProperties;
+    /** Rendered as a sibling of the sort target, e.g. a resize handle. */
+    endAdornment?: ReactNode;
   }>;
   page: number;
   resetPage: () => void;
@@ -490,7 +492,9 @@ export function useSearch<T extends { id: string }>({
       className?: string;
       children: ReactNode;
       style?: React.CSSProperties;
-    }> = ({ children, field, className, style }) => {
+      /** Rendered as a sibling of the sort target, e.g. a resize handle. */
+      endAdornment?: ReactNode;
+    }> = ({ children, field, className, style, endAdornment }) => {
       const showSortDirection = !isRelevanceSortActive && sort.field === field;
 
       return (
@@ -522,6 +526,7 @@ export function useSearch<T extends { id: string }>({
               )}
             </a>
           </span>
+          {endAdornment}
         </TableColumnHeader>
       );
     };

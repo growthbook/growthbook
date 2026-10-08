@@ -4,7 +4,7 @@ import {
   apiCreateCustomFieldBody,
   apiUpdateCustomFieldBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const apiDeleteCustomFieldValidator = {
   paramsSchema: z.object({ id: z.string() }).strict(),

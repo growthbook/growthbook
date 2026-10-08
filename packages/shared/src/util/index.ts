@@ -33,6 +33,8 @@ import {
 
 export * from "./strings";
 export * from "./units-query-settings";
+export * from "./exposure-queries";
+export * from "./ramp-monitoring";
 export * from "./event-forwarder-destination";
 export * from "./features";
 export * from "./featureHealth";
@@ -649,12 +651,34 @@ export const recursiveWalk = (object: any, onNode: NodeHandler) => {
   if (object === null || typeof object !== "object") {
     return;
   }
-  // If currently walking over an object or array, iterate the entries and call onNode before recurring
-  Object.entries(object).forEach((node) => {
-    onNode(node, object);
-    // Recompute the reference for the recursive call as the key may have changed
-    recursiveWalk(object[node[0]], onNode);
-  });
+  // Array indices are never operators, so only items that hold keys are
+  // walked; an inlined ID list costs no handler calls.
+  if (Array.isArray(object)) {
+    for (const item of object) {
+      if (item !== null && typeof item === "object") {
+        recursiveWalk(item, onNode);
+      }
+    }
+    return;
+  }
+  // The value each key held when it was walked. A handler may re-home values
+  // under a key this pass has not seen, or replace one it has, e.g. rewriting
+  // `$savedGroups` moves its siblings into a new `$and`; both get walked.
+  const walked = new Map<string, unknown>();
+  let pending = Object.keys(object);
+  while (pending.length) {
+    for (const key of pending) {
+      // An earlier handler in this pass may have moved it
+      if (!(key in object)) continue;
+      onNode([key, object[key]], object);
+      walked.set(key, object[key]);
+      // Recompute the reference for the recursive call as the key may have changed
+      recursiveWalk(object[key], onNode);
+    }
+    pending = Object.keys(object).filter(
+      (key) => !walked.has(key) || !Object.is(walked.get(key), object[key]),
+    );
+  }
 };
 
 export function truncateString(s: string, numChars: number) {
@@ -752,6 +776,33 @@ export function ratioVarianceFromSums({
   );
 }
 
+// Targeting names a saved group in its condition, its saved-group list, or a
+// prerequisite's condition; all three reach the SDK payload. Conditions hold
+// the id as a JSON string, so match it quoted and not as a bare substring.
+export function targetingReferencesSavedGroup(
+  targeting: {
+    condition?: string | null;
+    savedGroups?: { ids: string[] }[] | null;
+    prerequisites?: { condition?: string | null }[] | null;
+  },
+  savedGroupId: string,
+): boolean {
+  const quoted = `"${savedGroupId}"`;
+  return (
+    !!targeting.condition?.includes(quoted) ||
+    !!targeting.savedGroups?.some((g) => g.ids.includes(savedGroupId)) ||
+    !!targeting.prerequisites?.some((p) => p.condition?.includes(quoted))
+  );
+}
+
+// A stopped bandit's rule leaves the payload for good; until then its
+// targeting is served on its linked features, archived or not.
+export function contextualBanditTargetingServes(cb: {
+  status: string;
+}): boolean {
+  return cb.status !== "stopped";
+}
+
 export function featuresReferencingSavedGroups({
   savedGroups,
   features,
@@ -766,14 +817,17 @@ export function featuresReferencingSavedGroups({
     savedGroups.forEach((savedGroup) => {
       const matches = getMatchingRules(
         feature,
-        (rule) =>
-          rule.condition?.includes(savedGroup.id) ||
-          rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false,
+        (rule) => targetingReferencesSavedGroup(rule, savedGroup.id),
         environments.map((e) => e.id),
       );
 
-      if (matches.length > 0) {
+      if (
+        matches.length > 0 ||
+        targetingReferencesSavedGroup(
+          { prerequisites: feature.prerequisites },
+          savedGroup.id,
+        )
+      ) {
         referenceMap[savedGroup.id] ||= [];
         referenceMap[savedGroup.id].push(feature);
       }
@@ -795,11 +849,8 @@ export function experimentsReferencingSavedGroups({
   > = {};
   savedGroups.forEach((savedGroup) => {
     experiments.forEach((experiment) => {
-      const matchingPhases = experiment.phases.filter(
-        (phase) =>
-          phase.condition?.includes(savedGroup.id) ||
-          phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false,
+      const matchingPhases = experiment.phases.filter((phase) =>
+        targetingReferencesSavedGroup(phase, savedGroup.id),
       );
 
       if (matchingPhases.length > 0) {

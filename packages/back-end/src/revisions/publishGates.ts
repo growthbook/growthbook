@@ -1,6 +1,6 @@
 import { isBypassApprovalPermission } from "shared/permissions";
 import type { Permission } from "shared/types/organization";
-import { bypassViaValues } from "shared/validators";
+import { bypassViaValues, CustomHookErrorDetail } from "shared/validators";
 import {
   canUseRestApiBypassSetting,
   type ReviewBypassRequest,
@@ -174,7 +174,7 @@ const LOCKDOWN_GATE_TYPES: ReadonlySet<string> = new Set([
  */
 export function hookResultsToGates(
   results: {
-    hardErrors: string[];
+    hardErrors: CustomHookErrorDetail[];
     warnings: string[];
   },
   bypassPermission: Permission,
@@ -186,7 +186,16 @@ export function hookResultsToGates(
       severity: "blocker",
       messages: [
         "A custom validation hook rejected this publish:",
-        ...results.hardErrors,
+        ...results.hardErrors.map((e) =>
+          [
+            e.rejected
+              ? e.message
+              : `${e.hookName} failed: ${e.stack ?? e.message}`,
+            e.log,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        ),
       ],
       override: "skipHooks",
       requiresPermission: bypassPermission,

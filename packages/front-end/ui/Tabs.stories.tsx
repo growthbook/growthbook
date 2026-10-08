@@ -9,7 +9,7 @@ export default function TabsStories() {
   return (
     <Flex direction="column" gap="3">
       <Box>
-        Uncontrolled tabs with persistance in the URL
+        Uncontrolled tabs with persistence in the URL
         <Tabs defaultValue="tab1" persistInURL={true}>
           <TabsList>
             <TabsTrigger value="tab1">

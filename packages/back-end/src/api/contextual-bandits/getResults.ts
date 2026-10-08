@@ -1,4 +1,4 @@
-import { getContextualBanditResultsValidator } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import {
   buildContextualBanditResultsView,
   computeOverallVariationWeights,
@@ -10,7 +10,7 @@ import { getMeasurementArmResultsSummary } from "back-end/src/enterprise/service
 import { loadContextualBanditForRead } from "./_shared";
 
 export const getContextualBanditResults = createApiRequestHandler(
-  getContextualBanditResultsValidator,
+  contextualBanditEndpoints.getContextualBanditResults,
 )(async (req) => {
   const { contextualBandit } = await loadContextualBanditForRead(
     req.context,

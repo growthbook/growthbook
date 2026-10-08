@@ -22,7 +22,7 @@ jest.mock("back-end/src/models/SlackIntegrationModel", () => ({
   removeEnvironmentFromSlackIntegration: jest.fn(),
 }));
 
-describe("environements API", () => {
+describe("environments API", () => {
   const { app, auditMock, setReqContext } = setupApp();
 
   afterEach(async () => {
@@ -702,7 +702,9 @@ describe("environements API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ message: "Environment ID cannot empty!" });
+    expect(response.body).toEqual({
+      message: "Environment ID cannot be empty!",
+    });
     expect(updateOrganization).not.toHaveBeenCalled();
     expect(auditMock).not.toHaveBeenCalled();
   });

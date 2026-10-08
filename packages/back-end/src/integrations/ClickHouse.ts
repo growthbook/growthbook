@@ -20,7 +20,6 @@ import {
   ManagedWarehouseOutOfMemoryError,
   ManagedWarehousePendingError,
 } from "shared/util";
-import { SqlDialect } from "shared/types/sql";
 import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
@@ -28,7 +27,6 @@ import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseC
 import { logger } from "back-end/src/util/logger";
 import { metrics } from "back-end/src/util/metrics";
 import SqlIntegration from "./SqlIntegration";
-import { clickHouseDialect } from "./dialects/clickhouse";
 
 // Matches ClickHouse DateTime/DateTime64 column types with no explicit
 // timezone argument (e.g. "DateTime", "DateTime64(3)", "Nullable(DateTime64(3))").
@@ -83,9 +81,6 @@ export default class ClickHouse extends SqlIntegration {
       this.params.url = this.params.host;
       delete this.params.host;
     }
-  }
-  getSqlDialect(): SqlDialect {
-    return clickHouseDialect;
   }
 
   async testConnection(): Promise<boolean> {

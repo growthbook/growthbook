@@ -1,7 +1,7 @@
 import {
+  buildRowFilterWhereClause,
   expandVirtualColumnsInSql,
   getFactTableTimestampColumn,
-  getRowFilterSQL,
 } from "shared/experiments";
 import {
   FactFilterTestResults,
@@ -10,7 +10,6 @@ import {
   RowFilterTestResults,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
-import type { SqlDialect } from "shared/types/sql";
 import { ReqContext } from "back-end/types/request";
 import {
   getSourceIntegrationObject,
@@ -89,54 +88,6 @@ export async function runFactTableTestQuery(
   } catch (e) {
     return { sql, error: e.message };
   }
-}
-
-export function buildRowFilterWhereClause({
-  rowFilters,
-  factTable,
-  dialect,
-}: {
-  rowFilters: RowFilter[];
-  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
-  dialect: Pick<
-    SqlDialect,
-    | "jsonExtract"
-    | "escapeStringLiteral"
-    | "stringMatch"
-    | "evalBoolean"
-    | "castToTimestamp"
-    | "identifierQuote"
-  >;
-}): string {
-  const where: string[] = [];
-  rowFilters.forEach((rowFilter) => {
-    const sql = getRowFilterSQL({
-      rowFilter,
-      factTable,
-      jsonExtract: dialect.jsonExtract,
-      escapeStringLiteral: dialect.escapeStringLiteral,
-      stringMatch: dialect.stringMatch,
-      evalBoolean: dialect.evalBoolean,
-      castToTimestamp: dialect.castToTimestamp,
-      identifierQuote: dialect.identifierQuote,
-    });
-
-    // Incomplete/deleted filters would silently widen the preview.
-    if (sql === null) {
-      if (rowFilter.operator === "saved_filter") {
-        throw new Error(
-          `Saved Filter "${rowFilter.values?.[0]}" no longer exists. Remove it from the row filters to preview rows.`,
-        );
-      }
-      throw new Error(
-        `The row filter on "${rowFilter.column || rowFilter.operator}" is incomplete and cannot be previewed.`,
-      );
-    }
-
-    where.push(sql);
-  });
-
-  return where.join("\n  AND ");
 }
 
 export async function testFilterQuery(

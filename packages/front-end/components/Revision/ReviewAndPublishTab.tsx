@@ -41,7 +41,8 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
-import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
+import ErrorDisplay from "@/ui/ErrorDisplay";
+import { getErrorDetails } from "@/services/apiCallError";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import PermissionBlocker from "@/ui/PermissionBlocker";
@@ -327,6 +328,13 @@ function ReviewAndPublishRevision<T>({
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitErrorDetails, setSubmitErrorDetails] = useState<string | null>(
+    null,
+  );
+  const failSubmit = (e: unknown, fallback: string) => {
+    setSubmitError((e as Error).message || fallback);
+    setSubmitErrorDetails(getErrorDetails(e));
+  };
   const [adminPublish, setAdminPublish] = useState(false);
   const [showFixConflicts, setShowFixConflicts] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -738,7 +746,7 @@ function ReviewAndPublishRevision<T>({
       });
       await mutate();
     } catch (e) {
-      setSubmitError((e as Error).message || "Failed to request review");
+      failSubmit(e, "Failed to request review");
     } finally {
       setSubmitting(false);
     }
@@ -750,7 +758,7 @@ function ReviewAndPublishRevision<T>({
     try {
       await onPublish(revision.id);
     } catch (e) {
-      setSubmitError((e as Error).message || "Failed to publish");
+      failSubmit(e, "Failed to publish");
     } finally {
       setSubmitting(false);
     }
@@ -766,7 +774,7 @@ function ReviewAndPublishRevision<T>({
       });
       await mutate();
     } catch (e) {
-      setSubmitError((e as Error).message || "Failed to return to draft");
+      failSubmit(e, "Failed to return to draft");
     } finally {
       setSubmitting(false);
     }
@@ -780,7 +788,7 @@ function ReviewAndPublishRevision<T>({
       await apiCall(`/revision/${revision.id}/undo-review`, { method: "POST" });
       await mutate();
     } catch (e) {
-      setSubmitError((e as Error).message || "Failed to retract review");
+      failSubmit(e, "Failed to retract review");
     } finally {
       setSubmitting(false);
     }
@@ -809,7 +817,7 @@ function ReviewAndPublishRevision<T>({
       if (res?.revision) selectRevision(res.revision);
       await mutate();
     } catch (e) {
-      setSubmitError((e as Error).message || "Failed to rebase");
+      failSubmit(e, "Failed to rebase");
     } finally {
       setSubmitting(false);
     }
@@ -1668,9 +1676,11 @@ function ReviewAndPublishRevision<T>({
                   )}
 
                   {submitError && (
-                    <Callout status="error" size="sm">
-                      <MarkdownLinks text={submitError} />
-                    </Callout>
+                    <ErrorDisplay
+                      error={submitError}
+                      details={submitErrorDetails}
+                      maxLines={12}
+                    />
                   )}
 
                   {!hasChanges && (

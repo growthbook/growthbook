@@ -4,6 +4,7 @@ import {
   FormatDialect,
   GlobMatchFn,
   SqlDialect,
+  SqlIdentifierQuote,
   StringMatchFn,
 } from "../types/sql";
 import { FormatError } from "../types/error";
@@ -111,6 +112,12 @@ export function createLikeMatchFns(options: LikeMatchOptions): {
     stringMatch: createLikeStringMatchFn(options),
     globMatch: createGlobMatchFn(options),
   };
+}
+
+// Wraps a SQL identifier (column, alias) in the dialect's quote character,
+// escaping any embedded quotes by doubling them (ANSI SQL convention).
+export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
+  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
 }
 
 export const SQL_ROW_LIMIT = 1000;

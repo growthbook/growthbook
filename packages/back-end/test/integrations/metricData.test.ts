@@ -1,5 +1,5 @@
 import { FactMetricInterface } from "shared/types/fact-table";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
+import { bigQueryDialect } from "shared/dialects";
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
@@ -27,6 +27,12 @@ describe("getMetricData uncapped expressions", () => {
       name: "absolute floor and percentile ceiling",
       metricType: "mean",
       upper: { type: "percentile", value: 0.99 },
+      lower: { type: "absolute", value: -10 },
+    },
+    {
+      name: "ratio with absolute floor and ceiling",
+      metricType: "ratio",
+      upper: { type: "absolute", value: 100 },
       lower: { type: "absolute", value: -10 },
     },
     {
@@ -96,6 +102,20 @@ describe("getMetricData uncapped expressions", () => {
         );
         expect(data.capCoalesceDenominator).toContain("GREATEST(");
         expect(data.capCoalesceDenominatorCovariate).toContain("GREATEST(");
+        if (upper.type === "absolute" && lower?.type === "absolute") {
+          expect(data.capCoalesceMetric).toBe(
+            "GREATEST(LEAST(CAST(COALESCE(m.m0_value, 0) AS FLOAT64), 100), -10)",
+          );
+          expect(data.capCoalesceDenominator).toBe(
+            "GREATEST(LEAST(CAST(COALESCE(m1.m0_denominator, 0) AS FLOAT64), 100), -10)",
+          );
+          expect(data.capCoalesceCovariate).toBe(
+            "GREATEST(LEAST(CAST(COALESCE(cov.m0_covariate_value, 0) AS FLOAT64), 100), -10)",
+          );
+          expect(data.capCoalesceDenominatorCovariate).toBe(
+            "GREATEST(LEAST(CAST(COALESCE(cov1.m0_covariate_denominator, 0) AS FLOAT64), 100), -10)",
+          );
+        }
       }
 
       expect(metric.cappingSettings).toMatchObject(upper);

@@ -1,6 +1,8 @@
+import { resolveAssignmentQuerySelectionChange } from "shared/util";
 import {
   CreateSafeRolloutInterface,
   createSafeRolloutValidator,
+  SafeRolloutInterface,
 } from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -13,6 +15,15 @@ import { ReqContext } from "back-end/types/request";
 export async function validateCreateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
   context: ReqContext | ApiReqContext,
+  /**
+   * The stored rollout on update: an unchanged selection isn't re-validated.
+   */
+  previous?: Pick<
+    SafeRolloutInterface,
+    "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
+  > | null,
+  /** REST's grouped exposureQuery must name an identifier when ambiguous. */
+  onOmitted: "defaultToFirst" | "requireUnambiguous" = "defaultToFirst",
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
@@ -47,15 +58,26 @@ export async function validateCreateSafeRolloutFields(
     );
   }
 
-  const exposureQueries = datasource.settings?.queries?.exposure || [];
-  const exposureQueryExists = exposureQueries.some(
-    (q) => q.id === safeRolloutFields.exposureQueryId,
+  const resolved = resolveAssignmentQuerySelectionChange(
+    datasource.settings?.queries?.exposure ?? [],
+    {
+      previous: previous
+        ? {
+            datasource: previous.datasourceId,
+            exposureQueryId: previous.exposureQueryId,
+            identifierType: previous.exposureQueryIdentifierType,
+          }
+        : null,
+      next: {
+        datasource: safeRolloutFields.datasourceId,
+        exposureQueryId: safeRolloutFields.exposureQueryId,
+        identifierType: safeRolloutFields.exposureQueryIdentifierType,
+      },
+      onOmitted,
+      field: "exposureQuery",
+    },
   );
-  if (!exposureQueryExists) {
-    throw new BadRequestError(
-      "Invalid exposure query: " + safeRolloutFields.exposureQueryId,
-    );
-  }
+  if (!resolved.ok) throw new BadRequestError(resolved.error);
 
   if (
     safeRolloutFields.guardrailMetricIds === undefined ||
@@ -100,5 +122,10 @@ export async function validateCreateSafeRolloutFields(
     }
   }
 
-  return createSafeRolloutValidator.strip().parse(safeRolloutFields);
+  // Always keyed: on update, undefined clears an identifier the new selection
+  // doesn't use.
+  return createSafeRolloutValidator.strip().parse({
+    ...safeRolloutFields,
+    exposureQueryIdentifierType: resolved.identifierType,
+  });
 }

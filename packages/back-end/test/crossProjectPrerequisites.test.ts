@@ -248,6 +248,15 @@ describe("buildPrerequisiteProjectReach", () => {
     expect([...(reach.get("prj_a") ?? [])]).toEqual(["prj_b"]);
   });
 
+  it("carries a parent with no project into its dependent's project", () => {
+    const child = feature("child", "prj_b", { prerequisites: ["root"] });
+    const root = feature("root", "");
+
+    const reach = buildPrerequisiteProjectReach([child, root]);
+
+    expect([...(reach.get("") ?? [])]).toEqual(["prj_b"]);
+  });
+
   it("is empty when no prerequisite crosses a project boundary", () => {
     const child = feature("child", "prj_a", { prerequisites: ["root"] });
     const root = feature("root", "prj_a");

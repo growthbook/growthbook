@@ -5,8 +5,8 @@ import {
 } from "shared/types/fact-table";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import { bigQueryDialect } from "shared/dialects";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 import { factTableFactory } from "back-end/test/factories/FactTable.factory";
@@ -22,7 +22,7 @@ const exposureQuery: ExposureQuery = {
 
 const resolvedExposureQuery = {
   query: exposureQuery.query,
-  userIdType: exposureQuery.userIdType,
+  identifierType: exposureQuery.userIdType,
 };
 
 const eventsFactTable = factTableFactory.build({
@@ -177,7 +177,7 @@ function inlineSql(metrics: FunnelFactMetricInterface[]): string {
       unitsSource: "exposureQuery",
       unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
         query: exposureQuery.query,
-        userIdType: exposureQuery.userIdType,
+        identifierType: exposureQuery.userIdType,
       }),
       activationMetric: null,
       dimensions: [],

@@ -1902,7 +1902,7 @@ export class Permissions {
       return projectsToCheck.some((p) => this.hasPermission("readData", p));
     }
 
-    // Otherwise, check if they have read access for atleast 1 of the resource's projects
+    // Otherwise, check if they have read access for at least 1 of the resource's projects
     return projects.some((p) => this.hasPermission("readData", p));
   };
 

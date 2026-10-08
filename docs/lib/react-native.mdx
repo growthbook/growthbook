@@ -1,7 +1,6 @@
 ---
 title: React Native SDK
 description: Use the GrowthBook React Native SDK to evaluate feature flags and run A/B tests in iOS and Android apps, including targeting and tracking.
-slug: react-native
 toc_max_heading_level: 5
 ---
 
@@ -172,9 +171,24 @@ console.log(res);
 
 The return value has 3 properties:
 
-- **status** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
+- **success** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
-- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+- **error** - If success is `false`, this will contain an `Error` object with more details about the error
+
+#### Fallback Payload
+
+To use a bundled payload only when features can't be downloaded, pass it to `setPayload` when `init` doesn't succeed:
+
+```ts
+const res = await gb.init({ timeout: 2000 });
+if (!res.success) {
+  await gb.setPayload(fallbackPayload);
+}
+```
+
+Don't pass the fallback to `init({ payload })` because that skips the network request entirely. A cached payload counts as a success, so the fallback is only used when there's nothing usable in the cache.
+
+The fallback stays in place until a later request succeeds. If `init` timed out and `streaming` or `pollingInterval` is enabled, the SDK applies the original request when it finishes. After a network error, only `pollingInterval` retries.
 
 ### Custom Integration
 
@@ -240,7 +254,7 @@ React Native does not support SSE out-of-the-box, but there is a small helper li
 npm install --save react-native-sse
 ```
 
-The, tell GrowthBook to use this polyfill:
+Then, tell GrowthBook to use this polyfill:
 
 ```js
 import { setPolyfills } from "@growthbook/growthbook";
@@ -275,7 +289,7 @@ const gb = new GrowthBook({
   // Enable remote evaluation
   remoteEval: true,
 
-  // Optional: only trigger a new evaluation call when the `id` and `email` attribute changes
+  // Optional: only trigger a new evaluation call when the `id` and `email` attributes change
   cacheKeyAttributes: ["id", "email"],
 });
 ```
@@ -296,7 +310,7 @@ The React Native SDK has 2 caching layers:
 
 ### Configuring Local Storage
 
-In order to use persistent storage, you must provide a polyfill with the same method signature as browser's localStorage.
+In order to use persistent storage, you must provide a polyfill with the same method signature as the browser's localStorage.
 
 Here's an example using AsyncStorage
 
@@ -310,9 +324,8 @@ import { setPolyfills } from "@growthbook/growthbook";
 
 setPolyfills({
   localStorage: {
-    // Example using Redis
-    getItem: (key) => JSON.parse(AsyncStorage.getItem(key) || "null")
-    setItem: (key, value) => AsyncStorage.setItem(key, JSON.stringify(value))
+    getItem: (key) => AsyncStorage.getItem(key),
+    setItem: (key, value) => AsyncStorage.setItem(key, value),
   }
 });
 ```
@@ -331,8 +344,8 @@ configureCache({
   cacheKey: "gbFeaturesCache",
   // Consider features stale after this much time (60 seconds default)
   staleTTL: 1000 * 60,
-  // Cached features older than this will be ignored (24 hours default)
-  maxAge: 1000 * 60 * 60 * 24,
+  // Cached features older than this will be ignored (4 hours default)
+  maxAge: 1000 * 60 * 60 * 4,
   // For Remote Eval only - limit the number of cache entries (~1 entry per user)
   maxEntries: 10,
   // Set to `true` to completely disable both in-memory and persistent caching
@@ -361,7 +374,7 @@ const gb = new GrowthBook({
 
 Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
-This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
+This same tracking callback is used for both feature flag experiments and AI Visual Editor experiments.
 
 ### Feature Flag Experiments
 
@@ -375,19 +388,19 @@ useFeatureIsOn("new-signup-form")
 
 If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
 
-### Visual Editor Experiments
+### AI Visual Editor Experiments
 
-Visual Editor experiments are not supported in React Native at this time.
+AI Visual Editor experiments are not supported in React Native at this time.
 
 ### URL Redirect Experiments
 
-URL Redirect experiments are no supported in React Native at this time.
+URL Redirect experiments are not supported in React Native at this time.
 
 ### Sticky Bucketing
 
-Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
+Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment support sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
 
-The JS SDK exports several implementations of this service for reference, although you will need to build your own to work in a React Native environments.
+The JS SDK exports several implementations of this service for reference, although you will need to build your own to work in a React Native environment.
 
 Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations.
 
@@ -495,7 +508,7 @@ const userEmail = sha256(salt + user.email).toString();
 
 ### Feature Usage Callback
 
-GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like New Relic or Datadog.
 
 ```ts
 new GrowthBook({
@@ -565,7 +578,7 @@ A type-safe version of the `useGrowthBook()` hook is available. Everywhere you u
 const growthbook = useGrowthBook<AppFeatures>()
 ```
 
-In that case, the hook will return `GrowthBook<AppFeatures> | undefined`.
+In that case, the hook will return `GrowthBook<AppFeatures>`.
 
 You can reduce this boilerplate by creating your own hook, e.g.:
 
@@ -573,7 +586,7 @@ You can reduce this boilerplate by creating your own hook, e.g.:
 // ./src/utils/growthbook.ts
 import { useGrowthBook as _useGrowthBook } from "@growthbook/growthbook-react";
 
-export const useGrowthBook = (): GrowthBook<AppFeatures> | undefined =>
+export const useGrowthBook = (): GrowthBook<AppFeatures> =>
   _useGrowthBook<AppFeatures>();
 ```
 

@@ -193,9 +193,41 @@ function dimMaxValues(dimension: ProductAnalyticsDimension | null): number {
  * row count scale with dimension cardinality instead of the `dimValues + 1`
  * that `maxJourneyResultRows` budgets for.
  */
-function dimBucketSql(dialect: SqlDialect, hasDimension: boolean): string {
-  if (!hasDimension) return dialect.castToString("NULL");
-  return `CASE WHEN dim_1 IN (SELECT value FROM __journey_top_dim) THEN dim_1 ELSE ${lit(dialect, JOURNEY_OTHER)} END`;
+function dimBucketSql(
+  dialect: SqlDialect,
+  dimension: ProductAnalyticsDimension | null,
+): string {
+  if (!dimension) return dialect.castToString("NULL");
+  // c_dim is 0 for values that only appear outside the matched journeys
+  return `CASE WHEN dim_1 IS NOT NULL AND c_dim > 0 AND r_dim <= ${dimMaxValues(dimension)} THEN dim_1 ELSE ${lit(dialect, JOURNEY_OTHER)} END`;
+}
+
+/**
+ * Ranks `col`'s values by total journeys with window functions, so the source
+ * is read once. A JOIN back to a separate top-N CTE reads it twice, and
+ * warehouses that re-run a CTE per reference (ClickHouse, BigQuery) then redo
+ * the whole fact table scan for each read, doubling at every level.
+ *
+ * Ranking distinct values by (count DESC, value) picks the same top N as a
+ * ROW_NUMBER over the grouped counts, ties included. NULLs rank in their own
+ * partition so they never take a slot.
+ */
+function rankedSql(
+  from: string,
+  partition: string[],
+  col: string,
+  suffix: string,
+  count = "journey_count",
+): string {
+  const by = (last: string) => [...partition, last].join(", ");
+  return `
+    SELECT *,
+      dense_rank() OVER (PARTITION BY ${by(`${col} IS NULL`)} ORDER BY c${suffix} DESC, ${col}) AS r${suffix}
+    FROM (
+      SELECT *, SUM(${count}) OVER (PARTITION BY ${by(col)}) AS c${suffix}
+      FROM ${from}
+    ) counted
+  `;
 }
 
 function bucketChain(
@@ -204,61 +236,32 @@ function bucketChain(
   srcCte: string,
 ): { ctes: CTE[]; last: string } {
   const ctes: CTE[] = [];
-  const term = journeyTerminal(dataset.direction);
   const pathLen = dataset.path.length;
-  const k = dataset.lookaheadDepth;
+  const none = lit(dialect, JOURNEY_NONE);
+  const other = lit(dialect, JOURNEY_OTHER);
+  const termLit = lit(dialect, journeyTerminal(dataset.direction));
   let prev = srcCte;
 
-  for (let fi = 0; fi < k; fi++) {
+  for (let fi = 0; fi < dataset.lookaheadDepth; fi++) {
     const n = journeyOptionsAt(dataset.optionsPerStep, pathLen + fi);
     const col = `nb_${pathLen + fi + 1}`;
-    const lvl = `lvl_${fi + 1}`;
-    const topName = `__journey_top_lvl${fi + 1}`;
-    const chainName = `__journey_lvl${fi + 1}`;
-    const none = lit(dialect, JOURNEY_NONE);
-    const other = lit(dialect, JOURNEY_OTHER);
-    const termLit = lit(dialect, term);
-
+    const level = fi + 1;
     // Level 1 ranks its options globally; deeper levels rank them within the
-    // prefix of buckets already chosen, so `prefix` is empty on the first pass
-    // and every clause that mentions it drops out.
+    // prefix of buckets already chosen. A finished prefix ranks in its own
+    // partition and maps to (none) before its rank is read.
     const prefix = Array.from({ length: fi }, (_, q) => `lvl_${q + 1}`);
-    const pAliases = prefix.map((_, q) => `p${q + 1}`).join(", ");
-    const prevLvl = `lvl_${fi}`;
-    const topSelect = prefix.length ? `${pAliases}, value` : "value";
-
-    // `matched` is the join hit test. Testing `t.value IS NOT NULL` breaks on
-    // ClickHouse, where join_use_nulls=0 fills unmatched right-side columns
-    // with '' instead of NULL and every value would count as top-N.
+    const name = `__journey_lvl${level}`;
     ctes.push({
-      name: topName,
+      name,
       sql: `
-        SELECT ${topSelect}, 1 AS matched FROM (
-          SELECT ${topSelect},
-            ROW_NUMBER() OVER (${prefix.length ? `PARTITION BY ${pAliases} ` : ""}ORDER BY c DESC, value) AS rn
-          FROM (
-            SELECT ${prefix.map((c, q) => `${c} AS p${q + 1}, `).join("")}${col} AS value, SUM(journey_count) AS c
-            FROM ${prev}
-            WHERE ${col} IS NOT NULL${prefix.length ? `\n              AND ${prevLvl} NOT IN (${termLit}, ${none})` : ""}
-            GROUP BY ${[...prefix, col].join(", ")}
-          ) agg
-        ) r
-        WHERE rn <= ${n}
+        SELECT *,
+          CASE ${fi ? `WHEN lvl_${fi} IN (${termLit}, ${none}) THEN ${none}\n               ` : ""}WHEN ${col} IS NULL THEN ${termLit}
+               WHEN r${level} <= ${n} THEN ${col}
+               ELSE ${other} END AS lvl_${level}
+        FROM (${rankedSql(prev, prefix, col, String(level))}) ranked
       `,
     });
-    ctes.push({
-      name: chainName,
-      sql: `
-        SELECT b.*,
-          CASE ${prefix.length ? `WHEN b.${prevLvl} IN (${termLit}, ${none}) THEN ${none}\n               ` : ""}WHEN b.${col} IS NULL THEN ${termLit}
-               WHEN t.matched = 1 THEN b.${col}
-               ELSE ${other} END AS ${lvl}
-        FROM ${prev} b
-        LEFT JOIN ${topName} t
-          ON ${[...prefix.map((c, q) => `t.p${q + 1} = b.${c}`), `t.value = b.${col}`].join(" AND ")}
-      `,
-    });
-    prev = chainName;
+    prev = name;
   }
 
   return { ctes, last: prev };
@@ -267,11 +270,12 @@ function bucketChain(
 function committedOptionCtes(
   dialect: SqlDialect,
   dataset: JourneyDataset,
-  hasDimension: boolean,
+  dimension: ProductAnalyticsDimension | null,
+  baseCte: string,
 ): CTE[] {
   const termLit = lit(dialect, journeyTerminal(dataset.direction));
   const other = lit(dialect, JOURNEY_OTHER);
-  const dimBucket = dimBucketSql(dialect, hasDimension);
+  const dimBucket = dimBucketSql(dialect, dimension);
   const ctes: CTE[] = [];
   for (let k = 0; k < dataset.path.length; k++) {
     const n = journeyOptionsAt(dataset.optionsPerStep, k);
@@ -280,41 +284,23 @@ function committedOptionCtes(
       .slice(0, k)
       .map((step, i) => committedPredicate(dialect, `nb_${i + 1}`, step));
     const eligible = `__journey_commit_${k}_eligible`;
-    const top = `__journey_commit_${k}_top`;
-    const bucketed = `__journey_commit_${k}`;
     ctes.push({
       name: eligible,
       sql: `
-        SELECT * FROM __journey_anchored
+        SELECT * FROM ${baseCte}
         ${preds.length ? `WHERE ${preds.join("\n          AND ")}` : ""}
       `,
     });
     ctes.push({
-      name: top,
-      sql: `
-        SELECT value FROM (
-          SELECT ${col} AS value,
-            ROW_NUMBER() OVER (ORDER BY c DESC, ${col}) AS rn
-          FROM (
-            SELECT ${col}, SUM(journey_count) AS c
-            FROM ${eligible}
-            WHERE ${col} IS NOT NULL
-            GROUP BY ${col}
-          ) agg
-        ) r
-        WHERE rn <= ${n}
-      `,
-    });
-    ctes.push({
-      name: bucketed,
+      name: `__journey_commit_${k}`,
       sql: `
         SELECT
           CASE WHEN ${col} IS NULL THEN ${termLit}
-               WHEN ${col} IN (SELECT value FROM ${top}) THEN ${col}
+               WHEN r_commit <= ${n} THEN ${col}
                ELSE ${other} END AS value,
           ${dimBucket} AS dim_1,
           journey_count
-        FROM ${eligible}
+        FROM (${rankedSql(eligible, [], col, "_commit")}) ranked
       `,
     });
   }
@@ -514,48 +500,42 @@ export function buildJourneySql(
     `,
   });
 
-  let src = "__journey_anchored";
+  const pathPreds = dataset.path.map((step, i) =>
+    committedPredicate(dialect, `nb_${i + 1}`, step),
+  );
+
+  // Ranked once here rather than looked up per branch, so every branch reads
+  // the same pass. Counts come from the matched journeys only, since those are
+  // the paths the dimension labels.
+  let base = "__journey_anchored";
+  if (dimension) {
+    const count = pathPreds.length
+      ? `CASE WHEN ${pathPreds.join(" AND ")} THEN journey_count ELSE 0 END`
+      : "journey_count";
+    ctes.push({
+      name: "__journey_dim_ranked",
+      sql: rankedSql(base, [], "dim_1", "_dim", count),
+    });
+    base = "__journey_dim_ranked";
+  }
+
+  let src = base;
   if (pathLen > 0) {
-    const preds = dataset.path.map((step, i) =>
-      committedPredicate(dialect, `nb_${i + 1}`, step),
-    );
     ctes.push({
       name: "__journey_matched",
       sql: `
-        SELECT * FROM __journey_anchored
-        WHERE ${preds.join("\n          AND ")}
+        SELECT * FROM ${base}
+        WHERE ${pathPreds.join("\n          AND ")}
       `,
     });
     src = "__journey_matched";
-  }
-
-  // Must precede every CTE that buckets dim_1 — Postgres and friends only let
-  // a CTE reference siblings declared before it.
-  if (hasDimension) {
-    const n = dimMaxValues(dimension);
-    ctes.push({
-      name: "__journey_top_dim",
-      sql: `
-        SELECT value FROM (
-          SELECT dim_1 AS value,
-            ROW_NUMBER() OVER (ORDER BY c DESC, dim_1) AS rn
-          FROM (
-            SELECT dim_1, SUM(journey_count) AS c
-            FROM ${src}
-            WHERE dim_1 IS NOT NULL
-            GROUP BY dim_1
-          ) agg
-        ) r
-        WHERE rn <= ${n}
-      `,
-    });
   }
 
   const chain = bucketChain(dialect, dataset, src);
   ctes.push(...chain.ctes);
 
   if (pathLen > 0) {
-    ctes.push(...committedOptionCtes(dialect, dataset, hasDimension));
+    ctes.push(...committedOptionCtes(dialect, dataset, dimension, base));
   }
 
   const stepCount = pathLen + lookaheadDepth;
@@ -575,7 +555,7 @@ export function buildJourneySql(
     name: "__journey_path_bucketed",
     sql: `
       SELECT ${lvlCols.join(", ")},
-        ${dimBucketSql(dialect, hasDimension)} AS dim_1,
+        ${dimBucketSql(dialect, dimension)} AS dim_1,
         journey_count
       FROM ${chain.last}
     `,

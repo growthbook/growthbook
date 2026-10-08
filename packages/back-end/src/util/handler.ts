@@ -52,7 +52,6 @@ export type BackEndApiEndpointSpec<
     z.infer<ResponseSchema>
   >;
   excludeFromSpec?: boolean;
-  version?: "v1" | "v2";
   deprecated?: boolean;
   /**
    * RFC 8594 `Deprecation` header field value. Accepts either `"true"` (deprecated

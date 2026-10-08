@@ -128,6 +128,7 @@ export interface BulkPublishableAdapter {
       entityPreImage: Record<string, unknown>;
       isApprovalBypass: boolean;
       comment?: string;
+      desiredState: Record<string, unknown>;
     },
   ): Promise<boolean>;
 
