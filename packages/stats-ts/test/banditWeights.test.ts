@@ -220,5 +220,79 @@ describe("updateVariationWeights", () => {
         spread(weak.updatedWeights),
       );
     });
+
+    it("matches the documented calculation with unequal counts and variances", () => {
+      // Mirrors src/banditWeights.ts (not exported from the module).
+      const BANDIT_PRIOR_MEAN = 0;
+      const BANDIT_PRIOR_PRECISION = 1 / 1e4;
+      const MIN_VARIATION_WEIGHT = 0.01;
+
+      // Distinct n AND variance per arm, so each arm's shrinkage and pool
+      // precision differ. A bug that reused one arm's shrinkage/pool precision
+      // for every arm would change the common mean and posteriors and fail here.
+      const stats = [
+        arm(300, 1.0, 2.0),
+        arm(150, 2.0, 0.5),
+        arm(500, 1.5, 4.0),
+      ];
+      const n0 = 100;
+      const initial = [1, 1, 1].map((x) => x / 3);
+
+      // Per-arm quantities from the documented hierarchical-pooling model.
+      const dataPrecision = stats.map((s) => s.n / s.variance);
+      const shrinkage = stats.map((s) => n0 / (s.n + n0));
+      const poolPrecision = stats.map((s) => n0 / s.variance);
+
+      // Guard: this scenario is only meaningful if shrinkage really differs.
+      expect(shrinkage[0]).not.toBeCloseTo(shrinkage[1], 6);
+      expect(shrinkage[1]).not.toBeCloseTo(shrinkage[2], 6);
+
+      // Common-mean posterior: precision-weighted (by dataPrecision * shrinkage)
+      // plus the diffuse hyperprior.
+      let muNumerator = BANDIT_PRIOR_PRECISION * BANDIT_PRIOR_MEAN;
+      let muDenominator = BANDIT_PRIOR_PRECISION;
+      stats.forEach((s, i) => {
+        const w = dataPrecision[i] * shrinkage[i];
+        muNumerator += w * s.mean;
+        muDenominator += w;
+      });
+      const commonMean = muNumerator / muDenominator;
+      const commonMeanVariance = 1 / muDenominator;
+
+      // Per-arm posterior mean (shrunk toward the common mean) and std (arm
+      // precision plus the inherited common-mean uncertainty).
+      const expectedMean = stats.map(
+        (s, i) => (1 - shrinkage[i]) * s.mean + shrinkage[i] * commonMean,
+      );
+      const expectedStd = stats.map((_, i) => {
+        const armVariance = 1 / (dataPrecision[i] + poolPrecision[i]);
+        return Math.sqrt(armVariance + shrinkage[i] ** 2 * commonMeanVariance);
+      });
+
+      // thompsonWeightsForSubset uses the approximate (Gauss-Hermite) sampler.
+      const expectedProbs = bestArmProbabilitiesGaussHermite(
+        expectedMean,
+        expectedStd,
+        false,
+      );
+      // Weights: floor each probability at MIN_VARIATION_WEIGHT, then renormalize.
+      // All three arms clear the unit threshold, so remainingMass = 1.
+      const clamped = expectedProbs.map((p) =>
+        Math.max(p, MIN_VARIATION_WEIGHT),
+      );
+      const clampSum = clamped.reduce((a, b) => a + b, 0);
+      const expectedWeights = clamped.map((p) => p / clampSum);
+
+      const result = updateVariationWeights(stats, initial, false, n0);
+
+      expect(result.bestArmProbabilities).not.toBeNull();
+      result.bestArmProbabilities!.forEach((p, i) => {
+        expect(p).toBeCloseTo(expectedProbs[i], 6);
+      });
+      result.updatedWeights.forEach((w, i) => {
+        expect(w).toBeCloseTo(expectedWeights[i], 6);
+      });
+      expect(sum(result.updatedWeights)).toBeCloseTo(1, 6);
+    });
   });
 });
