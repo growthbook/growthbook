@@ -40,6 +40,7 @@ import {
 } from "@/ui/DropdownMenu";
 import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
@@ -54,6 +55,7 @@ export default function FactMetricPage() {
   const { fmid } = router.query;
 
   const [isEditing, setIsEditing] = useState(false);
+  const factMetricFlow = useFactMetricFlow("fact-metric");
   const [actionsContainer, setActionsContainer] =
     useState<HTMLDivElement | null>(null);
 
@@ -113,18 +115,27 @@ export default function FactMetricPage() {
     permissionsUtil.canDeleteFactMetric(factMetric);
   const editViaApiOnly = !!factMetric && isMergeAggregationMetric(factMetric);
 
+  // Edit in place on this page, or in the old FactMetricModal when the
+  // new-metric-creation-flow experiment has this user on the old flow.
+  const startEditing = () => {
+    if (!factMetricFlow.newFlow && factMetric) {
+      factMetricFlow.edit(factMetric);
+      return;
+    }
+    setTab("overview");
+    setIsEditing(true);
+  };
+
   useEffect(() => {
     if (!router.isReady || !ready || router.query.edit !== "true") return;
-    if (canEdit && !editViaApiOnly) {
-      setTab("overview");
-      setIsEditing(true);
-    }
+    if (canEdit && !editViaApiOnly) startEditing();
     const { edit, ...query } = router.query;
     void edit;
     void router.replace({ pathname: router.pathname, query }, undefined, {
       shallow: true,
     });
-  }, [router, ready, canEdit, editViaApiOnly, setTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, ready, canEdit, editViaApiOnly]);
 
   if (!ready) return <LoadingOverlay />;
 
@@ -146,6 +157,7 @@ export default function FactMetricPage() {
 
   return (
     <div className="pagecontents container-fluid">
+      {factMetricFlow.modal}
       {auditModal && (
         <Modal
           trackingEventModalType=""
@@ -287,10 +299,7 @@ export default function FactMetricPage() {
               <Button
                 variant="soft"
                 disabled={!canEdit || editViaApiOnly}
-                onClick={() => {
-                  setTab("overview");
-                  setIsEditing(true);
-                }}
+                onClick={startEditing}
               >
                 Edit metric
               </Button>
@@ -341,8 +350,7 @@ export default function FactMetricPage() {
             <DropdownMenuItem
               onClick={() => {
                 setOpenDropdown(false);
-                setTab("overview");
-                setIsEditing(true);
+                startEditing();
               }}
               disabled={!canEdit || editViaApiOnly}
             >

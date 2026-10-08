@@ -5,7 +5,7 @@ import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/ui/LinkButton";
-import useFactMetricCreation from "@/hooks/useFactMetricCreation";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import Button from "@/ui/Button";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -33,11 +33,11 @@ const MetricsPage = (): React.ReactElement => {
     projects: project ? [project] : [],
   });
 
-  const createFactMetric = useFactMetricCreation("metrics-empty-state");
+  const factMetricFlow = useFactMetricFlow("metrics-empty-state");
 
   return (
     <Box className="pagecontents container-fluid">
-      {createFactMetric.modal}
+      {factMetricFlow.modal}
       <MetricTemplateRedirect />
       <Box mb="4">
         <h1 style={{ margin: 0 }}>Metrics</h1>
@@ -65,12 +65,12 @@ const MetricsPage = (): React.ReactElement => {
                 body="You don't have permission to add metrics in this project."
                 shouldDisplay={!canCreateMetric}
               >
-                {canCreateMetric && createFactMetric.newFlow ? (
-                  <LinkButton href={createFactMetric.href()}>
+                {canCreateMetric && factMetricFlow.newFlow ? (
+                  <LinkButton href={factMetricFlow.href()}>
                     Add metric
                   </LinkButton>
                 ) : canCreateMetric ? (
-                  <Button onClick={() => createFactMetric.open()}>
+                  <Button onClick={() => factMetricFlow.open()}>
                     Add metric
                   </Button>
                 ) : (

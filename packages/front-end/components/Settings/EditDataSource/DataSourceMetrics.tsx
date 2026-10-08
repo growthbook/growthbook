@@ -22,7 +22,7 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
-import useFactMetricCreation from "@/hooks/useFactMetricCreation";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
@@ -51,9 +51,12 @@ export default function DataSourceMetrics({
   } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
+  const factMetricFlow = useFactMetricFlow("datasource-detail");
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
     enableRowActions: true,
+    onDuplicateFactMetric: (m) => factMetricFlow.open({ duplicate: m }),
+    onEditFactMetric: (m) => factMetricFlow.edit(m),
   });
   const metrics = combinedMetrics.filter((m) => m.datasource === dataSource.id);
 
@@ -73,11 +76,9 @@ export default function DataSourceMetrics({
   const canCreateMetricsInAllDataSourceProjects =
     permissionsUtil.canCreateMetric({ projects: dataSource.projects });
 
-  const createFactMetric = useFactMetricCreation("datasource-detail");
-
   return (
     <>
-      {createFactMetric.modal}
+      {factMetricFlow.modal}
       {showAutoGenerateMetricsModal && (
         <AutoGenerateMetricsModal
           source="datasource-detail-page"
@@ -116,14 +117,14 @@ export default function DataSourceMetrics({
               datasource={dataSource}
               size="md"
             />
-            {createFactMetric.newFlow ? (
-              <LinkButton href={createFactMetric.href()}>
+            {factMetricFlow.newFlow ? (
+              <LinkButton href={factMetricFlow.href()}>
                 <FaPlus className="mr-1" /> Add
               </LinkButton>
             ) : (
               <Button
                 onClick={() =>
-                  createFactMetric.open({ datasource: dataSource.id })
+                  factMetricFlow.open({ datasource: dataSource.id })
                 }
               >
                 <FaPlus className="mr-1" /> Add
