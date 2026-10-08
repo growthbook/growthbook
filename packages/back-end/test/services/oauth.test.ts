@@ -9,7 +9,6 @@ import {
   EMAIL_SUBJECT_TOKEN_TYPE,
   exchangeAuthorizationCode,
   exchangeDelegatedToken,
-  isDelegatedTokenCurrent,
   exchangeRefreshToken,
   listOrgGrants,
   mintAuthorizationCode,
@@ -17,6 +16,7 @@ import {
   revokeMemberGrant,
   revokeToken,
 } from "back-end/src/services/oauth";
+import { isDelegatedTokenCurrent } from "back-end/src/services/oauth/access";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import { assertValidPermissionLimit } from "back-end/src/services/oauth/permissionLimit";
@@ -1048,7 +1048,6 @@ describe("delegated token exchange for org OAuth apps", () => {
         oauthClientId: APP_ID,
         officialClientForOrg: "org-1",
         oauthDelegatedSecretHash: hashToken(APP_SECRET),
-        oauthClientName: "Internal MCP",
       }),
     );
     expect(createRefresh).not.toHaveBeenCalled();

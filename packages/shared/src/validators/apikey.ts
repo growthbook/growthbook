@@ -97,12 +97,6 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "OAuth client that was issued this access token. Absent for classic API keys and PATs.",
     ),
-  oauthClientName: z
-    .string()
-    .optional()
-    .describe(
-      "Stamped at issuance: the OAuth client's name, so audit rows can name the app.",
-    ),
   officialClientForOrg: z
     .string()
     .nullable()

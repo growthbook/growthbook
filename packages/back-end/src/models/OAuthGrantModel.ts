@@ -24,10 +24,13 @@ function grantExpiry(now: Date = new Date()): Date {
   );
 }
 
+// Also how a stored armer id is recognised as a grant.
+export const OAUTH_GRANT_ID_PREFIX = "oag_";
+
 const BaseClass = MakeModelClass({
   schema: oauthGrantValidator,
   collectionName: COLLECTION_NAME,
-  idPrefix: "oag_",
+  idPrefix: OAUTH_GRANT_ID_PREFIX,
   auditLog: {
     entity: "oauthGrant",
     createEvent: "oauthGrant.create",
@@ -70,12 +73,15 @@ export class OAuthGrantModel extends BaseClass {
     organization: string,
     clientId: string,
     userId: string,
-  ): Promise<Pick<OAuthGrantInterface, "id" | "permissionLimit"> | null> {
+  ): Promise<Pick<
+    OAuthGrantInterface,
+    "id" | "clientId" | "permissionLimit"
+  > | null> {
     const grant = await getCollection<OAuthGrantInterface>(
       COLLECTION_NAME,
     ).findOne(
       { organization, clientId, userId },
-      { projection: { id: 1, revoked: 1, permissionLimit: 1 } },
+      { projection: { id: 1, clientId: 1, revoked: 1, permissionLimit: 1 } },
     );
     return grant && !grant.revoked ? grant : null;
   }
@@ -212,7 +218,7 @@ export class OAuthGrantModel extends BaseClass {
       expiresAt: grantExpiry(),
     });
     if (created || grant.revoked) return grant;
-    return this.update(grant, { expiresAt: grantExpiry() });
+    return this.extend(grant);
   }
 
   /** Delegation: keep an active grant alive while in use; never creates or re-arms one. */

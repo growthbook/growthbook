@@ -1,10 +1,6 @@
 import crypto from "crypto";
 import { Request } from "express";
-import {
-  OAuthDcrRequest,
-  OAuthPermissionLimit,
-  OrgOAuthClientInterface,
-} from "shared/validators";
+import { OAuthDcrRequest, OAuthPermissionLimit } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { isOAuthClientAllowed } from "shared/util";
 import {
@@ -315,19 +311,6 @@ export async function revokeMemberGrant(
   await tearDownGrant(context, clientId, userId);
 }
 
-/** Checked per request, so turning delegation off or rotating the secret ends delegated tokens in the same write. */
-export function isDelegatedTokenCurrent(
-  app: Pick<
-    OrgOAuthClientInterface,
-    "allowDelegation" | "clientSecretHash"
-  > | null,
-  mintedWithSecretHash: string,
-): boolean {
-  return (
-    !!app?.allowDelegation && app.clientSecretHash === mintedWithSecretHash
-  );
-}
-
 /** Ends every member's grant with one client in this org (org app deletion). */
 export async function revokeAllGrantsForClient(
   context: ApiReqContext,
@@ -545,7 +528,6 @@ export async function exchangeAuthorizationCode(params: {
   const tokens = await issueTokenPair(context, {
     clientId: authCode.clientId,
     officialClientForOrg: client.organization,
-    clientName: client.clientName,
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
@@ -628,7 +610,6 @@ export async function exchangeRefreshToken(params: {
   return issueTokenPair(context, {
     clientId: existing.clientId,
     officialClientForOrg: client.organization,
-    clientName: client.clientName,
     userId: existing.userId,
     scope: existing.scope,
     resource: existing.resource,
@@ -684,10 +665,11 @@ export async function revokeToken(params: {
 interface IssueParams {
   clientId: string;
   officialClientForOrg: string | null;
-  clientName: string;
   userId: string;
   scope?: string;
   resource?: string;
+  // The minting app's secret hash, set only on delegated tokens.
+  delegatedSecretHash?: string;
 }
 
 export interface TokenResponse {
@@ -702,8 +684,6 @@ export interface TokenResponse {
 async function createAccessToken(
   context: ApiReqContext,
   params: IssueParams,
-  // The minting app's secret hash for delegated tokens; null for the consent flow.
-  delegatedSecretHash: string | null,
 ): Promise<string> {
   const accessToken = OAUTH_ACCESS_TOKEN_PREFIX + randomUrlSafe(32);
   // The context is always user-attributed (issuance requires a member
@@ -714,7 +694,7 @@ async function createAccessToken(
     secret: true,
     userId: params.userId,
     role: "user",
-    description: delegatedSecretHash
+    description: params.delegatedSecretHash
       ? `OAuth delegated access token (${params.clientId})`
       : `OAuth access token (${params.clientId})`,
     environment: "",
@@ -724,10 +704,9 @@ async function createAccessToken(
     environments: [],
     expiresAt: new Date(Date.now() + OAUTH_ACCESS_TOKEN_TTL_SECONDS * 1000),
     oauthClientId: params.clientId,
-    oauthClientName: params.clientName,
     officialClientForOrg: params.officialClientForOrg,
-    ...(delegatedSecretHash && {
-      oauthDelegatedSecretHash: delegatedSecretHash,
+    ...(params.delegatedSecretHash && {
+      oauthDelegatedSecretHash: params.delegatedSecretHash,
     }),
     scopes: params.scope ? params.scope.split(/\s+/).filter(Boolean) : [],
     lastUsed: null,
@@ -756,7 +735,7 @@ async function issueTokenPair(
   context: ApiReqContext,
   params: IssueParams,
 ): Promise<TokenResponse> {
-  const accessToken = await createAccessToken(context, params, null);
+  const accessToken = await createAccessToken(context, params);
   const refreshToken = OAUTH_REFRESH_TOKEN_PREFIX + randomUrlSafe(32);
   await context.models.oauthRefreshTokens.create({
     tokenHash: hashToken(refreshToken),
@@ -836,16 +815,12 @@ export async function exchangeDelegatedToken(params: {
   if (!grant || grant.revoked) throw notAuthorized;
 
   await context.models.oauthGrants.extend(grant);
-  const accessToken = await createAccessToken(
-    context,
-    {
-      clientId: client.clientId,
-      officialClientForOrg: org.id,
-      clientName: client.clientName,
-      userId: user.id,
-    },
-    client.clientSecretHash,
-  );
+  const accessToken = await createAccessToken(context, {
+    clientId: client.clientId,
+    officialClientForOrg: org.id,
+    userId: user.id,
+    delegatedSecretHash: client.clientSecretHash,
+  });
   await assertGrantStillActive(context, client.clientId, user.id);
 
   return {

@@ -41,8 +41,8 @@ import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
-  getPersonalAccessTokenPermissions,
-  getUserPermissions,
+  getApiKeyLimits,
+  getTokenPermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
@@ -505,17 +505,16 @@ export class ReqContextClass {
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
       this.scopedApiKey = !!apiKeyData?.scoped;
-      this.userPermissions =
-        apiKeyData?.userId || oauth
-          ? getPersonalAccessTokenPermissions(
-              apiKeyData,
-              user,
-              org,
-              teams || [],
-              restrictedProjects,
-              oauth?.limits,
-            )
-          : getUserPermissions(user, org, teams || [], restrictedProjects);
+      this.userPermissions = getTokenPermissions(
+        user,
+        org,
+        teams || [],
+        restrictedProjects,
+        [
+          ...(apiKeyData ? getApiKeyLimits(apiKeyData) : []),
+          ...(oauth?.limits ?? []),
+        ],
+      );
     }
     // If an API key or background job is making this request
     else {
