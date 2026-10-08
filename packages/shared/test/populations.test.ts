@@ -61,6 +61,11 @@ const events: PopulationRuleFactTable = {
         coupon: { datatype: "string" },
       },
     }),
+    column("refund", "number", { deleted: true }),
+    column("legacy", "json", {
+      deleted: true,
+      jsonFields: { quantity: { datatype: "number" } },
+    }),
   ],
 };
 const orders: PopulationRuleFactTable = {
@@ -289,6 +294,15 @@ describe("getPopulationRuleViolations", () => {
         `Aggregate filter column 'country' must be a numeric column or "$$count" (step 1).`,
         `Aggregate filter column 'props.coupon' must be a numeric column or "$$count" (step 2).`,
         `Aggregate filter column 'missing' must be a numeric column or "$$count" (step 3).`,
+      ]);
+    });
+
+    it("rejects deleted numeric columns and fields of deleted JSON columns", () => {
+      expect(
+        run(withAggregate("refund"), withAggregate("legacy.quantity")),
+      ).toEqual([
+        `Aggregate filter column 'refund' must be a numeric column or "$$count" (step 1).`,
+        `Aggregate filter column 'legacy.quantity' must be a numeric column or "$$count" (step 2).`,
       ]);
     });
 

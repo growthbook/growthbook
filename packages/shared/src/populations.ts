@@ -118,6 +118,7 @@ export function getPopulationRuleViolations({
     const columnType = getSelectedColumnDatatype({
       factTable,
       column: aggregateFilterColumn,
+      excludeDeleted: true,
     });
     if (columnType !== "number") {
       violations.push(
