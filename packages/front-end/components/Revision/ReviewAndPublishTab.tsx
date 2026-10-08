@@ -1679,6 +1679,7 @@ function ReviewAndPublishRevision<T>({
                     <ErrorDisplay
                       error={submitError}
                       details={submitErrorDetails}
+                      maxLines={12}
                     />
                   )}
 

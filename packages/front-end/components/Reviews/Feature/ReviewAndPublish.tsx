@@ -3340,6 +3340,7 @@ export default function ReviewAndPublish({
                         <ErrorDisplay
                           error={submitError}
                           details={submitErrorDetails}
+                          maxLines={12}
                         />
                       )}
                       {secondaryError && (
