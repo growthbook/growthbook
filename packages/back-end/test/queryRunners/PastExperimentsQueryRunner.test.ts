@@ -32,6 +32,7 @@ function result(
   return {
     exposureQueryId,
     identifierTypes: ["anonymous_id"],
+    from: new Date("2024-01-11"),
     mergeResults,
     experiments: [
       {
@@ -90,6 +91,7 @@ describe("mergePastExperimentResults", () => {
       // Counted on the query's legacy identifier, but not labeled
       previous: {
         experiments: [row({ trackingKey: "exp_1", exposureQueryId: "eq_1" })],
+        config: { start: new Date("2023-06-01"), end: new Date("2024-01-10") },
       },
       results: [result("eq_1", "exp_1", true)],
       exposureQueries: queries("eq_1"),
@@ -103,6 +105,8 @@ describe("mergePastExperimentResults", () => {
       {
         exposureQueryId: "eq_1",
         identifierTypes: ["anonymous_id"],
+        // The old rows go back to the record's start
+        start: new Date("2023-06-01"),
         lastRunAt: runStarted,
       },
     ]);
@@ -134,6 +138,7 @@ describe("mergePastExperimentResults", () => {
     const skippedRun = {
       exposureQueryId: "eq_skipped",
       identifierTypes: ["user_id"],
+      start: new Date("2023-01-05"),
       lastRunAt: new Date("2024-01-05"),
     };
     const { experiments, exposureQueryRuns } = mergePastExperimentResults({
@@ -148,6 +153,7 @@ describe("mergePastExperimentResults", () => {
           {
             exposureQueryId: "eq_deleted",
             identifierTypes: ["user_id"],
+            start: new Date("2023-01-05"),
             lastRunAt: new Date("2024-01-05"),
           },
         ],
@@ -167,6 +173,8 @@ describe("mergePastExperimentResults", () => {
       {
         exposureQueryId: "eq_ran",
         identifierTypes: ["anonymous_id"],
+        // A full rerun starts over from its own lookback start
+        start: new Date("2024-01-11"),
         lastRunAt: runStarted,
       },
     ]);
@@ -215,11 +223,13 @@ describe("getPastExperimentsWatermark", () => {
       {
         exposureQueryId: "eq_1",
         identifierTypes: ["anonymous_id", "user_id"],
+        start: new Date("2023-01-16"),
         lastRunAt: new Date("2024-01-16"),
       },
       {
         exposureQueryId: "eq_3",
         identifierTypes: ["user_id"],
+        start: new Date("2023-01-16"),
         lastRunAt: new Date("2024-01-16"),
       },
     ],

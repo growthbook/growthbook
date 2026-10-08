@@ -40,5 +40,7 @@ export interface PastExperimentsQueryRun {
   exposureQueryId: string;
   /** A change forces a full rerun, so counts on new identifiers aren't partial. */
   identifierTypes: string[];
+  /** How far back the query's rows go: the lookback start of its last full run. */
+  start: Date;
   lastRunAt: Date;
 }

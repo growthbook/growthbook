@@ -48,6 +48,7 @@ const pastExperimentsSchema = new mongoose.Schema({
       _id: false,
       exposureQueryId: String,
       identifierTypes: [String],
+      start: Date,
       lastRunAt: Date,
     },
   ],

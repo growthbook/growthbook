@@ -695,6 +695,7 @@ export type PastExperimentResult = {
   /** Unset on results stored before discovery ran one query per assignment query. */
   exposureQueryId?: string;
   identifierTypes?: string[];
+  from?: Date;
   mergeResults: boolean;
   experiments: {
     exposureQueryId: string;

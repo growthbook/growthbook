@@ -266,6 +266,17 @@ const ImportExperimentList: FC<{
           (r) => r.exposureQueryId === staleQueries[0].id,
         )?.lastRunAt
       : undefined;
+  // Queries can go back different distances after full reruns; this is how far
+  // back every query in view has data.
+  const lookbackStart = inScopeQueries.reduce<Date | null>((latest, q) => {
+    const start = data.experiments.exposureQueryRuns?.find(
+      (r) => r.exposureQueryId === q.id,
+    )?.start;
+    if (!start) return latest;
+    const d = getValidDate(start);
+    return !latest || d > latest ? d : latest;
+  }, null);
+
   const staleQueriesUserCantRun = datasource
     ? staleQueries.filter(
         (q) => !permissionsUtil.canRunPastExperimentQuery(q, datasource),
@@ -504,8 +515,11 @@ const ImportExperimentList: FC<{
             These are all of the experiments we found in your datasource{" "}
             {data.experiments.config && (
               <>
-                from <strong>{date(data.experiments.config.start)}</strong> to{" "}
-                <strong>{date(data.experiments.config.end)}</strong>{" "}
+                from{" "}
+                <strong>
+                  {date(lookbackStart ?? data.experiments.config.start)}
+                </strong>{" "}
+                to <strong>{date(data.experiments.config.end)}</strong>{" "}
                 {!isCloud() && (
                   <Tooltip
                     body={

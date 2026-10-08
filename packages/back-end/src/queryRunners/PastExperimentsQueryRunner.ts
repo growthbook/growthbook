@@ -72,7 +72,10 @@ export function mergePastExperimentResults({
   exposureQueries,
   runStarted,
 }: {
-  previous: Pick<PastExperimentsInterface, "experiments" | "exposureQueryRuns">;
+  previous: Pick<
+    PastExperimentsInterface,
+    "experiments" | "exposureQueryRuns" | "config"
+  >;
   results: PastExperimentResult[];
   exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[];
   runStarted: Date;
@@ -110,9 +113,16 @@ export function mergePastExperimentResults({
   );
   results.forEach((result) => {
     if (!result.exposureQueryId || !result.identifierTypes) return;
+    // An incremental run keeps the rows' start. Rows from before per-query
+    // discovery go back to the record's start.
+    const start = result.mergeResults
+      ? (runs.get(result.exposureQueryId)?.start ?? previous.config?.start)
+      : result.from;
+    if (!start) return;
     runs.set(result.exposureQueryId, {
       exposureQueryId: result.exposureQueryId,
       identifierTypes: result.identifierTypes,
+      start: getValidDate(start),
       lastRunAt: runStarted,
     });
   });
@@ -404,6 +414,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
     return {
       exposureQueryId,
       identifierTypes,
+      from,
       mergeResults: merge,
       experiments: rows.map((row) => {
         const startDate = getValidDate(row.start_date);
