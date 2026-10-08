@@ -550,7 +550,21 @@ describe("attribution across callers", () => {
       return draft.body.revision as { id: string; version: number };
     };
 
-    it("can't approve through a key that names them", async () => {
+    const draftFlag = async () => {
+      await as("a personal token").post("/api/v2/features", {
+        id: "checkout-flow",
+        valueType: "boolean",
+        defaultValue: "false",
+      });
+      const draft = await as("a personal token").put(
+        "/api/v2/features/checkout-flow/revisions/new/metadata",
+        { description: "Updated" },
+      );
+      expect(draft.status).toBe(200);
+      return draft.body.revision.version as number;
+    };
+
+    it("can't approve a constant through a key that names them", async () => {
       const { version } = await draftConstant();
       const path = `/api/v1/constants-revisions/timeout/${version}`;
       expect(
@@ -567,7 +581,7 @@ describe("attribution across callers", () => {
       expect((await approve()).status).toBe(200);
     });
 
-    it("stops a publish a key scheduled for them", async () => {
+    it("stops a constant publish a key scheduled for them", async () => {
       const { id, version } = await draftConstant();
       const schedule = await as("a key naming the member", bob).post(
         `/api/v1/constants-revisions/timeout/${version}/schedule-publish`,
@@ -594,6 +608,55 @@ describe("attribution across callers", () => {
       expect((await collection("revisions").findOne({ id }))?.status).not.toBe(
         "merged",
       );
+    });
+
+    it("can't approve a flag through a key that names them", async () => {
+      const path = `/api/v2/features/checkout-flow/revisions/${await draftFlag()}`;
+      expect(
+        (await as("a personal token").post(`${path}/request-review`)).status,
+      ).toBe(200);
+      const approve = () =>
+        as("a key naming the member", bob).post(`${path}/submit-review`, {
+          action: "approve",
+          skipAutoPublish: true,
+        });
+      await withRole(bob, "readonly", async () => {
+        expect((await approve()).status).toBe(403);
+      });
+      expect((await approve()).status).toBe(200);
+    });
+
+    it("stops a flag publish a key scheduled for them", async () => {
+      const version = await draftFlag();
+      const schedule = await as("a key naming the member", bob).post(
+        `/api/v2/features/checkout-flow/revisions/${version}/schedule-publish`,
+        { scheduledPublishAt: new Date(Date.now() + 3_600_000).toISOString() },
+      );
+      expect(schedule.status).toBe(200);
+      const stored = {
+        organization: ORG_ID,
+        featureId: "checkout-flow",
+        version,
+      };
+      await collection("featurerevisions").updateOne(stored, {
+        $set: { scheduledPublishAt: new Date(Date.now() - 1000) },
+      });
+
+      await withRole(bob, "readonly", async () => {
+        const job = getContextForAgendaJobByOrgObject(org);
+        const feature = await getFeature(job, "checkout-flow");
+        const revision = await getRevision({
+          context: job,
+          organization: ORG_ID,
+          featureId: "checkout-flow",
+          feature: feature!,
+          version,
+        });
+        await maybePublishScheduledFeatureRevision(job, feature!, revision!);
+      });
+      expect(
+        (await collection("featurerevisions").findOne(stored))?.status,
+      ).not.toBe("published");
     });
   });
 
