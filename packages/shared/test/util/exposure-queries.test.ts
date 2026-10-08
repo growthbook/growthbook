@@ -783,7 +783,7 @@ describe("assignment query project scope", () => {
     expect(
       parseAssignmentQuerySelection([scoped], {
         ...selection,
-        scope: { project: "prj_b" },
+        scope: { project: "prj_b", datasourceProjects: [] },
       }),
     ).toEqual({
       ok: false,
@@ -816,7 +816,7 @@ describe("assignment query project scope", () => {
         previous,
         next: previous,
         onOmitted: "defaultToFirst",
-        scope: { project: "prj_b" },
+        scope: { project: "prj_b", datasourceProjects: [] },
       }),
     ).toMatchObject({ ok: true, changed: false });
     expect(
@@ -824,7 +824,7 @@ describe("assignment query project scope", () => {
         previous: null,
         next: previous,
         onOmitted: "defaultToFirst",
-        scope: { project: "prj_b" },
+        scope: { project: "prj_b", datasourceProjects: [] },
       }).ok,
     ).toBe(false);
   });

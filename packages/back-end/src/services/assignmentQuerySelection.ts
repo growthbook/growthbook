@@ -5,6 +5,7 @@ import type {
   DataSourceInterface,
   ExposureQuery,
 } from "shared/types/datasource";
+import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   ApiAssignmentQueryRefInput,
   RampMonitoringConfig,
@@ -22,12 +23,33 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
+/** A scope whose data source projects are filled in from the loaded data source. */
+export type RecordAssignmentQueryScope = Omit<
+  AssignmentQueryScope,
+  "datasourceProjects"
+>;
+
 // Queries without their own projects inherit the data source's.
 function withDatasourceProjects(
-  scope: AssignmentQueryScope | undefined,
+  scope: RecordAssignmentQueryScope | undefined,
   datasource: DataSourceInterface,
 ): AssignmentQueryScope | undefined {
-  return scope && { datasourceProjects: datasource.projects, ...scope };
+  return scope && { ...scope, datasourceProjects: datasource.projects };
+}
+
+/**
+ * Where an experiment uses its query: its project, or for a holdout's
+ * experiment, which has no project, every project the holdout covers.
+ */
+export async function getExperimentAssignmentQueryScope(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "id" | "type">,
+  project: string,
+): Promise<RecordAssignmentQueryScope> {
+  if (experiment.type !== "holdout") return { project };
+  const holdout = await context.models.holdout.getByExperimentId(experiment.id);
+  if (!holdout) throw new Error("Could not find this experiment's holdout");
+  return { projects: holdout.projects };
 }
 
 /**
@@ -89,7 +111,7 @@ export async function resolveAssignmentQueryIdentifier(
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     field?: "assignmentQuery" | "exposureQuery";
     /** Where the record uses the query. Omit to skip the project check. */
-    scope?: AssignmentQueryScope;
+    scope?: RecordAssignmentQueryScope;
   },
 ): Promise<{ identifierType: string | undefined; changed: boolean }> {
   const kept = withKeptIdentifierType(previous, next);
@@ -130,7 +152,7 @@ export async function assertValidAssignmentQuerySelectionChange(
   previous: AssignmentQuerySelection | null,
   next: AssignmentQuerySelection,
   /** Where the record uses the query. Omit to skip the project check. */
-  scope?: AssignmentQueryScope,
+  scope?: RecordAssignmentQueryScope,
 ): Promise<void> {
   const selection = await loadChangedAssignmentQuerySelection(
     context,

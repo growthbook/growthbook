@@ -2,6 +2,7 @@ import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
+import pick from "lodash/pick";
 import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
@@ -380,36 +381,36 @@ function withoutExposureQueries(settings: DataSourceSettings | undefined) {
   );
 }
 
+type PutDataSourceBody = {
+  name?: string;
+  description?: string;
+  type?: DataSourceType;
+  params?: DataSourceParams;
+  settings?: DataSourceSettings;
+  projects?: string[];
+  metricsToCreate?: AutoMetricToCreate[];
+  eventForwarderConfig?: EventForwarderConfigDraft | null;
+};
+
 // Assignment queries are scoped to projects, so editing one needs the
 // permission in the projects it covers rather than in every project of the
-// data source. Any other change still needs the data source-wide permission.
+// data source. Anything else in the body, including fields added later, still
+// needs the data source-wide permission.
 function assertCanUpdateDataSource(
   context: ReqContext,
   datasource: DataSourceInterface,
-  body: {
-    name?: string;
-    description?: string;
-    params?: unknown;
-    settings?: DataSourceSettings;
-    projects?: string[];
-    metricsToCreate?: unknown[];
-    eventForwarderConfig?: unknown;
-  },
+  body: PutDataSourceBody,
 ) {
   const { permissions } = context;
-  const changesOtherFields =
-    (body.name !== undefined && body.name !== datasource.name) ||
-    ("description" in body && body.description !== datasource.description) ||
-    body.params !== undefined ||
-    body.projects !== undefined ||
-    !!body.metricsToCreate?.length ||
-    body.eventForwarderConfig !== undefined ||
-    (body.settings !== undefined &&
-      !isEqual(
-        withoutExposureQueries(body.settings),
+  const { settings, ...otherFields } = body;
+  const onlyExposureQueriesChange =
+    !Object.keys(otherFields).length &&
+    (settings === undefined ||
+      isEqual(
+        withoutExposureQueries(settings),
         withoutExposureQueries(datasource.settings),
       ));
-  if (changesOtherFields) {
+  if (!onlyExposureQueriesChange) {
     if (!permissions.canUpdateDataSourceSettings(datasource)) {
       permissions.throwPermissionError();
     }
@@ -507,19 +508,7 @@ export async function postTestDataSourceConnection(
 }
 
 export async function putDataSource(
-  req: AuthRequest<
-    {
-      name?: string;
-      description?: string;
-      type?: DataSourceType;
-      params?: DataSourceParams;
-      settings?: DataSourceSettings;
-      projects?: string[];
-      metricsToCreate?: AutoMetricToCreate[];
-      eventForwarderConfig?: EventForwarderConfigDraft | null;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<PutDataSourceBody, { id: string }>,
   res: Response<
     | {
         status: 200;
@@ -1388,18 +1377,15 @@ export async function updateExposureQuery(
   }
 
   const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
-  // Only for dimension metadata; identifiers are edited with the whole query.
-  const updatedQuery = {
-    ...exposureQuery,
-    ...omit(updates, ["userIdType", "userIdTypes"]),
-  };
-  if (
-    !context.permissions.canUpdateExposureQuery(exposureQuery, dataSource) ||
-    !context.permissions.canUpdateExposureQuery(updatedQuery, dataSource)
-  ) {
+  if (!context.permissions.canUpdateExposureQuery(exposureQuery, dataSource)) {
     context.permissions.throwPermissionError();
   }
-  copy.settings.queries.exposure[exposureQueryIndex] = updatedQuery;
+  // Only dimension metadata; the rest of the query is edited through the data
+  // source save, which validates it.
+  copy.settings.queries.exposure[exposureQueryIndex] = {
+    ...exposureQuery,
+    ...pick(updates, ["dimensions", "dimensionSlicesId", "dimensionMetadata"]),
+  };
 
   try {
     const updates: Partial<DataSourceInterface> = {

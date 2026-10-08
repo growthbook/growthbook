@@ -142,8 +142,11 @@ type SelectableExposureQuery = Pick<
 export type AssignmentQueryScope = {
   project?: string;
   projects?: string[];
-  /** Inherited by queries without their own project scope. */
-  datasourceProjects?: string[];
+  /**
+   * Inherited by queries without their own project scope. Required so a caller
+   * can't leave it out and treat those queries as available everywhere.
+   */
+  datasourceProjects: string[] | undefined;
 };
 
 function getAssignmentQueryScopeError(
