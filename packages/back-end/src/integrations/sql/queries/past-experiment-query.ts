@@ -120,9 +120,33 @@ export function getPastExperimentQuery(
           d.users > u.threshold
         GROUP BY
           d.exposure_query, d.identifier_type, d.experiment_id, d.variation_id
+      ),
+      __ranked as (
+        SELECT
+          v.*,
+          ROW_NUMBER() OVER (
+            PARTITION BY identifier_type
+            ORDER BY start_date DESC, experiment_id ASC, variation_id ASC
+          ) as rn
+        FROM __variations v
+      ),
+      __limited as (
+        SELECT
+          exposure_query,
+          identifier_type,
+          experiment_id,
+          experiment_name,
+          variation_id,
+          variation_name,
+          start_date,
+          end_date,
+          users,
+          latest_data
+        FROM __ranked
+        WHERE rn <= ${MAX_ROWS_PAST_EXPERIMENTS_QUERY}
       )
     ${dialect.selectStarLimit(
-      `__variations`,
+      `__limited`,
       MAX_ROWS_PAST_EXPERIMENTS_QUERY * identifierTypes.length,
       `ORDER BY start_date DESC, experiment_id ASC, variation_id ASC, identifier_type ASC`,
     )}`,
