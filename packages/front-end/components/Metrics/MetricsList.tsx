@@ -43,6 +43,7 @@ import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
+import SplitButton from "@/ui/SplitButton";
 import Text from "@/ui/Text";
 import MetricForm from "@/components/Metrics/MetricForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -595,57 +596,54 @@ const MetricsList = (): React.ReactElement => {
               enabled={!canAddFactMetric}
             >
               {canAddFactMetric ? (
-                <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
+                <SplitButton
+                  menu={
+                    showLegacyOption ? (
+                      // Legacy creation stays possible for orgs that already
+                      // use it, tucked behind this menu and a confirmation.
+                      <DropdownMenu
+                        trigger={
+                          <Button aria-label="More ways to add a metric">
+                            <BsThreeDotsVertical />
+                          </Button>
+                        }
+                        menuPlacement="end"
+                      >
+                        <DropdownMenuItem
+                          confirmation={{
+                            confirmationTitle: "Create a legacy SQL metric?",
+                            cta: "Continue with legacy SQL metric",
+                            ctaColor: "violet",
+                            submit: () => setShowLegacyForm(true),
+                            getConfirmationContent: async () => (
+                              <Flex direction="column" gap="2">
+                                <Text as="p" mb="0">
+                                  Legacy SQL metrics are no longer the
+                                  recommended way to define metrics. Fact
+                                  metrics support more metric types, reuse
+                                  shared fact tables, and run faster queries.
+                                </Text>
+                                <Text as="p" mb="0">
+                                  <Link href="/fact-metrics/new">
+                                    Create a fact metric instead
+                                  </Link>
+                                </Text>
+                              </Flex>
+                            ),
+                          }}
+                        >
+                          Add legacy SQL metric…
+                        </DropdownMenuItem>
+                      </DropdownMenu>
+                    ) : undefined
+                  }
+                >
+                  <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
+                </SplitButton>
               ) : (
                 <Button disabled>Add metric</Button>
               )}
             </Tooltip>
-            {showLegacyOption && (
-              // Deliberately off the Add metric CTA and behind a
-              // confirmation: legacy metrics stay possible for orgs that
-              // already use them, but fact metrics are the default.
-              <DropdownMenu
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
-                    aria-label="More metric options"
-                  >
-                    <BsThreeDotsVertical size={16} />
-                  </IconButton>
-                }
-                menuPlacement="end"
-              >
-                <DropdownMenuItem
-                  confirmation={{
-                    confirmationTitle: "Create a legacy SQL metric?",
-                    cta: "Continue with legacy SQL metric",
-                    ctaColor: "violet",
-                    submit: () => setShowLegacyForm(true),
-                    getConfirmationContent: async () => (
-                      <Flex direction="column" gap="2">
-                        <Text as="p" mb="0">
-                          Legacy SQL metrics are no longer the recommended way
-                          to define metrics. Fact metrics support more metric
-                          types, reuse shared fact tables, and run faster
-                          queries.
-                        </Text>
-                        <Text as="p" mb="0">
-                          <Link href="/fact-metrics/new">
-                            Create a fact metric instead
-                          </Link>
-                        </Text>
-                      </Flex>
-                    ),
-                  }}
-                >
-                  Add legacy SQL metric…
-                </DropdownMenuItem>
-              </DropdownMenu>
-            )}
           </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
           <Box>
