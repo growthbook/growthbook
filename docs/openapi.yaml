@@ -115,14 +115,15 @@ info:
 
 
     A value that does not match a member of the organization is rejected with a
-    400. Approving or requesting changes needs a named member, and the verdict
-    counts as theirs, so a key can't approve a draft created in that member's
-    name; comments don't need one. Because the header isn't verified, whoever
-    holds the key can review as any member. A create request that omits `owner`
-    defaults it to the named member. Scheduled and auto-publishes armed by such
-    a request later run with the same permissions, and don't run if that member
-    has left the organization. Personal Access Tokens and OAuth tokens already
-    act as their user and reject the header.
+    400. Approving or requesting changes needs a named member, so a key whose
+    header is **Rejected** can't do either. The verdict counts as that member's,
+    so a key can't approve a draft created in their name; comments don't need a
+    member. Because the header isn't verified, whoever holds the key can review
+    as any member. A create request that omits `owner` defaults it to the named
+    member. Scheduled and auto-publishes armed by such a request later run with
+    the same permissions, and don't run if that member has left the
+    organization. Personal Access Tokens and OAuth tokens already act as their
+    user and reject the header.
 
 
     ```bash
