@@ -1,13 +1,9 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import {
-  ExperimentInterfaceStringDates,
-  LinkedChangeEnvStates,
-} from "shared/types/experiment";
+import { LinkedChangeEnvStates } from "shared/types/experiment";
 import {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
-import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   PiArrowSquareOut,
@@ -37,6 +33,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
 import { ICON_PROPERTIES } from "./LinkedChanges/constants";
+import type { VisualChangesetOwnerView } from "./visualChangesetOwner";
 import {
   ChangeType,
   Humanized,
@@ -318,8 +315,9 @@ function ChangeRow({
 // preview/edit row actions. Expanded body holds the change rows.
 function VariationRow({
   vc,
-  experiment,
+  owner,
   variationIndex,
+  previewIndex,
   variationId,
   variationName,
   splitPct,
@@ -333,8 +331,9 @@ function VariationRow({
   onDeleteVariation,
 }: {
   vc: VisualChangesetInterface;
-  experiment: ExperimentInterfaceStringDates;
+  owner: VisualChangesetOwnerView;
   variationIndex: number;
+  previewIndex?: number;
   variationId: string;
   variationName: string;
   splitPct: number;
@@ -383,11 +382,11 @@ function VariationRow({
   // tracking key + the variation INDEX, matching the existing convention).
   const previewUrl = useMemo(() => {
     const base = normalizeVisualEditorUrl(vc.editorUrl);
-    if (!base) return null;
+    if (!base || previewIndex === undefined) return null;
     return appendQueryParamsToURL(base, {
-      [experiment.trackingKey]: variationIndex,
+      [owner.trackingKey]: previewIndex,
     });
-  }, [vc.editorUrl, experiment.trackingKey, variationIndex]);
+  }, [vc.editorUrl, owner.trackingKey, previewIndex]);
 
   // Build the humanized rows: one per DOM mutation, then global CSS / JS
   // appended as additional rows (the design treats "Added custom CSS" as
@@ -532,8 +531,8 @@ function VariationRow({
           title={`Delete "${variationName}"?`}
           content={
             <>
-              This will remove <strong>{variationName}</strong> from the
-              experiment, along with all of its visual changes across every
+              This will remove <strong>{variationName}</strong> from the{" "}
+              {owner.noun}, along with all of its visual changes across every
               targeted URL. Other variations are unaffected. This can&rsquo;t be
               undone.
             </>
@@ -607,8 +606,9 @@ const radixColor = ICON_PROPERTIES["visual-editor"].radixColor;
 
 function UrlCard({
   vc,
-  experiment,
+  owner,
   canEdit,
+  canRemove,
   envStatesArray,
   onEditTargeting,
   onDeleteChangeset,
@@ -618,8 +618,9 @@ function UrlCard({
   onDeleteVariation,
 }: {
   vc: VisualChangesetInterface;
-  experiment: ExperimentInterfaceStringDates;
+  owner: VisualChangesetOwnerView;
   canEdit: boolean;
+  canRemove: boolean;
   envStatesArray: Array<{
     env: string;
     state: string;
@@ -645,8 +646,6 @@ function UrlCard({
   }) => Promise<void>;
   onDeleteVariation: (variationId: string) => Promise<void>;
 }) {
-  const phaseVariations = getLatestPhaseVariations(experiment);
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
   const editorUrl = vc.editorUrl.trim();
   const linkUrl = normalizeVisualEditorUrl(editorUrl);
 
@@ -697,7 +696,7 @@ function UrlCard({
           </Box>
         </Flex>
         <Box>
-          {canEdit && (
+          {canRemove && (
             <DeleteButton
               className="btn-sm ml-4"
               text="Remove"
@@ -706,7 +705,7 @@ function UrlCard({
               displayName="Visual Changeset"
             />
           )}
-          {canEdit && experiment.status === "draft" && (
+          {canEdit && owner.canEditChanges && (
             <OpenVisualEditorLink
               useRadix={false}
               visualChangeset={vc}
@@ -728,17 +727,16 @@ function UrlCard({
 
         {/* Variations */}
         <Box>
-          {phaseVariations.map((v, j) => (
+          {owner.variations.map((v, j) => (
             <VariationRow
               key={v.id}
               vc={vc}
-              experiment={experiment}
+              owner={owner}
               variationIndex={j}
+              previewIndex={v.previewIndex}
               variationId={v.id}
               variationName={v.name}
-              splitPct={decimalToPercent(
-                latestPhase?.variationWeights?.[j] ?? 0,
-              )}
+              splitPct={decimalToPercent(v.weight)}
               canEdit={canEdit}
               // Deleting a variation is allowed only on drafts (running
               // experiments shouldn't lose buckets retroactively), only
@@ -747,15 +745,14 @@ function UrlCard({
               // base canEdit permission also has to hold.
               canDeleteVariation={
                 canEdit &&
-                j !== 0 &&
-                experiment.status === "draft" &&
-                phaseVariations.length > 2
+                !!owner.deleteVariation &&
+                owner.canDeleteVariation(j)
               }
               // All variations start collapsed — matches the environments
               // drop-down pattern used elsewhere on this page. Users opt
               // in to seeing the change list by clicking the chevron.
               defaultOpen={false}
-              isLast={j === phaseVariations.length - 1}
+              isLast={j === owner.variations.length - 1}
               setEditingVisualChange={setEditingVisualChange}
               onDeleteDomMutation={onDeleteDomMutation}
               onClearGlobal={onClearGlobal}
@@ -780,18 +777,20 @@ function UrlCard({
 }
 
 type Props = {
-  experiment: ExperimentInterfaceStringDates;
+  owner: VisualChangesetOwnerView;
   visualChangesets: VisualChangesetInterface[];
   mutate?: () => void;
   canEditVisualChangesets: boolean;
+  canRemoveVisualChangesets?: boolean;
   environmentStates?: LinkedChangeEnvStates;
 };
 
 export const VisualChangesetTable: FC<Props> = ({
-  experiment,
+  owner,
   visualChangesets = [],
   mutate,
   canEditVisualChangesets,
+  canRemoveVisualChangesets = canEditVisualChangesets,
   environmentStates,
 }: Props) => {
   const { apiCall } = useAuth();
@@ -927,53 +926,16 @@ export const VisualChangesetTable: FC<Props> = ({
     [apiCall, mutate],
   );
 
-  // Remove a variation from the experiment AND clean up any matching
-  // `visualChange` rows in every changeset. We do the experiment update
-  // first (the existing edit-variations endpoint handles phase /
-  // variationWeights bookkeeping); then sweep changesets that referenced
-  // the deleted variation. Not atomic across the two writes — but a
-  // partial failure leaves orphan visualChanges that are harmless
-  // (the UI filters by current `variations` ids) and re-runnable.
   const deleteVariation = useCallback(
     async (variationId: string) => {
-      const newVariations = experiment.variations.filter(
-        (v) => v.id !== variationId,
-      );
-      const newWeights = getEqualWeights(newVariations.length, 4);
-
-      await apiCall(`/experiment/${experiment.id}`, {
-        method: "POST",
-        body: JSON.stringify({
-          variations: newVariations,
-          variationWeights: newWeights,
-        }),
-      });
-
-      // Sweep each changeset that had a row for this variation.
-      await Promise.all(
-        visualChangesets
-          .filter((vc) =>
-            vc.visualChanges.some((c) => c.variation === variationId),
-          )
-          .map((vc) =>
-            apiCall(`/visual-changesets/${vc.id}`, {
-              method: "PUT",
-              body: JSON.stringify({
-                ...vc,
-                visualChanges: vc.visualChanges.filter(
-                  (c) => c.variation !== variationId,
-                ),
-              }),
-            }),
-          ),
-      );
-
+      if (!owner.deleteVariation) return;
+      await owner.deleteVariation(variationId);
       mutate?.();
       track("Delete variation", {
         source: "visual-editor-ui",
       });
     },
-    [apiCall, experiment, visualChangesets, mutate],
+    [owner, mutate],
   );
 
   // Flatten environmentStates into the shape EnvironmentStatesGrid
@@ -997,7 +959,6 @@ export const VisualChangesetTable: FC<Props> = ({
       {editingVisualChangeset && mutate ? (
         <VisualChangesetModal
           mode="edit"
-          experiment={experiment}
           visualChangeset={editingVisualChangeset}
           mutate={mutate}
           close={() => setEditingVisualChangeset(null)}
@@ -1007,7 +968,7 @@ export const VisualChangesetTable: FC<Props> = ({
 
       {editingVisualChange ? (
         <EditDOMMutationsModal
-          experiment={experiment}
+          owner={owner}
           visualChange={editingVisualChange.visualChange}
           close={() => setEditingVisualChange(null)}
           onSave={(newVisualChange) =>
@@ -1025,8 +986,9 @@ export const VisualChangesetTable: FC<Props> = ({
           <UrlCard
             key={vc.id}
             vc={vc}
-            experiment={experiment}
+            owner={owner}
             canEdit={canEditVisualChangesets}
+            canRemove={canRemoveVisualChangesets}
             envStatesArray={envStatesArray}
             onEditTargeting={() => {
               setEditingVisualChangeset(vc);

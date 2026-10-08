@@ -9,6 +9,7 @@ import {
   getDroppedContextualAttributes,
   getEffectiveContextualAttributes,
 } from "shared/validators";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -49,7 +50,7 @@ import {
 import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
-import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
+import ContextualBanditLinkedChanges from "@/components/ContextualBandit/ContextualBanditLinkedChanges";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
 import CompareContextualBanditEventsModal from "@/components/ContextualBandit/CompareContextualBanditEventsModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
@@ -103,9 +104,15 @@ export default function ContextualBanditDetailPage({
   editDescription,
   duplicate,
   linkedFeatures = [],
-  linkedFeaturesMutate,
   setFeatureModal,
-  canAddFeature = false,
+  visualChangesets = [],
+  visualChangesetsLoading = false,
+  visualChangesetsError,
+  setVisualChangesetModal,
+  canAddLinkedChanges = false,
+  canEditVisualChangesets = false,
+  canRemoveVisualChangesets = false,
+  linkedChangesMutate,
 }: {
   cb: ApiContextualBanditInterface;
   mutate: () => void;
@@ -119,9 +126,15 @@ export default function ContextualBanditDetailPage({
   editDescription?: () => void;
   duplicate?: () => void;
   linkedFeatures?: LinkedFeatureInfo[];
-  linkedFeaturesMutate?: () => void;
   setFeatureModal?: (open: boolean) => void;
-  canAddFeature?: boolean;
+  visualChangesets?: VisualChangesetInterface[];
+  visualChangesetsLoading?: boolean;
+  visualChangesetsError?: Error;
+  setVisualChangesetModal?: (open: boolean) => void;
+  canAddLinkedChanges?: boolean;
+  canEditVisualChangesets?: boolean;
+  canRemoveVisualChangesets?: boolean;
+  linkedChangesMutate?: () => void;
 }) {
   const { getDatasourceById, getExperimentMetricById, projects } =
     useDefinitions();
@@ -245,6 +258,18 @@ export default function ContextualBanditDetailPage({
   const pendingVariations = cb.variations
     .map((v, index) => ({ ...v, index }))
     .filter((v) => v.status === "pending");
+  const pendingReasons = [
+    linkedFeatures.length > 0
+      ? "a linked Feature Flag rule to be published"
+      : null,
+    visualChangesets.length > 1
+      ? "a visual editor change to be saved for it on every page"
+      : visualChangesets.length > 0
+        ? "a visual editor change to be saved for it"
+        : null,
+  ]
+    .filter(Boolean)
+    .join(" and ");
 
   const numVariations = cb.variations.length;
   const variationCols = numVariations > 4 ? 4 : Math.max(numVariations, 1);
@@ -537,12 +562,12 @@ export default function ContextualBanditDetailPage({
                       ))}
                       <Text>
                         {pendingVariations.length === 1 ? "is" : "are"} waiting
-                        on a linked Feature Flag rule to be published and will
-                        not receive any traffic until then.{" "}
+                        on {pendingReasons} and will not receive any traffic
+                        until then.{" "}
                         {pendingVariations.length === 1
                           ? "It activates"
                           : "They activate"}{" "}
-                        automatically when the Feature Flag revision publishes.
+                        automatically once that happens.
                       </Text>
                     </Flex>
                   </Callout>
@@ -574,12 +599,18 @@ export default function ContextualBanditDetailPage({
               </Box>
             </Frame>
 
-            <ContextualBanditLinkedFeatures
+            <ContextualBanditLinkedChanges
               cb={cb}
               linkedFeatures={linkedFeatures}
-              canAddFeature={canAddFeature}
+              visualChangesets={visualChangesets}
+              visualChangesetsLoading={visualChangesetsLoading}
+              visualChangesetsError={visualChangesetsError}
+              canAdd={canAddLinkedChanges}
+              canEditVisualChangesets={canEditVisualChangesets}
+              canRemoveVisualChangesets={canRemoveVisualChangesets}
               setFeatureModal={setFeatureModal}
-              mutate={linkedFeaturesMutate}
+              setVisualChangesetModal={setVisualChangesetModal}
+              mutate={linkedChangesMutate ?? mutate}
             />
 
             <OverviewSection
@@ -737,6 +768,9 @@ export default function ContextualBanditDetailPage({
         <StartContextualBanditModal
           cb={cb}
           linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          visualChangesetsLoading={visualChangesetsLoading}
+          visualChangesetsError={visualChangesetsError}
           startContextualBandit={start}
           close={() => setShowStart(false)}
         />

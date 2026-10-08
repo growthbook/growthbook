@@ -68363,6 +68363,8 @@ components:
           items:
             type: object
             properties:
+              id:
+                type: string
               description:
                 type: string
               css:
@@ -81996,6 +81998,8 @@ components:
     VisualChange:
       type: object
       properties:
+        id:
+          type: string
         description:
           type: string
         css:
