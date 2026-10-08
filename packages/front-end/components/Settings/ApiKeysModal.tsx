@@ -257,8 +257,10 @@ const ApiKeysModal: FC<{
               Permissions
             </Heading>
             <Text as="p" color="text-mid" mb="3">
-              What every request made with this key can do. A request that names
-              a member can only do what both this key and that member can.
+              What every request made with this key can do.
+              {requesterHeader !== "rejected" &&
+                requesterPermissions === "assume" &&
+                " A request that names a member can only do what both this key and that member can."}
             </Text>
             <RoleRulesTable value={roleState} setValue={setRoleState} />
           </Box>
