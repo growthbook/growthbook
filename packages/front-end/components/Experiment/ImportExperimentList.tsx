@@ -38,7 +38,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Callout from "@/ui/Callout";
-import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -334,27 +333,6 @@ const ImportExperimentList: FC<{
               </div>
             </>
           )}
-          {identifierType !== null &&
-            (identifierTypes.length > 1 ? (
-              <Select
-                label="Identifier"
-                labelSize="sm"
-                size="sm"
-                mt="2"
-                value={identifierType}
-                setValue={setSelectedIdentifierType}
-              >
-                {identifierTypes.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </Select>
-            ) : (
-              <Text as="div" size="sm" color="text-mid">
-                Identifier: <Text mono>{identifierType}</Text>
-              </Text>
-            ))}
         </div>
         {hasStarted && (
           <div className="col-auto ml-auto">
@@ -543,6 +521,17 @@ const ImportExperimentList: FC<{
             .
           </p>
           <div className="row mb-3 text-align-center bg-light border-top border-bottom">
+            {identifierType !== null && identifierTypes.length > 1 && (
+              <div className="col-auto">
+                <SelectField
+                  label="Identifier"
+                  labelClassName="small mb-0"
+                  value={identifierType}
+                  onChange={setSelectedIdentifierType}
+                  options={identifierTypes.map((t) => ({ label: t, value: t }))}
+                />
+              </div>
+            )}
             <div className="col-auto">
               <label className="small mb-0">Filter</label>
               <Field
