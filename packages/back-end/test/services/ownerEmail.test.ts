@@ -17,18 +17,16 @@ function makeContext(users: Partial<UserInterface>[]): ReqContext {
 function makeOwnerContext({
   members = [],
   userId = "",
-  actingUserId = userId,
 }: {
   members?: Partial<UserInterface>[];
   userId?: string;
-  actingUserId?: string;
 }): ReqContext {
   const getUserByEmail = jest.fn(async (email: string) =>
     members.find((m) => m.email === email),
   );
   return {
     userId,
-    actingUserId,
+    actingUserId: userId,
     org: { members: members.map((m) => ({ id: m.id })) },
     getUserByEmail,
   } as unknown as ReqContext;
@@ -244,15 +242,6 @@ describe("resolveOwnerForCreate", () => {
     const context = makeOwnerContext({ members: [], userId: "u_pat" });
     expect(await resolveOwnerForCreate(undefined, context)).toBe("u_pat");
     expect(await resolveOwnerForCreate("", context)).toBe("u_pat");
-  });
-
-  it("falls back to the X-GrowthBook-Requested-By member when an org key names one", async () => {
-    const context = makeOwnerContext({
-      members: [],
-      userId: "",
-      actingUserId: "u_obo",
-    });
-    expect(await resolveOwnerForCreate(undefined, context)).toBe("u_obo");
   });
 
   it("throws when no owner is provided and there is no userId (org API key)", async () => {

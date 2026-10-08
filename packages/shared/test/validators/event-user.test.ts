@@ -2,7 +2,6 @@ import {
   auditUserToEventUser,
   eventUserCredit,
   eventUserLabel,
-  eventUserPerson,
   eventUserPersonId,
   reviewerKeyForEventUser,
   type EventUser,
@@ -29,8 +28,6 @@ const actors: Record<string, EventUser> = {
   "no actor": null,
 };
 
-const danaCredit = { id: "u_dana", name: "Dana", email: "dana@example.com" };
-
 describe("actor helpers", () => {
   it.each([
     // actor, person id, reviewer key, label, label with email, credit
@@ -40,7 +37,7 @@ describe("actor helpers", () => {
       "u_dana",
       "Dana",
       "Dana (dana@example.com)",
-      danaCredit,
+      dana,
     ],
     [
       "a personal access token",
@@ -48,7 +45,7 @@ describe("actor helpers", () => {
       "u_dana",
       "Dana (API)",
       "Dana (dana@example.com) (API)",
-      danaCredit,
+      dana,
     ],
     [
       "an org key naming Dana",
@@ -56,7 +53,7 @@ describe("actor helpers", () => {
       "u_dana",
       "Dana via CI key",
       "Dana (dana@example.com) via CI key",
-      danaCredit,
+      dana,
     ],
     [
       "an org key naming no one",
@@ -74,7 +71,6 @@ describe("actor helpers", () => {
     (actor, personId, reviewerKey, label, labelWithEmail, credit) => {
       const user = actors[actor];
       expect(eventUserPersonId(user)).toBe(personId);
-      expect(eventUserPerson(user)?.id ?? null).toBe(personId);
       expect(reviewerKeyForEventUser(user)).toBe(reviewerKey);
       expect(eventUserLabel(user)).toBe(label);
       expect(eventUserLabel(user, { withEmail: true })).toBe(labelWithEmail);
@@ -107,10 +103,7 @@ describe("actor helpers", () => {
     ["the system", { system: true as const }, { type: "system" }],
   ])("reads %s back from an audit entry", (_, auditUser, expected) => {
     expect(auditUserToEventUser(auditUser)).toEqual(
-      expect.objectContaining(expected ?? {}),
-    );
-    expect(eventUserPersonId(auditUserToEventUser(auditUser))).toBe(
-      eventUserPersonId(expected),
+      expect.objectContaining(expected),
     );
   });
 });

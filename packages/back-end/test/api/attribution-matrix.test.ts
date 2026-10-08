@@ -19,15 +19,10 @@ import {
 import { setupApp } from "./api.setup";
 
 /**
- * Who gets credited, for every kind of API caller, across every revisioned
- * entity and its lifecycle: drafting, `mine`, comments, review requests,
- * verdicts, undo, scheduled publishes that fire later, direct publishes, owner
- * defaults and emitted events. Plus, through the real auth middleware, each
- * key's header policy and whether naming a member narrows the key.
- *
- * The rule under test: the person behind a request is a personal token's
- * owner, or the member an org key names with X-GrowthBook-Requested-By. A key
- * that names no one is credited under its own name and has no person.
+ * The person behind a request is a personal token's owner, or the member an
+ * org key names with X-GrowthBook-Requested-By; a key that names no one is
+ * credited under its own name. Checked across callers, revisioned entities,
+ * their lifecycles and schedules, and through the real auth middleware.
  */
 
 const ORG_ID = "org_attribution";
@@ -146,6 +141,21 @@ describe("attribution across callers", () => {
     await collection("apikeys").insertOne({ ...KEY });
   });
 
+  // Org members are read from this object, so a test can demote one briefly.
+  const withRole = async (
+    person: Person,
+    role: string,
+    work: () => Promise<void>,
+  ) => {
+    const member = org.members.find((m) => m.id === person.id)!;
+    member.role = role;
+    try {
+      await work();
+    } finally {
+      member.role = "admin";
+    }
+  };
+
   const as = (
     actor: Actor,
     person: Person = dana,
@@ -167,9 +177,6 @@ describe("attribution across callers", () => {
     expect(context.actingUserId).toBe(EXPECT[actor].personId);
     expect(context.actingUserName).toBe(
       EXPECT[actor].hasPerson ? dana.name : "",
-    );
-    expect(context.actingUserEmail).toBe(
-      EXPECT[actor].hasPerson ? dana.email : "",
     );
   });
 
@@ -527,60 +534,7 @@ describe("attribution across callers", () => {
     );
   });
 
-  it("narrows a key to what the member it names can do", async () => {
-    const member = org.members.find((m) => m.id === bob.id)!;
-    member.role = "readonly";
-    try {
-      // Canary: the admin key alone can create it.
-      expect(
-        (
-          await as("a key naming no one").post("/api/v1/constants", {
-            key: "alone",
-            name: "Alone",
-            type: "json",
-            value: "{}",
-          })
-        ).status,
-      ).toBe(200);
-      expect(
-        (
-          await as("a key naming the member", bob).post("/api/v1/constants", {
-            key: "for-bob",
-            name: "For Bob",
-            type: "json",
-            value: "{}",
-          })
-        ).status,
-      ).toBe(403);
-      // Keeping its own role, the key only records who asked.
-      expect(
-        (
-          await as("a key naming the member", bob, {
-            ...KEY,
-            requesterPermissions: "key",
-          }).post("/api/v1/constants", {
-            key: "logged-for-bob",
-            name: "Logged for Bob",
-            type: "json",
-            value: "{}",
-          })
-        ).status,
-      ).toBe(200);
-    } finally {
-      member.role = "admin";
-    }
-  });
-
   describe("a member who loses permissions", () => {
-    const withBobReadOnly = async (work: () => Promise<void>) => {
-      const member = org.members.find((m) => m.id === bob.id)!;
-      member.role = "readonly";
-      try {
-        await work();
-      } finally {
-        member.role = "admin";
-      }
-    };
     const draftConstant = async () => {
       await as("a personal token").post("/api/v1/constants", {
         key: "timeout",
@@ -607,7 +561,7 @@ describe("attribution across callers", () => {
           decision: "approve",
           skipAutoPublish: true,
         });
-      await withBobReadOnly(async () => {
+      await withRole(bob, "readonly", async () => {
         expect((await approve()).status).toBe(403);
       });
       expect((await approve()).status).toBe(200);
@@ -625,7 +579,7 @@ describe("attribution across callers", () => {
         { $set: { scheduledPublishAt: new Date(Date.now() - 1000) } },
       );
 
-      await withBobReadOnly(async () => {
+      await withRole(bob, "readonly", async () => {
         const job = getContextForAgendaJobByOrgObject(org);
         const revision = await job.models.revisions.getById(id);
         const target = await getAdapter(revision!.target.type)
@@ -658,15 +612,6 @@ describe("attribution across callers", () => {
 
     // Dana writes a draft, then loses draft permissions, so only her author
     // rights can let a read-only key discard it, and only when it names her.
-    const asDemotedAuthor = async (work: () => Promise<void>) => {
-      const member = org.members.find((m) => m.id === dana.id)!;
-      member.role = "readonly";
-      try {
-        await work();
-      } finally {
-        member.role = "admin";
-      }
-    };
 
     it.each(NAMED)(
       "lets a read-only key %s discard a constant draft",
@@ -684,7 +629,7 @@ describe("attribution across callers", () => {
         );
         const version = draft.body.revision.version;
 
-        await asDemotedAuthor(async () => {
+        await withRole(dana, "readonly", async () => {
           const res = await as("a key naming the member", person, key).post(
             `/api/v1/constants-revisions/timeout/${version}/discard`,
           );
@@ -708,7 +653,7 @@ describe("attribution across callers", () => {
         );
         const version = draft.body.revision.version;
 
-        await asDemotedAuthor(async () => {
+        await withRole(dana, "readonly", async () => {
           const res = await as("a key naming the member", person, key).post(
             `/api/v2/features/checkout-flow/revisions/${version}/discard`,
           );

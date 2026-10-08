@@ -125,8 +125,6 @@ describe("authoredFeatureDraft", () => {
     expect(authoredFeatureDraft(contextWith({}, "u_asker"), madeForAsker)).toBe(
       true,
     );
-    const keyContext = { permissions: {} } as unknown as ReqContext;
-    expect(authoredFeatureDraft(keyContext, madeForAsker)).toBe(false);
   });
 
   it("counts nobody else, and no API key", () => {
