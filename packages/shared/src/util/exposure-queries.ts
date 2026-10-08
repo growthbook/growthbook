@@ -360,7 +360,7 @@ export function resolveAssignmentQuerySelectionChange(
     next: AssignmentQuerySelection;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     field?: string;
-    // Only checked for a new or changed selection.
+    /** Only checked for a new or changed selection. */
     scope?: AssignmentQueryScope;
   },
 ): AssignmentQuerySelectionChange {
@@ -548,8 +548,10 @@ export function getChangedExposureQueries<
   return changes;
 }
 
-// Settings with the assignment queries left out, normalized as JSON so values
-// round-tripped through the client compare equal.
+/**
+ * Settings with the assignment queries left out, normalized as JSON so values
+ * round-tripped through the client compare equal.
+ */
 function withoutExposureQueries(settings: DataSourceSettings | undefined) {
   return JSON.parse(
     JSON.stringify({

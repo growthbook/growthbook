@@ -82,7 +82,9 @@ const AnalysisForm: FC<{
   editDates?: boolean;
   editMetrics?: boolean;
   source?: string;
-  // A holdout's assignment query must cover every Project the holdout spans.
+  /**
+   * A holdout's assignment query must cover every Project the holdout spans.
+   */
   holdoutProjects?: string[];
 }> = ({
   experiment,

@@ -474,7 +474,7 @@ function assertEventForwarderManagedRecordsIntact(
   }
 }
 
-// Project names are only looked up once a save is rejected.
+/** Project names are only looked up once a save is rejected. */
 async function assertExposureQueriesWithinProjectScope(
   context: ReqContext | ApiReqContext,
   exposureQueries: ExposureQuery[],

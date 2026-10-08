@@ -379,9 +379,11 @@ type PutDataSourceBody = {
   eventForwarderConfig?: EventForwarderConfigDraft | null;
 };
 
-// Assignment queries are scoped to projects, so editing one needs the
-// permission in the projects it covers rather than in every project of the
-// data source. Anything else still needs the data source-wide permission.
+/**
+ * Assignment queries are scoped to projects, so editing one needs the
+ * permission in the projects it covers rather than in every project of the
+ * data source. Anything else still needs the data source-wide permission.
+ */
 function assertCanUpdateDataSource(
   context: ReqContext,
   datasource: DataSourceInterface,

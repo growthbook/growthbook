@@ -29,7 +29,7 @@ export type RecordAssignmentQueryScope = Omit<
   "datasourceProjects"
 >;
 
-// Queries without their own projects inherit the data source's.
+/** Queries without their own projects inherit the data source's. */
 function withDatasourceProjects(
   scope: RecordAssignmentQueryScope | undefined,
   datasource: DataSourceInterface,
