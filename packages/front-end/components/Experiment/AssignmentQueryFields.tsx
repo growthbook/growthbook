@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getExposureQueryIdentifierTypes } from "shared/util";
-import { PiInfoFill, PiWarningFill } from "react-icons/pi";
+import { PiInfo, PiWarningFill } from "react-icons/pi";
 import {
   AssignmentQueryNotice,
   getDefaultIdentifierType,
@@ -276,13 +276,14 @@ type DriftState = Pick<
   "outOfScope" | "identifierUndeclared" | "identifierType" | "scopeKind"
 >;
 
+const HOLDOUT_OUT_OF_SCOPE_MESSAGE =
+  "The selected assignment query isn't available to every Project this Holdout covers. Results will still update, but you may want to switch to one that is.";
+
 const OUT_OF_SCOPE_MESSAGES: Record<AssignmentQueryScopeKind, string> = {
   project:
-    "The selected assignment query isn't scoped to this Project. Results still update. Switch to a query that is scoped to this Project.",
-  holdoutProjects:
-    "The selected assignment query isn't scoped to every Project this Holdout covers. Results still update. Switch to a query that covers all of them.",
-  holdoutAllProjects:
-    "This assignment query is limited to specific Projects, but this Holdout covers all Projects. Results still update. Switch to a query that isn't limited to specific Projects.",
+    "The selected assignment query isn't scoped to this Project. Results will still update, but you may want to switch to one that is.",
+  holdoutProjects: HOLDOUT_OUT_OF_SCOPE_MESSAGE,
+  holdoutAllProjects: HOLDOUT_OUT_OF_SCOPE_MESSAGE,
 };
 
 function getDriftNotice({
@@ -347,7 +348,7 @@ export function AssignmentQueryDriftIcon({
       {drift.status === "warning" ? (
         <PiWarningFill style={{ color: "var(--amber-11)" }} />
       ) : (
-        <PiInfoFill style={{ color: "var(--violet-11)" }} />
+        <PiInfo />
       )}
     </Tooltip>
   );
