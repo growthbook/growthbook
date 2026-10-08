@@ -3,8 +3,7 @@
   color: transparent;
 }
 
-// The whole key copies on click. Nested so it outranks the popover anchor's
-// `all: unset`.
+// Nested to outrank the popover anchor's `all: unset`.
 .revealed .value {
   display: block;
   margin-left: -4px;

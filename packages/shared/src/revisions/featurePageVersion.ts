@@ -52,7 +52,6 @@ export function getFeaturePageDefaultVersion({
       ? revisionList.find(
           (r) =>
             isOpenUserDraft(r) &&
-            // Made by you, or by an org key that named you
             (eventUserPersonId(r.createdBy ?? null) === userId ||
               (r.contributors ?? []).includes(userId)),
         )

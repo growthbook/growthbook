@@ -225,7 +225,6 @@ describe("resolveRequestedBy", () => {
     },
   );
 
-  // Each key policy is covered through the auth middleware in attribution-matrix.
   it("lets a token through without the header", async () => {
     await expect(
       resolveRequestedByFor(undefined, null, org, lookup),

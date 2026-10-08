@@ -17,7 +17,6 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [value, setValue] = useState<string | null>(null);
   const [hovered, setHovered] = useState(false);
-  // Stays "Copied" until the pointer or focus leaves the key.
   const [copied, setCopied] = useState(false);
   const keyRef = useRef<HTMLButtonElement>(null);
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({});

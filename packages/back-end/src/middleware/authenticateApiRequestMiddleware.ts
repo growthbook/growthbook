@@ -319,7 +319,6 @@ function authenticateWithApiKey(
         throw new Error("Could not find user attached to this API key");
       }
 
-      // `X-GrowthBook-Requested-By` names the member who asked an org key to act.
       let requestedBy: EventUserRequestedBy | null = null;
       try {
         requestedBy = await resolveRequestedByFor(
@@ -457,7 +456,6 @@ type VerifyApiKeyPermissionOptions = {
   teams: TeamInterface[];
   superAdmin: boolean | undefined;
   restrictedProjects?: string[];
-  // An org key's permissions for this request, when they depend on its requester.
   keyPermissions?: UserPermissions;
 };
 

@@ -275,7 +275,7 @@ describe("attribution across callers", () => {
       });
       expect(selfApproval.status).toBe(400);
 
-      // A key naming Bob approves as Bob, and can take it back as Bob.
+      // A key naming Bob approves as Bob.
       const approval = await as("a key naming the member", bob).post(
         `${path}/submit-review`,
         { decision: "approve", skipAutoPublish: true },

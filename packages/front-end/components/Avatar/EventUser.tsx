@@ -101,8 +101,6 @@ export default function EventUser({
     return <span>System</span>;
   }
 
-  // A key that names who asked renders as that member, with the key's name
-  // beside them; a key that named no one renders under its own name.
   const person = eventUserPerson(user);
   const requestedBy = user.type === "api_key" ? user.requestedBy : undefined;
   let name = person?.name ?? ("name" in user ? user.name : "") ?? "";

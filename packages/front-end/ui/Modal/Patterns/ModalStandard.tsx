@@ -59,7 +59,6 @@ export type Props = TrackingEventModalProps & {
   // Optional button rendered on the left side of the footer. Use for
   // destructive or out-of-flow actions that shouldn't be the primary CTA.
   secondaryAction?: ReactNode;
-  // Overrides the body's default inner padding (CSS padding).
   bodyPadding?: string;
   close: () => void;
   closeCta?: string;

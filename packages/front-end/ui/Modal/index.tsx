@@ -270,10 +270,8 @@ function Description({ children }: { children: ReactNode }) {
 }
 
 // ---------------------------------------------------------------------------
-// Body — the scrollable content area. The gap above it stays fixed, so content
-// scrolls under it rather than up against the title. `padding` is the
-// content's inset from the sides and the footer; override it for content that
-// needs a different inset, e.g. "0" for full-bleed tables.
+// Body — the scrollable content area. `padding` is its inset; "0" suits
+// full-bleed tables.
 //
 // Auto-renders an ErrorDisplay when setError has been called on the context,
 // so ModalForm consumers get error handling for free.

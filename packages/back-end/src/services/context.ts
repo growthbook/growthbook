@@ -439,10 +439,9 @@ export class ReqContextClass {
       : null;
   }
 
-  // Who this request counts as for author rights on drafts, comments and
-  // verdicts: the person, unless a key keeps its own role and its header only
-  // records who asked. Once a key assumes a member's role on an unverified
-  // header, their author rights add little.
+  // Who holds author rights on drafts, comments and verdicts: the person, but
+  // for an org key only when it assumes their role, past which an unverified
+  // header's author rights add little.
   public get authorUserId(): string {
     if (this.userId) return this.userId;
     return this.auditUser?.type === "api_key" && this.auditUser.assumedRole
@@ -512,7 +511,6 @@ export class ReqContextClass {
     auditUser: EventUser;
     req?: Request;
     restrictedProjects?: string[];
-    // Used as-is: an org key's permissions when they depend on its requester.
     userPermissions?: UserPermissions;
   }) {
     this.org = org;

@@ -49,7 +49,6 @@ type Props = {
   clearButton?: boolean;
   wrapRangeInputs?: boolean;
   compact?: boolean;
-  /** `md` matches the design system's default control size. */
   size?: "md" | "legacy";
   disabled?: boolean;
   fixedSpanMode?: {

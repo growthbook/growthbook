@@ -17,8 +17,6 @@ export const eventUserLoggedIn = z
 
 export type EventUserLoggedIn = z.infer<typeof eventUserLoggedIn>;
 
-// The member who asked an organization API key to make a request
-// (`X-GrowthBook-Requested-By`).
 export const eventUserRequestedBy = z
   .object({
     id: z.string(),
@@ -29,18 +27,15 @@ export const eventUserRequestedBy = z
 
 export type EventUserRequestedBy = z.infer<typeof eventUserRequestedBy>;
 
-// A stored person reference: who drafted, reviewed, merged or acted.
 export const personIdField = z
   .string()
   .describe(
     "The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one",
   );
 
-// For REST docs on a verdict: who it belongs to.
 export const REVIEW_VERDICT_NOTE =
   "A verdict (`approve` or `request-changes`) belongs to the person behind the request: the signed-in member, a personal access token's owner, or the member an organization API key names with `X-GrowthBook-Requested-By`. An organization API key that names no one can only comment, and no one can rule on a draft created in their own name.";
 
-// For REST docs on anything that needs a person behind the request.
 export const REQUIRES_PERSON_NOTE =
   "Requires a personal access token, or an organization API key that names a member with `X-GrowthBook-Requested-By`.";
 
@@ -183,7 +178,6 @@ export function eventUserLabel(
   return keyName ? `${keyName} (API)` : "API key";
 }
 
-// Who a review webhook credits; see `eventUserCredit`.
 export const eventReviewer = z
   .object({
     id: z

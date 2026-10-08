@@ -14,7 +14,6 @@ export function apiKeyToggleRequiresAdmin(
   );
 }
 
-// An org key's X-GrowthBook-Requested-By settings, with their defaults.
 export function requesterHeaderPolicy(
   key: Pick<ApiKeyInterface, "requesterHeader">,
 ): NonNullable<ApiKeyInterface["requesterHeader"]> {
