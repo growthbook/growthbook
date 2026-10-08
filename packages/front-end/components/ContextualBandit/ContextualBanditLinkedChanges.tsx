@@ -51,6 +51,7 @@ export default function ContextualBanditLinkedChanges({
   visualChangesetsError,
   canAdd,
   canEditVisualChangesets,
+  canRemoveVisualChangesets,
   setFeatureModal,
   setVisualChangesetModal,
   mutate,
@@ -62,6 +63,7 @@ export default function ContextualBanditLinkedChanges({
   visualChangesetsError?: Error;
   canAdd: boolean;
   canEditVisualChangesets: boolean;
+  canRemoveVisualChangesets: boolean;
   setFeatureModal?: (open: boolean) => void;
   setVisualChangesetModal?: (open: boolean) => void;
   mutate: () => void;
@@ -85,8 +87,12 @@ export default function ContextualBanditLinkedChanges({
     [restApiCall, cb.id],
   );
   const owner = useMemo(
-    () => contextualBanditVisualChangesetOwner(cb, deleteVariation),
-    [cb, deleteVariation],
+    () =>
+      contextualBanditVisualChangesetOwner(
+        cb,
+        canAdd ? deleteVariation : undefined,
+      ),
+    [cb, canAdd, deleteVariation],
   );
 
   const target: LinkedChangeTarget = {
@@ -142,6 +148,7 @@ export default function ContextualBanditLinkedChanges({
           visualChangesets={visualChangesets}
           mutate={mutate}
           canEditVisualChangesets={canEditVisualChangesets}
+          canRemoveVisualChangesets={canRemoveVisualChangesets}
           environmentStates={envStates}
         />
       )}
@@ -150,8 +157,8 @@ export default function ContextualBanditLinkedChanges({
         <Flex justify="between" px="1">
           <Text color="text-high" size="lg" weight="semibold">
             {setVisualChangesetModal
-              ? "Add Feature or AI Visual Editor"
-              : "Add Feature"}
+              ? "Add Feature Flag or AI Visual Editor"
+              : "Add Feature Flag"}
           </Text>
           <AddLinkedChangeButton
             target={target}

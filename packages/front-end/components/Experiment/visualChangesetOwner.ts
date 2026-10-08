@@ -26,7 +26,10 @@ export type VisualChangesetOwnerView = {
 };
 
 export function experimentVisualChangesetOwner(
-  experiment: ExperimentInterfaceStringDates,
+  experiment: Pick<
+    ExperimentInterfaceStringDates,
+    "id" | "trackingKey" | "status" | "variations" | "phases"
+  >,
   deleteVariation?: (variationId: string) => Promise<void>,
 ): VisualChangesetOwnerView {
   const variations = getLatestPhaseVariations(experiment);
@@ -51,7 +54,15 @@ export function experimentVisualChangesetOwner(
 }
 
 export function contextualBanditVisualChangesetOwner(
-  cb: ApiContextualBanditInterface,
+  cb: Pick<
+    ApiContextualBanditInterface,
+    | "id"
+    | "trackingKey"
+    | "status"
+    | "archived"
+    | "variations"
+    | "variationWeights"
+  >,
   deleteVariation?: (variationId: string) => Promise<void>,
 ): VisualChangesetOwnerView {
   const variations = getVisibleVariations(cb.variations);
