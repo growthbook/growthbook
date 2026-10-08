@@ -891,7 +891,6 @@ function buildTree(
       }
       const categories = [...byCategory.keys()].sort();
       if (categories.length < 2) continue;
-      // Each attribute with >= 2 categories is a searched candidate split.
       numCandidates += candidateSplitCount(categories.length);
       const cats = categories.map((category) => {
         const compact = byCategory.get(category);
@@ -1092,11 +1091,17 @@ function buildTree(
 }
 
 /**
- * Effective number of candidate binary splits searched for one attribute with
- * `numCategories` distinct categories in a leaf.
+ * Effective number of candidate binary partitions searched for one attribute
+ * with `numCategories` distinct categories in a leaf.
  */
 function candidateSplitCount(numCategories: number): number {
-  return numCategories >= 2 ? numCategories : 0;
+  if (numCategories < 2) return 0;
+  if (numCategories <= MAX_EXHAUSTIVE_CATEGORIES) {
+    // Exhaustive path (`bestExhaustiveBinarySplit`) enumerates every non-empty
+    return 2 ** (numCategories - 1) - 1;
+  }
+  // Approximate path (`approximateBinaryKMeans`).
+  return 2 ** (MAX_EXHAUSTIVE_CATEGORIES - 1) - 1;
 }
 
 function bicPenalty(numVariations: number, totalSampleSize: number): number {

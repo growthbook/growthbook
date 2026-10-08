@@ -58,7 +58,7 @@ $$
 
 where
 
-- $M$ is the number of candidate binary splits searched at that step, summed over all current leaves and their attributes (an attribute with $c \ge 2$ distinct values in a leaf contributes $c$ candidates), floored at $1$.
+- $M$ is the number of candidate binary partitions searched at that step, summed over all current leaves and their attributes, floored at $1$. An attribute with $c$ distinct values in a leaf is split by enumerating every non-empty two-group partition, so it contributes $2^{c-1} - 1$ candidates (for example, $1$ for a binary attribute and $16{,}383$ for $15$ values). Above a category cap the exact enumeration is replaced by an approximate local search, and the contribution is held at that cap's value rather than growing exponentially.
 - $\gamma \in [0, 1]$ is the EBIC parameter. $\gamma = 0$ recovers plain BIC; $\gamma = 1$ is a Bonferroni-style correction across the candidates searched. The default is $\gamma = 1$.
 
 ### Growth algorithm
