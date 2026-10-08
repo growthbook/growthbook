@@ -52,8 +52,9 @@ export function getPastExperimentsWatermark(
   const run = model.exposureQueryRuns?.find(
     (r) => r.exposureQueryId === exposureQueryId,
   );
-  // Before per-query discovery nothing was recorded; the rows' labels say
-  // what was counted, so a query with only its legacy identifier continues.
+  // Records from before per-query refreshes have no run state; the rows'
+  // labels say what was counted, so a query with only its legacy identifier
+  // continues.
   const counted = run
     ? run.identifierTypes
     : rows.every((e) => e.identifierType)
@@ -91,7 +92,7 @@ export function mergePastExperimentResults({
     exposureQueries,
   );
 
-  // Results stored before per-query discovery have no assignment query and
+  // Results stored before per-query refreshes have no assignment query and
   // are dropped; the next refresh reruns those queries.
   const perQueryResults = results.filter((r) => r.exposureQueryId);
   const ran = new Set(perQueryResults.map((r) => r.exposureQueryId));
@@ -118,7 +119,7 @@ export function mergePastExperimentResults({
   perQueryResults.forEach((result) => {
     if (!result.exposureQueryId || !result.identifierTypes) return;
     // An incremental run keeps the rows' start. Rows from before per-query
-    // discovery go back to the record's start.
+    // refreshes go back to the record's start.
     const start = result.mergeResults
       ? (runs.get(result.exposureQueryId)?.start ?? previous.config?.start)
       : result.from;

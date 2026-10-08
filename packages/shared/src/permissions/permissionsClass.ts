@@ -1364,8 +1364,8 @@ export class Permissions {
   };
 
   /**
-   * Experiment discovery runs an assignment query for users who can run
-   * queries in any Project it covers.
+   * Experiment import runs an assignment query's past experiments query for
+   * users who can run queries in any Project it covers.
    */
   public canRunPastExperimentQuery = (
     query: Pick<ExposureQuery, "projects">,
@@ -1377,7 +1377,7 @@ export class Permissions {
     );
   };
 
-  /** A discovery refresh runs only the assignment queries the user can run. */
+  /** An import refresh runs only the assignment queries the user can run. */
   public canRunPastExperimentQueries = (
     datasource: Pick<DataSourceInterface, "projects" | "settings">,
   ): boolean => {

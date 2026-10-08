@@ -665,7 +665,7 @@ describe("getIdentifierTypeForSettingsHash", () => {
 });
 
 describe("getPastExperimentQueryName", () => {
-  it("names the discovery query after its assignment query", () => {
+  it("names the past experiments query after its assignment query", () => {
     expect(getPastExperimentQueryName("exq_1")).toBe("experiments_exq_1");
   });
 });

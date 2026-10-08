@@ -692,7 +692,7 @@ export type MetricValueResult = {
 };
 
 export type PastExperimentResult = {
-  /** Unset on results stored before discovery ran one query per assignment query. */
+  /** Unset on results stored before imports ran one query per assignment query. */
   exposureQueryId?: string;
   identifierTypes?: string[];
   from?: Date;

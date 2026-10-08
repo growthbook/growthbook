@@ -253,7 +253,7 @@ const ImportExperimentList: FC<{
   }
 
   const hasStarted = data.experiments.queries.length > 0;
-  // Unlike getQueryStatus, discovery only fails when every query does.
+  // Unlike getQueryStatus, an import refresh only fails when every query does.
   const importFailed =
     hasStarted &&
     status !== "running" &&
@@ -263,7 +263,7 @@ const ImportExperimentList: FC<{
   const identifierRows = pastExpArr.filter(isRowAvailable);
 
   // Queries the last refresh didn't run (no permission) or that failed. Records
-  // last refreshed before per-query discovery have no runs and can't tell.
+  // not yet refreshed one query at a time have no runs and can't tell.
   const lastRunQueries = data.experiments.queries;
   const staleQueries =
     status === "running" ||
