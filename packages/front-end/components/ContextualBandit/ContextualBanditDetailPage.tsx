@@ -111,6 +111,7 @@ export default function ContextualBanditDetailPage({
   setVisualChangesetModal,
   canAddLinkedChanges = false,
   canEditVisualChangesets = false,
+  canRemoveVisualChangesets = false,
   linkedChangesMutate,
 }: {
   cb: ApiContextualBanditInterface;
@@ -132,6 +133,7 @@ export default function ContextualBanditDetailPage({
   setVisualChangesetModal?: (open: boolean) => void;
   canAddLinkedChanges?: boolean;
   canEditVisualChangesets?: boolean;
+  canRemoveVisualChangesets?: boolean;
   linkedChangesMutate?: () => void;
 }) {
   const { getDatasourceById, getExperimentMetricById, projects } =
@@ -605,6 +607,7 @@ export default function ContextualBanditDetailPage({
               visualChangesetsError={visualChangesetsError}
               canAdd={canAddLinkedChanges}
               canEditVisualChangesets={canEditVisualChangesets}
+              canRemoveVisualChangesets={canRemoveVisualChangesets}
               setFeatureModal={setFeatureModal}
               setVisualChangesetModal={setVisualChangesetModal}
               mutate={linkedChangesMutate ?? mutate}
