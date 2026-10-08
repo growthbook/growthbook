@@ -1,0 +1,82 @@
+name: Agent skills drift
+on:
+  pull_request:
+    paths:
+      - packages/back-end/generated/spec.yaml
+      - packages/back-end/agent-skills.lock.json
+      - scripts/check-agent-skills-drift*.mjs
+      - .github/workflows/agent-skills-drift.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  drift:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Test drift checker
+        run: node --test scripts/check-agent-skills-drift.test.mjs
+
+      # The PR is checked out as a merge commit with the current base branch;
+      # its first parent is that base. pull_request.base.sha can be older.
+      - name: Read the base revision
+        id: base
+        run: |
+          LOCK=packages/back-end/agent-skills.lock.json
+          BASE_SHA=$(git rev-parse HEAD^1)
+          git show "$BASE_SHA:packages/back-end/generated/spec.yaml" > "$RUNNER_TEMP/base-spec.yaml"
+          # Branches cut before the lock file existed have no previous pin.
+          if ! BASE_LOCK=$(git show "$BASE_SHA:$LOCK" 2>/dev/null); then
+            echo "The base has no $LOCK; skipping the pin comparison."
+            exit 0
+          fi
+          BASE_PIN=$(node -p "JSON.parse(process.argv[1]).commit" "$BASE_LOCK")
+          HEAD_PIN=$(node -p "require('./$LOCK').commit")
+          echo "pin=$BASE_PIN" >> "$GITHUB_OUTPUT"
+          if [ "$BASE_PIN" != "$HEAD_PIN" ]; then
+            echo "pin_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The pinned commit is what deploy and preview ship.
+      - uses: ./.github/actions/checkout-agent-skills
+
+      - name: Checkout the previously pinned skills
+        if: steps.base.outputs.pin_changed == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: growthbook/skills
+          ref: ${{ steps.base.outputs.pin }}
+          path: skills-base
+
+      # On PRs, fail when a skill uses an operation the PR removes, or when a
+      # lock bump pins skills with new broken calls. Deprecations warn.
+      - name: Check the pinned skills against the OpenAPI spec
+        env:
+          BASELINE: ${{ steps.base.outputs.pin_changed == 'true' && '--baseline-skills skills-base' || '' }}
+        run: |
+          set +e
+          # shellcheck disable=SC2086
+          node scripts/check-agent-skills-drift.mjs --skills skills-src \
+            --base-spec "$RUNNER_TEMP/base-spec.yaml" $BASELINE --strict > "$RUNNER_TEMP/report.md"
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
+          if grep -q "### Skills affected by this change" "$RUNNER_TEMP/report.md"; then
+            echo "::warning title=Agent skills affected::This change modifies REST operations used by growthbook/skills. See the job summary."
+          fi
+          exit "$status"
