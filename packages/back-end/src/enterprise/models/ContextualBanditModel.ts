@@ -272,11 +272,13 @@ const BaseClass = MakeModelClass({
           const connections = await findSDKConnectionsByOrganization(
             req.context,
           );
+          const capabilities = getConnectionsSDKCapabilities({
+            connections,
+            project: cb.project ?? "",
+          });
           if (
-            !getConnectionsSDKCapabilities({
-              connections,
-              project: cb.project ?? "",
-            }).includes("contextualBanditsAuto")
+            !capabilities.includes("visualEditor") ||
+            !capabilities.includes("contextualBanditsAuto")
           ) {
             throw new BadRequestError(
               "None of the SDK connections in this contextual bandit's project support contextual bandit visual changes. Upgrade an SDK connection to a supported version first.",
