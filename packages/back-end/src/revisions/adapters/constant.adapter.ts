@@ -36,7 +36,7 @@ import {
   captureConstantExperimentGuardAcknowledgment,
   constantChangeAffectsServedValue,
   constantRevisionAffectsServedValue,
-  describeConstantConflictKeys,
+  describeExperimentGuardConflicts,
   evaluateConstantExperimentGuardConflicts,
 } from "back-end/src/services/experimentGuard";
 import {
@@ -440,16 +440,17 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       }
     }
 
-    const experimentConflicts = [
-      ...(await evaluateConstantExperimentGuardConflicts(context, entity)),
-    ].sort();
-    if (experimentConflicts.length) {
+    const experimentConflicts = await evaluateConstantExperimentGuardConflicts(
+      context,
+      entity,
+    );
+    if (experimentConflicts.size) {
       if (override) {
         logger.info(
           {
             constantKey: entity.key,
             userId: context.userId,
-            conflictKeys: experimentConflicts,
+            conflictKeys: [...experimentConflicts.keys()].sort(),
           },
           "Constant experiment guard overridden on a direct publish",
         );
@@ -457,11 +458,10 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       gates.push({
         type: "experiment-guard",
         severity: "warning",
-        messages: [
-          `Publishing this Constant rewrites the live value served to a running experiment (${describeConstantConflictKeys(
-            experimentConflicts,
-          )}).`,
-        ],
+        messages: await describeExperimentGuardConflicts(
+          context,
+          experimentConflicts,
+        ),
         override: "ignoreWarnings",
         requiresPermission: null,
         resolution: null,

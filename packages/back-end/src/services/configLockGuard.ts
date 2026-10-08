@@ -24,6 +24,10 @@ export type GuardedResolvable = {
 const displaySource = (source: ConstantSource): string =>
   source === "config" ? "Config" : "Constant";
 
+// One readable line per locked Config for the "Save anyway" dialog.
+const describeLockedConfig = (key: string): string =>
+  `Config [${key}](/configs/${key}) is locked to a pinned revision, and publishing changes its resolved value.`;
+
 // Config-lock guard: locking a config pins ITS OWN revision (assertConfigNotLocked
 // hard-blocks re-publishing it), but a locked config that `@const:`/`@config:`-
 // extends an external value is NOT frozen — changing that upstream constant/config
@@ -127,7 +131,7 @@ export async function assertConfigLockGuard(
       `Publishing this ${displaySource(
         resolvable.source,
       )} changes the resolved value of locked Config(s): ${keyList}. Those Configs are locked to a pinned revision — unlock them, or re-submit with ignoreWarnings to proceed.`,
-      decision.conflictKeys,
+      decision.conflictKeys.map(describeLockedConfig),
     );
   }
   throw new TerminalPublishError(
@@ -159,7 +163,7 @@ export async function captureConfigLockAcknowledgment(
       `Scheduling this publish will change the resolved value of locked Config(s): ${sortedKeys.join(
         ", ",
       )}. Re-submit with ignoreWarnings to acknowledge and schedule.`,
-      sortedKeys,
+      sortedKeys.map(describeLockedConfig),
     );
   }
   return sortedKeys;

@@ -22,6 +22,8 @@ import {
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { getArmAcknowledgment } from "back-end/src/services/armGuards";
 import { logger } from "back-end/src/util/logger";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 
 // Experiment guard: an opt-in, per-config, computed-live soft-block on publishing
 // a config whose value is served to a RUNNING experiment. Publishing rewrites the
@@ -54,18 +56,95 @@ function experimentGuardConflictKey(
   return subject ? `${impl.configKey}|${subject}` : impl.configKey;
 }
 
-// Human-readable rendering of composite conflict keys for warning messages.
-function describeConfigConflictKey(key: string): string {
-  const sep = key.indexOf("|");
-  if (sep === -1) return `Config "${key}"`;
-  const configKey = key.slice(0, sep);
-  const subject = key.slice(sep + 1);
-  const noun = subject.startsWith("cb:") ? "bandit" : "experiment";
-  return `Config "${configKey}" serving ${noun} ${subject.slice(subject.indexOf(":") + 1)}`;
+// What a conflict key stands for, so warnings can name it; the key itself is
+// only the arm-time acknowledgment fingerprint.
+export type ExperimentGuardConflict = {
+  experiment: { id: string; name: string; bandit: boolean } | null;
+  // Null when the experiment's rule references the published Constant directly.
+  configKey: string | null;
+  featureIds: Set<string>;
+};
+export type ExperimentGuardConflicts = Map<string, ExperimentGuardConflict>;
+
+function addExperimentGuardConflict(
+  conflicts: ExperimentGuardConflicts,
+  key: string,
+  conflict: ExperimentGuardConflict,
+): void {
+  const existing = conflicts.get(key);
+  if (!existing) {
+    conflicts.set(key, conflict);
+    return;
+  }
+  for (const id of conflict.featureIds) existing.featureIds.add(id);
 }
 
-export function describeConfigConflictKeys(keys: string[]): string {
-  return keys.map(describeConfigConflictKey).join(", ");
+// Ids the publisher can read; the guard scans org-wide, so anything else stays unnamed.
+export type ExperimentGuardReadable = {
+  experiments: Set<string>;
+  configs: Set<string>;
+  features: Set<string>;
+};
+
+// MarkdownLinks can't match a label containing square brackets.
+const markdownLink = (label: string, href: string): string =>
+  `[${label.replace(/\[/g, "(").replace(/]/g, ")")}](${href})`;
+
+// A self-contained line for the "Save anyway" dialog, which renders Markdown links.
+export function describeExperimentGuardConflict(
+  { experiment, configKey, featureIds }: ExperimentGuardConflict,
+  readable: ExperimentGuardReadable,
+): string {
+  const noun = experiment?.bandit ? "Contextual Bandit" : "experiment";
+  const path = experiment?.bandit ? "contextual-bandit" : "experiment";
+  const subject = !experiment
+    ? "a running experiment"
+    : readable.experiments.has(experiment.id)
+      ? `running ${noun} ${markdownLink(experiment.name, `/${path}/${experiment.id}`)}`
+      : `a running ${noun} you can't access`;
+  const source = !configKey
+    ? "this Constant"
+    : readable.configs.has(configKey)
+      ? `Config ${markdownLink(configKey, `/configs/${configKey}`)}`
+      : "a Config you can't access";
+  const flags = [...featureIds]
+    .filter((id) => readable.features.has(id))
+    .map((id) => markdownLink(id, `/features/${id}`));
+  const via = flags.length
+    ? ` via Feature Flag${flags.length > 1 ? "s" : ""} ${flags.join(", ")}`
+    : "";
+  return `Publishing changes the live value that ${subject} reads from ${source}${via}.`;
+}
+
+// One line per conflict, in conflict-key order, naming only what the publisher can read.
+export async function describeExperimentGuardConflicts(
+  context: Context,
+  conflicts: ExperimentGuardConflicts,
+): Promise<string[]> {
+  const values = [...conflicts.values()];
+  const refIds = (bandit: boolean) =>
+    values.flatMap(({ experiment }) =>
+      experiment?.bandit === bandit ? [experiment.id] : [],
+    );
+  const configKeys = new Set(
+    values.flatMap(({ configKey }) => (configKey ? [configKey] : [])),
+  );
+  const featureIds = new Set(values.flatMap((c) => [...c.featureIds]));
+  // Loaded with the publisher's context, so each list holds only what they can read.
+  const [experiments, bandits, configs, features] = await Promise.all([
+    getExperimentsByIds(context, refIds(false)),
+    context.models.contextualBandits.getByIds(refIds(true)),
+    Promise.all([...configKeys].map((k) => context.models.configs.getByKey(k))),
+    getFeaturesByIds(context, [...featureIds]),
+  ]);
+  const readable: ExperimentGuardReadable = {
+    experiments: new Set([...experiments, ...bandits].map((e) => e.id)),
+    configs: new Set(configs.flatMap((c) => (c ? [c.key] : []))),
+    features: new Set(features.map((f) => f.id)),
+  };
+  return [...conflicts]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([, conflict]) => describeExperimentGuardConflict(conflict, readable));
 }
 
 // The conflict set for publishing this config: configs affected by the publish
@@ -76,19 +155,21 @@ export function describeConfigConflictKeys(keys: string[]): string {
 // guarded descendant it feeds serves a running experiment. Ancestors and
 // lateral mixins are excluded — publishing this config doesn't change their
 // value.
-export function computeExperimentGuardConflictKeys(
+export function computeExperimentGuardConflicts(
   implementations: Pick<
     ConfigKeyImplementation,
+    | "featureId"
     | "configKey"
     | "relation"
     | "experimentStatus"
     | "state"
     | "experimentId"
     | "contextualBanditId"
+    | "experimentName"
   >[],
   guardedConfigKeys: Set<string>,
-): Set<string> {
-  const keys = new Set<string>();
+): ExperimentGuardConflicts {
+  const conflicts: ExperimentGuardConflicts = new Map();
   for (const impl of implementations) {
     // Only a running experiment's live arm is at risk. A draft feature revision
     // referencing the config isn't serving anything yet.
@@ -97,9 +178,20 @@ export function computeExperimentGuardConflictKeys(
     if (impl.relation !== "self" && impl.relation !== "descendant") continue;
     // Only when the config actually serving the value opted into the guard.
     if (!guardedConfigKeys.has(impl.configKey)) continue;
-    keys.add(experimentGuardConflictKey(impl));
+    const id = impl.experimentId || impl.contextualBanditId;
+    addExperimentGuardConflict(conflicts, experimentGuardConflictKey(impl), {
+      experiment: id
+        ? {
+            id,
+            name: impl.experimentName || id,
+            bandit: !impl.experimentId,
+          }
+        : null,
+      configKey: impl.configKey,
+      featureIds: new Set([impl.featureId]),
+    });
   }
-  return keys;
+  return conflicts;
 }
 
 // Whether every current conflict key was already acknowledged at arm time.
@@ -281,15 +373,15 @@ async function conflictsForConfigPublish(
   byKey: Map<string, ConfigInterface>,
   key: string,
   id: string,
-): Promise<Set<string>> {
+): Promise<ExperimentGuardConflicts> {
   const guardedConfigKeys = new Set(
     getConfigSubtree(key, allConfigs).filter(
       (k) => byKey.get(k)?.experimentGuard,
     ),
   );
-  if (guardedConfigKeys.size === 0) return new Set<string>();
+  if (guardedConfigKeys.size === 0) return new Map();
   const impl = await getConfigKeyImplementations(scanContext, id);
-  return computeExperimentGuardConflictKeys(
+  return computeExperimentGuardConflicts(
     impl?.implementations ?? [],
     guardedConfigKeys,
   );
@@ -300,7 +392,7 @@ async function conflictsForConfigPublish(
 export async function evaluateConfigExperimentGuardConflicts(
   context: Context,
   config: ConfigInterface,
-): Promise<Set<string>> {
+): Promise<ExperimentGuardConflicts> {
   // Scan usage with an org-wide (unfiltered) context: the guard must see a
   // running experiment served by a config-backed feature in ANY project — even
   // one the acting user can't read — or it silently finds no conflict and the
@@ -318,18 +410,18 @@ export async function evaluateConfigExperimentGuardConflicts(
   // its implementations + relation classification to the config it's called on,
   // so a selecting base's usage is only seen when that base is the evaluated
   // root, not by widening the current config's guarded-key set.
-  const conflicts = new Set<string>();
+  const conflicts: ExperimentGuardConflicts = new Map();
   for (const rootKey of configPublishAffectedRoots(allConfigs, config.key)) {
     const root = byKey.get(rootKey);
     if (!root) continue;
-    for (const k of await conflictsForConfigPublish(
+    for (const [k, conflict] of await conflictsForConfigPublish(
       scanContext,
       allConfigs,
       byKey,
       root.key,
       root.id,
     )) {
-      conflicts.add(k);
+      addExperimentGuardConflict(conflicts, k, conflict);
     }
   }
   return conflicts;
@@ -350,10 +442,11 @@ export async function assertConfigExperimentGuard(
   // No early-out on `config.experimentGuard`: the conflict evaluation gates on
   // the whole subtree's guard flags, so publishing an unguarded config that
   // feeds a guarded descendant is still enforced.
-  const conflictKeys = await evaluateConfigExperimentGuardConflicts(
+  const conflicts = await evaluateConfigExperimentGuardConflicts(
     context,
     config,
   );
+  const conflictKeys = new Set(conflicts.keys());
 
   const synchronousOverride =
     context.ignoreWarnings ||
@@ -387,15 +480,15 @@ export async function assertConfigExperimentGuard(
     return;
   }
 
-  const keyList = describeConfigConflictKeys(decision.conflictKeys);
+  const lines = await describeExperimentGuardConflicts(context, conflicts);
   if (decision.action === "block-immediate") {
     throw new SoftWarningError(
-      `Publishing this Config rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
-      decision.conflictKeys,
+      `${lines.join(" ")} Re-submit with ignoreWarnings to proceed.`,
+      lines,
     );
   }
   throw new TerminalPublishError(
-    `Config publish blocked by the experiment guard: the running experiments affected have changed since this publish was scheduled (now: ${keyList}). Re-open the draft and re-confirm to publish.`,
+    `Config publish blocked by the experiment guard: the running experiments affected have changed since this publish was scheduled. ${lines.join(" ")} Re-open the draft and re-confirm to publish.`,
   );
 }
 
@@ -458,13 +551,13 @@ export async function captureConfigExperimentGuardAcknowledgment(
     return undefined;
   }
 
-  const conflictKeys = await evaluateConfigExperimentGuardConflicts(
+  const conflicts = await evaluateConfigExperimentGuardConflicts(
     context,
     config,
   );
-  if (conflictKeys.size === 0) return undefined;
+  if (conflicts.size === 0) return undefined;
 
-  const sortedKeys = [...conflictKeys].sort();
+  const sortedKeys = [...conflicts.keys()].sort();
   const override =
     context.ignoreWarnings ||
     context.permissions.canBypassFlagApprovalChecks(
@@ -472,11 +565,10 @@ export async function captureConfigExperimentGuardAcknowledgment(
       "config",
     );
   if (!override) {
+    const lines = await describeExperimentGuardConflicts(context, conflicts);
     throw new SoftWarningError(
-      `Scheduling this publish will rewrite the live value served to a running experiment (${describeConfigConflictKeys(
-        sortedKeys,
-      )}). Re-submit with ignoreWarnings to acknowledge and schedule.`,
-      sortedKeys,
+      `${lines.join(" ")} Re-submit with ignoreWarnings to acknowledge and schedule.`,
+      lines,
     );
   }
   return sortedKeys;
@@ -494,21 +586,26 @@ export async function captureConfigExperimentGuardAcknowledgment(
 export async function evaluateConstantExperimentGuardConflicts(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
-): Promise<Set<string>> {
+): Promise<ExperimentGuardConflicts> {
   // Org-wide (unfiltered) scan, mirroring the config guard: a running experiment
   // in any project must be seen or the warning silently misses it.
   const scanContext =
     context.scanContextOverride ??
     getContextForAgendaJobByOrgObject(context.org);
 
-  const conflicts = new Set<string>();
+  const conflicts: ExperimentGuardConflicts = new Map();
 
   // (A) Direct feature experiment-ref/bandit-ref references (no config between).
-  for (const k of await findRunningExperimentRefsReferencingConstant(
+  for (const ref of await findRunningExperimentRefsReferencingConstant(
     scanContext,
     constant.key,
   )) {
-    conflicts.add(k);
+    // `exp:` for bandits too — retyping would invalidate stored arm-time fingerprints.
+    addExperimentGuardConflict(conflicts, `exp:${ref.id}`, {
+      experiment: { id: ref.id, name: ref.name || ref.id, bandit: ref.bandit },
+      configKey: null,
+      featureIds: ref.featureIds,
+    });
   }
 
   // (B) Config-backed path.
@@ -533,29 +630,16 @@ export async function evaluateConstantExperimentGuardConflicts(
       const cfg = byKey.get(key);
       if (!cfg) continue;
       const impl = await getConfigKeyImplementations(scanContext, cfg.id);
-      for (const k of computeExperimentGuardConflictKeys(
+      for (const [k, conflict] of computeExperimentGuardConflicts(
         impl?.implementations ?? [],
         guardedKeys,
       )) {
-        conflicts.add(k);
+        addExperimentGuardConflict(conflicts, k, conflict);
       }
     }
   }
 
   return conflicts;
-}
-
-// Human-readable rendering of the mixed constant conflict-key set — composite
-// config keys (config-backed path) and bare `exp:<id>` tokens (direct
-// experiment-ref path) — for the warning message.
-export function describeConstantConflictKeys(keys: string[]): string {
-  return keys
-    .map((k) =>
-      k.startsWith("exp:")
-        ? `experiment ${k.slice(4)}`
-        : describeConfigConflictKey(k),
-    )
-    .join(", ");
 }
 
 // Warn (never hard-block) when publishing a constant would rewrite the live
@@ -569,10 +653,11 @@ export async function assertConstantExperimentGuard(
   revision: Pick<Revision, "armAcknowledgments">,
   { armed }: { armed: boolean },
 ): Promise<void> {
-  const conflictKeys = await evaluateConstantExperimentGuardConflicts(
+  const conflicts = await evaluateConstantExperimentGuardConflicts(
     context,
     constant,
   );
+  const conflictKeys = new Set(conflicts.keys());
 
   const synchronousOverride =
     context.ignoreWarnings ||
@@ -603,15 +688,15 @@ export async function assertConstantExperimentGuard(
     return;
   }
 
-  const keyList = describeConstantConflictKeys(decision.conflictKeys);
+  const lines = await describeExperimentGuardConflicts(context, conflicts);
   if (decision.action === "block-immediate") {
     throw new SoftWarningError(
-      `Publishing this Constant rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
-      decision.conflictKeys,
+      `${lines.join(" ")} Re-submit with ignoreWarnings to proceed.`,
+      lines,
     );
   }
   throw new TerminalPublishError(
-    `Constant publish blocked by the experiment guard: the affected running experiments have changed since this publish was scheduled (now: ${keyList}). Re-open the draft and re-confirm to publish.`,
+    `Constant publish blocked by the experiment guard: the affected running experiments have changed since this publish was scheduled. ${lines.join(" ")} Re-open the draft and re-confirm to publish.`,
   );
 }
 
@@ -635,13 +720,13 @@ export async function captureConstantExperimentGuardAcknowledgment(
     return undefined;
   }
 
-  const conflictKeys = await evaluateConstantExperimentGuardConflicts(
+  const conflicts = await evaluateConstantExperimentGuardConflicts(
     context,
     constant,
   );
-  if (conflictKeys.size === 0) return undefined;
+  if (conflicts.size === 0) return undefined;
 
-  const sortedKeys = [...conflictKeys].sort();
+  const sortedKeys = [...conflicts.keys()].sort();
   const override =
     context.ignoreWarnings ||
     context.permissions.canBypassFlagApprovalChecks(
@@ -649,11 +734,10 @@ export async function captureConstantExperimentGuardAcknowledgment(
       "constant",
     );
   if (!override) {
+    const lines = await describeExperimentGuardConflicts(context, conflicts);
     throw new SoftWarningError(
-      `Scheduling this publish will rewrite the live value served to a running experiment (${describeConstantConflictKeys(
-        sortedKeys,
-      )}). Re-submit with ignoreWarnings to acknowledge and schedule.`,
-      sortedKeys,
+      `${lines.join(" ")} Re-submit with ignoreWarnings to acknowledge and schedule.`,
+      lines,
     );
   }
   return sortedKeys;
