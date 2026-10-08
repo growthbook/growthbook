@@ -1,4 +1,6 @@
 import React, { FC, useState } from "react";
+import { Flex } from "@radix-ui/themes";
+import { PiIdentificationCardBold } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { apiKeyToggleRequiresAdmin } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
@@ -6,7 +8,6 @@ import { getExpirationStatus } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
 import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
-import { RequiresRequesterIcon } from "@/components/Settings/RequesterIcons";
 import {
   CollapsedRuleRows,
   projectRuleRows,
@@ -143,9 +144,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           {sortedKeys.map(({ key }) => (
             <TableRow key={key.id}>
               <TableCell style={dimStyle(key)}>
-                {key.requesterHeader === "required" && (
-                  <RequiresRequesterIcon />
-                )}
                 {key.description}
                 {key.disabled && (
                   <Tooltip
@@ -190,6 +188,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   />
                 ) : (
                   "-"
+                )}
+                {key.requesterHeader === "required" && (
+                  <Tooltip content="Every request must name a member with X-GrowthBook-Requested-By">
+                    <Flex align="center" gap="1" mt="1" width="fit-content">
+                      <PiIdentificationCardBold color="var(--color-text-low)" />
+                      <Text color="text-mid">Requester required</Text>
+                    </Flex>
+                  </Tooltip>
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
