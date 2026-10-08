@@ -1,3 +1,5 @@
+import { EventUser, eventUserPersonId } from "../validators/event-user";
+
 // The version a flag page opens on, decided the same way by the server (so the
 // first response already includes it) and by the page itself.
 
@@ -11,12 +13,7 @@ const ACTIVE_DRAFT_STATUSES = new Set<string>([
 export type FeaturePageRevisionSummary = {
   version: number;
   status: string;
-  createdBy?: {
-    type?: string;
-    subtype?: string;
-    id?: string;
-    requestedBy?: { id: string };
-  } | null;
+  createdBy?: EventUser;
   contributors?: string[];
 };
 
@@ -56,7 +53,7 @@ export function getFeaturePageDefaultVersion({
           (r) =>
             isOpenUserDraft(r) &&
             // Made by you, or by an org key that named you
-            ((r.createdBy?.requestedBy?.id ?? r.createdBy?.id) === userId ||
+            (eventUserPersonId(r.createdBy ?? null) === userId ||
               (r.contributors ?? []).includes(userId)),
         )
       : undefined;
