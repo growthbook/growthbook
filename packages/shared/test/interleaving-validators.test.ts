@@ -48,7 +48,7 @@ const baseDoc = {
   datasource: "ds_1",
   interleavingQueryId: "ilq_1",
   userIdType: "user_id",
-  metrics: [{ id: "fact__clicks", paired: true, ownership: null }],
+  metrics: [{ id: "fact__clicks", analyses: [{ type: "paired" }] }],
   environmentSettings: { production: { enabled: true } },
 };
 
@@ -86,43 +86,64 @@ describe("interleavingValidator", () => {
 });
 
 describe("interleavingMetricConfigValidator", () => {
+  const parse = (analyses: unknown) =>
+    interleavingMetricConfigValidator.safeParse({ id: "fact__m", analyses })
+      .success;
+
   it.each([
-    ["paired only", { paired: true, ownership: null }],
+    ["paired only", [{ type: "paired" }]],
     [
-      "ownership only",
-      { paired: false, ownership: { attribution: "exposureCount" } },
+      "one ownership only",
+      [{ type: "ownership", attribution: "exposureCount" }],
     ],
     [
-      "both at once",
-      { paired: true, ownership: { attribution: "engagementSignal" } },
+      "both ownership attributions",
+      [
+        { type: "ownership", attribution: "exposureCount" },
+        { type: "ownership", attribution: "engagementSignal" },
+      ],
+    ],
+    [
+      "every analysis at once",
+      [
+        { type: "paired" },
+        { type: "ownership", attribution: "exposureCount" },
+        { type: "ownership", attribution: "engagementSignal" },
+      ],
     ],
   ])("accepts %s", (_label, analyses) => {
-    expect(
-      interleavingMetricConfigValidator.safeParse({
-        id: "fact__m",
-        ...analyses,
-      }).success,
-    ).toBe(true);
-  });
-
-  it("rejects an unknown ownership attribution", () => {
-    expect(
-      interleavingMetricConfigValidator.safeParse({
-        id: "fact__m",
-        paired: false,
-        ownership: { attribution: "lastClick" },
-      }).success,
-    ).toBe(false);
+    expect(parse(analyses)).toBe(true);
   });
 
   it("rejects a metric with no analysis selected", () => {
+    expect(parse([])).toBe(false);
+  });
+
+  it("rejects a duplicate paired analysis", () => {
+    expect(parse([{ type: "paired" }, { type: "paired" }])).toBe(false);
+  });
+
+  it("rejects a duplicate ownership attribution", () => {
     expect(
-      interleavingMetricConfigValidator.safeParse({
-        id: "fact__m",
-        paired: false,
-        ownership: null,
-      }).success,
+      parse([
+        { type: "ownership", attribution: "exposureCount" },
+        { type: "ownership", attribution: "exposureCount" },
+      ]),
     ).toBe(false);
+  });
+
+  it("rejects an unknown ownership attribution", () => {
+    expect(parse([{ type: "ownership", attribution: "lastClick" }])).toBe(
+      false,
+    );
+  });
+
+  it("rejects an unknown analysis type", () => {
+    expect(parse([{ type: "sequential" }])).toBe(false);
+  });
+
+  it("rejects an ownership analysis with no attribution", () => {
+    expect(parse([{ type: "ownership" }])).toBe(false);
   });
 });
 

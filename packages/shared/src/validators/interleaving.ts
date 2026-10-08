@@ -17,22 +17,39 @@ export const interleavingOwnershipAttribution = [
 export type InterleavingOwnershipAttribution =
   (typeof interleavingOwnershipAttribution)[number];
 
-// One row per metric: a metric is added once and can carry both analyses at
-// once, which a (metric, analysis) pair array can't express alongside the
-// model's duplicate-id check.
+export const interleavingAnalysisValidator = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("paired") }).strict(),
+  z
+    .object({
+      type: z.literal("ownership"),
+      attribution: z.enum(interleavingOwnershipAttribution),
+    })
+    .strict(),
+]);
+export type InterleavingAnalysis = z.infer<
+  typeof interleavingAnalysisValidator
+>;
+
+// Identity of an analysis within a metric. Results are keyed by (metric id,
+// analysis key), so this has to stay stable.
+export function interleavingAnalysisKey(a: InterleavingAnalysis): string {
+  return a.type === "ownership" ? `ownership:${a.attribution}` : a.type;
+}
+
 export const interleavingMetricConfigValidator = z
   .object({
     id: z.string(),
-    paired: z.boolean(),
-    ownership: z
-      .object({ attribution: z.enum(interleavingOwnershipAttribution) })
-      .strict()
-      .nullable(),
+    analyses: z.array(interleavingAnalysisValidator).min(1, {
+      message: "Select at least one analysis for each metric.",
+    }),
   })
   .strict()
-  .refine((m) => m.paired || m.ownership !== null, {
-    message: "Select at least one analysis for each metric.",
-  });
+  .refine(
+    (m) =>
+      new Set(m.analyses.map(interleavingAnalysisKey)).size ===
+      m.analyses.length,
+    { message: "Each analysis can only be added once per metric." },
+  );
 export type InterleavingMetricConfig = z.infer<
   typeof interleavingMetricConfigValidator
 >;

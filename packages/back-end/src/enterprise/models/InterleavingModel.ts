@@ -4,6 +4,7 @@ import {
   interleavingValidator,
 } from "shared/validators";
 import { parseInterleavingRankerConfig } from "shared/util";
+import { interleavingEnvsForChange } from "shared/permissions";
 import { isFactMetricId } from "shared/experiments";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
@@ -169,6 +170,16 @@ export class InterleavingModel extends BaseClass {
   }
 
   protected canCreate(doc: InterleavingInterface): boolean {
+    const envs = interleavingEnvsForChange({
+      existing: doc,
+      environmentIds: this.context.environments,
+    });
+    if (
+      envs.length > 0 &&
+      !this.context.permissions.canRunInterleaving(doc, envs)
+    ) {
+      return false;
+    }
     return this.context.permissions.canCreateInterleaving(doc);
   }
 
@@ -176,15 +187,20 @@ export class InterleavingModel extends BaseClass {
     existing: InterleavingInterface,
     updated?: Partial<InterleavingInterface>,
   ): boolean {
-    // A status change turns the pseudo flag on or off in SDK payloads, so it
-    // needs run permission; other edits only need update permission.
+    const statusChanged =
+      updated?.status !== undefined && updated.status !== existing.status;
+    const envsChanged =
+      updated?.environmentSettings !== undefined &&
+      !isEqual(updated.environmentSettings, existing.environmentSettings);
+    const envs = interleavingEnvsForChange({
+      existing,
+      updated,
+      environmentIds: this.context.environments,
+    });
     if (
-      updated?.status !== undefined &&
-      updated.status !== existing.status &&
-      !this.context.permissions.canRunInterleaving(
-        existing,
-        this.context.org.settings?.environments?.map((e) => e.id) ?? [],
-      )
+      (statusChanged || envsChanged) &&
+      envs.length > 0 &&
+      !this.context.permissions.canRunInterleaving(existing, envs)
     ) {
       return false;
     }
