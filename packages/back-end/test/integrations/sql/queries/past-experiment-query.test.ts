@@ -3,7 +3,7 @@ import { postgresDialect } from "shared/dialects";
 import { getPastExperimentQuery } from "back-end/src/integrations/sql/queries/past-experiment-query";
 
 describe("getPastExperimentQuery", () => {
-  it("counts units on a declared identifier once the legacy one was removed", () => {
+  it("counts units on the identifier it's given", () => {
     const query: ExposureQuery = {
       id: "exq_1",
       name: "Assignments",
@@ -15,7 +15,8 @@ describe("getPastExperimentQuery", () => {
 
     const sql = getPastExperimentQuery(
       postgresDialect,
-      [query],
+      query,
+      "user_id",
       new Date("2026-01-01T00:00:00Z"),
       new Date("2026-02-01T00:00:00Z"),
     );

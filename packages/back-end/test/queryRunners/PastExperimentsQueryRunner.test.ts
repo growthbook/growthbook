@@ -1,84 +1,187 @@
-import { PastExperimentsInterface } from "shared/types/past-experiments";
-import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
-import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { ReqContext } from "back-end/types/request";
+import { PastExperimentResult } from "shared/types/integrations";
+import { PastExperiment } from "shared/types/past-experiments";
+import {
+  getPastExperimentsWatermark,
+  mergePastExperimentResults,
+} from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 
-function getRunner(model: PastExperimentsInterface) {
-  const context = {
-    permissions: {
-      canRunPastExperimentQueries: () => true,
-      throwPermissionError: () => {
-        throw new Error("Permission denied");
-      },
-    },
-  } as unknown as ReqContext;
-
-  const integration = {
-    datasource: { id: "ds_1" },
-  } as unknown as SourceIntegrationInterface;
-
-  return new PastExperimentsQueryRunner(context, model, integration);
+function row(
+  overrides: Partial<PastExperiment> &
+    Pick<PastExperiment, "trackingKey" | "exposureQueryId">,
+): PastExperiment {
+  return {
+    experimentName: overrides.trackingKey,
+    variationKeys: ["0", "1"],
+    variationNames: ["Control", "Treatment"],
+    numVariations: 2,
+    weights: [0.5, 0.5],
+    users: 100,
+    startDate: new Date("2024-01-01"),
+    endDate: new Date("2024-01-10"),
+    latestData: new Date("2024-01-10"),
+    ...overrides,
+  };
 }
 
-describe("PastExperimentsQueryRunner", () => {
-  it("merges normalized stored weights using user counts", async () => {
-    const model: PastExperimentsInterface = {
-      id: "imp_1",
-      organization: "org_1",
-      datasource: "ds_1",
-      runStarted: new Date(),
-      queries: [],
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      experiments: [
-        {
-          trackingKey: "exp_1",
-          experimentName: "Experiment 1",
-          variationKeys: ["0", "1"],
-          variationNames: ["Control", "Treatment"],
-          numVariations: 2,
-          weights: [0.9, 0.1],
-          users: 100,
-          startDate: new Date("2024-01-01"),
-          endDate: new Date("2024-01-10"),
-          exposureQueryId: "eq_1",
-        },
-      ],
-    };
+function result(
+  exposureQueryId: string,
+  trackingKey: string,
+  mergeResults: boolean,
+): PastExperimentResult {
+  return {
+    exposureQueryId,
+    identifierTypes: ["anonymous_id"],
+    mergeResults,
+    experiments: [
+      {
+        exposureQueryId,
+        experiment_id: trackingKey,
+        experiment_name: trackingKey,
+        variation_id: "1",
+        variation_name: "Treatment",
+        users: 100,
+        start_date: new Date("2024-01-11"),
+        end_date: new Date("2024-01-20"),
+        latest_data: new Date("2024-01-20"),
+        start_of_range: false,
+      },
+    ],
+  };
+}
 
-    const runner = getRunner(model);
-    const queryMap: QueryMap = new Map([
-      [
-        "experiments",
-        {
-          // Merge a new batch where only variation "1" gets new users.
-          result: {
-            mergeResults: true,
-            experiments: [
-              {
-                experiment_id: "exp_1",
-                experiment_name: "Experiment 1",
-                variation_id: "1",
-                variation_name: "Treatment",
-                users: 100,
-                start_date: new Date("2024-01-11"),
-                end_date: new Date("2024-01-20"),
-                latest_data: new Date("2024-01-20"),
-                exposureQueryId: "eq_1",
-                start_of_range: false,
-              },
-            ],
-          },
-        } as never,
-      ],
-    ]);
+const runStarted = new Date("2024-01-21");
 
-    const result = await runner.runAnalysis(queryMap);
-    expect(result).toHaveLength(1);
-    expect(result[0].users).toBe(200);
+describe("mergePastExperimentResults", () => {
+  it("merges normalized stored weights using user counts", () => {
+    const { experiments } = mergePastExperimentResults({
+      previous: {
+        experiments: [
+          row({
+            trackingKey: "exp_1",
+            exposureQueryId: "eq_1",
+            weights: [0.9, 0.1],
+          }),
+        ],
+      },
+      results: [result("eq_1", "exp_1", true)],
+      exposureQueryIds: ["eq_1"],
+      runStarted,
+    });
+
+    expect(experiments).toHaveLength(1);
+    expect(experiments[0].users).toBe(200);
     // Existing [0.9, 0.1] over 100 users => [90, 10], then +100 on variation 1
     // gives [90, 110] => [0.45, 0.55] after rounding/normalization.
-    expect(result[0].weights).toEqual([0.45, 0.55]);
+    expect(experiments[0].weights).toEqual([0.45, 0.55]);
+  });
+
+  it("only changes the assignment queries that ran", () => {
+    const skippedRun = {
+      exposureQueryId: "eq_skipped",
+      identifierTypes: ["user_id"],
+      lastRunAt: new Date("2024-01-05"),
+    };
+    const { experiments, exposureQueryRuns } = mergePastExperimentResults({
+      previous: {
+        experiments: [
+          row({ trackingKey: "old", exposureQueryId: "eq_ran" }),
+          row({ trackingKey: "kept", exposureQueryId: "eq_skipped" }),
+          row({ trackingKey: "gone", exposureQueryId: "eq_deleted" }),
+        ],
+        exposureQueryRuns: [
+          skippedRun,
+          {
+            exposureQueryId: "eq_deleted",
+            identifierTypes: ["user_id"],
+            lastRunAt: new Date("2024-01-05"),
+          },
+        ],
+      },
+      // A full rerun replaces the query's rows instead of merging into them.
+      results: [result("eq_ran", "new", false)],
+      exposureQueryIds: ["eq_ran", "eq_skipped"],
+      runStarted,
+    });
+
+    expect(experiments.map((e) => e.trackingKey).sort()).toEqual([
+      "kept",
+      "new",
+    ]);
+    expect(exposureQueryRuns).toEqual([
+      skippedRun,
+      {
+        exposureQueryId: "eq_ran",
+        identifierTypes: ["anonymous_id"],
+        lastRunAt: runStarted,
+      },
+    ]);
+  });
+
+  it("replaces every query a result from before per-query discovery covers", () => {
+    const legacy = result("eq_1", "new", false);
+    delete legacy.exposureQueryId;
+    delete legacy.identifierTypes;
+
+    const { experiments, exposureQueryRuns } = mergePastExperimentResults({
+      previous: {
+        experiments: [row({ trackingKey: "old", exposureQueryId: "eq_1" })],
+      },
+      results: [legacy],
+      exposureQueryIds: ["eq_1"],
+      runStarted,
+    });
+
+    expect(experiments.map((e) => e.trackingKey)).toEqual(["new"]);
+    // No identifiers recorded, so the next run is a full one.
+    expect(exposureQueryRuns).toEqual([]);
+  });
+});
+
+describe("getPastExperimentsWatermark", () => {
+  const model = {
+    experiments: [
+      row({
+        trackingKey: "a",
+        exposureQueryId: "eq_1",
+        latestData: new Date("2024-01-10"),
+      }),
+      row({
+        trackingKey: "b",
+        exposureQueryId: "eq_1",
+        latestData: new Date("2024-01-15"),
+      }),
+      row({
+        trackingKey: "c",
+        exposureQueryId: "eq_2",
+        latestData: new Date("2024-02-01"),
+      }),
+    ],
+    exposureQueryRuns: [
+      {
+        exposureQueryId: "eq_1",
+        identifierTypes: ["anonymous_id", "user_id"],
+        lastRunAt: new Date("2024-01-16"),
+      },
+      {
+        exposureQueryId: "eq_3",
+        identifierTypes: ["user_id"],
+        lastRunAt: new Date("2024-01-16"),
+      },
+    ],
+  };
+
+  it("continues from the latest data among the query's own rows", () => {
+    expect(
+      getPastExperimentsWatermark(model, "eq_1", ["user_id", "anonymous_id"]),
+    ).toEqual(new Date("2024-01-15"));
+  });
+
+  it("reruns fully when the query's identifiers changed", () => {
+    expect(getPastExperimentsWatermark(model, "eq_1", ["user_id"])).toBeNull();
+  });
+
+  it("reruns fully when the query never ran or found nothing", () => {
+    expect(getPastExperimentsWatermark(model, "eq_2", ["user_id"])).toBeNull();
+    expect(getPastExperimentsWatermark(model, "eq_3", ["user_id"])).toBeNull();
   });
 });

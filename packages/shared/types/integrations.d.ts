@@ -11,6 +11,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
+import type { ExposureQuery } from "shared/types/datasource";
 import {
   FactTableMap,
   ColumnInterface,
@@ -640,6 +641,12 @@ export type PastExperimentParams = {
   forceRefresh?: boolean;
 };
 
+export type PastExperimentQueryParams = {
+  exposureQuery: ExposureQuery;
+  identifierType: string;
+  from: Date;
+};
+
 export type MetricValueParams = {
   from: Date;
   to: Date;
@@ -685,6 +692,9 @@ export type MetricValueResult = {
 };
 
 export type PastExperimentResult = {
+  /** Unset on results stored before discovery ran one query per assignment query. */
+  exposureQueryId?: string;
+  identifierTypes?: string[];
   mergeResults: boolean;
   experiments: {
     exposureQueryId: string;

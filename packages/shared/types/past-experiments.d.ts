@@ -30,4 +30,13 @@ export interface PastExperimentsInterface {
   dateCreated: Date;
   dateUpdated: Date;
   latestData?: Date;
+  /** Per assignment query; its watermark is the latest `latestData` of its rows. */
+  exposureQueryRuns?: PastExperimentsQueryRun[];
+}
+
+export interface PastExperimentsQueryRun {
+  exposureQueryId: string;
+  /** A change forces a full rerun, so counts on new identifiers aren't partial. */
+  identifierTypes: string[];
+  lastRunAt: Date;
 }

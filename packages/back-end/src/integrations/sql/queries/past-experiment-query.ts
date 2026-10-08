@@ -1,6 +1,5 @@
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import { format } from "shared/sql";
-import { getPreferredIdentifierType } from "shared/util";
 import type { ExposureQuery } from "shared/types/datasource";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -9,60 +8,50 @@ export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 
 export function getPastExperimentQuery(
   dialect: SqlDialect,
-  experimentQueries: ExposureQuery[],
+  exposureQuery: ExposureQuery,
+  identifierType: string,
   from: Date,
   end: Date,
 ): string {
+  const hasNameCol = exposureQuery.hasNameCol || false;
+  const userCountColumn = dialect.hasCountDistinctHLL()
+    ? dialect.hllCardinality(dialect.hllAggregate(identifierType))
+    : `COUNT(distinct ${identifierType})`;
   return format(
     `-- Past Experiments
     WITH
-      ${experimentQueries
-        .map((q, i) => {
-          const hasNameCol = q.hasNameCol || false;
-          const identifierType = getPreferredIdentifierType(q);
-          const userCountColumn = dialect.hasCountDistinctHLL()
-            ? dialect.hllCardinality(dialect.hllAggregate(identifierType))
-            : `COUNT(distinct ${identifierType})`;
-          return `
-        __exposures${i} as (
-          SELECT 
-            ${dialect.castToString(`'${q.id}'`)} as exposure_query,
-            experiment_id,
-            ${
-              hasNameCol ? "MIN(experiment_name)" : "experiment_id"
-            } as experiment_name,
-            ${dialect.castToString("variation_id")} as variation_id,
-            ${
-              hasNameCol
-                ? "MIN(variation_name)"
-                : dialect.castToString("variation_id")
-            } as variation_name,
-            ${dialect.dateTrunc(dialect.castUserDateCol("timestamp"), "day")} as date,
-            ${userCountColumn} as users,
-            MAX(${dialect.castUserDateCol("timestamp")}) as latest_data
-          FROM
-            (
-              ${compileSqlTemplate(q.query, { startDate: from }, dialect)}
-            ) e${i}
-          WHERE
-            timestamp > ${dialect.toTimestamp(from)}
-            AND timestamp <= ${dialect.toTimestamp(end)}
-            AND SUBSTRING(experiment_id, 1, ${
-              SAFE_ROLLOUT_TRACKING_KEY_PREFIX.length
-            }) != '${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}'
-            AND experiment_id IS NOT NULL
-            AND variation_id IS NOT NULL
-          GROUP BY
-            experiment_id,
-            variation_id,
-            ${dialect.dateTrunc(dialect.castUserDateCol("timestamp"), "day")}
-        ),`;
-        })
-        .join("\n")}
       __experiments as (
-        ${experimentQueries
-          .map((q, i) => `SELECT * FROM __exposures${i}`)
-          .join("\nUNION ALL\n")}
+        SELECT
+          ${dialect.castToString(`'${exposureQuery.id}'`)} as exposure_query,
+          experiment_id,
+          ${
+            hasNameCol ? "MIN(experiment_name)" : "experiment_id"
+          } as experiment_name,
+          ${dialect.castToString("variation_id")} as variation_id,
+          ${
+            hasNameCol
+              ? "MIN(variation_name)"
+              : dialect.castToString("variation_id")
+          } as variation_name,
+          ${dialect.dateTrunc(dialect.castUserDateCol("timestamp"), "day")} as date,
+          ${userCountColumn} as users,
+          MAX(${dialect.castUserDateCol("timestamp")}) as latest_data
+        FROM
+          (
+            ${compileSqlTemplate(exposureQuery.query, { startDate: from }, dialect)}
+          ) e
+        WHERE
+          timestamp > ${dialect.toTimestamp(from)}
+          AND timestamp <= ${dialect.toTimestamp(end)}
+          AND SUBSTRING(experiment_id, 1, ${
+            SAFE_ROLLOUT_TRACKING_KEY_PREFIX.length
+          }) != '${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}'
+          AND experiment_id IS NOT NULL
+          AND variation_id IS NOT NULL
+        GROUP BY
+          experiment_id,
+          variation_id,
+          ${dialect.dateTrunc(dialect.castUserDateCol("timestamp"), "day")}
       ),
       __userThresholds as (
         SELECT
