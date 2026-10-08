@@ -294,6 +294,21 @@ export class ContextualBanditModel extends BaseClass {
     return this.context.hasPremiumFeature("contextual-bandits");
   }
 
+  public findVisualByName(
+    name: string,
+    limit: number,
+  ): Promise<ContextualBanditInterface[]> {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return this._find(
+      {
+        name: { $regex: escaped, $options: "i" },
+        hasVisualChangesets: true,
+        archived: { $ne: true },
+      },
+      { limit, sort: { dateUpdated: -1 } },
+    );
+  }
+
   protected async customValidation(
     doc: ContextualBanditInterface,
     previousDoc?: ContextualBanditInterface,

@@ -101,6 +101,22 @@ jest.mock("back-end/src/services/contextualBanditChanges", () => ({
   refreshLinkedFeaturePayloads: jest.fn().mockResolvedValue(undefined),
 }));
 
+const findVisualChangesetsByContextualBanditMock = jest.fn();
+jest.mock("back-end/src/models/VisualChangesetModel", () => ({
+  findVisualChangesetsByContextualBandit: (...args: unknown[]) =>
+    findVisualChangesetsByContextualBanditMock(...args),
+}));
+
+jest.mock("back-end/src/services/contextualBanditVisualState", () => ({
+  onContextualBanditVisualStateChanged: jest.fn(async (context, cb) => {
+    const { refreshLinkedFeaturePayloads } = jest.requireMock(
+      "back-end/src/services/contextualBanditChanges",
+    );
+    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
+    return cb;
+  }),
+}));
+
 jest.mock("back-end/src/services/experiments", () => ({
   getRefLinkedFeatureInfo: jest.fn().mockResolvedValue([]),
 }));
@@ -1509,5 +1525,183 @@ describe("executeContextualBanditVariationChange", () => {
         bypassPermissionCheck: true,
       }),
     );
+  });
+});
+
+describe("activatePendingContextualBanditVariations with visual changesets", () => {
+  const changesetWith = (byVariation: Record<string, string>) => ({
+    id: "vcs_1",
+    organization: "org_1",
+    contextualBandit: "cb_1",
+    editorUrl: "https://example.com/",
+    urlPatterns: [],
+    visualChanges: Object.entries(byVariation).map(([variation, css]) => ({
+      id: `vc_${variation}`,
+      variation,
+      description: "",
+      css,
+      domMutations: [],
+    })),
+  });
+
+  beforeEach(() => {
+    findVisualChangesetsByContextualBanditMock.mockReset();
+  });
+
+  it("keeps a visual-only CB's new arm pending until a changeset has content for it", async () => {
+    findVisualChangesetsByContextualBanditMock.mockResolvedValue([
+      changesetWith({ v0: "", v1: ".a{}", v2: "" }),
+    ]);
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: [],
+      hasVisualChangesets: true,
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "pending" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    const { activatedIds, updated } =
+      await activatePendingContextualBanditVariations(context, cb, {
+        bypassPermissionChecks: true,
+      });
+
+    expect(activatedIds).toEqual([]);
+    expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
+      "pending",
+    );
+  });
+
+  it("keeps the arm pending while another changeset has no content for it", async () => {
+    findVisualChangesetsByContextualBanditMock.mockResolvedValue([
+      changesetWith({ v0: "", v1: ".a{}", v2: "" }),
+      changesetWith({ v0: "", v1: "", v2: "h2 { color: red; }" }),
+    ]);
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: [],
+      hasVisualChangesets: true,
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "pending" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    const { activatedIds, updated } =
+      await activatePendingContextualBanditVariations(context, cb, {
+        bypassPermissionChecks: true,
+      });
+
+    expect(activatedIds).toEqual([]);
+    expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
+      "pending",
+    );
+  });
+
+  it("activates the arm once every changeset holds css, js or a mutation for it", async () => {
+    findVisualChangesetsByContextualBanditMock.mockResolvedValue([
+      changesetWith({ v0: "", v1: "", v2: "h2 { color: red; }" }),
+      {
+        ...changesetWith({ v0: "", v1: "", v2: "" }),
+        id: "vcs_2",
+        visualChanges: [
+          {
+            id: "vc_js",
+            variation: "v2",
+            description: "",
+            css: "",
+            js: "document.title = 'v2';",
+            domMutations: [],
+          },
+        ],
+      },
+      {
+        ...changesetWith({ v0: "", v1: "", v2: "" }),
+        id: "vcs_3",
+        visualChanges: [
+          {
+            id: "vc_dom",
+            variation: "v2",
+            description: "",
+            css: "",
+            domMutations: [
+              { selector: "h1", action: "set", attribute: "html", value: "v2" },
+            ],
+          },
+        ],
+      },
+    ]);
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: [],
+      hasVisualChangesets: true,
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "pending" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    const { activatedIds, updated } =
+      await activatePendingContextualBanditVariations(context, cb, {
+        bypassPermissionChecks: true,
+      });
+
+    expect(activatedIds).toEqual(["v2"]);
+    expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
+      "active",
+    );
+  });
+
+  it("activates pending arms once the bandit has no changesets left", async () => {
+    findVisualChangesetsByContextualBanditMock.mockResolvedValue([]);
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: [],
+      hasVisualChangesets: true,
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "pending" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    const { activatedIds } = await activatePendingContextualBanditVariations(
+      context,
+      cb,
+      { bypassPermissionChecks: true },
+    );
+
+    expect(activatedIds).toEqual(["v2"]);
+  });
+
+  it("does not consult changesets for a CB without any", async () => {
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: [],
+      hasVisualChangesets: false,
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "pending" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    const { activatedIds } = await activatePendingContextualBanditVariations(
+      context,
+      cb,
+      { bypassPermissionChecks: true },
+    );
+
+    expect(activatedIds).toEqual(["v2"]);
+    expect(findVisualChangesetsByContextualBanditMock).not.toHaveBeenCalled();
   });
 });

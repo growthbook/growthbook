@@ -26,7 +26,11 @@ import {
   VariationWeightPair,
   RevisionRampAction,
 } from "shared/validators";
-import { generateVariationId, validateFeatureValue } from "shared/util";
+import {
+  generateVariationId,
+  validateFeatureValue,
+  visualChangeHasContent,
+} from "shared/util";
 import {
   assertAtLeastTwoVariations,
   assertUniqueVariationIds,
@@ -73,6 +77,8 @@ import {
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
+import { findVisualChangesetsByContextualBandit } from "back-end/src/models/VisualChangesetModel";
+import { onContextualBanditVisualStateChanged } from "back-end/src/services/contextualBanditVisualState";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -1003,13 +1009,13 @@ export async function activatePendingContextualBanditVariations(
   const pendingIds = cb.variations.filter(isPendingVariation).map((v) => v.id);
   if (!pendingIds.length) return { activatedIds: [], updated: cb };
 
-  // An arm activates once it is live on every linked feature. With no linked
-  // features there is nothing gating activation, so pending arms activate
-  // immediately.
   const liveArmInfo = await getLiveArmIdsByLinkedFeature(context, cb);
-  const activatedIds = liveArmInfo.length
+  const liveOnFeatures = liveArmInfo.length
     ? pendingIds.filter((id) => liveArmInfo.every((i) => i.liveArmIds.has(id)))
     : pendingIds;
+  const activatedIds = cb.hasVisualChangesets
+    ? await filterArmsWithVisualContent(context, cb, liveOnFeatures)
+    : liveOnFeatures;
   if (!activatedIds.length) return { activatedIds: [], updated: cb };
 
   const activatedSet = new Set(activatedIds);
@@ -1037,6 +1043,25 @@ export async function activatePendingContextualBanditVariations(
   );
 
   return { activatedIds, updated };
+}
+
+async function filterArmsWithVisualContent(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+  armIds: string[],
+): Promise<string[]> {
+  if (!armIds.length) return armIds;
+  const changesets = await findVisualChangesetsByContextualBandit(
+    cb.id,
+    context.org.id,
+  );
+  return armIds.filter((id) =>
+    changesets.every((changeset) =>
+      changeset.visualChanges.some(
+        (vc) => vc.variation === id && visualChangeHasContent(vc),
+      ),
+    ),
+  );
 }
 
 export async function executeContextualBanditVariationChange(
@@ -1291,11 +1316,7 @@ export async function executeContextualBanditVariationChange(
     ));
   }
 
-  await refreshLinkedFeaturePayloads(
-    context,
-    updated,
-    "contextualBandit.refresh",
-  );
+  updated = await onContextualBanditVisualStateChanged(context, updated);
 
   return {
     updated,
