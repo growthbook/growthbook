@@ -187,7 +187,12 @@ export function hookResultsToGates(
       messages: [
         "A custom validation hook rejected this publish:",
         ...results.hardErrors.map((e) =>
-          [e.rejected ? e.message : `${e.hookName} failed: ${e.message}`, e.log]
+          [
+            e.rejected
+              ? e.message
+              : `${e.hookName} failed: ${e.stack ?? e.message}`,
+            e.log,
+          ]
             .filter(Boolean)
             .join("\n"),
         ),
