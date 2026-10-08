@@ -41,7 +41,7 @@ export async function resolveOwnerToUserId(
 
 /**
  * Resolves the owner for a create request, falling back to the person behind
- * it: a Personal Access Token's owner, or the member an org key names. A key
+ * it: a personal access token's owner, or the member an org key names. A key
  * that names no one must send an owner, or this throws.
  */
 export async function resolveOwnerForCreate(
@@ -53,7 +53,7 @@ export async function resolveOwnerForCreate(
   if (resolved) return resolved;
   if (context.actingUserId) return context.actingUserId;
   throw new Error(
-    "Must specify an `owner` in the request body. The `owner` field is only optional when authenticating with a Personal Access Token (PAT) or when the request carries an `X-GrowthBook-Requested-By` header.",
+    "Must specify an `owner` in the request body. The `owner` field is only optional when authenticating with a personal access token (PAT) or when the request carries an `X-GrowthBook-Requested-By` header.",
   );
 }
 

@@ -156,7 +156,7 @@ export default function EventUser({
       label="API"
       size="xs"
       ml="1"
-      title={email ? "via Personal Access Token" : "via API Key"}
+      title={email ? "via personal access token" : "via API key"}
     />
   ) : null;
 

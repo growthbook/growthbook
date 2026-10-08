@@ -331,7 +331,7 @@ export const apiFeatureRevisionV2Validator = namedSchema(
               userId: z
                 .string()
                 .describe(
-                  "The reviewer's user ID: the signed-in member, a Personal Access Token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Older verdicts from organization API keys carry the key ID",
+                  "The reviewer's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Older verdicts from organization API keys carry the key ID",
                 ),
               user: apiEventUser.optional(),
               status: z.enum([

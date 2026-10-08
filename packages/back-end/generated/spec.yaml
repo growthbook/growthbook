@@ -930,7 +930,7 @@ paths:
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. When
                     omitted, it defaults to the person making the request: a
-                    Personal Access Token's owner, or the member an organization
+                    personal access token's owner, or the member an organization
                     API key names with `X-GrowthBook-Requested-By`. An
                     organization API key that names no one must send it, or the
                     request fails with a 400.
@@ -8331,7 +8331,7 @@ paths:
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. When
                     omitted, it defaults to the person making the request: a
-                    Personal Access Token's owner, or the member an organization
+                    personal access token's owner, or the member an organization
                     API key names with `X-GrowthBook-Requested-By`. An
                     organization API key that names no one must send it, or the
                     request fails with a 400.
@@ -15316,7 +15316,7 @@ paths:
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. When
                     omitted, it defaults to the person making the request: a
-                    Personal Access Token's owner, or the member an organization
+                    personal access token's owner, or the member an organization
                     API key names with `X-GrowthBook-Requested-By`. An
                     organization API key that names no one leaves it empty.
                   type: string
@@ -20138,7 +20138,7 @@ paths:
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. When
                     omitted, it defaults to the person making the request: a
-                    Personal Access Token's owner, or the member an organization
+                    personal access token's owner, or the member an organization
                     API key names with `X-GrowthBook-Requested-By`. An
                     organization API key that names no one leaves it empty.
                   type: string
@@ -21957,7 +21957,7 @@ paths:
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. When
                     omitted, it defaults to the person making the request: a
-                    Personal Access Token's owner, or the member an organization
+                    personal access token's owner, or the member an organization
                     API key names with `X-GrowthBook-Requested-By`. An
                     organization API key that names no one leaves it empty.
                   type: string
@@ -23799,7 +23799,7 @@ paths:
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. When
                     omitted, it defaults to the person making the request: a
-                    Personal Access Token's owner, or the member an organization
+                    personal access token's owner, or the member an organization
                     API key names with `X-GrowthBook-Requested-By`. An
                     organization API key that names no one leaves it empty.
                   type: string
@@ -25687,7 +25687,7 @@ paths:
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. When
                     omitted, it defaults to the person making the request: a
-                    Personal Access Token's owner, or the member an organization
+                    personal access token's owner, or the member an organization
                     API key names with `X-GrowthBook-Requested-By`. An
                     organization API key that names no one leaves it empty.
                   type: string
@@ -36669,7 +36669,7 @@ paths:
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. When
                     omitted, it defaults to the person making the request: a
-                    Personal Access Token's owner, or the member an organization
+                    personal access token's owner, or the member an organization
                     API key names with `X-GrowthBook-Requested-By`. An
                     organization API key that names no one leaves it empty.
                   type: string
@@ -52631,7 +52631,7 @@ paths:
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. When
                     omitted, it defaults to the person making the request: a
-                    Personal Access Token's owner, or the member an organization
+                    personal access token's owner, or the member an organization
                     API key names with `X-GrowthBook-Requested-By`. An
                     organization API key that names no one leaves it empty.
                   type: string
@@ -66772,8 +66772,8 @@ components:
             properties:
               userId:
                 description: >-
-                  The reviewer's user ID: the signed-in member, a Personal
-                  Access Token's owner, or the member an organization API key
+                  The reviewer's user ID: the signed-in member, a personal
+                  access token's owner, or the member an organization API key
                   named with `X-GrowthBook-Requested-By`. Older verdicts from
                   organization API keys carry the key ID
                 type: string
@@ -70571,7 +70571,7 @@ components:
         lockedBy:
           description: >-
             The user ID of the person who locked the config (when `locked`): a
-            Personal Access Token's owner, or the member an organization API key
+            personal access token's owner, or the member an organization API key
             named with `X-GrowthBook-Requested-By`.
           type: string
         dateLocked:

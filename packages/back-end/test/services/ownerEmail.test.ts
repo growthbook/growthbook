@@ -247,7 +247,7 @@ describe("resolveOwnerForCreate", () => {
   it("throws when no owner is provided and there is no userId (org API key)", async () => {
     const context = makeOwnerContext({ members: [], userId: "" });
     await expect(resolveOwnerForCreate(undefined, context)).rejects.toThrow(
-      /Personal Access Token/,
+      /personal access token/,
     );
   });
 
