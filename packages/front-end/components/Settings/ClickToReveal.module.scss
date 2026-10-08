@@ -1,19 +1,32 @@
-.wrapper {
-  width: fit-content;
-  position: relative;
-}
-
-.button {
-  position: relative;
-  background-color: var(--color-panel-solid);
-  color: var(--text-color-main);
-}
-
-.buttonLeft {
-  right: 50%;
-}
-
 .blurText {
   text-shadow: 0 0 5px var(--text-color-main);
   color: transparent;
+}
+
+// The whole key copies on click. Nested so it outranks the popover anchor's
+// `all: unset`.
+.revealed .value {
+  display: block;
+  margin-left: -4px;
+  padding: 2px 4px;
+  border-radius: var(--radius-2);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--gray-a3);
+  }
+}
+
+// Solid behind a button over text, so the text doesn't show through and the
+// button's own hover still does.
+.solidBacking {
+  border-radius: var(--radius-2);
+  background-color: var(--color-panel-solid);
+}
+
+.hide {
+  right: -4px;
+  bottom: -6px;
 }
