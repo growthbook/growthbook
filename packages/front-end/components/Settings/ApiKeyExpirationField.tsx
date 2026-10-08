@@ -180,6 +180,7 @@ const ApiKeyExpirationField: FC<{
                     Date
                   </Text>
                   <DatePicker
+                    size="md"
                     date={value ?? undefined}
                     setDate={(d) => setValue(d ?? null)}
                     precision="date"
