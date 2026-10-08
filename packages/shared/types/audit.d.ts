@@ -22,7 +22,6 @@ export interface AuditUserApiKey {
   name?: string;
   email?: string;
   requestedBy?: EventUserRequestedBy;
-  extendedByRequester?: boolean;
 }
 
 export interface AuditUserSystem {

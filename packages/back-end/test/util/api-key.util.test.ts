@@ -256,20 +256,13 @@ describe("arming API key ids", () => {
 
 describe("apiKeyEventUser", () => {
   const dana = { id: "u_dana", name: "Dana", email: "dana@example.com" };
-  const key = (extra: Partial<ApiKeyInterface> = {}) => ({
-    description: "CI key",
-    ...extra,
-  });
+  const key = { description: "CI key" };
 
-  it.each([
-    ["no extension", key(), undefined],
-    ["Always", key({ extendWithRequester: true }), true],
-    ["For specific permissions", key({ requesterOnly: true }), true],
-  ])("records an org key naming a member under %s", (_, apiKey, extended) => {
+  it("records an org key naming a member under its own name, with the member", () => {
     expect(
       apiKeyEventUser({
         apiKeyId: "key_ci",
-        key: apiKey,
+        key,
         owner: null,
         requester: dana,
       }),
@@ -278,7 +271,6 @@ describe("apiKeyEventUser", () => {
       apiKey: "key_ci",
       name: "CI key",
       requestedBy: dana,
-      ...(extended ? { extendedByRequester: true } : {}),
     });
   });
 
@@ -286,7 +278,7 @@ describe("apiKeyEventUser", () => {
     expect(
       apiKeyEventUser({
         apiKeyId: "key_ci",
-        key: key({ extendWithRequester: true }),
+        key,
         owner: null,
         requester: null,
       }),
@@ -297,7 +289,7 @@ describe("apiKeyEventUser", () => {
     expect(
       apiKeyEventUser({
         apiKeyId: "key_pat",
-        key: key(),
+        key,
         owner: dana,
         requester: null,
       }),

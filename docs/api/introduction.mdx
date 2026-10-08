@@ -45,16 +45,9 @@ If a key has an expiration date, every response includes it in the `X-GrowthBook
 
 ## Naming who asked
 
-Requests made with a Secret Key may add an `X-GrowthBook-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks then show that requester next to the key. The header adds no permissions unless the key extends them as described below, but it does decide whose name drafts, owners, `mine` filters and reviews carry.
+Requests made with a Secret Key may add an `X-GrowthBook-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. The request then acts for that member with only the permissions both the key and the member hold, so the header can narrow what a key does but never widen it. History, revision logs and webhooks show that member next to the key, and drafts, owners, `mine` filters and reviews carry their name. The member's rights over their own drafts, comments and review verdicts come along too.
 
-Each key's X-GrowthBook-Requested-By settings under `Settings -> API Keys`:
-
-- **Require on all requests.** Requests without the header are rejected with a 400.
-- **Extend permissions** (**No** by default).
-  - **Always** gives a request that names a member everything that member can do, on top of the key's own permissions. The header isn't verified, so whoever holds the key can act with any member's permissions.
-  - **For specific permissions** adds an **Applies** column to the key's permissions, where each rule can apply **Always** or **If the requester has it**. A request that names a member gets the second kind of rule only as far as that member has the same permissions. This relies on the service holding the key to name the right member, so the key's real reach is all of its rules.
-
-  A request that names no one gets only the permissions that always apply. A key that extends also gets the named member's rights over their own drafts, comments and review verdicts, since it already acts with that member's permissions.
+A key can require the header on every request under `Settings -> API Keys`; requests without it are then rejected with a 400.
 
 A value that does not match a member of the organization is rejected with a 400. Approving or requesting changes needs a named member, and the verdict counts as theirs, so a key can't approve a draft created in that member's name; comments don't need one. Because the header isn't verified, whoever holds the key can review as any member. A create request that omits `owner` defaults it to the named member. Scheduled and auto-publishes armed by such a request later run with the same member's permissions, and don't run if that member has left the organization. Personal Access Tokens and OAuth tokens already act as their user and reject the header.
 

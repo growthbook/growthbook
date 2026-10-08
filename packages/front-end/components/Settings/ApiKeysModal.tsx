@@ -1,11 +1,8 @@
 import { FC, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import {
-  getRoles,
-  RequesterExtension,
-  requesterExtension,
-} from "shared/permissions";
+import { getRoles } from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import {
   getExpirationProblem,
   latestEditedExpiration,
@@ -18,10 +15,6 @@ import track from "@/services/track";
 import TextField from "@/ui/TextField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
-import {
-  RoleRulesValue,
-  clearRequesterOnly,
-} from "@/components/Settings/Team/roleRules";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -102,7 +95,7 @@ const ApiKeysModal: FC<{
     },
   });
 
-  const [roleState, setRoleState] = useState<RoleRulesValue>({
+  const [roleState, setRoleState] = useState<MemberRoleWithProjects>({
     // When editing or copying, seed the role from that key rather than the generic
     // defaultRole. Legacy secret keys created before per-key roles have no
     // stored role and resolve to "admin" at auth time (see roleForApiKey); the
@@ -117,15 +110,11 @@ const ApiKeysModal: FC<{
         : defaultRole,
     limitAccessByEnvironment: source?.limitAccessByEnvironment ?? false,
     environments: source?.environments ?? [],
-    requesterOnly: source?.requesterOnly,
     additionalRoles: source?.additionalRoles,
     projectRoles: source?.projectRoles,
   });
   const [requireRequestedBy, setRequireRequestedBy] = useState(
     !!source?.requireRequestedBy,
-  );
-  const [extension, setExtension] = useState<RequesterExtension>(() =>
-    requesterExtension(source ?? {}),
   );
   const [scoped, setScoped] = useState(!!source?.scoped);
   // Gated like org-key roles; with only the admin role there is nothing to narrow to.
@@ -134,18 +123,9 @@ const ApiKeysModal: FC<{
     personalAccessToken && (orgSupportsRoles() || !!source?.scoped);
 
   const onSubmit = form.handleSubmit(async (value) => {
-    // Rules keep their Applies choice while the column is hidden, in case it
-    // comes back before saving; only "For specific permissions" saves it.
-    const { role, ...rest } =
-      extension === "specific" ? roleState : clearRequesterOnly(roleState);
+    const { role, ...rest } = roleState;
     const patScope = scoped ? { scopedRole: role, ...rest } : {};
-    const orgKeyFields = {
-      ...rest,
-      // Explicit, so clearing the flag on the main role sticks.
-      requesterOnly: !!rest.requesterOnly,
-      requireRequestedBy,
-      extendWithRequester: extension === "all",
-    };
+    const orgKeyFields = { ...rest, requireRequestedBy };
 
     if (existingKey) {
       await apiCall(`/keys/${existingKey.id}`, {
@@ -261,25 +241,16 @@ const ApiKeysModal: FC<{
           <RequestedByFields
             required={requireRequestedBy}
             setRequired={setRequireRequestedBy}
-            extension={extension}
-            setExtension={setExtension}
           />
           <Box mt="6">
             <Heading as="h4" size="sm" mb="1">
               Permissions
             </Heading>
             <Text as="p" color="text-mid" mb="3">
-              {extension === "specific"
-                ? "What requests made with this key can do. Rules set to “If the requester has it” only grant permissions the requester already has."
-                : extension === "all"
-                  ? "What every request made with this key can do. A request that names a member can also do anything that member can."
-                  : "What every request made with this key can do."}
+              What every request made with this key can do. A request that names
+              a member can only do what both this key and that member can.
             </Text>
-            <RoleRulesTable
-              value={roleState}
-              setValue={setRoleState}
-              showAppliesColumn={extension === "specific"}
-            />
+            <RoleRulesTable value={roleState} setValue={setRoleState} />
           </Box>
         </>
       )}

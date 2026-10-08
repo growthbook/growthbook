@@ -5,7 +5,6 @@ import {
   EventUserApiKey,
   EventUserRequestedBy,
 } from "shared/types/events/event-types";
-import { requesterExtension } from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { isExpired } from "shared/api-key-expiration";
 import {
@@ -223,14 +222,7 @@ export function apiKeyEventUser({
   requester,
 }: {
   apiKeyId: string;
-  key: Pick<
-    ApiKeyInterface,
-    | "description"
-    | "extendWithRequester"
-    | "requesterOnly"
-    | "additionalRoles"
-    | "projectRoles"
-  >;
+  key: Pick<ApiKeyInterface, "description">;
   owner: { id: string; name?: string; email: string } | null;
   requester: EventUserRequestedBy | null;
 }): EventUserApiKey {
@@ -247,10 +239,7 @@ export function apiKeyEventUser({
     type: "api_key",
     apiKey: apiKeyId,
     name: key.description || "",
-    ...(requester && {
-      requestedBy: requester,
-      ...(requesterExtension(key) !== "none" && { extendedByRequester: true }),
-    }),
+    ...(requester && { requestedBy: requester }),
   };
 }
 

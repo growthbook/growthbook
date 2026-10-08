@@ -10,4 +10,3 @@ export * from "./controlAuthority";
 export * from "./apiKeyAuthority";
 export * from "./publishFootprint";
 export * from "./createScope";
-export * from "./requesterRules";

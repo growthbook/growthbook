@@ -1,13 +1,8 @@
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
-import pickBy from "lodash/pickBy";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
-import {
-  apiKeyToggleRequiresAdmin,
-  getRoleById,
-  hasRequesterOnlyRules,
-} from "shared/permissions";
+import { apiKeyToggleRequiresAdmin, getRoleById } from "shared/permissions";
 import {
   addDays,
   EXPIRING_SOON_DAYS,
@@ -40,14 +35,6 @@ const SCOPE_FIELDS = [
   "additionalRoles",
   "projectRoles",
 ] as const;
-
-// The X-GrowthBook-Requested-By flags a caller sent; an omitted one keeps its saved value.
-const sentRequesterFlags = (
-  flags: Pick<
-    ApiKeyInterface,
-    "requireRequestedBy" | "requesterOnly" | "extendWithRequester"
-  >,
-) => pickBy(flags, (value) => value !== undefined);
 
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
@@ -156,9 +143,7 @@ export class ApiKeyModel extends BaseClass {
       environments: doc.environments,
       additionalRoles: doc.additionalRoles,
       projectRoles: doc.projectRoles,
-      requesterOnly: doc.requesterOnly,
       requireRequestedBy: doc.requireRequestedBy,
-      extendWithRequester: doc.extendWithRequester,
       disabled: doc.disabled,
       disabledBy: doc.disabledBy,
       expiresAt: doc.expiresAt,
@@ -205,11 +190,7 @@ export class ApiKeyModel extends BaseClass {
       }
     }
     if (doc.userId) {
-      if (
-        doc.requireRequestedBy ||
-        doc.extendWithRequester ||
-        hasRequesterOnlyRules(doc)
-      ) {
+      if (doc.requireRequestedBy) {
         this.context.throwBadRequestError(
           "PATs already act as a user and cannot take X-GrowthBook-Requested-By.",
         );
@@ -242,10 +223,6 @@ export class ApiKeyModel extends BaseClass {
           "Scoped personal access tokens require a role.",
         );
       }
-    } else if (doc.extendWithRequester && hasRequesterOnlyRules(doc)) {
-      this.context.throwBadRequestError(
-        "A key can extend with all of the requester's permissions or with specific ones, not both.",
-      );
     }
     // Only a write that changes the scope is checked, so a key stays disableable after its plan, roles or environments lapse.
     if (
@@ -400,8 +377,6 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles,
     projectRoles,
     requireRequestedBy,
-    requesterOnly,
-    extendWithRequester,
     expiresAt,
   }: {
     description: string;
@@ -411,8 +386,6 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
     requireRequestedBy?: boolean;
-    requesterOnly?: boolean;
-    extendWithRequester?: boolean;
     expiresAt?: Date | null;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
@@ -427,8 +400,6 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       requireRequestedBy,
-      requesterOnly,
-      extendWithRequester,
       expiresAt,
     });
   }
@@ -537,8 +508,6 @@ export class ApiKeyModel extends BaseClass {
       projectRoles,
       description,
       requireRequestedBy,
-      requesterOnly,
-      extendWithRequester,
       expiresAt,
     }: {
       role?: string;
@@ -549,8 +518,6 @@ export class ApiKeyModel extends BaseClass {
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
       requireRequestedBy?: boolean;
-      requesterOnly?: boolean;
-      extendWithRequester?: boolean;
       // Omitted leaves it unchanged; `customValidation` enforces the edit rules.
       expiresAt?: Date | null;
     },
@@ -624,11 +591,7 @@ export class ApiKeyModel extends BaseClass {
         additionalRoles,
         projectRoles,
         description,
-        ...sentRequesterFlags({
-          requireRequestedBy,
-          requesterOnly,
-          extendWithRequester,
-        }),
+        ...(requireRequestedBy !== undefined && { requireRequestedBy }),
         ...(expiresAt !== undefined && { expiresAt }),
       },
       { forceCanUpdate: true },
@@ -882,8 +845,6 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles,
     projectRoles,
     requireRequestedBy,
-    requesterOnly,
-    extendWithRequester,
     expiresAt,
   }: {
     environment: string;
@@ -899,8 +860,6 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
     requireRequestedBy?: boolean;
-    requesterOnly?: boolean;
-    extendWithRequester?: boolean;
     expiresAt?: Date | null;
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
@@ -931,11 +890,7 @@ export class ApiKeyModel extends BaseClass {
       environments: environments ?? [],
       additionalRoles,
       projectRoles,
-      ...sentRequesterFlags({
-        requireRequestedBy,
-        requesterOnly,
-        extendWithRequester,
-      }),
+      ...(requireRequestedBy !== undefined && { requireRequestedBy }),
       expiresAt,
     });
   }

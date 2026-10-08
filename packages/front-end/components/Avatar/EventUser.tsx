@@ -144,11 +144,7 @@ export default function EventUser({
       label={`via ${user.name || "API key"}`}
       size="xs"
       ml="1"
-      title={
-        user.type === "api_key" && user.extendedByRequester
-          ? "Requested through this API key, extended with this member's permissions"
-          : "Requested through this API key, using the key's own permissions"
-      }
+      title="Requested through this API key, with only the permissions both the key and this member hold"
     />
   ) : isApi && (name || email) ? (
     <Badge

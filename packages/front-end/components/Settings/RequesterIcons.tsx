@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { PiIdentificationCardBold, PiUserBold } from "react-icons/pi";
+import { PiIdentificationCardBold } from "react-icons/pi";
 import Tooltip from "@/ui/Tooltip";
 
 function IconWithTooltip({
@@ -22,47 +22,6 @@ function IconWithTooltip({
         {icon}
       </span>
     </Tooltip>
-  );
-}
-
-// The member a request names, for permissions that come from them. Styled like
-// a soft gray avatar, but smaller than Avatar's smallest size.
-function RequesterBadge() {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 20,
-        height: 20,
-        borderRadius: "var(--radius-2)",
-        background: "var(--gray-a3)",
-        color: "var(--gray-a11)",
-      }}
-    >
-      <PiUserBold size={15} />
-    </span>
-  );
-}
-
-// X-GrowthBook-Requested-By states of an API key, shown inline before what they affect.
-
-export function RequesterOnlyIcon() {
-  return (
-    <IconWithTooltip
-      icon={<RequesterBadge />}
-      content="Applies only if the requester has it"
-    />
-  );
-}
-
-export function ExtendsWithRequesterIcon() {
-  return (
-    <IconWithTooltip
-      icon={<RequesterBadge />}
-      content="Requests that name a member also get that member's permissions"
-    />
   );
 }
 

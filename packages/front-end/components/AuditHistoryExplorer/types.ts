@@ -14,7 +14,6 @@ export interface AuditUserInfo {
   name?: string;
   apiKey?: string;
   requestedBy?: EventUserRequestedBy;
-  extendedByRequester?: boolean;
 }
 
 /** A single item displayed in the left-column list. May represent 1 or N raw audit entries that were coarsened into a single group (same time bucket + same author). */

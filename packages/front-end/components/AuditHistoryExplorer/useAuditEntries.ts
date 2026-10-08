@@ -53,7 +53,6 @@ function toAuditUserInfo(user: AuditInterface["user"]): AuditUserInfo {
       name: key.name,
       email: key.email,
       requestedBy: key.requestedBy,
-      extendedByRequester: key.extendedByRequester,
     };
   }
   const u = user as AuditUserLoggedIn;

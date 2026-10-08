@@ -91,7 +91,7 @@ export class FeatureRevisionLogModel extends BaseClass {
   private isOwnedEntry(doc: FeatureRevisionLogInterface): boolean {
     const docUserId = eventUserPersonId(doc.user ?? null);
     if (!docUserId) return false;
-    return this.context.authorUserId === docUserId;
+    return this.context.actingUserId === docUserId;
   }
 
   protected canUpdate(existing: FeatureRevisionLogInterface): boolean {

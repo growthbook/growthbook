@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import { getRoleDisplayName } from "shared/permissions";
 import { PiTrash, PiInfo, PiPlus, PiPlusBold } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
@@ -22,7 +23,6 @@ import useRoleOptions from "./useRoleOptions";
 import {
   ALL_PROJECTS,
   RoleRule,
-  RoleRulesValue,
   TeamRuleSource,
   fromRules,
   inertRules,
@@ -30,22 +30,8 @@ import {
   toRules,
 } from "./roleRules";
 
-// Columns: plus, role, environments, applies, from, badges, remove.
-const columnWidths = (showFrom: boolean, showApplies: boolean) => {
-  if (showApplies) {
-    return showFrom
-      ? ["4%", "20%", "24%", "18%", "14%", "15%", "5%"]
-      : ["4%", "24%", "28%", "22%", "0%", "17%", "5%"];
-  }
-  return showFrom
-    ? ["4%", "24%", "30%", "0%", "16%", "21%", "5%"]
-    : ["4%", "28%", "38%", "0%", "0%", "25%", "5%"];
-};
-
-const APPLIES_OPTIONS = [
-  { value: "always", label: "Always" },
-  { value: "requester", label: "If the requester has it" },
-];
+const WITH_FROM = ["4%", "24%", "30%", "16%", "21%", "5%"];
+const WITHOUT_FROM = ["4%", "28%", "38%", "0%", "25%", "5%"];
 
 const PLUS = (
   <Text color="text-low">
@@ -57,14 +43,10 @@ export default function RoleRulesTable({
   value,
   setValue,
   teams = [],
-  showAppliesColumn = false,
 }: {
-  value: RoleRulesValue;
-  setValue: (value: RoleRulesValue) => void;
+  value: MemberRoleWithProjects;
+  setValue: (value: MemberRoleWithProjects) => void;
   teams?: TeamRuleSource[];
-  // API keys only: choose per rule whether it always applies or only if the
-  // requester named in X-GrowthBook-Requested-By has it.
-  showAppliesColumn?: boolean;
 }) {
   const { organization, hasCommercialFeature } = useUser();
   const hasAdvancedPermissions = hasCommercialFeature("advanced-permissions");
@@ -92,8 +74,8 @@ export default function RoleRulesTable({
 
   // Nothing inherited means the column would say "This member" on every row.
   const showFrom = rules.some((r) => r.source === "team");
-  const WIDTHS = columnWidths(showFrom, showAppliesColumn);
-  const columnCount = 5 + (showFrom ? 1 : 0) + (showAppliesColumn ? 1 : 0);
+  const WIDTHS = showFrom ? WITH_FROM : WITHOUT_FROM;
+  const columnCount = showFrom ? 6 : 5;
 
   const commit = (next: RoleRule[]) => setValue(fromRules(next, value));
   const patch = (key: string, changes: Partial<RoleRule>) =>
@@ -167,25 +149,8 @@ export default function RoleRulesTable({
             onChange={(next) => patch(rule.key, next)}
           />
         </TableCell>
-        {showAppliesColumn && (
-          <TableCell width={WIDTHS[3]}>
-            {fromTeam ? (
-              <Text color="text-low">Always</Text>
-            ) : (
-              <SelectField
-                value={rule.requesterOnly ? "requester" : "always"}
-                options={APPLIES_OPTIONS}
-                onChange={(applies) =>
-                  patch(rule.key, { requesterOnly: applies === "requester" })
-                }
-                sort={false}
-                containerClassName="mb-0"
-              />
-            )}
-          </TableCell>
-        )}
         {showFrom && (
-          <TableCell width={WIDTHS[4]}>
+          <TableCell width={WIDTHS[3]}>
             {fromTeam ? (
               <Tooltip
                 content={`Inherited from the ${rule.teamName} team. Change it there.`}
@@ -197,7 +162,7 @@ export default function RoleRulesTable({
             )}
           </TableCell>
         )}
-        <TableCell width={WIDTHS[5]}>
+        <TableCell width={WIDTHS[4]}>
           <Flex align="center" gap="1" justify="end" wrap="wrap">
             {inert.has(rule.key) && (
               <Tooltip content={inertReason(rule, inert.get(rule.key))}>
@@ -217,7 +182,7 @@ export default function RoleRulesTable({
             )}
           </Flex>
         </TableCell>
-        <TableCell width={WIDTHS[6]}>
+        <TableCell width={WIDTHS[5]}>
           <Flex align="center" justify="end">
             {!fromTeam && !rule.isPrimary && (
               <Tooltip content="Remove rule">
@@ -291,14 +256,11 @@ export default function RoleRulesTable({
               <TableColumnHeader width={WIDTHS[2]}>
                 Environments
               </TableColumnHeader>
-              {showAppliesColumn && (
-                <TableColumnHeader width={WIDTHS[3]}>Applies</TableColumnHeader>
-              )}
               {showFrom && (
-                <TableColumnHeader width={WIDTHS[4]}>From</TableColumnHeader>
+                <TableColumnHeader width={WIDTHS[3]}>From</TableColumnHeader>
               )}
+              <TableColumnHeader width={WIDTHS[4]} />
               <TableColumnHeader width={WIDTHS[5]} />
-              <TableColumnHeader width={WIDTHS[6]} />
             </TableRow>
           </TableHeader>
           <TableBody>

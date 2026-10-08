@@ -94,23 +94,17 @@ info:
 
     Requests made with a Secret Key may add an `X-GrowthBook-Requested-By`
     header naming the organization member who asked for the change, as a user id
-    or an email address. History, revision logs and webhooks then show that
-    requester next to the key. The header adds no permissions unless the key
-    extends them as described below, but it does decide whose name drafts,
-    owners, `mine` filters and reviews carry.
+    or an email address. The request then acts for that member with only the
+    permissions both the key and the member hold, so the header can narrow what
+    a key does but never widen it. History, revision logs and webhooks show that
+    member next to the key, and drafts, owners, `mine` filters and reviews carry
+    their name. The member's rights over their own drafts, comments and review
+    verdicts come along too.
 
 
-    Each key's X-GrowthBook-Requested-By settings under `Settings -> API Keys`:
+    A key can require the header on every request under `Settings -> API Keys`;
+    requests without it are then rejected with a 400.
 
-
-    - **Require on all requests.** Requests without the header are rejected with
-    a 400.
-
-    - **Extend permissions** (**No** by default).
-      - **Always** gives a request that names a member everything that member can do, on top of the key's own permissions. The header isn't verified, so whoever holds the key can act with any member's permissions.
-      - **For specific permissions** adds an **Applies** column to the key's permissions, where each rule can apply **Always** or **If the requester has it**. A request that names a member gets the second kind of rule only as far as that member has the same permissions. This relies on the service holding the key to name the right member, so the key's real reach is all of its rules.
-
-      A request that names no one gets only the permissions that always apply. A key that extends also gets the named member's rights over their own drafts, comments and review verdicts, since it already acts with that member's permissions.
 
     A value that does not match a member of the organization is rejected with a
     400. Approving or requesting changes needs a named member, and the verdict
@@ -65510,7 +65504,8 @@ components:
           description: >-
             The member an organization API key named with
             `X-GrowthBook-Requested-By`. When present, this member is the person
-            behind the action.
+            behind the action, and the request had only the permissions both the
+            key and this member hold.
           type: object
           properties:
             id:
@@ -65524,13 +65519,6 @@ components:
             - name
             - email
           additionalProperties: false
-        extendedByRequester:
-          description: >-
-            True when the key's settings let the named member affect its
-            permissions for this request: Always adds all of the member's
-            permissions, and For specific permissions applies the key's
-            requester-only rules as far as the member has them
-          type: boolean
       required:
         - type
       additionalProperties: false

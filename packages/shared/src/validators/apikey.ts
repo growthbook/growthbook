@@ -2,20 +2,6 @@ import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 import { projectMemberRole, roleRule } from "./organization";
 
-const requesterOnly = z
-  .boolean()
-  .optional()
-  .describe(
-    "Org API keys only. When true, this rule applies to a request only as far as the member it names in `X-GrowthBook-Requested-By` has the same permissions",
-  );
-
-export const apiKeyRoleRule = roleRule.safeExtend({ requesterOnly });
-
-export const apiKeyProjectRole = projectMemberRole.safeExtend({
-  requesterOnly,
-  additionalRoles: z.array(apiKeyRoleRule).optional(),
-});
-
 export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   key: z.string(),
 }).safeExtend({
@@ -59,15 +45,14 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Org API keys and scoped PATs. Allowed environments when limitAccessByEnvironment is true",
     ),
-  requesterOnly,
   additionalRoles: z
-    .array(apiKeyRoleRule)
+    .array(roleRule)
     .optional()
     .describe(
       "Org API keys and scoped PATs. Extra roles granted alongside the base role, same shape as member additionalRoles",
     ),
   projectRoles: z
-    .array(apiKeyProjectRole)
+    .array(projectMemberRole)
     .optional()
     .describe(
       "Org API keys and scoped PATs. Project-specific role overrides, same shape as member projectRoles",
@@ -77,12 +62,6 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .optional()
     .describe(
       "Org API keys only. When true, every request must name the member who asked in an `X-GrowthBook-Requested-By` header",
-    ),
-  extendWithRequester: z
-    .boolean()
-    .optional()
-    .describe(
-      "Org API keys only. When true, a request that names a member in `X-GrowthBook-Requested-By` also gets all of that member's permissions",
     ),
   disabled: z
     .boolean()

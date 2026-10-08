@@ -68,24 +68,20 @@ describe("getContextForApiKeyIdInOrg", () => {
     ).toBe(false);
   });
 
-  it("leaves out rules that apply only through a requester", async () => {
-    await keys().insertOne(
-      key({
-        role: "readonly",
-        additionalRoles: [
-          {
-            role: "experimenter",
-            limitAccessByEnvironment: false,
-            environments: [],
-            requesterOnly: true,
-          },
-        ],
-      }),
-    );
-    const context = await getContextForApiKeyIdInOrg(org, "key_ci");
-    expect(
-      context?.permissions.canRunExperiment({ project: "" }, ["dev"]),
-    ).toBe(false);
+  it("fires a key armed for a member with only what both of them hold", async () => {
+    await keys().insertOne(key({}));
+    await seedUser();
+    const readerOrg = {
+      ...memberOrg,
+      members: [{ ...memberOrg.members[0], role: "readonly" }],
+    } as unknown as OrganizationInterface;
+    const run = async (armer: string) =>
+      (
+        await getContextForApiKeyIdInOrg(readerOrg, armer)
+      )?.permissions.canRunExperiment({ project: "" }, ["dev"]);
+    // Canary: the key alone could run it, so `false` below isn't vacuous.
+    expect(await run("key_ci")).toBe(true);
+    expect(await run("key_ci:u_1")).toBe(false);
   });
 
   it("runs a scoped PAT as its user under the key's cap, never as a super admin", async () => {

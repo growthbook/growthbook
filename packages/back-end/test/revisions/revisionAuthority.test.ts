@@ -35,7 +35,7 @@ function makeContext({
 }): Context {
   return {
     userId,
-    authorUserId: userId,
+    actingUserId: userId,
     org: { id: "org", settings: {} },
     permissions: {
       canRevisionAction: (_model: string, action: RevisionAction) =>

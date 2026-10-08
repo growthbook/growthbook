@@ -9,7 +9,6 @@ import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
-import { RequesterOnlyIcon } from "@/components/Settings/RequesterIcons";
 
 export default function RoleRuleLabel({
   role,
@@ -17,15 +16,12 @@ export default function RoleRuleLabel({
   environments,
   organization,
   sources,
-  requesterOnly = false,
 }: {
   role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   organization: Partial<OrganizationInterface>;
   sources?: ReactNode;
-  // API keys only: the rule applies only if the request's requester has it.
-  requesterOnly?: boolean;
 }) {
   // A restriction on a role that grants nothing env-scoped has no effect, so
   // showing one would imply a limit that isn't there.
@@ -36,7 +32,6 @@ export default function RoleRuleLabel({
 
   return (
     <>
-      {requesterOnly && <RequesterOnlyIcon />}
       {sources ? (
         <Tooltip content={sources}>
           <span style={{ textDecoration: "underline dotted" }}>{name}</span>
@@ -58,7 +53,6 @@ type Rule = {
   role: string;
   limitAccessByEnvironment?: boolean;
   environments?: string[];
-  requesterOnly?: boolean;
 };
 
 /** Every rule a scope grants: its base role plus any additional rules. */
@@ -67,7 +61,6 @@ export function scopeRules(scope: Rule & { additionalRoles?: Rule[] }) {
     role: rule.role,
     limitAccessByEnvironment: !!rule.limitAccessByEnvironment,
     environments: rule.environments ?? [],
-    requesterOnly: !!rule.requesterOnly,
   }));
 }
 

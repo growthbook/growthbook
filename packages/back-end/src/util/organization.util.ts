@@ -6,10 +6,7 @@ import { TeamInterface } from "shared/types/team";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import {
   getRolePermissions,
-  hasRequesterOnlyRules,
   intersectUserPermissions,
-  splitRequesterOnlyRules,
-  unionUserPermissions,
 } from "shared/permissions";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
@@ -95,11 +92,9 @@ export function getPersonalAccessTokenPermissions(
   );
 }
 
-// What an org key may do for one request when its requester can extend it:
-// with `extendWithRequester`, everything the named member may do on top of the
-// key's role; otherwise the rules that always apply, plus the requester-only
-// rules as far as the member has the same permissions. Undefined when the
-// key's own role applies.
+// An org key acting for the member it names gets only what both its role and
+// that member allow: the unverified header can narrow a key, never widen it.
+// Undefined when no member is named and the key's own role applies.
 export function getKeyPermissionsForRequest({
   apiKey,
   requesterId,
@@ -113,29 +108,9 @@ export function getKeyPermissionsForRequest({
   teams: TeamInterface[];
   restrictedProjects: string[];
 }): UserPermissions | undefined {
-  if (apiKey.extendWithRequester) {
-    if (!requesterId) return undefined;
-    return unionUserPermissions(
-      getRolePermissions(apiKey, org, teams, restrictedProjects),
-      getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
-      org,
-    );
-  }
-  if (!hasRequesterOnlyRules(apiKey)) return undefined;
-  const { always, requesterOnly } = splitRequesterOnlyRules(apiKey);
-  const alwaysPermissions = getRolePermissions(
-    always,
-    org,
-    teams,
-    restrictedProjects,
-  );
-  if (!requesterId) return alwaysPermissions;
-  return unionUserPermissions(
-    alwaysPermissions,
-    intersectUserPermissions(
-      getRolePermissions(requesterOnly, org, teams, restrictedProjects),
-      getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
-    ),
-    org,
+  if (!requesterId) return undefined;
+  return intersectUserPermissions(
+    getRolePermissions(apiKey, org, teams, restrictedProjects),
+    getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
   );
 }

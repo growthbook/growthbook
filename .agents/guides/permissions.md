@@ -248,7 +248,7 @@ context.permissions.throwPermissionError("Custom error message");
 An org API key can name a member with `X-GrowthBook-Requested-By`. `context.actingPerson` (and `actingUserId`, `actingUserName`, `actingUserEmail`) is that member, the signed-in user, or a personal token's owner; `context.userId` stays empty for org keys.
 
 - Use the acting person for attribution, owners, contributors, draft targeting (`mine`), review verdicts and anything a notification or log credits.
-- Author rights on drafts, comments and verdicts (acting on your own draft without draft permission, editing your own comments, retracting your own verdict) use `context.authorUserId`: the person, but for an org key only when it extends permissions. A key that extends already acts with the member's permissions; on one that doesn't, the unverified header must grant nothing.
+- An org key naming a member gets only what both the key's role and the member allow (`getKeyPermissionsForRequest`). Author rights on drafts, comments and verdicts (acting on your own draft without draft permission, editing your own comments, retracting your own verdict) follow the acting person too.
 - Personal resources (a member's tokens, AI conversations, Slack links, private dashboards) stay on `userId`. Deferred work runs as `context.armer`.
 - Read who is behind a stored actor through the helpers in `shared/src/validators/event-user.ts`, never its raw fields: `eventUserPersonId` / `eventUserPerson` for the person, `eventUserLabel` for one line of text, `eventUserCredit` for "the person, or the key's name", and `reviewerKeyForEventUser` to pair verdicts. A draft an org key made for a member has no `createdBy.id`. In the app, render actors with the `EventUser` component.
 

@@ -1,18 +1,12 @@
 import React, { FC, useState } from "react";
 import { ApiKeyInterface } from "shared/types/apikey";
-import {
-  apiKeyToggleRequiresAdmin,
-  requesterExtension,
-} from "shared/permissions";
+import { apiKeyToggleRequiresAdmin } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
 import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
-import {
-  ExtendsWithRequesterIcon,
-  RequiresRequesterIcon,
-} from "@/components/Settings/RequesterIcons";
+import { RequiresRequesterIcon } from "@/components/Settings/RequesterIcons";
 import {
   CollapsedRuleRows,
   projectRuleRows,
@@ -67,24 +61,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   const { organization, userId, users, settings } = useUser();
   const canManageTokens = usePermissionsUtil().canDeleteApiKey();
   const { getProjectById } = useDefinitions();
-  // A key that extends with all of its requester's permissions lists that
-  // after its own rules.
-  const keyRoleRows = (key: ApiKeyInterface, role: string) => {
-    const rows = ruleRows({ ...key, role }, organization);
-    if (requesterExtension(key) !== "all") return rows;
-    return [
-      ...rows,
-      {
-        key: "requester",
-        node: (
-          <>
-            <ExtendsWithRequesterIcon />
-            <em>Member&apos;s permissions</em>
-          </>
-        ),
-      },
-    ];
-  };
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
   );
@@ -207,7 +183,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               </TableCell>
               <TableCell style={dimStyle(key)}>
                 {key.role ? (
-                  <CollapsedRuleRows rows={keyRoleRows(key, key.role)} />
+                  <CollapsedRuleRows
+                    rows={ruleRows({ ...key, role: key.role }, organization)}
+                  />
                 ) : (
                   "-"
                 )}

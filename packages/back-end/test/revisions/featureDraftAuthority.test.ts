@@ -51,7 +51,7 @@ function contextWith(atoms: Atoms, userId = "u_me"): ReqContext {
   const thrown = new Error("permission denied");
   return {
     userId,
-    authorUserId: userId,
+    actingUserId: userId,
     getTargetingOptOutProjectIds: async () => [],
     permissions: {
       canEditFeatureDrafts: () => !!atoms.draft,

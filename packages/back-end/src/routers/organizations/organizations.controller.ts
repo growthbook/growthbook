@@ -1914,8 +1914,6 @@ export async function postApiKey(
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
     requireRequestedBy?: boolean;
-    requesterOnly?: boolean;
-    extendWithRequester?: boolean;
     expiresAt?: string | null;
   }>,
   res: Response,
@@ -1931,8 +1929,6 @@ export async function postApiKey(
     additionalRoles,
     projectRoles,
     requireRequestedBy,
-    requesterOnly,
-    extendWithRequester,
     expiresAt: expiresAtInput,
   } = req.body;
 
@@ -1967,8 +1963,6 @@ export async function postApiKey(
       additionalRoles,
       projectRoles,
       requireRequestedBy,
-      requesterOnly,
-      extendWithRequester,
       expiresAt,
     });
   }
@@ -2000,8 +1994,6 @@ export async function putApiKey(
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       requireRequestedBy?: boolean;
-      requesterOnly?: boolean;
-      extendWithRequester?: boolean;
       expiresAt?: string | null;
     },
     { id: string }
@@ -2019,8 +2011,6 @@ export async function putApiKey(
     additionalRoles,
     projectRoles,
     requireRequestedBy,
-    requesterOnly,
-    extendWithRequester,
     expiresAt,
   } = req.body;
 
@@ -2037,8 +2027,6 @@ export async function putApiKey(
       additionalRoles,
       projectRoles,
       requireRequestedBy,
-      requesterOnly,
-      extendWithRequester,
       expiresAt:
         expiresAt === undefined ? undefined : parseExpiresAt(expiresAt),
     });

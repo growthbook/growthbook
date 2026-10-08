@@ -1,14 +1,14 @@
 import { OrganizationInterface } from "shared/types/organization";
 import { ApiKeyWithRole } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
-import { Permissions, RequesterRules, hasPermission } from "shared/permissions";
+import { Permissions, hasPermission } from "shared/permissions";
 import {
   getKeyPermissionsForRequest,
   getUserPermissions,
 } from "back-end/src/util/organization.util";
 
 const org = {
-  id: "org_requester_rules",
+  id: "org_key_for_member",
   settings: { environments: [{ id: "development" }, { id: "production" }] },
   members: [
     { id: "u_admin", role: "admin" },
@@ -28,18 +28,17 @@ const teams = [
   },
 ] as unknown as TeamInterface[];
 
-const rule = (role: string, requesterOnly = false) => ({
+const rule = (role: string) => ({
   role,
   limitAccessByEnvironment: false,
   environments: [],
-  ...(requesterOnly ? { requesterOnly } : {}),
 });
 
-const key = (rules: RequesterRules) => rules as unknown as ApiKeyWithRole;
+const key = (rules: object) => rules as unknown as ApiKeyWithRole;
 
 const forRequest = (
   apiKey: ApiKeyWithRole,
-  requesterId: string | null,
+  requesterId: string,
   restricted: string[] = [],
 ) => {
   const permissions = getKeyPermissionsForRequest({
@@ -49,97 +48,60 @@ const forRequest = (
     teams,
     restrictedProjects: restricted,
   });
-  if (!permissions) throw new Error("expected requester-dependent permissions");
+  if (!permissions) throw new Error("expected the member to narrow the key");
   return permissions;
 };
 
 const canEdit = (permissions: ReturnType<typeof forRequest>, project = "") =>
   hasPermission(permissions, "editFeatureDrafts", project);
 
-// Read access always; engineer only as far as the requester has it.
-const engineerIfRequesterHasIt = key({
-  ...rule("readonly"),
-  additionalRoles: [rule("engineer", true)],
-});
-
 describe("getKeyPermissionsForRequest", () => {
-  it("leaves a key with no requester-only rules to its own role", () => {
+  it("keeps the key's own role when the request names no one", () => {
     expect(
       getKeyPermissionsForRequest({
         apiKey: key(rule("engineer")),
-        requesterId: "u_reader",
-        org,
-        teams,
-        restrictedProjects: [],
-      }),
-    ).toBeUndefined();
-  });
-
-  it("gives a request that names no one only the rules that always apply", () => {
-    const result = forRequest(engineerIfRequesterHasIt, null);
-    expect(hasPermission(result, "readData")).toBe(true);
-    expect(canEdit(result)).toBe(false);
-  });
-
-  it.each([
-    ["a member whose team grants it", "u_team_engineer", true],
-    ["a member without it", "u_reader", false],
-  ])("extends to %s", (_, requesterId, expected) => {
-    expect(canEdit(forRequest(engineerIfRequesterHasIt, requesterId))).toBe(
-      expected,
-    );
-  });
-
-  it("never goes past the requester-only rules, even for an admin", () => {
-    // Canary: the member alone could edit, so `false` below isn't vacuous.
-    expect(canEdit(getUserPermissions({ id: "u_admin" }, org, teams))).toBe(
-      true,
-    );
-    const readonlyEitherWay = key({
-      ...rule("readonly"),
-      additionalRoles: [rule("readonly", true)],
-    });
-    expect(canEdit(forRequest(readonlyEitherWay, "u_admin"))).toBe(false);
-  });
-
-  it("keeps a project group replacing the All Projects rules on both sides", () => {
-    // Engineer everywhere, but inside p1 only readonly, and only for the requester.
-    const apiKey = key({
-      ...rule("engineer"),
-      projectRoles: [{ project: "p1", ...rule("readonly", true) }],
-    });
-    const named = forRequest(apiKey, "u_engineer");
-    expect(canEdit(named, "p2")).toBe(true);
-    expect(canEdit(named, "p1")).toBe(false);
-    expect(hasPermission(named, "readData", "p1")).toBe(true);
-    expect(hasPermission(forRequest(apiKey, null), "readData", "p1")).toBe(
-      false,
-    );
-  });
-
-  it("adds everything the requester can do when the key extends with all of it", () => {
-    const apiKey = {
-      ...rule("readonly"),
-      extendWithRequester: true,
-    } as unknown as ApiKeyWithRole;
-    expect(
-      getKeyPermissionsForRequest({
-        apiKey,
         requesterId: null,
         org,
         teams,
         restrictedProjects: [],
       }),
     ).toBeUndefined();
-    expect(canEdit(forRequest(apiKey, "u_engineer"))).toBe(true);
-    const reader = forRequest(apiKey, "u_reader");
-    expect(canEdit(reader)).toBe(false);
-    expect(hasPermission(reader, "readData")).toBe(true);
   });
 
-  it("keeps requester-only rules out of the member's access-restricted projects", () => {
+  it.each([
+    ["a member whose team grants it", "u_team_engineer", true],
+    ["a member with it", "u_engineer", true],
+    ["a member without it", "u_reader", false],
+  ])("lets an engineer key edit for %s", (_, requesterId, expected) => {
+    expect(canEdit(forRequest(key(rule("engineer")), requesterId))).toBe(
+      expected,
+    );
+  });
+
+  it("never goes past the key's own role, even for an admin", () => {
+    // Canary: the member alone could edit, so `false` below isn't vacuous.
+    expect(canEdit(getUserPermissions({ id: "u_admin" }, org, teams))).toBe(
+      true,
+    );
+    const named = forRequest(key(rule("readonly")), "u_admin");
+    expect(canEdit(named)).toBe(false);
+    expect(hasPermission(named, "readData")).toBe(true);
+  });
+
+  it("narrows per project on the key's side too", () => {
+    const apiKey = key({
+      ...rule("engineer"),
+      projectRoles: [{ project: "p1", ...rule("readonly") }],
+    });
+    const named = forRequest(apiKey, "u_engineer");
+    expect(canEdit(named, "p2")).toBe(true);
+    expect(canEdit(named, "p1")).toBe(false);
+    expect(hasPermission(named, "readData", "p1")).toBe(true);
+  });
+
+  it("keeps the member's access-restricted projects closed", () => {
     const permissions = new Permissions(
-      forRequest(key(rule("admin", true)), "u_engineer", ["prj_private"]),
+      forRequest(key(rule("admin")), "u_engineer", ["prj_private"]),
     );
     expect(permissions.canReadSingleProjectResource("prj_open")).toBe(true);
     expect(permissions.canReadSingleProjectResource("prj_private")).toBe(false);

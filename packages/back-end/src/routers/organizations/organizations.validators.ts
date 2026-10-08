@@ -38,19 +38,6 @@ export const putMemberProjectRoleValidator = z
   })
   .strict();
 
-// Org API keys only: any rule can apply only as far as the member named in
-// X-GrowthBook-Requested-By has the same permissions.
-const apiKeyRoleRuleValidator = roleRuleValidator
-  .extend({ requesterOnly: z.boolean().optional() })
-  .strict();
-
-const apiKeyProjectRoleValidator = projectMemberRoleValidator
-  .extend({
-    requesterOnly: z.boolean().optional(),
-    additionalRoles: z.array(apiKeyRoleRuleValidator).optional(),
-  })
-  .strict();
-
 export const postApiKeyValidator = z.strictObject({
   type: z.string(),
   // PATs only (type "user"): cap the token at this role and the scoping fields.
@@ -58,11 +45,9 @@ export const postApiKeyValidator = z.strictObject({
   description: z.string().optional(),
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
-  projectRoles: z.array(apiKeyProjectRoleValidator).optional(),
-  additionalRoles: z.array(apiKeyRoleRuleValidator).optional(),
-  requesterOnly: z.boolean().optional(),
+  projectRoles: z.array(projectMemberRoleValidator).optional(),
+  additionalRoles: z.array(roleRuleValidator).optional(),
   requireRequestedBy: z.boolean().optional(),
-  extendWithRequester: z.boolean().optional(),
   // ISO string; null or absent means no expiration, subject to the org policy.
   expiresAt: z.string().nullable().optional(),
 });
@@ -75,12 +60,10 @@ export const putApiKeyValidator = z.strictObject({
   description: z.string().optional(),
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
-  projectRoles: z.array(apiKeyProjectRoleValidator).optional(),
-  additionalRoles: z.array(apiKeyRoleRuleValidator).optional(),
-  // Org keys only; an omitted flag keeps its saved value.
-  requesterOnly: z.boolean().optional(),
+  projectRoles: z.array(projectMemberRoleValidator).optional(),
+  additionalRoles: z.array(roleRuleValidator).optional(),
+  // Org keys only; omitted keeps the saved value.
   requireRequestedBy: z.boolean().optional(),
-  extendWithRequester: z.boolean().optional(),
   // Omitted leaves the expiry unchanged; null removes it where the policy allows.
   expiresAt: z.string().nullable().optional(),
 });

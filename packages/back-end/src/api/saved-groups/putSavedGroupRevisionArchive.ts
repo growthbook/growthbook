@@ -82,7 +82,7 @@ export const putSavedGroupRevisionArchive = createApiRequestHandler(
         model: "saved-group",
         entity: savedGroup,
         revision,
-        userId: req.context.authorUserId,
+        userId: req.context.actingUserId,
       })
     ) {
       req.context.permissions.throwPermissionError();
