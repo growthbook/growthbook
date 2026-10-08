@@ -18,11 +18,13 @@ import {
   CreateFactMetricFormProps,
   fromFactMetricFormValues,
   getDefaultFactMetricProps,
+  getFactMetricTrackProps,
   toFactMetricFormValues,
   validateFactMetricFormValues,
 } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
@@ -96,6 +98,7 @@ export default function MetricWorkspace({
   onSaved,
   onCancel,
   actionsContainer,
+  source,
 }: {
   existing: FactMetricInterface | null;
   // Seeds defaults for a brand-new metric (create payload, not update) -
@@ -116,6 +119,9 @@ export default function MetricWorkspace({
   onSaved?: (metric: FactMetricInterface) => void;
   onCancel?: () => void;
   actionsContainer: HTMLDivElement | null;
+  // Tracking source, matching what FactMetricModal reports for the same
+  // entry point.
+  source: string;
 }) {
   const { datasources, project, getFactTableById, getDatasourceById } =
     useDefinitions();
@@ -175,6 +181,13 @@ export default function MetricWorkspace({
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ block: "nearest" });
   }, [error]);
+  // Same event as the old modal, so both arms of the new-metric-creation-flow
+  // experiment report views identically.
+  useEffect(() => {
+    if (!existing)
+      track("Viewed Create Fact Metric Modal", { source, flow: "page" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Definition-can't-be-represented is a rare edge case (existing metrics
   // with a legacy sketch aggregation, mostly) - true is the correct default
   // for the overwhelmingly common case (a fresh create, or an ordinary
@@ -296,6 +309,10 @@ export default function MetricWorkspace({
         method: "PUT",
         body: JSON.stringify(updatePayload),
       });
+      track(
+        "Edit Fact Metric",
+        getFactMetricTrackProps(payload, source, "page"),
+      );
       // Await so view mode doesn't resync from the pre-edit metric.
       await mutate();
       setIsEditing(false);
@@ -317,6 +334,10 @@ export default function MetricWorkspace({
           method: "POST",
           body: JSON.stringify(createPayload),
         },
+      );
+      track(
+        "Create Fact Metric",
+        getFactMetricTrackProps(payload, source, "page"),
       );
       // Await so the metric page can find the new metric on arrival.
       await mutate();
