@@ -289,6 +289,7 @@ export const entityEvents = {
   metricAnalysis: ["create", "update", "delete"],
   metricGroup: ["create", "delete", "update"],
   populationData: ["create", "delete", "update"],
+  population: ["create", "update", "delete"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],
   "sdk-connection": ["create", "update", "delete"],
