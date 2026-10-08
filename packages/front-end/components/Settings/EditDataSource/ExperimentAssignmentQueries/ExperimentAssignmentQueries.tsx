@@ -213,7 +213,6 @@ export const ExperimentAssignmentQueries: FC<
                       <ProjectBadges
                         resourceType="experiment assignment query"
                         projectIds={query.projects}
-                        skipMargin
                       />
                     ) : dataSource.projects?.length ? (
                       <UITooltip content="Inherited from the Data Source">
@@ -221,15 +220,11 @@ export const ExperimentAssignmentQueries: FC<
                           <ProjectBadges
                             resourceType="experiment assignment query"
                             projectIds={dataSource.projects}
-                            skipMargin
                           />
                         </span>
                       </UITooltip>
                     ) : (
-                      <ProjectBadges
-                        resourceType="experiment assignment query"
-                        skipMargin
-                      />
+                      <ProjectBadges resourceType="experiment assignment query" />
                     )}
                   </Box>
                 </Flex>
