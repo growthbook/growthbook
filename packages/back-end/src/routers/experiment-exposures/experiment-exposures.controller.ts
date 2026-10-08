@@ -1,11 +1,11 @@
 import type { Response } from "express";
+import { z } from "zod";
 import { snapToMinuteStart } from "shared/dates";
+import { SQL_ROW_LIMIT } from "shared/sql";
+import { stringRowFilterValidator } from "shared/validators";
 import type { ExperimentExposureRecord } from "shared/validators";
-import {
-  formatQueryExecutionErrorForApi,
-  parseIntWithDefaultCapped,
-  parseOptionalInt,
-} from "shared/util";
+import type { RowFilter } from "shared/types/fact-table";
+import { formatQueryExecutionErrorForApi, parseOptionalInt } from "shared/util";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -26,7 +26,7 @@ type ExposuresResponse = {
   records: ExperimentExposureRecord[];
   dimensions: string[];
   extraColumns: string[];
-  hasMore: boolean;
+  truncated: boolean;
   sql?: string;
   error?: string;
   cached?: boolean;
@@ -34,8 +34,7 @@ type ExposuresResponse = {
   ranAt?: string;
 };
 
-const MAX_WINDOW_HOURS = 24 * 7;
-const PAGE_SIZE = 100;
+const BUFFER_SIZE = SQL_ROW_LIMIT;
 
 export async function getExposures(
   req: AuthRequest<
@@ -44,10 +43,7 @@ export async function getExposures(
     {
       startDate: string;
       endDate: string;
-      userId?: string;
-      variationId?: string;
-      dimensionFilters?: string;
-      page?: string;
+      rowFilters?: string;
     }
   >,
   res: Response<ExposuresResponse>,
@@ -97,48 +93,24 @@ export async function getExposures(
   if (windowMs <= 0) {
     context.throwBadRequestError("End date must be after start date.");
   }
-  if (windowMs > MAX_WINDOW_HOURS * 60 * 60 * 1000) {
-    context.throwBadRequestError(
-      `Time window cannot exceed ${MAX_WINDOW_HOURS / 24} days.`,
-    );
-  }
   const dimensions = exposureQuery.dimensions || [];
 
-  let dimensionFilters: Record<string, string> | undefined;
-  if (req.query.dimensionFilters) {
+  let rowFilters: RowFilter[] = [];
+  if (req.query.rowFilters) {
     let parsed: unknown;
     try {
-      parsed = JSON.parse(req.query.dimensionFilters);
+      parsed = JSON.parse(req.query.rowFilters);
     } catch {
-      context.throwBadRequestError("Could not parse dimension filters.");
+      context.throwBadRequestError("Could not parse row filters.");
       return;
     }
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      Array.isArray(parsed)
-    ) {
-      context.throwBadRequestError("Could not parse dimension filters.");
+    const result = z.array(stringRowFilterValidator).safeParse(parsed);
+    if (!result.success) {
+      context.throwBadRequestError("Could not parse row filters.");
       return;
     }
-    const entries: Record<string, string> = {};
-    for (const [key, value] of Object.entries(parsed)) {
-      if (typeof value !== "string" || !value) continue;
-      // Silently dropping an unknown key would show unfiltered data as though
-      // it had been filtered.
-      if (!dimensions.includes(key)) {
-        context.throwBadRequestError(
-          `Dimension "${key}" is not available on this exposure query.`,
-        );
-        return;
-      }
-      entries[key] = value;
-    }
-    if (Object.keys(entries).length) dimensionFilters = entries;
+    rowFilters = result.data;
   }
-
-  const page = parseIntWithDefaultCapped(req.query.page, 1, 1_000);
-  const offset = (page - 1) * PAGE_SIZE;
 
   const integration = getSourceIntegrationObject(context, datasource);
 
@@ -146,7 +118,7 @@ export async function getExposures(
     records: [],
     dimensions,
     extraColumns: [],
-    hasMore: false,
+    truncated: false,
   };
 
   // Outside the try below, whose catch turns throws into a 200 + error body.
@@ -166,12 +138,9 @@ export async function getExposures(
       userIdType: exposureQuery.userIdType,
       startDate,
       endDate,
-      userId: req.query.userId,
-      variationId: req.query.variationId,
       dimensions,
-      dimensionFilters,
-      limit: PAGE_SIZE,
-      offset,
+      rowFilters,
+      limit: BUFFER_SIZE,
     });
   } catch (e) {
     res.status(200).json({
@@ -203,12 +172,9 @@ export async function getExposures(
         userIdType: exposureQuery.userIdType,
         startDate,
         endDate,
-        userId: req.query.userId,
-        variationId: req.query.variationId,
         dimensions,
-        dimensionFilters,
-        limit: PAGE_SIZE,
-        offset,
+        rowFilters,
+        limit: BUFFER_SIZE,
       });
       rawRows = result.rows;
       try {
@@ -236,12 +202,12 @@ export async function getExposures(
     return;
   }
 
-  // The query fetches PAGE_SIZE + 1 rows so we can report a next page.
-  const hasMore = rawRows.length > PAGE_SIZE;
-  const pageRows = hasMore ? rawRows.slice(0, PAGE_SIZE) : rawRows;
+  // The query fetches BUFFER_SIZE + 1 rows so the extra one reports truncation.
+  const truncated = rawRows.length > BUFFER_SIZE;
+  const bufferRows = truncated ? rawRows.slice(0, BUFFER_SIZE) : rawRows;
 
   const { records, extraColumns } = shapeExposureRows({
-    rows: pageRows,
+    rows: bufferRows,
     userIdType: exposureQuery.userIdType,
     dimensions,
     caseSensitive: integration.columnNamesAreCaseSensitive,
@@ -251,7 +217,7 @@ export async function getExposures(
     records,
     dimensions,
     extraColumns,
-    hasMore,
+    truncated,
     sql,
     cached,
     ranAt: ranAt.toISOString(),

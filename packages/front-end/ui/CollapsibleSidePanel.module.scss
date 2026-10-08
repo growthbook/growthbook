@@ -1,0 +1,52 @@
+.panel {
+  min-width: 0;
+  padding-right: var(--space-3);
+}
+
+// Holds the rule the toggle sits on. Narrow, so the button overhangs it on
+// both sides and reads as attached to the divider rather than to either pane.
+.divider {
+  position: relative;
+  flex: 0 0 1px;
+  background-color: var(--gray-a3);
+  margin-right: var(--space-3);
+}
+
+.toggle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+
+  border: 1px solid var(--gray-a5);
+  border-radius: 50%;
+  background-color: var(--color-panel-solid);
+  color: var(--color-text-mid);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--violet-a7);
+    color: var(--violet-11);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 1px;
+  }
+}
+
+@media (max-width: 768px) {
+  // Side by side stops working on a phone; the caller's panel stacks above the
+  // content and the divider has nothing to divide.
+  .divider {
+    display: none;
+  }
+}

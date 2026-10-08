@@ -1,4 +1,7 @@
-import { format } from "shared/sql";
+import { format, SQL_ROW_LIMIT } from "shared/sql";
+import { buildRowFilterWhereClause } from "shared/experiments";
+import { stringRowFilterOperators } from "shared/validators";
+import type { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import type { ExperimentExposuresQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -11,6 +14,34 @@ const SAFE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export function isSafeIdentifier(name: string): boolean {
   return SAFE_IDENTIFIER.test(name);
+}
+
+function exposureColumnsAsFactTable(
+  columns: string[],
+  dialect: SqlDialect,
+): Pick<FactTableInterface, "columns" | "filters" | "userIdTypes"> {
+  return {
+    filters: [],
+    userIdTypes: [],
+    columns: columns.map((column) => ({
+      column,
+      name: column,
+      datatype: "string" as const,
+      isVirtual: true,
+      sql: dialect.castToString(column),
+      description: "",
+      numberFormat: "" as const,
+      deleted: false,
+      dateCreated: new Date(0),
+      dateUpdated: new Date(0),
+    })),
+  };
+}
+
+function isStringRowFilterOperator(
+  operator: RowFilter["operator"],
+): operator is (typeof stringRowFilterOperators)[number] {
+  return (stringRowFilterOperators as readonly string[]).includes(operator);
 }
 
 export function getExperimentExposuresQuery(
@@ -29,9 +60,9 @@ export function getExperimentExposuresQuery(
     dialect,
   );
 
-  // Fetch one extra row to tell the client whether another page exists.
-  const limit = Math.max(1, Math.min(101, Math.floor(params.limit) + 1));
-  const offset = Math.max(0, Math.floor(params.offset));
+  // One extra row so the caller can report the buffer as truncated.
+  const limit =
+    Math.max(1, Math.min(SQL_ROW_LIMIT, Math.floor(params.limit))) + 1;
 
   // Dropping an unusable identifier would return unfiltered rows while the UI
   // still shows the filter as applied, so refuse the query instead. The
@@ -59,36 +90,31 @@ export function getExperimentExposuresQuery(
   );
   orderColumns.forEach((c) => assertSafeIdentifier(c, "Column"));
 
-  const extraConditions: string[] = [];
-  if (params.userId) {
-    extraConditions.push(
-      `${dialect.castToString(params.userIdType)} = '${dialect.escapeStringLiteral(
-        params.userId,
-      )}'`,
-    );
-  }
-  if (params.variationId) {
-    extraConditions.push(
-      `${dialect.castToString("variation_id")} = '${dialect.escapeStringLiteral(
-        params.variationId,
-      )}'`,
-    );
-  }
-  if (params.dimensionFilters) {
-    for (const [dim, val] of Object.entries(params.dimensionFilters)) {
-      if (!val) continue;
-      if (!params.dimensions.includes(dim)) {
-        throw new Error(
-          `Dimension "${dim}" is not available on this exposure query.`,
-        );
-      }
-      extraConditions.push(
-        `${dialect.castToString(dim)} = '${dialect.escapeStringLiteral(val)}'`,
+  const filterableColumns = orderColumns;
+
+  const rowFilters = params.rowFilters ?? [];
+  rowFilters.forEach((f) => {
+    if (!isStringRowFilterOperator(f.operator)) {
+      throw new Error(
+        `Filter operator "${f.operator}" is not supported for exposure logs.`,
       );
     }
-  }
-  const extraWhere = extraConditions.length
-    ? " AND " + extraConditions.join(" AND ")
+    if (!f.column || !filterableColumns.includes(f.column)) {
+      throw new Error(
+        `Column "${f.column ?? ""}" is not available on this exposure query.`,
+      );
+    }
+  });
+  const rowFilterWhere = rowFilters.length
+    ? buildRowFilterWhereClause({
+        rowFilters,
+        factTable: exposureColumnsAsFactTable(filterableColumns, dialect),
+        dialect,
+      })
+    : "";
+  const extraWhere = rowFilterWhere
+    ? `
+      AND ${rowFilterWhere}`
     : "";
 
   // SELECT * rather than an explicit column list: every column the exposure
@@ -105,7 +131,7 @@ export function getExperimentExposuresQuery(
       AND timestamp >= ${dialect.toTimestamp(params.startDate)}
       AND timestamp < ${dialect.toTimestamp(params.endDate)}${extraWhere}
     ORDER BY ${orderColumns.map((column) => `${column} DESC`).join(", ")}
-    ${dialect.paginate(limit, offset)}
+    ${dialect.paginate(limit, 0)}
     `,
     dialect.formatDialect,
   );

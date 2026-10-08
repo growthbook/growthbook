@@ -1,50 +1,39 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { isEqual } from "lodash";
+import { calculateProductAnalyticsDateRange } from "shared/enterprise";
+import type { ExplorationDateRange } from "shared/validators";
+import type { RowFilter } from "shared/types/fact-table";
 import useApi from "@/hooks/useApi";
-import { SyntaxFilter, transformQuery } from "@/services/search";
-import { useSearchFiltersBase } from "@/components/Search/SearchFilters";
-import { toSafeFilterKeys } from "./format";
-import { DEFAULT_TIME_RANGES, TimeRangeOption } from "./types";
 
-function buildDateRange(
-  hours: number,
-  endTime: number,
-): { startDate: string; endDate: string } {
-  const endDate = new Date(endTime);
-  const startDate = new Date(endTime - hours * 60 * 60 * 1000);
-  return {
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
-  };
-}
+/** 24 hours back, matching the window these panels opened on before. */
+export const DEFAULT_RECORDS_DATE_RANGE: ExplorationDateRange = {
+  predefined: "customLookback",
+  lookbackValue: 24,
+  lookbackUnit: "hour",
+};
 
 export interface BuildParamsInput {
   startDate: string;
   endDate: string;
-  page: number;
-  pageSize: number;
-  searchTerm: string;
-  syntaxFilters: SyntaxFilter[];
-  getFilterValue: (field: string) => string;
+  rowFilters: RowFilter[];
 }
 
 export interface RecordsQueryConfig<TRow, TResponse> {
   /** Endpoint without a query string. */
   endpoint: string;
-  filterKeys: string[];
   buildParams: (input: BuildParamsInput) => Record<string, string | undefined>;
   selectRows: (data: TResponse) => TRow[];
   /** Datasource present and supported, and the user may run queries. */
   canRun: boolean;
-  /** Run without an explicit Update click. True for managed warehouses. */
+  /** Run without an explicit Refresh. True for managed warehouses. */
   autoRun: boolean;
   /** Gates auto-running until the surface is visible. */
   isActive?: boolean;
-  pageSize?: number;
-  timeRanges?: TimeRangeOption[];
-  defaultRangeHours?: number;
+  defaultDateRange?: ExplorationDateRange;
 }
 
 export interface UseRecordsQueryResult<TRow, TResponse> {
+  /** The whole buffer the warehouse returned; filtering happens downstream. */
   rows: TRow[];
   data: TResponse | undefined;
   error: Error | undefined;
@@ -53,59 +42,46 @@ export interface UseRecordsQueryResult<TRow, TResponse> {
   hasRun: boolean;
   canRun: boolean;
   autoRun: boolean;
-  /** Applies the staged search and time range, and re-queries the warehouse. */
+  /** Re-queries the warehouse with the staged range and the applied filters. */
   submit: () => void;
-  /** Staged edits the user has not submitted yet. */
+  /** Staged edits the last query did not see. */
   hasPendingChanges: boolean;
 
   /** Staged: takes effect on the next submit, not on selection. */
-  rangeHours: number;
-  setRangeHours: (hours: number) => void;
-  timeRanges: TimeRangeOption[];
+  dateRange: ExplorationDateRange;
+  setDateRange: (range: ExplorationDateRange) => void;
 
-  page: number;
-  setPage: (page: number) => void;
-  pageSize: number;
-
-  search: {
-    searchInputProps: {
-      value: string;
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    };
-    setSearchValue: (v: string) => void;
-    searchTerm: string;
-    syntaxFilters: SyntaxFilter[];
-    filterKeys: string[];
-    dropdownFilterOpen: string;
-    setDropdownFilterOpen: (v: string) => void;
-    updateQuery: (filter: SyntaxFilter) => void;
-  };
+  /**
+   * Applied filters. They narrow the loaded rows immediately; the warehouse
+   * only sees them on the next submit.
+   */
+  rowFilters: RowFilter[];
+  setRowFilters: (filters: RowFilter[]) => void;
 }
 
 export default function useRecordsQuery<TRow, TResponse>({
   endpoint,
-  filterKeys,
   buildParams,
   selectRows,
   canRun,
   autoRun,
   isActive = true,
-  pageSize = 100,
-  timeRanges = DEFAULT_TIME_RANGES,
-  defaultRangeHours = 24,
+  defaultDateRange = DEFAULT_RECORDS_DATE_RANGE,
 }: RecordsQueryConfig<TRow, TResponse>): UseRecordsQueryResult<
   TRow,
   TResponse
 > {
-  const [page, setPageRaw] = useState(1);
-  // Every filter control is staged: what the control shows, vs. what the query
+  // Every control is staged: what the controls show, vs. what the query
   // actually ran with. Only submit closes the gap, so a customer's warehouse is
-  // never billed for a keystroke or a stray dropdown pick.
-  const [searchValue, setSearchValue] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [rangeHours, setRangeHours] = useState(defaultRangeHours);
-  const [appliedRangeHours, setAppliedRangeHours] = useState(defaultRangeHours);
-  const [windowEndTime, setWindowEndTime] = useState(() => Date.now());
+  // never billed for a dropdown pick.
+  const [dateRange, setDateRange] =
+    useState<ExplorationDateRange>(defaultDateRange);
+  const [submittedDateRange, setSubmittedDateRange] =
+    useState<ExplorationDateRange>(defaultDateRange);
+  const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
+  const [submittedRowFilters, setSubmittedRowFilters] = useState<RowFilter[]>(
+    [],
+  );
   const [stateEndpoint, setStateEndpoint] = useState(endpoint);
   const [committedQs, setCommittedQs] = useState<string | null>(null);
   const [commitRequested, setCommitRequested] = useState(false);
@@ -114,58 +90,21 @@ export default function useRecordsQuery<TRow, TResponse>({
   useEffect(() => {
     if (endpointIsCurrent) return;
     setStateEndpoint(endpoint);
-    setRangeHours(defaultRangeHours);
-    setAppliedRangeHours(defaultRangeHours);
-    setPageRaw(1);
-    setSearchValue("");
-    setAppliedSearch("");
-    setWindowEndTime(Date.now());
+    setDateRange(defaultDateRange);
+    setSubmittedDateRange(defaultDateRange);
+    setRowFilters([]);
+    setSubmittedRowFilters([]);
     setCommittedQs(null);
     setCommitRequested(false);
-  }, [defaultRangeHours, endpoint, endpointIsCurrent]);
+  }, [defaultDateRange, endpoint, endpointIsCurrent]);
 
-  const safeFilterKeys = useMemo(
-    () => toSafeFilterKeys(filterKeys),
-    [filterKeys],
-  );
-
-  // Chips and dropdown state follow the box so the UI stays responsive before
-  // the query is submitted.
-  const liveFilters = useMemo(
-    () => transformQuery(searchValue, safeFilterKeys).syntaxFilters,
-    [searchValue, safeFilterKeys],
-  );
-
-  const parsed = useMemo(() => {
-    const { syntaxFilters, searchTerm } = transformQuery(
-      appliedSearch,
-      safeFilterKeys,
-    );
-    // parseQuery lowercases field names, but callers look filters up by their
-    // configured name (a dimension may be camelCase), so compare case-insensitively.
-    const getFilterValue = (field: string) =>
-      syntaxFilters.find((f) => f.field.toLowerCase() === field.toLowerCase())
-        ?.values[0] ?? "";
-    return { syntaxFilters, searchTerm, getFilterValue };
-  }, [appliedSearch, safeFilterKeys]);
-
-  // Built only from applied state, never from staged controls, so paging cannot
-  // quietly ship a range the user picked but never submitted. The window stays
-  // fixed while paging so every request sees the same dataset; submit
-  // re-anchors it.
-  const appliedQs = useMemo(() => {
-    const { startDate, endDate } = buildDateRange(
-      appliedRangeHours,
-      windowEndTime,
-    );
+  // Built only from submitted state, never from staged controls.
+  const submittedQs = useMemo(() => {
+    const resolved = calculateProductAnalyticsDateRange(submittedDateRange);
     const params = buildParams({
-      startDate,
-      endDate,
-      page,
-      pageSize,
-      searchTerm: parsed.searchTerm,
-      syntaxFilters: parsed.syntaxFilters,
-      getFilterValue: parsed.getFilterValue,
+      startDate: resolved.startDate.toISOString(),
+      endDate: resolved.endDate.toISOString(),
+      rowFilters: submittedRowFilters,
     });
     const qs = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) {
@@ -173,10 +112,9 @@ export default function useRecordsQuery<TRow, TResponse>({
     }
     return qs.toString();
     // buildParams is typically an inline arrow, so including it would change
-    // the key every render. Everything it closes over reaches us through
-    // `parsed`, which is in the dep list.
+    // the key every render. Everything it reads is in the dep list already.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedRangeHours, windowEndTime, page, pageSize, parsed]);
+  }, [submittedDateRange, submittedRowFilters]);
 
   const { data, error, isValidating } = useApi<TResponse>(
     `${endpoint}?${committedQs}`,
@@ -189,61 +127,40 @@ export default function useRecordsQuery<TRow, TResponse>({
   );
 
   // Only the first load is automatic, and only where compute is ours, so a
-  // customer's warehouse is never hit just by opening the tab. Afterwards every
-  // re-query goes through submit.
+  // customer's warehouse is never hit just by opening the tab.
   useEffect(() => {
     if (!canRun || !isActive || !autoRun || !endpointIsCurrent) return;
     if (committedQs !== null) return;
-    setWindowEndTime(Date.now());
     setCommitRequested(true);
   }, [canRun, isActive, autoRun, endpointIsCurrent, committedQs]);
 
-  // Runs after the staged values above have landed in applied state, so the
+  // Runs after the staged values have landed in submitted state, so the
   // committed query string is the one the user actually asked for.
   useEffect(() => {
     if (!commitRequested || !isActive || !endpointIsCurrent) return;
-    setCommittedQs(appliedQs);
+    setCommittedQs(submittedQs);
     setCommitRequested(false);
-  }, [commitRequested, appliedQs, endpointIsCurrent, isActive]);
+  }, [commitRequested, submittedQs, endpointIsCurrent, isActive]);
 
-  // The only path to the warehouse, shared by the Enter key and the Update
-  // button. Results start from page 1 because the window has moved.
   const submit = useCallback(() => {
-    setAppliedSearch(searchValue);
-    setAppliedRangeHours(rangeHours);
-    setWindowEndTime((previous) => Math.max(Date.now(), previous + 1));
-    setPageRaw(1);
+    setSubmittedDateRange(dateRange);
+    setSubmittedRowFilters(rowFilters);
     setCommitRequested(true);
-  }, [searchValue, rangeHours]);
+  }, [dateRange, rowFilters]);
 
-  const setPage = useCallback((next: number) => {
-    setPageRaw(next);
-    setCommitRequested(true);
-  }, []);
-
-  const onSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setSearchValue(e.target.value),
-    [],
+  const rows = useMemo(
+    () => (data ? selectRows(data) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data],
   );
-
-  const searchInputProps = useMemo(
-    () => ({ value: searchValue, onChange: onSearchChange }),
-    [searchValue, onSearchChange],
-  );
-
-  const { dropdownFilterOpen, setDropdownFilterOpen, updateQuery } =
-    useSearchFiltersBase({
-      searchInputProps,
-      syntaxFilters: liveFilters,
-      setSearchValue,
-    });
 
   const hasRun = data !== undefined || error !== undefined;
   const hasPendingChanges =
-    searchValue !== appliedSearch || rangeHours !== appliedRangeHours;
+    !isEqual(dateRange, submittedDateRange) ||
+    !isEqual(rowFilters, submittedRowFilters);
 
   return {
-    rows: data ? selectRows(data) : [],
+    rows,
     data,
     error,
     isLoading: committedQs !== null && !hasRun,
@@ -254,23 +171,9 @@ export default function useRecordsQuery<TRow, TResponse>({
     submit,
     hasPendingChanges,
 
-    rangeHours,
-    setRangeHours,
-    timeRanges,
-
-    page,
-    setPage,
-    pageSize,
-
-    search: {
-      searchInputProps,
-      setSearchValue,
-      searchTerm: parsed.searchTerm,
-      syntaxFilters: liveFilters,
-      filterKeys: safeFilterKeys,
-      dropdownFilterOpen,
-      setDropdownFilterOpen,
-      updateQuery,
-    },
+    dateRange,
+    setDateRange,
+    rowFilters,
+    setRowFilters,
   };
 }

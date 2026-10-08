@@ -6,8 +6,6 @@ import * as rawController from "./experiment-exposures.controller";
 
 const router = express.Router();
 const controller = wrapController(rawController);
-const filterString = z.string().max(255);
-
 // Mounted bare, so the full path lives here. /experiment is not owned by this
 // router — app.ts still registers the other /experiment/:id routes directly.
 router.get(
@@ -18,10 +16,7 @@ router.get(
       .object({
         startDate: z.string().datetime(),
         endDate: z.string().datetime(),
-        userId: filterString.optional(),
-        variationId: filterString.optional(),
-        dimensionFilters: z.string().max(1024).optional(),
-        page: z.string().regex(/^\d+$/).optional(),
+        rowFilters: z.string().max(8192).optional(),
       })
       .strict(),
   }),

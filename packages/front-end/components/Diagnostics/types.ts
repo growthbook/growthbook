@@ -8,28 +8,6 @@ export interface RecordsColumn<T> {
   width?: string;
 }
 
-export interface TimeRangeOption {
-  label: string;
-  hours: number;
-}
-
-// Must stay within MAX_WINDOW_HOURS (24 * 7) in
-// back-end/src/routers/experiment-exposures/experiment-exposures.controller.ts
-// — a longer range is rejected with a 400.
-export const DEFAULT_TIME_RANGES: TimeRangeOption[] = [
-  { label: "Last 1 hour", hours: 1 },
-  { label: "Last 6 hours", hours: 6 },
-  { label: "Last 24 hours", hours: 24 },
-  { label: "Last 7 days", hours: 168 },
-];
-
-export interface RecordsFilterOption {
-  /** Matches SearchFiltersItem so a dropdown can render a rich label. */
-  name: string | JSX.Element;
-  id: string;
-  searchValue: string;
-}
-
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
     typeof value === "object" &&

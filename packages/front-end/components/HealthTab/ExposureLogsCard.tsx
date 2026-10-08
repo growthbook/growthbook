@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   isManagedWarehouse,
@@ -16,22 +16,25 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import RecordsPanel from "@/components/Diagnostics/RecordsPanel";
 import useRecordsQuery from "@/components/Diagnostics/useRecordsQuery";
 import { formatTimestamp, truncate } from "@/components/Diagnostics/format";
-import {
-  RecordsColumn,
-  RecordsFilterOption,
-} from "@/components/Diagnostics/types";
+import { RecordsColumn } from "@/components/Diagnostics/types";
+import type { FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
 import { datasourcesWithoutHealthData } from "./constants";
 
 interface ExposuresResponse {
   records: ExperimentExposureRecord[];
   dimensions: string[];
   extraColumns: string[];
-  hasMore: boolean;
+  truncated: boolean;
   sql?: string;
   error?: string;
   cached?: boolean;
   ranAt?: string;
 }
+
+/** The warehouse columns a row filter may name, matching the table's columns. */
+const USER_ID_COLUMN = "user_id";
+const VARIATION_COLUMN = "variation_id";
+const TIMESTAMP_COLUMN = "timestamp";
 
 function Empty() {
   return (
@@ -68,39 +71,20 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
 
   // GrowthBook owns the compute for a managed warehouse, so results can be
   // fetched on sight. A customer's warehouse bills them per query, so it waits
-  // for an explicit Update.
+  // for an explicit Refresh.
   const autoRun = !!datasource && isManagedWarehouse(datasource);
-
-  const filterKeys = useMemo(
-    () => ["user", "variation", ...dimensions],
-    [dimensions],
-  );
 
   const query = useRecordsQuery<ExperimentExposureRecord, ExposuresResponse>({
     endpoint: `/experiment/${experiment.id}/exposures`,
-    filterKeys,
     canRun,
     autoRun,
     isActive: isTabActive,
     selectRows: (data) => data.records,
-    buildParams: ({ startDate, endDate, page, searchTerm, getFilterValue }) => {
-      const dimensionFilters: Record<string, string> = {};
-      for (const dim of dimensions) {
-        const value = getFilterValue(dim);
-        if (value) dimensionFilters[dim] = value;
-      }
-      return {
-        startDate,
-        endDate,
-        page: String(page),
-        // Bare search text is treated as a user id, matching the event log.
-        userId: getFilterValue("user") || searchTerm || undefined,
-        variationId: getFilterValue("variation") || undefined,
-        dimensionFilters: Object.keys(dimensionFilters).length
-          ? JSON.stringify(dimensionFilters)
-          : undefined,
-      };
-    },
+    buildParams: ({ startDate, endDate, rowFilters }) => ({
+      startDate,
+      endDate,
+      rowFilters: rowFilters.length ? JSON.stringify(rowFilters) : undefined,
+    }),
   });
 
   // Indexed off the latest phase so the number matches the traffic card legend.
@@ -169,34 +153,65 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
     [dimensions, variationsById],
   );
 
-  const filterOptions = useMemo(() => {
-    const options: Record<string, RecordsFilterOption[]> = {
-      // The menu carries the same label as the column; the token stays the id.
-      variation: getLatestPhaseVariations(experiment).map((v) => ({
-        name: (
-          <VariationLabel
-            number={v.index}
-            name={v.name || `Variation ${v.index}`}
-            size="sm"
-          />
-        ),
-        id: v.key || String(v.index),
-        searchValue: v.key || String(v.index),
-      })),
-    };
-    // Dimension values aren't enumerable up front, so offer what this page has.
+  // A filter names the warehouse column, because that is what the query has to
+  // emit; the panel shows the friendlier column header instead.
+  const getFilterValue = useCallback(
+    (row: ExperimentExposureRecord, column: string) => {
+      if (column === TIMESTAMP_COLUMN) return row.timestamp;
+      if (column === USER_ID_COLUMN) return row.userId;
+      if (column === VARIATION_COLUMN) return row.variationId;
+      return row.dimensions[column];
+    },
+    [],
+  );
+
+  const getSearchText = useCallback(
+    (row: ExperimentExposureRecord) =>
+      [
+        row.timestamp,
+        row.userId ?? "",
+        row.variationId,
+        ...Object.values(row.dimensions).map((v) => v ?? ""),
+      ].join(" "),
+    [],
+  );
+
+  const userIdColumnLabel = exposureQuery?.userIdType || "User ID";
+
+  // Dimension values aren't enumerable up front, so offer the ones this buffer
+  // actually holds — the same values the table is showing.
+  const columnSource: FilterColumnSource = useMemo(() => {
+    const columnLabels: [string, string][] = [
+      [USER_ID_COLUMN, userIdColumnLabel],
+      [VARIATION_COLUMN, "Variation"],
+      ...dimensions.map((d): [string, string] => [d, d]),
+    ];
+
+    const topValues = new Map<string, string[]>();
+    topValues.set(
+      VARIATION_COLUMN,
+      getLatestPhaseVariations(experiment).map((v) => v.key || String(v.index)),
+    );
     for (const dim of dimensions) {
       const seen = new Set<string>();
-      for (const r of query.rows) {
-        const value = r.dimensions[dim];
+      for (const row of query.rows) {
+        const value = row.dimensions[dim];
         if (value) seen.add(value);
       }
-      options[dim] = Array.from(seen)
-        .sort()
-        .map((value) => ({ name: value, id: value, searchValue: value }));
+      topValues.set(dim, Array.from(seen).sort());
     }
-    return options;
-  }, [experiment, dimensions, query.rows]);
+
+    return {
+      columns: columnLabels.map(([value, label]) => ({ label, value })),
+      savedFilters: [],
+      getColumnInfo: (column) => ({
+        // Every value is coerced to a string by shapeExposureRows, so the
+        // string operator set is the honest one to offer.
+        datatype: column ? "string" : "",
+        topValues: (column && topValues.get(column)) || [],
+      }),
+    };
+  }, [dimensions, experiment, query.rows, userIdColumnLabel]);
 
   if (!canRun) return null;
 
@@ -219,18 +234,16 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
       getRowId={(r, i) =>
         `${r.timestamp}-${r.userId ?? ""}-${r.variationId}-${i}`
       }
+      getSearchText={getSearchText}
+      getFilterValue={getFilterValue}
+      columnSource={columnSource}
       detailFlattenKeys={["dimensions", "extra"]}
       detailTitle="Full exposure record"
-      hasNextPage={!!query.data?.hasMore}
       lastUpdated={query.data?.ranAt}
-      searchPlaceholder={`Search... (user:id variation:0${
-        dimensions.length > 0 ? ` ${dimensions[0]}:value` : ""
-      })`}
-      filterOptions={filterOptions}
-      filterOrder={["variation", ...dimensions]}
-      filterLabels={{ variation: "Variation" }}
+      truncated={query.data?.truncated}
+      searchPlaceholder="Search exposures..."
       emptyMessage="No exposures found for this time range."
-      idleMessage="Press Enter or click Update to load exposure records."
+      idleMessage="Click Refresh to load exposure records."
       warning={warning}
     />
   );

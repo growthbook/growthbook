@@ -1940,8 +1940,7 @@ describe("getExperimentExposuresQuery", () => {
     startDate: new Date("2025-03-01T00:00:00.000Z"),
     endDate: new Date("2025-03-08T00:00:00.000Z"),
     dimensions: ["country"],
-    limit: 100,
-    offset: 0,
+    limit: 1000,
   };
 
   it("substitutes every template variable, including experimentId", () => {
@@ -1961,9 +1960,9 @@ describe("getExperimentExposuresQuery", () => {
     expect(sql).toMatch(/SELECT\s+\*/);
   });
 
-  it("fetches one extra row to detect a next page", () => {
+  it("fetches one extra row to detect a truncated buffer", () => {
     const sql = getExperimentExposuresQuery(bigQueryDialect, params);
-    expect(sql).toMatch(/LIMIT\s+101/);
+    expect(sql).toMatch(/LIMIT\s+1001/);
   });
 
   it("uses deterministic tie-breakers for pagination", () => {
@@ -1973,13 +1972,12 @@ describe("getExperimentExposuresQuery", () => {
     );
   });
 
-  it("clamps limit and offset", () => {
+  it("clamps the buffer to SQL_ROW_LIMIT", () => {
     const sql = getExperimentExposuresQuery(bigQueryDialect, {
       ...params,
       limit: 5000,
-      offset: -10,
     });
-    expect(sql).toMatch(/LIMIT\s+101/);
+    expect(sql).toMatch(/LIMIT\s+1001/);
     expect(sql).toMatch(/OFFSET\s+0/);
   });
 
@@ -1987,40 +1985,75 @@ describe("getExperimentExposuresQuery", () => {
     const sql = getExperimentExposuresQuery(bigQueryDialect, {
       ...params,
       experimentTrackingKey: "it's-mine",
-      userId: "o'brien",
+      rowFilters: [{ column: "user_id", operator: "=", values: ["o'brien"] }],
     });
     expect(sql).not.toMatch(/experiment_id = 'it's-mine'/);
     expect(sql).toContain("o\\'brien");
   });
 
-  it("applies a declared dimension filter", () => {
+  it("compiles row filters into the WHERE clause", () => {
     const sql = getExperimentExposuresQuery(bigQueryDialect, {
       ...params,
-      dimensionFilters: { country: "US" },
+      rowFilters: [
+        { column: "variation_id", operator: "=", values: ["0"] },
+        { column: "country", operator: "in", values: ["US", "GB"] },
+      ],
     });
-    expect(sql).toContain("cast(country as string) = 'US'");
+    expect(sql).toContain("cast(variation_id as string)) = '0'");
+    expect(sql).toMatch(/cast\(country as string\)\) IN/);
+    expect(sql).toContain("'US'");
+    expect(sql).toContain("'GB'");
+  });
+
+  it("supports the string operators the filter panel offers", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      rowFilters: [
+        { column: "user_id", operator: "contains", values: ["abc"] },
+        { column: "country", operator: "not_null", values: [] },
+      ],
+    });
+    expect(sql).toMatch(/cast\(user_id as string\)\) LIKE '%abc%'/);
+    expect(sql).toContain("cast(country as string)) IS NOT NULL");
   });
 
   it("casts filtered columns to string so INT64 columns compare", () => {
     // BigQuery has no implicit INT64/STRING coercion, so an uncast comparison
-    // against a numeric user_id or variation_id is a hard query error.
+    // against a numeric user_id or variation_id is a hard query error. Filter
+    // values are always strings, so the column is cast to match.
     const sql = getExperimentExposuresQuery(bigQueryDialect, {
       ...params,
-      userId: "abc",
-      variationId: "0",
-      dimensionFilters: { country: "US" },
+      rowFilters: [
+        { column: "variation_id", operator: "=", values: ["0"] },
+        { column: "user_id", operator: "contains", values: ["abc"] },
+      ],
     });
-    expect(sql).toContain("cast(user_id as string) = 'abc'");
-    expect(sql).toContain("cast(variation_id as string) = '0'");
-    expect(sql).toContain("cast(country as string) = 'US'");
+    expect(sql).toContain("cast(variation_id as string)");
+    expect(sql).toContain("cast(user_id as string)");
   });
 
-  it("uses the dialect's own cast, and leaves experiment_id bare", () => {
+  it("casts with the dialect's own spelling", () => {
     const sql = getExperimentExposuresQuery(mssqlDialect, {
       ...params,
-      variationId: "0",
+      rowFilters: [{ column: "variation_id", operator: "=", values: ["0"] }],
     });
-    expect(sql).toContain("cast(variation_id as varchar(256)) = '0'");
+    expect(sql).toContain("cast(variation_id as varchar(256))");
+  });
+
+  it("does not cast the ORDER BY columns", () => {
+    // Ordering on the native type is correct and cheaper; only the comparison
+    // needs both sides to be strings.
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      rowFilters: [{ column: "variation_id", operator: "=", values: ["0"] }],
+    });
+    expect(sql).toMatch(
+      /ORDER BY\s+timestamp DESC,\s+user_id DESC,\s+variation_id DESC/,
+    );
+  });
+
+  it("leaves experiment_id bare", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, params);
     // The tracking key is always a string, and it is the predicate most likely
     // to drive partition pruning.
     expect(sql).toContain("experiment_id = 'my-experiment'");
@@ -2032,33 +2065,76 @@ describe("getExperimentExposuresQuery", () => {
       getExperimentExposuresQuery(bigQueryDialect, {
         ...params,
         dimensions: ["bad name"],
-        dimensionFilters: { "bad name": "x" },
       }),
     ).toThrow(/not a supported column name/);
   });
 
-  it("rejects a dimension filter for an undeclared dimension", () => {
+  it("rejects a row filter on a column the exposure query does not return", () => {
     expect(() =>
       getExperimentExposuresQuery(bigQueryDialect, {
         ...params,
-        dimensionFilters: { evil: "x" },
+        rowFilters: [{ column: "evil", operator: "=", values: ["x"] }],
       }),
     ).toThrow(/not available on this exposure query/);
   });
 
+  it("refuses sql_expr, whose value would reach the WHERE clause verbatim", () => {
+    // rowFilters arrive as JSON on an HTTP request. getRowFilterSQL inlines a
+    // sql_expr value with no escaping, so accepting it would hand any caller
+    // with health-query permission arbitrary SQL against the warehouse.
+    expect(() =>
+      getExperimentExposuresQuery(bigQueryDialect, {
+        ...params,
+        rowFilters: [
+          {
+            operator: "sql_expr",
+            values: ["1=1) UNION ALL SELECT * FROM secrets --"],
+          },
+        ],
+      }),
+    ).toThrow(/not supported for exposure logs/);
+  });
+
+  it("refuses saved_filter, which also carries raw SQL", () => {
+    expect(() =>
+      getExperimentExposuresQuery(bigQueryDialect, {
+        ...params,
+        rowFilters: [{ operator: "saved_filter", values: ["flt_abc"] }],
+      }),
+    ).toThrow(/not supported for exposure logs/);
+  });
+
+  it("refuses a numeric operator the client cannot evaluate the same way", () => {
+    expect(() =>
+      getExperimentExposuresQuery(bigQueryDialect, {
+        ...params,
+        rowFilters: [{ column: "country", operator: ">", values: ["A"] }],
+      }),
+    ).toThrow(/not supported for exposure logs/);
+  });
+
+  it("refuses an incomplete row filter rather than widening the result", () => {
+    expect(() =>
+      getExperimentExposuresQuery(bigQueryDialect, {
+        ...params,
+        rowFilters: [{ column: "country", operator: "=", values: [] }],
+      }),
+    ).toThrow(/incomplete/);
+  });
+
   it("uses dialect-specific pagination", () => {
     expect(getExperimentExposuresQuery(bigQueryDialect, params)).toMatch(
-      /LIMIT\s+101\s+OFFSET\s+0/,
+      /LIMIT\s+1001\s+OFFSET\s+0/,
     );
     // SQL Server has no LIMIT keyword.
     const mssql = getExperimentExposuresQuery(mssqlDialect, params);
     expect(mssql).not.toMatch(/\bLIMIT\b/);
     expect(mssql).toMatch(
-      /OFFSET\s+0\s+ROWS\s+FETCH\s+NEXT\s+101\s+ROWS\s+ONLY/,
+      /OFFSET\s+0\s+ROWS\s+FETCH\s+NEXT\s+1001\s+ROWS\s+ONLY/,
     );
     // Trino puts OFFSET before LIMIT.
     expect(getExperimentExposuresQuery(prestoDialect, params)).toMatch(
-      /OFFSET\s+0\s+LIMIT\s+101/,
+      /OFFSET\s+0\s+LIMIT\s+1001/,
     );
   });
 });

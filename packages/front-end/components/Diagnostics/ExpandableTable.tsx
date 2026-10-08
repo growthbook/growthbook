@@ -21,6 +21,8 @@ export interface ExpandableTableProps<T extends object> {
   /** Nested objects lifted to the top level in the detail view. */
   detailFlattenKeys?: string[];
   detailTitle?: string;
+  /** Caps the scrolling body so pagination below the table stays in view. */
+  maxHeight?: number;
 }
 
 export default function ExpandableTable<T extends object>({
@@ -30,6 +32,7 @@ export default function ExpandableTable<T extends object>({
   renderDetail,
   detailFlattenKeys,
   detailTitle,
+  maxHeight,
 }: ExpandableTableProps<T>) {
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 
@@ -41,7 +44,7 @@ export default function ExpandableTable<T extends object>({
   const totalColumns = columns.length + 1;
 
   return (
-    <Table variant="list" size="md">
+    <Table variant="list" size="md" scrollX maxHeight={maxHeight}>
       <TableHeader>
         <TableRow>
           <TableColumnHeader style={{ width: 32 }} />

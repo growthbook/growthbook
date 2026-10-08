@@ -18,6 +18,7 @@ import {
   FactTableColumnType,
   FactTableInterface,
   MetricQuantileSettings,
+  RowFilter,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
@@ -938,12 +939,10 @@ export type ExperimentExposuresQueryParams = {
   userIdType: string;
   startDate: Date;
   endDate: Date;
-  userId?: string;
-  variationId?: string;
   dimensions: string[];
-  dimensionFilters?: Record<string, string>;
+  /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
+  rowFilters?: RowFilter[];
   limit: number;
-  offset: number;
 };
 
 // The query selects every column the exposure query returns, so the shape is
