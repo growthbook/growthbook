@@ -1,8 +1,5 @@
 import { getValidDate } from "shared/dates";
-import {
-  getExposureQueryIdentifierTypes,
-  getPreferredIdentifierType,
-} from "shared/util";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 import {
   PastExperimentParams,
@@ -115,8 +112,9 @@ export function mergePastExperimentResults({
 
 /**
  * Rows discovered before every identifier was counted don't record theirs.
- * Discovery counted on the query's legacy `userIdType` while it was declared,
- * else its first declared identifier.
+ * Discovery counted on the query's legacy `userIdType` while the query declared
+ * it. Once it doesn't, the counts may be on an identifier that's gone, so the
+ * row stays unlabeled (and out of the import table) until the next refresh.
  */
 export function withCountedIdentifierTypes(
   experiments: PastExperiment[],
@@ -125,8 +123,9 @@ export function withCountedIdentifierTypes(
   return experiments.map((e) => {
     if (e.identifierType) return e;
     const query = exposureQueries.find((q) => q.id === e.exposureQueryId);
-    return query
-      ? { ...e, identifierType: getPreferredIdentifierType(query) }
+    return query &&
+      getExposureQueryIdentifierTypes(query).includes(query.userIdType)
+      ? { ...e, identifierType: query.userIdType }
       : e;
   });
 }

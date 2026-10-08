@@ -3,6 +3,7 @@ import { PastExperiment } from "shared/types/past-experiments";
 import {
   getPastExperimentsWatermark,
   mergePastExperimentResults,
+  withCountedIdentifierTypes,
 } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 
 function row(
@@ -205,5 +206,40 @@ describe("getPastExperimentsWatermark", () => {
   it("reruns fully when the query never ran or found nothing", () => {
     expect(getPastExperimentsWatermark(model, "eq_2", ["user_id"])).toBeNull();
     expect(getPastExperimentsWatermark(model, "eq_3", ["user_id"])).toBeNull();
+  });
+});
+
+describe("withCountedIdentifierTypes", () => {
+  it("labels cached rows with the legacy identifier only while it's declared", () => {
+    const labeled = withCountedIdentifierTypes(
+      [
+        row({ trackingKey: "kept", exposureQueryId: "eq_kept" }),
+        row({ trackingKey: "dropped", exposureQueryId: "eq_dropped" }),
+        row({
+          trackingKey: "counted",
+          exposureQueryId: "eq_dropped",
+          identifierType: "user_id",
+        }),
+      ],
+      [
+        {
+          id: "eq_kept",
+          userIdType: "anonymous_id",
+          userIdTypes: ["user_id", "anonymous_id"],
+        },
+        {
+          id: "eq_dropped",
+          userIdType: "anonymous_id",
+          userIdTypes: ["user_id"],
+        },
+      ],
+    );
+
+    expect(labeled.map((e) => [e.trackingKey, e.identifierType])).toEqual([
+      ["kept", "anonymous_id"],
+      // Counted on anonymous_id, which the query no longer declares
+      ["dropped", undefined],
+      ["counted", "user_id"],
+    ]);
   });
 });
