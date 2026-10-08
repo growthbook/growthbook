@@ -78,7 +78,7 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const updateResultsJob = agenda.create(QUEUE_EXPERIMENT_UPDATES, {});
     updateResultsJob.unique({});
-    updateResultsJob.repeatEvery("10 minutes");
+    updateResultsJob.repeatEvery("5 minutes");
     await updateResultsJob.save();
   }
 
@@ -145,7 +145,9 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       experiment.datasource || "",
     );
     if (!datasource) {
-      throw new Error("Error refreshing experiment, could not find datasource");
+      throw new UnrecoverableSnapshotError(
+        "Error refreshing experiment, could not find datasource",
+      );
     }
 
     const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =

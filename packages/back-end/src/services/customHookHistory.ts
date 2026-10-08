@@ -126,7 +126,7 @@ export async function revertCustomHookToVersion(
     "customHook",
     id,
     { limit: 1 },
-    { id: auditId },
+    { auditId },
   );
   const snapshot = target && parseSnapshot(target.details);
   if (!snapshot) {

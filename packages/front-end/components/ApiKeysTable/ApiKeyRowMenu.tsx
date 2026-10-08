@@ -13,7 +13,10 @@ interface ApiKeyRowMenuProps {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
   onEdit?: (key: ApiKeyInterface) => void;
   onToggleClick?: (key: ApiKeyInterface) => void;
+  /** Keeps Enable/Disable visible but inert, with this as the explanation. */
+  toggleLockedReason?: string;
   onShowAuditLog?: (key: ApiKeyInterface) => void;
+  onCopy?: (key: ApiKeyInterface) => void;
 }
 
 export default function ApiKeyRowMenu({
@@ -22,7 +25,9 @@ export default function ApiKeyRowMenu({
   onDelete,
   onEdit,
   onToggleClick,
+  toggleLockedReason,
   onShowAuditLog,
+  onCopy,
 }: ApiKeyRowMenuProps) {
   return (
     <DropdownMenu
@@ -42,14 +47,25 @@ export default function ApiKeyRowMenu({
       variant="soft"
     >
       <DropdownMenuGroup>
-        {/* Only org secret keys (not PATs) can be edited in place */}
-        {onEdit && apiKey.secret && !apiKey.userId && (
-          <DropdownMenuItem onClick={() => onEdit(apiKey)}>
-            Edit permissions & description
+        {/* The auto-created visual editor key is managed by the app, not the user */}
+        {onEdit &&
+          apiKey.secret &&
+          !(apiKey.role === "visualEditor" && !apiKey.scoped) && (
+            <DropdownMenuItem onClick={() => onEdit(apiKey)}>
+              Edit key
+            </DropdownMenuItem>
+          )}
+        {onCopy && (
+          <DropdownMenuItem onClick={() => onCopy(apiKey)}>
+            Copy settings to new key
           </DropdownMenuItem>
         )}
         {onToggleClick && (
-          <DropdownMenuItem onClick={() => onToggleClick(apiKey)}>
+          <DropdownMenuItem
+            disabled={!!toggleLockedReason}
+            tooltip={toggleLockedReason}
+            onClick={() => onToggleClick(apiKey)}
+          >
             {apiKey.disabled ? "Enable key" : "Disable key"}
           </DropdownMenuItem>
         )}
