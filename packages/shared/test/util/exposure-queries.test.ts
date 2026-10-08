@@ -14,6 +14,7 @@ import {
   getExposureQueryProjectScopeError,
   isExposureQueryAvailableForProjects,
   getIdentifierTypeForSettingsHash,
+  getPastExperimentQueryName,
   withKeptIdentifierType,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
@@ -660,6 +661,12 @@ describe("getIdentifierTypeForSettingsHash", () => {
     expect(
       getIdentifierTypeForSettingsHash("eq_gone", "anonymous_id", []),
     ).toBe("anonymous_id");
+  });
+});
+
+describe("getPastExperimentQueryName", () => {
+  it("names the discovery query after its assignment query", () => {
+    expect(getPastExperimentQueryName("exq_1")).toBe("experiments_exq_1");
   });
 });
 
