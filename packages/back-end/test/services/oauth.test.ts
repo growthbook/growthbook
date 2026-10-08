@@ -6,13 +6,22 @@ import {
   OAUTH_REFRESH_TOKEN_PREFIX,
 } from "back-end/src/util/oauth-token.util";
 import {
+  exchangeAuthorizationCode,
   exchangeRefreshToken,
+  listOrgGrants,
+  mintAuthorizationCode,
   OAuthError,
+  revokeMemberGrant,
   revokeToken,
 } from "back-end/src/services/oauth";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
-import { getOAuthClientById } from "back-end/src/models/OAuthClientModel";
+import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import {
+  getOAuthClientById,
+  getOAuthClientsByIds,
+} from "back-end/src/models/GlobalOAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
+import { OrgOAuthClientModel } from "back-end/src/models/OrgOAuthClientModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {
   getContextForAgendaJobByOrgObject,
@@ -39,10 +48,17 @@ jest.mock("back-end/src/models/OAuthRefreshTokenModel", () => ({
   },
 }));
 
-jest.mock("back-end/src/models/OAuthClientModel", () => ({
+jest.mock("back-end/src/models/GlobalOAuthClientModel", () => ({
   createOAuthClient: jest.fn(),
   getOAuthClientById: jest.fn(),
+  getOAuthClientsByIds: jest.fn(),
   touchOAuthClient: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/OrgOAuthClientModel", () => ({
+  OrgOAuthClientModel: {
+    dangerousFindById: jest.fn(),
+  },
 }));
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
@@ -62,6 +78,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 }));
 
 const mockGetOAuthClientById = jest.mocked(getOAuthClientById);
+const mockFindOrgApp = jest.mocked(OrgOAuthClientModel.dangerousFindById);
 const mockDangerousFindByHash = jest.mocked(
   OAuthRefreshTokenModel.dangerousFindByHash,
 );
@@ -92,6 +109,10 @@ function mockOrgContext(
     startGrant?: jest.Mock;
     markRevoked?: jest.Mock;
     getActiveForUser?: jest.Mock;
+    dangerousGetAllActiveForOrg?: jest.Mock;
+    getOrgApps?: jest.Mock;
+    getUsersByIds?: jest.Mock;
+    orgSettings?: Record<string, unknown>;
   } = {},
 ) {
   const activeGrant = {
@@ -118,10 +139,16 @@ function mockOrgContext(
     overrides.markRevoked ?? jest.fn().mockResolvedValue(undefined);
   const getActiveForUser =
     overrides.getActiveForUser ?? jest.fn().mockResolvedValue([]);
+  const dangerousGetAllActiveForOrg =
+    overrides.dangerousGetAllActiveForOrg ?? jest.fn().mockResolvedValue([]);
 
   const context = {
     org: { id: "org-1" },
     userId: overrides.userId ?? "user-1",
+    throwNotFoundError: jest.fn(() => {
+      throw new Error("not found");
+    }),
+    getUsersByIds: overrides.getUsersByIds ?? jest.fn().mockResolvedValue([]),
     models: {
       oauthRefreshTokens: {
         deleteForGrant,
@@ -134,17 +161,25 @@ function mockOrgContext(
         startGrant,
         markRevoked,
         getActiveForUser,
+        dangerousGetAllActiveForOrg,
       },
       oauthAuthCodes: {
         create: jest.fn(),
+        consumeAllForGrant: jest.fn().mockResolvedValue(undefined),
       },
       apiKeys: {
         create: createApiKey,
       },
+      orgOAuthClients: {
+        getByIds: overrides.getOrgApps ?? jest.fn().mockResolvedValue([]),
+      },
     },
   };
 
-  mockFindOrganizationById.mockResolvedValue({ id: "org-1" } as never);
+  mockFindOrganizationById.mockResolvedValue({
+    id: "org-1",
+    settings: overrides.orgSettings,
+  } as never);
   mockGetContextForUserIdInOrg.mockResolvedValue(context as never);
   mockGetContextForAgendaJobByOrgObject.mockReturnValue(context as never);
 
@@ -164,6 +199,8 @@ function mockOrgContext(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Org apps are looked up first; most tests use public DCR clients.
+  mockFindOrgApp.mockResolvedValue(null);
 });
 
 describe("oauth PKCE + token hashing", () => {
@@ -533,5 +570,342 @@ describe("exchangeRefreshToken reuse detection + revoke race", () => {
     expect(createRefresh).toHaveBeenCalledTimes(1);
     expect(markRevoked).toHaveBeenCalledWith("client-a", "user-1");
     expect(deleteForGrant).toHaveBeenCalledWith("client-a", "user-1");
+  });
+});
+
+describe("org OAuth apps: client authentication, org binding, access policy", () => {
+  const APP_ID = "gbapp_0123456789abcdef";
+  const APP_SECRET = "gbcs_correct-secret";
+
+  const orgAppDoc = (organization = "org-1") => ({
+    id: APP_ID,
+    organization,
+    clientName: "Internal MCP",
+    redirectUris: ["https://mcp.example.com/cb"],
+    clientUri: "",
+    clientSecretHash: hashToken(APP_SECRET),
+    createdBy: "user-1",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  });
+
+  function mockOrgApp(organization = "org-1") {
+    mockFindOrgApp.mockResolvedValue(orgAppDoc(organization));
+    mockGetOAuthClientById.mockResolvedValue(null);
+  }
+
+  function mockDcrClient() {
+    mockGetOAuthClientById.mockResolvedValue({
+      clientId: "gbc_dcr",
+      redirectUris: ["http://localhost/cb"],
+      tokenEndpointAuthMethod: "none",
+      grantTypes: ["authorization_code", "refresh_token"],
+      responseTypes: ["code"],
+      dateCreated: new Date(),
+    });
+  }
+
+  function mockRefreshToken(clientId: string) {
+    mockDangerousFindByHash.mockResolvedValue({
+      tokenHash: hashToken(OAUTH_REFRESH_TOKEN_PREFIX + "secret"),
+      clientId,
+      userId: "user-1",
+      organization: "org-1",
+      expiresAt: new Date(Date.now() + 60_000),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+  }
+
+  function refresh(clientId: string, clientSecret?: string) {
+    return exchangeRefreshToken({
+      refreshToken: OAUTH_REFRESH_TOKEN_PREFIX + "secret",
+      clientId,
+      clientSecret,
+    });
+  }
+
+  it.each([
+    ["a missing", undefined],
+    ["a wrong", "gbcs_wrong-secret"],
+  ])(
+    "rejects %s client secret for a confidential client",
+    async (_, secret) => {
+      mockOrgApp();
+      mockRefreshToken(APP_ID);
+      const { consumeByTokenHash } = mockOrgContext();
+
+      await expect(refresh(APP_ID, secret)).rejects.toMatchObject({
+        error: "invalid_client",
+        status: 401,
+      } satisfies Partial<OAuthError>);
+      expect(consumeByTokenHash).not.toHaveBeenCalled();
+    },
+  );
+
+  it("issues tokens to an org app presenting its secret while PATs are disabled", async () => {
+    mockOrgApp();
+    mockRefreshToken(APP_ID);
+    const { createApiKey } = mockOrgContext({
+      orgSettings: {
+        disablePersonalAccessTokens: true,
+        oauthAccess: "org-apps",
+      },
+    });
+
+    await refresh(APP_ID, APP_SECRET);
+
+    expect(createApiKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oauthClientId: APP_ID,
+        officialClientForOrg: "org-1",
+      }),
+    );
+  });
+
+  it("refuses an org app registered to a different organization", async () => {
+    mockOrgApp("org-other");
+    mockRefreshToken(APP_ID);
+    const { createApiKey, markRevoked } = mockOrgContext();
+
+    await expect(refresh(APP_ID, APP_SECRET)).rejects.toMatchObject({
+      error: "invalid_grant",
+      errorDescription:
+        "This application is registered to a different organization",
+    } satisfies Partial<OAuthError>);
+    expect(createApiKey).not.toHaveBeenCalled();
+    expect(markRevoked).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["org-apps policy", { oauthAccess: "org-apps" }],
+    ["none policy", { oauthAccess: "none" }],
+    ["legacy PAT kill switch", { disablePersonalAccessTokens: true }],
+  ])(
+    "refuses a DCR client under the %s without tearing down its grant",
+    async (_, settings) => {
+      mockDcrClient();
+      mockRefreshToken("gbc_dcr");
+      const { createApiKey, markRevoked } = mockOrgContext({
+        orgSettings: settings,
+      });
+
+      await expect(refresh("gbc_dcr")).rejects.toMatchObject({
+        error: "invalid_grant",
+        errorDescription:
+          "This organization does not allow this application to access GrowthBook",
+      } satisfies Partial<OAuthError>);
+      expect(createApiKey).not.toHaveBeenCalled();
+      expect(markRevoked).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses to mint an authorization code for a disallowed client", async () => {
+    mockDcrClient();
+    const { context } = mockOrgContext({
+      orgSettings: { oauthAccess: "org-apps" },
+    });
+
+    await expect(
+      mintAuthorizationCode({
+        clientId: "gbc_dcr",
+        redirectUri: "http://localhost/cb",
+        codeChallenge: "challenge",
+        codeChallengeMethod: "S256",
+        userId: "user-1",
+        organization: "org-1",
+      }),
+    ).rejects.toMatchObject({ error: "access_denied" });
+    expect(context.models.oauthAuthCodes.create).not.toHaveBeenCalled();
+  });
+
+  it("does not revoke a confidential client's token without its secret", async () => {
+    mockOrgApp();
+    mockRefreshToken(APP_ID);
+    const { deleteForGrant } = mockOrgContext();
+
+    await expect(
+      revokeToken({
+        token: OAUTH_REFRESH_TOKEN_PREFIX + "secret",
+        clientId: APP_ID,
+        clientSecret: "gbcs_wrong-secret",
+      }),
+    ).rejects.toMatchObject({ error: "invalid_client" });
+    expect(deleteForGrant).not.toHaveBeenCalled();
+  });
+
+  it("tears down a grant re-armed by a code exchange that raced app deletion", async () => {
+    const verifier = "code-verifier";
+    // App exists when authenticated, gone by the time tokens are issued.
+    mockFindOrgApp
+      .mockResolvedValueOnce(orgAppDoc())
+      .mockResolvedValueOnce(null);
+    mockGetOAuthClientById.mockResolvedValue(null);
+    jest.mocked(OAuthAuthCodeModel.dangerousConsumeByHash).mockResolvedValue({
+      codeHash: hashToken("code"),
+      clientId: APP_ID,
+      userId: "user-1",
+      organization: "org-1",
+      redirectUri: "https://mcp.example.com/cb",
+      codeChallenge: crypto
+        .createHash("sha256")
+        .update(verifier, "ascii")
+        .digest("base64url"),
+      codeChallengeMethod: "S256",
+      used: true,
+      expiresAt: new Date(Date.now() + 60_000),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    } as never);
+    const { createApiKey, markRevoked, deleteForGrant } = mockOrgContext();
+
+    await expect(
+      exchangeAuthorizationCode({
+        code: "code",
+        redirectUri: "https://mcp.example.com/cb",
+        clientId: APP_ID,
+        clientSecret: APP_SECRET,
+        codeVerifier: verifier,
+      }),
+    ).rejects.toMatchObject({ error: "invalid_client" });
+
+    // Tokens were written, then the whole grant was torn down.
+    expect(createApiKey).toHaveBeenCalledTimes(1);
+    expect(markRevoked).toHaveBeenCalledWith(APP_ID, "user-1");
+    expect(deleteForGrant).toHaveBeenCalledWith(APP_ID, "user-1");
+    expect(mockDangerousDisableOAuthGrant).toHaveBeenCalledWith(
+      APP_ID,
+      "user-1",
+      "org-1",
+    );
+  });
+
+  it("refuses a code whose consent predates an admin revoke, without issuing tokens", async () => {
+    const verifier = "code-verifier";
+    mockOrgApp();
+    jest.mocked(OAuthAuthCodeModel.dangerousConsumeByHash).mockResolvedValue({
+      codeHash: hashToken("code"),
+      clientId: APP_ID,
+      userId: "user-1",
+      organization: "org-1",
+      redirectUri: "https://mcp.example.com/cb",
+      codeChallenge: crypto
+        .createHash("sha256")
+        .update(verifier, "ascii")
+        .digest("base64url"),
+      codeChallengeMethod: "S256",
+      used: true,
+      expiresAt: new Date(Date.now() + 60_000),
+      dateCreated: new Date(Date.now() - 60_000),
+      dateUpdated: new Date(),
+    } as never);
+    // startGrant returns null when revokedAt is later than the code's consent.
+    const { createApiKey, startGrant } = mockOrgContext({
+      startGrant: jest.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      exchangeAuthorizationCode({
+        code: "code",
+        redirectUri: "https://mcp.example.com/cb",
+        clientId: APP_ID,
+        clientSecret: APP_SECRET,
+        codeVerifier: verifier,
+      }),
+    ).rejects.toMatchObject({ error: "invalid_grant" });
+
+    expect(startGrant).toHaveBeenCalledWith(
+      expect.objectContaining({ consentedAt: expect.any(Date) }),
+    );
+    expect(createApiKey).not.toHaveBeenCalled();
+  });
+
+  it("burns the member's outstanding codes when a grant is torn down", async () => {
+    mockOrgApp();
+    mockRefreshToken(APP_ID);
+    const { context } = mockOrgContext();
+
+    await revokeToken({
+      token: OAUTH_REFRESH_TOKEN_PREFIX + "secret",
+      clientId: APP_ID,
+      clientSecret: APP_SECRET,
+    });
+
+    expect(
+      context.models.oauthAuthCodes.consumeAllForGrant,
+    ).toHaveBeenCalledWith(APP_ID, "user-1");
+  });
+});
+
+describe("admin view of member grants", () => {
+  it("lists the org's grants with client and member details, newest activity first", async () => {
+    const { context } = mockOrgContext({
+      getUsersByIds: jest.fn().mockResolvedValue([
+        { id: "user-1", name: "Ada", email: "ada@example.com" },
+        { id: "user-2", name: "", email: "bob@example.com" },
+      ]),
+      getOrgApps: jest
+        .fn()
+        .mockResolvedValue([
+          { id: "gbapp_internal", clientName: "Internal MCP" },
+        ]),
+      dangerousGetAllActiveForOrg: jest.fn().mockResolvedValue([
+        {
+          clientId: "gbc_gone",
+          userId: "user-2",
+          dateCreated: new Date("2026-01-01"),
+          dateUpdated: new Date("2026-01-02"),
+        },
+        {
+          clientId: "gbapp_internal",
+          userId: "user-1",
+          dateCreated: new Date("2026-02-01"),
+          dateUpdated: new Date("2026-03-01"),
+        },
+      ]),
+    });
+    // gbc_gone has no client row any more
+    jest.mocked(getOAuthClientsByIds).mockResolvedValue([]);
+
+    const grants = await listOrgGrants(context as never);
+
+    expect(grants.map((g) => [g.clientName, g.isOrgApp, g.userEmail])).toEqual([
+      ["Internal MCP", true, "ada@example.com"],
+      // A deleted DCR client still lists under its ID
+      ["gbc_gone", false, "bob@example.com"],
+    ]);
+  });
+
+  it("revokes only the named member's grant", async () => {
+    const { context, markRevoked, deleteForGrant } = mockOrgContext({
+      getGrant: jest
+        .fn()
+        .mockResolvedValue({ clientId: "client-a", userId: "user-2" }),
+    });
+
+    await revokeMemberGrant(context as never, "client-a", "user-2");
+
+    expect(markRevoked).toHaveBeenCalledTimes(1);
+    expect(markRevoked).toHaveBeenCalledWith("client-a", "user-2");
+    expect(deleteForGrant).toHaveBeenCalledWith("client-a", "user-2");
+    expect(mockDangerousDisableOAuthGrant).toHaveBeenCalledWith(
+      "client-a",
+      "user-2",
+      "org-1",
+    );
+  });
+
+  it.each([
+    ["a missing", null],
+    ["an already-revoked", { clientId: "client-a", revoked: true }],
+  ])("refuses to revoke %s grant", async (_, grant) => {
+    const { context, markRevoked } = mockOrgContext({
+      getGrant: jest.fn().mockResolvedValue(grant),
+    });
+
+    await expect(
+      revokeMemberGrant(context as never, "client-a", "user-2"),
+    ).rejects.toThrow("not found");
+    expect(markRevoked).not.toHaveBeenCalled();
   });
 });

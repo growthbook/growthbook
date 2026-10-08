@@ -62,7 +62,7 @@ const PoliciesModal: FC<{
         <>
           <Checkbox
             label="Disable personal access tokens"
-            description="Blocks new personal access tokens and stops existing ones working, including OAuth tokens and the Visual Editor."
+            description="Blocks new personal access tokens and stops existing ones working, including Visual Editor keys. OAuth apps are controlled separately under API Keys."
             value={disable}
             setValue={setDisable}
             disabled={!canDisable}
@@ -70,9 +70,9 @@ const PoliciesModal: FC<{
           />
           {disable && !wasDisabled && (
             <Callout status="error" mt="3">
-              Every token that acts as a user stops working as soon as you save:
-              personal access tokens, OAuth access tokens, and the Visual
-              Editor. Turning this back off restores them.
+              Personal access tokens and Visual Editor keys stop working as soon
+              as you save. OAuth apps follow the OAuth access setting under API
+              Keys. Turning this back off restores the tokens.
             </Callout>
           )}
         </>

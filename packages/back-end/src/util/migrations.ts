@@ -7,7 +7,7 @@ import {
   DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { stringifyFeatureValue } from "shared/util";
+import { getOAuthAccessPolicy, stringifyFeatureValue } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -629,6 +629,12 @@ export function upgradeOrganizationDoc(
   if (org.settings.stickyBucketingOnByDefault === undefined) {
     org.settings.stickyBucketingOnByDefault =
       DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT;
+  }
+
+  // Pin the policy the PAT kill switch implied before oauthAccess existed, so
+  // toggling PATs later can't silently change it.
+  if (org.settings.oauthAccess === undefined) {
+    org.settings.oauthAccess = getOAuthAccessPolicy(org.settings);
   }
 
   // Migrate Approval Flow Settings

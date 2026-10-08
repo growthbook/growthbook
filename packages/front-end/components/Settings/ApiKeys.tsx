@@ -8,11 +8,17 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";
 import OrganizationPoliciesCard from "./OrganizationPoliciesCard";
+import OAuthAppsSettings from "./OAuthAppsSettings";
 
 const ApiKeys: FC = () => {
-  const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
-  const { settings } = useUser();
   const permissionsUtils = usePermissionsUtil();
+  // OAuth Apps has its own permission, so a viewer may be here without access to secret keys.
+  const canManageKeys =
+    permissionsUtils.canCreateApiKey() || permissionsUtils.canDeleteApiKey();
+  const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys", {
+    shouldRun: () => canManageKeys,
+  });
+  const { settings } = useUser();
   const canManageTokens =
     permissionsUtils.canManageOrgSettings() ||
     permissionsUtils.canDeleteApiKey();
@@ -20,21 +26,23 @@ const ApiKeys: FC = () => {
   if (error) {
     return <Callout status="error">{error.message}</Callout>;
   }
-  if (!data) {
+  if (canManageKeys && !data) {
     return <LoadingOverlay />;
   }
 
   return (
     <>
-      <SecretApiKeys keys={data.keys} mutate={mutate}>
-        {permissionsUtils.canDeleteApiKey() && (
-          <OrganizationPoliciesCard
-            kind="secret"
-            keys={data.keys.filter((k) => k.secret && !k.userId)}
-            mutate={mutate}
-          />
-        )}
-      </SecretApiKeys>
+      {data && (
+        <SecretApiKeys keys={data.keys} mutate={mutate}>
+          {permissionsUtils.canDeleteApiKey() && (
+            <OrganizationPoliciesCard
+              kind="secret"
+              keys={data.keys.filter((k) => k.secret && !k.userId)}
+              mutate={mutate}
+            />
+          )}
+        </SecretApiKeys>
+      )}
 
       {(!settings?.disablePersonalAccessTokens || canManageTokens) && (
         <Callout status="info" mb="4">
@@ -55,6 +63,8 @@ const ApiKeys: FC = () => {
           )}
         </Callout>
       )}
+
+      <OAuthAppsSettings />
     </>
   );
 };

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
 import { getRolePermissions, hasPermission } from "shared/permissions";
+import { isOAuthClientAllowed } from "shared/util";
 import {
   EventUserApiKey,
   EventUserLoggedIn,
@@ -32,6 +33,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
 import { getAuthConnection, processJWT } from "back-end/src/services/auth";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 
@@ -285,9 +287,27 @@ function authenticateWithApiKey(
       }
       req.organization = org;
 
-      // Turning the org setting on revokes every user-attributed token
-      // immediately, without touching the stored docs.
-      if (userId && org.settings?.disablePersonalAccessTokens) {
+      // Both settings revoke matching tokens immediately, without touching the stored docs.
+      if (apiKeyDoc.oauthClientId) {
+        if (
+          !isOAuthClientAllowed(org, apiKeyDoc.officialClientForOrg ?? null)
+        ) {
+          throw new Error(
+            "This organization does not allow this OAuth application",
+          );
+        }
+        // Teardown marks the grant revoked before disabling tokens, so a token orphaned midway still fails here.
+        if (
+          !userId ||
+          !(await OAuthGrantModel.dangerousIsActive(
+            organization,
+            apiKeyDoc.oauthClientId,
+            userId,
+          ))
+        ) {
+          throw new Error("This OAuth authorization has been revoked");
+        }
+      } else if (userId && org.settings?.disablePersonalAccessTokens) {
         throw new Error(
           "Personal access tokens are disabled for this organization",
         );

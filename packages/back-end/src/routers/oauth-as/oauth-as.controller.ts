@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { oauthDcrRequestValidator } from "shared/validators";
+import { isOAuthClientAllowed } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -28,6 +29,46 @@ function sendOAuthError(res: Response, err: unknown) {
     error: "server_error",
     error_description: message,
   });
+}
+
+function formDecode(value: string): string {
+  return decodeURIComponent(value.replace(/\+/g, " "));
+}
+
+/**
+ * Client credentials from HTTP Basic (client_secret_basic) or the form body
+ * (client_secret_post / public clients). RFC 6749 §2.3.1: Basic parts are form-encoded.
+ */
+function getClientCredentials(req: Request): {
+  clientId: string;
+  clientSecret?: string;
+} {
+  const body = req.body || {};
+  const header = req.headers.authorization || "";
+  if (!header.startsWith("Basic ")) {
+    return {
+      clientId: String(body.client_id || ""),
+      clientSecret: body.client_secret ? String(body.client_secret) : undefined,
+    };
+  }
+  let clientId: string;
+  let clientSecret: string;
+  try {
+    const decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
+    const sep = decoded.indexOf(":");
+    if (sep < 0) throw new Error();
+    clientId = formDecode(decoded.slice(0, sep));
+    clientSecret = formDecode(decoded.slice(sep + 1));
+  } catch {
+    throw new OAuthError("invalid_client", "Malformed client credentials", 401);
+  }
+  if (body.client_id && String(body.client_id) !== clientId) {
+    throw new OAuthError(
+      "invalid_request",
+      "client_id in the body does not match the Authorization header",
+    );
+  }
+  return { clientId, clientSecret };
 }
 
 /** GET /.well-known/oauth-authorization-server */
@@ -61,12 +102,14 @@ export async function postToken(req: Request, res: Response) {
     // Support both JSON and application/x-www-form-urlencoded
     const body = req.body || {};
     const grantType = body.grant_type as string | undefined;
+    const { clientId, clientSecret } = getClientCredentials(req);
 
     if (grantType === "authorization_code") {
       const result = await exchangeAuthorizationCode({
         code: String(body.code || ""),
         redirectUri: String(body.redirect_uri || ""),
-        clientId: String(body.client_id || ""),
+        clientId,
+        clientSecret,
         codeVerifier: String(body.code_verifier || ""),
       });
       return res.status(200).json(result);
@@ -75,7 +118,8 @@ export async function postToken(req: Request, res: Response) {
     if (grantType === "refresh_token") {
       const result = await exchangeRefreshToken({
         refreshToken: String(body.refresh_token || ""),
-        clientId: String(body.client_id || ""),
+        clientId,
+        clientSecret,
       });
       return res.status(200).json(result);
     }
@@ -94,9 +138,11 @@ export async function postToken(req: Request, res: Response) {
 export async function postRevoke(req: Request, res: Response) {
   try {
     const body = req.body || {};
+    const { clientId, clientSecret } = getClientCredentials(req);
     await revokeToken({
       token: String(body.token || ""),
-      clientId: body.client_id ? String(body.client_id) : undefined,
+      clientId: clientId || undefined,
+      clientSecret,
     });
     // RFC 7009: always 200 even if token was invalid
     return res.status(200).json({});
@@ -135,13 +181,38 @@ export async function getAuthorizeInfoHandler(
     }
 
     const info = await getAuthorizeInfo({ clientId, redirectUri });
-    const orgs = await findOrganizationsByMemberId(req.userId);
+    const memberOrgs = await findOrganizationsByMemberId(req.userId);
+    // An org app can only be authorized into the org that registered it.
+    const eligibleOrgs = info.organization
+      ? memberOrgs.filter((o) => o.id === info.organization)
+      : memberOrgs;
+    if (info.organization && !eligibleOrgs.length) {
+      return res.status(403).json({
+        status: 403,
+        message:
+          "This application is registered to an organization you are not a member of",
+      });
+    }
+    // Refuse before consent, not after: the token endpoint would reject it anyway.
+    const orgs = eligibleOrgs.filter((o) =>
+      isOAuthClientAllowed(o, info.organization),
+    );
+    if (eligibleOrgs.length && !orgs.length) {
+      return res.status(403).json({
+        status: 403,
+        message:
+          "This application is not allowed by your organization's OAuth access setting",
+      });
+    }
 
     return res.status(200).json({
       status: 200,
       client: {
         clientId: info.clientId,
         clientName: info.clientName,
+        registeredBy: info.organization
+          ? { id: orgs[0].id, name: orgs[0].name }
+          : undefined,
       },
       redirectUri: info.redirectUri,
       organizations: orgs.map((o) => ({ id: o.id, name: o.name })),

@@ -7,8 +7,8 @@ import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
  * Public OAuth clients registered via DCR (RFC 7591).
  *
  * Clients are globally scoped (no `organization`) — they are not a fit for
- * BaseModel. Auth codes and refresh tokens live in BaseModel classes
- * (`OAuthAuthCodeModel`, `OAuthRefreshTokenModel`).
+ * BaseModel. Org-registered confidential clients live in `OrgOAuthClientModel`;
+ * auth codes and refresh tokens in `OAuthAuthCodeModel` / `OAuthRefreshTokenModel`.
  *
  * DCR is unauthenticated, so `expiresAt` + a TTL index bound growth
  * (see {@link touchOAuthClient}). Mongoose models stay file-private.
@@ -53,23 +53,16 @@ const oauthClientSchema = new mongoose.Schema({
 });
 oauthClientSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-const OAuthClientModel = mongoose.model<OAuthClientInterface>(
+const GlobalOAuthClientModel = mongoose.model<OAuthClientInterface>(
   "OAuthClient",
   oauthClientSchema,
 );
 
 export async function createOAuthClient(
-  props: Omit<
-    OAuthClientInterface,
-    "clientId" | "dateCreated" | "expiresAt"
-  > & {
-    clientId?: string;
-  },
+  props: Omit<OAuthClientInterface, "clientId" | "dateCreated" | "expiresAt">,
 ): Promise<OAuthClientInterface> {
-  const clientId =
-    props.clientId || `gbc_${crypto.randomBytes(16).toString("hex")}`;
   const doc: OAuthClientInterface = {
-    clientId,
+    clientId: `gbc_${crypto.randomBytes(16).toString("hex")}`,
     clientName: props.clientName,
     redirectUris: props.redirectUris,
     tokenEndpointAuthMethod: "none",
@@ -80,20 +73,30 @@ export async function createOAuthClient(
     dateCreated: new Date(),
     expiresAt: unusedClientExpiry(),
   };
-  await OAuthClientModel.create(doc);
+  await GlobalOAuthClientModel.create(doc);
   return doc;
 }
 
 export async function getOAuthClientById(
   clientId: string,
 ): Promise<OAuthClientInterface | null> {
-  const doc = await OAuthClientModel.findOne({ clientId }).lean();
-  return doc as OAuthClientInterface | null;
+  return GlobalOAuthClientModel.findOne<OAuthClientInterface>({
+    clientId,
+  }).lean();
+}
+
+export async function getOAuthClientsByIds(
+  clientIds: string[],
+): Promise<OAuthClientInterface[]> {
+  if (!clientIds.length) return [];
+  return GlobalOAuthClientModel.find<OAuthClientInterface>({
+    clientId: { $in: clientIds },
+  }).lean();
 }
 
 /** Reset idle TTL on token issuance. */
 export async function touchOAuthClient(clientId: string): Promise<void> {
-  await OAuthClientModel.updateOne(
+  await GlobalOAuthClientModel.updateOne(
     { clientId },
     { $set: { expiresAt: activeClientExpiry() } },
   );

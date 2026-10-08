@@ -13,12 +13,7 @@ const BaseClass = MakeModelClass({
   pKey: ["codeHash"] as const,
   globallyUniquePrimaryKeys: true,
   idPrefix: "oac_",
-  auditLog: {
-    entity: "oauthAuthCode",
-    createEvent: "oauthAuthCode.create",
-    updateEvent: "oauthAuthCode.update",
-    deleteEvent: "oauthAuthCode.delete",
-  },
+  // No audit log: one row per login for a ten-minute credential is noise, and it would carry the code hash.
   defaultValues: {
     used: false,
     codeChallengeMethod: "S256" as const,
@@ -34,8 +29,8 @@ const BaseClass = MakeModelClass({
  * Org-scoped authorization codes.
  *
  * Token exchange looks up by hash before the org is known, so that bootstrap
- * uses {@link dangerousConsumeByHash}. After the org is known, create/delete
- * go through a ReqContext instance for multi-tenant scoping + audit logs.
+ * uses {@link dangerousConsumeByHash}. Creation goes through a ReqContext
+ * instance for multi-tenant scoping; consumed codes are left for the TTL index.
  */
 export class OAuthAuthCodeModel extends BaseClass {
   protected canCreate(): boolean {
@@ -71,5 +66,17 @@ export class OAuthAuthCodeModel extends BaseClass {
       return (result.value as OAuthAuthCodeInterface | null) ?? null;
     }
     return (result as OAuthAuthCodeInterface | null) ?? null;
+  }
+
+  /** Grant teardown: burn this member's outstanding codes for the client. */
+  public async consumeAllForGrant(
+    clientId: string,
+    userId: string,
+  ): Promise<void> {
+    const now = new Date();
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, clientId, userId, used: false },
+      { $set: { used: true, dateUpdated: now } },
+    );
   }
 }

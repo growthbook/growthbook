@@ -249,6 +249,11 @@ organization:
     # days to use. Can be overridden in your metric definitions if you wish.
     regressionAdjustmentEnabled: true
     regressionAdjustmentDays: 14
+    # Block members from creating Personal Access Tokens and reject existing ones. Default `false`
+    disablePersonalAccessTokens: false
+    # Which OAuth clients may act as members: `any`, `org-apps` (only apps registered
+    # by your admins), or `none`. Default `any`
+    oauthAccess: any
     # When we should auto-update experiment results
     updateSchedule:
       type: stale

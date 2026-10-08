@@ -12,7 +12,11 @@ import {
 import { getRoles } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
+import {
+  AgreementType,
+  oauthAccessPolicyValidator,
+  updateSdkWebhookValidator,
+} from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
@@ -1616,6 +1620,17 @@ export async function putOrganization(
         throw new Error(
           "Not supported: Updating namespaces not supported via this route.",
         );
+      } else if (k === "oauthAccess") {
+        if (!context.permissions.canManageOrgSettings()) {
+          context.permissions.throwPermissionError();
+        }
+        if (
+          !oauthAccessPolicyValidator.safeParse(settings.oauthAccess).success
+        ) {
+          throw new Error(
+            `oauthAccess must be one of: ${oauthAccessPolicyValidator.options.join(", ")}`,
+          );
+        }
       } else {
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();
