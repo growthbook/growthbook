@@ -3,6 +3,7 @@ import { PastExperiment } from "shared/types/past-experiments";
 import {
   getPastExperimentsWatermark,
   mergePastExperimentResults,
+  rollupPastExperimentQueryStatus,
   withCountedIdentifierTypes,
 } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 
@@ -310,5 +311,37 @@ describe("withCountedIdentifierTypes", () => {
       ["dropped", undefined],
       ["counted", "user_id"],
     ]);
+  });
+});
+
+describe("rollupPastExperimentQueryStatus", () => {
+  const query = (name: string, status: "succeeded" | "failed" | "running") => ({
+    name,
+    query: `qry_${name}`,
+    status,
+  });
+
+  it("saves the successes when only some queries fail", () => {
+    expect(
+      rollupPastExperimentQueryStatus([
+        query("a", "succeeded"),
+        query("b", "failed"),
+      ]),
+    ).toBe("partially-succeeded");
+  });
+
+  it("fails only when every query fails", () => {
+    expect(
+      rollupPastExperimentQueryStatus([
+        query("a", "failed"),
+        query("b", "failed"),
+      ]),
+    ).toBe("failed");
+    expect(
+      rollupPastExperimentQueryStatus([
+        query("a", "failed"),
+        query("b", "running"),
+      ]),
+    ).toBe("running");
   });
 });

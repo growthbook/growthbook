@@ -136,6 +136,19 @@ export function mergePastExperimentResults({
 }
 
 /**
+ * Each query covers its own assignment query, so a run only fails if they all
+ * do. Otherwise the successes are saved and failed queries keep their rows.
+ */
+export function rollupPastExperimentQueryStatus(queries: Queries): QueryStatus {
+  if (queries.some((q) => q.status === "running" || q.status === "queued")) {
+    return "running";
+  }
+  const failed = queries.filter((q) => q.status === "failed").length;
+  if (failed === queries.length) return "failed";
+  return failed ? "partially-succeeded" : "succeeded";
+}
+
+/**
  * Rows discovered before every identifier was counted don't record theirs.
  * Discovery counted on the query's legacy `userIdType` while the query declared
  * it. Once it doesn't, the counts may be on an identifier that's gone, so the
@@ -277,6 +290,10 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   PastExperimentParams,
   PastExperimentsAnalysis
 > {
+  protected override getOverallQueryStatus(): QueryStatus {
+    return rollupPastExperimentQueryStatus(this.model.queries);
+  }
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunPastExperimentQueries(
       this.integration.datasource,
