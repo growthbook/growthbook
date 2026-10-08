@@ -1,6 +1,6 @@
 import React, { FC, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiIdentificationCardBold } from "react-icons/pi";
+import { PiIdentificationCard } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
   apiKeyToggleRequiresAdmin,
@@ -173,6 +173,20 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     </span>
                   </Tooltip>
                 )}
+                {requesterHeaderPolicy(key) === "required" && (
+                  <Tooltip content="Every request must name a member with X-GrowthBook-Requested-By">
+                    <Flex
+                      align="center"
+                      gap="1"
+                      mt="1"
+                      width="fit-content"
+                      style={{ color: "var(--brown-10)" }}
+                    >
+                      <PiIdentificationCard size={18} />
+                      <Text size="sm">Requester required</Text>
+                    </Flex>
+                  </Tooltip>
+                )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
                 {canCreateKeys ? (
@@ -191,14 +205,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   />
                 ) : (
                   "-"
-                )}
-                {requesterHeaderPolicy(key) === "required" && (
-                  <Tooltip content="Every request must name a member with X-GrowthBook-Requested-By">
-                    <Flex align="center" gap="1" mt="1" width="fit-content">
-                      <PiIdentificationCardBold color="var(--color-text-low)" />
-                      <Text color="text-mid">Requester required</Text>
-                    </Flex>
-                  </Tooltip>
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
