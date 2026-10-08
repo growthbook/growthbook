@@ -43,7 +43,6 @@ import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
-import SplitButton from "@/ui/SplitButton";
 import Text from "@/ui/Text";
 import MetricForm from "@/components/Metrics/MetricForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -591,59 +590,75 @@ const MetricsList = (): React.ReactElement => {
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
-            <Tooltip
-              content="You don't have permission to add metrics in this project."
-              enabled={!canAddFactMetric}
-            >
-              {canAddFactMetric ? (
-                <SplitButton
-                  menu={
-                    showLegacyOption ? (
-                      // Legacy creation stays possible for orgs that already
-                      // use it, tucked behind this menu and a confirmation.
-                      <DropdownMenu
-                        trigger={
-                          <Button aria-label="More ways to add a metric">
-                            <BsThreeDotsVertical />
-                          </Button>
-                        }
-                        menuPlacement="end"
-                      >
-                        <DropdownMenuItem
-                          confirmation={{
-                            confirmationTitle: "Create a legacy SQL metric?",
-                            cta: "Continue with legacy SQL metric",
-                            ctaColor: "violet",
-                            submit: () => setShowLegacyForm(true),
-                            getConfirmationContent: async () => (
-                              <Flex direction="column" gap="2">
-                                <Text as="p" mb="0">
-                                  Legacy SQL metrics are no longer the
-                                  recommended way to define metrics. Fact
-                                  metrics support more metric types, reuse
-                                  shared fact tables, and run faster queries.
-                                </Text>
-                                <Text as="p" mb="0">
-                                  <Link href="/fact-metrics/new">
-                                    Create a fact metric instead
-                                  </Link>
-                                </Text>
-                              </Flex>
-                            ),
-                          }}
-                        >
-                          Add legacy SQL metric…
-                        </DropdownMenuItem>
-                      </DropdownMenu>
-                    ) : undefined
-                  }
-                >
+            {/* The menu hangs past the button's right edge so Add metric
+                keeps its usual place and size. */}
+            <Box position="relative">
+              <Tooltip
+                content="You don't have permission to add metrics in this project."
+                enabled={!canAddFactMetric}
+              >
+                {canAddFactMetric ? (
                   <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
-                </SplitButton>
-              ) : (
-                <Button disabled>Add metric</Button>
+                ) : (
+                  <Button disabled>Add metric</Button>
+                )}
+              </Tooltip>
+              {showLegacyOption && (
+                // Legacy creation stays possible for orgs that already use
+                // it, tucked behind this menu and a confirmation.
+                <Box
+                  position="absolute"
+                  ml="1"
+                  style={{
+                    left: "100%",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                  }}
+                >
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="1"
+                        highContrast
+                        aria-label="More metric options"
+                      >
+                        <BsThreeDotsVertical size={16} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                  >
+                    <DropdownMenuItem
+                      confirmation={{
+                        confirmationTitle: "Create a legacy SQL metric?",
+                        cta: "Continue with legacy SQL metric",
+                        ctaColor: "violet",
+                        submit: () => setShowLegacyForm(true),
+                        getConfirmationContent: async () => (
+                          <Flex direction="column" gap="2">
+                            <Text as="p" mb="0">
+                              Legacy SQL metrics are no longer the recommended
+                              way to define metrics. Fact metrics support more
+                              metric types, reuse shared fact tables, and run
+                              faster queries.
+                            </Text>
+                            <Text as="p" mb="0">
+                              <Link href="/fact-metrics/new">
+                                Create a fact metric instead
+                              </Link>
+                            </Text>
+                          </Flex>
+                        ),
+                      }}
+                    >
+                      Add legacy SQL metric…
+                    </DropdownMenuItem>
+                  </DropdownMenu>
+                </Box>
               )}
-            </Tooltip>
+            </Box>
           </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
           <Box>
