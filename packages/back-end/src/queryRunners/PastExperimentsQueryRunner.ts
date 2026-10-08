@@ -318,21 +318,33 @@ export class PastExperimentsQueryRunner extends QueryRunner<
         this.getExposureQueries(),
       ),
     };
-    for (const exposureQuery of runnable) {
+    // All SQL is built before any query starts: a template that fails to
+    // compile would otherwise leave earlier warehouse jobs running untracked.
+    const planned = runnable.flatMap((exposureQuery) => {
       const identifierTypes = getExposureQueryIdentifierTypes(exposureQuery);
-      if (!identifierTypes.length) continue;
+      if (!identifierTypes.length) return [];
       const watermark = params.forceRefresh
         ? null
         : getPastExperimentsWatermark(model, exposureQuery.id, identifierTypes);
       const from = watermark ?? params.from;
+      const sql = this.integration.getPastExperimentQuery({
+        exposureQuery,
+        identifierTypes,
+        from,
+      });
+      return [{ exposureQuery, identifierTypes, watermark, from, sql }];
+    });
+    for (const {
+      exposureQuery,
+      identifierTypes,
+      watermark,
+      from,
+      sql,
+    } of planned) {
       queries.push(
         await this.startQuery({
           name: getPastExperimentQueryName(exposureQuery.id),
-          query: this.integration.getPastExperimentQuery({
-            exposureQuery,
-            identifierTypes,
-            from,
-          }),
+          query: sql,
           dependencies: [],
           run: (query, setExternalId, queryMetadata) =>
             this.integration.runPastExperimentQuery(
