@@ -11,18 +11,61 @@ describe("sandboxEval", () => {
     expect(result).toEqual({
       ok: false,
       error: expect.stringContaining("Unexpected identifier 'code'"),
+      stack: expect.stringContaining("SyntaxError"),
       log: "",
       warnings: [],
     });
   });
 
-  it("should return an error if the code throws", async () => {
+  it("should return a rejection if the code throws", async () => {
     const result = await sandboxEval("throw new Error('Test error')", {});
     expect(result).toEqual({
       ok: false,
-      error: expect.stringContaining("Test error"),
+      rejected: true,
+      error: "Test error",
       log: "",
       warnings: [],
+    });
+  });
+
+  it("treats a thrown string as a rejection", async () => {
+    const result = await sandboxEval("throw 'Hypothesis is required'", {});
+    expect(result).toMatchObject({
+      rejected: true,
+      error: "Hypothesis is required",
+    });
+  });
+
+  it("treats engine errors as failures with a hook-only stack", async () => {
+    const result = await sandboxEval(
+      "const a = 1;\nreturn experiment.missing.deep;",
+      { experiment: {} },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.rejected).toBeUndefined();
+    expect(result.error).toBe(
+      "Cannot read properties of undefined (reading 'deep')",
+    );
+    // Line numbers match the hook body; no host frames leak server paths.
+    expect(result.stack).toMatch(
+      /^TypeError: .*\n\s+at hook \(hook\.js:2:\d+\)$/,
+    );
+  });
+
+  it("treats fetch failures as failures", async () => {
+    const result = await sandboxEval("await fetch('not-a-url')", {});
+    expect(result.ok).toBe(false);
+    expect(result.rejected).toBeUndefined();
+  });
+
+  it("treats a rethrown fetch failure with the author's message as a rejection", async () => {
+    const result = await sandboxEval(
+      "try { await fetch('not-a-url') } catch { throw new Error('PII check unavailable') }",
+      {},
+    );
+    expect(result).toMatchObject({
+      rejected: true,
+      error: "PII check unavailable",
     });
   });
 
@@ -31,6 +74,7 @@ describe("sandboxEval", () => {
     expect(result).toEqual({
       ok: false,
       error: expect.stringContaining("Script execution timed out"),
+      stack: expect.any(String),
       log: "",
       warnings: [],
     });
@@ -51,12 +95,13 @@ describe("sandboxEval", () => {
       {},
       { memoryLimitMB: 8 },
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       error: expect.stringContaining("Array buffer allocation failed"),
       log: "",
       warnings: [],
     });
+    expect(result.rejected).toBeUndefined();
   });
 
   it("should collect warnings raised via addWarning", async () => {
@@ -78,7 +123,8 @@ describe("sandboxEval", () => {
     );
     expect(result).toEqual({
       ok: false,
-      error: expect.stringContaining("hard error"),
+      rejected: true,
+      error: "hard error",
       log: "",
       warnings: ["a warning"],
     });
