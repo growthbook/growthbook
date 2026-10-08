@@ -34,10 +34,13 @@ const CREATE_POPULATION_DOCS =
 
 export default function PopulationsPage() {
   const gb = useGrowthBook<AppFeatures>();
+  const populationsEnabled = !!gb?.isOn("populations");
   const { project, getFactTableById, getDatasourceById, datasources } =
     useDefinitions();
   const { getOwnerDisplay } = useUser();
-  const { populations, loading, error, mutate } = usePopulations(project);
+  const { populations, loading, error, mutate } = usePopulations(project, {
+    enabled: populationsEnabled,
+  });
   const [datasourceFilter, setDatasourceFilter] = useState(ALL_DATASOURCES);
 
   const populationsWithLabels = useAddComputedFields(
@@ -78,12 +81,12 @@ export default function PopulationsPage() {
       filterResults,
     });
 
-  if (!gb?.isOn("populations")) {
+  if (!populationsEnabled) {
     return <Custom404 />;
   }
   if (error) {
     return (
-      <Box className="pagecontents container-fluid">
+      <Box className="pagecontents" style={{ margin: "0 auto" }}>
         <Callout status="error">{error.message}</Callout>
       </Box>
     );
@@ -92,10 +95,21 @@ export default function PopulationsPage() {
     return <LoadingOverlay />;
   }
 
-  const datasourceIds = [...new Set(populations.map((p) => p.datasource))];
+  const selectableDatasources = datasources.filter((d) =>
+    populations.some((p) => p.datasource === d.id),
+  );
+  // A Project switch can remove the selected Data Source from this list.
+  // Updating during render makes React retry before painting a table with
+  // every row filtered out.
+  if (
+    datasourceFilter !== ALL_DATASOURCES &&
+    !selectableDatasources.some((d) => d.id === datasourceFilter)
+  ) {
+    setDatasourceFilter(ALL_DATASOURCES);
+  }
 
   return (
-    <Box className="pagecontents container-fluid">
+    <Box className="pagecontents" style={{ margin: "0 auto" }}>
       <PageHead breadcrumb={[{ display: "Populations" }]} />
       <Box mb="4">
         <Heading as="h1" size="xl" mb="1">
@@ -140,13 +154,11 @@ export default function PopulationsPage() {
                 <SelectItem value={ALL_DATASOURCES}>
                   All Data Sources
                 </SelectItem>
-                {datasources
-                  .filter((d) => datasourceIds.includes(d.id))
-                  .map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
+                {selectableDatasources.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
               </Select>
             </Flex>
             <Text color="text-mid">

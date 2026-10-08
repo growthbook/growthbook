@@ -11,11 +11,14 @@ import { useRestApi, useRestApiCall } from "@/services/restApi";
 // population the caller can read.
 const POPULATION_PAGE_LIMIT = 100;
 
-export function usePopulations(project?: string) {
+export function usePopulations(
+  project?: string,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const { orgId } = useAuth();
   const restApiCall = useRestApiCall();
   const { data, error, mutate } = useSWR<ApiPopulation[], Error>(
-    orgId ? `${orgId}::/api/v1/populations` : null,
+    enabled && orgId ? `${orgId}::/api/v1/populations` : null,
     async () => {
       const populations: ApiPopulation[] = [];
       let offset = 0;
@@ -24,14 +27,11 @@ export function usePopulations(project?: string) {
           query: { limit: POPULATION_PAGE_LIMIT, offset },
         });
         populations.push(...page.populations);
-        if (
-          !page.hasMore ||
-          page.nextOffset == null ||
-          page.nextOffset <= offset
-        ) {
+        const nextOffset = page.nextOffset ?? null;
+        if (!page.hasMore || nextOffset === null || nextOffset <= offset) {
           return populations;
         }
-        offset = page.nextOffset;
+        offset = nextOffset;
       }
     },
   );
@@ -45,7 +45,7 @@ export function usePopulations(project?: string) {
   );
 
   return {
-    loading: !error && !data,
+    loading: enabled && !error && !data,
     populations,
     error,
     mutate,
