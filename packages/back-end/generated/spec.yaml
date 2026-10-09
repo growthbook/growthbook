@@ -61638,6 +61638,7 @@ paths:
                   enum:
                     - cli-wizard
                     - skill
+                    - eppo-import
                 agent:
                   type: string
                   maxLength: 50
@@ -61836,6 +61837,7 @@ paths:
                     - attribute
                     - metric
                     - fact-table
+                    - saved-group
                 id:
                   description: Id, or key for Feature Flags
                   type: string
@@ -61853,6 +61855,11 @@ paths:
                   anyOf:
                     - type: string
                       maxLength: 500
+                    - type: 'null'
+                externalId:
+                  anyOf:
+                    - type: string
+                      maxLength: 200
                     - type: 'null'
               required:
                 - kind
@@ -61883,6 +61890,7 @@ paths:
                     enum:
                       - cli-wizard
                       - skill
+                      - eppo-import
                   agent:
                     anyOf:
                       - type: string
@@ -81117,6 +81125,7 @@ components:
           enum:
             - cli-wizard
             - skill
+            - eppo-import
         agent:
           anyOf:
             - type: string
@@ -81156,6 +81165,7 @@ components:
                   - attribute
                   - metric
                   - fact-table
+                  - saved-group
               id:
                 type: string
               label:
@@ -81166,6 +81176,11 @@ components:
                   - developer
                   - growthbook
               detail:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              externalId:
+                description: Id in the system this was imported from, when it was imported
                 anyOf:
                   - type: string
                   - type: 'null'
@@ -84453,6 +84468,7 @@ components:
             - attribute
             - metric
             - fact-table
+            - saved-group
         id:
           type: string
         label:
@@ -84463,6 +84479,11 @@ components:
             - developer
             - growthbook
         detail:
+          anyOf:
+            - type: string
+            - type: 'null'
+        externalId:
+          description: Id in the system this was imported from, when it was imported
           anyOf:
             - type: string
             - type: 'null'

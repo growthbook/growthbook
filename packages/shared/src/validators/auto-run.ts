@@ -2,12 +2,14 @@ import { z } from "zod";
 import { baseSchema, apiBaseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
 
-// One pass of the SDK onboarding wizard. Deliberately holds nothing about the
+// One automated pass that creates GrowthBook objects on a user's behalf: the SDK
+// onboarding wizard, or an importer such as Eppo. Deliberately holds nothing about the
 // customer's codebase — no file contents, and paths only where they are shown back
 // to the user as evidence for a claim. Created objects are not modified to point
 // back here, so `artifacts` is the only record of what a run built.
 
-export const autoRunSources = ["cli-wizard", "skill"] as const;
+export const autoRunSources = ["cli-wizard", "skill", "eppo-import"] as const;
+export const MAX_AUTO_RUN_ARTIFACTS = 2000;
 export const autoRunOutcomes = ["completed", "partial", "failed"] as const;
 
 // Closed list: the page renders per kind, and teardown needs to know the collection.
@@ -18,6 +20,7 @@ export const autoRunArtifactKinds = [
   "attribute",
   "metric",
   "fact-table",
+  "saved-group",
 ] as const;
 
 // Flat scalars, deliberately. Everything the wizard learns about the machine it ran
@@ -48,6 +51,10 @@ export const autoRunArtifact = z
       .max(500)
       .nullable()
       .describe("Evidence or summary, e.g. 'boolean, off in dev'"),
+    // Id of the object this was created from in another system, e.g. Eppo. An
+    // importer re-run looks this up to update what it created instead of creating
+    // it again.
+    externalId: z.string().max(200).nullable().optional(),
     dateCreated: z.date(),
   })
   .strict();
@@ -62,7 +69,9 @@ export const autoRunCheck = z
 
 // The arrays are embedded, which is right — a run is read whole and an idempotent
 // append is one document update. They are capped because an unbounded array inside
-// a document is a 16MB ceiling nobody is watching, and the writer is a loop.
+// a document is a 16MB ceiling nobody is watching, and the writer is a loop. An
+// import run records one artifact per object it creates, so the cap is sized for
+// an account's worth of flags, metrics and experiments rather than a wizard's few.
 export const autoRunValidator = baseSchema
   .extend({
     source: z.enum(autoRunSources),
@@ -71,7 +80,7 @@ export const autoRunValidator = baseSchema
 
     metadata: autoRunMetadata,
 
-    artifacts: z.array(autoRunArtifact).max(200),
+    artifacts: z.array(autoRunArtifact).max(MAX_AUTO_RUN_ARTIFACTS),
     checks: z.array(autoRunCheck).max(50),
 
     outcome: z.enum(autoRunOutcomes).nullable(),
@@ -103,6 +112,13 @@ const apiAutoRunArtifact = z
     label: z.string(),
     by: z.enum(["developer", "growthbook"]),
     detail: z.string().nullable(),
+    externalId: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        "Id in the system this was imported from, when it was imported",
+      ),
     dateCreated: z.iso.datetime(),
   })
   .strict();

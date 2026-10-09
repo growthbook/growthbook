@@ -3700,10 +3700,32 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
+  // Per-environment on/off toggles land with the rules so a re-sync carries a
+  // kill switch flipped in the source system. Only envs that actually change
+  // are sent, keeping unchanged envs out of the revision and the permission check.
+  const environmentsEnabled: Record<string, boolean> = {};
+  const envEnabledIn = data.environmentSettings as
+    | Record<string, { enabled?: boolean }>
+    | undefined;
+  for (const env of environments) {
+    const enabled = envEnabledIn?.[env]?.enabled;
+    if (
+      typeof enabled === "boolean" &&
+      enabled !== !!feature.environmentSettings?.[env]?.enabled
+    ) {
+      environmentsEnabled[env] = enabled;
+    }
+  }
+
   if (
     !context.permissions.canPublishFeature(
       feature,
-      Array.from(getEnabledEnvironments(feature, environments)),
+      Array.from(
+        new Set([
+          ...getEnabledEnvironments(feature, environments),
+          ...Object.keys(environmentsEnabled),
+        ]),
+      ),
     )
   ) {
     context.permissions.throwPermissionError();
@@ -3751,9 +3773,12 @@ export async function postFeatureSync(
     rules: nextFlatRules,
     defaultValue: data.defaultValue ?? feature.defaultValue,
     ...(Object.keys(metadata).length ? { metadata } : {}),
+    ...(Object.keys(environmentsEnabled).length ? { environmentsEnabled } : {}),
   };
 
-  let needsNewRevision = Object.keys(metadata).length > 0;
+  let needsNewRevision =
+    Object.keys(metadata).length > 0 ||
+    Object.keys(environmentsEnabled).length > 0;
 
   if (
     data.defaultValue != null &&

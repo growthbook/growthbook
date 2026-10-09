@@ -1,19 +1,25 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ApiAutoRun } from "shared/validators";
 import {
   EppoAllocation,
   EppoData,
   EppoExperiment,
   EppoFlag,
   EppoMetric,
+  getCappingSettings,
+  getImportedIds,
   getVariationValue,
+  mergePhase,
   rulesToCondition,
   toEnvironmentId,
+  toExperimentUpdate,
   toPhaseDate,
   TransformContext,
   transformExperiment,
   transformFactSource,
   transformFlag,
   transformMetric,
+  widenValues,
 } from "@/services/importing/eppo/eppo-importing";
 
 const EPPO: EppoData = {
@@ -59,9 +65,11 @@ function mkCtx(overrides: Partial<TransformContext> = {}): TransformContext {
     eppo: EPPO,
     project: "",
     datasource: DATASOURCE,
+    environmentIds: new Set(["production", "test"]),
     savedGroupIds: new Map(),
     factTableIds: new Map([[10, "ftb_purchases"]]),
     metricIds: new Map(),
+    experiments: new Map(),
     factTableColumns: new Map(),
     ...overrides,
   };
@@ -136,7 +144,7 @@ describe("rulesToCondition", () => {
         {
           email: { $regex: "@acme\\.com$" },
           plan: { $exists: true },
-          tier: { $nin: ["free"] },
+          tier: { $exists: true, $nin: ["free"] },
         },
       ],
     });
@@ -179,7 +187,28 @@ describe("getVariationValue", () => {
     expect(getVariationValue("number", v("3.5"))).toBe("3.5");
     expect(getVariationValue("string", v("blue"))).toBe("blue");
     expect(getVariationValue("json", v('{"a":1}'))).toBe('{"a":1}');
-    expect(getVariationValue("json", v("control"))).toBe('"control"');
+  });
+
+  // Guessing "0" or "false" for every variation would import cleanly and
+  // serve the wrong value, so a key that isn't a value of the type is an error
+  it("rejects keys that aren't values of the flag's type", () => {
+    const v = (variant_key: string) => ({ id: 1, name: "", variant_key });
+    expect(() => getVariationValue("number", v("control"))).toThrow(
+      'Variation "control" isn\'t a number',
+    );
+    expect(() => getVariationValue("boolean", v("enabled"))).toThrow(
+      "isn't true or false",
+    );
+    expect(() => getVariationValue("json", v("control"))).toThrow("isn't JSON");
+  });
+});
+
+describe("widenValues", () => {
+  // Eppo casts attributes to strings before ONE_OF; the SDK compares strictly
+  it("lists number and boolean forms alongside the string", () => {
+    expect(widenValues(["2", "3"])).toEqual(["2", 2, "3", 3]);
+    expect(widenValues(["true"])).toEqual(["true", true]);
+    expect(widenValues(["US"])).toEqual(["US"]);
   });
 });
 
@@ -217,7 +246,7 @@ describe("transformFlag", () => {
           ],
         }),
         mkAllocation({ id: 3, name: "Rollout", percent_exposure: 0.2 }),
-        // Catch-all matching the default value is dropped
+        // Only the default allocation is redundant with defaultValue
         mkAllocation({
           id: 4,
           name: "Default",
@@ -295,7 +324,7 @@ describe("transformFlag", () => {
 
     const [inlined] = transformFlag(flag, mkCtx()).rules;
     expect(inlined).toMatchObject({
-      condition: JSON.stringify({ beta: { $in: ["true"] } }),
+      condition: JSON.stringify({ beta: { $in: ["true", true] } }),
       savedGroups: [],
     });
   });
@@ -317,7 +346,10 @@ describe("transformFlag", () => {
       mkCtx({ savedGroupIds: new Map([[7, "grp_beta"]]) }),
     ).rules;
     expect(JSON.parse(rule.condition || "")).toEqual({
-      $or: [{ id: { $in: ["123"] } }, { $not: { beta: { $in: ["true"] } } }],
+      $or: [
+        { id: { $in: ["123", 123] } },
+        { $not: { beta: { $in: ["true", true] } } },
+      ],
     });
   });
 
@@ -325,6 +357,108 @@ describe("transformFlag", () => {
     expect(() =>
       transformFlag(mkFlag([mkAllocation({ type: "SWITCHBACK" })]), mkCtx()),
     ).toThrow("Switchback");
+  });
+
+  // Eppo evaluates allocations top-down, so a rule-less 100% allocation above
+  // others shadows them even when it serves the default value
+  it("keeps a non-default catch-all that serves the default value", () => {
+    const { rules } = transformFlag(
+      mkFlag([
+        mkAllocation({
+          id: 1,
+          name: "Kill switch",
+          variation_weight: [{ variation_id: 2, weight: 100 }],
+        }),
+        mkAllocation({
+          id: 2,
+          targeting_rules: [
+            {
+              conditions: [
+                { attribute: "email", operator: "MATCHES", values: ["@acme"] },
+              ],
+            },
+          ],
+        }),
+        mkAllocation({
+          id: 3,
+          is_default: true,
+          variation_weight: [{ variation_id: 2, weight: 100 }],
+        }),
+      ]),
+      mkCtx(),
+    );
+    expect(rules.map((r) => r.id)).toEqual(["fr_eppo_1", "fr_eppo_2"]);
+    expect(rules[0]).toMatchObject({ type: "force", value: "false" });
+  });
+
+  it("links experiment allocations to imported experiments", () => {
+    const flag = mkFlag([
+      mkAllocation({
+        id: 2,
+        type: "EXPERIMENT",
+        variation_weight: [
+          { variation_id: 1, weight: 1 },
+          { variation_id: 2, weight: 1 },
+        ],
+        experiment: { id: 5, name: "Checkout test", status: "RUNNING" },
+      }),
+    ]);
+    const [rule] = transformFlag(
+      flag,
+      mkCtx({
+        experiments: new Map([
+          [
+            5,
+            {
+              id: "exp_1",
+              variations: [
+                { id: "var_a", key: "off" },
+                { id: "var_b", key: "on" },
+              ],
+            },
+          ],
+        ]),
+      }),
+    ).rules;
+    expect(rule).toMatchObject({
+      type: "experiment-ref",
+      experimentId: "exp_1",
+      variations: [
+        { variationId: "var_a", value: "false" },
+        { variationId: "var_b", value: "true" },
+      ],
+    });
+
+    // Without the experiment (not imported), fall back to an inline rule
+    expect(transformFlag(flag, mkCtx()).rules[0]).toMatchObject({
+      type: "experiment",
+    });
+  });
+
+  it("only references environments the org will have", () => {
+    const feature = transformFlag(
+      mkFlag([mkAllocation({ id: 1, environment_id: undefined })]),
+      mkCtx({ environmentIds: new Set(["production"]) }),
+    );
+    expect(feature.environmentSettings).toEqual({
+      production: { enabled: true },
+    });
+    expect(feature.rules[0]).toMatchObject({ environments: ["production"] });
+  });
+
+  it("rejects variations that would share a value", () => {
+    const flag = mkFlag([]);
+    flag.variation_type = "INTEGER";
+    flag.variations = [
+      { id: 1, name: "A", variant_key: "control" },
+      { id: 2, name: "B", variant_key: "treatment" },
+    ];
+    expect(() => transformFlag(flag, mkCtx())).toThrow("isn't a number");
+    flag.variations = [
+      { id: 1, name: "A", variant_key: "1" },
+      { id: 2, name: "B", variant_key: "1.0" },
+    ];
+    expect(() => transformFlag(flag, mkCtx())).toThrow("same value");
   });
 });
 
@@ -573,8 +707,9 @@ describe("transformMetric", () => {
         ctx,
       );
 
-    // Warehouses fold column names differently
-    expect(sum("revenue").numerator).toMatchObject({ column: "revenue" });
+    // Warehouses fold column names differently; the Fact Table's spelling is
+    // the one the metric endpoints look up
+    expect(sum("revenue").numerator).toMatchObject({ column: "REVENUE" });
     expect(() => sum("__count__")).toThrow(
       'Column "__count__" isn\'t in the "Purchases" Fact Table',
     );
@@ -617,13 +752,35 @@ describe("transformMetric", () => {
         ctx,
       ).numerator,
     ).toMatchObject({ column: "$$count" });
-    // Columns aren't known until the Fact Table exists
+    // Columns aren't known until the Fact Table exists, or detection has run
     expect(
       transformMetric(
         mkMetric({ numerator_aggregation: agg("sum", { column: "anything" }) }),
         mkCtx(),
       ).numerator,
     ).toMatchObject({ column: "anything" });
+    expect(
+      transformMetric(
+        mkMetric({ numerator_aggregation: agg("sum", { column: "anything" }) }),
+        mkCtx({ factTableColumns: new Map([["ftb_purchases", []]]) }),
+      ).numerator,
+    ).toMatchObject({ column: "anything" });
+  });
+
+  it("maps both winsorization tails", () => {
+    expect(
+      getCappingSettings({
+        metric_event_source_id: 10,
+        operation: "sum",
+        column: "revenue",
+        winsor_upper_percentile: 0.999,
+        winsor_lower_fixed_value: 0,
+        winsor_basis_filter: "positiveOnly",
+      }),
+    ).toEqual({
+      cappingSettings: { type: "percentile", value: 0.999, ignoreZeros: true },
+      lowerCappingSettings: { type: "absolute", value: 0 },
+    });
   });
 
   it("rejects unsupported metrics and missing fact tables", () => {
@@ -707,6 +864,153 @@ describe("transformExperiment", () => {
       variationWeights: [0.25, 0.75],
       dateEnded: "2024-02-01T00:00:00Z",
     });
+    // Org analysis defaults apply unless Eppo has an explicit plan
+    expect(result).not.toHaveProperty("statsEngine");
+    expect(
+      transformExperiment(
+        {
+          ...experiment,
+          analysis_plan: { confidence_interval_method: "Sequential" },
+        },
+        mkCtx(),
+      ),
+    ).toMatchObject({
+      statsEngine: "frequentist",
+      sequentialTestingEnabled: true,
+      regressionAdjustmentEnabled: false,
+    });
+  });
+
+  it("leaves metric fields alone without a Data Source", () => {
+    const result = transformExperiment(experiment, mkCtx({ datasource: null }));
+    expect(result).not.toHaveProperty("datasource");
+    expect(result).not.toHaveProperty("goalMetrics");
+  });
+
+  it("keeps the ids of an experiment being updated", () => {
+    const result = transformExperiment(experiment, mkCtx(), {
+      id: "exp_1",
+      variations: [
+        { id: "var_a", key: "off" },
+        { id: "var_b", key: "on" },
+      ],
+    });
+    expect(result.variations?.map((v) => v.id)).toEqual(["var_a", "var_b"]);
+    expect(result.phases?.[0].variations.map((v) => v.id)).toEqual([
+      "var_a",
+      "var_b",
+    ]);
+  });
+
+  it("rejects experiments GrowthBook can't model", () => {
+    expect(() =>
+      transformExperiment(
+        { ...experiment, computation_type: "SWITCHBACK" },
+        mkCtx(),
+      ),
+    ).toThrow("SWITCHBACK");
+    expect(() =>
+      transformExperiment(
+        { ...experiment, is_holdout_analysis: true },
+        mkCtx(),
+      ),
+    ).toThrow("Holdout");
+  });
+
+  it("limits updates to what Eppo owns", () => {
+    const transformed = transformExperiment(experiment, mkCtx());
+    const running = toExperimentUpdate(transformed, true);
+    expect(Object.keys(running.update).sort()).toEqual([
+      "analysis",
+      "hypothesis",
+      "name",
+    ]);
+    expect(running.phase).toBeUndefined();
+
+    const stopped = toExperimentUpdate(transformed, false);
+    expect(stopped.update).not.toHaveProperty("tags");
+    expect(stopped.update).not.toHaveProperty("project");
+    expect(stopped.update).not.toHaveProperty("trackingKey");
+    expect(stopped.phase).toBeDefined();
+  });
+
+  it("lays Eppo's phase over the existing one", () => {
+    const existing = {
+      name: "Phase 1",
+      dateStarted: "2023-12-01T00:00:00Z",
+      dateEnded: "",
+      reason: "",
+      coverage: 1,
+      condition: '{"country":"US"}',
+      savedGroups: [{ match: "any" as const, ids: ["grp_1"] }],
+      prerequisites: [],
+      variationWeights: [0.5, 0.5],
+      variations: [],
+    };
+    const incoming = transformExperiment(experiment, mkCtx()).phases?.[0];
+    if (!incoming) throw new Error("no phase");
+    expect(mergePhase(existing, incoming)).toMatchObject({
+      name: "Phase 1",
+      condition: '{"country":"US"}',
+      savedGroups: [{ match: "any", ids: ["grp_1"] }],
+      coverage: 0.5,
+      variationWeights: [0.25, 0.75],
+      dateStarted: "2024-01-01T00:00",
+      dateEnded: "2024-02-01T00:00",
+    });
+    // Dates GrowthBook has and Eppo lacks survive
+    expect(
+      mergePhase(existing, {
+        ...incoming,
+        dateStarted: "",
+        dateEnded: "",
+      }),
+    ).toMatchObject({ dateStarted: "2023-12-01T00:00", dateEnded: "" });
+  });
+});
+
+describe("getImportedIds", () => {
+  const run = (
+    dateCreated: string,
+    artifacts: Partial<ApiAutoRun["artifacts"][number]>[],
+  ): ApiAutoRun =>
+    ({
+      id: `arun_${dateCreated}`,
+      source: "eppo-import",
+      dateCreated,
+      artifacts: artifacts.map((a) => ({
+        kind: "metric",
+        id: "",
+        label: "",
+        by: "growthbook",
+        detail: null,
+        dateCreated,
+        ...a,
+      })),
+    }) as ApiAutoRun;
+
+  it("maps Eppo ids to what later runs created, if it still exists", () => {
+    const ids = getImportedIds(
+      [
+        run("2024-02-01", [
+          { kind: "metric", id: "fact__new", externalId: "metrics:1" },
+        ]),
+        run("2024-01-01", [
+          { kind: "metric", id: "fact__old", externalId: "metrics:1" },
+          { kind: "saved-group", id: "grp_gone", externalId: "audiences:7" },
+          { kind: "feature", id: "flag-a", externalId: "flags:3" },
+          { kind: "attribute", id: "country" },
+        ]),
+        {
+          ...run("2024-03-01", [{ id: "x", externalId: "metrics:2" }]),
+          source: "cli-wizard",
+        },
+      ],
+      (kind, id) => id !== "grp_gone",
+    );
+    expect(ids.metrics).toEqual(new Map([[1, "fact__new"]]));
+    expect(ids.audiences.size).toBe(0);
+    expect(ids.flags).toEqual(new Map([[3, "flag-a"]]));
   });
 });
 

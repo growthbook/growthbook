@@ -1,5 +1,6 @@
 import React, { Fragment, useMemo, useState } from "react";
 import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
+import { ApiAutoRun } from "shared/validators";
 import {
   buildImportData,
   CATEGORIES,
@@ -8,8 +9,11 @@ import {
   ExistingIds,
   fetchEppoData,
   getColumnNames,
+  getImportedIds,
   ImportItem,
   ImportResult,
+  ItemMatch,
+  matchItems,
   runEppoImport,
 } from "@/services/importing/eppo/eppo-importing";
 import { useAuth } from "@/services/auth";
@@ -19,6 +23,7 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
+import useApi from "@/hooks/useApi";
 import track from "@/services/track";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
@@ -41,6 +46,15 @@ import Code from "@/components/SyntaxHighlighting/Code";
 
 const itemId = (category: EppoCategory, key: string) => `${category}:${key}`;
 
+// Where the GrowthBook entity an item matched lives
+const HREFS: Partial<Record<EppoCategory, (id: string) => string>> = {
+  audiences: (id) => `/saved-groups/${id}`,
+  factSources: (id) => `/fact-tables/${id}`,
+  metrics: (id) => `/fact-metrics/${id}`,
+  experiments: (id) => `/experiment/${id}`,
+  flags: (id) => `/features/${id}`,
+};
+
 function StatusBadge({ item }: { item: ImportItem<unknown> }) {
   switch (item.status) {
     case "invalid":
@@ -50,11 +64,17 @@ function StatusBadge({ item }: { item: ImportItem<unknown> }) {
     case "completed":
       return <Badge color="green" label="Imported" />;
     case "pending":
+      if (item.match === "name") return <Badge color="amber" label="Exists" />;
       return (
         <Badge color="gray" label={item.existingId ? "Update" : "Create"} />
       );
   }
 }
+
+// An entity is in scope when no project is picked, or it is in that project
+// (or in every project)
+const inProject = (project: string, projects?: string[] | null) =>
+  !project || !projects?.length || projects.includes(project);
 
 export default function ImportFromEppo() {
   const { apiCall } = useAuth();
@@ -72,7 +92,10 @@ export default function ImportFromEppo() {
   const environments = useEnvironments();
   const attributeSchema = useAttributeSchema();
   const { features, mutate: mutateFeatures } = useFeatureMetaInfo();
-  const { experiments, mutateExperiments } = useExperiments("", true);
+  const { experiments, mutateExperiments } = useExperiments();
+  const { data: runsData, mutate: mutateRuns } = useApi<{
+    autoRuns: ApiAutoRun[];
+  }>("/auto-runs");
 
   const [apiKey, setApiKey] = useSessionStorage("eppoApiKey", "");
   const [project, setProject] = useState("");
@@ -86,18 +109,42 @@ export default function ImportFromEppo() {
   const [busy, setBusy] = useState<"fetching" | "importing" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, ImportResult>>({});
-  const [deselected, setDeselected] = useState<Set<string>>(new Set());
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
+  // Explicit (de)selections; everything else follows its default
+  const [selection, setSelection] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const existing: ExistingIds = useMemo(
-    () => ({
+  const existing: ExistingIds = useMemo(() => {
+    const ids = {
+      "saved-group": new Set(savedGroups.map((sg) => sg.id)),
+      "fact-table": new Set(factTables.map((ft) => ft.id)),
+      metric: new Set(factMetrics.map((m) => m.id)),
+      experiment: new Set(experiments.map((e) => e.id)),
+      feature: new Set(features.map((f) => f.id)),
+    };
+    return {
       environments: new Set(environments.map((e) => e.id)),
       tags: new Set(tags.map((t) => t.id)),
-      savedGroups: new Map(savedGroups.map((sg) => [sg.groupName, sg.id])),
-      features: new Set(features.map((f) => f.id)),
+      imported: getImportedIds(
+        runsData?.autoRuns ?? [],
+        (kind, id) => kind in ids && ids[kind as keyof typeof ids].has(id),
+      ),
+      savedGroups: new Map(
+        savedGroups
+          .filter((sg) => inProject(project, sg.projects))
+          .map((sg) => [sg.groupName, sg.id]),
+      ),
+      features: new Set(
+        features
+          .filter((f) => inProject(project, f.project ? [f.project] : []))
+          .map((f) => f.id),
+      ),
       factTables: new Map(
         factTables
-          .filter((ft) => ft.datasource === datasourceId)
+          .filter(
+            (ft) =>
+              ft.datasource === datasourceId && inProject(project, ft.projects),
+          )
           .map((ft) => [ft.name, ft.id]),
       ),
       factTableColumns: new Map(
@@ -105,34 +152,68 @@ export default function ImportFromEppo() {
       ),
       factMetrics: new Map(
         factMetrics
-          .filter((m) => m.datasource === datasourceId)
+          .filter(
+            (m) =>
+              m.datasource === datasourceId && inProject(project, m.projects),
+          )
           .map((m) => [m.name, m.id]),
       ),
       experiments: new Map(
         experiments
-          .filter((e) => e.trackingKey)
+          .filter(
+            (e) =>
+              e.trackingKey && inProject(project, e.project ? [e.project] : []),
+          )
           .map((e) => [e.trackingKey, e.id]),
       ),
-    }),
-    [
-      environments,
-      tags,
-      savedGroups,
-      features,
-      factTables,
-      factMetrics,
-      experiments,
-      datasourceId,
-    ],
+      experimentVariations: new Map(
+        experiments.map((e) => [
+          e.id,
+          e.variations.map((v) => ({ id: v.id, key: v.key })),
+        ]),
+      ),
+    };
+  }, [
+    environments,
+    tags,
+    savedGroups,
+    features,
+    factTables,
+    factMetrics,
+    experiments,
+    datasourceId,
+    project,
+    runsData,
+  ]);
+
+  const matches = useMemo(
+    () => (eppo ? matchItems(eppo, existing) : null),
+    [eppo, existing],
   );
 
-  // Rebuilt when the project, Data Source, or existing GrowthBook data changes
+  // Items a previous run created update by default; items that merely share a
+  // name with something in GrowthBook wait for an explicit choice
+  const isSelected = (category: EppoCategory, key: string) => {
+    const match: ItemMatch = matches?.[category].get(key) ?? {};
+    return selection[itemId(category, key)] ?? match.match !== "name";
+  };
+
+  // Rebuilt when the project, Data Source, selection or GrowthBook data changes
   const data = useMemo(
     () =>
-      eppo
-        ? buildImportData(eppo, existing, project, datasource ?? null)
+      eppo && matches
+        ? buildImportData(
+            eppo,
+            existing,
+            matches,
+            project,
+            datasource ?? null,
+            (category, key) =>
+              selection[itemId(category, key)] ??
+              matches[category].get(key)?.match !== "name",
+          )
         : null,
-    [eppo, existing, project, datasource],
+    [eppo, matches, existing, project, datasource, selection],
   );
 
   const getItems = (category: EppoCategory): ImportItem<unknown>[] =>
@@ -140,8 +221,6 @@ export default function ImportFromEppo() {
       ...item,
       ...results[itemId(category, item.key)],
     }));
-  const isSelected = (category: EppoCategory, key: string) =>
-    !deselected.has(itemId(category, key));
   const selectable = (category: EppoCategory) =>
     getItems(category).filter((item) => item.status !== "invalid");
   const selectedItems = CATEGORIES.flatMap(({ key }) =>
@@ -150,14 +229,15 @@ export default function ImportFromEppo() {
       .map((item) => ({ category: key, item })),
   );
   const selectedCount = selectedItems.length;
-  // Existing environments are left as they are
-  const overwriteCount = selectedItems.filter(
-    ({ category, item }) => item.existingId && category !== "environments",
+  // Existing environments and tags are left as they are
+  const updateCount = selectedItems.filter(
+    ({ category, item }) =>
+      item.existingId && category !== "environments" && category !== "tags",
   ).length;
   const setSelected = (ids: string[], selected: boolean) =>
-    setDeselected((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => (selected ? next.delete(id) : next.add(id)));
+    setSelection((prev) => {
+      const next = { ...prev };
+      ids.forEach((id) => (next[id] = selected));
       return next;
     });
 
@@ -168,7 +248,8 @@ export default function ImportFromEppo() {
     try {
       setEppo(await fetchEppoData(apiKey, apiCall));
       setResults({});
-      setDeselected(new Set());
+      setSelection({});
+      setLastRunId(null);
     } catch (e) {
       setError(e.message);
     }
@@ -199,7 +280,7 @@ export default function ImportFromEppo() {
     const timer = window.setInterval(flush, 250);
 
     try {
-      await runEppoImport({
+      const outcome = await runEppoImport({
         data,
         eppo,
         isSelected,
@@ -213,24 +294,29 @@ export default function ImportFromEppo() {
           pending[id] = { ...pending[id], ...update };
         },
       });
+      setLastRunId(outcome.runId);
+      track("Eppo import finished", {
+        source: "eppo",
+        completed: outcome.completed,
+        failed: outcome.failed,
+      });
     } catch (e) {
       setError(e.message);
     }
     window.clearInterval(timer);
     flush();
-    // Refresh existing ids so a re-run updates instead of duplicating
+    // Refresh what exists so a re-run updates instead of duplicating
     await Promise.all([
       mutateDefinitions(),
       mutateFeatures(),
       mutateExperiments(),
+      mutateRuns(),
       refreshOrganization(),
     ]);
     setBusy(null);
   };
 
-  const missingVariationValues = eppo?.flags.some((f) =>
-    f.variations?.some((v) => v.value === undefined),
-  );
+  const nonStringFlags = eppo?.flags.some((f) => f.variation_type !== "STRING");
 
   return (
     <Box>
@@ -262,7 +348,7 @@ export default function ImportFromEppo() {
               value: ds.id,
             }))}
             onChange={setDatasourceId}
-            helpText="Required to import Fact Tables and Fact Metrics"
+            helpText="Required to import Fact Tables, Fact Metrics and experiment results"
           />
         </Grid>
         <Flex gap="3" mt="4">
@@ -290,19 +376,27 @@ export default function ImportFromEppo() {
         </Callout>
       ) : null}
 
-      {overwriteCount ? (
-        <Callout status="warning" mb="4">
-          {`${overwriteCount} selected ${
-            overwriteCount === 1 ? "item already exists" : "items already exist"
-          } in GrowthBook and will be overwritten.`}
+      {lastRunId ? (
+        <Callout status="success" mb="4">
+          Import finished.{" "}
+          <Link href={`/auto-runs/${lastRunId}`}>View import report</Link>
         </Callout>
       ) : null}
 
-      {missingVariationValues ? (
+      {updateCount ? (
         <Callout status="warning" mb="4">
-          Eppo&apos;s API doesn&apos;t return variation values, so each Feature
-          Flag variation uses its key as the value. Check non-string Feature
-          Flags after importing.
+          {`${updateCount} selected ${
+            updateCount === 1 ? "item" : "items"
+          } already in GrowthBook will be updated to match Eppo. Rules on an existing Feature Flag are replaced; owners, tags and projects are kept.`}
+        </Callout>
+      ) : null}
+
+      {nonStringFlags ? (
+        <Callout status="info" mb="4">
+          Eppo&apos;s API doesn&apos;t return variation values, so each
+          variation uses its key as the value. Non-string Feature Flags whose
+          keys aren&apos;t values of their type are marked &quot;Can&apos;t
+          import&quot;.
         </Callout>
       ) : null}
 
@@ -313,7 +407,10 @@ export default function ImportFromEppo() {
             const ids = selectable(category).map((i) =>
               itemId(category, i.key),
             );
-            const selected = ids.filter((id) => !deselected.has(id)).length;
+            const selected = selectable(category).filter((i) =>
+              isSelected(category, i.key),
+            ).length;
+            const href = HREFS[category];
             return (
               <Frame key={category}>
                 <Checkbox
@@ -367,6 +464,19 @@ export default function ImportFromEppo() {
                               </TableCell>
                               <TableCell>
                                 {item.name}
+                                {item.existingId && href ? (
+                                  <HelperText status="info" size="sm">
+                                    {item.match === "name"
+                                      ? "Same name as "
+                                      : "Imported before as "}
+                                    <Link
+                                      href={href(item.existingId)}
+                                      target="_blank"
+                                    >
+                                      {item.existingId}
+                                    </Link>
+                                  </HelperText>
+                                ) : null}
                                 {item.error ? (
                                   <HelperText status="error" size="sm">
                                     {item.error}

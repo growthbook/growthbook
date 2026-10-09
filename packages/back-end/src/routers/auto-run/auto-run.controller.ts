@@ -1,5 +1,12 @@
 import type { Response } from "express";
-import { ApiAutoRun } from "shared/validators";
+import { z } from "zod";
+import {
+  ApiAutoRun,
+  apiAppendAutoRunArtifactBody,
+  apiCreateAutoRunBody,
+  apiUpdateAutoRunBody,
+  MAX_AUTO_RUN_ARTIFACTS,
+} from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
@@ -72,4 +79,69 @@ export const getAutoRuns = async (
         ),
     ),
   });
+};
+
+// The app's own writers (the Eppo importer) record runs through these, with the
+// same bodies the REST API takes so one report page serves both.
+export const postAutoRun = async (
+  req: AuthRequest<z.infer<typeof apiCreateAutoRunBody>>,
+  res: Response<{ status: 200; autoRun: ApiAutoRun }>,
+) => {
+  const context = getContextFromReq(req);
+  const body = apiCreateAutoRunBody.parse(req.body);
+  const run = await context.models.autoRuns.create({
+    source: body.source ?? "cli-wizard",
+    agent: body.agent ?? null,
+    metadata: body.metadata ?? {},
+    createdBy: context.userId || null,
+    artifacts: [],
+    checks: [],
+    outcome: null,
+    failureReason: null,
+    dateCompleted: null,
+  });
+  res
+    .status(200)
+    .json({ status: 200, autoRun: context.models.autoRuns.toApi(run) });
+};
+
+export const postAutoRunArtifacts = async (
+  req: AuthRequest<
+    { artifacts: z.infer<typeof apiAppendAutoRunArtifactBody>[] },
+    { id: string }
+  >,
+  res: Response<{ status: 200; autoRun: ApiAutoRun }>,
+) => {
+  const context = getContextFromReq(req);
+  const artifacts = z
+    .array(apiAppendAutoRunArtifactBody)
+    .max(MAX_AUTO_RUN_ARTIFACTS)
+    .parse(req.body.artifacts);
+  const run = await context.models.autoRuns.appendArtifactsApi(
+    req.params.id,
+    artifacts,
+  );
+  res.status(200).json({ status: 200, autoRun: run });
+};
+
+export const putAutoRun = async (
+  req: AuthRequest<z.infer<typeof apiUpdateAutoRunBody>, { id: string }>,
+  res: Response<
+    { status: 200; autoRun: ApiAutoRun } | { status: 404; message: string }
+  >,
+) => {
+  const context = getContextFromReq(req);
+  const body = apiUpdateAutoRunBody.parse(req.body);
+  const existing = await context.models.autoRuns.getById(req.params.id);
+  if (!existing) {
+    res.status(404).json({ status: 404, message: "Auto Run not found" });
+    return;
+  }
+  const run = await context.models.autoRuns.update(existing, {
+    ...body,
+    ...(body.outcome ? { dateCompleted: new Date() } : {}),
+  });
+  res
+    .status(200)
+    .json({ status: 200, autoRun: context.models.autoRuns.toApi(run) });
 };

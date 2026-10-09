@@ -46,6 +46,7 @@ const KIND: Record<
       id.startsWith("fact__") ? `/fact-metrics/${id}` : `/metric/${id}`,
   },
   "fact-table": { label: "Fact Table", href: (id) => `/fact-tables/${id}` },
+  "saved-group": { label: "Saved Group", href: (id) => `/saved-groups/${id}` },
 };
 
 function NameCell({
@@ -214,6 +215,49 @@ export default function AutoRunPage() {
   const byGrowthBook = run.artifacts.filter((a) => a.by === "growthbook");
   const failing = run.checks.filter((c) => !c.ok && c.required);
   const environment = autoRunMetaString(run.metadata, "environment");
+
+  // An importer run is a record of what it created, not a setup to finish
+  if (run.source === "eppo-import") {
+    const failed = run.metadata.failed;
+    return (
+      <Container
+        size="3"
+        px={{ initial: "2", xs: "4", sm: "7" }}
+        py={{ initial: "1", xs: "3", sm: "6" }}
+      >
+        <PageHead
+          breadcrumb={[
+            { display: "Import your data", href: "/importing" },
+            { display: "Eppo", href: "/importing/eppo" },
+          ]}
+        />
+        <Box mt="4" mb="5">
+          <Heading as="h1" size="2xl" mb="0">
+            Eppo Import Report
+          </Heading>
+        </Box>
+        {typeof failed === "number" && failed > 0 && (
+          <Callout status="warning" size="md" mb="5">
+            {failed === 1
+              ? "1 item failed to import"
+              : `${failed} items failed to import`}
+            . Fetch from Eppo again to retry; items listed below update in place
+            instead of being created twice.
+          </Callout>
+        )}
+        {run.artifacts.length > 0 ? (
+          <Section
+            title="Imported from Eppo"
+            description="Open an item to review its settings. Importing again updates these instead of creating duplicates."
+          >
+            <SetUpTable artifacts={run.artifacts} />
+          </Section>
+        ) : (
+          <Callout status="info">Nothing was imported in this run.</Callout>
+        )}
+      </Container>
+    );
+  }
 
   return (
     <Container
