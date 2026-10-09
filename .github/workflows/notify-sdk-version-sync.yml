@@ -1,0 +1,23 @@
+name: Notify feature-squad on SDK version sync
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+# Secrets are not available in job-level `if`, so expose presence via env
+env:
+  HAS_WEBHOOK: ${{ secrets.SLACK_FEATURE_SQUAD_WEBHOOK_URL != '' }}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'sdk-versions-sync/')
+    steps:
+      - name: Post to Slack
+        if: env.HAS_WEBHOOK == 'true'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_FEATURE_SQUAD_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "SDK version sync PR ${{ github.event.action == 'opened' && 'opened' || 'updated' }}, review/approval needed: <${{ github.event.pull_request.html_url }}|growthbook#${{ github.event.pull_request.number }}>"
