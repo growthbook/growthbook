@@ -20,6 +20,13 @@ const supportedServices = [
     accentColor: "#000",
     text: "Import your projects, features, environments, and metrics from Statsig.",
   },
+  {
+    service: "Eppo (Datadog)",
+    icon: "eppo",
+    path: "eppo",
+    accentColor: "#000",
+    text: "Import your Feature Flags, audiences, experiments, and warehouse-native metrics from Eppo.",
+  },
 ];
 
 // Services we don't have a self-serve importer for yet. Clicking these opens a
@@ -31,13 +38,6 @@ const upcomingServices = [
     icon: "optimizely",
     accentColor: "#000",
     text: "Migrate your Feature Experimentation flags, audiences, and experiments.",
-  },
-  {
-    service: "Eppo (Datadog)",
-    slug: "eppo",
-    icon: "eppo",
-    accentColor: "#000",
-    text: "Migrate your flags, audiences, experiments, and warehouse-native metrics.",
   },
   {
     service: "Split (Harness FME)",

@@ -1313,6 +1313,7 @@ export async function postExperiments(
     implementation: data.implementation || "code",
     status: data.status || "draft",
     results: data.results || undefined,
+    winner: data.winner,
     analysis: data.analysis || "",
     releasedVariationId: "",
     excludeFromPayload: true,

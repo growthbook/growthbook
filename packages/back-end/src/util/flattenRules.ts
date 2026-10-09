@@ -459,3 +459,63 @@ export function flattenV1ToV2Rules(
 
   return output;
 }
+
+// The rules a sync (`POST /feature/:id/sync`) lands on an existing feature.
+// v2 callers (the importers) send the whole flat `rules` array, which replaces
+// the feature's rules so a sync lands the same rules whether or not the feature
+// already exists. v1 callers send `environmentSettings[env].rules`, which
+// replace only those envs: live rules are narrowed to the envs the caller did
+// NOT override, then the inbound rules are appended stamped per env (a naive
+// per-env fan-out would duplicate `allEnvironments: true` rules across envs).
+// Like create, the two shapes can't be mixed.
+export function mergeSyncRules({
+  liveRules,
+  environments,
+  envSettings,
+  rules,
+}: {
+  liveRules: FeatureRule[];
+  environments: string[];
+  envSettings?: Record<string, { rules?: FeatureRule[] }>;
+  rules?: FeatureRule[];
+}): { rules: FeatureRule[]; replacedAll: boolean } {
+  const inboundEnvs = new Set(
+    environments.filter((e) => envSettings?.[e]?.rules !== undefined),
+  );
+  if (rules?.length && inboundEnvs.size) {
+    throw new Error(
+      "Feature Flag sync received both top-level `rules` and `environmentSettings[env].rules`. Use one shape or the other.",
+    );
+  }
+  if (rules && !inboundEnvs.size) return { rules, replacedAll: true };
+
+  const result: FeatureRule[] = [];
+  for (const r of liveRules) {
+    // Env subset of this rule NOT replaced by an inbound per-env override.
+    let remainingEnvs: string[];
+    if (r.allEnvironments) {
+      remainingEnvs = environments.filter((e) => !inboundEnvs.has(e));
+      if (remainingEnvs.length === 0) continue;
+      if (remainingEnvs.length === environments.length) {
+        result.push(r);
+        continue;
+      }
+    } else {
+      remainingEnvs = (r.environments ?? []).filter((e) => !inboundEnvs.has(e));
+      if (remainingEnvs.length === 0) continue;
+    }
+    result.push({ ...r, allEnvironments: false, environments: remainingEnvs });
+  }
+
+  environments.forEach((env) => {
+    envSettings?.[env]?.rules?.forEach((r) =>
+      result.push({
+        ...r,
+        allEnvironments: false,
+        environments: [env],
+      } as FeatureRule),
+    );
+  });
+
+  return { rules: result, replacedAll: false };
+}
