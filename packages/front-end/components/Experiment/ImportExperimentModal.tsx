@@ -4,11 +4,13 @@ import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Modal from "@/ui/Modal";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
+import Text from "@/ui/Text";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -91,51 +93,68 @@ const ImportExperimentModal: FC<{
     );
   }
 
-  return (
-    <ModalStandard
-      trackingEventModalType="import-experiment"
-      header="Import Experiment"
-      open={true}
-      size="xl"
-      close={() => onClose()}
-      closeCta="Close"
-    >
-      <Callout status="info" mb="3">
-        Don&apos;t see your experiment listed below?{" "}
+  const footer = (
+    <Modal.Footer justify="between">
+      <Text color="text-mid">
+        Don&apos;t see your experiment?{" "}
         <Link onClick={() => setImportModal(false)}>Create from scratch</Link>
-      </Callout>
-      <Heading as="h2" size="md" mb="3">
-        Import from Data Source
-      </Heading>
-      {importId && (
+      </Text>
+      <Button variant="ghost" onClick={onClose}>
+        Close
+      </Button>
+    </Modal.Footer>
+  );
+
+  return (
+    <Modal.Root
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      size="xl"
+      dismissible
+      hasDescription={!!importId && !error}
+      trackingEventModalType="import-experiment"
+    >
+      {importId && !error ? (
         <ImportExperimentList
           key={importId}
-          onImport={(create) => {
-            setSelected(create);
-          }}
+          onImport={setSelected}
           changeDatasource={setDatasourceId}
           importId={importId}
+          footer={footer}
         />
-      )}
-      {error ? (
+      ) : (
         <>
-          <Callout status="error" mb="3">
-            {error}
-          </Callout>
-          <Select
-            label="Choose a Data Source"
-            value={datasourceId}
-            setValue={(value) => setDatasourceId(value)}
-          >
-            {validDatasources.map((d) => (
-              <SelectItem key={d.id} value={d.id}>
-                {d.name}
-              </SelectItem>
-            ))}
-          </Select>
+          <Modal.Header>
+            <Modal.Title>Import Experiment</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {error ? (
+              <>
+                <Callout status="error" mb="3">
+                  {error}
+                </Callout>
+                <Select
+                  label="Choose a Data Source"
+                  value={datasourceId}
+                  setValue={(value) => setDatasourceId(value)}
+                >
+                  {validDatasources.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </>
+            ) : (
+              <LoadingOverlay />
+            )}
+          </Modal.Body>
+          {footer}
         </>
-      ) : null}
-    </ModalStandard>
+      )}
+    </Modal.Root>
   );
 };
 export default ImportExperimentModal;
