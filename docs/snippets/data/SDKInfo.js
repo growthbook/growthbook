@@ -493,7 +493,7 @@ export default {
         contextualBandits: "≥ v0.5.0",
       },
       {
-        trackingPlugin: "≥ v0.2.8",
+        trackingPlugin: "≥ v0.5.0",
       },
       {
         caseInsensitiveMembership: "≥ v0.2.7",
@@ -836,6 +836,9 @@ export default {
       },
       {
         contextualBandits: "≥ v1.2.3",
+      },
+      {
+        trackingPlugin: "≥ v1.1.15",
       },
       {
         namespacesV2: "≥ v1.1.4",

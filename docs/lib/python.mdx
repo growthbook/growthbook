@@ -718,76 +718,21 @@ gb.destroy()
 
 ### Tracking Plugins
 
-**Available starting in version 1.3.0**
+**Available starting in version 2.2.0**
 
-The Python SDK supports tracking plugins that provide automated event tracking with batching, error handling, and retry logic. This is the recommended approach for production applications as it handles edge cases and provides better reliability than custom tracking callbacks.
+The Python SDK includes a built-in `GrowthBookTrackingPlugin` that batches "Experiment Viewed" and "Feature Evaluated" events and sends them to the GrowthBook ingestor. It runs alongside any `on_experiment_viewed` callback you already have.
 
-#### Built-in Tracking Plugin
+The plugin needs the `requests` library, which is not installed with the SDK. Without it, creating the plugin raises an `ImportError`:
 
-The SDK includes a built-in tracking plugin that automatically batches and sends events:
-
-<Tabs>
-<Tab title="Async Client">
-
-```python
-import asyncio
-from growthbook import GrowthBookClient, Options, UserContext, GrowthBookTrackingPlugin
-
-# Custom synchronous tracking callback
-def my_custom_tracker(experiment, result, user_context):
-    """Process tracking event (Fire-and-Forget)"""
-    loop = asyncio.get_running_loop()
-    loop.create_task(process_async(experiment, result, user_context))
-
-async def process_async(experiment, result, user_context):
-    # Send to your analytics system
-    await analytics.track_async(
-        user_id=user_context.attributes.get('id'),
-        event_name="Experiment Viewed",
-        properties={
-            'experiment_id': experiment.key,
-            'variation_id': result.key,
-            'variation_value': result.value,
-        }
-    )
-
-async def main():
-    # Create client with built-in tracking plugin
-    client = GrowthBookClient(
-        Options(
-            api_host="https://cdn.growthbook.io",
-            client_key="sdk-abc123",
-            tracking_plugins=[
-                GrowthBookTrackingPlugin(
-                    # Use the region you selected when setting up your Managed Warehouse
-                    # (defaults to https://us-east-1.gb-ingest.com; https://eu-west-1.gb-ingest.com for EU)
-                    ingestor_host="https://us-east-1.gb-ingest.com",
-                    # Additional callback for custom analytics
-                    additional_callback=my_custom_tracker
-                )
-            ]
-        )
-    )
-
-    try:
-        await client.initialize()
-
-        user = UserContext(attributes={"id": "user_123"})
-
-        # Events are now automatically tracked and batched
-        result1 = await client.get_feature_value("button-color", "blue", user)
-        result2 = await client.is_on("premium-feature", user)
-
-        # Plugin handles batching and sending automatically
-
-    finally:
-        await client.close()
-
-asyncio.run(main())
+```bash
+pip install growthbook requests
 ```
 
-</Tab>
-<Tab title="Legacy Client">
+<Note>
+Only the legacy `GrowthBook` class sends events today. With `GrowthBookClient(Options(tracking_plugins=[...]))`, the plugin can't read the client key, so every batch is silently dropped.
+</Note>
+
+#### Built-in Tracking Plugin
 
 ```python
 from growthbook import GrowthBook, GrowthBookTrackingPlugin
@@ -813,10 +758,12 @@ gb = GrowthBook(
     plugins=[
         GrowthBookTrackingPlugin(
             # Use the region you selected when setting up your Managed Warehouse
-            # (defaults to https://us-east-1.gb-ingest.com; https://eu-west-1.gb-ingest.com for EU)
-            ingestor_host="https://us-east-1.gb-ingest.com",
+            # (defaults to https://us1.gb-ingest.com; https://eu-west-1.gb-ingest.com for EU)
+            ingestor_host="https://us1.gb-ingest.com",
             # Additional callback for custom analytics
             additional_callback=my_custom_tracker,
+            # Set to False to stop sending "Feature Evaluated" events (optional, default True)
+            track_feature_evaluated=True,
             # Number of events to accumulate before flushing (optional, default 10)
             batch_size=5,
             # Max seconds to wait before flushing a partial batch (optional, default 10.0)
@@ -831,68 +778,26 @@ gb.load_features()
 result1 = gb.get_feature_value("button-color", "blue")
 result2 = gb.is_on("premium-feature")
 
-# Plugin handles batching and sending automatically
+# Send a custom event through the same pipeline
+gb.log_event("button_clicked", {"location": "header"})
 
+# Flushes any pending events
 gb.destroy()
 ```
 
-</Tab>
-</Tabs>
+Use one `GrowthBookTrackingPlugin` per `GrowthBook` instance; each one sends its own copy of every event to the ingestor. To forward events to more than one analytics tool, call them all from `additional_callback`.
 
-#### Multiple Tracking Plugins
+#### Custom Events
 
-You can use multiple tracking plugins to send events to different analytics systems:
-
-```python
-from growthbook import GrowthBookClient, Options, GrowthBookTrackingPlugin
-
-# Different tracking callbacks
-def segment_tracker(experiment, result, user_context):
-    """Send events to Segment (Fire-and-Forget)"""
-    loop = asyncio.get_running_loop()
-    loop.create_task(segment_track_async(experiment, result))
-
-async def segment_track_async(experiment, result):
-     await segment.track_async(...)
-
-def mixpanel_tracker(experiment, result, user_context):
-    """Send events to Mixpanel (Fire-and-Forget)"""
-    loop = asyncio.get_running_loop()
-    loop.create_task(mixpanel.track_async(
-        user_context.attributes.get('id'), "Experiment Viewed", {
-            'experiment_id': experiment.key,
-            'variation': result.value
-        }
-    ))
-
-# Create client with multiple tracking plugins
-client = GrowthBookClient(
-    Options(
-        api_host="https://cdn.growthbook.io",
-        client_key="sdk-abc123",
-        tracking_plugins=[
-            GrowthBookTrackingPlugin(
-                additional_callback=segment_tracker
-            ),
-            GrowthBookTrackingPlugin(
-                additional_callback=mixpanel_tracker
-            )
-        ]
-    )
-)
-
-# Events are now automatically sent to both Segment and Mixpanel
-```
+`gb.log_event(event_name, properties)` sends a custom event to the ingestor with the current user's attributes. It's synchronous and only works when a `GrowthBookTrackingPlugin` is configured; otherwise it logs a warning and does nothing.
 
 #### Tracking Plugin Benefits
 
-The tracking plugin system provides several advantages over custom tracking callbacks:
+The tracking plugin provides several advantages over custom tracking callbacks:
 
 - **Automatic Batching**: Events are batched together to reduce API calls
-- **Error Handling**: Failed requests are automatically retried with exponential backoff
-- **Non-blocking**: Tracking doesn't block feature evaluations
-- **Configurable**: Batch sizes, intervals, and retry logic can be customized
-- **Multiple Destinations**: Send events to multiple analytics systems simultaneously
+- **Non-blocking**: Batches are sent on a background thread, so tracking doesn't block feature evaluations
+- **Configurable**: Batch size and flush interval can be customized
 
 #### Working with Traditional Callbacks
 
@@ -903,17 +808,15 @@ def legacy_tracker(experiment, result, user_context):
     """Traditional tracking callback"""
     print(f"Legacy tracker: {experiment.key}")
 
-client = GrowthBookClient(
-    Options(
-        api_host="https://cdn.growthbook.io",
-        client_key="sdk-abc123",
-        # Traditional callback still works
-        on_experiment_viewed=legacy_tracker,
-        # Plus new tracking plugins
-        tracking_plugins=[
-            GrowthBookTrackingPlugin(additional_callback=my_custom_tracker)
-        ]
-    )
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    # Traditional callback still works
+    on_experiment_viewed=legacy_tracker,
+    # Plus the tracking plugin
+    plugins=[
+        GrowthBookTrackingPlugin(additional_callback=my_custom_tracker)
+    ]
 )
 
 # Both the legacy callback and plugin will be triggered

@@ -1,0 +1,333 @@
+These SDKs have a built-in plugin that automatically sends feature usage and experiment view events to GrowthBook, with the SDK's attributes as context. Don't include sensitive information in your attributes (or anonymize it first). For other SDKs, use the Ingestion API below.
+
+<Tabs>
+  <Tab title="HTML Script Tag">
+
+Add `data-tracking="growthbook"` to the script tag. It reports events that already fired; it does not enroll users in an experiment.
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY"
+  data-tracking="growthbook"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+This replaces the default Google Analytics, Google Tag Manager, and Segment tracking. To keep them, list them too: `data-tracking="growthbook,gtag,gtm,segment"`.
+
+Push custom events to the `window.gbEvents` array:
+
+```html
+<script>
+  window.gbEvents = window.gbEvents || [];
+
+  // Without properties
+  window.gbEvents.push("Page View");
+
+  // With properties
+  window.gbEvents.push({
+    eventName: "Button Click",
+    properties: { button: "Sign Up" },
+  });
+</script>
+```
+
+| Attribute                  | Description                                                                 |
+| -------------------------- | --------------------------------------------------------------------------- |
+| `data-event-ingestor-host` | Ingestor for your Data Region.                                              |
+| `data-event-transport`     | `auto` (default), `beacon`, or `fetch`. See the JavaScript tab for details. |
+
+  </Tab>
+  <Tab title="JavaScript / React">
+
+Requires `@growthbook/growthbook` v1.4.0 or later. We recommend also adding `autoAttributesPlugin` to include common attributes (browser, `session_id`, UTM parameters, etc.) with every event.
+
+```js
+import { GrowthBook } from "@growthbook/growthbook";
+import {
+  autoAttributesPlugin,
+  growthbookTrackingPlugin,
+} from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  clientKey: "YOUR_CLIENT_KEY",
+  plugins: [
+    autoAttributesPlugin(),
+    growthbookTrackingPlugin({
+      // ingestorHost: "https://eu-west-1.gb-ingest.com",
+    }),
+  ],
+});
+```
+
+Log custom events with `logEvent`. In React, get the instance with `useGrowthBook()`.
+
+```js
+// Without properties
+gb.logEvent("Page View");
+
+// With properties
+gb.logEvent("Button Click", { button: "Sign Up" });
+```
+
+| Option                     | Description                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| `ingestorHost`             | Ingestor for your Data Region.                                                |
+| `enableFeatureUsageEvents` | Set to `false` to stop sending feature usage events. Default `true`. v1.8.0+. |
+| `transport`                | `auto` (default), `beacon`, or `fetch`. See below. v1.7.0+.                   |
+
+Events are batched and sent with `fetch` using `keepalive`. When the page is hidden or unloading, the queue is flushed with `navigator.sendBeacon`. Both survive the page being torn down, so exposures aren't lost when a user navigates away immediately, which matters most for redirect experiments. Set `transport: "beacon"` to always prefer `sendBeacon`, or `"fetch"` to never use it.
+
+  </Tab>
+  <Tab title="Node.js">
+
+Requires `@growthbook/growthbook` v1.7.0 or later.
+
+```js
+import { GrowthBookClient } from "@growthbook/growthbook";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBookClient({
+  clientKey: "YOUR_CLIENT_KEY",
+  plugins: [
+    growthbookTrackingPlugin({
+      // ingestorHost: "https://eu-west-1.gb-ingest.com",
+    }),
+  ],
+});
+```
+
+Log custom events with `logEvent`, passing the user context:
+
+```js
+gb.logEvent("Sign Up", { accountPlan: "pro" }, userContext);
+```
+
+User-scoped instances (for example `req.growthbook` from the [Express middleware](/lib/node#express-middleware)) don't need the user context:
+
+```js
+req.growthbook.logEvent("Sign Up", { accountPlan: "pro" });
+```
+
+Set `enableFeatureUsageEvents: false` (v1.8.0+) to stop sending feature usage events.
+
+  </Tab>
+  <Tab title="Python">
+
+Requires `growthbook` v2.2.0 or later, plus the `requests` package:
+
+```bash
+pip install growthbook requests
+```
+
+```python
+from growthbook import GrowthBook, GrowthBookTrackingPlugin
+
+gb = GrowthBook(
+    client_key="YOUR_CLIENT_KEY",
+    attributes={"id": "user_123"},
+    plugins=[
+        GrowthBookTrackingPlugin(
+            # ingestor_host="https://eu-west-1.gb-ingest.com",
+        )
+    ],
+)
+gb.load_features()
+```
+
+Log custom events with `log_event`:
+
+```python
+gb.log_event("Button Click", {"button": "Sign Up"})
+```
+
+Call `gb.destroy()` when you're done with the instance to flush pending events.
+
+| Option                    | Description                                                          |
+| ------------------------- | -------------------------------------------------------------------- |
+| `ingestor_host`           | Ingestor for your Data Region.                                       |
+| `track_feature_evaluated` | Set to `False` to stop sending feature usage events. Default `True`. |
+| `batch_size`              | Events to queue before sending. Default `10`.                        |
+| `batch_timeout`           | Seconds to wait before sending a partial batch. Default `10.0`.      |
+
+<Note>
+Use the `GrowthBook` class. The async `GrowthBookClient` does not send events to GrowthBook yet.
+</Note>
+
+  </Tab>
+  <Tab title="PHP">
+
+Requires `growthbook/growthbook` v2.4.0 or later.
+
+```php
+use Growthbook\Growthbook;
+use Growthbook\GrowthBookTrackingPlugin;
+use Growthbook\GrowthBookTrackingPluginConfig;
+
+$growthbook = Growthbook::create()
+  ->withAttributes(['id' => $userId])
+  ->addPlugin(new GrowthBookTrackingPlugin(
+    new GrowthBookTrackingPluginConfig(
+      // ingestorHost: "https://eu-west-1.gb-ingest.com",
+    )
+  ));
+
+$growthbook->initialize("YOUR_CLIENT_KEY");
+```
+
+Call `addPlugin()` after any `with*()` methods. Those return a copy of the instance, and a discarded copy closes the plugin. The plugin gets its client key from `initialize()`, and pending events are sent when the request ends.
+
+Custom events aren't supported yet. Send them with the Ingestion API.
+
+| Option         | Description                                                |
+| -------------- | ---------------------------------------------------------- |
+| `ingestorHost` | Ingestor for your Data Region.                             |
+| `batchSize`    | Events to queue before sending mid-request. Default `100`. |
+
+  </Tab>
+  <Tab title="Go">
+
+Requires `github.com/growthbook/growthbook-golang` v0.5.0 or later.
+
+```go
+import (
+    "context"
+
+    gb "github.com/growthbook/growthbook-golang"
+)
+
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("YOUR_CLIENT_KEY"),
+    gb.WithSseDataSource(),
+    gb.WithGrowthBookTracking(gb.TrackingPluginConfig{
+        // IngestorHost: "https://eu-west-1.gb-ingest.com",
+    }),
+)
+if err != nil {
+    // handle error
+}
+defer client.Close() // sends pending events
+```
+
+Log custom events with `LogEvent`. Call it on the client that holds the user's attributes (from `client.WithAttributes`):
+
+```go
+userClient.LogEvent(ctx, "Button Click", gb.EventProperties{"button": "Sign Up"})
+```
+
+| Option         | Description                                                     |
+| -------------- | --------------------------------------------------------------- |
+| `IngestorHost` | Ingestor for your Data Region.                                  |
+| `BatchSize`    | Events to queue before sending. Default `100`.                  |
+| `BatchTimeout` | How long to wait before sending a partial batch. Default `10s`. |
+
+  </Tab>
+  <Tab title="Kotlin">
+
+Requires the GrowthBook Kotlin SDK v7.8.0 or later, with `NetworkDispatcherKtor` v1.2.0+ or `NetworkDispatcherOkHttp` v1.1.0+.
+
+```kotlin
+import com.sdk.growthbook.GBSDKBuilder
+import com.sdk.growthbook.network.GBNetworkDispatcherKtor
+import com.sdk.growthbook.plugin.TrackingPluginConfig
+import com.sdk.growthbook.plugin.tracking.GrowthBookTrackingPlugin
+
+val networkDispatcher = GBNetworkDispatcherKtor()
+
+val growthBook = GBSDKBuilder(
+    apiKey = "YOUR_CLIENT_KEY",
+    apiHost = "https://cdn.growthbook.io/",
+    attributes = attributes,
+    networkDispatcher = networkDispatcher,
+    trackingCallback = { _, _ -> },
+)
+    .setPlugins(
+        listOf(
+            GrowthBookTrackingPlugin(
+                TrackingPluginConfig(
+                    clientKey = "YOUR_CLIENT_KEY",
+                    networkDispatcher = networkDispatcher,
+                    // ingestorHost = "https://eu-west-1.gb-ingest.com",
+                )
+            )
+        )
+    )
+    .initialize()
+```
+
+The plugin doesn't inherit the builder's client key or network dispatcher, so pass both to `TrackingPluginConfig`. Without a network dispatcher, no events are sent.
+
+Custom events aren't supported yet. Send them with the Ingestion API.
+
+| Option         | Description                                                            |
+| -------------- | ---------------------------------------------------------------------- |
+| `ingestorHost` | Ingestor for your Data Region.                                         |
+| `batchSize`    | Events to queue before sending. Default `100`.                         |
+| `batchTimeout` | How long to wait before sending a partial batch. Default `10.seconds`. |
+
+  </Tab>
+  <Tab title="Swift">
+
+Requires the GrowthBook Swift SDK v1.1.15 or later.
+
+```swift
+import GrowthBook
+
+let gb: GrowthBookSDK = GrowthBookBuilder(
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "YOUR_CLIENT_KEY",
+    attributes: [:],
+    trackingCallback: { experiment, result in }
+)
+.addPlugin(GrowthBookTrackingPlugin(
+    // config: .init(ingestorHost: "https://eu-west-1.gb-ingest.com")
+))
+.initializer()
+```
+
+Custom events aren't supported yet. Send them with the Ingestion API.
+
+| Option         | Description                                                   |
+| -------------- | ------------------------------------------------------------- |
+| `ingestorHost` | Ingestor for your Data Region.                                |
+| `batchSize`    | Events to queue before sending. Default `100`.                |
+| `batchTimeout` | Seconds to wait before sending a partial batch. Default `10`. |
+
+  </Tab>
+  <Tab title="Flutter">
+
+Requires `growthbook_sdk_flutter` v4.4.0 or later.
+
+```dart
+import 'package:growthbook_sdk_flutter/growthbook_sdk_flutter.dart';
+
+final sdk = await GBSDKBuilderApp(
+  apiKey: 'YOUR_CLIENT_KEY',
+  hostURL: 'https://cdn.growthbook.io',
+  growthBookTrackingCallBack: (trackData) {},
+)
+    .addPlugin(GrowthBookTrackingPlugin(
+      // config: const GrowthBookTrackingPluginConfig(
+      //   ingestorHost: 'https://eu-west-1.gb-ingest.com',
+      // ),
+    ))
+    .initialize();
+```
+
+Call `await sdk.dispose()` when you're done with the SDK to send pending events.
+
+<Warning>
+Experiment view events are only sent for inline experiments run with `sdk.run()`. Experiments in feature flag rules aren't reported yet.
+</Warning>
+
+Custom events aren't supported yet. Send them with the Ingestion API.
+
+| Option         | Description                                                                       |
+| -------------- | --------------------------------------------------------------------------------- |
+| `ingestorHost` | Ingestor for your Data Region.                                                    |
+| `batchSize`    | Events to queue before sending. Default `100`.                                    |
+| `batchTimeout` | How long to wait before sending a partial batch. Default `Duration(seconds: 10)`. |
+
+  </Tab>
+</Tabs>

@@ -492,7 +492,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           contextualBandits: "≥ v0.5.0",
         },
         {
-          trackingPlugin: "≥ v0.2.8",
+          trackingPlugin: "≥ v0.5.0",
         },
         {
           caseInsensitiveMembership: "≥ v0.2.7",
@@ -775,6 +775,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          trackingPlugin: "≥ v7.8.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v7.1.1",
         },
         {
@@ -829,6 +832,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           contextualBandits: "≥ v1.2.3",
+        },
+        {
+          trackingPlugin: "≥ v1.1.15",
         },
         {
           namespacesV2: "≥ v1.1.4",
