@@ -53,6 +53,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getClusterExperimentMetricEligibility,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandDerivedMetricsInMap,
@@ -662,6 +663,11 @@ export function getSnapshotSettings({
     experiment.exposureQueryIdentifierType,
   );
 
+  const metricJoinIdentifierType =
+    experiment.isClusterExperiment && experiment.clusterSubUnitIdentifier
+      ? experiment.clusterSubUnitIdentifier
+      : exposureQueryIdentifierType;
+
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
 
@@ -712,7 +718,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: metricJoinIdentifierType,
       datasource,
     }),
   );
@@ -724,7 +730,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: metricJoinIdentifierType,
       datasource,
     }),
   );
@@ -736,7 +742,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: metricJoinIdentifierType,
       datasource,
     }),
   );
@@ -914,6 +920,8 @@ export function getSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     exposureQueryIdentifierType,
+    isClusterExperiment: experiment.isClusterExperiment,
+    clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -3468,6 +3476,12 @@ export async function toExperimentApiInterface(
         await getExposureQueriesForDatasource(context, experiment.datasource),
       ),
       assignmentQueryId: experiment.exposureQueryId || "",
+      ...(experiment.isClusterExperiment !== undefined
+        ? { isClusterExperiment: experiment.isClusterExperiment }
+        : {}),
+      ...(experiment.clusterSubUnitIdentifier
+        ? { clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier }
+        : {}),
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -4741,6 +4755,49 @@ export type PostExperimentApiPayload = z.infer<
   assignmentQueryIdentifierType?: string;
 };
 
+export function assertClusterExperimentMetricsSupported({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricMap,
+  metricGroups,
+  clusterSubUnitIdentifier,
+  factTableMap,
+  datasource,
+}: {
+  goalMetrics?: string[];
+  secondaryMetrics?: string[];
+  guardrailMetrics?: string[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  metricGroups: MetricGroupInterface[];
+  clusterSubUnitIdentifier?: string | null;
+  factTableMap?: FactTableMap;
+  datasource?: DataSourceInterface | null;
+}): void {
+  const metricIds = getAllMetricIdsFromExperiment(
+    { goalMetrics, secondaryMetrics, guardrailMetrics },
+    false,
+    metricGroups,
+  );
+  for (const id of metricIds) {
+    const metric = metricMap.get(id);
+    // Existence/datasource are validated separately; only check known metrics.
+    if (!metric) continue;
+    const eligibility = getClusterExperimentMetricEligibility(metric, {
+      clusterSubUnitIdentifier,
+      getFactTable: factTableMap
+        ? (factTableId) => factTableMap.get(factTableId)
+        : undefined,
+      datasourceSettings: datasource?.settings,
+    });
+    if (!eligibility.allowed) {
+      throw new Error(
+        `Metric "${metric.name || id}" cannot be used in a cluster experiment: ${eligibility.reason}`,
+      );
+    }
+  }
+}
+
 export function postExperimentApiPayloadToInterface(
   payload: PostExperimentApiPayload,
   organization: OrganizationInterface,
@@ -4797,7 +4854,6 @@ export function postExperimentApiPayloadToInterface(
       },
     },
   ];
-
   const obj: Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> = {
     organization: organization.id,
     datasource: datasource?.id ?? "",
@@ -4832,6 +4888,12 @@ export function postExperimentApiPayloadToInterface(
       "",
     /** Parsed by the caller, which has the data source's queries. */
     exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
+    ...(payload.isClusterExperiment !== undefined
+      ? { isClusterExperiment: payload.isClusterExperiment }
+      : {}),
+    ...(payload.clusterSubUnitIdentifier !== undefined
+      ? { clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier }
+      : {}),
     name: payload.name || "",
     type: payload.type || "standard",
     phases,
@@ -4925,7 +4987,9 @@ export function postExperimentApiPayloadToInterface(
 
 export type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
->;
+> & {
+  assignmentQueryIdentifierType?: string;
+};
 
 function toActivePhaseVariations(
   canonicalVariations: ExperimentInterface["variations"],
@@ -5143,6 +5207,9 @@ export function updateExperimentApiPayloadToInterface(
     owner,
     datasourceId,
     assignmentQueryId,
+    assignmentQueryIdentifierType,
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
     hashAttribute,
     hashVersion,
     disableStickyBucketing,
@@ -5197,6 +5264,13 @@ export function updateExperimentApiPayloadToInterface(
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
+    ...(assignmentQueryIdentifierType !== undefined
+      ? { exposureQueryIdentifierType: assignmentQueryIdentifierType }
+      : {}),
+    ...(isClusterExperiment !== undefined ? { isClusterExperiment } : {}),
+    ...(clusterSubUnitIdentifier !== undefined
+      ? { clusterSubUnitIdentifier }
+      : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(payload.attributeScopeAllProjects !== undefined

@@ -57,19 +57,26 @@ export function getExperimentUnitsQuery(
 
   const exposureQuery = unitsSettings.exposureQuery;
 
+  const clusterSubUnit =
+    unitsSettings.isClusterExperiment && unitsSettings.clusterSubUnitIdentifier
+      ? unitsSettings.clusterSubUnitIdentifier
+      : null;
+  const clusterIdColumn = clusterSubUnit ? exposureQuery.identifierType : null;
+  const effectiveBaseIdType = clusterSubUnit ?? exposureQuery.identifierType;
+
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
     {
       objects: [
-        [exposureQuery.identifierType],
+        [effectiveBaseIdType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
       ],
       from: unitsSettings.startDate,
       to: unitsSettings.endDate,
-      forcedBaseIdType: exposureQuery.identifierType,
+      forcedBaseIdType: effectiveBaseIdType,
       experimentId: unitsSettings.experimentId,
     },
   );
@@ -146,6 +153,7 @@ export function getExperimentUnitsQuery(
         e.${baseIdType} as ${baseIdType}
         , ${dialect.castToString("e.variation_id")} as variation
         , ${timestampDateTimeColumn} as timestamp
+        ${clusterIdColumn ? `, e.${clusterIdColumn} as ${clusterIdColumn}` : ""}
         ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
@@ -242,6 +250,11 @@ export function getExperimentUnitsQuery(
               )
         } AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
+        ${
+          clusterIdColumn
+            ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}`
+            : ""
+        }
         ${unitDimensions
           .map(
             (d) => `

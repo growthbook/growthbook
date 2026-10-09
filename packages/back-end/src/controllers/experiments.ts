@@ -12,6 +12,7 @@ import {
   reconcileMergeBaselines,
   includeExperimentInPayload,
   parseAssignmentQuerySelection,
+  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -57,6 +58,7 @@ import {
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
   assertCanRunExperimentChanges,
+  assertClusterExperimentMetricsSupported,
   assertExperimentKeyFormat,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
@@ -1286,6 +1288,8 @@ export async function postExperiments(
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
     exposureQueryIdentifierType: data.exposureQueryIdentifierType,
+    isClusterExperiment: data.isClusterExperiment,
+    clusterSubUnitIdentifier: data.clusterSubUnitIdentifier,
     userIdType: data.userIdType || "anonymous",
     name: data.name || "",
     phases: data.phases
@@ -1389,6 +1393,33 @@ export async function postExperiments(
       );
       if (!parsed.ok) throw new Error(parsed.error);
       obj.exposureQueryIdentifierType = parsed.identifierType;
+
+      if (obj.isClusterExperiment) {
+        const clusterValidation = validateClusterExperimentIdentifiers(
+          datasource.settings.queries?.exposure?.find(
+            (q) => q.id === obj.exposureQueryId,
+          ),
+          obj.exposureQueryIdentifierType,
+          obj.clusterSubUnitIdentifier,
+        );
+        if (!clusterValidation.ok) throw new Error(clusterValidation.error);
+      }
+    }
+
+    if (obj.isClusterExperiment) {
+      const clusterMetricGroups = await context.models.metricGroups.getAll();
+      const clusterMetricMap = await getMetricMap(context);
+      const clusterFactTableMap = await getFactTableMap(context);
+      assertClusterExperimentMetricsSupported({
+        goalMetrics: obj.goalMetrics,
+        secondaryMetrics: obj.secondaryMetrics,
+        guardrailMetrics: obj.guardrailMetrics,
+        metricMap: clusterMetricMap,
+        metricGroups: clusterMetricGroups,
+        clusterSubUnitIdentifier: obj.clusterSubUnitIdentifier,
+        factTableMap: clusterFactTableMap,
+        datasource,
+      });
     }
 
     if (data.precomputedUnitDimensionIds !== undefined) {
@@ -1898,6 +1929,8 @@ export async function postExperiment(
     "datasource",
     "exposureQueryId",
     "exposureQueryIdentifierType",
+    "isClusterExperiment",
+    "clusterSubUnitIdentifier",
     "userIdType",
     "hashAttribute",
     "fallbackAttribute",
@@ -2036,6 +2069,38 @@ export async function postExperiment(
   // implicit experiment stays implicit.
   if (resolvedSelection.changed || "exposureQueryIdentifierType" in changes) {
     changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
+  }
+
+  const effectiveIsClusterExperiment =
+    changes.isClusterExperiment ?? experiment.isClusterExperiment;
+  if (effectiveIsClusterExperiment) {
+    const clusterDatasourceId =
+      changes.datasource ?? experiment.datasource ?? "";
+    const clusterDatasource = clusterDatasourceId
+      ? await getDataSourceById(context, clusterDatasourceId)
+      : null;
+    const clusterValidation = validateClusterExperimentIdentifiers(
+      clusterDatasource?.settings.queries?.exposure?.find(
+        (q) => q.id === (changes.exposureQueryId ?? experiment.exposureQueryId),
+      ),
+      changes.exposureQueryIdentifierType ??
+        experiment.exposureQueryIdentifierType,
+      changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
+    );
+    if (!clusterValidation.ok) throw new Error(clusterValidation.error);
+
+    const clusterFactTableMap = await getFactTableMap(context);
+    assertClusterExperimentMetricsSupported({
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      secondaryMetrics: changes.secondaryMetrics ?? experiment.secondaryMetrics,
+      guardrailMetrics: changes.guardrailMetrics ?? experiment.guardrailMetrics,
+      metricMap,
+      metricGroups: allMetricGroups,
+      clusterSubUnitIdentifier:
+        changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
+      factTableMap: clusterFactTableMap,
+      datasource: clusterDatasource,
+    });
   }
 
   const shouldValidatePrecomputedUnitDimensionIds =

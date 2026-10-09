@@ -1025,6 +1025,8 @@ const AnalysisForm: FC<{
               goalDisabled={isBandit && experiment.status !== "draft"}
               experimentId={experiment.id}
               experimentType={experiment.type}
+              isClusterExperiment={experiment.isClusterExperiment}
+              clusterSubUnitIdentifier={experiment.clusterSubUnitIdentifier}
             />
 
             {!!datasource && !isBandit && !isHoldout && (

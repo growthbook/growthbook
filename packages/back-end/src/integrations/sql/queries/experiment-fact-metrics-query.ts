@@ -15,6 +15,7 @@ import { addHours } from "back-end/src/integrations/sql/primitives/add-hours";
 import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-case-when";
 import { getBanditDates } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getBanditStatisticsFactMetricCTE } from "back-end/src/integrations/sql/ctes/bandit-statistics-fact-metric-cte";
+import { getClusterRollupCTE } from "back-end/src/integrations/sql/ctes/cluster-rollup-cte";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
@@ -103,7 +104,16 @@ export function getExperimentFactMetricsQuery(
     : "";
   const queryName = `${dimensionLabel}${factTableLabel}`;
 
-  const userIdType = params.unitsSettings.exposureQuery.identifierType;
+  const clusterSubUnit =
+    params.unitsSettings.isClusterExperiment &&
+    params.unitsSettings.clusterSubUnitIdentifier
+      ? params.unitsSettings.clusterSubUnitIdentifier
+      : null;
+  const clusterIdColumn = clusterSubUnit
+    ? params.unitsSettings.exposureQuery.identifierType
+    : null;
+  const userIdType =
+    clusterSubUnit ?? params.unitsSettings.exposureQuery.identifierType;
   if (!userIdType) {
     throw new Error("Unable to determine user id type from exposureQuery");
   }
@@ -135,6 +145,8 @@ export function getExperimentFactMetricsQuery(
       flattenUnitMetrics,
     ),
   );
+
+  const isClusterExperiment = clusterIdColumn !== null;
 
   // TODO(sql): Separate metric start by fact table
   const raMetricSettings = metricData
@@ -248,14 +260,17 @@ export function getExperimentFactMetricsQuery(
   const userMetricAggTablePrefix = "__userMetricAgg";
   const unitMetricsBaseTable = "__unitMetricsBase";
   const unitMetricsTable = "__unitMetrics";
+  const clusterRollupTable = "__clusterRollup";
   const funnelResolutionSource = flattenUnitMetrics
     ? unitMetricsBaseTable
     : userMetricAggTablePrefix;
   // Resolution's terminal CTE carries every metric column, so statistics read
   // it whole; without funnels there is no chain.
-  const statisticsSourceTable = funnelMetrics.length
-    ? unitMetricsTable
-    : userMetricAggTablePrefix;
+  const statisticsSourceTable = isClusterExperiment
+    ? clusterRollupTable
+    : funnelMetrics.length
+      ? unitMetricsTable
+      : userMetricAggTablePrefix;
 
   const regressionAdjustedMetrics = metricData.filter(
     (m) => m.regressionAdjusted,
@@ -319,7 +334,11 @@ export function getExperimentFactMetricsQuery(
         });
       }
 
-      if (data.ratioMetric && data.denominatorSourceIndex === sourceIndex) {
+      if (
+        data.ratioMetric &&
+        !data.isClusterRatioConversion &&
+        data.denominatorSourceIndex === sourceIndex
+      ) {
         columns.push({
           name: `${data.alias}_denominator`,
           expr: data.aggregatedValueTransformation({
@@ -362,6 +381,7 @@ export function getExperimentFactMetricsQuery(
         }
         if (
           metric.ratioMetric &&
+          !metric.isClusterRatioConversion &&
           metric.denominatorSourceIndex === sourceIndex
         ) {
           columns.push({
@@ -455,6 +475,7 @@ export function getExperimentFactMetricsQuery(
     __distinctUsers AS (
       SELECT
         ${baseIdType}
+        ${clusterIdColumn ? `, ${clusterIdColumn}` : ""}
         ${dimensionCols.map((c) => `, ${c.value} AS ${c.alias}`).join("")}
         , variation
         , ${timestampColumn} AS timestamp
@@ -541,6 +562,11 @@ export function getExperimentFactMetricsQuery(
             ${banditDates?.length ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
             ${
+              clusterIdColumn && f.index === 0
+                ? `, umj.${clusterIdColumn} AS ${clusterIdColumn}`
+                : ""
+            }
+            ${
               // Funnel resolution anchors exposure-relative windows on this;
               // source 0 drives the per-unit table.
               hasFunnelMetrics && f.index === 0
@@ -569,6 +595,9 @@ export function getExperimentFactMetricsQuery(
             ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
             ${banditDates?.length ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
+            ${
+              clusterIdColumn && f.index === 0 ? `, umj.${clusterIdColumn}` : ""
+            }
         `;
 
         // __eventQuantileMetric: per (variation, dimension) quantile grid for
@@ -681,6 +710,11 @@ export function getExperimentFactMetricsQuery(
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
           , d.${baseIdType} AS ${baseIdType}
+          ${
+            clusterIdColumn && f.index === 0
+              ? `, d.${clusterIdColumn} AS ${clusterIdColumn}`
+              : ""
+          }
           ${metricData
             .map(
               (data) =>
@@ -702,7 +736,9 @@ export function getExperimentFactMetricsQuery(
                     : ""
                 }
                 ${
-                  data.ratioMetric && data.denominatorSourceIndex === f.index
+                  data.ratioMetric &&
+                  !data.isClusterRatioConversion &&
+                  data.denominatorSourceIndex === f.index
                     ? `, ${addCaseWhenTimeFilter(dialect, {
                         col: `m.${data.alias}_denominator`,
                         metric: data.metric,
@@ -784,6 +820,7 @@ export function getExperimentFactMetricsQuery(
                           : ""
                       }${
                         metric.ratioMetric &&
+                        !metric.isClusterRatioConversion &&
                         metric.denominatorSourceIndex === f.index
                           ? `, ${dialect.ifElse(
                               `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
@@ -842,6 +879,24 @@ export function getExperimentFactMetricsQuery(
         : ""
     }
     ${
+      // Cluster experiment: roll the per-sub-unit aggregate up to one row per
+      // cluster, applying per-sub-unit capping and summing to the cluster.
+      isClusterExperiment && clusterIdColumn
+        ? `, ${clusterRollupTable} AS (
+          ${getClusterRollupCTE({
+            dimensionCols,
+            metricData,
+            baseIdType,
+            clusterIdColumn,
+            perUserAggTableName: userMetricAggTablePrefix,
+            capValueTableName: "__capValue",
+            factTablesWithIndices,
+            percentileTableIndices,
+          })}
+        )`
+        : ""
+    }
+    ${
       banditDates?.length
         ? getBanditStatisticsFactMetricCTE(dialect, {
             baseIdType,
@@ -860,12 +915,15 @@ export function getExperimentFactMetricsQuery(
       baseIdType,
       joinedMetricTableName: userMetricAggTablePrefix,
       statisticsSourceTableName: statisticsSourceTable,
-      flattenedSources: flattenUnitMetrics,
+      // The rollup already merged every source into one per-cluster row, so the
+      // statistics CTE must not re-join sources.
+      flattenedSources: flattenUnitMetrics || isClusterExperiment,
       funnelsResolvedOnSource: funnelMetrics.length > 0,
       eventQuantileTableName: "__eventQuantileMetric",
       capValueTableName: "__capValue",
       factTablesWithIndices,
       percentileTableIndices,
+      isClusterExperiment,
     })}
     `
     }`,

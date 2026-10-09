@@ -8,6 +8,7 @@ import {
   isFactMetric,
   isFactFunnelMetric,
   getUserIdTypes,
+  getClusterExperimentMetricEligibility,
 } from "shared/experiments";
 import {
   FactMetricType,
@@ -46,6 +47,8 @@ export interface Props {
   experimentId?: string;
   requireDatasource?: boolean;
   experimentType: ExperimentType | undefined;
+  isClusterExperiment?: boolean;
+  clusterSubUnitIdentifier?: string;
 }
 
 export default function ExperimentMetricsSelector({
@@ -74,6 +77,8 @@ export default function ExperimentMetricsSelector({
   experimentId,
   requireDatasource = false,
   experimentType,
+  isClusterExperiment = false,
+  clusterSubUnitIdentifier,
 }: Props) {
   const {
     getExperimentMetricById,
@@ -109,6 +114,31 @@ export default function ExperimentMetricsSelector({
             disabled: true,
             reason: "Funnel metrics are not supported in Bandit experiments",
           };
+        }
+      }
+
+      if (isClusterExperiment) {
+        const ids = isGroup
+          ? expandMetricGroups(
+              metricGroups.find((mg) => mg.id === metricId)?.metrics ?? [],
+              metricGroups,
+            )
+          : [metricId];
+        for (const id of ids) {
+          const metric = getExperimentMetricById(id);
+          if (!metric) continue;
+          const eligibility = getClusterExperimentMetricEligibility(metric, {
+            clusterSubUnitIdentifier,
+            getFactTable: (factTableId) =>
+              factTables.find((ft) => ft.id === factTableId),
+            datasourceSettings: datasourceObj?.settings,
+          });
+          if (!eligibility.allowed) {
+            return {
+              disabled: true,
+              reason: `Not supported in cluster experiments: ${eligibility.reason}`,
+            };
+          }
         }
       }
 
@@ -187,6 +217,9 @@ export default function ExperimentMetricsSelector({
       datasource,
       experimentId,
       experimentType,
+      isClusterExperiment,
+      clusterSubUnitIdentifier,
+      factTables,
       getExperimentMetricById,
       getDatasourceById,
       metricGroups,
@@ -277,6 +310,8 @@ export default function ExperimentMetricsSelector({
             datasource={datasource}
             exposureQueryId={exposureQueryId}
             exposureQueryIdentifierType={exposureQueryIdentifierType}
+            isClusterExperiment={isClusterExperiment}
+            clusterSubUnitIdentifier={clusterSubUnitIdentifier}
             project={project}
             autoFocus={autoFocus}
             includeFacts={true}
@@ -330,6 +365,8 @@ export default function ExperimentMetricsSelector({
                 datasource={datasource}
                 exposureQueryId={exposureQueryId}
                 exposureQueryIdentifierType={exposureQueryIdentifierType}
+                isClusterExperiment={isClusterExperiment}
+                clusterSubUnitIdentifier={clusterSubUnitIdentifier}
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}
@@ -372,6 +409,8 @@ export default function ExperimentMetricsSelector({
                 datasource={datasource}
                 exposureQueryId={exposureQueryId}
                 exposureQueryIdentifierType={exposureQueryIdentifierType}
+                isClusterExperiment={isClusterExperiment}
+                clusterSubUnitIdentifier={clusterSubUnitIdentifier}
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}

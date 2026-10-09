@@ -367,3 +367,55 @@ export function resolveExposureQueryForAnalysis(
     identifierType: resolveAnalysisIdentifierType(query, storedIdentifierType),
   };
 }
+
+export type ClusterIdentifierValidation =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export function validateClusterExperimentIdentifiers(
+  query: SelectableExposureQuery | undefined,
+  clusterIdentifierType: string | undefined,
+  subUnitIdentifierType: string | undefined,
+): ClusterIdentifierValidation {
+  if (!query) {
+    return {
+      ok: false,
+      error:
+        "Cluster experiments require an assignment query that declares both the cluster and sub-unit identifier types.",
+    };
+  }
+  if (!clusterIdentifierType) {
+    return {
+      ok: false,
+      error: "Cluster experiments require a cluster identifier type.",
+    };
+  }
+  if (!subUnitIdentifierType) {
+    return {
+      ok: false,
+      error: "Cluster experiments require a sub-unit identifier type.",
+    };
+  }
+  if (clusterIdentifierType === subUnitIdentifierType) {
+    return {
+      ok: false,
+      error:
+        "The cluster identifier type and the sub-unit identifier type must be different.",
+    };
+  }
+  const name = query.name || query.id;
+  const declared = getExposureQueryIdentifierTypes(query);
+  if (!declared.includes(clusterIdentifierType)) {
+    return {
+      ok: false,
+      error: `Assignment query "${name}" doesn't declare the cluster identifier type "${clusterIdentifierType}".`,
+    };
+  }
+  if (!declared.includes(subUnitIdentifierType)) {
+    return {
+      ok: false,
+      error: `Assignment query "${name}" doesn't declare the sub-unit identifier type "${subUnitIdentifierType}".`,
+    };
+  }
+  return { ok: true };
+}

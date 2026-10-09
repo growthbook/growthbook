@@ -3,6 +3,7 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
+  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
@@ -16,6 +17,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   assertCanRunExperimentChanges,
+  assertClusterExperimentMetricsSupported,
   assertExperimentKeyFormat,
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
@@ -48,6 +50,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -146,6 +149,24 @@ export const updateExperiment = createApiRequestHandler(
   }
   const identifierTypeChanged =
     exposureQueryIdentifierType !== experiment.exposureQueryIdentifierType;
+
+  const effectiveIsClusterExperiment =
+    payload.isClusterExperiment ?? experiment.isClusterExperiment;
+  if (effectiveIsClusterExperiment) {
+    if (!datasource) {
+      throw new Error("Datasource not found.");
+    }
+    const effectiveExposureQueryId =
+      payload.assignmentQueryId ?? experiment.exposureQueryId;
+    const clusterValidation = validateClusterExperimentIdentifiers(
+      datasource.settings.queries?.exposure?.find(
+        (q) => q.id === effectiveExposureQueryId,
+      ),
+      exposureQueryIdentifierType,
+      payload.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
+    );
+    if (!clusterValidation.ok) throw new Error(clusterValidation.error);
+  }
 
   if (
     req.body.trackingKey !== undefined &&
@@ -265,6 +286,21 @@ export const updateExperiment = createApiRequestHandler(
         }
       }
     }
+  }
+
+  if (effectiveIsClusterExperiment) {
+    const clusterFactTableMap = await getFactTableMap(req.context);
+    assertClusterExperimentMetricsSupported({
+      goalMetrics: payload.metrics ?? experiment.goalMetrics,
+      secondaryMetrics: payload.secondaryMetrics ?? experiment.secondaryMetrics,
+      guardrailMetrics: payload.guardrailMetrics ?? experiment.guardrailMetrics,
+      metricMap: map,
+      metricGroups,
+      clusterSubUnitIdentifier:
+        payload.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
+      factTableMap: clusterFactTableMap,
+      datasource,
+    });
   }
 
   if (payload.variations) {
