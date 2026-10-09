@@ -1,12 +1,11 @@
 import { z } from "zod";
 import {
   createVisualChangeset,
-  findVisualChangesetById,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { requireUserAuth } from "./requireUserAuth";
 
 // Creates an additional visual changeset on an existing experiment so a
@@ -52,35 +51,18 @@ export const postCreateChangeset = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const sourceChangeset = await findVisualChangesetById(
-    visualChangesetId,
-    req.organization.id,
-  );
-  if (!sourceChangeset) {
-    return context.throwNotFoundError("Visual changeset not found");
-  }
+  const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
 
-  const experiment = await getExperimentById(
-    context,
-    sourceChangeset.experiment,
-  );
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-
-  // Gate on both the experiment update (we flip hasVisualChangesets) and
+  // Gate on both the owner update (we flip hasVisualChangesets) and
   // the visual-change create.
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
-    context.permissions.throwPermissionError();
-  }
-  if (
-    !context.permissions.canCreateVisualChange({ project: experiment.project })
-  ) {
+  if (!owner.canCreateChangeset()) {
     context.permissions.throwPermissionError();
   }
 
   // Omit `visualChanges` so createVisualChangeset auto-generates one empty
   // entry per current variation.
   const changeset = await createVisualChangeset({
-    experiment,
+    owner,
     context,
     urlPatterns,
     editorUrl: pageUrl,
@@ -88,13 +70,14 @@ export const postCreateChangeset = createApiRequestHandler(validation)(async (
 
   logger.info(
     {
-      experimentId: experiment.id,
+      ownerKind: owner.kind,
+      ownerId: owner.id,
       sourceChangesetId: visualChangesetId,
       newChangesetId: changeset.id,
       orgId: context.org.id,
       userId: context.userId,
     },
-    "[visual-editor-ai] changeset created on existing experiment",
+    "[visual-editor-ai] changeset created on existing owner",
   );
 
   return {

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { getSignedUploadUrl } from "back-end/src/services/files";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { requireUserAuth } from "./requireUserAuth";
@@ -63,12 +62,8 @@ export const postUploadSignedUrl = createApiRequestHandler(validation)(async (
     throw new Error("File uploads are disabled for this organization");
   }
 
-  const changeset = await findVisualChangesetById(visualChangesetId, org.id);
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-  if (!context.permissions.canUpdateVisualChange(experiment)) {
+  const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
 
