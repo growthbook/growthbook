@@ -6,6 +6,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import { docUrl } from "@/components/DocLink";
 
 export default function FeatureTest({
   baseFeature,
@@ -37,7 +38,7 @@ export default function FeatureTest({
           description={
             "Feature allows you to see how your rules will apply to users based on their attributes. Upgrade to unlock this feature."
           }
-          learnMoreLink="https://docs.growthbook.io/features/rules#testing-rules"
+          learnMoreLink={docUrl("testingRules")}
         />
       </Box>
     );

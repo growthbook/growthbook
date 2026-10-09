@@ -31,6 +31,9 @@ const docSectionDisplayTitles: Partial<Record<DocSection, string>> = {
   lambda: "AWS Lambda SDK",
   edge: "Edge SDK (Other)",
   roku: "Roku SDK",
+  faq: "FAQ",
+  cloudCdnUsageLimits: "Cloud CDN Usage Limits",
+  aiIntegrations: "AI Integrations",
 };
 
 const uppercaseAcronymTokens = new Set(["api", "gtm", "sdk", "url"]);

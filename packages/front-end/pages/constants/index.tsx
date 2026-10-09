@@ -32,6 +32,7 @@ import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import ConstantModal from "@/components/Constants/ConstantModal";
 import ConstantReviews from "@/components/Constants/ConstantReviews";
 import ConstantSearchFilters from "@/components/Search/ConstantSearchFilters";
+import { docUrl } from "@/components/DocLink";
 
 const TYPE_LABEL: Record<ConstantWithoutValue["type"], string> = {
   string: "String",
@@ -217,7 +218,7 @@ export default function ConstantsPage(): React.ReactElement {
             description="Define a value once and reference it from Feature Flags with {{ @const:key }}. Change it in one place and every consumer updates."
             leftButton={
               <LinkButton
-                href="https://docs.growthbook.io/features/constants"
+                href={docUrl("constants")}
                 variant="outline"
                 external={true}
               >

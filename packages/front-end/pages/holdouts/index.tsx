@@ -30,6 +30,7 @@ import Table, {
 } from "@/ui/Table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
+import { docUrl } from "@/components/DocLink";
 
 const HOLDOUT_TABS = [
   "all",
@@ -192,7 +193,7 @@ const HoldoutsPage = (): React.ReactElement => {
           title="Measure aggregate impact with Holdouts"
           description="Holdouts allow you to measure the aggregate impact of features and experiments."
           commercialFeature="holdouts"
-          learnMoreLink="https://docs.growthbook.io/app/holdouts"
+          learnMoreLink={docUrl("holdouts")}
         />
       </Box>
     );
@@ -221,7 +222,7 @@ const HoldoutsPage = (): React.ReactElement => {
             description="Measure the aggregate impact of features and experiments with Holdouts."
             leftButton={
               <LinkButton
-                href="https://docs.growthbook.io/app/holdouts"
+                href={docUrl("holdouts")}
                 variant="outline"
                 external={true}
               >

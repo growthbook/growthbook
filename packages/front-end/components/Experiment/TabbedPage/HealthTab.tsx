@@ -20,6 +20,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/ui/Callout";
 import { PowerCard } from "@/components/HealthTab/PowerCard";
+import { DocLink } from "@/components/DocLink";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -200,10 +201,7 @@ export default function HealthTab({
 
         <div>
           For more advice, see the documentation on the Health Tab{" "}
-          <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
-            here
-          </a>
-          .
+          <DocLink docSection="healthTabDimensions">here</DocLink>.
         </div>
       </Callout>
     );

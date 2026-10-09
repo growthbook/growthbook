@@ -16,8 +16,14 @@ import type {
   JSONColumnFields,
 } from "shared/types/fact-table";
 
-/** Docs: Managed Warehouse — sending events */
+/**
+ * Docs: Managed Warehouse — sending events. Older API errors embedded this URL
+ * in their message text, so it is kept here only to recognise those messages
+ * (see isManagedWarehouseNoEventsGuidanceMessage). To link to the page, use
+ * `docUrl("managedWarehouseTracking")` / `<DocLink>` in the front-end.
+ */
 export const MANAGED_WAREHOUSE_SENDING_EVENTS_DOC_URL =
+  // eslint-disable-next-line local/no-raw-docs-link -- matches legacy persisted error text, not rendered as a link
   "https://docs.growthbook.io/app/managed-warehouse#sending-events";
 
 export const MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE =

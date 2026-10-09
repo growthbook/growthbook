@@ -21,7 +21,7 @@ import {
   SiPresto,
   SiSnowflake,
 } from "react-icons/si";
-import { DocSection } from "@/components/DocLink";
+import { DocSection, docUrl } from "@/components/DocLink";
 
 export type eventSchema = {
   value: SchemaFormat;
@@ -85,7 +85,7 @@ export const eventSchemas: eventSchema[] = [
     ],
     logo: "/images/3rd-party-logos/rudderstack.png",
     popular: true,
-    helpLink: "https://docs.growthbook.io/guide/rudderstack",
+    helpLink: docUrl("rudderstack"),
     options: [
       {
         name: "exposureTableName",
@@ -207,7 +207,7 @@ export const eventSchemas: eventSchema[] = [
     types: ["mysql"],
     logo: "/images/3rd-party-logos/matomo.png",
     popular: false,
-    helpLink: "https://docs.growthbook.io/guide/matomo",
+    helpLink: docUrl("matomo"),
     options: [
       {
         name: "tablePrefix",
@@ -332,7 +332,7 @@ export const eventSchemas: eventSchema[] = [
     logo: "/images/3rd-party-logos/langfuse.png",
     popular: false,
     beta: true,
-    helpLink: "https://docs.growthbook.io/event-trackers/langfuse",
+    helpLink: docUrl("langfuse"),
     options: [
       {
         name: "projectId",
@@ -351,7 +351,7 @@ export const eventSchemas: eventSchema[] = [
     logo: "/images/3rd-party-logos/phoenix.png",
     popular: false,
     beta: true,
-    helpLink: "https://docs.growthbook.io/event-trackers/phoenix",
+    helpLink: docUrl("phoenix"),
     options: [
       {
         name: "projectName",

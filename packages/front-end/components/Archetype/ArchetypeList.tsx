@@ -15,6 +15,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
+import { docUrl } from "@/components/DocLink";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -48,7 +49,7 @@ export const ArchetypeList: FC<{
           title="Create Reusable Archetypes"
           description="Archetypes are named sets of attributes that help you test your features."
           commercialFeature="archetypes"
-          learnMoreLink="https://docs.growthbook.io/features/rules#archetype"
+          learnMoreLink={docUrl("archetypes")}
         />
       </div>
     );

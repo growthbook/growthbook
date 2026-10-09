@@ -9,6 +9,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
+import UiLink from "@/ui/Link";
+import { docUrl } from "@/components/DocLink";
 import styles from "./AccountPlanNotices.module.scss";
 
 export default function AccountPlanNotices() {
@@ -27,17 +29,16 @@ export default function AccountPlanNotices() {
   ) : (
     <Box className={styles["notice-tooltip"]}>
       Click to upgrade, or visit{" "}
-      <a
-        href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
-        className="text-decoration-none"
-        target="_blank"
-        rel="noopener noreferrer"
+      <UiLink
+        href={docUrl("cloudCdnUsageLimits")}
+        external
+        underline="none"
         onClick={() => {
           track("Clicked Read About CDN Limits Link in Tooltip");
         }}
       >
         Growthbook Docs &gt; FAQ
-      </a>
+      </UiLink>
     </Box>
   );
 
@@ -96,17 +97,16 @@ export default function AccountPlanNotices() {
   ) : (
     <Box className={styles["notice-tooltip"]}>
       Click to upgrade, or visit{" "}
-      <a
-        href="https://docs.growthbook.io/app/managed-warehouse#limits"
-        className="text-decoration-none"
-        target="_blank"
-        rel="noopener noreferrer"
+      <UiLink
+        href={docUrl("managedWarehouseLimits")}
+        external
+        underline="none"
         onClick={() => {
           track("Clicked Read About Managed Warehouse Limits Link in Tooltip");
         }}
       >
         Growthbook Docs &gt; FAQ
-      </a>
+      </UiLink>
     </Box>
   );
 
