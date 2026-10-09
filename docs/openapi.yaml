@@ -22362,8 +22362,8 @@ paths:
         file are checked for one ID per line; loaders trim and deduplicate the
         IDs. The SDK payload doesn't change; loaders pick up the new version
         from `latestUpload` on the saved group, and download it from `GET
-        /saved-groups/{id}/uploads/{version}/file`, which redirects to a signed
-        storage URL and supports `If-None-Match`.
+        /saved-groups/{id}/uploads/{version}/file`, which redirects to a
+        short-lived signed storage URL.
       tags:
         - saved-groups
       parameters:
@@ -22401,7 +22401,7 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"fileKey":"org_abc/remote-saved-groups/grp_123/uploads/1234.csv"}'
+              -d '{"fileKey":"org_abc/remote-saved-groups/grp_123/staging/1234.csv"}'
   /v1/saved-groups/{id}/upload-url:
     post:
       operationId: postSavedGroupUploadUrl

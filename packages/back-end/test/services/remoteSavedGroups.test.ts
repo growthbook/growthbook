@@ -186,6 +186,7 @@ describe("createRemoteSavedGroupUpload", () => {
       /^org_1\/remote-saved-groups\/grp_1\/uploads\/.+\.csv$/,
     );
     expect(files.get(uploads[0].fileKey)?.toString()).toBe("u1\nu2\n");
+    expect(files.has(stagingKey("a"))).toBe(false);
     expect(queueValidateRemoteSavedGroupUpload).toHaveBeenCalledWith(
       "org_1",
       uploads[0].id,
@@ -263,8 +264,7 @@ describe("createRemoteSavedGroupUpload", () => {
     );
 
     expect(upload.version).toBe(1);
-    expect(files.has(uploads[0].fileKey)).toBe(true);
-    expect(deleteFile).not.toHaveBeenCalled();
+    expect([...files.keys()]).toEqual([uploads[0].fileKey]);
     expect(queueValidateRemoteSavedGroupUpload).toHaveBeenCalledTimes(1);
     expect(audits.size).toBe(1);
   });
@@ -382,10 +382,29 @@ describe("createRemoteSavedGroupUpload", () => {
     expect(uploads).toHaveLength(1);
     expect(results[0].version).toBe(1);
     expect(results[1].version).toBe(1);
-    expect(files.has(uploads[0].fileKey)).toBe(true);
-    expect(files.has(stagingKey("a"))).toBe(true);
-    expect(deleteFile).toHaveBeenCalledTimes(1);
+    expect([...files.keys()]).toEqual([uploads[0].fileKey]);
     expect(deleteFile).not.toHaveBeenCalledWith(uploads[0].fileKey);
+  });
+
+  it("returns the recorded upload when another request deleted the staged file first", async () => {
+    const { context, uploads } = makeContext();
+    files.set(stagingKey("a"), Buffer.from("u1\n"));
+    await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
+    // This request looked before the other one recorded the upload
+    const getBySourceKey = context.models.savedGroupUploads.getBySourceKey;
+    context.models.savedGroupUploads.getBySourceKey = jest
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockImplementation(getBySourceKey);
+
+    const upload = await createRemoteSavedGroupUpload(
+      context,
+      "grp_1",
+      stagingKey("a"),
+    );
+
+    expect(upload.version).toBe(1);
+    expect(uploads).toHaveLength(1);
   });
 
   it("takes the next version when another upload claims one first", async () => {
@@ -410,7 +429,7 @@ describe("createRemoteSavedGroupUpload", () => {
     ).rejects.toThrow("more than one column");
 
     expect(uploads).toHaveLength(0);
-    expect([...files.keys()]).toEqual([stagingKey("a")]);
+    expect(files.size).toBe(0);
   });
 
   it("leaves a file with blank ends to the full check", async () => {
@@ -482,13 +501,13 @@ describe("validateRemoteSavedGroupUpload", () => {
 });
 
 describe("deleteRemoteSavedGroupUploads", () => {
-  it("deletes every upload and both of its files, in batches", async () => {
+  it("deletes every upload and its file, in batches", async () => {
     const { context, uploads } = makeContext();
     for (let i = 0; i < 250; i++) {
       files.set(stagingKey(`f${i}`), Buffer.from("u1\n"));
       await createRemoteSavedGroupUpload(context, "grp_1", stagingKey(`f${i}`));
     }
-    expect(files.size).toBe(500);
+    expect(files.size).toBe(250);
 
     await deleteRemoteSavedGroupUploads(context, "grp_1");
 

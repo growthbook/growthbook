@@ -67,7 +67,6 @@ export type RemoteSavedGroupsContext = Pick<
 };
 type Context = RemoteSavedGroupsContext;
 
-/** Where a group's uploaded files are stored. */
 function storagePrefix(context: Context, savedGroupId: string) {
   return `${context.org.id}/remote-saved-groups/${savedGroupId}`;
 }
@@ -103,7 +102,6 @@ function assertCanPublish(context: Context, group: SavedGroupInterface) {
   }
 }
 
-/** A remote group the caller can upload to. */
 async function getRemoteSavedGroupForUpload(context: Context, id: string) {
   const group = await getRemoteSavedGroup(context, id);
   assertCanPublish(context, group);
@@ -233,7 +231,8 @@ async function checkUploadedCsv(
  * it. The group document and SDK payloads don't change.
  *
  * The client can overwrite `fileKey` until its signed URL expires, so it's
- * copied first, and everything after uses the copy. Submitting the same file
+ * copied first, and everything after uses the copy. The staged file is
+ * deleted once the upload is recorded or rejected. Submitting the same file
  * again, at the same time or later, returns its existing upload, and queues
  * its check again if it's still pending.
  */
@@ -257,6 +256,10 @@ export async function createRemoteSavedGroupUpload(
   try {
     await copyFile(sourceKey, fileKey);
   } catch {
+    // Another request may have recorded this file and deleted it since.
+    const recorded =
+      await context.models.savedGroupUploads.getBySourceKey(sourceKey);
+    if (recorded) return finishUpload(context, recorded);
     throw new BadRequestError("Could not find the uploaded file");
   }
   const deleteCopy = () =>
@@ -268,8 +271,10 @@ export async function createRemoteSavedGroupUpload(
   try {
     size = await checkUploadedCsv(context, group, fileKey);
   } catch (e) {
-    // Nothing was recorded yet, so the copy is only this request's.
+    // Nothing was recorded yet, so the copy is only this request's, and the
+    // staged file won't be used.
     deleteCopy();
+    await deleteStagedFile(sourceKey);
     throw e;
   }
 
@@ -295,6 +300,13 @@ export async function createRemoteSavedGroupUpload(
   return finishUpload(context, upload);
 }
 
+/** Best-effort: a file left behind is removed by the cleanup job. */
+async function deleteStagedFile(sourceKey: string): Promise<void> {
+  await deleteFile(sourceKey).catch((err) =>
+    logger.warn({ err }, "Could not delete a staged Saved Group upload"),
+  );
+}
+
 /**
  * Audits a recorded upload, then queues its check while it's pending.
  * Submitting the file again runs this again: that recovers a failed queue or
@@ -304,6 +316,9 @@ async function finishUpload(
   context: Context,
   upload: SavedGroupUploadInterface,
 ): Promise<ApiSavedGroupUpload> {
+  // The upload has its own copy now. Resubmissions find it by `sourceKey`.
+  await deleteStagedFile(upload.sourceKey);
+
   // A fixed id per upload: a retry after a lost acknowledgment, or a second
   // submission, fails as a duplicate instead of writing the event twice.
   try {

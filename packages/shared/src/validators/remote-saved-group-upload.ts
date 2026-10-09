@@ -218,14 +218,14 @@ export const postSavedGroupUploadValidator = {
     .strict(),
   summary: "Upload a new version of a remote saved group's IDs",
   description:
-    "Replaces the group's IDs with the next version. The start and end of the file are checked for one ID per line; loaders trim and deduplicate the IDs. The SDK payload doesn't change; loaders pick up the new version from `latestUpload` on the saved group, and download it from `GET /saved-groups/{id}/uploads/{version}/file`, which redirects to a signed storage URL and supports `If-None-Match`.",
+    "Replaces the group's IDs with the next version. The start and end of the file are checked for one ID per line; loaders trim and deduplicate the IDs. The SDK payload doesn't change; loaders pick up the new version from `latestUpload` on the saved group, and download it from `GET /saved-groups/{id}/uploads/{version}/file`, which redirects to a short-lived signed storage URL.",
   operationId: "postSavedGroupUpload",
   tags: ["saved-groups"],
   method: "post" as const,
   path: "/saved-groups/:id/uploads",
   exampleRequest: {
     params: { id: "abc123" },
-    body: { fileKey: "org_abc/remote-saved-groups/grp_123/uploads/1234.csv" },
+    body: { fileKey: "org_abc/remote-saved-groups/grp_123/staging/1234.csv" },
   },
 };
 

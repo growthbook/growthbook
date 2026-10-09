@@ -232,7 +232,6 @@ function hasRemoteGroupOperator(
   return found;
 }
 
-/** A copy of a group with remote groups in its condition rewritten. */
 function rewriteRemoteGroupsInGroup<T extends SavedGroupForPayload>(
   group: T,
   groupMap: GroupMap,

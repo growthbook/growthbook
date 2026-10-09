@@ -352,7 +352,6 @@ export async function assertSavedGroupDeletable(
   );
 }
 
-/** Whether the organization can use remote saved groups. */
 export function isRemoteSavedGroupsEnabled(
   org: ReqContext["org"] | ApiReqContext["org"],
 ): boolean {
