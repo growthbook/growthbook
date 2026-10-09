@@ -41,15 +41,16 @@ The Snowflake connection **must use key-pair authentication** — password authe
 
 Snowpipe Streaming runs under the user's **default role**, so the role you enter in the Event Forwarder must be that user's default role (`ALTER USER <user> SET DEFAULT_ROLE = <role>`). Setup creates the tables and checks them as that same role, so it needs the following privileges:
 
-| Privilege      | Object                                |
-| -------------- | ------------------------------------- |
-| `USAGE`        | Database                              |
-| `USAGE`        | Schema                                |
-| `CREATE TABLE` | Schema                                |
-| `INSERT`       | Tables                                |
-| `SELECT`       | Tables that already exist (see below) |
+| Privilege      | Object                                                            |
+| -------------- | ----------------------------------------------------------------- |
+| `USAGE`        | Database                                                          |
+| `USAGE`        | Schema                                                            |
+| `USAGE`        | Warehouse (the one on the forwarder or, if empty, the connection) |
+| `CREATE TABLE` | Schema                                                            |
+| `INSERT`       | Tables                                                            |
+| `SELECT`       | Tables that already exist (see below)                             |
 
-`CREATE TABLE` is only used during setup. Tables GrowthBook creates are owned by the role, which covers `INSERT` and `SELECT`. The tables have a fixed schema, and existing tables with the same names must have every column of it and grant the role `SELECT`; drop them or choose another table prefix if setup reports a mismatch.
+Streaming itself runs on Snowflake's serverless Snowpipe infrastructure and uses no warehouse; the warehouse is only the session warehouse for the setup queries. `CREATE TABLE` is only used during setup. Tables GrowthBook creates are owned by the role, which covers `INSERT` and `SELECT`. The tables have a fixed schema, and existing tables with the same names must have every column of it and grant the role `SELECT`; drop them or choose another table prefix if setup reports a mismatch.
 
 Key-pair authentication must be configured on the Snowflake datasource connection itself — it is not set in the Event Forwarder UI. Update your datasource's connection settings to use key-pair auth before enabling the Event Forwarder.
 

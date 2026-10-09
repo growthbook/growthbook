@@ -51,6 +51,7 @@ export function buildSnowflakeEventForwarderCreateTableSql(
 // creates tables, so the app does before provisioning.
 // Runs as the forwarder's role (the user's default role, which streaming uses),
 // so the created tables are owned by the role that has to INSERT into them.
+// The forwarder's warehouse, if set, is the session warehouse for the check query.
 export async function ensureEventForwarderSnowflakeTables(
   datasourceParams: SnowflakeConnectionParams,
   destination: {
@@ -58,11 +59,13 @@ export async function ensureEventForwarderSnowflakeTables(
     schema: string;
     tablePrefix: string;
     role?: string;
+    warehouse?: string;
   },
 ): Promise<void> {
   const params = {
     ...datasourceParams,
     role: destination.role?.trim() || datasourceParams.role,
+    warehouse: destination.warehouse?.trim() || datasourceParams.warehouse,
   };
   const tableNames = resolveSnowflakeEventForwarderTableNames(
     destination.tablePrefix,
