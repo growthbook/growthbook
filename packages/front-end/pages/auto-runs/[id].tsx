@@ -230,7 +230,7 @@ function DeleteRunButton({
       {confirming && (
         <ConfirmDialog
           title="Delete everything this run created?"
-          content="Feature Flags, experiments, metrics, Fact Tables, Saved Groups, environments and tags created by this import are deleted. Items it only updated are kept. This can't be undone."
+          content="Everything this import created is deleted: Feature Flags, experiments, metrics, Fact Tables, Saved Groups, environments and tags, including any a later import has updated since. Items this run only updated are kept. This can't be undone."
           yesText="Delete"
           color="red"
           onCancel={() => setConfirming(false)}
