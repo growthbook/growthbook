@@ -30,8 +30,8 @@ describe("getPastExperimentQuery", () => {
     expect(sql).toMatch(
       /GROUP BY\s+exposure_query,\s*identifier_type,\s*experiment_id,\s*variation_id/,
     );
-    // The row cap applies to each identifier, so one can't crowd out another
+    // The row cap is split across identifiers, so one can't crowd out another
     expect(sql).toMatch(/PARTITION BY\s+identifier_type/);
-    expect(sql).toMatch(/WHERE\s+rn <= 3000/);
+    expect(sql).toMatch(/WHERE\s+rn <= 1500/);
   });
 });
