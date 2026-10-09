@@ -45,7 +45,6 @@ import {
   getInitialInlineFilters,
   getRelevantFactTableIds,
   hasUnsatisfiedInlineFilters,
-  getQueryTimeoutErrorMessage,
   isTimelessSqlExploration,
   isTimeSeriesChart,
   isSubmittableConfig,
@@ -58,6 +57,13 @@ import {
   normalizeExplorerDraft,
   withDefaultSqlRawTable,
 } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  getExplorerQueryPhase,
+  getQueryTimeoutErrorMessage,
+  resolveExplorerQueryErrorKind,
+  type ExplorerQueryErrorKind,
+  type ExplorerQueryPhase,
+} from "@/enterprise/components/ProductAnalytics/explorerQueryPhase";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useFullFactTables from "@/hooks/useFullFactTables";
 import track from "@/services/track";
@@ -82,6 +88,7 @@ export interface ExplorerContextValue {
   query: QueryInterface | null;
   loading: boolean;
   error: string | null;
+  queryPhase: ExplorerQueryPhase;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
   /** Full (jsonFields-complete) fact table lookup for the columns/values pickers. */
   getFullFactTableById: (id: string) => FullFactTableColumns | null;
@@ -210,6 +217,7 @@ export function ExplorerProvider({
     submittedState: ExplorerDraftConfig | null;
     exploration: ProductAnalyticsExploration | null;
     error: string | null;
+    errorKind: ExplorerQueryErrorKind | null;
     query: QueryInterface | null;
   }>(() => {
     // The full-fact-table resolver doesn't exist yet at mount (it's derived
@@ -234,6 +242,7 @@ export function ExplorerProvider({
       submittedState: hasExistingResults ? normalizedSubmitted : null,
       exploration: initialExploration,
       error: null,
+      errorKind: null,
       query: null,
     };
   });
@@ -379,6 +388,7 @@ export function ExplorerProvider({
 
   const data = explorerState.exploration;
   const error = explorerState.error;
+  const errorKind = explorerState.errorKind;
   const submittedExploreState = explorerState.submittedState;
   const query = explorerState.query;
 
@@ -452,6 +462,29 @@ export function ExplorerProvider({
     );
   }, [cleanedDraftExploreState, draftExploreState, getFactTableById]);
 
+  const queryPhase = useMemo(
+    () =>
+      getExplorerQueryPhase({
+        loading: loading || polling,
+        isStale,
+        needsFetch,
+        needsUpdate,
+        errorKind,
+        error,
+        submittedExploreState,
+      }),
+    [
+      loading,
+      polling,
+      isStale,
+      needsFetch,
+      needsUpdate,
+      errorKind,
+      error,
+      submittedExploreState,
+    ],
+  );
+
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption; config?: ExplorerDraftConfig }) => {
       const sourceConfig = options?.config ?? draftExploreState;
@@ -504,11 +537,6 @@ export function ExplorerProvider({
       }
       setPolling(false);
 
-      setExplorerState((prev) => ({
-        ...prev,
-        error: null,
-      }));
-
       const startTime = Date.now();
       const {
         data: fetchResult,
@@ -528,7 +556,9 @@ export function ExplorerProvider({
       // Ignore out-of-order responses from older in-flight requests.
       if (requestId !== submitRequestIdRef.current) return;
 
-      // Cache miss when cache=required
+      // Required-cache miss is not a completed attempt: keep the last
+      // exploration/error and mark the draft stale so reverting the draft
+      // restores the previous outcome instead of a blank banner.
       if (cache === "required" && fetchResult === null && !fetchError) {
         setIsStale(true);
         return;
@@ -561,6 +591,7 @@ export function ExplorerProvider({
               previousPeriod: comparison.previousPeriod,
             }
           : null,
+        timeout: boolean = false,
       ) => {
         if (requestId !== submitRequestIdRef.current) return;
         setPolling(false);
@@ -585,6 +616,11 @@ export function ExplorerProvider({
             exploration: keepPrevious ? prev.exploration : result,
             query: keepPrevious ? prev.query : resultQuery,
             error: nextError,
+            errorKind: resolveExplorerQueryErrorKind({
+              result,
+              resultError: nextError,
+              timeout,
+            }),
           };
         });
         setComparisonExploration(resultComparison);
@@ -657,6 +693,7 @@ export function ExplorerProvider({
             : fetchResult,
           query: primaryIsRunning ? null : query,
           error: null,
+          errorKind: null,
         }));
         setComparisonExploration(comparisonIsRunning ? null : comparisonResult);
         setComparisonQuery(
@@ -720,6 +757,7 @@ export function ExplorerProvider({
                   null,
                   latestComparisonQuery,
                   null,
+                  true,
                 );
               } else {
                 finalize(
@@ -1140,6 +1178,7 @@ export function ExplorerProvider({
         submittedState: null,
         exploration: null,
         error: null,
+        errorKind: null,
         query: null,
       };
     });
@@ -1232,6 +1271,7 @@ export function ExplorerProvider({
           submittedState: null,
           exploration: null,
           error: null,
+          errorKind: null,
           query: null,
         };
       });
@@ -1255,6 +1295,7 @@ export function ExplorerProvider({
       exploration: data,
       loading: loading || polling,
       error,
+      queryPhase,
       commonColumns,
       getFullFactTableById,
       setDraftExploreState,
@@ -1310,6 +1351,7 @@ export function ExplorerProvider({
       draftExploreState,
       error,
       getFullFactTableById,
+      queryPhase,
       handleSubmit,
       isStale,
       isSubmittable,
