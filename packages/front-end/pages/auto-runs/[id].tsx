@@ -198,7 +198,7 @@ function DeleteRunButton({
   return (
     <>
       {failures.length > 0 && (
-        <Callout status="error" size="md" mb="4">
+        <Callout status="error" size="md" mt="5">
           <Text weight="medium" as="div">
             {failures.length === 1
               ? "1 item couldn't be deleted"
@@ -214,10 +214,11 @@ function DeleteRunButton({
         </Callout>
       )}
       {created.length > 0 && (
-        <Flex justify="end" mb="4">
+        <Flex justify="end" mt="6">
           <Button
             color="red"
-            variant="outline"
+            variant="ghost"
+            size="sm"
             onClick={() => setConfirming(true)}
           >
             {created.length === 1
@@ -328,12 +329,6 @@ export default function AutoRunPage() {
             instead of being created twice.
           </Callout>
         )}
-        <DeleteRunButton
-          run={run}
-          onDone={() =>
-            Promise.all([mutate(), mutateDefinitions(), refreshOrganization()])
-          }
-        />
         {run.artifacts.length > 0 ? (
           <Section
             title="Imported from Eppo"
@@ -344,6 +339,12 @@ export default function AutoRunPage() {
         ) : (
           <Callout status="info">Nothing was imported in this run.</Callout>
         )}
+        <DeleteRunButton
+          run={run}
+          onDone={() =>
+            Promise.all([mutate(), mutateDefinitions(), refreshOrganization()])
+          }
+        />
       </Container>
     );
   }

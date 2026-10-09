@@ -1970,129 +1970,152 @@ export async function runEppoImport({
       record(item, item.key);
     });
 
-    await importEach("audiences", data.audiences, async (item) => {
-      const group = transformAudience(item.eppo, project);
-      let id = item.existingId;
-      if (id) {
-        await apiCall(`/saved-groups/${id}`, {
-          method: "PUT",
-          body: JSON.stringify(pick(group, ["groupName", "condition"])),
-        });
-      } else {
-        const res = await apiCall<{ savedGroup: SavedGroupInterface }>(
-          "/saved-groups",
-          { method: "POST", body: JSON.stringify(created(group)) },
-        );
-        id = res.savedGroup.id;
+    // A reference to something that failed to import must not survive into
+    // the items that depend on it; flags then inline the audience instead
+    const dropOnFailure = async <K>(
+      refs: Map<K, unknown>,
+      key: K,
+      run: () => Promise<void>,
+    ) => {
+      try {
+        await run();
+      } catch (e) {
+        refs.delete(key);
+        throw e;
       }
-      ctx.savedGroupIds.set(item.eppo.id, id);
-      record(item, id);
-    });
+    };
 
-    await importEach("factSources", data.factSources, async (item) => {
-      const factTable = transformFactSource(item.eppo, ctx);
-      let saved: FactTableInterface;
-      if (item.existingId) {
-        await apiCall(`/fact-tables/${item.existingId}`, {
-          method: "PUT",
-          body: JSON.stringify(toFactTableUpdate(factTable)),
-        });
-        // Fetched again since a SQL change re-detects the columns
-        saved = (
-          await apiCall<{ factTable: FactTableInterface }>(
-            `/fact-tables/${item.existingId}`,
-          )
-        ).factTable;
-      } else {
-        saved = (
-          await apiCall<{ factTable: FactTableInterface }>("/fact-tables", {
-            method: "POST",
-            body: JSON.stringify(created(factTable)),
-          })
-        ).factTable;
-      }
-      ctx.factTableIds.set(item.eppo.id, saved.id);
-      ctx.factTableColumns.set(saved.id, getColumnNames(saved.columns));
-      record(item, saved.id);
-    });
-
-    await importEach("metrics", data.metrics, async (item) => {
-      const metric = transformMetric(item.eppo, ctx);
-      let id = item.existingId;
-      if (id) {
-        await apiCall(`/fact-metrics/${id}`, {
-          method: "PUT",
-          body: JSON.stringify(toMetricUpdate(metric)),
-        });
-      } else {
-        const res = await apiCall<{ factMetric: FactMetricInterface }>(
-          "/fact-metrics",
-          { method: "POST", body: JSON.stringify(created(metric)) },
-        );
-        id = res.factMetric.id;
-      }
-      ctx.metricIds.set(item.eppo.id, id);
-      record(item, id);
-    });
-
-    await importEach("experiments", data.experiments, async (item) => {
-      let id = item.existingId;
-      let current: ExperimentInterfaceStringDates | null = null;
-      if (id) {
-        current = (
-          await apiCall<{ experiment: ExperimentInterfaceStringDates }>(
-            `/experiment/${id}`,
-          )
-        ).experiment;
-      }
-      const existingRef: GBExperimentRef | undefined = current
-        ? { id: current.id, variations: current.variations }
-        : undefined;
-      const experiment = transformExperiment(item.eppo, ctx, existingRef);
-
-      if (!id) {
-        const res = await apiCall<{
-          experiment?: ExperimentInterfaceStringDates;
-          duplicateTrackingKey?: boolean;
-          existingId?: string;
-        }>("/experiments", {
-          method: "POST",
-          body: JSON.stringify(experiment),
-        });
-        if (res.duplicateTrackingKey) {
-          throw new Error(
-            "An experiment with this tracking key already exists in GrowthBook",
-          );
-        }
-        if (!res.experiment) throw new Error("Experiment wasn't created");
-        current = res.experiment;
-        id = current.id;
-      } else if (current) {
-        const { update, phase } = toExperimentUpdate(
-          experiment,
-          current.status === "running",
-        );
-        const res = await apiCall<{
-          experiment?: ExperimentInterfaceStringDates | null;
-        }>(`/experiment/${id}`, {
-          method: "POST",
-          body: JSON.stringify(update),
-        });
-        current = res.experiment ?? current;
-        const last = current.phases.length - 1;
-        if (phase && last >= 0) {
-          await apiCall(`/experiment/${id}/phase/${last}`, {
+    await importEach("audiences", data.audiences, (item) =>
+      dropOnFailure(ctx.savedGroupIds, item.eppo.id, async () => {
+        const group = transformAudience(item.eppo, project);
+        let id = item.existingId;
+        if (id) {
+          await apiCall(`/saved-groups/${id}`, {
             method: "PUT",
-            body: JSON.stringify(mergePhase(current.phases[last], phase)),
+            body: JSON.stringify(pick(group, ["groupName", "condition"])),
           });
+        } else {
+          const res = await apiCall<{ savedGroup: SavedGroupInterface }>(
+            "/saved-groups",
+            { method: "POST", body: JSON.stringify(created(group)) },
+          );
+          id = res.savedGroup.id;
         }
-      }
-      ctx.experiments.set(item.eppo.id, {
-        id,
-        variations: current?.variations ?? [],
-      });
-      record(item, id);
-    });
+        ctx.savedGroupIds.set(item.eppo.id, id);
+        record(item, id);
+      }),
+    );
+
+    await importEach("factSources", data.factSources, (item) =>
+      dropOnFailure(ctx.factTableIds, item.eppo.id, async () => {
+        const factTable = transformFactSource(item.eppo, ctx);
+        let saved: FactTableInterface;
+        if (item.existingId) {
+          await apiCall(`/fact-tables/${item.existingId}`, {
+            method: "PUT",
+            body: JSON.stringify(toFactTableUpdate(factTable)),
+          });
+          // Fetched again since a SQL change re-detects the columns
+          saved = (
+            await apiCall<{ factTable: FactTableInterface }>(
+              `/fact-tables/${item.existingId}`,
+            )
+          ).factTable;
+        } else {
+          saved = (
+            await apiCall<{ factTable: FactTableInterface }>("/fact-tables", {
+              method: "POST",
+              body: JSON.stringify(created(factTable)),
+            })
+          ).factTable;
+        }
+        ctx.factTableIds.set(item.eppo.id, saved.id);
+        ctx.factTableColumns.set(saved.id, getColumnNames(saved.columns));
+        record(item, saved.id);
+      }),
+    );
+
+    await importEach("metrics", data.metrics, (item) =>
+      dropOnFailure(ctx.metricIds, item.eppo.id, async () => {
+        const metric = transformMetric(item.eppo, ctx);
+        let id = item.existingId;
+        if (id) {
+          await apiCall(`/fact-metrics/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(toMetricUpdate(metric)),
+          });
+        } else {
+          const res = await apiCall<{ factMetric: FactMetricInterface }>(
+            "/fact-metrics",
+            { method: "POST", body: JSON.stringify(created(metric)) },
+          );
+          id = res.factMetric.id;
+        }
+        ctx.metricIds.set(item.eppo.id, id);
+        record(item, id);
+      }),
+    );
+
+    await importEach("experiments", data.experiments, (item) =>
+      dropOnFailure(ctx.experiments, item.eppo.id, async () => {
+        let id = item.existingId;
+        let current: ExperimentInterfaceStringDates | null = null;
+        if (id) {
+          current = (
+            await apiCall<{ experiment: ExperimentInterfaceStringDates }>(
+              `/experiment/${id}`,
+            )
+          ).experiment;
+        }
+        const existingRef: GBExperimentRef | undefined = current
+          ? { id: current.id, variations: current.variations }
+          : undefined;
+        const experiment = transformExperiment(item.eppo, ctx, existingRef);
+
+        if (!id) {
+          const res = await apiCall<{
+            experiment?: ExperimentInterfaceStringDates;
+            duplicateTrackingKey?: boolean;
+            existingId?: string;
+          }>("/experiments", {
+            method: "POST",
+            body: JSON.stringify(experiment),
+          });
+          if (res.duplicateTrackingKey) {
+            throw new Error(
+              "An experiment with this tracking key already exists in GrowthBook",
+            );
+          }
+          if (!res.experiment) throw new Error("Experiment wasn't created");
+          current = res.experiment;
+          id = current.id;
+        } else if (current) {
+          const { update, phase } = toExperimentUpdate(
+            experiment,
+            current.status === "running",
+          );
+          const res = await apiCall<{
+            experiment?: ExperimentInterfaceStringDates | null;
+          }>(`/experiment/${id}`, {
+            method: "POST",
+            body: JSON.stringify(update),
+          });
+          current = res.experiment ?? current;
+          const last = current.phases.length - 1;
+          if (phase && last >= 0) {
+            await apiCall(`/experiment/${id}/phase/${last}`, {
+              method: "PUT",
+              body: JSON.stringify(mergePhase(current.phases[last], phase)),
+            });
+          }
+        }
+        ctx.experiments.set(item.eppo.id, {
+          id,
+          variations: current?.variations ?? [],
+        });
+        record(item, id);
+      }),
+    );
 
     await importEach("flags", data.flags, async (item) => {
       const flag = transformFlag(item.eppo, ctx);

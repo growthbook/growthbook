@@ -263,7 +263,16 @@ export default function ImportFromEppo() {
     setBusy("fetching");
     setError(null);
     try {
-      setEppo(await fetchEppoData(apiKey, apiCall));
+      // What exists may have changed since the page loaded (e.g. a run was
+      // deleted), and matching is only as good as this list
+      const [data] = await Promise.all([
+        fetchEppoData(apiKey, apiCall),
+        mutateDefinitions(),
+        mutateFeatures(),
+        mutateExperiments(),
+        mutateRuns(),
+      ]);
+      setEppo(data);
       setResults({});
       setSelection({});
     } catch (e) {
