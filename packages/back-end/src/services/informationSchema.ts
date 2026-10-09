@@ -1,4 +1,5 @@
 import {
+  Column,
   InformationSchema,
   InformationSchemaInterface,
   InformationSchemaInterfaceWithPaths,
@@ -146,7 +147,18 @@ export async function mergeStaleInformationSchemaWithUpdate(
 export type InformationSchemaTableRow = {
   column_name: string;
   data_type: string;
+  is_partition?: number | string;
 };
+
+export function getInformationSchemaColumns(
+  rows: InformationSchemaTableRow[],
+): Column[] {
+  return rows.map((row) => ({
+    columnName: row.column_name,
+    dataType: row.data_type,
+    ...(Number(row.is_partition) === 1 ? { isPartition: true } : {}),
+  }));
+}
 
 export async function fetchTableData(
   context: ReqContext,

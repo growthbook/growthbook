@@ -1,6 +1,8 @@
 import Agenda, { Job } from "agenda";
-import { Column } from "shared/types/integrations";
-import { fetchTableData } from "back-end/src/services/informationSchema";
+import {
+  fetchTableData,
+  getInformationSchemaColumns,
+} from "back-end/src/services/informationSchema";
 import { logger } from "back-end/src/util/logger";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getInformationSchemaById } from "back-end/src/models/InformationSchemaModel";
@@ -74,10 +76,7 @@ const updateStaleInformationSchemaTable = async (
       return;
     }
 
-    const columns: Column[] = tableData.map((row) => ({
-      columnName: row.column_name,
-      dataType: row.data_type,
-    }));
+    const columns = getInformationSchemaColumns(tableData);
 
     // update the information schema table
     await updateInformationSchemaTableById(

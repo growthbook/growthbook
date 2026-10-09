@@ -210,6 +210,9 @@ export default class BigQuery extends SqlIntegration {
       database,
     );
   }
+  getPartitionColumnCondition(): string {
+    return "is_partitioning_column = 'YES'";
+  }
 
   async listDatasets(): Promise<string[]> {
     const [datasets] = await this.getClient().getDatasets();

@@ -9,7 +9,11 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 
-export default function ManagedWarehouseNoEventsCallout() {
+export default function ManagedWarehouseNoEventsCallout({
+  size = "md",
+}: {
+  size?: "sm" | "md";
+}) {
   const { datasources } = useDefinitions();
   // A provisioned warehouse mid-migration shows "upgrading" copy instead of the
   // never-provisioned onboarding message. There's one managed warehouse per org.
@@ -17,15 +21,15 @@ export default function ManagedWarehouseNoEventsCallout() {
 
   if (migrating) {
     return (
-      <Callout status="info">
-        <Text>{MANAGED_WAREHOUSE_MIGRATING_MESSAGE}</Text>
+      <Callout status="info" size={size}>
+        <Text size={size}>{MANAGED_WAREHOUSE_MIGRATING_MESSAGE}</Text>
       </Callout>
     );
   }
 
   return (
-    <Callout status="info">
-      <Text>
+    <Callout status="info" size={size}>
+      <Text size={size}>
         {MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE} Read{" "}
         <Link
           href={MANAGED_WAREHOUSE_SENDING_EVENTS_DOC_URL}
