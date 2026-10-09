@@ -29,6 +29,19 @@ function makeColumn(column: string): ColumnInterface {
 const factTable = {
   sql: "SELECT country, plan, timestamp FROM events WHERE timestamp >= {{startDate}}",
   eventName: "",
+  columns: [],
+};
+
+const jsonFactTable = {
+  sql: "SELECT props, timestamp FROM events WHERE timestamp >= {{startDate}}",
+  eventName: "",
+  columns: [
+    {
+      ...makeColumn("props"),
+      datatype: "json" as const,
+      jsonFields: { plan: { datatype: "string" as const } },
+    },
+  ],
 };
 
 const columns = [makeColumn("country"), makeColumn("plan")];
@@ -74,6 +87,21 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
     const sql7 = buildSql(dialect, { lookbackDays: 7 });
     expect(sql7).not.toEqual(sql);
     expect(sql7).toMatch(/timestamp\s*>=/i);
+  });
+
+  it("extracts dotted JSON paths instead of querying them as columns", () => {
+    const sql = buildSql(dialect, {
+      factTable: jsonFactTable,
+      columns: [makeColumn("props.plan")],
+    });
+    // The formatter re-spaces the SQL, so compare without whitespace.
+    const stripWhitespace = (s: string) => s.replace(/\s+/g, "");
+    expect(stripWhitespace(sql)).toContain(
+      stripWhitespace(
+        dialect.castToString(dialect.jsonExtract("props", "plan", false)),
+      ),
+    );
+    expect(sql).toContain("'props.plan'");
   });
 
   it("filters matching values before ranking them", () => {
