@@ -15,6 +15,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
+import { PiInfo } from "react-icons/pi";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -33,9 +34,40 @@ import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import UIText from "@/ui/Text";
+import UITooltip from "@/ui/Tooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
+
+function AnalysisSettingInfo({
+  ariaLabel,
+  description,
+}: {
+  ariaLabel: string;
+  description: string;
+}) {
+  return (
+    <UITooltip
+      content={
+        <Flex direction="column" gap="2" align="start">
+          <UIText as="p" size="sm">
+            {description}
+          </UIText>
+          <UIText as="p" size="sm">
+            Click in the table to drill down and see the impact.
+          </UIText>
+        </Flex>
+      }
+    >
+      <Box as="span" display="inline-block" tabIndex={0} aria-label={ariaLabel}>
+        <UIText color="text-low">
+          <PiInfo size={16} style={{ display: "block" }} aria-hidden />
+        </UIText>
+      </Box>
+    </UITooltip>
+  );
+}
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -201,6 +233,20 @@ export default function ResultsTab({
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
+
+  const engineIsBayesian =
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) !== "frequentist";
+  const anyMetricUsesProperPrior =
+    snapshot?.settings?.metricSettings?.some(
+      (m) => m.computedSettings?.properPrior,
+    ) ?? false;
+  const priorUsed = hasData && engineIsBayesian && anyMetricUsesProperPrior;
+  const cupedUsed = hasData && !!analysis?.settings?.regressionAdjusted;
+  const postStratificationUsed =
+    hasData &&
+    !!analysis?.settings?.postStratificationEnabled &&
+    !organization?.settings?.disablePrecomputedDimensions;
+
   return (
     <div>
       {isBandit && hasResults ? (
@@ -226,31 +272,55 @@ export default function ResultsTab({
           ) : null}
           {hasData && (
             <>
-              <Metadata
-                label="Engine"
-                value={
-                  analysis?.settings?.statsEngine === "frequentist"
-                    ? "Frequentist"
-                    : "Bayesian"
-                }
-              />
-              <Metadata
-                label="CUPED"
-                value={
-                  analysis?.settings?.regressionAdjusted
-                    ? "Enabled"
-                    : "Disabled"
-                }
-              />
-              {!organization?.settings?.disablePrecomputedDimensions ? (
+              <Flex align="center" gap="1">
                 <Metadata
-                  label="Post-Stratification"
+                  label="Engine"
                   value={
-                    analysis?.settings?.postStratificationEnabled
+                    analysis?.settings?.statsEngine === "frequentist"
+                      ? "Frequentist"
+                      : "Bayesian"
+                  }
+                />
+                {priorUsed ? (
+                  <AnalysisSettingInfo
+                    ariaLabel="How a Bayesian prior affects results"
+                    description="A Bayesian prior shrinks the metric estimate towards the prior mean."
+                  />
+                ) : null}
+              </Flex>
+              <Flex align="center" gap="1">
+                <Metadata
+                  label="CUPED"
+                  value={
+                    analysis?.settings?.regressionAdjusted
                       ? "Enabled"
                       : "Disabled"
                   }
                 />
+                {cupedUsed ? (
+                  <AnalysisSettingInfo
+                    ariaLabel="How CUPED affects results"
+                    description="CUPED adjusts for pre-exposure mean imbalances across variations to reduce variance."
+                  />
+                ) : null}
+              </Flex>
+              {!organization?.settings?.disablePrecomputedDimensions ? (
+                <Flex align="center" gap="1">
+                  <Metadata
+                    label="Post-Stratification"
+                    value={
+                      analysis?.settings?.postStratificationEnabled
+                        ? "Enabled"
+                        : "Disabled"
+                    }
+                  />
+                  {postStratificationUsed ? (
+                    <AnalysisSettingInfo
+                      ariaLabel="How post-stratification affects results"
+                      description="Post-stratification adjusts for within-dimension imbalances to reduce variance."
+                    />
+                  ) : null}
+                </Flex>
               ) : null}
               {analysis?.settings?.statsEngine === "frequentist" ? (
                 <Metadata
