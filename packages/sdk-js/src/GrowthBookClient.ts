@@ -282,6 +282,9 @@ export class GrowthBookClient<
   /**
    * A copy of `userContext` with the user's remote saved groups from
    * `resolver`, or `userContext` unchanged if the resolver fails.
+   * Requires a Saved Group References v2 payload for group metadata. With
+   * inline/v1 payloads, resolve membership in the app and set `remoteGroupIds`
+   * directly instead of calling this helper.
    */
   public async addRemoteSavedGroups(
     userContext: UserContext,

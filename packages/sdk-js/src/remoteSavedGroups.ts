@@ -18,7 +18,7 @@ const remoteGroupsByPayload = new WeakMap<
   RemoteSavedGroup[]
 >();
 
-/** The payload's remote saved groups. */
+/** Only v2 payloads include the remote group metadata this helper reads. */
 export function getRemoteSavedGroups(
   savedGroups: SavedGroupsPayload = {},
 ): RemoteSavedGroup[] {

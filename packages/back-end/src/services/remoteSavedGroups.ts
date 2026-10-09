@@ -131,7 +131,6 @@ export function toApiSavedGroupUpload(
   };
 }
 
-/** A signed URL the caller uploads a CSV to, before creating an upload. */
 export async function getRemoteSavedGroupUploadUrl(
   context: Context,
   id: string,
@@ -156,10 +155,6 @@ export async function getRemoteSavedGroupUploadUrl(
   };
 }
 
-/**
- * Checks the start and end of an uploaded CSV, without reading the rest, and
- * returns its size. The loader handles anything the samples miss.
- */
 function getCsvOptions(
   context: Context,
   group: SavedGroupInterface,
@@ -306,7 +301,6 @@ export async function createRemoteSavedGroupUpload(
   return finishUpload(context, upload);
 }
 
-/** Best-effort: a file left behind is removed by the cleanup job. */
 async function deleteStagedFile(sourceKey: string): Promise<void> {
   await deleteFile(sourceKey).catch((err) =>
     logger.warn({ err }, "Could not delete a staged Saved Group upload"),
@@ -384,10 +378,6 @@ async function recordUpload(
   }
 }
 
-/**
- * Checks a whole uploaded file, streaming it, and records the result. Run by
- * a job after each upload; does nothing once the upload has a result.
- */
 export async function validateRemoteSavedGroupUpload(
   context: Context,
   uploadId: string,
@@ -463,7 +453,6 @@ export async function addLatestUploads(
   });
 }
 
-/** Only valid uploads: pending and invalid ones never reach loaders. */
 export async function getRemoteSavedGroupUpload(
   context: Context,
   id: string,
@@ -505,7 +494,6 @@ export async function reportRemoteSavedGroupUploadLoad(
   return toApiSavedGroupUpload(updated);
 }
 
-/** Removes a deleted group's uploads and their files, in batches. */
 export async function deleteRemoteSavedGroupUploads(
   context: Context,
   savedGroupId: string,
