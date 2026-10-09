@@ -177,6 +177,21 @@ export async function getSignedUploadUrl(
   );
 }
 
+/** Copies a file within a destination, keeping its content type. */
+export async function copyFile(
+  srcKey: string,
+  destKey: string,
+  destination: UploadDestination = "private",
+): Promise<void> {
+  assertSafeKey(srcKey);
+  assertSafeKey(destKey);
+  await getFileStorage().copy(
+    srcKey,
+    destKey,
+    getDestinationConfig(destination),
+  );
+}
+
 // Move a file (copy + delete) within the same destination. Used by the
 // AI-image-gen flow to promote a picked thumbnail out of the `gen/`
 // quarantine prefix. Cache-control comes from destination config, not

@@ -1,4 +1,5 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { z } from "zod";
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import {
@@ -22,7 +23,10 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { DraftConflict } from "shared/types/draft-conflict";
-import type { ApiSavedGroupUpload } from "shared/validators";
+import {
+  paginationQueryFields,
+  type ApiSavedGroupUpload,
+} from "shared/validators";
 import { findAllReferencedSavedGroupIds } from "shared/sdk-versioning";
 import {
   canStageArchiveDraft,
@@ -34,6 +38,7 @@ import {
 } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { validatePagination } from "back-end/src/util/handler";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -1284,12 +1289,19 @@ export const getSavedGroupsMetadata = async (
 // region remote saved group uploads
 
 export const getSavedGroupUploads = async (
-  req: AuthRequest<never, { id: string }>,
-  res: Response<{ status: 200; uploads: ApiSavedGroupUpload[] }>,
+  req: AuthRequest<never, { id: string }, { limit?: string; offset?: string }>,
+  res: Response<{ status: 200; uploads: ApiSavedGroupUpload[]; total: number }>,
 ) => {
   const context = getContextFromReq(req);
-  const uploads = await listRemoteSavedGroupUploads(context, req.params.id);
-  return res.status(200).json({ status: 200, uploads });
+  const { limit, offset } = validatePagination(
+    z.object(paginationQueryFields).parse(req.query),
+  );
+  const { uploads, total } = await listRemoteSavedGroupUploads(
+    context,
+    req.params.id,
+    { limit, offset },
+  );
+  return res.status(200).json({ status: 200, uploads, total });
 };
 
 export const postSavedGroupUploadUrl = async (

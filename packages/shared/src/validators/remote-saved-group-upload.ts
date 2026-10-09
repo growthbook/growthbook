@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
+import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 const lineErrors = z
   .array(z.string().max(500))
@@ -96,6 +97,9 @@ export type SavedGroupUploadStatus = z.infer<
 export const savedGroupUploadValidator = baseSchema.safeExtend({
   savedGroupId: z.string(),
   version: z.number().int().positive(),
+  // Where the client uploaded the file; it can still overwrite it there
+  sourceKey: z.string(),
+  // GrowthBook's own copy, which nothing writes to after it's made
   fileKey: z.string(),
   size: z.number().int().nonnegative(),
   createdBy: z.string(),
@@ -142,11 +146,18 @@ const idParams = z
 
 export const listSavedGroupUploadsValidator = {
   bodySchema: z.never(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({
+      ...paginationQueryFields,
+    })
+    .strict(),
   paramsSchema: idParams,
+  // One object, not an intersection: the generated spec closes each part of
+  // an intersection, which would make the pagination fields invalid.
   responseSchema: z
     .object({
       uploads: z.array(apiSavedGroupUploadValidator),
+      ...apiPaginationFieldsValidator.shape,
     })
     .strict(),
   summary: "List the uploads of a remote saved group",

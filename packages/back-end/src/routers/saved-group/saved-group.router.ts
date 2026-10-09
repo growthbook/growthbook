@@ -2,6 +2,7 @@ import express from "express";
 import { z } from "zod";
 import {
   postSavedGroupBodyValidator,
+  paginationQueryFields,
   postSavedGroupUploadBodyValidator,
   putSavedGroupBodyValidator,
 } from "shared/validators";
@@ -104,6 +105,7 @@ router.get(
   "/:id/uploads",
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
+    query: z.object(paginationQueryFields).strict(),
   }),
   savedGroupController.getSavedGroupUploads,
 );

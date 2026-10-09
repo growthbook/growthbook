@@ -66,6 +66,12 @@ export const localFileStorage: FileStorage = {
   getSignedReadUrl: noSignedUrls,
   getSignedUploadUrl: noSignedUrls,
 
+  async copy(srcKey, destKey) {
+    const destPath = resolveUploadPath(destKey);
+    await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
+    await fs.promises.copyFile(resolveUploadPath(srcKey), destPath);
+  },
+
   async promote(srcKey, destKey) {
     const srcPath = resolveUploadPath(srcKey);
     const destPath = resolveUploadPath(destKey);

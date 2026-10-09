@@ -22311,6 +22311,8 @@ paths:
         - saved-groups
       parameters:
         - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
       responses:
         '200':
           description: Successful response
@@ -22323,8 +22325,28 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/SavedGroupUpload'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
                 required:
                   - uploads
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL

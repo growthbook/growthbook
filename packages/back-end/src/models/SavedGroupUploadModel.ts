@@ -11,10 +11,15 @@ const BaseClass = MakeModelClass({
   collectionName: "savedgroupuploads",
   idPrefix: "sgu_",
   globallyUniquePrimaryKeys: true,
-  readonlyFields: ["savedGroupId", "version", "fileKey", "size"],
+  readonlyFields: ["savedGroupId", "version", "sourceKey", "fileKey", "size"],
   additionalIndexes: [
     {
       fields: { organization: 1, savedGroupId: 1, version: 1 },
+      unique: true,
+    },
+    // One upload per uploaded file, so submitting it twice can't make two
+    {
+      fields: { organization: 1, sourceKey: 1 },
       unique: true,
     },
   ],
@@ -84,47 +89,66 @@ export class SavedGroupUploadModel extends BaseClass {
     return this.getById(upload.id);
   }
 
-  /** Newest first. */
-  public getBySavedGroup(savedGroupId: string) {
-    return this._find({ savedGroupId }, { sort: { version: -1 } });
+  /**
+   * A page of a group's uploads, newest first. Access is checked on the saved
+   * group (see `canRead`), so the database can apply the limit.
+   */
+  public async getPageBySavedGroup(
+    savedGroupId: string,
+    { limit, offset }: { limit: number; offset: number },
+  ): Promise<{ uploads: SavedGroupUploadInterface[]; total: number }> {
+    const [uploads, total] = await Promise.all([
+      this._find(
+        { savedGroupId },
+        {
+          sort: { version: -1 },
+          limit,
+          skip: offset,
+          bypassReadPermissionChecks: true,
+        },
+      ),
+      this._countDocuments({ savedGroupId }),
+    ]);
+    return { uploads, total };
   }
 
-  public getByFileKey(fileKey: string) {
-    return this._findOne({ fileKey });
+  public getBySourceKey(sourceKey: string) {
+    return this._findOne({ sourceKey });
   }
 
   public getVersion(savedGroupId: string, version: number) {
     return this._findOne({ savedGroupId, version });
   }
 
+  /**
+   * The newest upload of a group, valid only when `validOnly`. Access is
+   * checked on the saved group (see `canRead`), so skipping the per-document
+   * read check lets the database apply the limit.
+   */
   public async getLatest(
     savedGroupId: string,
+    { validOnly = false }: { validOnly?: boolean } = {},
   ): Promise<SavedGroupUploadInterface | null> {
     const [latest] = await this._find(
-      { savedGroupId },
-      { sort: { version: -1 }, limit: 1 },
+      (validOnly
+        ? { savedGroupId, "status.type": "valid" }
+        : { savedGroupId }) as Parameters<typeof this._find>[0],
+      { sort: { version: -1 }, limit: 1, bypassReadPermissionChecks: true },
     );
     return latest ?? null;
   }
 
-  /** The latest valid upload of each of `savedGroupIds`. */
+  /** The latest valid upload of each of `savedGroupIds`, one query each. */
   public async getLatestValidBySavedGroups(
     savedGroupIds: string[],
   ): Promise<Map<string, SavedGroupUploadInterface>> {
-    const latest = new Map<string, SavedGroupUploadInterface>();
-    if (!savedGroupIds.length) return latest;
-    const uploads = await this._find(
-      {
-        savedGroupId: { $in: savedGroupIds },
-        "status.type": "valid",
-      } as Parameters<typeof this._find>[0],
-      { sort: { version: -1 } },
+    const uploads = await Promise.all(
+      savedGroupIds.map((id) => this.getLatest(id, { validOnly: true })),
     );
-    for (const upload of uploads) {
-      if (!latest.has(upload.savedGroupId)) {
-        latest.set(upload.savedGroupId, upload);
-      }
-    }
-    return latest;
+    return new Map(
+      uploads
+        .filter((u): u is SavedGroupUploadInterface => !!u)
+        .map((u) => [u.savedGroupId, u]),
+    );
   }
 }

@@ -5,6 +5,7 @@ import {
   postAttributeValidator,
 } from "../../src/validators/attributes";
 import { postSavedGroupBodyValidator } from "../../src/validators/saved-group";
+import { listSavedGroupUploadsValidator } from "../../src/validators/remote-saved-group-upload";
 
 describe("remote saved group bodies", () => {
   const parse = (body: Record<string, unknown>) =>
@@ -88,5 +89,21 @@ describe("isRemoteGroupSupportedAttribute", () => {
         disableEqualityConditions: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe("listSavedGroupUploadsValidator", () => {
+  it("accepts a page of uploads with pagination fields", () => {
+    expect(
+      listSavedGroupUploadsValidator.responseSchema.safeParse({
+        uploads: [],
+        limit: 10,
+        offset: 0,
+        count: 0,
+        total: 0,
+        hasMore: false,
+        nextOffset: null,
+      }).success,
+    ).toBe(true);
   });
 });

@@ -127,4 +127,95 @@ describe("parseRemoteGroupCsv", () => {
     );
     results.forEach((r) => expect(r).toEqual(results[0]));
   });
+
+  it("rejects extra quoted fields but keeps commas and quotes inside one", async () => {
+    for (const csv of [
+      '"acct_1","acct_2"',
+      '"acct_1";"acct_2"',
+      '"a" b',
+      '"open',
+    ]) {
+      expect((await parse(csv)).result).toMatchObject({
+        type: "invalid",
+        invalidLineCount: 1,
+      });
+    }
+    expect((await parse('"a,b"\n"say ""hi"""\n  "c"  ')).ids).toEqual([
+      "a,b",
+      'say "hi"',
+      "c",
+    ]);
+  });
+
+  it("accepts IDs that start with PK, in any chunk size", async () => {
+    for (const size of [1, 2, 3, 100]) {
+      expect(await parse("PK123\nPK_customer", {}, size)).toEqual({
+        result: { type: "valid", idCount: 2 },
+        ids: ["PK123", "PK_customer"],
+      });
+    }
+  });
+
+  it("recognizes a zip signature split across chunks", async () => {
+    const zip = new Uint8Array([0x50, 0x4b, 3, 4, 0x61, 0x0a]);
+    for (const size of [1, 2, 3, 6]) {
+      expect((await parse(zip, {}, size)).result).toMatchObject({
+        type: "invalid",
+        errors: [expect.stringContaining("spreadsheet or zip")],
+      });
+    }
+  });
+
+  it("stops reading a stream once the file isn't text", async () => {
+    let pulled = 0;
+    let closed = false;
+    async function* stream() {
+      try {
+        yield new Uint8Array([0x50, 0x4b, 3, 4]);
+        for (;;) {
+          pulled++;
+          yield encode("more\n");
+        }
+      } finally {
+        closed = true;
+      }
+    }
+    const result = await parseRemoteGroupCsv(stream(), options);
+    expect(result.type).toBe("invalid");
+    expect(pulled).toBe(0);
+    expect(closed).toBe(true);
+  });
+
+  it("keeps reading past invalid lines to count them all", async () => {
+    let pulled = 0;
+    function* chunks() {
+      for (let i = 0; i < 5; i++) {
+        pulled++;
+        yield encode("a,b\n");
+      }
+    }
+    const result = await parseRemoteGroupCsv(chunks(), options);
+    expect(result).toMatchObject({ type: "invalid", invalidLineCount: 5 });
+    expect(pulled).toBe(5);
+  });
+
+  it("keeps a null-byte error found before the signature is complete", async () => {
+    for (const size of [1, 2, 3, 100]) {
+      expect(
+        (await parse(new Uint8Array([0x61, 0x0a, 0]), {}, size)).result,
+      ).toMatchObject({
+        type: "invalid",
+        errors: [expect.stringContaining("not a text file")],
+      });
+    }
+  });
+
+  it("reports a stream it stopped reading early as invalid", async () => {
+    async function* stream() {
+      yield encode("a\n");
+      yield new Uint8Array([0]);
+      for (;;) yield encode("more\n");
+    }
+    expect((await parseRemoteGroupCsv(stream(), options)).type).toBe("invalid");
+  });
 });

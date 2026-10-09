@@ -4,7 +4,12 @@ import {
   MAX_LINE_BYTES,
   NEWLINE,
 } from "./constants";
-import { checkLine, NOT_TEXT, startsLikeBinary } from "./lines";
+import {
+  BINARY_SIGNATURE_BYTES,
+  checkLine,
+  NOT_TEXT,
+  startsLikeBinary,
+} from "./lines";
 import { RemoteGroupCsvOptions, RemoteGroupCsvResult } from "./types";
 
 /**
@@ -30,17 +35,18 @@ export class RemoteGroupCsvParser {
     this.options = options;
   }
 
-  /** Whether the file is already known to be invalid. */
-  get failed(): boolean {
-    return this.fatal !== null || this.invalidLineCount > 0;
+  /**
+   * Whether the file isn't text at all, so reading more is pointless. Invalid
+   * lines don't stop it, so every one of them is counted.
+   */
+  get stopped(): boolean {
+    return this.fatal !== null;
   }
 
   push(chunk: Uint8Array): void {
     if (this.fatal) return;
-    if (this.lineNumber === 0 && this.partialBytes === 0) {
-      this.fatal = startsLikeBinary(chunk);
-      if (this.fatal) return;
-    }
+    this.checkSignature(chunk);
+    if (this.fatal) return;
     let start = 0;
     for (let i = 0; i < chunk.length; i++) {
       if (chunk[i] === 0) {
@@ -57,6 +63,7 @@ export class RemoteGroupCsvParser {
   }
 
   end(): RemoteGroupCsvResult {
+    this.checkSignature(new Uint8Array());
     if (!this.fatal && (this.partialBytes > 0 || this.tooLong)) {
       this.finishLine();
     }
@@ -78,6 +85,22 @@ export class RemoteGroupCsvParser {
       };
     }
     return { type: "valid", idCount: this.idCount };
+  }
+
+  // The signature can be split across chunks, so its bytes are collected
+  // until there are enough, or the file ends.
+  private signature: number[] | null = [];
+
+  private checkSignature(chunk: Uint8Array) {
+    if (!this.signature) return;
+    for (const byte of chunk) {
+      if (this.signature.length >= BINARY_SIGNATURE_BYTES) break;
+      this.signature.push(byte);
+    }
+    if (chunk.length && this.signature.length < BINARY_SIGNATURE_BYTES) return;
+    // Never replaces an error found first, like a null byte in a short file.
+    this.fatal ??= startsLikeBinary(Uint8Array.from(this.signature));
+    this.signature = null;
   }
 
   private append(bytes: Uint8Array) {
@@ -147,6 +170,8 @@ export async function parseRemoteGroupCsv(
   const parser = new RemoteGroupCsvParser(options);
   for await (const chunk of chunks) {
     parser.push(chunk);
+    // Leaving the loop closes the stream, so nothing more is downloaded.
+    if (parser.stopped) break;
   }
   return parser.end();
 }

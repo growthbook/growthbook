@@ -108,6 +108,11 @@ export const gcsFileStorage: FileStorage = {
     };
   },
 
+  async copy(srcKey, destKey, cfg) {
+    const bucket = new Storage().bucket(cfg.gcsBucket);
+    await bucket.file(srcKey).copy(bucket.file(destKey));
+  },
+
   async promote(srcKey, destKey, cfg) {
     const bucket = new Storage().bucket(cfg.gcsBucket);
     const srcFile = bucket.file(srcKey);

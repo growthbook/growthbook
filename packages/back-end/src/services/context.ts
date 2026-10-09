@@ -697,7 +697,11 @@ export class ReqContextClass {
   }
 
   // Record an audit log entry
-  public async auditLog(data: AuditInterfaceInput) {
+  /**
+   * Records an audit event. Pass `id` to write it at most once: a repeat with
+   * the same id throws a duplicate key error.
+   */
+  public async auditLog(data: AuditInterfaceInput, id?: string) {
     const apiKeyUser =
       this.auditUser?.type === "api_key" ? this.auditUser : undefined;
     const auditUser = this.isApiRequest
@@ -719,12 +723,15 @@ export class ReqContextClass {
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }
-    await insertAudit({
-      ...data,
-      user: auditUser,
-      organization: this.org.id,
-      dateCreated: new Date(),
-    });
+    await insertAudit(
+      {
+        ...data,
+        user: auditUser,
+        organization: this.org.id,
+        dateCreated: new Date(),
+      },
+      id,
+    );
   }
 
   // Cache common foreign references

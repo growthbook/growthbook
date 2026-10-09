@@ -45,4 +45,9 @@ describe("checkRemoteGroupCsvSample", () => {
       "A line near the end of the file has more than one column",
     );
   });
+
+  it("agrees with the parser on PK-prefixed IDs and quoted fields", () => {
+    expect(check("PK123\nPK_customer")).toEqual({ idCount: 2 });
+    expect(() => check('"acct_1","acct_2"')).toThrow("more than one column");
+  });
 });

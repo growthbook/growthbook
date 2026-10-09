@@ -232,6 +232,16 @@ export const s3FileStorage: FileStorage = {
     };
   },
 
+  async copy(srcKey, destKey, cfg) {
+    await getS3Client(cfg.s3Region).send(
+      new CopyObjectCommand({
+        Bucket: cfg.s3Bucket,
+        CopySource: `${cfg.s3Bucket}/${encodeURIComponent(srcKey).replace(/%2F/g, "/")}`,
+        Key: destKey,
+      }),
+    );
+  },
+
   async promote(srcKey, destKey, cfg) {
     const client = getS3Client(cfg.s3Region);
     // FOOTGUN: MetadataDirective: REPLACE wipes Content-Type along with

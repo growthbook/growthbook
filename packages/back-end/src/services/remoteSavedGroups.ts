@@ -19,6 +19,7 @@ import type {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  copyFile,
   deleteFile,
   getFileSize,
   getSignedUploadUrl,
@@ -29,20 +30,49 @@ import { queueValidateRemoteSavedGroupUpload } from "back-end/src/jobs/validateR
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import {
+  assertRemoteSavedGroupAttribute,
   assertRemoteSavedGroupsEnabled,
   assertRemoteSavedGroupStorage,
 } from "back-end/src/services/savedGroups";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
-type Context = ReqContext | ApiReqContext;
+type FullContext = ReqContext | ApiReqContext;
+
+/** The parts of a request context this service uses, so tests can supply only those. */
+export type RemoteSavedGroupsContext = Pick<
+  FullContext,
+  "org" | "userId" | "auditLog"
+> & {
+  permissions: Pick<
+    FullContext["permissions"],
+    "canRevisionAction" | "throwPermissionError"
+  >;
+  models: {
+    savedGroups: Pick<FullContext["models"]["savedGroups"], "getById">;
+    savedGroupUploads: Pick<
+      FullContext["models"]["savedGroupUploads"],
+      | "create"
+      | "delete"
+      | "getById"
+      | "getBySourceKey"
+      | "getLatest"
+      | "getLatestValidBySavedGroups"
+      | "getPageBySavedGroup"
+      | "getVersion"
+      | "setStatus"
+      | "upsertLoad"
+    >;
+  };
+};
+type Context = RemoteSavedGroupsContext;
 
 /** Where a group's uploaded files are stored. */
 function storagePrefix(context: Context, savedGroupId: string) {
   return `${context.org.id}/remote-saved-groups/${savedGroupId}`;
 }
 
-/** A remote group the caller can read, or a 404. */
+/** Also checks the flag is on and the group is remote; 404 if it can't be read. */
 async function getRemoteSavedGroup(
   context: Context,
   id: string,
@@ -81,6 +111,8 @@ async function getRemoteSavedGroupForUpload(context: Context, id: string) {
     throw new BadRequestError("Cannot upload to an archived Saved Group");
   }
   assertRemoteSavedGroupStorage();
+  // The attribute can be removed or changed after the group is created.
+  assertRemoteSavedGroupAttribute(context.org, group.attributeKey);
   return group;
 }
 
@@ -107,7 +139,7 @@ export async function getRemoteSavedGroupUploadUrl(
   id: string,
 ) {
   const group = await getRemoteSavedGroupForUpload(context, id);
-  const fileKey = `${storagePrefix(context, group.id)}/uploads/${uuidv4()}.csv`;
+  const fileKey = `${storagePrefix(context, group.id)}/staging/${uuidv4()}.csv`;
   const expiresInMinutes = 15;
   const { signedUrl, fields } = await getSignedUploadUrl(
     fileKey,
@@ -188,7 +220,10 @@ async function checkUploadedCsv(
       throw new BadRequestError((e as Error).message);
     }
   });
-  if (!idCount) throw new BadRequestError("The file has no IDs");
+  // Blank ends don't make a large file empty; the full check decides that.
+  if (!idCount && samples.length === 1) {
+    throw new BadRequestError("The file has no IDs");
+  }
   return size;
 }
 
@@ -196,74 +231,136 @@ async function checkUploadedCsv(
  * Records a CSV as the group's next upload version, `pending` until a job
  * checks the whole file. The file is kept as uploaded; loaders trim and dedupe
  * it. The group document and SDK payloads don't change.
+ *
+ * The client can overwrite `fileKey` until its signed URL expires, so it's
+ * copied first, and everything after uses the copy. Submitting the same file
+ * again, at the same time or later, returns its existing upload, and queues
+ * its check again if it's still pending.
  */
 export async function createRemoteSavedGroupUpload(
   context: Context,
   id: string,
-  fileKey: string,
+  sourceKey: string,
 ): Promise<ApiSavedGroupUpload> {
   const group = await getRemoteSavedGroupForUpload(context, id);
 
   // Only this group's uploads, so the key can't point at other files.
-  const uploadsPrefix = `${storagePrefix(context, group.id)}/uploads/`;
-  if (!fileKey.startsWith(uploadsPrefix) || fileKey.includes("..")) {
+  const prefix = storagePrefix(context, group.id);
+  if (!sourceKey.startsWith(`${prefix}/staging/`) || sourceKey.includes("..")) {
     throw new BadRequestError("Invalid fileKey");
   }
-  // Failures delete the file, which must not take an earlier upload's.
-  if (await context.models.savedGroupUploads.getByFileKey(fileKey)) {
-    throw new BadRequestError("This file was already uploaded");
+  const existing =
+    await context.models.savedGroupUploads.getBySourceKey(sourceKey);
+  if (existing) return finishUpload(context, existing);
+
+  const fileKey = `${prefix}/uploads/${uuidv4()}.csv`;
+  try {
+    await copyFile(sourceKey, fileKey);
+  } catch {
+    throw new BadRequestError("Could not find the uploaded file");
+  }
+  const deleteCopy = () =>
+    deleteFile(fileKey).catch((err) =>
+      logger.warn({ err }, "Could not delete a rejected Saved Group upload"),
+    );
+
+  let size: number;
+  try {
+    size = await checkUploadedCsv(context, group, fileKey);
+  } catch (e) {
+    // Nothing was recorded yet, so the copy is only this request's.
+    deleteCopy();
+    throw e;
   }
 
   let upload: SavedGroupUploadInterface;
   try {
-    upload = await recordUpload(context, group, fileKey);
+    upload = await recordUpload(context, group, { sourceKey, fileKey, size });
   } catch (e) {
-    deleteFile(fileKey).catch((err) =>
-      logger.warn({ err }, "Could not delete a rejected Saved Group upload"),
-    );
-    throw e;
+    // A failed insert may still have been saved, e.g. when its
+    // acknowledgment is lost, so check before deleting the copy. Another
+    // request may also have recorded this file first.
+    let recorded: SavedGroupUploadInterface | null;
+    try {
+      recorded =
+        await context.models.savedGroupUploads.getBySourceKey(sourceKey);
+    } catch {
+      // Can't tell; keep the copy for the cleanup job.
+      throw e;
+    }
+    if (recorded?.fileKey !== fileKey) deleteCopy();
+    if (!recorded) throw e;
+    return finishUpload(context, recorded);
   }
+  return finishUpload(context, upload);
+}
 
-  await queueValidateRemoteSavedGroupUpload(context.org.id, upload.id);
-
-  // After the upload is recorded, so a failure here can't delete its file.
-  await context
-    .auditLog({
-      event: "savedGroup.uploaded",
-      entity: { object: "savedGroup", id: group.id },
-      details: auditDetailsCreate({
-        version: upload.version,
-        size: upload.size,
-      }),
-    })
-    .catch((err) =>
-      logger.error({ err }, "Could not audit a remote Saved Group upload"),
+/**
+ * Audits a recorded upload, then queues its check while it's pending.
+ * Submitting the file again runs this again: that recovers a failed queue or
+ * audit, and jobs and audit events are unique per upload, so nothing repeats.
+ */
+async function finishUpload(
+  context: Context,
+  upload: SavedGroupUploadInterface,
+): Promise<ApiSavedGroupUpload> {
+  // A fixed id per upload: a retry after a lost acknowledgment, or a second
+  // submission, fails as a duplicate instead of writing the event twice.
+  try {
+    await context.auditLog(
+      {
+        event: "savedGroup.uploaded",
+        entity: { object: "savedGroup", id: upload.savedGroupId },
+        details: auditDetailsCreate({
+          version: upload.version,
+          size: upload.size,
+        }),
+      },
+      `aud_${upload.id}`,
     );
+  } catch (err) {
+    if (!isDuplicateKeyError(err)) {
+      // Submitting the file again retries it.
+      logger.error({ err }, "Could not audit a remote Saved Group upload");
+    }
+  }
+  if (upload.status.type === "pending") {
+    await queueValidateRemoteSavedGroupUpload(context.org.id, upload.id);
+  }
   return toApiSavedGroupUpload(upload);
 }
 
-/** Checks an uploaded file and records it as the group's next version. */
+/**
+ * Records an upload as the group's next version. Concurrent uploads can race
+ * for a version number; the unique index rejects the loser, which takes the
+ * next one. A duplicate `sourceKey` is rethrown for the caller.
+ */
 async function recordUpload(
   context: Context,
   group: SavedGroupInterface,
-  fileKey: string,
+  {
+    sourceKey,
+    fileKey,
+    size,
+  }: { sourceKey: string; fileKey: string; size: number },
 ): Promise<SavedGroupUploadInterface> {
-  const size = await checkUploadedCsv(context, group, fileKey);
-  // Concurrent uploads can race for a version number; the unique index
-  // rejects the loser, which takes the next one.
   for (let attempt = 0; ; attempt++) {
     const latest = await context.models.savedGroupUploads.getLatest(group.id);
     try {
       return await context.models.savedGroupUploads.create({
         savedGroupId: group.id,
         version: (latest?.version ?? 0) + 1,
+        sourceKey,
         fileKey,
         size,
         createdBy: context.userId || "",
         status: { type: "pending" },
       });
     } catch (e) {
-      if (attempt >= 2 || !isDuplicateKeyError(e)) throw e;
+      const versionTaken =
+        isDuplicateKeyError(e) &&
+        !(await context.models.savedGroupUploads.getBySourceKey(sourceKey));
+      if (attempt >= 2 || !versionTaken) throw e;
     }
   }
 }
@@ -281,6 +378,18 @@ export async function validateRemoteSavedGroupUpload(
   const group = await context.models.savedGroups.getById(upload.savedGroupId);
   if (!group) return;
 
+  // Checked again here, since the attribute can change while this is queued.
+  try {
+    assertRemoteSavedGroupAttribute(context.org, group.attributeKey);
+  } catch (e) {
+    await context.models.savedGroupUploads.setStatus(upload, {
+      type: "invalid",
+      invalidLineCount: 0,
+      errors: [(e as Error).message],
+    });
+    return;
+  }
+
   const result = await parseRemoteGroupCsv(
     readFileStream(upload.fileKey),
     getCsvOptions(context, group),
@@ -296,12 +405,12 @@ export async function validateRemoteSavedGroupUpload(
 export async function listRemoteSavedGroupUploads(
   context: Context,
   id: string,
-): Promise<ApiSavedGroupUpload[]> {
+  page: { limit: number; offset: number },
+): Promise<{ uploads: ApiSavedGroupUpload[]; total: number }> {
   const group = await getRemoteSavedGroup(context, id);
-  const uploads = await context.models.savedGroupUploads.getBySavedGroup(
-    group.id,
-  );
-  return uploads.map(toApiSavedGroupUpload);
+  const { uploads, total } =
+    await context.models.savedGroupUploads.getPageBySavedGroup(group.id, page);
+  return { uploads: uploads.map(toApiSavedGroupUpload), total };
 }
 
 /**
@@ -335,7 +444,7 @@ export async function addLatestUploads(
   });
 }
 
-/** One upload, for the loader to download its file. */
+/** Only valid uploads: pending and invalid ones never reach loaders. */
 export async function getRemoteSavedGroupUpload(
   context: Context,
   id: string,
@@ -346,7 +455,6 @@ export async function getRemoteSavedGroupUpload(
     group.id,
     version,
   );
-  // Loaders only ever see valid uploads.
   if (!upload || upload.status.type !== "valid") {
     throw new NotFoundError("Could not find that upload");
   }
@@ -378,17 +486,26 @@ export async function reportRemoteSavedGroupUploadLoad(
   return toApiSavedGroupUpload(updated);
 }
 
-/** Removes a deleted group's uploads and their files. */
+/** Removes a deleted group's uploads and their files, in batches. */
 export async function deleteRemoteSavedGroupUploads(
   context: Context,
   savedGroupId: string,
 ): Promise<void> {
-  const uploads =
-    await context.models.savedGroupUploads.getBySavedGroup(savedGroupId);
-  for (const upload of uploads) {
-    await deleteFile(upload.fileKey).catch((e) =>
-      logger.warn({ err: e }, "Could not delete a remote Saved Group version"),
-    );
-    await context.models.savedGroupUploads.delete(upload);
+  for (;;) {
+    // Always the first page, since each batch is deleted before the next.
+    const { uploads } =
+      await context.models.savedGroupUploads.getPageBySavedGroup(savedGroupId, {
+        limit: 100,
+        offset: 0,
+      });
+    if (!uploads.length) return;
+    for (const upload of uploads) {
+      for (const key of [upload.fileKey, upload.sourceKey]) {
+        await deleteFile(key).catch((e) =>
+          logger.warn({ err: e }, "Could not delete a remote Saved Group file"),
+        );
+      }
+      await context.models.savedGroupUploads.delete(upload);
+    }
   }
 }

@@ -63,6 +63,8 @@ export interface FileStorage {
     request: SignedUploadRequest,
     cfg: DestinationConfig,
   ): Promise<SignedUploadUrl>;
+  /** Copies a file within a destination, keeping its content type. */
+  copy(srcKey: string, destKey: string, cfg: DestinationConfig): Promise<void>;
   /** Moves a file within a destination and returns its new URL. */
   promote(
     srcKey: string,

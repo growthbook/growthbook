@@ -1,10 +1,10 @@
+import { evalCondition } from "@growthbook/growthbook";
 import { OrganizationInterface } from "shared/types/organization";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import {
   addRemoteGroupIdsGuard,
   createAttributeConditionFromGroupIds,
   getSavedGroupPayloadStrategy,
-  SAVED_GROUP_ERROR_INVALID,
   SDKCapability,
 } from "../src/sdk-versioning";
 import { recursiveWalk } from "../util";
@@ -138,7 +138,7 @@ describe.each([
   it("fails closed on another attribute", () => {
     const condition = { parent_id: { $inGroup: "vip" } };
     strategy.finalizeCondition(condition);
-    expect(condition).toEqual({ [SAVED_GROUP_ERROR_INVALID]: "vip" });
+    expect(condition).toEqual({ __sgRemoteOverride__: "vip" });
   });
 
   it("rewrites nested $savedGroups and guards negations", () => {
@@ -214,5 +214,126 @@ describe("remote entries in referencesV2 without the capability", () => {
   it("emits no remote entries for referencesV1", () => {
     const strategy = strategyFor(V1, "referencesV1");
     expect(strategy.buildSavedGroupsPayload(groups)).toEqual({ list: ["1"] });
+  });
+});
+
+describe("remote groups evaluate correctly", () => {
+  const evalGroups: SavedGroupInterface[] = [
+    ...groups,
+    savedGroup({
+      id: "cond_override",
+      type: "condition",
+      condition: JSON.stringify({ parent_id: { $inGroup: "vip" } }),
+    }),
+  ];
+  const evalMap: GroupMap = new Map(evalGroups.map((g) => [g.id, g]));
+  const formats = [
+    ["inline", V1, "inline"],
+    ["referencesV1", V1, "referencesV1"],
+    ["referencesV2 without the capability", V2, "referencesV2"],
+  ] as const;
+
+  // Builds a rule condition the way a payload build does, then evaluates it.
+  const evaluate = (
+    capabilities: readonly SDKCapability[],
+    savedGroupFormat: "inline" | "referencesV1" | "referencesV2",
+    stored: object,
+    attributes: Record<string, unknown>,
+  ) => {
+    const strategy = getSavedGroupPayloadStrategy({
+      capabilities: [...capabilities],
+      savedGroupFormat,
+      groupMap: evalMap,
+      organization: org,
+    });
+    const condition = JSON.parse(JSON.stringify(stored));
+    recursiveWalk(condition, strategy.createSavedGroupsOperatorHandler());
+    strategy.finalizeCondition(condition);
+    const payloadGroups = strategy.buildSavedGroupsPayload(evalGroups);
+    return evalCondition(
+      attributes,
+      condition,
+      payloadGroups as Parameters<typeof evalCondition>[2],
+    );
+  };
+  const member = {
+    account_id: "a1",
+    parent_id: "p1",
+    __remoteGroupIds: ["vip"],
+  };
+  const nonMember = { account_id: "a2", parent_id: "p2", __remoteGroupIds: [] };
+  const unresolved = { account_id: "a3", parent_id: "p3" };
+
+  describe.each(formats)("in %s", (_, capabilities, format) => {
+    const check = (stored: object, expected: [boolean, boolean, boolean]) =>
+      expect(
+        [member, nonMember, unresolved].map((a) =>
+          evaluate(capabilities, format, stored, a),
+        ),
+      ).toEqual(expected);
+
+    it("in group", () => {
+      check({ account_id: { $inGroup: "vip" } }, [true, false, false]);
+    });
+
+    it("not in group", () => {
+      check({ account_id: { $notInGroup: "vip" } }, [false, true, false]);
+    });
+
+    it("attribute-level $not around $inGroup", () => {
+      check({ account_id: { $not: { $inGroup: "vip" } } }, [
+        false,
+        true,
+        false,
+      ]);
+    });
+
+    it("another attribute fails closed, even negated", () => {
+      check({ parent_id: { $inGroup: "vip" } }, [false, false, false]);
+      check({ $not: { parent_id: { $inGroup: "vip" } } }, [
+        false,
+        false,
+        false,
+      ]);
+    });
+
+    it("a condition group with an override fails closed, even negated", () => {
+      check({ $not: { $savedGroups: ["cond_override"] } }, [
+        false,
+        false,
+        false,
+      ]);
+    });
+
+    it("$savedGroups through a condition group", () => {
+      check({ $savedGroups: ["cond_vip"] }, [true, false, false]);
+      check({ $not: { $savedGroups: ["cond_vip"] } }, [false, true, false]);
+    });
+
+    it("keeps unrelated empty-object conditions", () => {
+      const stored = { profile: {}, account_id: { $inGroup: "vip" } };
+      expect(
+        evaluate(capabilities, format, stored, {
+          ...member,
+          profile: { role: "admin" },
+        }),
+      ).toBe(false);
+      expect(
+        evaluate(capabilities, format, stored, { ...member, profile: {} }),
+      ).toBe(true);
+    });
+  });
+
+  it("referencesV2 with the capability keeps references and fails closed on overrides", () => {
+    const strategy = strategyFor(V2_REMOTE, "referencesV2");
+    const negated = { account_id: { $not: { $inGroup: "vip" } } };
+    strategy.finalizeCondition(negated);
+    expect(negated).toEqual({
+      $not: { $savedGroup: { id: "vip" } },
+      __remoteGroupIds: { $exists: true },
+    });
+    const override = { $not: { parent_id: { $inGroup: "vip" } } };
+    strategy.finalizeCondition(override);
+    expect(override).toEqual({ __sgRemoteOverride__: "vip" });
   });
 });

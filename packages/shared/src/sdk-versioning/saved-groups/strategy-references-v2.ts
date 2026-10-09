@@ -172,6 +172,7 @@ export function rewriteLegacySavedGroupOperators(
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
 
     const operators = value as Record<string, unknown>;
+    let removed = false;
 
     for (const [operator, include] of Object.entries(
       LEGACY_OPERATOR_INCLUDES,
@@ -180,6 +181,7 @@ export function rewriteLegacySavedGroupOperators(
       if (typeof groupId !== "string") continue;
 
       delete operators[operator];
+      removed = true;
 
       const group = groupMap.get(groupId);
       // Only an ID List has values for these operators to compare against, and
@@ -199,7 +201,8 @@ export function rewriteLegacySavedGroupOperators(
       }
     }
 
-    if (!Object.keys(operators).length) delete object[field];
+    // Only an object emptied here; an unrelated {} is a real condition.
+    if (removed && !Object.keys(operators).length) delete object[field];
   }
 
   if (references.length) andConditionsInto(object, references);

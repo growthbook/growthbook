@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
+import { attributePropertyValidator } from "shared/validators";
 import { extractConditionAttributeKeys } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -120,13 +121,20 @@ export const putAttribute = async (
     context.permissions.throwPermissionError();
   }
 
+  const renaming = !!previousName && attributeFields.property !== previousName;
   if (
-    previousName &&
-    attributeFields.property !== previousName &&
+    renaming &&
     attributeSchema.some((a) => a.property === attributeFields.property)
   ) {
     // If the name is being changed, check if the new name already exists
     context.throwBadRequestError("An attribute with that name already exists");
+  }
+  // A reserved name can't be chosen, but an attribute that already has it can
+  // still be edited.
+  if (renaming) {
+    const name = attributePropertyValidator.safeParse(attributeFields.property);
+    if (!name.success)
+      context.throwBadRequestError(name.error.issues[0].message);
   }
 
   if (
