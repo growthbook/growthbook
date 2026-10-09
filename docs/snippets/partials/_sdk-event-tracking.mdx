@@ -9,11 +9,10 @@ Add `data-tracking="growthbook"` to the script tag. It reports events that alrea
 <script async
   data-client-key="YOUR_CLIENT_KEY"
   data-tracking="growthbook"
+  data-event-ingestor-host="https://us-east-1.gb-ingest.com"
   src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
 ></script>
 ```
-
-This replaces the default Google Analytics, Google Tag Manager, and Segment tracking. To keep them, list them too: `data-tracking="growthbook,gtag,gtm,segment"`.
 
 Push custom events to the `window.gbEvents` array:
 
@@ -54,7 +53,7 @@ const gb = new GrowthBook({
   plugins: [
     autoAttributesPlugin(),
     growthbookTrackingPlugin({
-      // ingestorHost: "https://eu-west-1.gb-ingest.com",
+      ingestorHost: "https://us-east-1.gb-ingest.com",
     }),
   ],
 });
@@ -91,7 +90,7 @@ const gb = new GrowthBookClient({
   clientKey: "YOUR_CLIENT_KEY",
   plugins: [
     growthbookTrackingPlugin({
-      // ingestorHost: "https://eu-west-1.gb-ingest.com",
+      ingestorHost: "https://us-east-1.gb-ingest.com",
     }),
   ],
 });
@@ -128,7 +127,7 @@ gb = GrowthBook(
     attributes={"id": "user_123"},
     plugins=[
         GrowthBookTrackingPlugin(
-            # ingestor_host="https://eu-west-1.gb-ingest.com",
+            ingestor_host="https://us-east-1.gb-ingest.com",
         )
     ],
 )
@@ -168,7 +167,7 @@ $growthbook = Growthbook::create()
   ->withAttributes(['id' => $userId])
   ->addPlugin(new GrowthBookTrackingPlugin(
     new GrowthBookTrackingPluginConfig(
-      // ingestorHost: "https://eu-west-1.gb-ingest.com",
+      ingestorHost: "https://us-east-1.gb-ingest.com",
     )
   ));
 
@@ -201,7 +200,7 @@ client, err := gb.NewClient(
     gb.WithClientKey("YOUR_CLIENT_KEY"),
     gb.WithSseDataSource(),
     gb.WithGrowthBookTracking(gb.TrackingPluginConfig{
-        // IngestorHost: "https://eu-west-1.gb-ingest.com",
+        IngestorHost: "https://us-east-1.gb-ingest.com",
     }),
 )
 if err != nil {
@@ -248,7 +247,7 @@ val growthBook = GBSDKBuilder(
                 TrackingPluginConfig(
                     clientKey = "YOUR_CLIENT_KEY",
                     networkDispatcher = networkDispatcher,
-                    // ingestorHost = "https://eu-west-1.gb-ingest.com",
+                    ingestorHost = "https://us-east-1.gb-ingest.com",
                 )
             )
         )
@@ -278,10 +277,10 @@ let gb: GrowthBookSDK = GrowthBookBuilder(
     apiHost: "https://cdn.growthbook.io",
     clientKey: "YOUR_CLIENT_KEY",
     attributes: [:],
-    trackingCallback: { experiment, result in }
+    trackingCallback: { _, _ in }
 )
 .addPlugin(GrowthBookTrackingPlugin(
-    // config: .init(ingestorHost: "https://eu-west-1.gb-ingest.com")
+    config: .init(ingestorHost: "https://us-east-1.gb-ingest.com")
 ))
 .initializer()
 ```
@@ -293,41 +292,6 @@ Custom events aren't supported yet. Send them with the Ingestion API.
 | `ingestorHost` | Ingestor for your Data Region.                                |
 | `batchSize`    | Events to queue before sending. Default `100`.                |
 | `batchTimeout` | Seconds to wait before sending a partial batch. Default `10`. |
-
-  </Tab>
-  <Tab title="Flutter">
-
-Requires `growthbook_sdk_flutter` v4.4.0 or later.
-
-```dart
-import 'package:growthbook_sdk_flutter/growthbook_sdk_flutter.dart';
-
-final sdk = await GBSDKBuilderApp(
-  apiKey: 'YOUR_CLIENT_KEY',
-  hostURL: 'https://cdn.growthbook.io',
-  growthBookTrackingCallBack: (trackData) {},
-)
-    .addPlugin(GrowthBookTrackingPlugin(
-      // config: const GrowthBookTrackingPluginConfig(
-      //   ingestorHost: 'https://eu-west-1.gb-ingest.com',
-      // ),
-    ))
-    .initialize();
-```
-
-Call `await sdk.dispose()` when you're done with the SDK to send pending events.
-
-<Warning>
-Experiment view events are only sent for inline experiments run with `sdk.run()`. Experiments in feature flag rules aren't reported yet.
-</Warning>
-
-Custom events aren't supported yet. Send them with the Ingestion API.
-
-| Option         | Description                                                                       |
-| -------------- | --------------------------------------------------------------------------------- |
-| `ingestorHost` | Ingestor for your Data Region.                                                    |
-| `batchSize`    | Events to queue before sending. Default `100`.                                    |
-| `batchTimeout` | How long to wait before sending a partial batch. Default `Duration(seconds: 10)`. |
 
   </Tab>
 </Tabs>

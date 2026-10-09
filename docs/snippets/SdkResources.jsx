@@ -1533,7 +1533,7 @@ export const SdkResources = ({ sdk }) => {
           caseInsensitiveRegex: "≥ v1.6.3",
         },
         {
-          trackingPlugin: "≥ v1.4.0",
+          trackingPlugin: "≥ v1.7.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -2458,9 +2458,6 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
-        },
-        {
-          trackingPlugin: "≥ v4.4.0",
         },
         {
           caseInsensitiveRegex: "≥ v4.3.0",
